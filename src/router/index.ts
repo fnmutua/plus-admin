@@ -129,7 +129,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     children: [
       {
         path: 'sett',
-        component: () => import('@/views/settlement/Sett.vue'),
+        component: () => import('@/views/Settlement/Sett.vue'),
         name: 'Sett',
         meta: {
           title: t('Settlement'),
