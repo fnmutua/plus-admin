@@ -128,9 +128,9 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     meta: {},
     children: [
       {
-        path: 'index',
-        component: () => import('@/views/settlement/index.vue'),
-        name: 'Sett2',
+        path: 'sett',
+        component: () => import('@/views/settlement/Sett.vue'),
+        name: 'Sett',
         meta: {
           title: t('Settlement'),
           icon: 'maki:town'
