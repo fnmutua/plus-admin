@@ -122,6 +122,24 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/settlement',
+    component: Layout,
+    name: 'Settlement',
+    meta: {},
+    children: [
+      {
+        path: 'index',
+        component: () => import('@/views/settlement/index.vue'),
+        name: 'Sett2',
+        meta: {
+          title: t('Settlement'),
+          icon: 'maki:town'
+        }
+      }
+    ]
+  },
+
+  {
     path: '/components',
     component: Layout,
     name: 'ComponentsDemo',
@@ -191,6 +209,15 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
             name: 'UseTable',
             meta: {
               title: 'UseTable'
+            }
+          },
+
+          {
+            path: 'user-table',
+            component: () => import('@/views/Components/Table/UsersPaginate.vue'),
+            name: 'UserTable',
+            meta: {
+              title: 'Users'
             }
           },
           {
@@ -513,36 +540,36 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         }
       }
     ]
+  },
+  {
+    path: '/authorization',
+    component: Layout,
+    redirect: '/authorization/user',
+    name: 'Authorization',
+    meta: {
+      title: t('router.authorization'),
+      icon: 'eos-icons:role-binding',
+      alwaysShow: true
+    },
+    children: [
+      {
+        path: 'user',
+        component: () => import('@/views/Authorization/User.vue'),
+        name: 'User',
+        meta: {
+          title: t('router.user')
+        }
+      },
+      {
+        path: 'role',
+        component: () => import('@/views/Authorization/Role.vue'),
+        name: 'Role',
+        meta: {
+          title: t('router.role')
+        }
+      }
+    ]
   }
-  // {
-  //   path: '/authorization',
-  //   component: Layout,
-  //   redirect: '/authorization/user',
-  //   name: 'Authorization',
-  //   meta: {
-  //     title: t('router.authorization'),
-  //     icon: 'eos-icons:role-binding',
-  //     alwaysShow: true
-  //   },
-  //   children: [
-  //     {
-  //       path: 'user',
-  //       component: () => import('@/views/Authorization/User.vue'),
-  //       name: 'User',
-  //       meta: {
-  //         title: t('router.user')
-  //       }
-  //     },
-  //     {
-  //       path: 'role',
-  //       component: () => import('@/views/Authorization/Role.vue'),
-  //       name: 'Role',
-  //       meta: {
-  //         title: t('router.role')
-  //       }
-  //     }
-  //   ]
-  // }
 ]
 
 const router = createRouter({

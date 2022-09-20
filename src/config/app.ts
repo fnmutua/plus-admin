@@ -70,12 +70,12 @@ export const appModules: AppState = {
   greyMode: false, // 是否开始灰色模式，用于特殊悼念日
   dynamicRouter: wsCache.get('dynamicRouter') || false, // 是否动态路由
 
-  layout: wsCache.get('layout') || 'classic', // layout布局
+  layout: wsCache.get('layout') || 'cutMenu', // layout布局
   isDark: wsCache.get('isDark') || false, // 是否是暗黑模式
   currentSize: wsCache.get('default') || 'default', // 组件尺寸
   theme: wsCache.get('theme') || {
     // 主题色
-    elColorPrimary: '#409eff',
+    elColorPrimary: '#409eff', // Felix-blue
     // 左侧菜单边框颜色
     leftMenuBorderColor: 'inherit',
     // 左侧菜单背景颜色
@@ -87,7 +87,7 @@ export const appModules: AppState = {
     // 左侧菜单收起选中背景颜色
     leftMenuCollapseBgActiveColor: 'var(--el-color-primary)',
     // 左侧菜单字体颜色
-    leftMenuTextColor: '#bfcbd9',
+    leftMenuTextColor: '#bfcbd9', //
     // 左侧菜单选中字体颜色
     leftMenuTextActiveColor: '#fff',
     // logo字体颜色
@@ -95,9 +95,9 @@ export const appModules: AppState = {
     // logo边框颜色
     logoBorderColor: 'inherit',
     // 头部背景颜色
-    topHeaderBgColor: '#fff',
+    topHeaderBgColor: '#009688',
     // 头部字体颜色
-    topHeaderTextColor: 'inherit',
+    topHeaderTextColor: 'white', // Felix-White
     // 头部悬停颜色
     topHeaderHoverColor: '#f6f6f6',
     // 头部边框颜色

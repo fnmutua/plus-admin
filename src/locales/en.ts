@@ -113,6 +113,7 @@ export default {
     analysis: 'Analysis',
     workplace: 'Workplace',
     guide: 'Guide',
+    sett: 'Sett',
     component: 'Component',
     icon: 'Icon',
     echart: 'Echart',

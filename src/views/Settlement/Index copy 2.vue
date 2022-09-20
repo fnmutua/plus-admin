@@ -2,55 +2,10 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getUserListApi, activateUserApi } from '@/api/users'
+import { getUserListApi } from '@/api/users'
 import { UserType } from '@/api/users/types'
 import { ref, h } from 'vue'
-import { ElButton } from 'element-plus'
 import { ElSwitch, ElPagination } from 'element-plus'
-import { integer } from 'vue-types'
-
-const tableData = [
-  {
-    date: '2016-05-03',
-    name: 'Tom',
-    state: 'California',
-    city: 'Los Angeles',
-    address: 'No. 189, Grove St, Los Angeles',
-    zip: 'CA 90036',
-    tag: 'Home'
-  },
-  {
-    date: '2016-05-02',
-    name: 'Tom',
-    state: 'California',
-    city: 'Los Angeles',
-    address: 'No. 189, Grove St, Los Angeles',
-    zip: 'CA 90036',
-    tag: 'Office'
-  },
-  {
-    date: '2016-05-04',
-    name: 'Tom',
-    state: 'California',
-    city: 'Los Angeles',
-    address: 'No. 189, Grove St, Los Angeles',
-    zip: 'CA 90036',
-    tag: 'Home'
-  },
-  {
-    date: '2016-05-01',
-    name: 'Tom',
-    state: 'California',
-    city: 'Los Angeles',
-    address: 'No. 189, Grove St, Los Angeles',
-    zip: 'CA 90036',
-    tag: 'Office'
-  }
-]
-
-const indexMethod = (index: number) => {
-  return index * 2
-}
 
 interface Params {
   pageIndex?: number
@@ -65,10 +20,7 @@ const columns: TableColumn[] = [
     label: t('userDemo.index'),
     type: 'index'
   },
-  {
-    field: 'username',
-    label: t('userDemo.username')
-  },
+
   {
     field: 'name',
     label: t('Name')
@@ -107,7 +59,7 @@ const getTableList = async (params?: Params) => {
       limit: 5,
       page: 1,
       curUser: 1, // Id for logged in user
-      model: 'users',
+      model: 'settlement',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
@@ -131,8 +83,6 @@ console.log('pagination', paginationObj)
 const acitonFn = (data: TableSlotDefault) => {
   console.log('Activating user.....', data.row)
   // data.mode = 'users'
-
-  activateUserApi(data.row, { model: 'users' }).then(() => {})
 }
 
 const handleCurrentChange = (val: number) => {
@@ -143,7 +93,7 @@ const handleCurrentChange = (val: number) => {
       limit: 5,
       page: val, // her we pass the page ID
       curUser: 1, // Id for logged in user
-      model: 'users',
+      model: 'settlement',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
@@ -169,7 +119,7 @@ const handleSizeChange = (val: number) => {
       limit: val,
       page: 1, // her we pass the page ID
       curUser: 1, // Id for logged in user
-      model: 'users',
+      model: 'settlement',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'

@@ -15,8 +15,8 @@ export interface LocaleState {
 
 export const localeModules: LocaleState = {
   currentLocale: {
-    lang: wsCache.get('lang') || 'zh-CN',
-    elLocale: elLocaleMap[wsCache.get('lang') || 'zh-CN']
+    lang: wsCache.get('lang') || 'en',
+    elLocale: elLocaleMap[wsCache.get('lang') || 'en']
   },
   // 多语言
   localeMap: [

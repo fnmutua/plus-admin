@@ -115,19 +115,20 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       }
     },
     server: {
-      port: 4000,
+      host: true,
+      port : 4000,
       proxy: {
-        // 选项写法
-        '/api': {
-          target: 'http://127.0.0.1:8000',
+        "/api": {
+          target: "http://127.0.0.1:8084",
           changeOrigin: true,
-          rewrite: path => path.replace(/^\/api/, '')
-        }
+          secure: false,
+          ws: true,
+        },
       },
       hmr: {
         overlay: false
       },
-      host: '0.0.0.0'
+ 
     },
     optimizeDeps: {
       include: [
