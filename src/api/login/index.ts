@@ -1,12 +1,13 @@
 import request from '@/config/axios'
-import type { UserType } from './types'
+import type { UserType } from './../register/types'
 
 interface RoleParams {
   roleName: string
 }
 
 export const loginApi = (data: UserType): Promise<IResponse<UserType>> => {
-  return request.post({ url: '/user/login', data })
+  console.log('Login....', data)
+  return request.post({ url: '/api/auth/signin', data })
 }
 
 export const loginOutApi = (): Promise<IResponse> => {

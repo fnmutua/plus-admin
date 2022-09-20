@@ -5,10 +5,12 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { useForm } from '@/hooks/web/useForm'
 import { ElButton, ElInput, FormRules } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
+import { UserType } from '@/api/register/types'
+import { registerApi } from '@/api/register'
 
 const emit = defineEmits(['to-login'])
 
-const { register, elFormRef } = useForm()
+const { register, elFormRef, methods } = useForm()
 
 const { t } = useI18n()
 
@@ -19,6 +21,18 @@ const schema = reactive<FormSchema[]>([
     field: 'title',
     colProps: {
       span: 24
+    }
+  },
+  {
+    field: 'name',
+    label: t('Name'),
+    value: '',
+    component: 'Input',
+    colProps: {
+      span: 24
+    },
+    componentProps: {
+      placeholder: t('Name')
     }
   },
   {
@@ -33,6 +47,7 @@ const schema = reactive<FormSchema[]>([
       placeholder: t('login.usernamePlaceholder')
     }
   },
+
   {
     field: 'password',
     label: t('login.password'),
@@ -66,8 +81,8 @@ const schema = reactive<FormSchema[]>([
     }
   },
   {
-    field: 'code',
-    label: t('login.code'),
+    field: 'county_id',
+    label: t('County ID'),
     colProps: {
       span: 24
     }
@@ -84,7 +99,7 @@ const rules: FormRules = {
   username: [required()],
   password: [required()],
   check_password: [required()],
-  code: [required()]
+  count_id: [required()]
 }
 
 const toLogin = () => {
@@ -99,7 +114,14 @@ const loginRegister = async () => {
     if (valid) {
       try {
         loading.value = true
-        toLogin()
+        //  toLogin()
+        const { getFormData } = methods
+        const formData = await getFormData<UserType>()
+        console.log('ValidForm', formData)
+        formData.email = formData.username
+
+        const res = await registerApi(formData)
+        console.log('After Registre', res)
       } finally {
         loading.value = false
       }
@@ -122,9 +144,9 @@ const loginRegister = async () => {
       <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.register') }}</h2>
     </template>
 
-    <template #code="form">
+    <template #county_id="form">
       <div class="w-[100%] flex">
-        <ElInput v-model="form['code']" :placeholder="t('login.codePlaceholder')" />
+        <ElInput v-model="form['county_id']" :placeholder="t('login.codePlaceholder')" />
       </div>
     </template>
 
