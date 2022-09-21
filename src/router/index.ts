@@ -124,16 +124,28 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
   {
     path: '/settlement',
     component: Layout,
-    name: 'Settlement',
-    meta: {},
+    redirect: '/settlement/list',
+    name: 'Settlements',
+    meta: {
+      title: t('Settlements'),
+      icon: 'eos-icons:role-binding',
+      alwaysShow: false
+    },
     children: [
       {
-        path: 'sett',
+        path: 'list',
         component: () => import('@/views/Settlement/Sett.vue'),
-        name: 'Sett',
+        name: 'List',
         meta: {
-          title: t('Settlement'),
-          icon: 'maki:town'
+          title: t('List')
+        }
+      },
+      {
+        path: 'parcel',
+        component: () => import('@/views/Settlement/Sett.vue'),
+        name: 'Parcel',
+        meta: {
+          title: t('Parcel')
         }
       }
     ]
