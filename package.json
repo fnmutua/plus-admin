@@ -17,6 +17,7 @@
     "serve:test": "vite preview --mode test",
     "npm:check": "npx npm-check-updates",
     "clean": "npx rimraf node_modules",
+    "heroku-postbuild": " npm install   && vite   build",
     "clean:cache": "npx rimraf node_modules/.cache",
     "lint:eslint": "eslint --fix --ext .js,.ts,.vue ./src",
     "lint:format": "prettier --write --loglevel warn \"src/**/*.{js,ts,json,tsx,css,less,vue,html,md}\"",
