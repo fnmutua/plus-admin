@@ -17,14 +17,12 @@
     "serve:test": "vite preview --mode test",
     "npm:check": "npx npm-check-updates",
     "clean": "npx rimraf node_modules",
-    "prepare": "husky install",
-    "heroku-postbuild": " npm install husky@7 --save-dev && npm install   &&vue-cli-service build ",
     "clean:cache": "npx rimraf node_modules/.cache",
     "lint:eslint": "eslint --fix --ext .js,.ts,.vue ./src",
     "lint:format": "prettier --write --loglevel warn \"src/**/*.{js,ts,json,tsx,css,less,vue,html,md}\"",
     "lint:style": "stylelint --fix \"**/*.{vue,less,postcss,css,scss}\" --cache --cache-location node_modules/.cache/stylelint/",
     "lint:lint-staged": "lint-staged -c ./.husky/lintstagedrc.js",
-
+    "prepare": "husky install",
     "p": "plop"
   },
   "dependencies": {
@@ -52,7 +50,6 @@
     "qs": "^6.11.0",
     "url": "^0.11.0",
     "vue": "3.2.37",
-    "husky": "^8.0.1",
     "vue-i18n": "9.2.2",
     "vue-router": "^4.1.5",
     "vue-types": "^4.2.1",
