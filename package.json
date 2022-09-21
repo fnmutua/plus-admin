@@ -33,6 +33,7 @@
     "@zxcvbn-ts/core": "^2.0.4",
     "animate.css": "^4.1.1",
     "axios": "^0.27.2",
+    "cors": "^2.8.5",
     "echarts": "^5.3.3",
     "echarts-wordcloud": "^2.0.0",
     "element-plus": "2.2.15",
