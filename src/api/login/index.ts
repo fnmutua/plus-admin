@@ -1,13 +1,17 @@
 import request from '@/config/axios'
 import type { UserType } from './../register/types'
-
 interface RoleParams {
   roleName: string
 }
 
 export const loginApi = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('Login....', data)
-  return request.post({ url: '/api/auth/signin', data })
+
+  console.log('Port-Host.:', import.meta.env.VITE_APP_HOST) // 123
+  const dev = import.meta.env.VITE_APP_HOST + ':4000'
+  const prod = import.meta.env.VITE_APP_HOST
+
+  return request.post({ url: prod + '/api/auth/signin', data })
 }
 
 export const loginOutApi = (): Promise<IResponse> => {
