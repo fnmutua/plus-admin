@@ -7,10 +7,10 @@ interface RoleParams {
 export const loginApi = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('Login....', data)
 
-  console.log('Port-Host.:', import.meta.env.VITE_APP_HOST) // 123
-  const dev = import.meta.env.VITE_APP_HOST + ':4000'
-  const prod = import.meta.env.VITE_APP_HOST
+  const dev = import.meta.env.VITE_APP_HOST + ':4000' // Add the port for local Dev
+  const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
+  console.log('Port-Host.:', prod) // 123
   return request.post({ url: prod + '/api/auth/signin', data })
 }
 
