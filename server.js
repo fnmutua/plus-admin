@@ -29,7 +29,7 @@ app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }))
 //   res.json({ message: "Welcome to bezkoder application." });
 // });
 
-app.use(express.static(path.join(__dirname, '/dist')))
+app.use(express.static(path.join(__dirname, '/dist-pro')))
 // app.use(express.static('files'))
 
 //app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')) })
@@ -37,7 +37,7 @@ app.use(express.static(path.join(__dirname, '/dist')))
 // Handles any requests that don't match the ones above
 app.get('/', (req, res) => {
   // eslint-disable-next-line no-path-concat
-  res.sendFile(path.join(__dirname + '/dist/index.html'))
+  res.sendFile(path.join(__dirname + '/dist-pro/index.html'))
 })
 
 // For the puposes of uolaoding documents to the platform
