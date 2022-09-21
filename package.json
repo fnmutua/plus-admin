@@ -18,7 +18,7 @@
     "npm:check": "npx npm-check-updates",
     "clean": "npx rimraf node_modules",
     "prepare": "husky install",
-    "heroku-postbuild": " run prepare && npm install   && vite   build",
+    "heroku-postbuild": " npm run prepare && npm install   && vite   build --mode pro",
     "clean:cache": "npx rimraf node_modules/.cache",
     "lint:eslint": "eslint --fix --ext .js,.ts,.vue ./src",
     "lint:format": "prettier --write --loglevel warn \"src/**/*.{js,ts,json,tsx,css,less,vue,html,md}\"",
