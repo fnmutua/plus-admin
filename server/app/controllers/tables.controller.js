@@ -250,8 +250,12 @@ exports.modelOneGeo = async (req, res) => {
 exports.modelSelectGeo = async (req, res) => {
   var reg_model = req.body.model
   var columnFilterField = req.body.columnFilterField
-  var arr = [1] //req.body // [80,64]
-  console.log('QRY', req.body)
+
+  if (req.body.selectedParents.length > 0) {
+    var arr = req.body.selectedParents //req.body // [80,64] }
+  } else {
+    var arr = [1] //req.body // [80,64] }
+  }
   var qry2 =
     " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +
     reg_model +
@@ -260,6 +264,8 @@ exports.modelSelectGeo = async (req, res) => {
     ' IN (' +
     arr +
     ')'
+  console.log('QRY', qry2)
+
   const result_geo = await sequelize.query(qry2, {
     model: db.models[reg_model],
     mapToModel: false // pass true here if you have any mapped fields

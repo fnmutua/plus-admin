@@ -59,63 +59,29 @@ const handleSelect = async (selectIDs) => {
     selectedParents.push(...selectIDs)
     console.log(selectedParents)
     const formData = {}
-    formData.limit = 5
-    formData.page = 1
-    formData.curUser = 1 // Id for logged in user
     formData.model = model
-    formData.searchField = searchField
-    formData.searchKeyword = ''
-    formData.columnFilterValue = selectIDs
     formData.columnFilterField = filterCol
-    formData.assocModel = assoc_model
+    formData.selectedParents = selectedParents
     console.log(formData)
-    const res = await getSettlementListByCounty(formData)
+    const res = await getfilteredGeo(formData)
+    filtergeo.value = res.data[0].json_build_object
 
-    console.log('After Querry', res)
-    tableDataList.value = res.data
-    total.value = res.total
+    setTimeout(() => {
+      nextTick().then(() => {
+        var group = new featureGroup()
+
+        map.value.leafletObject.eachLayer(function (layer) {
+          //    console.log(layer.feature)
+          if (layer.feature != undefined) {
+            group.addLayer(layer)
+          }
+        })
+
+        console.log(group.getBounds())
+        map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
+      })
+    }, 0) // 0ms seems enough to execute resize after tab opens.
   }
-}
-
-const onPageChange = async (page) => {
-  console.log('on change change: selected counties ', selectedParents)
-
-  const formData = {}
-  formData.limit = 5
-  formData.page = page
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  formData.searchField = searchField
-  formData.searchKeyword = ''
-  formData.columnFilterValue = selectedParents
-  formData.columnFilterField = filterCol
-  formData.assocModel = assoc_model
-  console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-  console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
-}
-
-const onPageSizeChange = async (size) => {
-  console.log('on change change: selected counties ', selectedParents)
-
-  const formData = {}
-  formData.limit = size
-  formData.page = 1
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  formData.searchField = searchField
-  formData.searchKeyword = ''
-  formData.columnFilterValue = selectedParents
-  formData.columnFilterField = filterCol
-  formData.assocModel = assoc_model
-  console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-  console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
 }
 
 const getAll = async () => {
@@ -125,17 +91,14 @@ const getAll = async () => {
   const formData = {}
   formData.model = model
   formData.columnFilterField = filterCol
+  formData.selectedParents = selectedParents
+
   console.log(formData)
   const res = await getfilteredGeo(formData)
 
   console.log('All settlements Querry', res)
   filtergeo.value = res.data[0].json_build_object
-
   total.value = res.total
-  console.log(filtergeo.value)
-  console.log(map.value)
-  console.log(map.value.leafletObject)
-  console.log(marker.value)
 
   setTimeout(() => {
     //   this.$refs.resizeMap();
@@ -146,7 +109,7 @@ const getAll = async () => {
       var group = new featureGroup()
 
       map.value.leafletObject.eachLayer(function (layer) {
-        console.log(layer)
+        //    console.log(layer.feature)
         if (layer.feature != undefined) {
           group.addLayer(layer)
         }
