@@ -94,7 +94,7 @@ exports.modelAllData = (req, res) => {
     res.status(200).send({
       data: list.rows,
       total: list.count,
-      code: 20000
+      code: '0000'
     })
   })
 }
@@ -248,9 +248,9 @@ exports.modelOneGeo = async (req, res) => {
 }
 
 exports.modelSelectGeo = async (req, res) => {
-  var reg_model = req.query.model
-  var columnFilterField = req.query.columnFilterField
-  var arr = req.body // [80,64]
+  var reg_model = req.body.model
+  var columnFilterField = req.body.columnFilterField
+  var arr = [1] //req.body // [80,64]
   console.log('QRY', req.body)
   var qry2 =
     " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +
@@ -267,7 +267,7 @@ exports.modelSelectGeo = async (req, res) => {
 
   res.status(200).send({
     data: result_geo,
-    code: 20000
+    code: '0000'
   })
 }
 
@@ -594,30 +594,35 @@ exports.modelPaginatedData = (req, res) => {
 exports.modelPaginatedDatafilterByColumn = (req, res) => {
   console.log('Req-body', req.body)
   var arr = [1, 13]
-  var reg_model = req.query.model
-  var field = req.query.columnFilterField
+  var reg_model = req.body.model
+  var field = req.body.columnFilterField
   var columnFilterValue = req.query.columnFilterValue
 
   //console.log("All Data----->")
-  var ass_model = db.models[req.query.assocModel]
+  var ass_model = db.models[req.body.assocModel]
 
   var qry = {}
 
   if (ass_model) {
     var qry = {
-      include: [{ model: ass_model }]
+      include: [{ model: ass_model, raw: true }]
     }
   } else {
     var qry = {}
   }
 
-  qry.limit = req.query.limit
-  qry.offset = (req.query.page - 1) * req.query.limit
+  qry.limit = req.body.limit
+  qry.offset = (req.body.page - 1) * req.body.limit
 
-  //qry.where =  {[field]: {[op.eq]: columnFilterValue}  }  // Exclude the logged in user returing in the list
-  qry.where = { [field]: { [op.in]: req.body } } // Exclude the logged in user returing in the list
+  // qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
+
+  if (req.body.columnFilterValue.length > 0) {
+    console.log('Filter by IDS', req.body.columnFilterValue.length)
+    qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
+  }
 
   console.log('Req-include-body', qry)
+  console.log('model', reg_model)
 
   db.models[reg_model].findAndCountAll(qry).then((list) => {
     console.log(list)

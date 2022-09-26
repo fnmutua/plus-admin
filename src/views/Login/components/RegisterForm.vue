@@ -7,14 +7,75 @@ import { ElButton, ElInput, FormRules } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { UserType } from '@/api/register/types'
 import { registerApi } from '@/api/register'
+import { getCountyListApi } from '@/api/counties'
+import { CountyType } from '@/api/counties/types'
 
+interface Params {
+  pageIndex?: number
+  pageSize?: number
+}
 const emit = defineEmits(['to-login'])
 
 const { register, elFormRef, methods } = useForm()
 
 const { t } = useI18n()
+const countiesOptions = []
+
+let tableDataList = ref<CountyType[]>([])
+
+const getTableList = async (params?: Params) => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 5,
+      curUser: 1, // Id for logged in user
+      model: 'county',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var cnty = response.data
+
+    loading.value = false
+
+    cnty.forEach(function (arrayItem) {
+      var countyOpt = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.name
+      //  console.log(countyOpt)
+      countiesOptions.push(countyOpt)
+    })
+  })
+}
+getTableList()
+console.log('tableDataList:', countiesOptions)
 
 const { required } = useValidator()
+const RoleOptions = [
+  {
+    value: 'county_staff',
+    label: 'County Staff'
+  },
+  {
+    value: 'kisip_staff',
+    label: 'KISIP/SUD staff'
+  },
+  {
+    value: 'partner_staff',
+    label: 'Partner staff (WB, AfDB)'
+  },
+  {
+    value: 'consultant',
+    label: 'Consultant staff'
+  },
+  {
+    value: 'public',
+    label: 'Public/Other'
+  }
+]
 
 const schema = reactive<FormSchema[]>([
   {
@@ -80,13 +141,44 @@ const schema = reactive<FormSchema[]>([
       placeholder: t('login.passwordPlaceholder')
     }
   },
+
   {
-    field: 'county_id',
-    label: t('County ID'),
+    field: 'role',
+    label: t('Role'),
+    component: 'Select',
     colProps: {
       span: 24
+    },
+    componentProps: {
+      options: RoleOptions,
+      style: {
+        width: '100%'
+      },
+      slots: {
+        suffix: true,
+        prefix: true
+      }
     }
   },
+  {
+    field: 'county_id',
+    label: t('County'),
+    component: 'Select',
+    colProps: {
+      span: 24
+    },
+    componentProps: {
+      options: countiesOptions,
+      style: {
+        width: '100%'
+      },
+      slots: {
+        suffix: true,
+        prefix: true
+      }
+    }
+  },
+
   {
     field: 'register',
     colProps: {
@@ -134,7 +226,7 @@ const loginRegister = async () => {
   <Form
     :schema="schema"
     :rules="rules"
-    label-position="top"
+    label-position="side"
     hide-required-asterisk
     size="large"
     class="dark:(border-1 border-[var(--el-border-color)] border-solid)"
@@ -142,12 +234,6 @@ const loginRegister = async () => {
   >
     <template #title>
       <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.register') }}</h2>
-    </template>
-
-    <template #county_id="form">
-      <div class="w-[100%] flex">
-        <ElInput v-model="form['county_id']" :placeholder="t('login.codePlaceholder')" />
-      </div>
     </template>
 
     <template #register>

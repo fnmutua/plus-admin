@@ -8,8 +8,9 @@ var corsOptions = {
 const path = require('path')
 const fileUpload = require('express-fileupload')
 
-//const dotenv = require('dotenv')
-//dotenv.config()
+// Switch off for prodcution 
+const dotenv = require('dotenv')
+dotenv.config()
 
 app.use(cors(corsOptions))
 // app.use(cors())
