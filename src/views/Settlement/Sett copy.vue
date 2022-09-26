@@ -39,10 +39,6 @@ const columns: TableColumn[] = [
     label: t('Population')
   },
   {
-    field: 'county.name',
-    label: t('County')
-  },
-  {
     field: 'area',
     label: t('Area(Ha.)')
   },
@@ -61,12 +57,10 @@ const handleSelect = async (county_id) => {
   selCounties.length = 0 // clear previously selected counties
 
   let arr = []
-  if (county_id.length > 0) {
-    // arr.push(county_id)   // applies for sinle select only
-    //console.log('Array', arr)
-    //selCounties.push(county_id)
-    selCounties.push(...county_id)
-    console.log(selCounties)
+  if (county_id) {
+    arr.push(county_id)
+    console.log('Array', arr)
+    selCounties.push(county_id)
     const formData = {}
     formData.limit = 5
     formData.page = 1
@@ -74,7 +68,7 @@ const handleSelect = async (county_id) => {
     formData.model = 'settlement'
     formData.searchField = 'name'
     formData.searchKeyword = ''
-    formData.columnFilterValue = county_id
+    formData.columnFilterValue = arr
     formData.columnFilterField = 'county_id'
     formData.assocModel = 'county'
     console.log(formData)
@@ -162,7 +156,6 @@ const schema = reactive<FormSchema[]>([
       onChange: handleSelect,
       onClear: handleClear,
       filterable: 'true',
-      multiple: 'true',
 
       style: {
         width: '25%'
@@ -219,10 +212,7 @@ const acitonFn = (data: TableSlotDefault) => {
 </script>
 
 <template>
-  <ContentWrap
-    :title="t('Settlements')"
-    :message="t('The list of settlements listed by county. Use the county filter to subset')"
-  >
+  <ContentWrap :title="t('userDemo.title')" :message="t('userDemo.message')">
     <Form
       :schema="schema"
       label-position="side"

@@ -142,10 +142,18 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
       },
       {
         path: 'parcel',
-        component: () => import('@/views/Settlement/Sett.vue'),
+        component: () => import('@/views/Parcel/index.vue'),
         name: 'Parcel',
         meta: {
           title: t('Parcel')
+        }
+      },
+      {
+        path: 'map',
+        component: () => import('@/views/Map/index.vue'),
+        name: 'Map',
+        meta: {
+          title: t('Map')
         }
       }
     ]
@@ -554,30 +562,46 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     ]
   },
   {
-    path: '/authorization',
+    path: '/users',
     component: Layout,
-    redirect: '/authorization/user',
-    name: 'Authorization',
+    redirect: '/users/user',
+    name: 'Users',
     meta: {
-      title: t('router.authorization'),
+      title: t('Users'),
       icon: 'eos-icons:role-binding',
       alwaysShow: true
     },
     children: [
       {
         path: 'user',
-        component: () => import('@/views/Authorization/User.vue'),
+        component: () => import('@/views/Users/User.vue'),
         name: 'User',
         meta: {
-          title: t('router.user')
+          title: t('All')
         }
       },
       {
-        path: 'role',
-        component: () => import('@/views/Authorization/Role.vue'),
-        name: 'Role',
+        path: 'county',
+        component: () => import('@/views/Users/User.vue'),
+        name: 'County',
         meta: {
-          title: t('router.role')
+          title: t('County')
+        }
+      },
+      {
+        path: 'partner',
+        component: () => import('@/views/Users/User.vue'),
+        name: 'Partner',
+        meta: {
+          title: t('Partner')
+        }
+      },
+      {
+        path: 'public',
+        component: () => import('@/views/Users/User.vue'),
+        name: 'Public',
+        meta: {
+          title: t('Public')
         }
       }
     ]

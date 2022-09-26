@@ -85,7 +85,7 @@ export default {
   },
   login: {
     welcome: 'Welcome to the system',
-    message: 'Backstage management system',
+    message: 'Slum Information Management System',
     username: 'Username',
     password: 'Password',
     register: 'Register',
