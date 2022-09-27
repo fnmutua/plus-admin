@@ -70,19 +70,20 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
       {
         path: 'analysis',
         component: () => import('@/views/Dashboard/Analysis.vue'),
-        name: 'Analysis',
+        name: 'National',
         meta: {
-          title: t('router.analysis'),
+          title: t('National'),
           noCache: true,
           affix: true
         }
       },
+
       {
-        path: 'workplace',
-        component: () => import('@/views/Dashboard/Workplace.vue'),
-        name: 'Workplace',
+        path: 'kisip',
+        component: () => import('@/views/Dashboard/Analysis.vue'),
+        name: 'Kisip',
         meta: {
-          title: t('router.workplace'),
+          title: t('KISIP'),
           noCache: true
         }
       }
@@ -91,7 +92,9 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
   {
     path: '/external-link',
     component: Layout,
-    meta: {},
+    meta: {
+      hidden: true
+    },
     name: 'ExternalLink',
     children: [
       {
@@ -108,7 +111,9 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     path: '/guide',
     component: Layout,
     name: 'Guide',
-    meta: {},
+    meta: {
+      hidden: true
+    },
     children: [
       {
         path: 'index',
@@ -140,6 +145,15 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           title: t('List')
         }
       },
+      {
+        path: 'details',
+        component: () => import('@/views/Settlement/SettlementDetails.vue'),
+        name: 'SettlementDetails',
+        meta: {
+          title: t('Profile')
+        }
+      },
+
       {
         path: 'parcel',
         component: () => import('@/views/Parcel/index.vue'),
@@ -376,7 +390,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     meta: {
       title: 'hooks',
       icon: 'ic:outline-webhook',
-      alwaysShow: true
+      alwaysShow: true,
+      hidden: true
     },
     children: [
       {
@@ -404,7 +419,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     name: 'Level',
     meta: {
       title: t('router.level'),
-      icon: 'carbon:skill-level-advanced'
+      icon: 'carbon:skill-level-advanced',
+      hidden: true
     },
     children: [
       {
@@ -459,12 +475,14 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
   {
     path: '/example',
     component: Layout,
+
     redirect: '/example/example-dialog',
     name: 'Example',
     meta: {
       title: t('router.example'),
       icon: 'ep:management',
-      alwaysShow: true
+      alwaysShow: true,
+      hidden: true
     },
     children: [
       {
@@ -532,7 +550,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     meta: {
       title: t('router.errorPage'),
       icon: 'ci:error',
-      alwaysShow: true
+      alwaysShow: true,
+      hidden: true
     },
     children: [
       {
