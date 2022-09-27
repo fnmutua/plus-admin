@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { Descriptions } from '@/components/Descriptions'
 import { useI18n } from '@/hooks/web/useI18n'
-import { reactive, unref } from 'vue'
+import { onMounted, reactive, unref } from 'vue'
 import { Form } from '@/components/Form'
 import { ElFormItem, ElInput, ElButton } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { useForm } from '@/hooks/web/useForm'
+import { useRoute } from 'vue-router'
+const { register, elFormRef } = useForm()
 
 const { required } = useValidator()
+const route = useRoute()
 
 const { t } = useI18n()
 
@@ -185,7 +188,11 @@ const form = reactive({
   subcounty: ''
 })
 
-const { register, elFormRef } = useForm()
+onMounted(() => {
+  const id = route.params.id
+  const settData = route.params.data
+  console.log('Settlement ID, Data:', id, settData)
+})
 </script>
 
 <template>

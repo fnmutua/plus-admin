@@ -37,7 +37,7 @@ const { t } = useI18n()
 const columns: TableColumn[] = [
   {
     field: 'index',
-    label: t('userDemo.index'),
+    label: t('No.'),
     type: 'index'
   },
 
