@@ -6,7 +6,7 @@ export default {
     endTimeText: 'End time',
     login: 'Login',
     required: 'This is required',
-    loginOut: 'Login out',
+    loginOut: 'Log out',
     document: 'Document',
     reminder: 'Reminder',
     loginOutMessage: 'Exit the system?',

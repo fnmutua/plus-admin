@@ -3,7 +3,16 @@ import type { RouteRecordRaw } from 'vue-router'
 import type { App } from 'vue'
 import { Layout, getParentLayout } from '@/utils/routerHelper'
 import { useI18n } from '@/hooks/web/useI18n'
-
+import {
+  Check,
+  Delete,
+  Position,
+  Edit,
+  TopRight,
+  Message,
+  Search,
+  Star
+} from '@element-plus/icons-vue'
 const { t } = useI18n()
 
 export const constantRouterMap: AppRouteRecordRaw[] = [
@@ -77,7 +86,6 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           affix: true
         }
       },
-
       {
         path: 'kisip',
         component: () => import('@/views/Dashboard/Analysis.vue'),
@@ -146,12 +154,10 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'details',
+        path: ':id',
         component: () => import('@/views/Settlement/SettlementDetails.vue'),
         name: 'SettlementDetails',
-        meta: {
-          title: t('Profile')
-        }
+        meta: { hidden: true, title: 'Settlement Details', icon: 'example', noCache: true }
       },
 
       {
@@ -163,11 +169,99 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'hh/:id',
+        component: () => import('@/views/Household/index.vue'),
+        name: 'Households',
+        meta: {
+          hidden: true,
+          title: t('Households')
+        }
+      },
+
+      {
         path: 'map',
         component: () => import('@/views/Map/index.vue'),
         name: 'Map',
         meta: {
           title: t('Map')
+        }
+      }
+    ]
+  },
+
+  {
+    path: '/facilities',
+    component: Layout,
+    redirect: '/facility/all',
+    name: 'Facilities',
+    meta: {
+      title: t('Facilities'),
+      icon: 'ant-design:shop-outlined',
+      alwaysShow: false
+    },
+    children: [
+      {
+        path: 'all',
+        component: () => import('@/views/Map/index.vue'),
+        name: 'All',
+        meta: {
+          hidden: true,
+          title: t('All')
+        }
+      },
+      {
+        path: 'health',
+        component: () => import('@/views/Map/index.vue'),
+        name: 'Health',
+        meta: {
+          icon: 'ci-home-plus',
+          title: t('Health')
+        }
+      },
+
+      {
+        path: 'education',
+        component: () => import('@/views/Map/index.vue'),
+        name: 'Education',
+        meta: {
+          icon: 'ci-youtube',
+
+          title: t('Education')
+        }
+      },
+
+      {
+        path: 'water',
+        component: () => import('@/views/Map/index.vue'),
+        name: 'Water',
+        meta: {
+          title: t('Water')
+        }
+      },
+
+      {
+        path: 'utility',
+        component: () => import('@/views/Map/index.vue'),
+        name: 'Utilities',
+        meta: {
+          title: t('Utilities')
+        }
+      },
+      {
+        path: 'security',
+        component: () => import('@/views/Map/index.vue'),
+        name: 'Security',
+        meta: {
+          title: t('Security')
+        }
+      },
+
+      {
+        path: 'environment',
+        component: () => import('@/views/Map/index.vue'),
+        name: 'Environment',
+        meta: {
+          title: t('Environment')
         }
       }
     ]
