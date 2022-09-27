@@ -6,9 +6,9 @@ import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { useForm } from '@/hooks/web/useForm'
 import { Form } from '@/components/Form'
-
+import { Check, Delete, Position, Edit, Message, Search, Star } from '@element-plus/icons-vue'
 import { ref, h, reactive } from 'vue'
-import { ElSwitch, ElPagination } from 'element-plus'
+import { ElSwitch, ElButton, ElPagination } from 'element-plus'
 
 interface Params {
   pageIndex?: number
@@ -240,13 +240,7 @@ const acitonFn = (data: TableSlotDefault) => {
       size="large"
       class="dark:(border-1 border-[var(--el-border-color)] border-solid)"
       @register="register"
-    >
-      <template #title>
-        <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.register') }}</h2>
-      </template>
-
-      <template #register> </template>
-    </Form>
+    />
 
     <Table
       :columns="columns"
@@ -257,11 +251,19 @@ const acitonFn = (data: TableSlotDefault) => {
       :currentPage="currentPage"
     >
       <template #action="data">
-        <!-- <ElSwitch v-model="data.isactive" @click="acitonFn(data as TableSlotDefault)"> -->
-
-        <ElSwitch v-model="data.row.isactive" @click="acitonFn(data as TableSlotDefault)">
-          {{ t('tableDemo.action') }}
-        </ElSwitch>
+        <el-button
+          type="primary"
+          :icon="Position"
+          @click="acitonFn(data as TableSlotDefault)"
+          circle
+        />
+        <el-button type="success" :icon="Edit" @click="acitonFn(data as TableSlotDefault)" circle />
+        <el-button
+          type="danger"
+          :icon="Delete"
+          @click="acitonFn(data as TableSlotDefault)"
+          circle
+        />
       </template>
     </Table>
     <ElPagination

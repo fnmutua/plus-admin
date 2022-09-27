@@ -8,9 +8,9 @@ import { useForm } from '@/hooks/web/useForm'
 import { Form } from '@/components/Form'
 
 import { ref, h, reactive, onBeforeMount } from 'vue'
-import { ElSwitch, ElPagination } from 'element-plus'
+import { ElSwitch, ElPagination, ELCollapse } from 'element-plus'
 import 'leaflet/dist/leaflet.css'
-import { LMap, LGeoJson, LTileLayer, LControlZoom } from '@vue-leaflet/vue-leaflet'
+import { LMap, LGeoJson, LTileLayer, LControlLayers, LControlZoom } from '@vue-leaflet/vue-leaflet'
 import { featureGroup } from 'leaflet'
 import { nextTick } from 'vue'
 
@@ -57,7 +57,7 @@ const handleSelect = async (selectIDs) => {
     //console.log('Array', arr)
     //selectedParents.push(county_id)
     selectedParents.push(...selectIDs)
-    console.log(selectedParents)
+    //  console.log(selectedParents)
     const formData = {}
     formData.model = model
     formData.columnFilterField = filterCol
@@ -79,6 +79,7 @@ const handleSelect = async (selectIDs) => {
 
         console.log(group.getBounds())
         map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
+        updateStyle()
       })
     }, 0) // 0ms seems enough to execute resize after tab opens.
   }
@@ -115,8 +116,9 @@ const getAll = async () => {
         }
       })
 
-      console.log(group.getBounds())
+      //  console.log(group.getBounds())
       map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
+      updateStyle()
     })
   }, 0) // 0ms seems enough to execute resize after tab opens.
 }
@@ -147,6 +149,67 @@ const schema = reactive<FormSchema[]>([
   }
 ])
 
+function getColor(d) {
+  // console.log(d)
+
+  // recieve the prop
+  if (d > 7) {
+    // as many conditionals you need
+    return 'green'
+  }
+  if (d === 0) {
+    return 'brown'
+  }
+  if (d == 1) {
+    return 'purple'
+  }
+  if (d == 2) {
+    return 'orange'
+  }
+  if (d == 3) {
+    return 'green'
+  }
+  if (d == 4) {
+    return 'yellow'
+  }
+  if (d == 5) {
+    return 'red'
+  }
+
+  if (d == 6) {
+    return 'gray'
+  }
+
+  if (d == 7) {
+    return 'yellow'
+  }
+}
+
+function updateStyle() {
+  // console.log('Updating style....')
+  const geojsonLayer = geo.value.leafletObject
+
+  // console.log(geojsonLayer)
+  if (!geojsonLayer) {
+    return
+  }
+
+  let styleFunction
+
+  styleFunction = (feature) => {
+    // add feature here to access this prop
+    // console.log(feature.properties.landuse_id)
+    return {
+      weight: 1,
+      opacity: 0.45,
+      borderWidth: 'thin',
+      borderColor: 'white',
+      color: getColor(feature.properties.landuse_id), // send it here
+      fillOpacity: 0.5
+    }
+  }
+  geo.value.leafletObject.setStyle(styleFunction)
+}
 const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
@@ -188,24 +251,18 @@ const acitonFn = (data: TableSlotDefault) => {
   console.log('Activating user.....', data.row)
   // data.mode = 'users'
 }
-
-onBeforeMount(() => {
-  console.log('Before Mount...')
-})
 </script>
 
 <template>
   <ContentWrap
     :title="toTitleCase(model.replace('_', ' '))"
-    :message="
-      t('The list of ' + model + ' listed by ' + assoc_model + '. Use the filter to subset')
-    "
+    :message="t('The Map of ' + model + 's  by ' + assoc_model + '. Use the filter to subset')"
   >
     <Form
       :schema="schema"
       label-position="side"
       hide-required-asterisk
-      size="large"
+      size="small"
       class="dark:(border-1 border-[var(--el-border-color)] border-solid)"
       @register="register"
     >
@@ -215,7 +272,17 @@ onBeforeMount(() => {
 
       <template #register> </template>
     </Form>
-    <l-map ref="map" :zoom="16" :center="[-1.30853, 36.917257]" style="height: 60vh">
+    <l-map ref="map" :zoom="16" :center="[-1.30853, 36.917257]" style="height: 66vh">
+      <l-tile-layer
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
+        layer-type="base"
+        min-zoom="1"
+        max-zoom="21"
+        useBounds="true"
+        class="map"
+        :max-bounds="maxBounds"
+        name="Satellite"
+      />
       <l-tile-layer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         layer-type="base"
@@ -226,12 +293,135 @@ onBeforeMount(() => {
         :max-bounds="maxBounds"
         name="OpenStreetMap"
       />
-      <l-geo-json ref="geo" :geojson="filtergeo" />
-      <l-marker ref="marker" :lat-lng="[-1.30853, 36.917257]">
-        <l-icon :icon-size="[-1.30853, 36.917257]" icon-url="icon.png" />
-        <l-popup ref="popup"> Popup content </l-popup>
-      </l-marker>
+
+      <l-geo-json
+        ref="geo"
+        layer-type="overlay"
+        name="Parcels"
+        :geojson="filtergeo"
+        @ready="updateStyle"
+      />
+      <l-control-layers position="topright" />
+      <l-control class="leaflet-bottom leaflet-left leaflet-demo-control">
+        <div class="key">KEY</div>
+        <div class="residentail">Residential</div>
+
+        <div
+          style="
+            background: orange;
+            color: white;
+            width: 90px;
+            height: 20px;
+            opacity: 0.5;
+
+            text-align: center;
+            border-radius: 0.26em;
+          "
+          >Educational</div
+        >
+        <div
+          style="
+            background: purple;
+            color: white;
+            width: 90px;
+            height: 20px;
+            text-align: center;
+            opacity: 0.5;
+
+            border-radius: 0.26em;
+          "
+          >Industrial</div
+        >
+        <div
+          style="
+            background: green;
+            color: white;
+            width: 90px;
+            opacity: 0.5;
+
+            height: 20px;
+            text-align: center;
+            border-radius: 0.26em;
+          "
+          >Recreational</div
+        >
+
+        <div
+          style="
+            background: red;
+            color: white;
+            width: 90px;
+            height: 20px;
+            text-align: center;
+            opacity: 0.5;
+
+            border-radius: 0.26em;
+          "
+          >Commerical</div
+        >
+        <div
+          style="
+            background: yellow;
+            color: gray;
+            width: 90px;
+            height: 20px;
+            opacity: 0.5;
+
+            text-align: center;
+            border-radius: 0.26em;
+          "
+          >Public Use</div
+        >
+        <div
+          style="
+            background: blue;
+            color: white;
+            width: 90px;
+            height: 20px;
+            opacity: 0.5;
+            text-align: center;
+            border-radius: 0.26em;
+          "
+          >Public utility</div
+        >
+        <div
+          style="
+            background: #ffffed;
+            color: grey;
+            opacity: 0.5;
+            width: 90px;
+            height: 20px;
+            text-align: center;
+            border-radius: 0.26em;
+          "
+          >Agriculture</div
+        >
+      </l-control>
     </l-map>
-    <button @click="changeIcon">New kitten icon</button>
   </ContentWrap>
 </template>
+
+<style>
+.leaflet-demo-control {
+  background: white;
+  border: 1px solid rgb(193, 215, 233);
+  border-radius: 0.2em;
+  padding: 0.5em;
+}
+
+.residentail {
+  background: brown;
+  color: white;
+  width: 90px;
+  opacity: 0.5;
+
+  height: 20px;
+  text-align: center;
+  border-radius: 0.26em;
+}
+
+.key {
+  text-align: center;
+  font-weight: bold;
+}
+</style>

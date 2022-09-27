@@ -8,6 +8,16 @@ import { getCountyListApi } from '@/api/counties'
 import { useForm } from '@/hooks/web/useForm'
 import { ElButton, ElInput, FormRules } from 'element-plus'
 import { Form } from '@/components/Form'
+import {
+  Check,
+  Delete,
+  Position,
+  Edit,
+  TopRight,
+  Message,
+  Search,
+  Star
+} from '@element-plus/icons-vue'
 
 import { CountyType } from '@/api/counties/types'
 import { ref, h, reactive } from 'vue'
@@ -247,11 +257,12 @@ const acitonFn = (data: TableSlotDefault) => {
       :currentPage="currentPage"
     >
       <template #action="data">
-        <!-- <ElSwitch v-model="data.isactive" @click="acitonFn(data as TableSlotDefault)"> -->
-
-        <ElSwitch v-model="data.row.isactive" @click="acitonFn(data as TableSlotDefault)">
-          {{ t('tableDemo.action') }}
-        </ElSwitch>
+        <el-button
+          type="primary"
+          :icon="TopRight"
+          @click="acitonFn(data as TableSlotDefault)"
+          circle
+        />
       </template>
     </Table>
     <ElPagination
