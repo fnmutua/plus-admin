@@ -6,13 +6,15 @@ import { getSettlementListByCounty, getfilteredGeo } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { useForm } from '@/hooks/web/useForm'
 import { Form } from '@/components/Form'
-
 import { ref, h, reactive, onBeforeMount } from 'vue'
 import { ElSwitch, ElPagination, ELCollapse } from 'element-plus'
 import 'leaflet/dist/leaflet.css'
 import { LMap, LGeoJson, LTileLayer, LControlLayers, LControlZoom } from '@vue-leaflet/vue-leaflet'
 import { featureGroup } from 'leaflet'
 import { nextTick } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 
 interface Params {
   pageIndex?: number
@@ -86,8 +88,7 @@ const handleSelect = async (selectIDs) => {
 }
 
 const getAll = async () => {
-  console.log('Get all Settleemnts ')
-  let arr = []
+  console.log('Get all HHs for --> ', selectedParents)
 
   const formData = {}
   formData.model = model

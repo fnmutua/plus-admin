@@ -10,6 +10,11 @@ export type UserAccessSource = {
   name: string
 }
 
+export type WaterAccessSource = {
+  value: number
+  name: string
+}
+
 export type WeeklyUserActivity = {
   value: number
   name: string

@@ -69,7 +69,7 @@ getPopulationSummary()
 </script>
 
 <template>
-  <ElRow :gutter="10" justify="space-between" :class="prefixCls">
+  <ElRow :gutter="20" justify="space-between" :class="prefixCls">
     <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
       <ElCard shadow="hover" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
@@ -79,12 +79,12 @@ getPopulationSummary()
                 <div
                   :class="`${prefixCls}__item--icon ${prefixCls}__item--peoples p-16px inline-block rounded-6px`"
                 >
-                  <font-awesome-icon size="4x" icon="fa-solid fa-city" />
+                  <Icon icon="svg-icon:peoples" :size="40" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Number of Slums')
+                  t('Number Slums')
                 }}</div>
                 <CountTo
                   class="text-20px font-700 text-right"
@@ -108,7 +108,7 @@ getPopulationSummary()
                 <div
                   :class="`${prefixCls}__item--icon ${prefixCls}__item--message p-16px inline-block rounded-6px`"
                 >
-                  <font-awesome-icon size="4x" icon="fa-solid fa-people-group" />
+                  <Icon icon="svg-icon:message" :size="40" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
@@ -137,7 +137,7 @@ getPopulationSummary()
                 <div
                   :class="`${prefixCls}__item--icon ${prefixCls}__item--money p-16px inline-block rounded-6px`"
                 >
-                  <font-awesome-icon size="4x" icon="fa-solid fa-people-roof" />
+                  <Icon icon="svg-icon:money" :size="40" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
@@ -166,7 +166,8 @@ getPopulationSummary()
                 <div
                   :class="`${prefixCls}__item--icon ${prefixCls}__item--shopping p-16px inline-block rounded-6px`"
                 >
-                  <font-awesome-icon size="4x" icon="fa-solid fa-money-check-dollar" />
+                  <Icon icon="svg-icon:shopping" :size="40" />
+                  <font-awesome-icon icon="fa-solid fa-arrow-up-right-dots" size="4x" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">

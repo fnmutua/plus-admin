@@ -33,9 +33,27 @@ import { createApp } from 'vue'
 import App from './App.vue'
 
 import './permission'
+
+
+
+/* import the fontawesome core */
+import { library } from '@fortawesome/fontawesome-svg-core'
+
+/* import font awesome icon component */
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+
+/* import specific icons */
+import { faUserSecret, faCity,faPeopleRoof,faPeopleGroup,faMoneyCheckDollar} from '@fortawesome/free-solid-svg-icons'
+
+/* add icons to the library */
+library.add(faUserSecret,faCity,faPeopleGroup,faPeopleRoof,faMoneyCheckDollar,)
+
+
+
 // 创建实例
 const setupAll = async () => {
   const app = createApp(App)
+
 
   await setupI18n(app)
 
@@ -48,6 +66,8 @@ const setupAll = async () => {
   setupRouter(app)
 
   setupPermission(app)
+
+  app.component('font-awesome-icon', FontAwesomeIcon)
 
   app.mount('#app')
 }
