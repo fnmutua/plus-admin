@@ -28,7 +28,7 @@ module.exports = function (app) {
   app.get('/api/v1/data/all/geo', controller.modelAllGeo)
 
   // Gets the  All dataes
-  app.get('/api/v1/data/one/geo', controller.modelOneGeo)
+  app.post('/api/v1/data/one/geo', controller.modelOneGeo)
 
   app.post('/api/v1/data/subset/geo', controller.modelSelectGeo)
 

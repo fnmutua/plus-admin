@@ -242,14 +242,21 @@ const acitonFn = (data: TableSlotDefault) => {
 
 const viewHHs = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
-
   push({
     path: '/settlement/hh/:id',
     name: 'Households',
     params: { id: data.row.id }
   })
 }
-//push(`/example/example-${type}?id=${row.id}`)
+
+const viewOnMap = (data: TableSlotDefault) => {
+  console.log('On Click.....', data.row.id)
+  push({
+    path: '/settlement/map/:id',
+    name: 'SettlementMap',
+    params: { id: data.row.id }
+  })
+}
 </script>
 
 <template>
@@ -295,6 +302,14 @@ const viewHHs = (data: TableSlotDefault) => {
             type="success"
             :icon="User"
             @click="viewHHs(data as TableSlotDefault)"
+            circle
+          />
+        </el-tooltip>
+        <el-tooltip content="View on Map" placement="top">
+          <el-button
+            type="warning"
+            :icon="Position"
+            @click="viewOnMap(data as TableSlotDefault)"
             circle
           />
         </el-tooltip>

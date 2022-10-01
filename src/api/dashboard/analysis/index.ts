@@ -2,6 +2,7 @@ import request from '@/config/axios'
 import type {
   AnalysisTotalTypes,
   UserAccessSource,
+  WaterAccessSource,
   WeeklyUserActivity,
   MonthlySales
 } from './types'
@@ -20,4 +21,8 @@ export const getWeeklyUserActivityApi = (): Promise<IResponse<WeeklyUserActivity
 
 export const getMonthlySalesApi = (): Promise<IResponse<MonthlySales[]>> => {
   return request.get({ url: '/analysis/monthlySales' })
+}
+
+export const getWaterAccessApi = (): Promise<IResponse<WaterAccessSource[]>> => {
+  return request.get({ url: '/analysis/water' })
 }

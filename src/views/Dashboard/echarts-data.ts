@@ -1,6 +1,7 @@
 import { EChartsOption } from 'echarts'
 import { EChartsOption as EChartsWordOption } from 'echarts-wordcloud'
 import { useI18n } from '@/hooks/web/useI18n'
+import 'echarts/lib/component/toolbox'
 
 const { t } = useI18n()
 
@@ -106,6 +107,190 @@ export const pieOptions: EChartsOption = {
         { value: 135, name: t('analysis.videoAdvertising') },
         { value: 1548, name: t('analysis.searchEngines') }
       ]
+    }
+  ]
+}
+export const waterOptions: EChartsOption = {
+  title: {
+    text: t('Access to Water'),
+    subtext: 'Average for all Slums in Kenya',
+    left: 'center'
+  },
+  tooltip: {
+    trigger: 'item',
+    formatter: '{a} <br/>{b} : {c} ({d}%)'
+  },
+  legend: {
+    orient: 'vertical',
+    left: 'left',
+    data: [t('Piped Water'), t('Water Points'), t('Mobile Sources'), t('Kiosk'), t('No Access')]
+  },
+  toolbox: {
+    show: true,
+    feature: {
+      mark: { show: true },
+      dataView: { show: true, readOnly: true },
+      restore: { show: true },
+      saveAsImage: { show: true }
+    }
+  },
+  series: [
+    {
+      name: t('Access to Water'),
+      type: 'pie',
+      radius: '70%',
+      center: ['50%', '60%'],
+      roseType: 'area',
+
+      data: [
+        { value: 40000, name: t('Piped Water') },
+        { value: 18000, name: t('Water Points') },
+        { value: 24790, name: t('Mobile Sources') },
+        { value: 72000, name: t('Kiosk') },
+        { value: 70000, name: t('No Access') }
+      ],
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowOffsetX: 0,
+          shadowColor: 'rgba(0, 0, 0, 0.5)'
+        }
+      }
+    }
+  ]
+}
+
+export const housingOptions: EChartsOption = {
+  title: {
+    text: t('Access to Housing'),
+    subtext: 'Average for all Slums in Kenya',
+    left: 'center'
+  },
+  tooltip: {
+    trigger: 'item',
+    formatter: '{a} <br/>{b} : {c} ({d}%)'
+  },
+  legend: {
+    orient: 'vertical',
+    left: 'left',
+    data: [t('Owned'), t('Rent')]
+  },
+  toolbox: {
+    show: true,
+    feature: {
+      mark: { show: true },
+      dataView: { show: true, readOnly: false },
+      restore: { show: true },
+      saveAsImage: { show: true }
+    }
+  },
+  series: [
+    {
+      name: t('Access to Housing'),
+      type: 'pie',
+      radius: '70%',
+      center: ['50%', '60%'],
+      roseType: 'area',
+
+      data: [
+        { value: 150000, name: t('Owned') },
+        { value: 74790, name: t('Rent') }
+      ],
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowOffsetX: 0,
+          shadowColor: 'rgba(0, 0, 0, 0.5)'
+        }
+      }
+    }
+  ]
+}
+
+export const SlumsPerCountyChart: EChartsOption = {
+  title: {
+    text: t('Slums Per County'),
+    subtext: 'national Mapping of Slums, 2022',
+    left: 'center'
+  },
+  tooltip: {
+    trigger: 'item'
+  },
+
+  toolbox: {
+    show: true,
+    feature: {
+      mark: { show: true },
+      dataView: { show: true, readOnly: false },
+      restore: { show: true },
+      saveAsImage: { show: true }
+    }
+  },
+  xAxis: {
+    type: 'category',
+    data: [
+      'Embu',
+      'Nyeri',
+      'Samburu',
+      'Bungoma',
+      'Trans Nzoia',
+      'Elgeyo Marakwet',
+      'Tana River',
+      'Meru',
+      'Kirinyaga',
+      'Kericho',
+      'Taita Taveta',
+      'Tharaka Nithi',
+      'Makueni',
+      'Nairobi',
+      'West Pokot',
+      'Siaya',
+      'Lamu',
+      'Bomet',
+      'Homabay',
+      'Kwale',
+      'Mandera',
+      'Laikipia',
+      'Baringo',
+      'Nyamira',
+      'Nandi',
+      'Narok',
+      'Nakuru',
+      'Mombasa',
+      'Migori',
+      'Kiambu',
+      'Uasin Gishu',
+      "Murang'A",
+      'Kilifi',
+      'Marsabit',
+      'Wajir',
+      'Machakos',
+      'Kitui',
+      'Kajiado',
+      'Nyandarua',
+      'Isiolo',
+      'Turkana',
+      'Busia',
+      'Vihiga',
+      'Garissa',
+      'Kisii',
+      'Kisumu'
+    ]
+  },
+  yAxis: {
+    type: 'value'
+  },
+  series: [
+    {
+      data: [
+        7, 9, 12, 4, 9, 7, 4, 4, 24, 3, 7, 4, 6, 148, 8, 2, 13, 1, 11, 2, 4, 13, 8, 1, 4, 2, 20, 99,
+        14, 18, 14, 1, 10, 7, 2, 8, 5, 7, 3, 7, 17, 1, 9, 5, 1, 7
+      ],
+      type: 'bar',
+      showBackground: false,
+      backgroundStyle: {
+        color: 'rgba(180, 180, 180, 0.2)'
+      }
     }
   ]
 }

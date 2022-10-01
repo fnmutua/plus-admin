@@ -68,7 +68,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
   {
     path: '/dashboard',
     component: Layout,
-    redirect: '/dashboard/analysis',
+    redirect: '/dashboard/national',
     name: 'Dashboard',
     meta: {
       title: t('router.dashboard'),
@@ -77,8 +77,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     },
     children: [
       {
-        path: 'analysis',
-        component: () => import('@/views/Dashboard/Analysis.vue'),
+        path: 'national',
+        component: () => import('@/views/Dashboard/National.vue'),
         name: 'National',
         meta: {
           title: t('National'),
@@ -88,7 +88,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
       },
       {
         path: 'kisip',
-        component: () => import('@/views/Dashboard/Analysis.vue'),
+        component: () => import('@/views/Dashboard/National.vue'),
         name: 'Kisip',
         meta: {
           title: t('KISIP'),
@@ -177,12 +177,22 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           title: t('Households')
         }
       },
+      {
+        path: 'map/:id',
+        component: () => import('@/views/Settlement/Map.vue'),
+        name: 'SettlementMap',
+        meta: {
+          hidden: true,
+          title: t('Map')
+        }
+      },
 
       {
         path: 'map',
         component: () => import('@/views/Map/index.vue'),
         name: 'Map',
         meta: {
+          hidden: false,
           title: t('Map')
         }
       }

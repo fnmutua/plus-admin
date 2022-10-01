@@ -22,3 +22,18 @@ export const getfilteredGeo = (data: SettlementType): Promise<IResponse<Settleme
   console.log('getGeo....', data)
   return request.post({ url: prod + '/api/v1/data/subset/geo', data })
 }
+
+export const getOneGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('getGeo....', data)
+  return request.post({ url: prod + '/api/v1/data/one/geo', data })
+}
+
+export const getCountFilter = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('Number of Settlements....', data)
+  return request.post({ url: prod + '/api/v1/data/count/filter', data })
+}
+
+export const getSumFilter = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('Sums.....', data)
+  return request.post({ url: prod + '/api/v1/data/sum/filter', data })
+}

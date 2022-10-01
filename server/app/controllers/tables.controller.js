@@ -229,8 +229,9 @@ exports.modelAllGeo = async (req, res) => {
 }
 
 exports.modelOneGeo = async (req, res) => {
-  var reg_model = req.query.model
-  var id = req.query.id
+  var reg_model = req.body.model
+  var id = req.body.id
+  var msg = ''
   var qry2 =
     " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +
     reg_model +
@@ -241,10 +242,28 @@ exports.modelOneGeo = async (req, res) => {
     mapToModel: false // pass true here if you have any mapped fields
   })
 
-  res.status(200).send({
-    data: result_geo,
-    code: 20000
-  })
+  const json = JSON.stringify(result_geo) // [1,2,3]
+
+  //  console.log('GEo----->', result_geo[0])
+  if (json[0].json_build_object) {
+    msg = 'Shapes found. Loading shortly...'
+    console.log(msg)
+    res.status(200).send({
+      data: result_geo,
+      code: '0000',
+      message: 'Shapes found. Loading...'
+    })
+    // console.log('Found ...', json[0].json_build_object)
+  } else {
+    msg = 'Boundar shapes NOT found....'
+    //  console.log('Not found.....')
+    console.log(msg)
+    res.status(200).send({
+      data: result_geo,
+      code: '0000',
+      message: 'Not found..'
+    })
+  }
 }
 
 exports.modelSelectGeo = async (req, res) => {
@@ -415,7 +434,7 @@ exports.modelCountDistinct = (req, res) => {
 // count with creteria
 
 exports.modelCountFilter = (req, res) => {
-  var reg_model = req.query.model
+  var reg_model = req.body.model
   var filterField = req.body.filterField
   var criteria = req.body.criteria
   // here we creat an object for the query  comprising the field and value to querry
@@ -427,7 +446,7 @@ exports.modelCountFilter = (req, res) => {
       // res.status(200).send(result);
       res.status(200).send({
         count: result,
-        code: 20000
+        code: '0000'
       })
     }
   })
@@ -486,7 +505,7 @@ exports.xmodelSumFiltered = (req, res) => {
 }
 
 exports.modelSumFiltered = (req, res) => {
-  var reg_model = req.query.model
+  var reg_model = req.body.model
   var sumField = req.body.sumField
   var filterField = req.body.filterField
   var criteria = req.body.criteria
@@ -495,19 +514,19 @@ exports.modelSumFiltered = (req, res) => {
   obj[filterField] = criteria
   console.log(obj)
 
-  console.log('Querry:', req.query)
+  console.log('Querry:', req.body)
   // get this one  record and update it by replacing the whole docuemnt
   db.models[reg_model].sum(sumField, { where: obj }).then((result) => {
     if (result) {
       // res.status(200).send(result);
       res.status(200).send({
         data: result,
-        code: 20000
+        code: '0000'
       })
     } else {
       res.status(200).send({
         data: 0,
-        code: 20000
+        code: '0000'
       })
     }
   })
