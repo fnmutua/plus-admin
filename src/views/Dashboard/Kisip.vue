@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PanelGroup from './components/PanelGroup.vue'
+import PanelGroup from './components/KisipCards.vue'
 
 import { ElRow, ElCol, ElCard, ElSkeleton } from 'element-plus'
 import { Echart } from '@/components/Echart'
@@ -70,28 +70,6 @@ const getUserAccesstoWater = async () => {
 
 ////////////Housing----------------------------------
 const housingOptionsData = reactive<EChartsOption>(housingOptions) as EChartsOption
-
-const SlumsPerCountyChartData = reactive<EChartsOption>(SlumsPerCountyChart) as EChartsOption
-
-const topCountiesWithSlumsData = reactive<EChartsOption>(topCountiesWithSlums) as EChartsOption
-
-const getUserAccesstoHousing = async () => {
-  const res = await getWaterAccessApi().catch(() => {})
-  if (res) {
-    console.log(res)
-    set(
-      housingOptionsData,
-      'legend.data',
-      res.data.map((v) => t(v.name))
-    )
-    housingOptionsData!.series![0].data = res.data.map((v) => {
-      return {
-        name: t(v.name),
-        value: v.value
-      }
-    })
-  }
-}
 
 const barOptionsData = reactive<EChartsOption>(barOptions) as EChartsOption
 
@@ -260,73 +238,33 @@ const chartOptions = {
   }
 }
 
-//Demographics charts
+const progresSeries = [240000, 560000]
 
-const demographSeries = [
-  {
-    name: 'Males',
-    data: [0.4, 0.65, 0.76, 0.88, 1.5, 2.1, 2.9, 3.8, 3.9, 4.2, 4, 4.3, 4.1, 4.2, 4.5, 3.9, 3.5, 3]
-  },
-  {
-    name: 'Females',
-    data: [
-      -0.8, -1.05, -1.06, -1.18, -1.4, -2.2, -2.85, -3.7, -3.96, -4.22, -4.3, -4.4, -4.1, -4, -4.1,
-      -3.4, -3.1, -2.8
-    ]
-  }
-]
-
-const demographOptions = {
+const progressOptions = {
   chart: {
-    type: 'bar',
-    height: 440,
-    stacked: true
+    width: 380,
+    type: 'donut'
   },
-  colors: ['#008FFB', '#FF4560'],
+
   plotOptions: {
-    bar: {
-      horizontal: true,
-      barHeight: '80%'
+    pie: {
+      startAngle: -90,
+      endAngle: 270
     }
   },
   dataLabels: {
-    enabled: false
+    enabled: true
   },
-  stroke: {
-    width: 1,
-    colors: ['#fff']
+  fill: {
+    type: 'gradient'
   },
-
-  grid: {
-    xaxis: {
-      lines: {
-        show: false
-      }
-    }
-  },
-  yaxis: {
-    min: -5,
-    max: 5,
-    title: {
-      // text: 'Age',
-    }
-  },
-  tooltip: {
-    shared: false,
-    x: {
-      formatter: function (val) {
-        return val
-      }
-    },
-    y: {
-      formatter: function (val) {
-        return Math.abs(val) + '%'
-      }
+  legend: {
+    formatter: function (val, opts) {
+      return val + ' - ' + opts.w.globals.series[opts.seriesIndex]
     }
   },
   title: {
-    text: "Kenya's Slum Population Pyramid",
-    align: 'center',
+    text: 'Enhanced Tenure Beneficiaries, by gender	',
     style: {
       fontSize: '18px',
       fontWeight: 'bold',
@@ -334,40 +272,21 @@ const demographOptions = {
       color: '#263238'
     }
   },
-  subtitle: {
-    text: 'National Slum Mapping, 2022',
-    align: 'center'
+  labels: ['Female', 'Male'],
+  legend: {
+    show: true,
+    position: 'bottom'
   },
-  xaxis: {
-    categories: [
-      '85+',
-      '80-84',
-      '75-79',
-      '70-74',
-      '65-69',
-      '60-64',
-      '55-59',
-      '50-54',
-      '45-49',
-      '40-44',
-      '35-39',
-      '30-34',
-      '25-29',
-      '20-24',
-      '15-19',
-      '10-14',
-      '5-9',
-      '0-4'
-    ],
-    title: {
-      text: 'Percent',
-      align: 'center'
-    },
-
-    labels: {
-      formatter: function (val) {
-        return Math.abs(Math.round(val)) + '%'
-      }
+  toolbar: {
+    tools: {
+      download: true,
+      selection: true,
+      zoom: true,
+      zoomin: true,
+      zoomout: true,
+      pan: true,
+      reset: true | '<img src="/static/icons/reset.png" width="20">',
+      customIcons: []
     }
   }
 }
@@ -382,9 +301,9 @@ const demographOptions = {
           <!-- <Echart :options="SlumsPerCountyChartData" :height="400" /> -->
           <apexchart
             :height="400"
-            :type="bar"
-            :options="demographOptions"
-            :series="demographSeries"
+            :type="radialBar"
+            :options="progressOptions"
+            :series="progresSeries"
           />
         </ElSkeleton>
       </ElCard>
