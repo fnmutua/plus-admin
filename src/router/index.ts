@@ -88,7 +88,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
       },
       {
         path: 'kisip',
-        component: () => import('@/views/Dashboard/National.vue'),
+        component: () => import('@/views/Dashboard/Kisip.vue'),
         name: 'Kisip',
         meta: {
           title: t('KISIP'),

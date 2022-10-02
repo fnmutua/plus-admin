@@ -44,10 +44,10 @@ import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 /* import specific icons */
-import { faUserSecret, faCity,faPeopleRoof,faPeopleGroup,faMoneyCheckDollar} from '@fortawesome/free-solid-svg-icons'
+import { faUserSecret, faCity,faPeopleRoof,faPeopleGroup,faMoneyCheckDollar, faRoad, faHandsHoldingChild, faFileLines,  faMap} from '@fortawesome/free-solid-svg-icons'
 
 /* add icons to the library */
-library.add(faUserSecret,faCity,faPeopleGroup,faPeopleRoof,faMoneyCheckDollar,)
+library.add(faUserSecret,faCity,faPeopleGroup,faPeopleRoof,faMoneyCheckDollar,faMap,faHandsHoldingChild,faFileLines,faRoad)
 
 
 
