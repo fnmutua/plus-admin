@@ -2,6 +2,7 @@ import { EChartsOption } from 'echarts'
 import { EChartsOption as EChartsWordOption } from 'echarts-wordcloud'
 import { useI18n } from '@/hooks/web/useI18n'
 import 'echarts/lib/component/toolbox'
+import VueApexCharts from 'vue-apexcharts'
 
 const { t } = useI18n()
 
@@ -210,7 +211,7 @@ export const housingOptions: EChartsOption = {
 export const SlumsPerCountyChart: EChartsOption = {
   title: {
     text: t('Slums Per County'),
-    subtext: 'national Mapping of Slums, 2022',
+    subtext: 'National Mapping of Slums, 2022',
     left: 'center'
   },
   tooltip: {
@@ -291,6 +292,59 @@ export const SlumsPerCountyChart: EChartsOption = {
       backgroundStyle: {
         color: 'rgba(180, 180, 180, 0.2)'
       }
+    }
+  ]
+}
+
+export const topCountiesWithSlums: EChartsOption = {
+  title: {
+    text: t('Counties With highest Number of Slums'),
+    subtext: 'National Mapping of Slums, 2022',
+    left: 'center'
+  },
+  tooltip: {
+    trigger: 'item'
+  },
+
+  toolbox: {
+    show: true,
+    feature: {
+      mark: { show: true },
+      dataView: { show: true, readOnly: false },
+      restore: { show: true },
+      saveAsImage: { show: true }
+    }
+  },
+  darkMode: true,
+  grid: {
+    left: '3%',
+    right: '4%',
+    bottom: '3%',
+    containLabel: true
+  },
+  xAxis: {
+    type: 'value',
+    boundaryGap: [0, 0.01]
+  },
+  yAxis: {
+    type: 'category',
+    data: [
+      'Nairobi',
+      'Mombasa',
+      'Kirinyaga',
+      'Nakuru',
+      'Kiambu',
+      'Turkana',
+      'Migori',
+      'Uasin Gishu',
+      'Lamu',
+      'Laikipia'
+    ]
+  },
+  series: [
+    {
+      data: [148, 99, 24, 20, 18, 17, 14, 14, 13, 13],
+      type: 'bar'
     }
   ]
 }

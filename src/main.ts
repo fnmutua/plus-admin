@@ -33,6 +33,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 
 import './permission'
+import VueApexCharts from "vue3-apexcharts";
 
 
 
@@ -68,6 +69,7 @@ const setupAll = async () => {
   setupPermission(app)
 
   app.component('font-awesome-icon', FontAwesomeIcon)
+  app.use(VueApexCharts);
 
   app.mount('#app')
 }
