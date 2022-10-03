@@ -118,13 +118,13 @@ const { t } = useI18n()
           <ElCol :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
             <div class="flex items-center">
               <img
-                src="@/assets/imgs/avatar.jpg"
+                src="@/assets/imgs/user.png"
                 alt=""
                 class="w-70px h-70px rounded-[50%] mr-20px"
               />
               <div>
                 <div class="text-20px text-700">
-                  {{ t('workplace.goodMorning') }}，Archer，{{ t('workplace.happyDay') }}
+                  {{ t('workplace.goodMorning') }}，Admin，{{ t('workplace.happyDay') }}
                 </div>
                 <div class="mt-10px text-14px text-gray-500">
                   {{ t('workplace.toady') }}，20℃ - 32℃！
@@ -217,7 +217,7 @@ const { t } = useI18n()
           <div v-for="(item, index) in dynamics" :key="`dynamics-${index}`">
             <div class="flex items-center">
               <img
-                src="@/assets/imgs/avatar.jpg"
+                src="@/assets/imgs/user.png"
                 alt=""
                 class="w-35px h-35px rounded-[50%] mr-20px"
               />
