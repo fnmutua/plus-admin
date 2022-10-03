@@ -81,7 +81,17 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         component: () => import('@/views/Dashboard/National.vue'),
         name: 'National',
         meta: {
-          title: t('National'),
+          title: t('Overview'),
+          noCache: true,
+          affix: true
+        }
+      },
+      {
+        path: 'status',
+        component: () => import('@/views/Dashboard/CurrentSlumStatus.vue'),
+        name: 'Status',
+        meta: {
+          title: t('Status'),
           noCache: true,
           affix: true
         }
@@ -91,7 +101,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         component: () => import('@/views/Dashboard/Kisip.vue'),
         name: 'Kisip',
         meta: {
-          title: t('KISIP'),
+          title: t('Kisip'),
           noCache: true
         }
       }
