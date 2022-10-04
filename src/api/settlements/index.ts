@@ -37,3 +37,8 @@ export const getSumFilter = (data: SettlementType): Promise<IResponse<Settlement
   console.log('Sums.....', data)
   return request.post({ url: prod + '/api/v1/data/sum/filter', data })
 }
+
+export const getOneSettlement = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('Number of Settlements....', data)
+  return request.post({ url: prod + '/api/v1/data/one', data })
+}

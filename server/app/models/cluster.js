@@ -1,7 +1,7 @@
 const Sequelize = require('sequelize')
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
-    'intervention',
+    'cluster',
     {
       id: {
         autoIncrement: true,
@@ -9,35 +9,31 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         primaryKey: true
       },
-      intervention_type: {
+      lot_id: {
         type: DataTypes.INTEGER,
         allowNull: false
       },
-      year: {
+      cluster_no: {
         type: DataTypes.INTEGER,
         allowNull: false
       },
-      intervention_phase: {
-        type: DataTypes.INTEGER,
+      contract: {
+        type: DataTypes.STRING,
         allowNull: false
       },
-      settlement_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      },
-      cluster_id: {
-        type: DataTypes.INTEGER,
+      consultant: {
+        type: DataTypes.STRING,
         allowNull: false
       }
     },
     {
       sequelize,
-      tableName: 'interventions',
+      tableName: 'cluster',
       schema: 'public',
       timestamps: false,
       indexes: [
         {
-          name: 'intervention_pkey',
+          name: 'cluster_pkey',
           unique: true,
           fields: [{ name: 'id' }]
         }
