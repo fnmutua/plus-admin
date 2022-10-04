@@ -79,15 +79,19 @@ exports.modelAllData = (req, res) => {
   // console.log("All Data----->")
   var ass_model = db.models[req.query.assocModel]
 
+  console.log('All Model Data----->', reg_model)
+
   if (ass_model) {
     var includeQuerry = {
       include: [{ model: ass_model }]
     }
   } else {
     var includeQuerry = {}
+    console.log('No Associated Model')
   }
+  console.log('the Querry', includeQuerry)
 
-  db.models[reg_model].findAndCountAll(includeQuerry).then((list) => {
+  db.models[reg_model].findAndCountAll({}).then((list) => {
     //db.models[reg_model].findAndCountAll({}).then(list => {
 
     //console.log(list.rows)
@@ -309,7 +313,12 @@ exports.modelOneRecord = (req, res) => {
     })
     .then((thisRecord) => {
       //    console.log(thisRecord.dataValues)
-      res.status(200).send(thisRecord.dataValues)
+      //res.status(200).send(thisRecord.dataValues)
+
+      res.status(200).send({
+        data: thisRecord,
+        code: '0000'
+      })
     })
 }
 

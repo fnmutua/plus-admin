@@ -97,7 +97,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'kisip',
+        path: 'kisip1',
         component: () => import('@/views/Dashboard/Kisip.vue'),
         name: 'Kisip',
         meta: {
@@ -145,6 +145,46 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/intervention',
+    component: Layout,
+    name: 'Intervention',
+    meta: {
+      title: t('Interventions'),
+      icon: 'cib:telegram-plane',
+      noCache: true
+    },
+    children: [
+      {
+        path: 'tenure',
+        component: () => import('@/views/Intervention/Tenure.vue'),
+        name: 'Tenure',
+        meta: {
+          title: t('Tenure'),
+          icon: 'cib:telegram-plane'
+        }
+      },
+      {
+        path: 'infrastructure',
+        component: () => import('@/views/Guide/Guide.vue'),
+        name: 'Infrastructure',
+        meta: {
+          title: t('Infrastructure'),
+          icon: 'cib:telegram-plane'
+        }
+      },
+      {
+        path: 'inclusion',
+        component: () => import('@/views/Guide/Guide.vue'),
+        name: 'SocialDevelopment',
+        meta: {
+          title: t('Inclusion'),
+          icon: 'cib:telegram-plane'
+        }
+      }
+    ]
+  },
+
+  {
     path: '/settlement',
     component: Layout,
     redirect: '/settlement/list',
@@ -182,6 +222,9 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         path: 'hh/:id',
         component: () => import('@/views/Household/index.vue'),
         name: 'Households',
+        props: {
+          name: String
+        },
         meta: {
           hidden: true,
           title: t('Households')
@@ -189,10 +232,12 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
       },
       {
         path: 'map/:id',
-        component: () => import('@/views/Settlement/Map.vue'),
+        component: () => import('@/views/Map/SettlementParcelMap.vue'),
         name: 'SettlementMap',
+
         meta: {
           hidden: true,
+          props: true,
           title: t('Map')
         }
       },
