@@ -1,0 +1,83 @@
+﻿id,name,county_id,settlement_type,geom,area,population,code
+1,Embakasi,47,1,,2.28,1613,Nairobi_1
+2,Kahawa Soweto,47,1,,8.99,4045,Nairobi_2
+3,Kambi Moto,47,1,,0.43,698,Nairobi_3
+4,Mathare fire victims,47,1,,0.78,1950,Nairobi_4
+5,Ex-Grogon,47,1,,0.41,430,Nairobi_5
+6,Mji wa Huruma,47,1,,2.78,1500,Nairobi_6
+7,Redeemed,47,1,,0.47,907,Nairobi_7
+8,Kindunguni,1,1,,24,2390,Mombasa_1
+9,Kisumu Ndogo,1,1,,5.99,3000,Mombasa_2
+10,Misufini,1,1,,24.04,1734,Mombasa_3
+11,Kwa Hakatsa,1,1,,20.9,3000,Mombasa_4
+12,Mwatate,1,1,,5.99,2074,Mombasa_5
+13,Chaani,1,1,,10.82,3729,Mombasa_6
+14,Likoni,1,1,,27.55,7058,Mombasa_7
+15,Kibikoni M17E,3,1,,22.26,1364,Kilifi_1
+16,Muyeye I,3,1,,26,5000,Kilifi_2
+17,Kwa Ndomo,3,1,,2.5,1500,Kilifi_3
+18,M26 Kibokoni,3,1,,2.227,208,Kilifi_4
+19,Jiwe Leupe,3,1,,12.6,1089,Kilifi_5
+20,Makaburini,3,1,,6.68,4508,Kilifi_6
+21,Njoro ya Chini,3,1,,7.8,1800,Kilifi_7
+22,Shingila,3,1,,7,545,Kilifi_8
+23,Jacaba,3,1,,11.51,3640,Kilifi_9
+24,Njoro Takatifu,3,1,,25.24,1350,Kilifi_10
+25,Dingwini,3,1,,3.34,518,Kilifi_11
+26,Tabora,3,1,,5.88,2408,Kilifi_12
+27,Muyeye II,3,1,,106.54,14250,Kilifi_13
+28,Namu Phase 1,7,1,,158.5,4928,Garissa_1
+29,Namu Phase 2,7,1,,158.5,4928,Garissa_2
+30,Bulla Riig Phase 1,7,1,,351.42,13343,Garissa_3
+31,Bulla Riig Phase 2,7,1,,351.42,13343,Garissa_4
+32,Iskadek Phase 1,7,1,,203.41,4432,Garissa_5
+33,Iskadek Phase 2,7,1,,203.41,4432,Garissa_6
+34,Makhanu Phase 1,7,1,,267.73,7648,Garissa_7
+35,Makhanu Phase 2,7,1,,267.73,7648,Garissa_8
+36,County Phase 1,7,1,,56.31,2517,Garissa_9
+37,County Phase 2,7,1,,56.31,2517,Garissa_10
+38,Kaango Mosquito,15,1,,7,3960,Kitui_1
+39,Kathita,14,1,,5,1000,Embu_1
+40,Kimangaru,14,1,,16.97,398,Embu_2
+41,Gatitu,19,1,,19.9,1015,Nyeri_1
+42,Kihatha,19,1,,21.3,250,Nyeri_2
+43,Kihuyo,19,1,,12.8,220,Nyeri_3
+44,Riamukurwe,19,1,,12.5,480,Nyeri_4
+45,Ithenguri,19,1,,6.3,55,Nyeri_5
+46,Gitathini,19,1,,18,485,Nyeri_6
+47,Gitero,19,1,,6.56,216,Nyeri_7
+48,Chorongi,19,1,,4.13,147,Nyeri_8
+49,Kiamwathi,19,1,,12.38,231,Nyeri_9
+50,Kiaruhiu/Kariki,19,1,,13.71,306,Nyeri_10
+51,Gikomo/Kiawara,19,1,,21.89,911,Nyeri_11
+52,Miiri,19,1,,3.34,116,Nyeri_12
+53,Ngorano,19,1,,28.6,128,Nyeri_13
+54,Giakaibei,19,1,,16.19,57,Nyeri_14
+55,Njoguini,19,1,,11.48,90,Nyeri_15
+56,Kanjora,19,1,,9.07,184,Nyeri_16
+57,Ruruguti,19,1,,22.89,535,Nyeri_17
+58,Ihwagi,19,1,,5.62,172,Nyeri_18
+59,Muruguru,19,1,,18.2,60,Nyeri_19
+60,Umoja,22,1,,4.83,1752,Kiambu_1
+61,Kasarani A,32,1,,109.44,17881,Nakuru_1
+62,Kasarani B,32,1,,109.44,17881,Nakuru_2
+63,Eastleigh,32,1,,44.76,5798,Nakuru_3
+64,Tarabete,32,1,,7.7,1959,Nakuru_4
+65,Keringet,32,1,,19.42,1502,Nakuru_5
+66,Kong’asis,32,1,,21.6,1440,Nakuru_6
+67,Crater Lake,32,1,,9.48,848,Nakuru_7
+68,Hill school,27,1,,16.19,4000,Uasin Gishu_1
+69,Maili Nne,27,1,,9.99,1283,Uasin Gishu_2
+70,Kuinet,27,1,,13.16,700,Uasin Gishu_3
+71,Swahili Village,35,1,,7.7,2338,Kericho_1
+72,Majengo Talai,35,1,,23.12,772,Kericho_2
+73,Bondeni,42,1,,13.36,1500,Kisumu_1
+74,Swahili,42,1,,4.2,1500,Kisumu_2
+75,Shauri yako,42,1,,27.73,2500,Kisumu_3
+76,Kaloleni,42,1,,7.25,3000,Kisumu_4
+77,Shauri Moyo,42,1,,37.75,850,Kisumu_5
+78,Kopere,42,1,,21.25,1708,Kisumu_6
+79,Kambi Somali,37,1,,3.4,395,Kakamega_1
+80,Mjini,37,1,,8.4,1123,Kakamega_2
+81,Amalemba,37,1,,3.5,2500,Kakamega_3
+82,Mweiga,19,1,,19,2500,Nyeri_20
