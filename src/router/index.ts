@@ -144,7 +144,93 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
       }
     ]
   },
+
   {
+    path: '/interventions',
+    component: Layout,
+    redirect: '/level/menu1/menu1-1/menu1-1-1',
+    name: 'Interventions',
+    meta: {
+      title: t('Interventions'),
+      icon: 'carbon:skill-level-advanced',
+      hidden: false
+    },
+    children: [
+      {
+        path: 'kisip1',
+        name: 'kisip1',
+        component: getParentLayout(),
+        redirect: '/interventions/kisip1/tenure',
+        meta: {
+          title: t('KISIP I')
+        },
+        children: [
+          {
+            path: 'tenure',
+            name: 'Tenure',
+            component: () => import('@/views/Settlement/Sett.vue'),
+            meta: {
+              title: t('Tenure')
+            }
+          },
+          {
+            path: 'infrastructure',
+            name: 'Infrastructure',
+            component: () => import('@/views/Settlement/Sett.vue'),
+            meta: {
+              title: t('Infrastructure')
+            }
+          }
+        ]
+      },
+      {
+        path: 'kisip2',
+        name: 'kisip2',
+        component: getParentLayout(),
+        redirect: '/level/menu1/menu1-1/menu1-1-1',
+        meta: {
+          title: t('KISIP II')
+        },
+        children: [
+          {
+            path: 'tenure2',
+            name: 'Tenure2',
+            component: () => import('@/views/Intervention/Tenure.vue'),
+            meta: {
+              title: t('Tenure')
+            }
+          },
+          {
+            path: 'infrastructure2',
+            name: 'Infrastructure2',
+            component: () => import('@/views/Level/Menu12.vue'),
+            meta: {
+              title: t('Infrastructure')
+            }
+          },
+          {
+            path: 'inclusion',
+            name: 'Inclusion',
+            component: () => import('@/views/Level/Menu12.vue'),
+            meta: {
+              title: t('Inclusion')
+            }
+          }
+        ]
+      },
+
+      {
+        path: 'kensup',
+        name: 'kensup',
+        component: () => import('@/views/Level/Menu2.vue'),
+        meta: {
+          title: t('KENSUP')
+        }
+      }
+    ]
+  },
+
+  /*   {
     path: '/intervention',
     component: Layout,
     name: 'Intervention',
@@ -182,7 +268,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         }
       }
     ]
-  },
+  }, */
 
   {
     path: '/settlement',

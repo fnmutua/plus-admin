@@ -2941,6 +2941,9 @@ COPY public.cluster (id, lot_id, cluster_no, contract, consultant, description) 
 9	4	3	MLHUD/KISIP/CS/002/2015-2016-Nakuru\n	NA	Consultancy services for Planning & Survey of selected 5 settlements in Nakuru County under Lot4 cluster 3).
 10	4	4	MLHUD/KISIP/CS/002/2015-2016-Garissa	NA	Consultancy services for planning and Surveying of Selected informal settlements in Garissa County Phase II) –Lot 4 Cluster 4\n
 11	4	5	MLHUD/KISIP/CS/002/2015-2016-Nyeri\n	NA	Consultancy services for Planning & Survey of selected 5 settlements in Nyeri County under Lot4 cluster 5).
+17	8	1	Tenure 2022	NA	NA
+18	9	1	Infrastructure 2022	NA	NA
+19	10	1	Inclusion 2022	NA	NA
 1	1	1	MH/KISIP/CS/002/2010-2011	NA	Consultancy Services for Planning and Surveying of Selected Informal Settlements In  Embu, Nyeri, Kakamega and Kilifi Counties
 2	2	1	MH/KISIP/CS/005/2012-2013	NA	Consultancy Services for Planning and Surveying of Selected Informal Settlements in Embu, Kiambu (Thika), Mombasa and Nairobi Counties
 3	3	1	MLHUD/KISIP/CS/005A/2013-2014	NA	Consultancy services for planning and surveying of selected informal settlements in Kisumu, Kericho, Kakamega and Nairobi.\n
@@ -4016,6 +4019,9 @@ COPY public.lot (id, description) FROM stdin;
 5	Lot 5 tenure 2018\n
 6	Lot 6 tenure 2018
 7	Lot 2 - Replanning
+8	Lot 1 Tenure 2022
+9	Lot 1 Infrastructure 2022
+10	Lot 1 Inclusion 2022
 \.
 
 
@@ -28604,7 +28610,7 @@ SELECT pg_catalog.setval('public.beneficiary_parcel_id_seq', 1, false);
 -- Name: cluster_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.cluster_id_seq', 2, true);
+SELECT pg_catalog.setval('public.cluster_id_seq', 3, true);
 
 
 --
@@ -28702,7 +28708,7 @@ SELECT pg_catalog.setval('public.landuse_type_id_seq', 1, false);
 -- Name: lot_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.lot_id_seq', 7, true);
+SELECT pg_catalog.setval('public.lot_id_seq', 10, true);
 
 
 --
