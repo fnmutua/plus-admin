@@ -49,7 +49,7 @@ import { faUserSecret, faCity,faPeopleRoof,faPeopleGroup,faMoneyCheckDollar,faDo
 /* add icons to the library */
 library.add(faUserSecret,faCity,faPeopleGroup,faPeopleRoof,faMoneyCheckDollar,faMap,faFilterCircleDollar,faHouseLock, faDollarSign,faHandsHoldingChild,faFileLines,faRoad)
 
-
+import JsonCSV from 'vue-json-csv'
 
 // 创建实例
 const setupAll = async () => {
@@ -70,6 +70,7 @@ const setupAll = async () => {
 
   app.component('font-awesome-icon', FontAwesomeIcon)
   app.use(VueApexCharts);
+  app.use( JsonCSV)
 
   app.mount('#app')
 }

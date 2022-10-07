@@ -151,7 +151,6 @@ const onPageSizeChange = async (size) => {
 const getAllSettleements = async () => {
   console.log('Get all Settleemnts ')
   let arr = []
-
   const formData = {}
   formData.limit = 5
   formData.page = 1
@@ -164,7 +163,6 @@ const getAllSettleements = async () => {
   formData.assocModel = 'county'
   console.log(formData)
   const res = await getSettlementListByCounty(formData)
-
   console.log('All settlements Querry', res)
   tableDataList.value = res.data
   total.value = res.total

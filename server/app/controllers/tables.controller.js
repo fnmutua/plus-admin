@@ -693,13 +693,6 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
   qry.limit = req.body.limit
   qry.offset = (req.body.page - 1) * req.body.limit
 
-  // qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
-
-  if (req.body.columnFilterValue.length > 0) {
-    console.log('Filter by IDS', req.body.columnFilterValue.length)
-    qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
-  }
-
   /// use the multpiple filters
   var queryFields = {}
   if (req.body.filters) {
@@ -715,9 +708,6 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
       // qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
       qry.where = queryFields
     }
-  } else if (req.body.columnFilterValue.length > 0) {
-    console.log('Filter by IDS', req.body.columnFilterValue.length)
-    qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
   }
 
   db.models[reg_model].findAndCountAll(qry).then((list) => {
