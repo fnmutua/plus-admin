@@ -2,24 +2,28 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getUserListApi } from '@/api/users'
+import { getSettlementListApi, getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { useForm } from '@/hooks/web/useForm'
+import { ElButton, ElInput, FormRules } from 'element-plus'
 import { Form } from '@/components/Form'
 import {
   Check,
   Delete,
-  TopRight,
-  User,
   Position,
   Edit,
+  TopRight,
+  User,
   Message,
   Search,
   Star
 } from '@element-plus/icons-vue'
-import { ref, h, reactive } from 'vue'
-import { ElSwitch, ElButton, ElPagination } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
+import { CountyType } from '@/api/counties/types'
+import { ref, h, reactive } from 'vue'
+import { ElSwitch, ElPagination, ElTooltip } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
 
@@ -27,51 +31,37 @@ interface Params {
   pageIndex?: number
   pageSize?: number
 }
-const { register, elFormRef, methods } = useForm()
 
 const { push } = useRouter()
 
-const route = useRoute()
-
-////Configurations //////////////
-const model = 'interventions'
-const assoc_model = 'settlement'
-const filterCol = 'cluster_id'
-const searchField = 'intervention_type'
-const parent_model = 'clusters'
-const parent_field = 'cluster_id'
-
-////////////
-
-function toTitleCase(str) {
-  return str.replace(/\w\S*/g, function (txt) {
-    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
-  })
-}
-
-const parentOptions = []
-const selectedParents = []
+const { register, elFormRef, methods } = useForm()
+const countiesOptions = []
+const selCounties = []
 
 const { t } = useI18n()
 
 const columns: TableColumn[] = [
   {
     field: 'index',
-    label: t('No.'),
+    label: t('userDemo.index'),
     type: 'index'
   },
 
   {
-    field: 'settlement.name',
-    label: t(toTitleCase(assoc_model.replace('_', ' ')))
+    field: 'name',
+    label: t('Name')
   },
   {
-    field: 'year',
-    label: t('Year')
+    field: 'population',
+    label: t('Population')
   },
   {
-    field: 'settlement.population',
-    label: t('population')
+    field: 'county.name',
+    label: t('County')
+  },
+  {
+    field: 'area',
+    label: t('Area(Ha.)')
   },
 
   {
@@ -81,29 +71,29 @@ const columns: TableColumn[] = [
 ]
 const handleClear = async () => {
   console.log('cleared....')
-  getAll()
+  getAllSettleements()
 }
-const handleSelect = async (selectIDs) => {
-  console.log('on change  ', selectIDs)
-  selectedParents.length = 0 // clear previously selected counties
+const handleSelect = async (county_id) => {
+  console.log('on change to county ', county_id)
+  selCounties.length = 0 // clear previously selected counties
 
   let arr = []
-  if (selectIDs.length > 0) {
+  if (county_id.length > 0) {
     // arr.push(county_id)   // applies for sinle select only
     //console.log('Array', arr)
-    //selectedParents.push(county_id)
-    selectedParents.push(...selectIDs)
-    console.log(selectedParents)
+    //selCounties.push(county_id)
+    selCounties.push(...county_id)
+    console.log(selCounties)
     const formData = {}
     formData.limit = 5
     formData.page = 1
     formData.curUser = 1 // Id for logged in user
-    formData.model = model
-    formData.searchField = searchField
+    formData.model = 'settlement'
+    formData.searchField = 'name'
     formData.searchKeyword = ''
-    formData.columnFilterValue = selectIDs
-    formData.columnFilterField = filterCol
-    formData.assocModel = assoc_model
+    formData.columnFilterValue = county_id
+    formData.columnFilterField = 'county_id'
+    formData.assocModel = 'county'
     console.log(formData)
     const res = await getSettlementListByCounty(formData)
 
@@ -114,18 +104,22 @@ const handleSelect = async (selectIDs) => {
 }
 
 const onPageChange = async (page) => {
-  console.log('on change change: selected counties ', selectedParents)
+  console.log('on change change: selected counties ', selCounties)
 
   const formData = {}
   formData.limit = 5
   formData.page = page
   formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  formData.searchField = searchField
+  formData.model = 'settlement'
+  formData.searchField = 'name'
   formData.searchKeyword = ''
-  formData.columnFilterValue = selectedParents
-  formData.columnFilterField = filterCol
-  formData.assocModel = assoc_model
+  formData.columnFilterValue = selCounties
+  formData.columnFilterField = 'county_id'
+  // sedond column filter
+  formData.columnFilterSecondValue = selCounties
+  formData.columnFilterSecondField = 'county_id'
+
+  formData.assocModel = 'county'
   console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
@@ -135,18 +129,18 @@ const onPageChange = async (page) => {
 }
 
 const onPageSizeChange = async (size) => {
-  console.log('on change change: selected counties ', selectedParents)
+  console.log('on change change: selected counties ', selCounties)
 
   const formData = {}
   formData.limit = size
   formData.page = 1
   formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  formData.searchField = searchField
+  formData.model = 'settlement'
+  formData.searchField = 'name'
   formData.searchKeyword = ''
-  formData.columnFilterValue = selectedParents
-  formData.columnFilterField = filterCol
-  formData.assocModel = assoc_model
+  formData.columnFilterValue = selCounties
+  formData.columnFilterField = 'county_id'
+  formData.assocModel = 'county'
   console.log(formData)
   const res = await getSettlementListByCounty(formData)
   console.log('After Querry', res)
@@ -154,7 +148,7 @@ const onPageSizeChange = async (size) => {
   total.value = res.total
 }
 
-const getAll = async () => {
+const getAllSettleements = async () => {
   console.log('Get all Settleemnts ')
   let arr = []
 
@@ -162,38 +156,37 @@ const getAll = async () => {
   formData.limit = 5
   formData.page = 1
   formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  formData.searchField = searchField
+  formData.model = 'settlement'
+  formData.searchField = 'name'
   formData.searchKeyword = ''
   formData.columnFilterValue = arr
-  formData.columnFilterField = filterCol
-  formData.assocModel = assoc_model
+  formData.columnFilterField = 'county_id'
+  formData.assocModel = 'county'
   console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
   console.log('All settlements Querry', res)
   tableDataList.value = res.data
   total.value = res.total
-  loading.value = false
 }
 
 const schema = reactive<FormSchema[]>([
   {
-    field: parent_field,
-    label: toTitleCase(parent_model),
+    field: 'county_id',
+    label: t('County'),
     component: 'Select',
     colProps: {
       span: 24
     },
     componentProps: {
-      options: parentOptions,
+      options: countiesOptions,
       onChange: handleSelect,
       onClear: handleClear,
       filterable: 'true',
       multiple: 'true',
 
       style: {
-        width: '80%'
+        width: '25%'
       },
       slots: {
         suffix: true,
@@ -209,16 +202,14 @@ const currentPage = ref(1)
 const total = ref(0)
 let tableDataList = ref<UserType[]>([])
 
-const getParents = async (params?: Params) => {
-  console.log('parent_model', parent_model)
-  console.log('parent_field', parent_field)
+const getCounties = async (params?: Params) => {
   const res = await getCountyListApi({
     params: {
       pageIndex: 1,
       limit: 5,
       curUser: 1, // Id for logged in user
-      model: parent_model,
-      searchField: parent_field,
+      model: 'county',
+      searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
     }
@@ -232,56 +223,59 @@ const getParents = async (params?: Params) => {
     cnty.forEach(function (arrayItem) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.contract
+      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
-      parentOptions.push(countyOpt)
+      countiesOptions.push(countyOpt)
     })
   })
 }
 
-getAll()
-getParents()
-
-const viewHHs = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.settlement.id)
-  push({
-    path: '/settlement/hh/:id',
-    name: 'Households',
-    params: { id: data.row.settlement.id }
-  })
+const open = (msg) => {
+  ElMessage.error(msg)
 }
 
-const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.settlement.name)
-  push({
-    path: '/settlement/map/:id',
-    name: 'SettlementMap',
-    query: { name: 'test' },
-    params: { id: data.row.settlement.id, name: 'test' }
-  })
-}
+getCounties()
+getAllSettleements()
 
-const viewSettlementDetails = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.settlement.id)
+console.log('pagination', countiesOptions)
+const acitonFn = (data: TableSlotDefault) => {
+  console.log('On Click.....', data.row.id)
 
   push({
     path: '/settlement/:id',
     name: 'SettlementDetails',
-    params: {
-      data: data.row.settlement.id,
-      id: data.row.settlement.id,
-      name: data.row.settlement.name
-    }
+    params: { data: data.row.id, id: data.row.id }
   })
+}
+
+const viewHHs = (data: TableSlotDefault) => {
+  console.log('On Click.....', data.row.id)
+  push({
+    path: '/settlement/hh/:id',
+    name: 'Households',
+    params: { id: data.row.id }
+  })
+}
+
+const viewOnMap = (data: TableSlotDefault) => {
+  console.log('On Click.....', data.row.geom)
+  if (data.row.geom) {
+    push({
+      path: '/settlement/map/:id',
+      name: 'SettlementMap',
+      params: { id: data.row.id }
+    })
+  } else {
+    var msg = 'This Settlement does not have the boundary defined in the database!'
+    open(msg)
+  }
 }
 </script>
 
 <template>
   <ContentWrap
-    :title="toTitleCase('Tenure Interventions')"
-    :message="
-      t('The list of ' + model + ' listed by ' + parent_model + '. Use the filter to subset')
-    "
+    :title="t('Settlements')"
+    :message="t('The list of settlements listed by county. Use the county filter to subset')"
   >
     <Form
       :schema="schema"
@@ -290,7 +284,13 @@ const viewSettlementDetails = (data: TableSlotDefault) => {
       size="large"
       class="dark:(border-1 border-[var(--el-border-color)] border-solid)"
       @register="register"
-    />
+    >
+      <template #title>
+        <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.register') }}</h2>
+      </template>
+
+      <template #register> </template>
+    </Form>
 
     <Table
       :columns="columns"
@@ -305,7 +305,7 @@ const viewSettlementDetails = (data: TableSlotDefault) => {
           <el-button
             type="primary"
             :icon="TopRight"
-            @click="viewSettlementDetails(data as TableSlotDefault)"
+            @click="acitonFn(data as TableSlotDefault)"
             circle
           />
         </el-tooltip>

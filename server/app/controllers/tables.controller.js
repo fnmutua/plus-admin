@@ -625,7 +625,7 @@ exports.modelPaginatedData = (req, res) => {
   })
 }
 
-exports.modelPaginatedDatafilterByColumn = (req, res) => {
+exports.xmodelPaginatedDatafilterByColumn = (req, res) => {
   console.log('Req-body', req.body)
   var arr = [1, 13]
   var reg_model = req.body.model
@@ -667,7 +667,68 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
     })
   })
 }
+exports.modelPaginatedDatafilterByColumn = (req, res) => {
+  console.log('Req-body', req.body)
+  var arr = [1, 13]
+  var reg_model = req.body.model
+  var field = req.body.columnFilterField
+  var columnFilterValue = req.query.columnFilterValue
 
+  var filters = req.body.filters
+  var filterValues = req.body.filterValues
+
+  console.log('All Data----->')
+  var ass_model = db.models[req.body.assocModel]
+
+  var qry = {}
+
+  if (ass_model) {
+    var qry = {
+      include: [{ model: ass_model, raw: true }]
+    }
+  } else {
+    var qry = {}
+  }
+
+  qry.limit = req.body.limit
+  qry.offset = (req.body.page - 1) * req.body.limit
+
+  // qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
+
+  if (req.body.columnFilterValue.length > 0) {
+    console.log('Filter by IDS', req.body.columnFilterValue.length)
+    qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
+  }
+
+  /// use the multpiple filters
+  var queryFields = {}
+  if (req.body.filters) {
+    if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
+      console.log('Multpile Filters: ', filters)
+      console.log('filterValues: ', filterValues[0])
+      for (let i = 0; i < req.body.filters.length; i++) {
+        console.log('The fields:', req.body.filters[i], 'values:', req.body.filterValues[i])
+        queryFields[req.body.filters[i]] = req.body.filterValues[i]
+      }
+      console.log('Final-object------------>', queryFields)
+      //  { intervention_type: [ 1, 2, 3 ], intervention_phase: [ 1, 2 ] }
+      // qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
+      qry.where = queryFields
+    }
+  } else if (req.body.columnFilterValue.length > 0) {
+    console.log('Filter by IDS', req.body.columnFilterValue.length)
+    qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
+  }
+
+  db.models[reg_model].findAndCountAll(qry).then((list) => {
+    console.log(list)
+    res.status(200).send({
+      data: list.rows,
+      total: list.count,
+      code: '0000'
+    })
+  })
+}
 exports.modelCountyUsers = (req, res) => {
   var reg_model = req.query.model
   var pg_number = req.query.page

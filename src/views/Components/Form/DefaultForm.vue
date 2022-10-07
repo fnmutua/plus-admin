@@ -348,7 +348,7 @@ const isHoliday = ({ dayjs }) => {
 const schema = reactive<FormSchema[]>([
   {
     field: 'field1',
-    label: t('formDemo.input'),
+    label: t('xxxx'),
     component: 'Divider'
   },
   {
