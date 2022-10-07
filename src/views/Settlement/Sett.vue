@@ -19,6 +19,7 @@ import {
   Search,
   Star
 } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
 import { CountyType } from '@/api/counties/types'
 import { ref, h, reactive } from 'vue'
@@ -32,8 +33,6 @@ interface Params {
 }
 
 const { push } = useRouter()
-
-const route = useRoute()
 
 const { register, elFormRef, methods } = useForm()
 const countiesOptions = []
@@ -226,6 +225,11 @@ const getCounties = async (params?: Params) => {
     })
   })
 }
+
+const open = (msg) => {
+  ElMessage.error(msg)
+}
+
 getCounties()
 getAllSettleements()
 
@@ -250,12 +254,17 @@ const viewHHs = (data: TableSlotDefault) => {
 }
 
 const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
-  push({
-    path: '/settlement/map/:id',
-    name: 'SettlementMap',
-    params: { id: data.row.id }
-  })
+  console.log('On Click.....', data.row.geom)
+  if (data.row.geom) {
+    push({
+      path: '/settlement/map/:id',
+      name: 'SettlementMap',
+      params: { id: data.row.id }
+    })
+  } else {
+    var msg = 'This Settlement does not have the boundary defined in the database!'
+    open(msg)
+  }
 }
 </script>
 

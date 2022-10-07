@@ -168,7 +168,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           {
             path: 'tenure',
             name: 'Tenure',
-            component: () => import('@/views/Settlement/Sett.vue'),
+            component: () => import('@/views/Intervention/Tenure1.vue'),
             meta: {
               title: t('Tenure')
             }
@@ -195,7 +195,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           {
             path: 'tenure2',
             name: 'Tenure2',
-            component: () => import('@/views/Intervention/Tenure.vue'),
+            component: () => import('@/views/Intervention/Tenure1.vue'),
             meta: {
               title: t('Tenure')
             }
