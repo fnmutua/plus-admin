@@ -7,33 +7,42 @@ import { getCountyListApi } from '@/api/counties'
 import { useForm } from '@/hooks/web/useForm'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { Form } from '@/components/Form'
-import { Position, TopRight, User } from '@element-plus/icons-vue'
+import { Position, TopRight, User, Download, Filter } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
+import exportFromJSON from 'export-from-json'
 
 interface Params {
   pageIndex?: number
-  pageSize?: number
+  xpageSize?: number
 }
 
 const { push } = useRouter()
-
-const { register } = useForm()
-const xcountiesOptions = []
+const value1 = ref([])
 const value2 = ref([])
+var value3 = ref([])
 const countiesOptions = ref([])
-
+const settlementOptions = ref([])
+const page = ref(1)
+const pSize = ref(5)
 const selCounties = []
-//// ------------------parameters -----------------------////
-const filters = ['intervention_type', 'intervention_phase']
-const filterValues = [
-  [1, 2, 3],
-  [1, 2]
-]
+const loading = ref(true)
+const pageSize = ref(5)
+const currentPage = ref(1)
+const total = ref(0)
+const downloadLoading = ref(false)
 
+let tableDataList = ref<UserType[]>([])
+//// ------------------parameters -----------------------////
+//const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
+var filters = []
+var filterValues = [[]]
+var tblData = []
+const associated_Model = 'settlement'
+const model = 'interventions'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
@@ -69,139 +78,165 @@ const columns: TableColumn[] = [
 ]
 const handleClear = async () => {
   console.log('cleared....')
-  getAllSettleements()
+
+  // clear all the fileters -------
+  filterValues = [[]]
+  filters = []
+  value1.value = ''
+  value2.value = ''
+  value3.value = ''
+  pSize.value = 5
+  currentPage.value = 1
+  tblData = []
+  //----run the get data--------
+  getInterventionsAll()
 }
-const handleSelectType = async (intervention_type: any) => {
-  console.log('on change -----> ', intervention_type)
-  selCounties.length = 0 // clear previously selected counties
-  filterValues[0].length = 0 // clear previously selected types
-  console.log('filterValues---->', filterValues)
-  if (intervention_type.length > 0) {
-    console.log('Filters', filters)
-    console.log('Filter Values', filterValues)
-    filterValues[0].push(...intervention_type)
-
-    const formData = {}
-    formData.limit = 5
-    formData.page = 1
-    formData.curUser = 1 // Id for logged in user
-    formData.model = 'interventions'
-    //-Search field--------------------------------------------
-    formData.searchField = 'name'
-    formData.searchKeyword = ''
-    //--Single Filter -----------------------------------------
-    formData.columnFilterValue = intervention_type
-    formData.columnFilterField = 'intervention_type'
-    formData.assocModel = 'settlement'
-    // - multiple filters -------------------------------------
-    formData.filters = filters
-    formData.filterValues = filterValues
-    //-------------------------
-    console.log(formData)
-    const res = await getSettlementListByCounty(formData)
-
-    console.log('After Querry', res)
-    tableDataList.value = res.data
-    total.value = res.total
+const handleSelectType = async (intervention_type) => {
+  console.log('Target:', intervention_type)
+  var selectOption = 'intervention_type'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
   }
+  var index = filters.indexOf(selectOption) // 1
+  console.log('index--->', index)
+  // clear previously selected
+  if (filterValues[index]) {
+    filterValues.splice(index, 1)
+  }
+
+  if (!filterValues.includes(intervention_type) && intervention_type.length > 0) {
+    filterValues.splice(index, 0, intervention_type) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (intervention_type.length === 0) {
+    filters.splice(index, 1)
+  }
+  console.log('FilterValues:', filterValues)
+
+  getFilteredData(filters, filterValues)
 }
 const handleSelectPhase = async (phase: any) => {
-  console.log('on change phase-----> ', phase)
-  filterValues[1].length = 0 // clear previously selected phases
-
-  if (phase.length > 0) {
-    console.log('Filters', filters)
-    console.log('Phase --- Filter Values', filterValues)
-    filterValues[1].push(...phase)
-    const formData = {}
-    formData.limit = 5
-    formData.page = 1
-    formData.curUser = 1 // Id for logged in user
-    formData.model = 'interventions'
-    //-Search field--------------------------------------------
-    formData.searchField = 'name'
-    formData.searchKeyword = ''
-    //--Single Filter -----------------------------------------
-    formData.columnFilterValue = phase
-    formData.columnFilterField = 'intervention_type'
-    formData.assocModel = 'settlement'
-    // - multiple filters -------------------------------------
-    formData.filters = filters
-    formData.filterValues = filterValues
-    //-------------------------
-    console.log(formData)
-    const res = await getSettlementListByCounty(formData)
-
-    console.log('After Querry', res)
-    tableDataList.value = res.data
-    total.value = res.total
+  var selectOption = 'intervention_phase'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
   }
+  var index = filters.indexOf(selectOption) // 1
+  console.log('intervention_phase : index--->', index)
+
+  // clear previously selected
+  if (filterValues[index]) {
+    // filterValues[index].length = 0
+    filterValues.splice(index, 1)
+  }
+
+  if (!filterValues.includes(phase) && phase.length > 0) {
+    filterValues.splice(index, 0, phase) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (phase.length === 0) {
+    filters.splice(index, 1)
+  }
+
+  console.log('FilterValues:', filterValues)
+
+  getFilteredData(filters, filterValues)
 }
-const onPageChange = async (page: any) => {
+
+const handleSelectSettlement = async (settlement: any) => {
+  var selectOption = 'settlement_id'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
+  }
+  var index = filters.indexOf(selectOption) // 1
+  console.log('settlement : index--->', index)
+
+  // clear previously selected
+  if (filterValues[index]) {
+    // filterValues[index].length = 0
+    filterValues.splice(index, 1)
+  }
+
+  if (!filterValues.includes(settlement) && settlement.length > 0) {
+    filterValues.splice(index, 0, settlement) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (settlement.length === 0) {
+    filters.splice(index, 1)
+  }
+
+  console.log('FilterValues:', filterValues)
+
+  getFilteredData(filters, filterValues)
+}
+
+const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
-
-  const formData = {}
-  formData.limit = 5
-  formData.page = page
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'interventions'
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  formData.columnFilterValue = selCounties
-  formData.columnFilterField = 'intervention_type'
-  // sedond column filter
-  formData.columnFilterSecondValue = selCounties
-  formData.columnFilterSecondField = 'intervention_type'
-
-  formData.assocModel = 'settlement'
-  console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-  console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
+  page.value = selPage
+  getFilteredData(filters, filterValues)
 }
 
 const onPageSizeChange = async (size: any) => {
-  console.log('on change change: selected counties ', selCounties)
+  pSize.value = size
+  getFilteredData(filters, filterValues)
+}
 
+const getInterventionsAll = async () => {
+  getFilteredData(filters, filterValues)
+}
+
+const destructure = (obj) => {
+  // console.log('deconstructing......')
+  const simpleObj = {}
+  for (let key in obj) {
+    const value = obj[key]
+    const type = typeof value
+    if (['string', 'boolean'].includes(type) || (type === 'number' && !isNaN(value))) {
+      simpleObj[key] = value
+    } else if (type === 'object') {
+      Object.assign(simpleObj, destructure(value))
+    }
+  }
+
+  return simpleObj
+}
+const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
-  formData.limit = size
-  formData.page = 1
+  formData.limit = pSize.value
+  formData.page = page.value
   formData.curUser = 1 // Id for logged in user
-  formData.model = 'interventions'
+  formData.model = model
+  //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
-  formData.columnFilterValue = selCounties
-  formData.columnFilterField = 'intervention_type'
-  formData.assocModel = 'settlement'
-  console.log(formData)
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = associated_Model
+  // - multiple filters -------------------------------------
+  formData.filters = selFilters
+  formData.filterValues = selfilterValues
+  //-------------------------
+  //console.log(formData)
   const res = await getSettlementListByCounty(formData)
+
   console.log('After Querry', res)
   tableDataList.value = res.data
   total.value = res.total
-}
 
-const getAllSettleements = async () => {
-  console.log('Get all Settleemnts ')
-  let arr = []
+  tblData = [] // reset the table data
+  console.log('TBL-b4', tblData)
+  res.data.forEach(function (arrayItem) {
+    //  console.log(countyOpt)
+    delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
-  const formData = {}
-  formData.limit = 5
-  formData.page = 1
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'interventions'
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  formData.columnFilterValue = arr
-  formData.columnFilterField = 'intervention_type'
-  formData.assocModel = 'settlement'
-  console.log(formData)
-  const res = await getSettlementListByCounty(formData)
+    var dd = destructure(arrayItem)
 
-  console.log('All interventions Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
+    tblData.push(dd)
+  })
+
+  console.log('TBL-4f', tblData)
 }
 
 const PhaseOptions = [
@@ -215,103 +250,7 @@ const PhaseOptions = [
   }
 ]
 
-const options = [
-  {
-    value: 'Option1',
-    label: 'Option1'
-  },
-  {
-    value: 'Option2',
-    label: 'Option2'
-  },
-  {
-    value: 'Option3',
-    label: 'Option3'
-  },
-  {
-    value: 'Option4',
-    label: 'Option4'
-  },
-  {
-    value: 'Option5',
-    label: 'Option5'
-  }
-]
-const schema = reactive<FormSchema[]>([
-  {
-    field: 'field1',
-    component: 'Divider',
-    label: 'Filters'
-  },
-  {
-    field: 'type',
-    label: `${t('Type')}`,
-    component: 'Select',
-    colProps: {
-      span: 12
-    },
-    componentProps: {
-      options: countiesOptions,
-      //onChange: handleSelect,
-      onChange: handleSelectType,
-      onClear: handleClear,
-      filterable: 'true',
-      multiple: 'true',
-      collapsetags: 'true',
-      style: {
-        width: '50%'
-      },
-      slots: {
-        suffix: true,
-        prefix: true
-      }
-    }
-  },
-  {
-    field: 'phase',
-    label: `${t('Phase')}`,
-    component: 'Select',
-    colProps: {
-      span: 12
-    },
-    componentProps: {
-      options: [
-        {
-          label: 'KISIP I',
-          value: 1
-        },
-        {
-          label: 'KISIP II',
-          value: 2
-        }
-      ],
-      onChange: handleSelectPhase,
-      onClear: handleClear,
-      filterable: 'true',
-      multiple: 'true',
-      style: {
-        width: '50%'
-      },
-      slots: {
-        suffix: true,
-        prefix: true
-      }
-    }
-  },
-  {
-    field: 'field1',
-    label: 'Data',
-    component: 'Divider'
-  }
-])
-
-const loading = ref(true)
-const pageSize = ref(5)
-const currentPage = ref(1)
-const total = ref(0)
-let tableDataList = ref<UserType[]>([])
-
-const getInterventionTypes = async (params?: Params) => {
+const getInterventionTypes = async () => {
   const res = await getCountyListApi({
     params: {
       pageIndex: 1,
@@ -339,12 +278,49 @@ const getInterventionTypes = async (params?: Params) => {
   })
 }
 
+const getSettlementsOptions = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'settlement',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var countyOpt = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      settlementOptions.value.push(countyOpt)
+    })
+  })
+}
+
 const open = (msg: MessageParamsWithType) => {
   ElMessage.error(msg)
 }
 
+const handleDownload = () => {
+  downloadLoading.value = true
+  const data = tblData
+  const fileName = 'data.xlsx'
+  const exportType = exportFromJSON.types.csv
+  if (data) exportFromJSON({ data, fileName, exportType })
+}
+
 getInterventionTypes()
-getAllSettleements()
+getSettlementsOptions()
+getInterventionsAll()
 
 console.log('Options---->', countiesOptions)
 const acitonFn = (data: TableSlotDefault) => {
@@ -367,8 +343,8 @@ const viewHHs = (data: TableSlotDefault) => {
 }
 
 const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.geom)
-  if (data.row.geom) {
+  console.log('On Click.....', data.row)
+  if (data.row.settlement.geom) {
     push({
       path: '/settlement/map/:id',
       name: 'SettlementMap',
@@ -390,14 +366,15 @@ const viewOnMap = (data: TableSlotDefault) => {
 
     <div style="display: inline-block; margin-left: 20px">
       <el-select
-        v-model="value2"
+        v-model="value1"
+        value-key="type"
         :onChange="handleSelectType"
         :onClear="handleClear"
         multiple
         filterable
         clearable
         collapse-tags
-        placeholder="Filter by Type"
+        placeholder="Filter by Intervention"
       >
         <el-option
           v-for="item in countiesOptions"
@@ -409,14 +386,14 @@ const viewOnMap = (data: TableSlotDefault) => {
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-select
-        v-model="value3"
+        v-model="value2"
         :onChange="handleSelectPhase"
         :onClear="handleClear"
         multiple
         clearable
         filterable
         collapse-tags
-        placeholder="Filter by Phase"
+        placeholder="Filter by KISIP Phase"
       >
         <el-option
           v-for="item in PhaseOptions"
@@ -425,6 +402,31 @@ const viewOnMap = (data: TableSlotDefault) => {
           :value="item.value"
         />
       </el-select>
+    </div>
+    <div style="display: inline-block; margin-left: 20px">
+      <el-select
+        v-model="value3"
+        :onChange="handleSelectSettlement"
+        :onClear="handleClear"
+        multiple
+        clearable
+        filterable
+        collapse-tags
+        placeholder="Filter by Settlement Name"
+      >
+        <el-option
+          v-for="item in settlementOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
+      </el-select>
+    </div>
+    <div style="display: inline-block; margin-left: 20px">
+      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+    </div>
+    <div style="display: inline-block; margin-left: 20px">
+      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
@@ -468,7 +470,7 @@ const viewOnMap = (data: TableSlotDefault) => {
       layout="sizes, prev, pager, next, total"
       v-model:currentPage="currentPage"
       v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50]"
+      :page-sizes="[5, 10, 20, 50, 200, 1000]"
       :total="total"
       :background="true"
       @size-change="onPageSizeChange"
