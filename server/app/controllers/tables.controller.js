@@ -303,23 +303,28 @@ exports.modelSelectGeo = async (req, res) => {
 exports.modelOneRecord = (req, res) => {
   var reg_model = req.body.model
 
+  var ass_model = db.models[req.body.assocModel]
+
+  if (ass_model) {
+    var qry = {
+      include: [{ model: ass_model }]
+    }
+  } else {
+    var qry = {}
+  }
+  qry.where = { id: { [op.eq]: req.body.id } } // Exclude the logged in user returing in the list
+
   // console.log("ID:----->", req.body.id)
   // get records based on ID
-  db.models[reg_model]
-    .findOne({
-      where: {
-        id: req.body.id
-      }
-    })
-    .then((thisRecord) => {
-      //    console.log(thisRecord.dataValues)
-      //res.status(200).send(thisRecord.dataValues)
+  db.models[reg_model].findOne(qry).then((thisRecord) => {
+    //    console.log(thisRecord.dataValues)
+    //res.status(200).send(thisRecord.dataValues)
 
-      res.status(200).send({
-        data: thisRecord,
-        code: '0000'
-      })
+    res.status(200).send({
+      data: thisRecord,
+      code: '0000'
     })
+  })
 }
 
 exports.modelEditOneRecord = (req, res) => {

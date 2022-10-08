@@ -1,29 +1,19 @@
 <script setup lang="ts">
 import { Descriptions } from '@/components/Descriptions'
 import { useI18n } from '@/hooks/web/useI18n'
-import { onMounted, reactive, unref } from 'vue'
+import { onMounted, ref, reactive, unref } from 'vue'
 import { Form } from '@/components/Form'
 import { ElFormItem, ElInput, ElButton } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { useForm } from '@/hooks/web/useForm'
 import { useRoute } from 'vue-router'
+import { getOneGeo, getOneSettlement, getfilteredGeo } from '@/api/settlements'
+
 const { register, elFormRef } = useForm()
 
-const { required } = useValidator()
 const route = useRoute()
 
 const { t } = useI18n()
-
-const profile = reactive({
-  name: 'Kibera',
-  county: 'Nairobi',
-  subcounty: 'Langata',
-  type: 'Slum',
-  description:
-    'Kibera (Kinubi: Forest or Jungle[1]) is a division of Nairobi Area, Kenya, and neighbourhood of the city of Nairobi, 6.6 kilometres (4.1 mi) from the city centre.[2] Kibera is the largest slum in Nairobi, and the largest urban slum in Africa.[3][4][5] The 2009 Kenya Population and Housing Census reports Kiberas population as 170,070, contrary to previous estimates of one or two million people.[6] ',
-  area_ha: '34',
-  population: '3500'
-})
 
 const housing = reactive({
   no_dwelling: '45',
@@ -188,10 +178,55 @@ const form = reactive({
   subcounty: ''
 })
 
-onMounted(() => {
+////Configurations //////////////
+const model = 'settlement'
+//let settlement = reactive({})
+let settlement = reactive({
+  count: 0,
+  name: 'unnwo',
+  flag: false
+})
+////////////
+
+const profile = reactive({
+  name: '',
+  county: '',
+  subcounty: '',
+  type: 'Slum',
+  description:
+    'Kibera (Kinubi: Forest or Jungle[1]) is a division of Nairobi Area, Kenya, and neighbourhood of the city of Nairobi, 6.6 kilometres (4.1 mi) from the city centre.[2] Kibera is the largest slum in Nairobi, and the largest urban slum in Africa.[3][4][5] The 2009 Kenya Population and Housing Census reports Kiberas population as 170,070, contrary to previous estimates of one or two million people.[6] ',
+  area_ha: '',
+  population: ''
+})
+
+const getThisSettlement = async () => {
+  console.log('Get all parcels for this settleemtn ')
   const id = route.params.id
   const settData = route.params.data
   console.log('Settlement ID, Data:', id, settData)
+
+  const formData = {}
+  formData.model = model
+  formData.columnFilterField = 'settlement_id'
+  formData.id = id
+  formData.assocModel = 'county'
+
+  console.log(formData)
+  const res = await getOneSettlement(formData)
+  console.log(res)
+  // set the settlement details ------------------------------------
+  profile.name = res.data.name
+  profile.county = res.data.county.name
+  profile.area_ha = res.data.area
+  profile.population = res.data.population
+}
+
+onMounted(() => {
+  const id = route.params.id
+  const settData = route.params.data
+  // console.log('Settlement ID, Data:', id, settData)
+  getThisSettlement()
+  console.log(settlement)
 })
 </script>
 

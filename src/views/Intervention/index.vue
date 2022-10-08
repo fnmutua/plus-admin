@@ -323,7 +323,7 @@ getSettlementsOptions()
 getInterventionsAll()
 
 console.log('Options---->', countiesOptions)
-const acitonFn = (data: TableSlotDefault) => {
+const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
 
   push({
@@ -360,7 +360,7 @@ const viewOnMap = (data: TableSlotDefault) => {
 <template>
   <ContentWrap
     :title="t('Settlements')"
-    :message="t('The list of settlements listed by county. Use the county filter to subset')"
+    :message="t('The list of interventions in informal settlements. Use the filters to subset')"
   >
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
@@ -443,7 +443,7 @@ const viewOnMap = (data: TableSlotDefault) => {
           <el-button
             type="primary"
             :icon="TopRight"
-            @click="acitonFn(data as TableSlotDefault)"
+            @click="viewProfile(data as TableSlotDefault)"
             circle
           />
         </el-tooltip>

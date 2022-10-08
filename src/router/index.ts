@@ -160,25 +160,25 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         path: 'kisip1',
         name: 'kisip1',
         component: getParentLayout(),
-        redirect: '/interventions/kisip1/tenure',
+        redirect: '/interventions/kisip1/settlements',
         meta: {
           title: t('KISIP I')
         },
         children: [
           {
-            path: 'tenure',
-            name: 'Tenure',
-            component: () => import('@/views/Intervention/Tenure1.vue'),
+            path: 'settlements',
+            name: 'InterventionSettlementsKISIPI',
+            component: () => import('@/views/Intervention/index.vue'),
             meta: {
-              title: t('Tenure')
+              title: t('Settlements')
             }
           },
           {
-            path: 'infrastructure',
-            name: 'Infrastructure',
-            component: () => import('@/views/Settlement/Sett.vue'),
+            path: 'hh',
+            name: 'InterventionHHKISIPI',
+            component: () => import('@/views/Intervention/index.vue'),
             meta: {
-              title: t('Infrastructure')
+              title: t('Households')
             }
           }
         ]
@@ -193,27 +193,19 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         },
         children: [
           {
-            path: 'tenure2',
-            name: 'Tenure2',
-            component: () => import('@/views/Intervention/Tenure1.vue'),
+            path: 'settlements',
+            name: 'InterventionSettlementsKISIPII',
+            component: () => import('@/views/Intervention/index.vue'),
             meta: {
-              title: t('Tenure')
+              title: t('Settlements')
             }
           },
           {
-            path: 'infrastructure2',
-            name: 'Infrastructure2',
-            component: () => import('@/views/Level/Menu12.vue'),
+            path: 'hh',
+            name: 'InterventionHHKISIPII',
+            component: () => import('@/views/Intervention/index.vue'),
             meta: {
-              title: t('Infrastructure')
-            }
-          },
-          {
-            path: 'inclusion',
-            name: 'Inclusion',
-            component: () => import('@/views/Level/Menu12.vue'),
-            meta: {
-              title: t('Inclusion')
+              title: t('Households')
             }
           }
         ]
