@@ -259,6 +259,16 @@ onMounted(() => {
       :schema="schemaUtilities"
     />
   </Form>
+  <vue-collapsible-panel-group>
+    <vue-collapsible-panel>
+      <template #title> Panel A Title </template>
+      <template #content> Panel A Content </template>
+    </vue-collapsible-panel>
+    <vue-collapsible-panel>
+      <template #title> Panel B Title </template>
+      <template #content> Panel B Content </template>
+    </vue-collapsible-panel>
+  </vue-collapsible-panel-group>
 </template>
 
 <style lang="less" scoped>

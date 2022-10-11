@@ -148,7 +148,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
   {
     path: '/interventions',
     component: Layout,
-    redirect: '/level/menu1/menu1-1/menu1-1-1',
+    redirect: '/interventions/tenure/settlements',
     name: 'Interventions',
     meta: {
       title: t('Interventions'),
@@ -157,60 +157,141 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     },
     children: [
       {
-        path: 'kisip1',
-        name: 'kisip1',
+        path: 'tenure',
+        name: 'tenureInterventions',
         component: getParentLayout(),
-        redirect: '/interventions/kisip1/settlements',
+        redirect: '/interventions/sett/settlements',
         meta: {
-          title: t('KISIP I')
+          title: t('Tenure')
         },
         children: [
           {
             path: 'settlements',
-            name: 'InterventionSettlementsKISIPI',
-            component: () => import('@/views/Intervention/index.vue'),
+            name: 'InterventionTenureSettlements',
+            component: () => import('@/views/Intervention/Tenure/Settlements.vue'),
             meta: {
               title: t('Settlements')
             }
           },
           {
             path: 'hh',
-            name: 'InterventionHHKISIPI',
-            component: () => import('@/views/Intervention/index.vue'),
+            name: 'InterventiontenureHouseholds',
+            component: () => import('@/views/Intervention/Households.vue'),
             meta: {
               title: t('Households')
-            }
+            },
+            children: [
+              {
+                path: 'owners',
+                name: 'InterventionTenureOwners',
+                component: () => import('@/views/Intervention/Tenure/Owners.vue'),
+                meta: {
+                  title: t('Owners')
+                }
+              },
+              {
+                path: 'tenants',
+                name: 'InterventionTenureTenant',
+                component: () => import('@/views/Intervention/Households.vue'),
+                meta: {
+                  title: t('Tenants')
+                }
+              }
+            ]
           }
         ]
       },
       {
-        path: 'kisip2',
-        name: 'kisip2',
+        path: 'inf',
+        name: 'InfrastructureInterventions',
         component: getParentLayout(),
-        redirect: '/level/menu1/menu1-1/menu1-1-1',
+        redirect: '/interventions/inf/settlements',
         meta: {
-          title: t('KISIP II')
+          title: t('Infrastructure')
         },
         children: [
           {
             path: 'settlements',
-            name: 'InterventionSettlementsKISIPII',
-            component: () => import('@/views/Intervention/index.vue'),
+            name: 'InterventionINFSettlements',
+            component: () => import('@/views/Intervention/Infrastructure/Settlements.vue'),
             meta: {
               title: t('Settlements')
             }
           },
           {
             path: 'hh',
-            name: 'InterventionHHKISIPII',
-            component: () => import('@/views/Intervention/index.vue'),
+            name: 'InterventionINFPaps',
+            component: () => import('@/views/Intervention/Households.vue'),
             meta: {
-              title: t('Households')
-            }
+              title: t('PAPS')
+            },
+            children: [
+              {
+                path: 'owners',
+                name: 'InterventionINFOwners',
+                component: () => import('@/views/Intervention/index.vue'),
+                meta: {
+                  title: t('Owners')
+                }
+              },
+              {
+                path: 'tenants',
+                name: 'InterventionINFTenant',
+                component: () => import('@/views/Intervention/Households.vue'),
+                meta: {
+                  title: t('Tenants')
+                }
+              }
+            ]
           }
         ]
       },
+      {
+        path: 'inclusion',
+        name: 'InclusionInterventions',
+        component: getParentLayout(),
+        redirect: '/interventions/inclusion/settlements',
+        meta: {
+          title: t('Inclusion')
+        },
+        children: [
+          {
+            path: 'settlements',
+            name: 'InterventionInclusionSettlements',
+            component: () => import('@/views/Intervention/Inclusion/Settlements.vue'),
+            meta: {
+              title: t('Settlements')
+            }
+          },
+          {
+            path: 'hh',
+            name: 'InterventionInclusionPaps',
+            component: () => import('@/views/Intervention/Households.vue'),
+            meta: {
+              title: t('Households')
+            },
+            children: [
+              {
+                path: 'list',
+                name: 'InterventionInclusionHouseholds',
+                component: () => import('@/views/Intervention/index.vue'),
+                meta: {
+                  title: t('All')
+                }
+              },
 
+              {
+                path: 'safetynets',
+                name: 'InterventionInclusionBeneficiariesSafetyNets',
+                component: () => import('@/views/Intervention/Households.vue'),
+                meta: {
+                  title: t('On Safety Nets')
+                }
+              }
+            ]
+          }
+        ]
+      },
       {
         path: 'kensup',
         name: 'kensup',
