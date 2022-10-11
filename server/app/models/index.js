@@ -108,5 +108,12 @@ db.models.clusters.belongsTo(db.models.lots, {
   foreignKey: 'lot_id'
 })
 
+db.models.beneficiary_parcel.belongsTo(db.models.beneficiary, {
+  foreignKey: 'beneficiary_id'
+})
+
+db.models.beneficiary_parcel.belongsTo(db.models.parcel, {
+  foreignKey: 'parcel_id'
+})
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db
