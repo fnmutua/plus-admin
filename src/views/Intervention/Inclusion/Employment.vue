@@ -7,6 +7,7 @@ import { getCountyListApi } from '@/api/counties'
 import { useForm } from '@/hooks/web/useForm'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { Form } from '@/components/Form'
+import { Position, TopRight, User, Download, Filter } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import { ref, reactive } from 'vue'
@@ -37,42 +38,44 @@ const downloadLoading = ref(false)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = ['intervention_type_id']
-var intervenComponent = [1] // Fiters tenure=1, inf=2, socio=3, caapcity=4
-var filterValues = [intervenComponent]
+var filters = ['benefit_type_id']
+var filterValues = [8] //1-"Secure tenure", 2- "Linkage to Safety Nets", 3- "Community Development Plan",  4-"Improved Infrastructure"
 var tblData = []
-const associated_Model = ''
-const associated_multiple_models = ['settlement']
 
-const model = 'intervention'
+// Models and their associaions---------
+const model = 'beneficiary'
+const associated_Model = ''
+const nested_models = ['intervention', 'intervention_type'] // The mother, then followed by the child
+const associated_multiple_models = ['settlement', 'households']
+
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
 
 const columns: TableColumn[] = [
   {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
+    field: 'id',
+    label: t('userDemo.index')
+  },
+
+  {
+    field: 'name',
+    label: t('Name')
+  },
+  {
+    field: 'national_id',
+    label: t('National ID')
   },
 
   {
     field: 'settlement.name',
-    label: t('Name')
+    label: t('Settlement')
   },
   {
-    field: 'year',
-    label: t('Year')
+    field: 'intervention.intervention_type.type',
+    label: t('Intervention')
   },
 
-  {
-    field: 'settlement.area',
-    label: t('Area(Ha.)')
-  },
-  {
-    field: 'intervention_phase',
-    label: t('Phase')
-  },
   {
     field: 'action',
     label: t('userDemo.action')
@@ -82,8 +85,8 @@ const handleClear = async () => {
   console.log('cleared....')
 
   // clear all the fileters -------
-  filterValues = [intervenComponent]
-  filters = ['intervention_type_id']
+  filterValues = []
+  filters = []
   value1.value = ''
   value2.value = ''
   value3.value = ''
@@ -189,20 +192,22 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
 
-  formData.assocModel = associated_Model
-
+  // - Associted and nested Models
+  //formData.assocModel = associated_Model
+  formData.nested_models = nested_models
+  formData.associated_multiple_models = associated_multiple_models
   // - multiple filters -------------------------------------
   formData.filters = selFilters
   formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
-
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
+
+  // -- filter data only for tenure -------to be revisted
+
   tableDataList.value = res.data
   total.value = res.total
 
@@ -210,14 +215,17 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('TBL-b4', tblData)
   res.data.forEach(function (arrayItem) {
     //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
+    delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
     var dd = destructure(arrayItem)
 
     tblData.push(dd)
   })
+  // console.log('Loading', loading)
+  // loading.value = false
+  //console.log('Loading', loading)
 
-  console.log('TBL-4f', tblData)
+  // console.log('TBL-4f', tblData)
 }
 
 const PhaseOptions = [
@@ -299,7 +307,7 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
-getInterventionTypes()
+//getInterventionTypes()
 getSettlementsOptions()
 getInterventionsAll()
 
@@ -340,11 +348,10 @@ const viewOnMap = (data: TableSlotDefault) => {
 
 <template>
   <ContentWrap
-    :title="t('Tenure Regularization Settlements')"
-    :message="t('The list of tenure regularization settlements. Use the filters to subset')"
+    :title="t('Short-term Employment Beneficiaries')"
+    :message="t('Use the filters to subset')"
   >
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
-
     <div style="display: inline-block; margin-left: 20px">
       <el-select
         v-model="value2"

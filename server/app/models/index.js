@@ -92,18 +92,11 @@ db.models.settlement_uploads.belongsTo(db.models.settlement, {
 })
 
 // Docuemnts and settlements associations
-db.models.settlement.hasMany(db.models.interventions, {
+db.models.settlement.hasMany(db.models.intervention, {
   foreignKey: 'settlement_id'
 })
 
-db.models.interventions.belongsTo(db.models.settlement, {
-  foreignKey: 'settlement_id'
-})
-
-db.models.interventions.belongsTo(db.models.clusters, {
-  foreignKey: 'cluster_id'
-})
-
+// Clusters
 db.models.clusters.belongsTo(db.models.lots, {
   foreignKey: 'lot_id'
 })
@@ -112,8 +105,41 @@ db.models.beneficiary_parcel.belongsTo(db.models.beneficiary, {
   foreignKey: 'beneficiary_id'
 })
 
+db.models.beneficiary_parcel.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
 db.models.beneficiary_parcel.belongsTo(db.models.parcel, {
   foreignKey: 'parcel_id'
+})
+
+// // Interventions
+db.models.intervention.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.intervention.belongsTo(db.models.clusters, {
+  foreignKey: 'cluster_id'
+})
+
+db.models.intervention_type.hasMany(db.models.intervention, {
+  foreignKey: 'intervention_type_id'
+})
+
+db.models.intervention.belongsTo(db.models.intervention_type, {
+  foreignKey: 'intervention_type_id'
+})
+
+db.models.beneficiary.belongsTo(db.models.intervention, {
+  foreignKey: 'intervention_id'
+})
+
+db.models.beneficiary.belongsTo(db.models.benefit_type, {
+  foreignKey: 'benefit_type_id'
+})
+
+db.models.beneficiary.belongsTo(db.models.households, {
+  foreignKey: 'hh_id'
 })
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

@@ -630,64 +630,17 @@ exports.modelPaginatedData = (req, res) => {
   })
 }
 
-exports._bckmodelPaginatedDatafilterByColumn = (req, res) => {
-  console.log('Req-body', req.body)
-
-  var reg_model = req.body.model
-
-  var ass_model = db.models[req.body.assocModel]
-
-  var qry = {}
-
-  if (ass_model) {
-    var qry = {
-      include: [{ model: ass_model, raw: true }]
-    }
-  } else {
-    var qry = {}
-  }
-
-  console.log('The Querry----->', qry)
-
-  qry.limit = req.body.limit
-  qry.offset = (req.body.page - 1) * req.body.limit
-
-  /// use the multpiple filters
-  var queryFields = {}
-  if (req.body.filters) {
-    if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
-      // console.log('Multpile Filters: ', filters)
-      //console.log('filterValues: ', filterValues[0])
-      for (let i = 0; i < req.body.filters.length; i++) {
-        //console.log('The fields:', req.body.filters[i], 'values:', req.body.filterValues[i])
-        queryFields[req.body.filters[i]] = req.body.filterValues[i]
-      }
-      console.log('Final-object------------>', queryFields)
-      //  { intervention_type: [ 1, 2, 3 ], intervention_phase: [ 1, 2 ] }
-      // qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
-      qry.where = queryFields
-    }
-  }
-
-  db.models[reg_model].findAndCountAll(qry).then((list) => {
-    console.log(list)
-    res.status(200).send({
-      data: list.rows,
-      total: list.count,
-      code: '0000'
-    })
-  })
-}
-
 exports.modelPaginatedDatafilterByColumn = (req, res) => {
   console.log('Req-body', req.body)
 
   var reg_model = req.body.model
-  var ass_model = db.models[req.body.assocModel]
 
-  console.log(ass_model)
+  // Associated Models
+  var associated_multiple_models = req.body.associated_multiple_models
+  console.log('associated_multiple_models', associated_multiple_models.length)
 
   // nested Models
+  // here me limit to two nesting levels only
   var nested_models = req.body.nested_models
   if (req.body.nested_models) {
     var child_model = db.models[req.body.nested_models[0]]
@@ -695,19 +648,28 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
   }
 
   var qry = {}
+  var includeModels = []
 
-  if (ass_model) {
+  // loop through the include models
+  for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
+    var modelIncl = {}
+    modelIncl.model = db.models[req.body.associated_multiple_models[i]]
+    modelIncl.raw = true
+    includeModels.push(modelIncl)
+  }
+
+  console.log(includeModels)
+  if (associated_multiple_models) {
     if (nested_models) {
-      console.log('Inside Nested Models')
+      var nestedModels = { model: child_model, include: [grand_child_model], raw: true }
+      includeModels.push(nestedModels)
       var qry = {
-        include: [
-          { model: ass_model, raw: true },
-          { model: child_model, include: [grand_child_model], raw: true }
-        ] //for nested includes
+        include: includeModels
       }
     } else {
+      console.log('---no---')
       var qry = {
-        include: [{ model: ass_model, raw: true }]
+        include: includeModels
       }
     }
   } else {
@@ -737,7 +699,7 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
   }
 
   db.models[reg_model].findAndCountAll(qry).then((list) => {
-    console.log(list)
+    // console.log(list)
     res.status(200).send({
       data: list.rows,
       total: list.count,

@@ -9,37 +9,26 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         primaryKey: true
       },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
-      national_id: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true
-      },
-      kra_pin: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
       hh_id: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-
-      photo: {
-        type: DataTypes.BLOB,
-        allowNull: true
-      },
-
-      address: {
-        type: DataTypes.STRING,
-        allowNull: true
+      settlement_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
       },
 
       intervention_id: {
         type: DataTypes.INTEGER,
         allowNull: true
+      },
+      intervention_phase: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
+      benefit_type_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
       }
     },
     {

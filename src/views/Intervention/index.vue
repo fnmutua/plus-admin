@@ -42,7 +42,7 @@ var filters = []
 var filterValues = [[]]
 var tblData = []
 const associated_Model = 'settlement'
-const model = 'interventions'
+const model = 'intervention'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
@@ -256,7 +256,7 @@ const getInterventionTypes = async () => {
       pageIndex: 1,
       limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'intervention_types',
+      model: 'intervention_type',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'

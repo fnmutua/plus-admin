@@ -7,7 +7,6 @@ import { getCountyListApi } from '@/api/counties'
 import { useForm } from '@/hooks/web/useForm'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { Form } from '@/components/Form'
-import { Position, TopRight, User, Download, Filter } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import { ref, reactive } from 'vue'
@@ -38,12 +37,14 @@ const downloadLoading = ref(false)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = ['intervention_type']
+var filters = ['intervention_type_id']
 var intervenComponent = [3] // Fiters tenure=1, inf=2, socio=3, caapcity=4
 var filterValues = [intervenComponent]
 var tblData = []
-const associated_Model = 'settlement'
-const model = 'interventions'
+const associated_Model = ''
+const associated_multiple_models = ['settlement']
+
+const model = 'intervention'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
@@ -82,7 +83,7 @@ const handleClear = async () => {
 
   // clear all the fileters -------
   filterValues = [intervenComponent]
-  filters = ['intervention_type']
+  filters = ['intervention_type_id']
   value1.value = ''
   value2.value = ''
   value3.value = ''
@@ -195,6 +196,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   // - multiple filters -------------------------------------
   formData.filters = selFilters
   formData.filterValues = selfilterValues
+  formData.associated_multiple_models = associated_multiple_models
+
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
@@ -207,7 +210,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('TBL-b4', tblData)
   res.data.forEach(function (arrayItem) {
     //  console.log(countyOpt)
-    delete arrayItem[associated_Model]['geom'] //  remove the geometry column
+    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
     var dd = destructure(arrayItem)
 
@@ -234,7 +237,7 @@ const getInterventionTypes = async () => {
       pageIndex: 1,
       limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'intervention_types',
+      model: 'intervention_type',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
@@ -337,12 +340,8 @@ const viewOnMap = (data: TableSlotDefault) => {
 
 <template>
   <ContentWrap
-    :title="t('Socio-Economic Inclusion Settlements')"
-    :message="
-      t(
-        'The list of socio-economic interventions in informal settlements. Use the filters to subset'
-      )
-    "
+    :title="t('Tenure Regularization Settlements')"
+    :message="t('The list of tenure regularization settlements. Use the filters to subset')"
   >
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 

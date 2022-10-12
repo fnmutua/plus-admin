@@ -9,7 +9,7 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         primaryKey: true
       },
-      intervention_type: {
+      intervention_type_id: {
         type: DataTypes.INTEGER,
         allowNull: false
       },

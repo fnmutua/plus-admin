@@ -45,8 +45,9 @@ var tblData = []
 
 // Models and their associaions---------
 const model = 'beneficiary_parcel'
-const associated_Model = 'parcel'
-const nested_models = ['beneficiary', 'settlement'] // The mother, then followed by the child
+const associated_Model = ''
+const nested_models = ['beneficiary', 'households'] // The mother, then followed by the child
+const associated_multiple_models = ['settlement', 'parcel']
 
 //// ------------------parameters -----------------------////
 
@@ -59,16 +60,16 @@ const columns: TableColumn[] = [
   },
 
   {
-    field: 'beneficiary.name',
+    field: 'beneficiary.household.name',
     label: t('Name')
   },
   {
-    field: 'beneficiary.national_id',
+    field: 'beneficiary.household.national_id',
     label: t('National ID')
   },
 
   {
-    field: 'beneficiary.settlement.name',
+    field: 'settlement.name',
     label: t('Settlement')
   },
 
@@ -202,16 +203,18 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.searchKeyword = ''
 
   // - Associted and nested Models
-  formData.assocModel = associated_Model
+  //formData.assocModel = associated_Model
   formData.nested_models = nested_models
   // - multiple filters -------------------------------------
   formData.filters = selFilters
   formData.filterValues = selfilterValues
+  formData.associated_multiple_models = associated_multiple_models
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
+
   tableDataList.value = res.data
   total.value = res.total
 
@@ -249,7 +252,7 @@ const getInterventionTypes = async () => {
       pageIndex: 1,
       limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'intervention_types',
+      model: 'intervention_type',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
@@ -352,11 +355,30 @@ const viewOnMap = (data: TableSlotDefault) => {
 
 <template>
   <ContentWrap
-    :title="t('Tenure Regularization Settlements')"
+    :title="t('Tenure Regularization Beneficiaries')"
     :message="t('The list of tenure regularization settlements. Use the filters to subset')"
   >
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
+    <div style="display: inline-block; margin-left: 20px">
+      <el-select
+        v-model="value2"
+        :onChange="handleSelectPhase"
+        :onClear="handleClear"
+        multiple
+        clearable
+        filterable
+        collapse-tags
+        placeholder="Filter by KISIP Phase"
+      >
+        <el-option
+          v-for="item in PhaseOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
+      </el-select>
+    </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-select
         v-model="value3"

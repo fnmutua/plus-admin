@@ -1,40 +1,27 @@
 const Sequelize = require('sequelize')
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
-    'beneficiary_parcel',
+    'benefit_type',
     {
-      beneficiary_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      },
-      parcel_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      },
-
       id: {
         autoIncrement: true,
         type: DataTypes.INTEGER,
         allowNull: false,
         primaryKey: true
       },
-      settlement_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      },
-      intervention_phase: {
-        type: DataTypes.INTEGER,
+      type: {
+        type: DataTypes.STRING,
         allowNull: false
       }
     },
     {
       sequelize,
-      tableName: 'beneficiary_parcel',
+      tableName: 'benefit_type',
       schema: 'public',
       timestamps: false,
       indexes: [
         {
-          name: 'beneficiary_parcel_pkey',
+          name: 'benefit_type_pkey',
           unique: true,
           fields: [{ name: 'id' }]
         }
