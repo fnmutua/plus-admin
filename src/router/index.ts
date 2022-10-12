@@ -238,7 +238,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
               {
                 path: 'water',
                 name: 'InterventionINFWater',
-                component: () => import('@/views/Intervention/infrastructure/WaterBeneficiary.vue'),
+                component: () => import('@/views/Intervention/Infrastructure/WaterBeneficiary.vue'),
                 meta: {
                   title: t('Water')
                 }
