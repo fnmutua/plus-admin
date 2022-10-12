@@ -71,7 +71,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     redirect: '/dashboard/national',
     name: 'Dashboard',
     meta: {
-      title: t('router.dashboard'),
+      title: t('Dashboards'),
       icon: 'ant-design:dashboard-filled',
       alwaysShow: true
     },
@@ -174,27 +174,27 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
             }
           },
           {
-            path: 'hh',
+            path: 'ben',
             name: 'InterventiontenureHouseholds',
-            component: () => import('@/views/Intervention/Households.vue'),
+            component: () => import('@/views/Intervention/Tenure/Beneficiary.vue'),
             meta: {
-              title: t('Households')
+              title: t('Beneficiaries')
             },
             children: [
+              {
+                path: 'all',
+                name: 'InterventionTenureBeneficiary',
+                component: () => import('@/views/Intervention/Tenure/TenureBeneficiary.vue'),
+                meta: {
+                  title: t('Secure Tenure')
+                }
+              },
               {
                 path: 'owners',
                 name: 'InterventionTenureOwners',
                 component: () => import('@/views/Intervention/Tenure/Owners.vue'),
                 meta: {
-                  title: t('Owners')
-                }
-              },
-              {
-                path: 'tenants',
-                name: 'InterventionTenureTenant',
-                component: () => import('@/views/Intervention/Households.vue'),
-                meta: {
-                  title: t('Tenants')
+                  title: t('Parcel Owners')
                 }
               }
             ]
@@ -218,28 +218,37 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
               title: t('Settlements')
             }
           },
+
           {
-            path: 'hh',
-            name: 'InterventionINFPaps',
-            component: () => import('@/views/Intervention/Households.vue'),
+            path: 'ben',
+            name: 'InterventionINFHouseholds',
+            component: () => import('@/views/Intervention/Infrastructure/InfBeneficiary.vue'),
             meta: {
-              title: t('PAPS')
+              title: t('Beneficiaries')
             },
             children: [
               {
-                path: 'owners',
-                name: 'InterventionINFOwners',
-                component: () => import('@/views/Intervention/index.vue'),
+                path: 'infrastructure',
+                name: 'InterventionINFbeneficiary',
+                component: () => import('@/views/Intervention/Infrastructure/InfBeneficiary.vue'),
                 meta: {
-                  title: t('Owners')
+                  title: t('Infrastructure')
                 }
               },
               {
-                path: 'tenants',
-                name: 'InterventionINFTenant',
-                component: () => import('@/views/Intervention/Households.vue'),
+                path: 'water',
+                name: 'InterventionINFWater',
+                component: () => import('@/views/Intervention/infrastructure/WaterBeneficiary.vue'),
                 meta: {
-                  title: t('Tenants')
+                  title: t('Water')
+                }
+              },
+              {
+                path: 'sewer',
+                name: 'InterventionINFSewer',
+                component: () => import('@/views/Intervention/infrastructure/SewerBeneficiary.vue'),
+                meta: {
+                  title: t('Sewer')
                 }
               }
             ]
@@ -264,28 +273,43 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
             }
           },
           {
-            path: 'hh',
+            path: 'ben',
             name: 'InterventionInclusionPaps',
-            component: () => import('@/views/Intervention/Households.vue'),
+            component: () => import('@/views/Intervention/Inclusion/Households.vue'),
             meta: {
-              title: t('Households')
+              title: t('Beneficiaries')
             },
             children: [
               {
-                path: 'list',
-                name: 'InterventionInclusionHouseholds',
-                component: () => import('@/views/Intervention/index.vue'),
-                meta: {
-                  title: t('All')
-                }
-              },
-
-              {
                 path: 'safetynets',
                 name: 'InterventionInclusionBeneficiariesSafetyNets',
-                component: () => import('@/views/Intervention/Households.vue'),
+                component: () => import('@/views/Intervention/Inclusion/SafetyNets.vue'),
                 meta: {
-                  title: t('On Safety Nets')
+                  title: t('Safety Nets')
+                }
+              },
+              {
+                path: 'training',
+                name: 'InterventionInclusionTraining',
+                component: () => import('@/views/Intervention/Inclusion/Training.vue'),
+                meta: {
+                  title: t('Training')
+                }
+              },
+              {
+                path: 'emp',
+                name: 'InterventionInclusionEmployment',
+                component: () => import('@/views/Intervention/Inclusion/Employment.vue'),
+                meta: {
+                  title: t('Employment')
+                }
+              },
+              {
+                path: 'cdp',
+                name: 'InterventionInclusionCDP',
+                component: () => import('@/views/Intervention/Inclusion/CDP.vue'),
+                meta: {
+                  title: t('CDP')
                 }
               }
             ]

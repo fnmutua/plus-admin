@@ -24,6 +24,7 @@ var _intervention_type = require('./intervention_type')
 var _intervention = require('./intervention')
 var _cluster = require('./cluster')
 var _lot = require('./lot')
+var _benefit_type = require('./benefit_type')
 
 var _settlement_uploads = require('./settlement_uploads')
 
@@ -49,10 +50,11 @@ function initModels(sequelize) {
   var users = _users(sequelize, DataTypes)
   var households = _households(sequelize, DataTypes)
   var roles = _roles(sequelize, DataTypes)
-  var intervention_types = _intervention_type(sequelize, DataTypes)
-  var interventions = _intervention(sequelize, DataTypes)
+  var intervention_type = _intervention_type(sequelize, DataTypes)
+  var intervention = _intervention(sequelize, DataTypes)
   var clusters = _cluster(sequelize, DataTypes)
   var lots = _lot(sequelize, DataTypes)
+  var benefit_type = _benefit_type(sequelize, DataTypes)
 
   var settlement_uploads = _settlement_uploads(sequelize, DataTypes)
 
@@ -78,10 +80,11 @@ function initModels(sequelize) {
     users,
     households,
     roles,
-    intervention_types,
-    interventions,
+    intervention_type,
+    intervention,
     clusters,
     lots,
+    benefit_type,
     settlement_uploads
   }
 }
