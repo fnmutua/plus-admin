@@ -259,6 +259,8 @@ const progressOptions = {
     type: 'gradient'
   },
   legend: {
+    show: true,
+    position: 'bottom',
     formatter: function (val, opts) {
       return val + ' - ' + opts.w.globals.series[opts.seriesIndex]
     }
@@ -273,10 +275,7 @@ const progressOptions = {
     }
   },
   labels: ['Female', 'Male'],
-  legend: {
-    show: true,
-    position: 'bottom'
-  },
+
   toolbar: {
     tools: {
       download: true,
