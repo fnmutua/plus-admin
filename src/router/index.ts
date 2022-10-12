@@ -176,7 +176,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           {
             path: 'ben',
             name: 'InterventiontenureHouseholds',
-            component: () => import('@/views/Intervention/Tenure/Beneficiary.vue'),
+            component: () => import('@/views/Intervention/Tenure/TenureBeneficiary.vue'),
             meta: {
               title: t('Beneficiaries')
             },
@@ -275,7 +275,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           {
             path: 'ben',
             name: 'InterventionInclusionPaps',
-            component: () => import('@/views/Intervention/Inclusion/Households.vue'),
+            component: () => import('@/views/Intervention/Inclusion/SafetyNets.vue'),
             meta: {
               title: t('Beneficiaries')
             },
