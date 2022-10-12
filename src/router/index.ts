@@ -246,7 +246,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
               {
                 path: 'sewer',
                 name: 'InterventionINFSewer',
-                component: () => import('@/views/Intervention/infrastructure/SewerBeneficiary.vue'),
+                component: () => import('@/views/Intervention/Infrastructure/Sewerbenf.vue'),
                 meta: {
                   title: t('Sewer')
                 }
