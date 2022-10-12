@@ -324,7 +324,6 @@ const viewProfile = (data: TableSlotDefault) => {
 }
 
 const viewHHs = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
   push({
     path: '/settlement/hh/:id',
     name: 'Households',
