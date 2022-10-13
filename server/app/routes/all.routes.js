@@ -18,6 +18,9 @@ module.exports = function (app) {
   // Gets the  All dataes
   app.get('/api/v1/data/filter', controller.modelAllDatafilter)
 
+  // filter by keyward-paginated
+  app.post('/api/v1/data/paginated/filter', controller.modelPaginatedDatafilterBykeyWord)
+
   // Gets the  paginated data
   app.get('/api/v1/data/paginated', controller.modelPaginatedData)
 

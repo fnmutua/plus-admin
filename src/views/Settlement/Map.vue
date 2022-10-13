@@ -110,6 +110,8 @@ const getParcelGeo = async () => {
 }
 getAll()
 getParcelGeo()
+
+console.log(model)
 </script>
 
 <template>

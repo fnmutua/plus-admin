@@ -141,5 +141,14 @@ db.models.beneficiary.belongsTo(db.models.benefit_type, {
 db.models.beneficiary.belongsTo(db.models.households, {
   foreignKey: 'hh_id'
 })
+
+db.models.settlement_status.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.settlement_status, {
+  foreignKey: 'settlement_id'
+})
+
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

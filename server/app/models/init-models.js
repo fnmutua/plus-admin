@@ -25,6 +25,7 @@ var _intervention = require('./intervention')
 var _cluster = require('./cluster')
 var _lot = require('./lot')
 var _benefit_type = require('./benefit_type')
+var _settlement_status = require('./settlement_status')
 
 var _settlement_uploads = require('./settlement_uploads')
 
@@ -55,8 +56,8 @@ function initModels(sequelize) {
   var clusters = _cluster(sequelize, DataTypes)
   var lots = _lot(sequelize, DataTypes)
   var benefit_type = _benefit_type(sequelize, DataTypes)
-
   var settlement_uploads = _settlement_uploads(sequelize, DataTypes)
+  var settlement_status = _settlement_status(sequelize, DataTypes)
 
   return {
     beneficiary,
@@ -85,6 +86,7 @@ function initModels(sequelize) {
     clusters,
     lots,
     benefit_type,
+    settlement_status,
     settlement_uploads
   }
 }

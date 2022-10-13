@@ -2,55 +2,69 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, searchByKeyWord, getOneSettlement } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { useForm } from '@/hooks/web/useForm'
+import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { Form } from '@/components/Form'
-import { Check, Delete, Position, Edit, Message, Search, Star } from '@element-plus/icons-vue'
-import { ref, h, onBeforeMount, created, reactive } from 'vue'
-import { ElSwitch, ElButton, ElPagination } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { Position, TopRight, User, Download, Filter } from '@element-plus/icons-vue'
+
+import { ref, reactive } from 'vue'
+import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { useRouter } from 'vue-router'
+import exportFromJSON from 'export-from-json'
 import { useRoute } from 'vue-router'
 
 interface Params {
   pageIndex?: number
-  pageSize?: number
+  xpageSize?: number
 }
-const { register, elFormRef, methods } = useForm()
+
+const { push } = useRouter()
+const value1 = ref([])
+const value2 = ref([])
+var value3 = ref([])
+const countiesOptions = ref([])
+const householdOptions = ref([])
+const settlementOptions = ref([])
+const page = ref(1)
+const pSize = ref(5)
+const selCounties = []
+const loading = ref(true)
+const pageSize = ref(5)
+const currentPage = ref(1)
+const total = ref(0)
+const downloadLoading = ref(false)
+const settlement = ref()
+const searchString = ref()
+let tableDataList = ref<UserType[]>([])
+
 const route = useRoute()
 
-////Configurations //////////////
+//// ------------------parameters -----------------------////
+var filters = ['settlement_id']
+const id = route.params.id
+var intervenComponent = [id] // the Id of the settleemnt to filter with
+var filterValues = [intervenComponent]
+var tblData = []
+//const associated_Model = ''
+const associated_multiple_models = ['settlement']
 const model = 'households'
-const assoc_model = 'settlement'
-const filterCol = 'settlement_id'
-const searchField = 'name'
-////////////
-
-function toTitleCase(str) {
-  return str.replace(/\w\S*/g, function (txt) {
-    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
-  })
-}
-
-const parentOptions = []
-const selectedParents = ref([])
+//// ------------------parameters -----------------------////
 
 const { t } = useI18n()
 
 const columns: TableColumn[] = [
   {
     field: 'index',
-    label: t('No.'),
+    label: t('userDemo.index'),
     type: 'index'
   },
 
   {
-    field: searchField,
-    label: t(toTitleCase(searchField.replace('_', ' ')))
-  },
-
-  {
-    field: 'settlement.name',
-    label: t(toTitleCase(assoc_model.replace('_', ' ')))
+    field: 'name',
+    label: t('Name')
   },
   {
     field: 'gender',
@@ -58,196 +72,260 @@ const columns: TableColumn[] = [
   },
 
   {
+    field: 'national_id',
+    label: t('National ID')
+  },
+  {
+    field: 'settlement.name',
+    label: t('Settlement')
+  },
+  {
     field: 'action',
     label: t('userDemo.action')
   }
 ]
 const handleClear = async () => {
   console.log('cleared....')
-  getAll()
+
+  // clear all the fileters -------
+  filterValues = [intervenComponent]
+  filters = ['settlement_id']
+  value1.value = ''
+  value2.value = ''
+  value3.value = ''
+  pSize.value = 5
+  currentPage.value = 1
+  tblData = []
+  //----run the get data--------
+  getInterventionsAll()
 }
 
-const handleSelect = async (selectIDs) => {
-  console.log('on change  ', selectIDs)
-  selectedParents.value.length = 0 // clear previously selected counties
+const handleSelectHousehold = async (filterString: any) => {
+  searchString.value = filterString
 
-  let arr = []
-  if (selectIDs.length > 0) {
-    // arr.push(county_id)   // applies for sinle select only
-    //console.log('Array', arr)
-    //selectedParents.push(county_id)
-    selectedParents.value.push(...selectIDs)
-    console.log(selectedParents)
-    const formData = {}
-    formData.limit = 5
-    formData.page = 1
-    formData.curUser = 1 // Id for logged in user
-    formData.model = model
-    formData.searchField = searchField
-    formData.searchKeyword = ''
-    formData.columnFilterValue = selectIDs
-    formData.columnFilterField = filterCol
-    formData.assocModel = assoc_model
-    console.log(formData)
-    const res = await getSettlementListByCounty(formData)
-
-    console.log('After Querry', res)
-    tableDataList.value = res.data
-    total.value = res.total
-  }
+  getFilteredBySearchData(searchString.value)
 }
-
-const onPageChange = async (page) => {
-  console.log('on change change: selected counties ', selectedParents)
-
+const getSettlement = async (id) => {
   const formData = {}
-  formData.limit = 5
-  formData.page = page
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  formData.searchField = searchField
-  formData.searchKeyword = ''
-  formData.columnFilterValue = selectedParents
-  formData.columnFilterField = filterCol
-  formData.assocModel = assoc_model
-  console.log(formData)
-  const res = await getSettlementListByCounty(formData)
+  formData.model = 'settlement'
+  formData.id = id
 
-  console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
+  console.log(formData)
+  const res = await getOneSettlement(formData)
+
+  settlement.value = res.data
+
+  console.log('All settlements Querry', res.data)
 }
 
-const onPageSizeChange = async (size) => {
-  console.log('on change change: selected counties ', selectedParents)
-
-  const formData = {}
-  formData.limit = size
-  formData.page = 1
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  formData.searchField = searchField
-  formData.searchKeyword = ''
-  formData.columnFilterValue = selectedParents
-  formData.columnFilterField = filterCol
-  formData.assocModel = assoc_model
-  console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-  console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
+const onPageChange = async (selPage: any) => {
+  console.log('on change change: selected counties ', selCounties)
+  page.value = selPage
+  getFilteredBySearchData(searchString.value)
 }
-
-const getAll = async () => {
-  console.log('Get all HHs for --> ', selectedParents)
-  let arr = []
-  const id = route.params.id
-  const settData = route.params.data
-  console.log('Settlement ID, Data:', id, settData)
-
-  const formData = {}
-  formData.limit = 5
-  formData.page = 1
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  formData.searchField = searchField
-  formData.searchKeyword = ''
-  formData.columnFilterValue = [id]
-  formData.columnFilterField = filterCol
-  formData.assocModel = assoc_model
-  console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-  console.log('All settlements Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
-}
-
-const schema = reactive<FormSchema[]>([
-  {
-    field: filterCol,
-    label: toTitleCase(assoc_model),
-    component: 'Select',
-    colProps: {
-      span: 24
-    },
-    componentProps: {
-      options: parentOptions,
-      onChange: handleSelect,
-      onClear: handleClear,
-      filterable: 'true',
-      multiple: 'true',
-
-      style: {
-        width: '25%'
-      },
-      slots: {
-        suffix: true,
-        prefix: true
-      }
-    }
-  }
-])
-
-const loading = ref(true)
-const pageSize = ref(5)
-const currentPage = ref(1)
-const total = ref(0)
-let tableDataList = ref<UserType[]>([])
-
-const getParents = async (params?: Params) => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 5,
-      curUser: 1, // Id for logged in user
-      model: assoc_model,
-      searchField: searchField,
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var cnty = response.data
-
-    loading.value = false
-
-    cnty.forEach(function (arrayItem) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      parentOptions.push(countyOpt)
-    })
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, function (txt) {
+    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
   })
 }
 
-getParents()
-getAll()
+const onPageSizeChange = async (size: any) => {
+  pSize.value = size
+  getFilteredBySearchData(searchString.value)
+}
 
-//console.log('pagination', parentOptions)
-const acitonFn = (data: TableSlotDefault) => {
-  console.log('Activating user.....', data.row)
-  // data.mode = 'users'
+const getHouseholds = async () => {
+  getFilteredData(filters, filterValues)
+}
+
+const destructure = (obj) => {
+  // console.log('deconstructing......')
+  const simpleObj = {}
+  for (let key in obj) {
+    const value = obj[key]
+    const type = typeof value
+    if (['string', 'boolean'].includes(type) || (type === 'number' && !isNaN(value))) {
+      simpleObj[key] = value
+    } else if (type === 'object') {
+      Object.assign(simpleObj, destructure(value))
+    }
+  }
+
+  return simpleObj
+}
+const getFilteredData = async (selFilters, selfilterValues) => {
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = selFilters
+  formData.filterValues = selfilterValues
+  formData.associated_multiple_models = associated_multiple_models
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+
+  console.log('After Querry', res)
+  tableDataList.value = res.data
+  total.value = res.total
+  loading.value = false
+
+  tblData = [] // reset the table data
+  console.log('TBL-b4', tblData)
+  res.data.forEach(function (arrayItem) {
+    console.log('arrayItem ----->', arrayItem)
+    delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
+    delete arrayItem['photo'] //  remove the geometry column
+
+    var dd = destructure(arrayItem)
+    tblData.push(dd)
+    //  generate the filter options
+    var opt = {}
+    opt.value = arrayItem.id
+    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    //  console.log(countyOpt)
+    householdOptions.value.push(opt)
+  })
+
+  console.log('TBL-4f', tblData)
+}
+const getFilteredBySearchData = async (searchString) => {
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = searchString
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = filters
+  formData.filterValues = filterValues
+  formData.associated_multiple_models = associated_multiple_models
+
+  //-------------------------
+  console.log(formData)
+  const res = await searchByKeyWord(formData)
+
+  console.log('After Querry', res)
+  tableDataList.value = res.data
+  total.value = res.total
+  loading.value = false
+
+  tblData = [] // reset the table data
+  console.log('TBL-b4', tblData)
+  res.data.forEach(function (arrayItem) {
+    console.log('arrayItem ----->', arrayItem)
+    delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
+    delete arrayItem['photo'] //  remove the geometry column
+
+    var dd = destructure(arrayItem)
+    tblData.push(dd)
+    //  generate the filter options
+    var opt = {}
+    opt.value = arrayItem.id
+    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    //  console.log(countyOpt)
+    householdOptions.value.push(opt)
+  })
+
+  console.log('TBL-4f', tblData)
+}
+
+const open = (msg: MessageParamsWithType) => {
+  ElMessage.error(msg)
+}
+
+const handleDownload = () => {
+  console.log(tblData)
+  downloadLoading.value = true
+  const data = tblData
+  const fileName = 'data.xlsx'
+  const exportType = exportFromJSON.types.csv
+  if (data) exportFromJSON({ data, fileName, exportType })
+}
+
+//getInterventionTypes()
+getSettlement(route.params.id)
+
+getHouseholds()
+
+console.log('Options---->', countiesOptions)
+const viewProfile = (data: TableSlotDefault) => {
+  console.log('On Click.....', data.row.id)
+
+  push({
+    path: '/settlement/:id',
+    name: 'SettlementDetails',
+    params: { data: data.row.id, id: data.row.id }
+  })
+}
+
+const viewHHs = (data: TableSlotDefault) => {
+  console.log('On Click.....', data.row.id)
+  push({
+    path: '/settlement/hh/:id',
+    name: 'Households',
+    params: { id: data.row.id }
+  })
+}
+
+const viewOnMap = (data: TableSlotDefault) => {
+  console.log('On Click.....', data.row)
+  if (data.row.settlement.geom) {
+    push({
+      path: '/settlement/map/:id',
+      name: 'SettlementMap',
+      params: { id: data.row.id }
+    })
+  } else {
+    var msg = 'This Settlement does not have the boundary defined in the database!'
+    open(msg)
+  }
 }
 </script>
 
 <template>
   <ContentWrap
-    :title="toTitleCase(model.replace('_', ' '))"
-    :message="
-      t('The list of ' + model + ' listed by ' + assoc_model + '. Use the filter to subset')
-    "
+    :title="toTitleCase(settlement.name + ' Households')"
+    :message="t('Use the filters to subset')"
   >
-    <Form
-      :schema="schema"
-      label-position="side"
-      hide-required-asterisk
-      size="large"
-      class="dark:(border-1 border-[var(--el-border-color)] border-solid)"
-      @register="register"
-    />
+    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+
+    <div style="display: inline-block; margin-left: 20px">
+      <el-select
+        v-model="value3"
+        multiple
+        clearable
+        filterable
+        remote
+        :remote-method="handleSelectHousehold"
+        reserve-keyword
+        placeholder="Search by Household Name"
+      />
+    </div>
+    <div style="display: inline-block; margin-left: 20px">
+      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+    </div>
+    <div style="display: inline-block; margin-left: 20px">
+      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+    </div>
+    <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
     <Table
       :columns="columns"
@@ -258,26 +336,38 @@ const acitonFn = (data: TableSlotDefault) => {
       :currentPage="currentPage"
     >
       <template #action="data">
-        <el-button
-          type="primary"
-          :icon="Position"
-          @click="acitonFn(data as TableSlotDefault)"
-          circle
-        />
-        <el-button type="success" :icon="Edit" @click="acitonFn(data as TableSlotDefault)" circle />
-        <el-button
-          type="danger"
-          :icon="Delete"
-          @click="acitonFn(data as TableSlotDefault)"
-          circle
-        />
+        <el-tooltip content="View Profile" placement="top">
+          <el-button
+            type="primary"
+            :icon="TopRight"
+            @click="viewProfile(data as TableSlotDefault)"
+            circle
+          />
+        </el-tooltip>
+
+        <el-tooltip content="View Households" placement="top">
+          <el-button
+            type="success"
+            :icon="User"
+            @click="viewHHs(data as TableSlotDefault)"
+            circle
+          />
+        </el-tooltip>
+        <el-tooltip content="View on Map" placement="top">
+          <el-button
+            type="warning"
+            :icon="Position"
+            @click="viewOnMap(data as TableSlotDefault)"
+            circle
+          />
+        </el-tooltip>
       </template>
     </Table>
     <ElPagination
       layout="sizes, prev, pager, next, total"
       v-model:currentPage="currentPage"
       v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50]"
+      :page-sizes="[5, 10, 20, 50, 200, 1000]"
       :total="total"
       :background="true"
       @size-change="onPageSizeChange"
