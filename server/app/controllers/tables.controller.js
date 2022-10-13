@@ -488,35 +488,6 @@ exports.modelSumAll = (req, res) => {
 }
 
 // Sum  filtred
-exports.xmodelSumFiltered = (req, res) => {
-  var reg_model = req.query.model
-  var sumField = req.body.sumField
-  var filterField = req.body.filterField
-  var criteria = req.body.criteria
-
-  const obj = {}
-  obj[filterField] = criteria
-  console.log(obj)
-
-  console.log('Querry:', req.query)
-  // get this one  record and update it by replacing the whole docuemnt
-  db.models[reg_model]
-    .findAll(
-      {
-        attributes: [[sequelize.fn('sum', sequelize.col(sumField)), 'Sum']]
-      },
-      { where: obj }
-    )
-    .then((result) => {
-      if (result) {
-        // res.status(200).send(result);
-        res.status(200).send({
-          data: result,
-          code: 20000
-        })
-      }
-    })
-}
 
 exports.modelSumFiltered = (req, res) => {
   var reg_model = req.body.model
@@ -685,21 +656,15 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
   var queryFields = {}
   if (req.body.filters) {
     if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
-      // console.log('Multpile Filters: ', filters)
-      //console.log('filterValues: ', filterValues[0])
       for (let i = 0; i < req.body.filters.length; i++) {
-        //console.log('The fields:', req.body.filters[i], 'values:', req.body.filterValues[i])
         queryFields[req.body.filters[i]] = req.body.filterValues[i]
       }
       console.log('Final-object------------>', queryFields)
-      //  { intervention_type: [ 1, 2, 3 ], intervention_phase: [ 1, 2 ] }
-      // qry.where = { [field]: { [op.in]: req.body.columnFilterValue } } // Exclude the logged in user returing in the list
       qry.where = queryFields
     }
   }
 
   db.models[reg_model].findAndCountAll(qry).then((list) => {
-    // console.log(list)
     res.status(200).send({
       data: list.rows,
       total: list.count,
@@ -707,6 +672,88 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
     })
   })
 }
+
+exports.modelPaginatedDatafilterBykeyWord = (req, res) => {
+  console.log('/api/v1/data/paginated/filter --- Keyword', req.body)
+
+  var reg_model = req.body.model
+  var field = req.body.searchField
+  var searchKeyword = req.body.searchKeyword
+  // Associated Models
+  var associated_multiple_models = req.body.associated_multiple_models
+  console.log('associated_multiple_models', associated_multiple_models.length)
+
+  // nested Models
+  // here me limit to two nesting levels only
+  var nested_models = req.body.nested_models
+  if (req.body.nested_models) {
+    var child_model = db.models[req.body.nested_models[0]]
+    var grand_child_model = db.models[req.body.nested_models[1]]
+  }
+
+  var qry = {}
+  var includeModels = []
+
+  // loop through the include models
+  for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
+    var modelIncl = {}
+    modelIncl.model = db.models[req.body.associated_multiple_models[i]]
+    modelIncl.raw = true
+    includeModels.push(modelIncl)
+  }
+
+  if (associated_multiple_models) {
+    if (nested_models) {
+      var nestedModels = { model: child_model, include: [grand_child_model], raw: true }
+      includeModels.push(nestedModels)
+      var qry = {
+        include: includeModels
+      }
+    } else {
+      console.log('---no---')
+      var qry = {
+        include: includeModels
+      }
+    }
+  } else {
+    var qry = {}
+  }
+
+  console.log('The Querry----->', qry)
+
+  qry.limit = req.body.limit
+  qry.offset = (req.body.page - 1) * req.body.limit
+
+  /// use the multpiple filters
+  var queryCondition = {}
+  if (req.body.filters) {
+    if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
+      for (let i = 0; i < req.body.filters.length; i++) {
+        queryCondition[req.body.filters[i]] = req.body.filterValues[i]
+      }
+      console.log('Final-Condition------------>', queryCondition)
+
+      var searchCond = { [field]: { [op.iLike]: '%' + searchKeyword + '%' } }
+      const mergedObject = {
+        ...queryCondition,
+        ...searchCond
+      }
+
+      console.log('--------------search Condition-----------', mergedObject)
+
+      qry.where = searchCond
+    }
+  }
+
+  db.models[reg_model].findAndCountAll(qry).then((list) => {
+    res.status(200).send({
+      data: list.rows,
+      total: list.count,
+      code: '0000'
+    })
+  })
+}
+
 exports.modelCountyUsers = (req, res) => {
   var reg_model = req.query.model
   var pg_number = req.query.page

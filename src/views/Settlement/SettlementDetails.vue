@@ -7,7 +7,12 @@ import { ElFormItem, ElInput, ElButton } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { useForm } from '@/hooks/web/useForm'
 import { useRoute } from 'vue-router'
-import { getOneGeo, getOneSettlement, getfilteredGeo } from '@/api/settlements'
+import {
+  getOneGeo,
+  getOneSettlement,
+  getSettlementListByCounty,
+  getfilteredGeo
+} from '@/api/settlements'
 
 // Locally
 import { VueCollapsiblePanelGroup, VueCollapsiblePanel } from '@dafcoe/vue-collapsible-panel'
@@ -182,9 +187,21 @@ const form = reactive({
   subcounty: ''
 })
 
+const page = ref(1)
+const pSize = ref(5)
 ////Configurations //////////////
+
+//// ------------------parameters -----------------------////
+var filters = ['id']
+const id = route.params.id
+var intervenComponent = [id] // the Id of the settleemnt to filter with
+var filterValues = [intervenComponent]
+
+//const associated_Model = ''
+const associated_multiple_models = ['settlement_status', 'county']
 const model = 'settlement'
-//let settlement = reactive({})
+//// ------------------parameters -----------------------////
+
 let settlement = reactive({
   count: 0,
   name: 'unnwo',
@@ -218,6 +235,7 @@ const getThisSettlement = async () => {
   console.log(formData)
   const res = await getOneSettlement(formData)
   console.log(res)
+
   // set the settlement details ------------------------------------
   profile.name = res.data.name
   profile.county = res.data.county.name
@@ -225,11 +243,60 @@ const getThisSettlement = async () => {
   profile.population = res.data.population
 }
 
+const getFilteredData = async (selFilters, selfilterValues) => {
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = selFilters
+  formData.filterValues = selfilterValues
+  formData.associated_multiple_models = associated_multiple_models
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+
+  // set the settlement details ------------------------------------
+
+  console.log('After Querry', res.data[0])
+
+  // set the settlement profile  details ------------------------------------
+  profile.name = res.data[0].name
+  profile.county = res.data[0].county.name
+  profile.area_ha = res.data[0].area
+  profile.population = res.data[0].population
+
+  // set the settlement hosuing  details ------------------------------------
+  var latestReportIndex = res.data[0].settlement_statuses.length - 1 // We get the number of reports so that we can pick the most recent
+
+  housing.no_dwelling = res.data[0].settlement_statuses[latestReportIndex].no_dwelling
+  housing.pop_density = res.data[0].settlement_statuses[latestReportIndex].pop_density
+  housing.ave_room_occupancy = res.data[0].settlement_statuses[latestReportIndex].ave_room_occupancy
+  housing.ave_hh_size = res.data[0].settlement_statuses[latestReportIndex].ave_hh_size
+
+  housing.prop_permanent = res.data[0].settlement_statuses[latestReportIndex].prop_permanent + '%'
+  housing.prop_semi = res.data[0].settlement_statuses[latestReportIndex].prop_semi + '%'
+  housing.prop_temp = res.data[0].settlement_statuses[latestReportIndex].prop_temp
+  housing.avg_cost_perm = res.data[0].settlement_statuses[latestReportIndex].avg_cost_perm
+  housing.avg_cost_semi = res.data[0].settlement_statuses[latestReportIndex].avg_cost_semi
+  housing.avg_cost_temp = res.data[0].settlement_statuses[latestReportIndex].avg_cost_temp
+}
 onMounted(() => {
   const id = route.params.id
   const settData = route.params.data
   // console.log('Settlement ID, Data:', id, settData)
-  getThisSettlement()
+  //getThisSettlement()
+
+  getFilteredData(filters, filterValues)
   console.log(settlement)
 })
 </script>
