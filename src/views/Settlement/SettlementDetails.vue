@@ -267,14 +267,14 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   // set the settlement details ------------------------------------
 
-  console.log('After Querry', res.data[0])
+  console.log('After Querry', res)
 
   // set the settlement profile  details ------------------------------------
   profile.name = res.data[0].name
   profile.county = res.data[0].county.name
   profile.area_ha = res.data[0].area
   profile.population = res.data[0].population
-
+  profile.description = res.data[0].description
   // set the settlement hosuing  details ------------------------------------
   var latestReportIndex = res.data[0].settlement_statuses.length - 1 // We get the number of reports so that we can pick the most recent
 
@@ -282,13 +282,28 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   housing.pop_density = res.data[0].settlement_statuses[latestReportIndex].pop_density
   housing.ave_room_occupancy = res.data[0].settlement_statuses[latestReportIndex].ave_room_occupancy
   housing.ave_hh_size = res.data[0].settlement_statuses[latestReportIndex].ave_hh_size
-
   housing.prop_permanent = res.data[0].settlement_statuses[latestReportIndex].prop_permanent + '%'
   housing.prop_semi = res.data[0].settlement_statuses[latestReportIndex].prop_semi + '%'
   housing.prop_temp = res.data[0].settlement_statuses[latestReportIndex].prop_temp
   housing.avg_cost_perm = res.data[0].settlement_statuses[latestReportIndex].avg_cost_perm
   housing.avg_cost_semi = res.data[0].settlement_statuses[latestReportIndex].avg_cost_semi
   housing.avg_cost_temp = res.data[0].settlement_statuses[latestReportIndex].avg_cost_temp
+
+  // set the utilities  details ------------------------------------
+  utilities.prop_avail_piped_water =
+    res.data[0].settlement_statuses[latestReportIndex].prop_other_water + '%'
+  utilities.prop_other_water =
+    res.data[0].settlement_statuses[latestReportIndex].prop_other_water + '%'
+  utilities.prop_conn_elec = res.data[0].settlement_statuses[latestReportIndex].prop_conn_elec + '%'
+  utilities.prop_lpg = res.data[0].settlement_statuses[latestReportIndex].prop_lpg + '%'
+  utilities.prop_other_water =
+    res.data[0].settlement_statuses[latestReportIndex].prop_other_water + '%'
+  utilities.prop_conn_elec = res.data[0].settlement_statuses[latestReportIndex].prop_conn_elec + '%'
+  utilities.prop_lpg = res.data[0].settlement_statuses[latestReportIndex].prop_lpg + '%'
+  utilities.prop_firewood = res.data[0].settlement_statuses[latestReportIndex].prop_firewood + '%'
+  utilities.prop_kerosene = res.data[0].settlement_statuses[latestReportIndex].prop_kerosene + '%'
+  utilities.prop_biogas = res.data[0].settlement_statuses[latestReportIndex].prop_biogas + '%'
+  utilities.prop_elec = res.data[0].settlement_statuses[latestReportIndex].prop_elec + '%'
 }
 onMounted(() => {
   const id = route.params.id
