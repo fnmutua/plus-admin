@@ -4,14 +4,28 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { useForm } from '@/hooks/web/useForm'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
-import { Form } from '@/components/Form'
-import { ElMessage } from 'element-plus'
-import { Position, TopRight, User, Download, Filter, MessageBox } from '@element-plus/icons-vue'
+import {
+  ElButton,
+  ElSelect,
+  MessageParamsWithType,
+  ElLink,
+  ElOptionGroup,
+  ElOption
+} from 'element-plus'
+import { ElMessage, ElDialog, ElUpload } from 'element-plus'
+import {
+  Position,
+  TopRight,
+  User,
+  Download,
+  Filter,
+  UploadFilled,
+  CircleCloseFilled,
+  ArrowDownBold
+} from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { ElPagination, ElTooltip, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 
@@ -34,6 +48,7 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
+const uploadDialog = ref(false)
 
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
@@ -42,8 +57,10 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['county']
-const model = 'settlement'
+const associated_multiple_models = ['settlement']
+const nested_models = ['settlement', 'county'] // The mother, then followed by the child
+
+const model = 'settlement_uploads'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
@@ -60,16 +77,15 @@ const columns: TableColumn[] = [
     label: t('Name')
   },
   {
-    field: 'population',
-    label: t('Population')
-  },
-
-  {
-    field: 'area',
-    label: t('Area(Ha.)')
+    field: 'type',
+    label: t('Type')
   },
   {
-    field: 'county.name',
+    field: 'settlement.name',
+    label: t('Setllement')
+  },
+  {
+    field: 'settlement.county.name',
     label: t('County')
   },
   {
@@ -93,8 +109,8 @@ const handleClear = async () => {
   getInterventionsAll()
 }
 
-const handleSelectCounty = async (county_id: any) => {
-  var selectOption = 'county_id'
+const handleSelectType = async (county_id: any) => {
+  var selectOption = 'type'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -122,7 +138,7 @@ const handleSelectCounty = async (county_id: any) => {
 }
 
 const handleSelectSettlement = async (settlement: any) => {
-  var selectOption = 'id'
+  var selectOption = 'settlement_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -196,6 +212,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
+  formData.nested_models = nested_models
 
   //-------------------------
   //console.log(formData)
@@ -291,46 +308,92 @@ getCountyNames()
 getSettlementsOptions()
 getInterventionsAll()
 
-console.log('Options---->', countiesOptions)
-const viewProfile = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
+const DownloadFile = (data: TableSlotDefault) => {
+  console.log('Download file.....', data.row)
 
-  push({
-    path: '/settlement/:id',
-    name: 'SettlementDetails',
-    params: { data: data.row.id, id: data.row.id }
-  })
+  const link = document.createElement('a')
+  // link.href = '/Embakasi_04_GIS_in_NRM.pptx'
+  // link.download = 'filename'
+  link.href = '/' + data.row.name
+  link.download = data.row.name
+
+  console.log('Download link:', link)
+
+  link.click()
 }
 
-const viewHHs = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
-  push({
-    path: '/settlement/hh/:id',
-    name: 'Households',
-    params: { id: data.row.id, name: data.row.name }
-  })
-}
+const uploadOptions = [
+  {
+    label: 'Reports',
+    options: [
+      {
+        value: 'socio_economic',
+        label: 'Socio Economic Report'
+      },
+      {
+        value: 'stakeholder_report',
+        label: 'Stakeholder Report'
+      },
+      {
+        value: 'planning_report',
+        label: 'Planning Report'
+      },
 
-const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On map.....', data.row)
-  if (data.row.geom) {
-    push({
-      path: '/settlement/map/:id',
-      name: 'SettlementMap',
-      params: { id: data.row.id }
-    })
-  } else {
-    var msg = 'This Settlement does not have the boundary defined in the database!'
-    open(msg)
+      {
+        value: 'basemap_report',
+        label: 'Basemap Report'
+      },
+      {
+        value: 'esia_report',
+        label: 'Environmental Screening Report'
+      }
+    ]
+  },
+  {
+    label: 'Plans',
+    options: [
+      {
+        value: 'ldpdp',
+        label: 'Local Development Plan'
+      },
+      {
+        value: 'pdp',
+        label: 'Part Development Plan'
+      }
+    ]
+  },
+  {
+    label: 'Maps',
+    options: [
+      {
+        value: 'survey_plan',
+        label: 'Survey Plan'
+      },
+      {
+        value: 'rim',
+        label: 'Registry Index Map'
+      }
+    ]
+  },
+  {
+    label: 'Drawings',
+    options: [
+      {
+        value: 'design',
+        label: 'Design Proposals'
+      },
+      {
+        value: 'built',
+        label: 'As Built Designs'
+      }
+    ]
   }
-}
-const viewDocuments = (data: TableSlotDefault) => {
-  console.log('On map.....', data.row)
+]
 
+const UploadDocuments = (data: TableSlotDefault) => {
   push({
-    path: '/settlement/doc/:id',
-    name: 'SettlementDocs',
-    params: { id: data.row.id }
+    path: 'upload/file',
+    name: 'uploadFiles'
   })
 }
 </script>
@@ -345,20 +408,18 @@ const viewDocuments = (data: TableSlotDefault) => {
     <div style="display: inline-block; margin-left: 20px">
       <el-select
         v-model="value2"
-        :onChange="handleSelectCounty"
+        :onChange="handleSelectType"
         :onClear="handleClear"
-        multiple
-        clearable
-        filterable
-        collapse-tags
-        placeholder="Filter by County"
+        placeholder="Filter by Type"
       >
-        <el-option
-          v-for="item in countiesOptions"
-          :key="item.value"
-          :label="item.label"
-          :value="item.value"
-        />
+        <el-option-group v-for="group in uploadOptions" :key="group.label" :label="group.label">
+          <el-option
+            v-for="item in group.options"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-option-group>
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
@@ -370,7 +431,7 @@ const viewDocuments = (data: TableSlotDefault) => {
         clearable
         filterable
         collapse-tags
-        placeholder="Filter by Settlement Name"
+        placeholder="Filter by Settlement"
       >
         <el-option
           v-for="item in settlementOptions"
@@ -381,11 +442,11 @@ const viewDocuments = (data: TableSlotDefault) => {
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+      <el-tooltip content="Upload Documents" placement="top">
+        <el-button @click="UploadDocuments" type="primary" :icon="UploadFilled" />
+      </el-tooltip>
     </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
+
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
     <Table
@@ -400,33 +461,8 @@ const viewDocuments = (data: TableSlotDefault) => {
         <el-tooltip content="View Profile" placement="top">
           <el-button
             type="primary"
-            :icon="TopRight"
-            @click="viewProfile(data as TableSlotDefault)"
-            circle
-          />
-        </el-tooltip>
-
-        <el-tooltip content="View Households" placement="top">
-          <el-button
-            type="success"
-            :icon="User"
-            @click="viewHHs(data as TableSlotDefault)"
-            circle
-          />
-        </el-tooltip>
-        <el-tooltip content="View on Map" placement="top">
-          <el-button
-            type="warning"
-            :icon="Position"
-            @click="viewOnMap(data as TableSlotDefault)"
-            circle
-          />
-        </el-tooltip>
-        <el-tooltip content="View Documents" placement="top">
-          <el-button
-            type="primary"
-            :icon="MessageBox"
-            @click="viewDocuments(data as TableSlotDefault)"
+            :icon="Download"
+            @click="DownloadFile(data as TableSlotDefault)"
             circle
           />
         </el-tooltip>
@@ -443,5 +479,22 @@ const viewDocuments = (data: TableSlotDefault) => {
       @current-change="onPageChange"
       class="mt-4"
     />
+
+    <el-dialog v-model="uploadDialog" :show-close="false">
+      <template #header="{ close, titleId, titleClass }">
+        <div class="my-header">
+          <h4 :id="titleId" :class="titleClass">Select the files to upload!</h4>
+          <el-button type="danger" @click="close" :icon="CircleCloseFilled"> Close </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </ContentWrap>
 </template>
+
+<style scoped>
+.my-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+</style>

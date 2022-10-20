@@ -791,6 +791,7 @@ exports.modelCountyUsers = (req, res) => {
 }
 
 exports.modelUpload = (req, res) => {
+  console.log(req.files)
   if (!req.files) {
     return res.status(500).send({ msg: 'file is not found' })
   }
@@ -848,20 +849,26 @@ exports.modelUpload = (req, res) => {
       objs.push(thisFile)
     }
 
+    console.log('Multiple Files:', objs)
+
     db.models.settlement_uploads
       .bulkCreate(objs)
       .then(function () {
         for (let i = 0; i < myFiles.length; i++) {
-          //  var fname = settlement_name+"_"+myFiles[i].name
+          // var fname = settlement_name + '_' + myFiles[i].name
+          var fname = settlement_name + '_' + myFiles[i].name.replace(/\s/g, '_')
+
           myFiles[i].mv(`./public/${fname}`)
           //  myFiles[i].mv(`./public/${settlement_name}_${myFiles[i].name}`);
+          console.log(myFiles[i])
         }
+
         // return models.DiscoverySource.findAll();
         res.status(200).send({
           message: 'Saved succesfully',
-          code: 20000
+          code: '0000'
         })
-        console.log('Users data have been saved')
+        console.log('upload data have been saved')
       })
       .catch(function (error) {
         res.send(error.errors)
@@ -916,7 +923,7 @@ exports.modelUpload = (req, res) => {
         // return models.DiscoverySource.findAll();
         res.status(200).send({
           message: 'One File Saved succesfully',
-          code: 20000
+          code: '0000'
         })
       })
       .catch(function (error) {
