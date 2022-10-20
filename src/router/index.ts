@@ -424,6 +424,40 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           title: t('Map')
         }
       },
+      {
+        path: 'uploads',
+        component: () => import('@/views/Uploads/uploads.vue'),
+        name: 'Uploads',
+
+        meta: {
+          hidden: false,
+          props: true,
+          title: t('Documents')
+        }
+      },
+      {
+        path: 'upload/file',
+        component: () => import('@/views/Uploads/uploadFiles.vue'),
+        name: 'uploadFiles',
+
+        meta: {
+          hidden: false,
+          props: true,
+          title: t('uploadFiles')
+        }
+      },
+
+      {
+        path: 'doc/:id',
+        component: () => import('@/views/Settlement/SettlementDocs.vue'),
+        name: 'SettlementDocs',
+
+        meta: {
+          hidden: true,
+          props: true,
+          title: t('Documents')
+        }
+      },
 
       {
         path: 'map',
