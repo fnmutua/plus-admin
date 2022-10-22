@@ -52,3 +52,8 @@ export const uploadFiles = (data: SettlementType): Promise<IResponse<SettlementT
   console.log('....', data)
   return request.post({ url: prod + '/api/v1/upload', data })
 }
+
+export const CreateRecord = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/data/create', data })
+}

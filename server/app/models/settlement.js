@@ -3,12 +3,12 @@ module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
     'settlement',
     {
-      id: {
-        autoIncrement: true,
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        primaryKey: true
-      },
+      // id: {
+      //   autoIncrement: true,
+      //   type: DataTypes.INTEGER,
+      //   allowNull: false,
+      //   primaryKey: true
+      // },
       name: {
         type: DataTypes.STRING,
         allowNull: false
