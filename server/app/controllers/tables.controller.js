@@ -185,21 +185,24 @@ exports.modelImportData = (req, res) => {
 }
 
 exports.modelCreateOneRecord = (req, res) => {
-  var reg_model = req.query.model
+  console.log('creating......')
+  var reg_model = req.body.model
 
-  console.log('One record... ----', req.body)
-  console.log('model... ----', req.query.model)
+  console.log('model... ----', req.body.model)
+  var obj = req.body
+  delete obj.model // or delete person["age"];
+
+  console.log('One record... ----', obj)
 
   // insert
-
   db.models[reg_model]
-    .create(req.body)
+    .create(obj)
     .then(function (item) {
       res.status(200).send({
         message: 'Import Successful',
         total: req.body.count,
         data: item,
-        code: 20000
+        code: '0000'
       })
     })
     .catch(function (err) {
@@ -277,7 +280,7 @@ exports.modelSelectGeo = async (req, res) => {
   if (req.body.selectedParents.length > 0) {
     var arr = req.body.selectedParents //req.body // [80,64] }
   } else {
-    var arr = [1] //req.body // [80,64] }
+    var arr = [req.body.id] //req.body // [80,64] }
   }
   var qry2 =
     " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +

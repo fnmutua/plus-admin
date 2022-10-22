@@ -39,58 +39,15 @@ function toTitleCase(str) {
 const parentOptions = []
 const selectedParents = []
 const filtergeo = ref([])
+const settlementgeo = ref([])
+
 const map = ref()
-const marker = ref()
 const geo = ref()
+const sett = ref()
 const settlement = ref()
-const zoom = 6
 const { t } = useI18n()
 
-const xname = route.props
-const xid = route.params.id
-
 console.log('Settlement', route)
-const handleClear = async () => {
-  console.log('cleared....')
-  getAll()
-}
-const handleSelect = async (selectIDs) => {
-  console.log('on change  ', selectIDs)
-  selectedParents.length = 0 // clear previously selected counties
-
-  let arr = []
-  if (selectIDs.length > 0) {
-    // arr.push(county_id)   // applies for sinle select only
-    //console.log('Array', arr)
-    //selectedParents.push(county_id)
-    selectedParents.push(...selectIDs)
-    //  console.log(selectedParents)
-    const formData = {}
-    formData.model = model
-    formData.columnFilterField = filterCol
-    formData.selectedParents = selectedParents
-    console.log(formData)
-    const res = await getfilteredGeo(formData)
-    filtergeo.value = res.data[0].json_build_object
-
-    setTimeout(() => {
-      nextTick().then(() => {
-        var group = new featureGroup()
-
-        map.value.leafletObject.eachLayer(function (layer) {
-          //    console.log(layer.feature)
-          if (layer.feature != undefined) {
-            group.addLayer(layer)
-          }
-        })
-
-        console.log(group.getBounds())
-        map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
-        updateStyle()
-      })
-    }, 0) // 0ms seems enough to execute resize after tab opens.
-  }
-}
 
 const getAll = async () => {
   const id = route.params.id
@@ -140,31 +97,34 @@ const getSettlement = async (id) => {
 
   console.log('All settlements Querry', res.data)
 }
-const schema = reactive<FormSchema[]>([
-  {
-    field: filterCol,
-    label: toTitleCase(assoc_model),
-    component: 'Select',
-    colProps: {
-      span: 24
-    },
-    componentProps: {
-      options: parentOptions,
-      onChange: handleSelect,
-      onClear: handleClear,
-      filterable: 'true',
-      multiple: 'true',
 
-      style: {
-        width: '25%'
-      },
-      slots: {
-        suffix: true,
-        prefix: true
-      }
-    }
-  }
-])
+const getSettlementBoundary = async (id) => {
+  const formData = {}
+  formData.model = 'settlement'
+  formData.id = id
+  formData.columnFilterField = 'id'
+  formData.selectedParents = []
+  console.log(formData)
+  const res = await getfilteredGeo(formData)
+  settlementgeo.value = res.data[0].json_build_object
+
+  setTimeout(() => {
+    //   this.$refs.resizeMap();
+    //  map.value.leafletObject.invalidateSize()
+
+    // After building your geoJson layers, just add this:
+    nextTick().then(() => {
+      var group = new featureGroup()
+
+      map.value.leafletObject.eachLayer(function (layer) {
+        //    console.log(layer.feature)
+        if (layer.feature != undefined) {
+          group.addLayer(layer)
+        }
+      })
+    })
+  }, 0) // 0ms seems enough to execute resize after tab opens.
+}
 
 function getColor(d) {
   // console.log(d)
@@ -228,10 +188,7 @@ function updateStyle() {
   geo.value.leafletObject.setStyle(styleFunction)
 }
 const loading = ref(true)
-const pageSize = ref(5)
-const currentPage = ref(1)
 const total = ref(0)
-let tableDataList = ref<UserType[]>([])
 
 const getParents = async (params?: Params) => {
   const res = await getCountyListApi({
@@ -261,10 +218,11 @@ const getParents = async (params?: Params) => {
   })
 }
 
+getSettlementBoundary(route.params.id)
+
 getSettlement(route.params.id)
 getParents()
 getAll()
-
 console.log('pagination', parentOptions)
 </script>
 
@@ -300,6 +258,13 @@ console.log('pagination', parentOptions)
         layer-type="overlay"
         name="Parcels"
         :geojson="filtergeo"
+        @ready="updateStyle"
+      />
+      <l-geo-json
+        ref="sett"
+        layer-type="overlay"
+        name="Settlement"
+        :geojson="settlementgeo"
         @ready="updateStyle"
       />
       <l-control-layers position="topright" />

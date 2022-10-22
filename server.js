@@ -9,7 +9,7 @@ const path = require('path')
 const fileUpload = require('express-fileupload')
 
 
-const envt = 'PROD'   // PROD
+const envt = 'PRDO'   // PROD
  if (envt==='DEV') {
 // Switch off for prodcution 
 console.log("DEV: Swithcing on dotenv")

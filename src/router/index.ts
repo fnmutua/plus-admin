@@ -392,7 +392,12 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         name: 'SettlementDetails',
         meta: { hidden: true, title: 'Settlement Details', icon: 'example', noCache: true }
       },
-
+      {
+        path: 'add',
+        component: () => import('@/views/Settlement/Add.vue'),
+        name: 'AddSettlement',
+        meta: { hidden: false, title: 'Add', noCache: true }
+      },
       {
         path: 'parcel',
         component: () => import('@/views/Parcel/index.vue'),
@@ -441,7 +446,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         name: 'uploadFiles',
 
         meta: {
-          hidden: false,
+          hidden: true,
           props: true,
           title: t('uploadFiles')
         }
