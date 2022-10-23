@@ -69,6 +69,7 @@
     "url": "^0.11.0",
     "uuid": "^9.0.0",
     "vue": "3.2.37",
+    "vue-csv-import": "^4.1.2",
     "vue-excel-xlsx": "^1.2.2",
     "vue-i18n": "9.2.2",
     "vue-json-csv": "^2.1.0",

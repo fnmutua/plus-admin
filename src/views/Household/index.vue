@@ -2,19 +2,42 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty, searchByKeyWord, getOneSettlement } from '@/api/settlements'
+import {
+  getSettlementListByCounty,
+  searchByKeyWord,
+  getOneSettlement,
+  BatchImport
+} from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { useForm } from '@/hooks/web/useForm'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { Form } from '@/components/Form'
 import { ElMessage } from 'element-plus'
-import { Position, TopRight, User, Download, Filter } from '@element-plus/icons-vue'
+import {
+  Position,
+  TopRight,
+  User,
+  Download,
+  Filter,
+  Upload,
+  CircleCloseFilled,
+  Plus
+} from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDialog, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useRoute } from 'vue-router'
+
+import {
+  VueCsvToggleHeaders,
+  VueCsvSubmit,
+  VueCsvMap,
+  VueCsvInput,
+  VueCsvErrors,
+  VueCsvImport
+} from 'vue-csv-import'
 
 interface Params {
   pageIndex?: number
@@ -39,6 +62,7 @@ const downloadLoading = ref(false)
 const settlement = ref()
 const searchString = ref()
 let tableDataList = ref<UserType[]>([])
+const visible = ref(false)
 
 const route = useRoute()
 
@@ -54,6 +78,7 @@ const model = 'households'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
+const csv = ref()
 
 const columns: TableColumn[] = [
   {
@@ -121,7 +146,12 @@ const getSettlement = async (id) => {
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
-  getFilteredBySearchData(searchString.value)
+
+  if (searchString.value == '') {
+    getFilteredBySearchData(searchString.value)
+  } else {
+    getFilteredData(filters, filterValues)
+  }
 }
 function toTitleCase(str) {
   return str.replace(/\w\S*/g, function (txt) {
@@ -131,7 +161,11 @@ function toTitleCase(str) {
 
 const onPageSizeChange = async (size: any) => {
   pSize.value = size
-  getFilteredBySearchData(searchString.value)
+  if (searchString.value == '') {
+    getFilteredBySearchData(searchString.value)
+  } else {
+    getFilteredData(filters, filterValues)
+  }
 }
 
 const getHouseholds = async () => {
@@ -251,6 +285,29 @@ const open = (msg: MessageParamsWithType) => {
   ElMessage.error(msg)
 }
 
+const uploadHHs = () => {
+  var lobs = csv.value
+
+  lobs.forEach(function (itm) {
+    itm.settlement_id = id
+  })
+
+  console.log('lobs', lobs)
+
+  var formData = {}
+  formData.model = 'households'
+  formData.data = csv.value
+  const res = BatchImport(formData)
+
+  ElMessage.success('Uploading...')
+}
+
+const cancelUpload = () => {
+  ElMessage.error('Upload Cancelled...')
+  csv.value = []
+  visible.value = false
+}
+
 const handleDownload = () => {
   console.log(tblData)
   downloadLoading.value = true
@@ -265,7 +322,6 @@ getSettlement(route.params.id)
 
 getHouseholds()
 
-console.log('Options---->', countiesOptions)
 const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
 
@@ -276,7 +332,7 @@ const viewProfile = (data: TableSlotDefault) => {
   })
 }
 
-const viewHHs = (data: TableSlotDefault) => {
+function viewHHs() {
   console.log('On Click.....', data.row.id)
   push({
     path: '/settlement/hh/:id',
@@ -298,6 +354,8 @@ const viewOnMap = (data: TableSlotDefault) => {
     open(msg)
   }
 }
+
+console.log('CSV---->', csv)
 </script>
 
 <template>
@@ -325,6 +383,13 @@ const viewOnMap = (data: TableSlotDefault) => {
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
+
+    <div style="display: inline-block; margin-left: 20px">
+      <el-tooltip content="Upload Household list as csv" placement="top">
+        <el-button @click="visible = true" type="primary" :icon="Upload" />
+      </el-tooltip>
+    </div>
+
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
     <Table
@@ -374,5 +439,45 @@ const viewOnMap = (data: TableSlotDefault) => {
       @current-change="onPageChange"
       class="mt-4"
     />
+
+    <el-dialog v-model="visible" :show-close="false">
+      <template #header="{ close, titleId, titleClass }">
+        <div class="my-header">
+          <h4 :id="titleId" :class="titleClass">Upload Households</h4>
+          <el-button type="danger" @click="close">
+            <el-icon class="el-icon--left"><CircleCloseFilled /></el-icon>
+            Close
+          </el-button>
+        </div>
+      </template>
+
+      <vue-csv-import
+        v-model="csv"
+        :fields="{
+          name: { required: true, label: 'Name' },
+          national_id: { required: true, label: 'National ID' }
+        }"
+      >
+        <vue-csv-toggle-headers />
+        <vue-csv-errors />
+        <vue-csv-input />
+        <vue-csv-map />
+      </vue-csv-import>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button type="danger" @click="cancelUpload">Cancel</el-button>
+          <el-button type="primary" @click="uploadHHs"> Save </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </ContentWrap>
 </template>
+
+<style scoped>
+.my-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+</style>

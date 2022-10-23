@@ -8,7 +8,16 @@ import { useForm } from '@/hooks/web/useForm'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { Form } from '@/components/Form'
 import { ElMessage } from 'element-plus'
-import { Position, TopRight, User, Download, Filter, MessageBox } from '@element-plus/icons-vue'
+import {
+  Position,
+  TopRight,
+  User,
+  AddLocation,
+  Plus,
+  Download,
+  Filter,
+  MessageBox
+} from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
@@ -333,6 +342,13 @@ const viewDocuments = (data: TableSlotDefault) => {
     params: { id: data.row.id }
   })
 }
+
+const AddSettlement = (data: TableSlotDefault) => {
+  push({
+    path: '/settlement/add',
+    name: 'AddSettlement'
+  })
+}
 </script>
 
 <template>
@@ -386,6 +402,12 @@ const viewDocuments = (data: TableSlotDefault) => {
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
+    <div style="display: inline-block; margin-left: 20px">
+      <el-tooltip content="Add Settlement" placement="top">
+        <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
+      </el-tooltip>
+    </div>
+
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
     <Table
@@ -401,6 +423,7 @@ const viewDocuments = (data: TableSlotDefault) => {
           <el-button
             type="primary"
             :icon="TopRight"
+            size="small"
             @click="viewProfile(data as TableSlotDefault)"
             circle
           />
@@ -410,6 +433,7 @@ const viewDocuments = (data: TableSlotDefault) => {
           <el-button
             type="success"
             :icon="User"
+            size="small"
             @click="viewHHs(data as TableSlotDefault)"
             circle
           />
@@ -418,6 +442,7 @@ const viewDocuments = (data: TableSlotDefault) => {
           <el-button
             type="warning"
             :icon="Position"
+            size="small"
             @click="viewOnMap(data as TableSlotDefault)"
             circle
           />
@@ -426,6 +451,7 @@ const viewDocuments = (data: TableSlotDefault) => {
           <el-button
             type="primary"
             :icon="MessageBox"
+            size="small"
             @click="viewDocuments(data as TableSlotDefault)"
             circle
           />

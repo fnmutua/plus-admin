@@ -194,7 +194,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
                 name: 'InterventionTenureOwners',
                 component: () => import('@/views/Intervention/Tenure/Owners.vue'),
                 meta: {
-                  title: t('Parcel Owners')
+                  title: t('Parcels')
                 }
               }
             ]
@@ -549,6 +549,35 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         name: 'Environment',
         meta: {
           title: t('Environment')
+        }
+      }
+    ]
+  },
+  {
+    path: '/data',
+    component: Layout,
+    redirect: '/data/import',
+    name: 'Data',
+    meta: {
+      title: t('Data'),
+      icon: 'ant-design:shop-outlined',
+      alwaysShow: false
+    },
+    children: [
+      {
+        path: 'import',
+        component: () => import('@/views/ImportData/index.vue'),
+        name: 'ImportData',
+        meta: {
+          title: t('Import')
+        }
+      },
+      {
+        path: 'export',
+        component: () => import('@/views/ImportData/index.vue'),
+        name: 'ExportData',
+        meta: {
+          title: t('Export')
         }
       }
     ]

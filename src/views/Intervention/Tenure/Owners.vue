@@ -58,7 +58,14 @@ const columns: TableColumn[] = [
     field: 'id',
     label: t('userDemo.index')
   },
-
+  {
+    field: 'parcel.parcel_no',
+    label: t('Parcel No.')
+  },
+  {
+    field: 'parcel.area_ha',
+    label: t('Plot Size(Ha.)')
+  },
   {
     field: 'beneficiary.household.name',
     label: t('Name')
@@ -73,14 +80,6 @@ const columns: TableColumn[] = [
     label: t('Settlement')
   },
 
-  {
-    field: 'parcel.parcel_no',
-    label: t('Parcel No.')
-  },
-  {
-    field: 'parcel.area_ha',
-    label: t('Plot Size(Ha.)')
-  },
   {
     field: 'parcel.description',
     label: t('Description')
