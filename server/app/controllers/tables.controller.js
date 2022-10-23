@@ -155,20 +155,20 @@ exports.modelAllDatafilter = (req, res) => {
 }
 
 exports.modelImportData = (req, res) => {
-  var reg_model = req.query.model
+  var reg_model = req.body.model
 
-  console.log('here ----', req.body)
+  console.log('here ----', req.body.data)
 
   // insert
 
   db.models[reg_model]
-    .bulkCreate(req.body, { returning: true })
+    .bulkCreate(req.body.data, { returning: true })
     .then(function (item) {
       console.log(req.body.count)
       res.status(200).send({
         message: 'Import Successful',
         total: req.body.count,
-        code: 20000
+        code: '0000'
       })
     })
     .catch(function (err) {

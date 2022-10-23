@@ -228,7 +228,7 @@ console.log('pagination', parentOptions)
 
 <template>
   <ContentWrap
-    :title="toTitleCase(settlement.name + ' Settlement Parcels')"
+    :title="toTitleCase(settlement.name + ' Settlement')"
     :message="t('The Map of ' + model + 's  by ' + assoc_model + '. Use the filter to subset')"
   >
     <l-map ref="map" :zoom="16" :center="[-1.30853, 36.917257]" style="height: 66vh">
