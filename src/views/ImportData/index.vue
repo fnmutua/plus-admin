@@ -21,7 +21,6 @@ import {
   VueCsvErrors,
   VueCsvImport
 } from 'vue-csv-import'
-import { column } from 'element-plus/es/components/table-v2/src/common'
 
 interface Params {
   pageIndex?: number
@@ -355,7 +354,7 @@ const cancelUpload = () => {
         <vue-csv-toggle-headers />
         <vue-csv-errors />
         <vue-csv-input />
-        <vue-csv-map />
+        <vue-csv-map :auto-match="false" :table-attributes="{ id: 'csv-table' }" />
       </vue-csv-import>
 
       <template #footer>
