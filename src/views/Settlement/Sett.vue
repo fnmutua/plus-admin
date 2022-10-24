@@ -35,6 +35,8 @@ const value2 = ref([])
 var value3 = ref([])
 const countiesOptions = ref([])
 const settlementOptions = ref([])
+const settlements = ref([])
+const filteredSettlements = ref([])
 const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
@@ -126,6 +128,12 @@ const handleSelectCounty = async (county_id: any) => {
   }
 
   console.log('FilterValues:', filterValues)
+  // here we filter the list of settlements based on the selected county
+  filteredSettlements.value = settlements.value.filter(
+    (settlement) => settlement.county_id == county_id
+  )
+  console.log('filyterested settlements------>', filteredSettlements)
+  makeSettlementOptions(filteredSettlements)
 
   getFilteredData(filters, filterValues)
 }
@@ -273,19 +281,27 @@ const getSettlementsOptions = async () => {
     var ret = response.data
 
     loading.value = false
+    // pass result to the makeoptions
 
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      settlementOptions.value.push(countyOpt)
-    })
+    settlements.value = ret
+    makeSettlementOptions(settlements)
   })
 }
 
 const open = (msg: MessageParamsWithType) => {
   ElMessage.error(msg)
+}
+
+const makeSettlementOptions = (list) => {
+  console.log('making the options..............', list)
+  settlementOptions.value = []
+  list.value.forEach(function (arrayItem: { id: string; type: string }) {
+    var countyOpt = {}
+    countyOpt.value = arrayItem.id
+    countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    //  console.log(countyOpt)
+    settlementOptions.value.push(countyOpt)
+  })
 }
 
 const handleDownload = () => {

@@ -2,7 +2,7 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, BatchImport } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { useForm } from '@/hooks/web/useForm'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
@@ -63,7 +63,7 @@ const EntityOptions = [
     disabled: true
   },
   {
-    value: 'household',
+    value: 'households',
     label: 'Households'
   },
   {
@@ -191,7 +191,7 @@ const showDialog = async () => {
       area_ha: { required: true, label: 'Area' },
       parcel_id: { required: true, label: 'Parcel ID' }
     }
-  } else if (selModel.value === 'household') {
+  } else if (selModel.value === 'households') {
     hh_fields.value = {
       name: { required: true, label: 'Name' },
       national_id: { required: true, label: 'National ID' }
@@ -250,9 +250,24 @@ const reviewData = () => {
   console.log(columns)
 }
 
-const uploadData = () => {
+const uploadData = async () => {
   console.log(formData)
-  //const res = BatchImport(formData)
+  //  const res = BatchImport(formData)
+
+  await BatchImport(formData).then(
+    (response) => {
+      // Some task on success
+      console.log(response)
+      disableSaveBtn.value = true
+      csv.value = ''
+      ElMessage.success(formData.model + ' data imported successfully!.')
+    },
+    (errors) => {
+      // Some task on failure
+      ElMessage.error('Upload Failed...')
+      console.log(errors)
+    }
+  )
 }
 const cancelUpload = () => {
   ElMessage.error('Upload Cancelled...')
@@ -350,11 +365,11 @@ const cancelUpload = () => {
         </div>
       </template>
 
-      <vue-csv-import v-model="csv" :fields="hh_fields">
+      <vue-csv-import v-model="csv" tableClass="my-header" :fields="hh_fields">
         <vue-csv-toggle-headers />
         <vue-csv-errors />
         <vue-csv-input />
-        <vue-csv-map :auto-match="false" :table-attributes="{ id: 'csv-table' }" />
+        <vue-csv-map />
       </vue-csv-import>
 
       <template #footer>
