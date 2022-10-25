@@ -1,19 +1,17 @@
+<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { useForm } from '@/hooks/web/useForm'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
-import { Form } from '@/components/Form'
-import { ElMessage } from 'element-plus'
+ import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
+ import { ElMessage } from 'element-plus'
 import {
   Position,
   TopRight,
   User,
-  AddLocation,
-  Plus,
+   Plus,
   Download,
   Filter,
   MessageBox
@@ -487,3 +485,4 @@ const AddSettlement = (data: TableSlotDefault) => {
     />
   </ContentWrap>
 </template>
+ 

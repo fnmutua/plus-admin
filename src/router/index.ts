@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import type { App } from 'vue'
 import { Layout, getParentLayout } from '@/utils/routerHelper'
 import { useI18n } from '@/hooks/web/useI18n'
+
 import {
   Check,
   Delete,
@@ -559,25 +560,25 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     redirect: '/data/import',
     name: 'Data',
     meta: {
-      title: t('Data'),
+      title: t('Import Data'),
       icon: 'ant-design:shop-outlined',
       alwaysShow: false
     },
     children: [
       {
-        path: 'import',
-        component: () => import('@/views/ImportData/index.vue'),
+        path: 'list',
+        component: () => import('@/views/ImportData/list.vue'),
         name: 'ImportData',
         meta: {
-          title: t('Import')
+          title: t('List')
         }
       },
       {
-        path: 'export',
-        component: () => import('@/views/ImportData/index.vue'),
-        name: 'ExportData',
+        path: 'geo',
+        component: () => import('@/views/ImportData/geo.vue'),
+        name: 'Importgeo',
         meta: {
-          title: t('Export')
+          title: t('Geometry')
         }
       }
     ]

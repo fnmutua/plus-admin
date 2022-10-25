@@ -3,12 +3,12 @@ module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
     'settlement',
     {
-      // id: {
-      //   autoIncrement: true,
-      //   type: DataTypes.INTEGER,
-      //   allowNull: false,
-      //   primaryKey: true
-      // },
+        id: {
+        autoIncrement: true,
+         type: DataTypes.INTEGER,
+          allowNull: false,
+          primaryKey: true
+      },
       name: {
         type: DataTypes.STRING,
         allowNull: false
@@ -22,7 +22,7 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false
       },
       geom: {
-        type: DataTypes.GEOMETRY('POLYGON', 4326),
+        type: DataTypes.GEOMETRY('Geometry', 4326),
         allowNull: true
       },
       area: {
@@ -35,11 +35,12 @@ module.exports = function (sequelize, DataTypes) {
       },
       code: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
+        unique:true
       },
       description: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
       }
     },
     {
@@ -52,6 +53,11 @@ module.exports = function (sequelize, DataTypes) {
           name: 'settlement_pkey',
           unique: true,
           fields: [{ name: 'id' }]
+        },
+        {
+          name: 'settlement_pcode',
+          unique: true,
+          fields: [{ name: 'code' }]
         }
       ]
     }

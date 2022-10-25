@@ -62,3 +62,10 @@ export const BatchImport = (data: SettlementType): Promise<IResponse<SettlementT
   console.log('....', data)
   return request.post({ url: prod + '/api/v1/data/import', data })
 }
+
+
+export const BatchImportUpsert = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/data/import/upsert', data })
+}
+

@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 const { authJwt } = require('../middleware')
 const controller = require('../controllers/tables.controller')
 module.exports = function (app) {
@@ -43,7 +44,8 @@ module.exports = function (app) {
 
   // Gets the  table names
   app.post('/api/v1/data/import', controller.modelImportData)
-
+  app.post('/api/v1/data/import/upsert', controller.modelImportDataUpsert)
+  
   // create one record
   app.post('/api/v1/data/create', controller.modelCreateOneRecord)
 
