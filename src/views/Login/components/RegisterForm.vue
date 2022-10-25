@@ -210,7 +210,7 @@ const loginRegister = async () => {
         const { getFormData } = methods
         const formData = await getFormData<UserType>()
         console.log('ValidForm', formData)
-        formData.email = formData.username
+        formData.email = formData.username.trim()
 
         const res = await registerApi(formData)
         console.log('After Registre', res)

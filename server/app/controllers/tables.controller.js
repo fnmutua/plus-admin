@@ -7,7 +7,7 @@ const op = Sequelize.Op
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
 const nodemailer = require('nodemailer')
-
+ 
 const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   host: config.HOST,
   port: config.PORT,
@@ -54,12 +54,12 @@ exports.modelData = (req, res) => {
   var qry = {}
   if (reg_model === 'users') {
     console.log('Include for users......')
-    ;(qry.offset = pg_number * limit),
-      (qry.limit = limit),
-      //  qry.include=[{ model:  db.role, required: true },],
-      (qry.order = [['id', sort]])
+      ; (qry.offset = pg_number * limit),
+        (qry.limit = limit),
+        //  qry.include=[{ model:  db.role, required: true },],
+        (qry.order = [['id', sort]])
   } else {
-    ;(qry.offset = pg_number * limit), (qry.limit = limit), (qry.order = [['id', sort]])
+    ; (qry.offset = pg_number * limit), (qry.limit = limit), (qry.order = [['id', sort]])
   }
 
   console.log('The Querry', qry)
@@ -141,7 +141,7 @@ exports.modelAllDatafilter = (req, res) => {
     var qry = {}
   }
 
-  ;(qry.where = {
+  ; (qry.where = {
     [field]: { [op.iLike]: '%' + searchKeyword + '%' }
   }),
     db.models[reg_model].findAndCountAll(qry).then((list) => {
@@ -154,15 +154,16 @@ exports.modelAllDatafilter = (req, res) => {
     })
 }
 
-exports.modelImportData = (req, res) => {
+exports.xmodelImportData = (req, res) => {
   var reg_model = req.body.model
 
   console.log('here ----', req.body.data)
 
   // insert
+ 
 
   db.models[reg_model]
-    .bulkCreate(req.body.data, { returning: true })
+    .bulkCreate(req.body.data, { returning: true } )
     .then(function (item) {
       console.log(req.body.count)
       res.status(200).send({
@@ -176,13 +177,72 @@ exports.modelImportData = (req, res) => {
       console.log('error0---------->', err)
 
       if (err.name == 'SequelizeUniqueConstraintError') {
-        var message = 'One or more table constraints are violated. Check your id columns'
+        var msg = 'One or more table constraints are violated. Check your unique columns'
       } else {
-        var message = 'The uploaded file does not match the required fields'
+        var msg = 'The uploaded file does not match the required fields'
       }
-      return res.status(500).send({ message: message })
+       return res.status(500).send({ message: msg})
+
     })
 }
+
+exports.modelImportData = async (req, res) => {
+  var reg_model = req.body.model
+  let data =  req.body.data
+
+  //console.log('Model upsert----', data)
+  let errors =[]
+  for (let i = 0; i < data.length; i++) {
+ 
+   await db.models[reg_model].upsert(
+          req.body.data[i]
+      )
+        .then(data => console.log(data))
+        .catch(err => errors.push(err.original));
+    }
+
+    console.log("Errors ---->", errors)
+    if (errors.length>0) {
+      res.status(500).send({ message: 'Import/Update failed' })
+    } else {
+      res.status(200).send({
+        message: 'Import/Updated Successful',
+        code: '0000'
+      })
+    }
+
+ 
+  }
+
+exports.modelImportDataUpsert = async (req, res) => {
+  var reg_model = req.body.model
+  let data =  req.body.data
+
+  //console.log('Model upsert----', data)
+  let errors =[]
+  for (let i = 0; i < data.length; i++) {
+ 
+   await db.models[reg_model].upsert(
+          req.body.data[i]
+      )
+        .then(data => console.log(data))
+        .catch(err => errors.push(err.original));
+    }
+
+    console.log("Errors ---->", errors)
+    if (errors.length>0) {
+      res.status(500).send({ message: 'Import/Update failed' })
+    } else {
+      res.status(200).send({
+        message: 'Import/Updated Successful',
+        code: '0000'
+      })
+    }
+
+ 
+  }
+
+
 
 exports.modelCreateOneRecord = (req, res) => {
   console.log('creating......')
@@ -537,12 +597,12 @@ exports.modelAllUsers = (req, res) => {
 
   if (reg_model === 'users') {
     console.log('Include for users......')
-    ;(qry.offset = (pg_number - 1) * limit),
-      (qry.limit = limit),
-      (qry.where = { id: { [op.ne]: curUSer } }) // Exclude the logged in user returing in the list
+      ; (qry.offset = (pg_number - 1) * limit),
+        (qry.limit = limit),
+        (qry.where = { id: { [op.ne]: curUSer } }) // Exclude the logged in user returing in the list
     qry.order = [['id', sort]]
   } else {
-    ;(qry.offset = (pg_number - 1) * limit), (qry.limit = limit), (qry.order = [['id', sort]])
+    ; (qry.offset = (pg_number - 1) * limit), (qry.limit = limit), (qry.order = [['id', sort]])
   }
 
   console.log('The Querry', qry)
@@ -583,12 +643,12 @@ exports.modelPaginatedData = (req, res) => {
 
   if (reg_model === 'users') {
     //   console.log("Include for users......")
-    ;(qry.offset = (pg_number - 1) * limit),
+    ; (qry.offset = (pg_number - 1) * limit),
       (qry.limit = limit),
       (qry.where = { id: { [op.ne]: curUSer } }) // Exclude the logged in user returing in the list
     qry.order = [['id', sort]]
   } else {
-    ;(qry.offset = (pg_number - 1) * limit), (qry.limit = limit), (qry.order = [['id', sort]])
+    ; (qry.offset = (pg_number - 1) * limit), (qry.limit = limit), (qry.order = [['id', sort]])
   }
 
   console.log('The Querry', qry)
@@ -776,10 +836,10 @@ exports.modelCountyUsers = (req, res) => {
   if (reg_model === 'users') {
     //   console.log("Include for users......")
     qry.offset = (req.query.page - 1) * req.query.limit
-    ;(qry.limit = limit), (qry.where = { county_id: county, id: { [op.ne]: curUSer } }) // Exclude the logged in user returing in the list
+      ; (qry.limit = limit), (qry.where = { county_id: county, id: { [op.ne]: curUSer } }) // Exclude the logged in user returing in the list
     qry.order = [['id', sort]]
   } else {
-    ;(qry.offset = pg_number * limit), (qry.limit = limit), (qry.order = [['id', sort]])
+    ; (qry.offset = pg_number * limit), (qry.limit = limit), (qry.order = [['id', sort]])
   }
 
   console.log('The Querry', qry)

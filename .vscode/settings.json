@@ -2,7 +2,8 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "prettier.enable": false,
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
+
+    "source.fixAll.eslint": false
   },
   "[vue]": {
     "editor.defaultFormatter": "Vue.volar"

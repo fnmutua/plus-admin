@@ -64,9 +64,9 @@ service.interceptors.response.use(
       ElMessage.error(response.data.message)
     }
   },
-  (error: AxiosError) => {
-    console.log('err' + error) // for debug
-    ElMessage.error(error.message)
+  (error: any) => {
+    console.log('the Error-->' + error) // for debug
+   // ElMessage.error(error.message)   /// Revist Felix 
     return Promise.reject(error)
   }
 )
