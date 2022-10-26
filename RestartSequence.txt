@@ -1,7 +1,7 @@
 ALTER SEQUENCE seq RESTART WITH 1;
 UPDATE t SET idcolumn=nextval('seq');
 
- ALTER SEQUENCE households_id_seq RESTART WITH 1 ;
+ ALTER SEQUENCE settlement_id_seq RESTART WITH 1 ;
  ALTER SEQUENCE households_id_seq RESTART WITH 254 ;
  
  
