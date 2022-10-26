@@ -64,7 +64,7 @@ module.exports = function (app) {
 
   // Gets all users
 
-  app.get('/api/v1/user/all', controller.modelAllUsers)
+  app.post('/api/v1/user/all', controller.modelAllUsers)
 
   // count records with a filter
   app.post('/api/v1/data/count/filter', controller.modelCountFilter)

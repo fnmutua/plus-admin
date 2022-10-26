@@ -43,6 +43,8 @@ exports.modelBoard = (req, res) => {
 }
 
 exports.modelData = (req, res) => {
+  console.log('Include for users......')
+
   var reg_model = req.query.model
   var pg_number = req.query.page
   var limit = req.query.limit
@@ -53,7 +55,6 @@ exports.modelData = (req, res) => {
 
   var qry = {}
   if (reg_model === 'users') {
-    console.log('Include for users......')
       ; (qry.offset = pg_number * limit),
         (qry.limit = limit),
         //  qry.include=[{ model:  db.role, required: true },],
@@ -581,21 +582,21 @@ exports.modelSumFiltered = (req, res) => {
 }
 
 exports.modelAllUsers = (req, res) => {
-  var reg_model = req.query.model
-  var pg_number = req.query.page
-  var limit = req.query.limit
-  var sort = req.query.sort
-  var curUSer = req.query.curUser
+  var reg_model = req.body.model
+  var pg_number = req.body.page
+  var limit = req.body.limit
+  var sort = req.body.sort
+  var curUSer = req.body.curUser
 
   console.log('All Users ----- X --------X ')
 
-  console.log('Sort:order', req.query.sort)
+  console.log('Sort:order', req.body.sort)
   console.log('Model', reg_model)
   console.log('Limit', limit)
 
   var qry = {}
 
-  if (reg_model === 'users') {
+ /*  if (reg_model === 'users') {
     console.log('Include for users......')
       ; (qry.offset = (pg_number - 1) * limit),
         (qry.limit = limit),
@@ -603,7 +604,7 @@ exports.modelAllUsers = (req, res) => {
     qry.order = [['id', sort]]
   } else {
     ; (qry.offset = (pg_number - 1) * limit), (qry.limit = limit), (qry.order = [['id', sort]])
-  }
+  } */
 
   console.log('The Querry', qry)
   db.models[reg_model].findAndCountAll(qry).then((list) => {
@@ -612,7 +613,7 @@ exports.modelAllUsers = (req, res) => {
       data: list.rows,
       total: list.count,
       code: '0000',
-      message: 'Users fetched succesfully'
+      message: 'Users xfetched succesfully'
     })
   })
 }
