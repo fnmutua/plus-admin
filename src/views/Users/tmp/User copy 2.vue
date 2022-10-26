@@ -149,22 +149,12 @@ const handleSelectCounty = async (county_id: any) => {
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
-
-  if (searchString.value == '') {
-    getFilteredBySearchData(searchString.value)
-  } else {
-    getFilteredData(filters, filterValues)
-  }
+  getFilteredData(filters, filterValues)
 }
 
 const onPageSizeChange = async (size: any) => {
   pSize.value = size
-
-  if (searchString.value == '') {
-    getFilteredBySearchData(searchString.value)
-  } else {
-    getFilteredData(filters, filterValues)
-  }
+  getFilteredData(filters, filterValues)
 }
 
 const getInterventionsAll = async () => {
@@ -370,7 +360,7 @@ const AddUser = (data: TableSlotDefault) => {
 
 <template>
   <ContentWrap
-    :title="t('Users')"
+    :title="t('Slums and Informal Settlements')"
     :message="t('Use the filters to subset')"
   >
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>

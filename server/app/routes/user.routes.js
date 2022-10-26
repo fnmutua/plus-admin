@@ -10,7 +10,7 @@ module.exports = function(app) {
     next();
   });
   
-  app.get("/api/v1/all", controller.allAccess);
+  app.post("/api/v1/all", controller.allAccess);
   
   app.get(
     "/api/v1/user",
