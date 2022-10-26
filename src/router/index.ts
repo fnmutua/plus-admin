@@ -403,7 +403,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         path: 'parcel',
         component: () => import('@/views/Parcel/index.vue'),
         name: 'Parcel',
-        meta: {
+        meta: { hidden: true,
           title: t('Parcel')
         }
       },
@@ -470,7 +470,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         component: () => import('@/views/Map/index.vue'),
         name: 'Map',
         meta: {
-          hidden: false,
+          hidden: true,
           title: t('Map')
         }
       }
@@ -483,6 +483,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     redirect: '/facility/all',
     name: 'Facilities',
     meta: {
+      hidden: true,
       title: t('Facilities'),
       icon: 'ant-design:shop-outlined',
       alwaysShow: false
@@ -589,6 +590,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     component: Layout,
     name: 'ComponentsDemo',
     meta: {
+      hidden: true,
       title: t('router.component'),
       icon: 'bx:bxs-component',
       alwaysShow: true

@@ -386,15 +386,21 @@ const readCsv = (event) => {
     return Object.fromEntries(header.map((h, i) => [h, fields[i]])) // 4️⃣
   })
 
-  console.log(csv)
+
  
   const fields = Object.keys(csv[0]) //  get all proterit4s of the first feature
   console.log("fields-->", fields)
   makeOptions(fields)
-  uploadObj.value.push(csv) // Push to the temporary holder
-  show.value = true
 
-  
+   var newArray = csv.filter((obj) => { return obj.name !== '' }) // remove any empty rows
+   var newArray = newArray.filter((obj) => { return obj.name !== 'name' })  // remove header row 
+
+
+  uploadObj.value.push(newArray) // Push to the temporary holder
+  show.value = true
+  console.log('csv------->', uploadObj)
+
+
   if (value_switch.value){
     console.log("=====Multiple settleemtns")
     fieldSet.value.push({field:'settlement_id', match:''})
