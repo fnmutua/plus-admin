@@ -431,13 +431,13 @@ exports.modelActivateUser = (req, res) => {
       var transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-          user: 'nema.riparian@gmail.com',
-          pass: 'rxrhspkvowovqacl'
+          user: 'kisip.mis@gmail.com',
+          pass: 'ycoxaqavmfiqljjg'
         }
       }) // initialize create Transport service
 
       const mailOptions = {
-        from: 'nema.riparian@gmail.com',
+        from: 'kisip.mis@gmail.com',
         to: `${req.body.username}`,
         subject: 'Account Status',
         text: 'Dear ' + `${req.body.name}` + '. \n\n' + msg + '\n\n' + 'Systems Administrator.'
