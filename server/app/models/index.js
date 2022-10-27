@@ -18,7 +18,7 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
 const db = {}
 db.Sequelize = Sequelize
 db.sequelize = sequelize
-db.user = require('../models/users.js')(sequelize, Sequelize)
+db.user = require('../models/user.js')(sequelize, Sequelize)
 db.role = require('../models/role.js')(sequelize, Sequelize)
 
 var initModels = require('../models/init-models.js')
@@ -34,9 +34,29 @@ db.user.belongsToMany(db.role, {
   foreignKey: 'userid',
   otherKey: 'roleid'
 })
+ 
 
+db.models.user_roles.belongsTo(db.models.users, {
+  foreignKey: 'userid'
+})
+
+db.models.users.hasMany(db.models.user_roles, {
+  foreignKey: 'userid'
+})
+
+db.models.user_roles.belongsTo(db.models.roles, {
+  foreignKey: 'roleid'
+})
+
+db.models.roles.hasMany(db.models.user_roles, {
+  foreignKey: 'roleid'
+})
+ 
 // A county can have many users, while a user can only have one county.W
 //db.user.belongsTo(db.models.county);
+
+
+
 
 db.models.county.hasMany(db.models.users, {
   foreignKey: 'county_id'

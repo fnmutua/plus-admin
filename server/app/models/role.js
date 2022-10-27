@@ -1,4 +1,4 @@
-module.exports = (sequelize, Sequelize) => {
+module.exports = (sequelize, Sequelize, DataTypes) => {
     const Role = sequelize.define("roles", {
       id: {
         type: Sequelize.INTEGER,
@@ -6,7 +6,15 @@ module.exports = (sequelize, Sequelize) => {
       },
       name: {
         type: Sequelize.STRING
-      }
+      },
+      description: {
+        type: Sequelize.STRING,
+        allowNull: true
+      },
+      isactive: {
+        type: Sequelize.BOOLEAN,
+        allowNull: true
+      },
     });
     return Role;
   };

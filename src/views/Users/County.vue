@@ -73,6 +73,7 @@ var tblData = []
 const associated_multiple_models = ['county']
 
 const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
+const nested_filter = [ 'id', [5,6,7]] //   column and value of the grandchild. In this case roles. 5=county Admin 
 
 
 const model = 'users'
@@ -368,6 +369,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
+  formData.nested_filter = nested_filter
 
   //-------------------------
   //console.log(formData)

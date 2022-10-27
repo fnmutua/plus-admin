@@ -23,11 +23,11 @@ exports.signup = (req, res) => {
     password: bcrypt.hashSync(req.body.password, 8)
   })
     .then((user) => {
-      if (req.body.roles) {
+      if (req.body.role) {
         Role.findAll({
           where: {
             name: {
-              [Op.or]: req.body.roles
+              [Op.or]: req.body.role
             }
           }
         }).then((roles) => {
@@ -38,7 +38,7 @@ exports.signup = (req, res) => {
 
             console.log(roles)
             res.send({
-              message: 'Roles Were registered successfully!',
+              message: 'User registered successfully! Please wait for the account to be activated',
               code: '0000',
               roles: roles[0].name,
               data: token,
@@ -47,10 +47,10 @@ exports.signup = (req, res) => {
           })
         })
       } else {
-        // user role = 1
-        user.setRoles([1]).then(() => {
+        // public user role = 14
+        user.setRoles([14]).then(() => {
           res.send({
-            message: 'User was registered successfully!',
+            message: 'User was registered successfully! Please wait for the account to be activated',
             code: '0000',
             data: 'successful'
           })
@@ -64,8 +64,7 @@ exports.signup = (req, res) => {
 
 exports.updateUser = (req, res) => {
   console.log('Update user....')
-  var reg_model = req.query.model
-
+ 
   console.log('Request:----->', req.body)
 
   // get this one  record and update it by replacing the whole docuemnt
@@ -76,11 +75,11 @@ exports.updateUser = (req, res) => {
       result[0].save()
 
       // Now insert the roles
-      if (req.body.role) {
+      if (req.body.roles) {
         Role.findAll({
           where: {
             id: {
-              [Op.or]: req.body.role
+              [Op.or]: req.body.roles
             }
           }
         }).then((roles) => {
@@ -91,8 +90,8 @@ exports.updateUser = (req, res) => {
 
             console.log(roles)
             res.send({
-              message: 'Roles Were registered successfully!',
-              code: 20000,
+              message: 'User and roles updated successfully!',
+              code: "0000",
               roles: roles[0].name,
               data: token,
               user: result[0]
@@ -103,7 +102,8 @@ exports.updateUser = (req, res) => {
         // return success
         res.status(200).send({
           data: result,
-          code: 20000
+          message: 'User updated successfully!',
+          code: "0000"
         })
       }
     }

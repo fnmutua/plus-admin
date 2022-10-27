@@ -66,7 +66,7 @@ service.interceptors.response.use(
   },
   (error: any) => {
     console.log('the Error-->' + error) // for debug
-   // ElMessage.error(error.message)   /// Revist Felix 
+     ElMessage.error(error.response.data.message)   /// Revist Felix 
     return Promise.reject(error)
   }
 )

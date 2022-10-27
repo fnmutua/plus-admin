@@ -150,6 +150,7 @@ const schema = reactive<FormSchema[]>([
       span: 24
     },
     componentProps: {
+      multiple:true,
       options: RoleOptions,
       style: {
         width: '100%'
@@ -209,8 +210,12 @@ const loginRegister = async () => {
         //  toLogin()
         const { getFormData } = methods
         const formData = await getFormData<UserType>()
+
+        console.log("Formdata------>", formData)
         console.log('ValidForm', formData)
         formData.email = formData.username.trim()
+        formData.username = formData.username.trim()
+       // formData.role = [formData.role]   // convert the user roles to an array
 
         const res = await registerApi(formData)
         console.log('After Registre', res)

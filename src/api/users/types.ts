@@ -6,7 +6,7 @@ export type UserLoginType = {
 export type UserType = {
   username: string
   password: string
-  role: string
+  role:  string[]
   roleId: string
   email: string
   county_id: BigInteger
