@@ -145,8 +145,8 @@ exports.reset = (req, res) => {
         var transporter = nodemailer.createTransport({
           service: 'gmail',
           auth: {
-            user: 'nema.riparian@gmail.com',
-            pass: 'rxrhspkvowovqacl'
+            user: 'kisip.mis@gmail.com',
+            pass: 'ycoxaqavmfiqljjg'
           }
         }) // initialize create Transport service
 
@@ -154,14 +154,14 @@ exports.reset = (req, res) => {
 
         const CLIENT_URL = 'http://' + req.headers.host
         const mailOptions = {
-          from: 'nema.riparian@gmail.com',
+          from: 'kisip.mis@gmail.com',
           to: `${req.body.username}`,
           subject: 'Link To Reset Password',
           text:
             'You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n' +
             'Please click on the following link, or paste this into your browser to complete the process within one hour of receiving it:\n\n' +
-            `http://localhost:8080/set?resetPasswordToken=${token}\n\n` +
-            //   + `${CLIENT_URL}/reset/${token}\n\n`
+            //`http://localhost:8080/set?resetPasswordToken=${token}\n\n` +
+               + `${CLIENT_URL}/reset/${token}\n\n` +
             'If you did not request this, please ignore this email and your password will remain unchanged.\n'
         }
 
