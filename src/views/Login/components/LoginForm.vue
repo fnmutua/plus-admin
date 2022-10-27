@@ -149,7 +149,7 @@ const signIn = async () => {
   })
 }
 
-// 获取角色信息
+
 const getRole = async () => {
   const { getFormData } = methods
   const formData = await getFormData<UserType>()
@@ -177,7 +177,7 @@ const getRole = async () => {
   }
 }
 
-// 去注册页面
+
 const toRegister = () => {
   emit('to-register')
 }

@@ -27,6 +27,11 @@ export const getUserListApi = (data: UserType): Promise<IResponse<UserType>> => 
 
 export const activateUserApi = (data: UserType, params): Promise<IResponse<UserType>> => {
   console.log('To Activate user....', data)
-
   return request.post({ url: prod + '/api/v1/user/activate', data, params: params })
+}
+
+
+export const updateUserApi = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('To Activate user....', data)
+  return request.post({ url: prod + '/api/auth/update', data })
 }

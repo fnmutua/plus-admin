@@ -454,7 +454,7 @@ exports.modelActivateUser = (req, res) => {
           res.status(200).send({
             message: 'Activation Email Sent',
             data: result,
-            code: 20000
+            code: "0000"
           })
         }
       })
@@ -667,6 +667,7 @@ exports.modelPaginatedData = (req, res) => {
 
 exports.modelPaginatedDatafilterByColumn = (req, res) => {
   console.log('Req-body', req.body)
+ // console.log('nested filters....>', req.body.nested_filter[0])
 
   var reg_model = req.body.model
 
@@ -680,6 +681,13 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
   if (req.body.nested_models) {
     var child_model = db.models[req.body.nested_models[0]]
     var grand_child_model = db.models[req.body.nested_models[1]]
+    var nestedQuery = {}
+
+    // create the criterial for the grandchild 
+    if(req.body.nested_filter){
+    nestedQuery[req.body.nested_filter[0]] = req.body.nested_filter[1]
+    }
+ 
   }
 
   var qry = {}
@@ -690,13 +698,21 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
     var modelIncl = {}
     modelIncl.model = db.models[req.body.associated_multiple_models[i]]
     modelIncl.raw = true
+    modelIncl.nested= true 
     includeModels.push(modelIncl)
+
+    
   }
 
   console.log(includeModels)
   if (associated_multiple_models) {
     if (nested_models) {
-      var nestedModels = { model: child_model, include: [grand_child_model], raw: true }
+      if(req.body.nested_filter){
+        var nestedModels = { model: child_model, include: [{model:grand_child_model, where : nestedQuery}], raw: true,nested: true  }
+      }else {
+        var nestedModels = { model: child_model, include:grand_child_model, raw: true,nested: true  }
+      }
+ 
       includeModels.push(nestedModels)
       var qry = {
         include: includeModels
@@ -763,12 +779,14 @@ exports.modelPaginatedDatafilterBykeyWord = (req, res) => {
     var modelIncl = {}
     modelIncl.model = db.models[req.body.associated_multiple_models[i]]
     modelIncl.raw = true
+    modelIncl.nested = true
+
     includeModels.push(modelIncl)
   }
 
   if (associated_multiple_models) {
     if (nested_models) {
-      var nestedModels = { model: child_model, include: [grand_child_model], raw: true }
+      var nestedModels = { model: child_model, include: grand_child_model, raw: true ,nested: true }
       includeModels.push(nestedModels)
       var qry = {
         include: includeModels

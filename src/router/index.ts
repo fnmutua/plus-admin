@@ -12,7 +12,8 @@ import {
   TopRight,
   Message,
   Search,
-  Star
+  Star,
+  User
 } from '@element-plus/icons-vue'
 const { t } = useI18n()
 
@@ -1001,7 +1002,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     meta: {
       title: t('Users'),
       icon: 'eos-icons:role-binding',
-      alwaysShow: true
+ 
+       alwaysShow: true
     },
     children: [
       {
@@ -1014,8 +1016,8 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
       },
       {
         path: 'county',
-        component: () => import('@/views/Users/User.vue'),
-        name: 'County',
+        component: () => import('@/views/Users/County.vue'),
+        name: 'CountyAdmin',
         meta: {
           title: t('County')
         }
@@ -1037,7 +1039,31 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         }
       }
     ]
-  }
+  },
+  {
+    path: '/roles',
+    component: Layout,
+    redirect: '/roles/role',
+    name: 'Roles',
+    meta: {
+      title: t('Roles'),
+      icon: 'eos-icons:admin-outlined',    
+      alwaysShow: true
+    },
+    children: [
+      {
+        path: 'role',
+        component: () => import('@/views/Users/Role.vue'),
+        name: 'Role',
+        meta: {
+          title: t('Role')
+        }
+      },
+ 
+      
+       
+    ]
+  },
 ]
 
 const router = createRouter({
