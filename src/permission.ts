@@ -21,7 +21,7 @@ const { start, done } = useNProgress()
 
 const { loadStart, loadDone } = usePageLoading()
 
-const whiteList = ['/login'] // 不重定向白名单
+const whiteList = ['/login', '/logoff'] // 不重定向白名单
 
 router.beforeEach(async (to, from, next) => {
   start()
@@ -68,8 +68,14 @@ router.beforeEach(async (to, from, next) => {
     }
   } else {
     if (whiteList.indexOf(to.path) !== -1) {
+
+      console.log("Path--->", to.path)
       next()
-    } else {
+    } else if (to.path.startsWith("/reset")){
+      next()
+    }
+    
+    else {
       next(`/login?redirect=${to.path}`) // 否则全部重定向到登录页
     }
   }

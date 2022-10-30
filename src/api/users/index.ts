@@ -35,3 +35,15 @@ export const updateUserApi = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('To Activate user....', data)
   return request.post({ url: prod + '/api/auth/update', data })
 }
+
+export const resetUserPassword = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('Reset user password....', data)
+  return request.post({ url: prod + '/api/auth/reset', data })
+}
+
+
+export const updateUserPass = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('Reset user password....', data)
+  return request.post({ url: prod + '/api/auth/set', data })
+}
+

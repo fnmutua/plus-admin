@@ -54,6 +54,28 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
       noTagsView: true
     }
   },
+
+  {
+    path: '/logoff',
+    component: () => import('@/views/Reset/Reset.vue'),
+    name: 'Logoff',
+    meta: {
+      hidden: true,
+      title: t('Logoff'),
+      noTagsView: true
+    }
+  },
+
+  {
+    path: '/reset/:token(.*)*',
+    component: () => import('@/views/Reset/Reset.vue'),
+    name: 'Reset',
+    meta: {
+      hidden: true,
+      title: t('Reset'),
+      noTagsView: true
+    }
+  },
   {
     path: '/404',
     component: () => import('@/views/Error/404.vue'),
@@ -1030,6 +1052,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           title: t('Partner')
         }
       },
+ 
       {
         path: 'public',
         component: () => import('@/views/Users/User.vue'),
@@ -1062,7 +1085,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
  
       
        
-    ]
+    ] 
   },
 ]
 
@@ -1074,7 +1097,7 @@ const router = createRouter({
 })
 
 export const resetRouter = (): void => {
-  const resetWhiteNameList = ['Redirect', 'Login', 'NoFind', 'Root']
+  const resetWhiteNameList = ['Redirect', 'Login', 'NoFind', 'Root', 'Reset', 'Logoff']
   router.getRoutes().forEach((route) => {
     const { name } = route
     if (name && !resetWhiteNameList.includes(name as string)) {
