@@ -2,7 +2,7 @@
 import { reactive, ref, unref, watch } from 'vue'
 import { Form } from '@/components/Form'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElButton, ElCheckbox, ElLink } from 'element-plus'
+import { ElButton, ElCheckbox, ElLink,ElDialog,ElForm, ElFormItem, ElInput } from 'element-plus'
 import { useForm } from '@/hooks/web/useForm'
 import { loginApi, getTestRoleApi, getAdminRoleApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
@@ -12,6 +12,7 @@ import { useRouter } from 'vue-router'
 import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router'
 import { UserType } from '@/api/login/types'
 import { useValidator } from '@/hooks/web/useValidator'
+import { activateUserApi,updateUserApi,resetUserPassword } from '@/api/users'
 
 const { required } = useValidator()
 
@@ -31,6 +32,13 @@ const rules = {
   username: [required()],
   password: [required()]
 }
+
+const dialogFormVisible =ref(false)
+const formLabelWidth = '140px'
+ 
+const form = reactive({
+  username: '',
+})
 
 const schema = reactive<FormSchema[]>([
   {
@@ -181,6 +189,10 @@ const getRole = async () => {
 const toRegister = () => {
   emit('to-register')
 }
+
+const reset = () => {
+  resetUserPassword(form)
+}
 </script>
 
 <template>
@@ -200,7 +212,7 @@ const toRegister = () => {
     <template #tool>
       <div class="flex justify-between items-center w-[100%]">
         <ElCheckbox v-model="remember" :label="t('login.remember')" size="small" />
-        <ElLink type="primary" :underline="false">{{ t('login.forgetPassword') }}</ElLink>
+        <ElLink type="primary" @click="dialogFormVisible=true" :underline="false">{{ t('Forgot Password') }}</ElLink>
       </div>
     </template>
 
@@ -246,6 +258,26 @@ const toRegister = () => {
       </div>
     </template>
   </Form>
+  
+  <el-dialog v-model="dialogFormVisible" title="Please enter the username used during registration">
+      <el-form :model="form">
+     
+
+        <el-form-item label="Username" :label-width="formLabelWidth">
+          <el-input v-model="form.username" autocomplete="off" />
+        </el-form-item>
+ 
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogFormVisible = false">Cancel</el-button>
+          <el-button type="primary" @click="reset">
+            Reset
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
 </template>
 
 <style lang="less" scoped>
@@ -253,5 +285,23 @@ const toRegister = () => {
   &:hover {
     color: var(--el-color-primary) !important;
   }
+}
+</style>
+
+<style scoped>
+.el-button--text {
+  margin-right: 15px;
+}
+
+.el-select {
+  width: 300px;
+}
+
+.el-input {
+  width: 300px;
+}
+
+.dialog-footer button:first-child {
+  margin-right: 10px;
 }
 </style>

@@ -111,7 +111,7 @@ exports.updateUser = (req, res) => {
 }
 
 exports.reset = (req, res) => {
-  console.log('Reset password....', req.body.username)
+  console.log('Reset password....', req.headers)
   console.log(req.body)
   if (req.body.username === '') {
     res.status(400).send('email required')
@@ -139,7 +139,7 @@ exports.reset = (req, res) => {
           console.log(err)
         }
 
-        console.log('rESET-tOKEN', token)
+        console.log('rESET-tOKEN', req.headers)
         //   console.log(user)
 
         var transporter = nodemailer.createTransport({
@@ -150,9 +150,11 @@ exports.reset = (req, res) => {
           }
         }) // initialize create Transport service
 
-        console.log('rESET-tOKEN', transporter)
 
-        const CLIENT_URL = 'http://' + req.headers.host
+        const xCLIENT_URL = 'http://' + req.headers.host
+        const CLIENT_URL = req.headers.referer
+        console.log('Reset-URL', CLIENT_URL)
+
         const mailOptions = {
           from: 'kisip.mis@gmail.com',
           to: `${req.body.username}`,
@@ -160,8 +162,7 @@ exports.reset = (req, res) => {
           text:
             'You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n' +
             'Please click on the following link, or paste this into your browser to complete the process within one hour of receiving it:\n\n' +
-            //`http://localhost:8080/set?resetPasswordToken=${token}\n\n` +
-               + `${CLIENT_URL}/reset/${token}\n\n` +
+            CLIENT_URL+'#/reset/'+token+'\n\n' +
             'If you did not request this, please ignore this email and your password will remain unchanged.\n'
         }
 
@@ -175,7 +176,7 @@ exports.reset = (req, res) => {
             //  res.status(200).json('recovery email sent');
             res.status(200).send({
               message: 'Recovery Email Sent',
-              code: 20000
+              code: "0000"
             })
           }
         })
@@ -275,7 +276,7 @@ exports.updatePassword = (req, res) => {
           console.log('password updated')
 
           res.status(200).send({
-            code: 20000,
+            code: "0000",
             message: 'Password Succesfully Updated'
           })
         })

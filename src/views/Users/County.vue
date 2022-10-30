@@ -12,6 +12,7 @@ import {
   TopRight,
   Edit,
   User,
+  RefreshLeft,
   Plus,
   Download,
   Filter,
@@ -22,7 +23,7 @@ import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider, ELRow } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
-import { activateUserApi,updateUserApi } from '@/api/users'
+import { activateUserApi,updateUserApi,resetUserPassword } from '@/api/users'
 
 import {
   searchByKeyWord
@@ -73,7 +74,7 @@ var tblData = []
 const associated_multiple_models = ['county']
 
 const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
-const nested_filter = [ 'id', [5,6,7]] //   column and value of the grandchild. In this case roles. 5=county Admin 
+const nested_filter = [ 'id', [1,5,6,7]] //   column and value of the grandchild. In this case roles. 5=county Admin 
 
 
 const model = 'users'
@@ -440,11 +441,15 @@ const EditUser = (data: TableSlotDefault) => {
   dialogFormVisible.value = true
 }
 
+const ResetPassword = (data: TableSlotDefault) => {
+  console.log(data)
+  
+  resetUserPassword(data.row)
+}
+
 
 const updateUser = () => {
- 
   updateUserApi(form).then(() => { })
- 
   dialogFormVisible.value = false
 }
 
@@ -483,17 +488,24 @@ const updateUser = () => {
     <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
-        <el-row class="mt-4">
+        <el-row  :gutter="43">
           <el-tooltip content="Activate/Deactivate User" placement="top">
 
             <el-switch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)" />
           </el-tooltip>
 
-          <el-tooltip content="View Profile" placement="top">
+          <el-tooltip content="Edit Profile" placement="top">
             <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(data as TableSlotDefault)" circle />
+          </el-tooltip>
+
+          <el-tooltip content="Reset Password" placement="top">
+            <ElButton type="primary" :icon="RefreshLeft" size="small" @click="ResetPassword(data as TableSlotDefault)" circle />
           </el-tooltip>
         </el-row>
 
+
+
+        
       </template>
     </Table>
     <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
