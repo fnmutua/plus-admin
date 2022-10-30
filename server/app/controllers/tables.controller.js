@@ -7,7 +7,8 @@ const op = Sequelize.Op
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
 const nodemailer = require('nodemailer')
- 
+const { authJwt } = require("../middleware");
+
 const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   host: config.HOST,
   port: config.PORT,
@@ -80,7 +81,7 @@ exports.modelAllData = (req, res) => {
   // console.log("All Data----->")
   var ass_model = db.models[req.query.assocModel]
 
-  console.log('All Model Data----->', reg_model)
+  console.log('All Model Data-----> 30/10', req)
 
   if (ass_model) {
     var includeQuerry = {
@@ -666,7 +667,7 @@ exports.modelPaginatedData = (req, res) => {
 }
 
 exports.modelPaginatedDatafilterByColumn = (req, res) => {
-  console.log('Req-body', req.body)
+  // console.log('Req-body', req.body)
  // console.log('nested filters....>', req.body.nested_filter[0])
 
   var reg_model = req.body.model
@@ -744,6 +745,7 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
     }
   }
 
+  qry.attributes = { exclude: ['password','resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only 
   db.models[reg_model].findAndCountAll(qry).then((list) => {
     res.status(200).send({
       data: list.rows,
@@ -801,7 +803,7 @@ exports.modelPaginatedDatafilterBykeyWord = (req, res) => {
     var qry = {}
   }
 
-  console.log('The Querry----->', qry)
+  console.log('The xQuerry----->', qry)
 
   qry.limit = req.body.limit
   qry.offset = (req.body.page - 1) * req.body.limit

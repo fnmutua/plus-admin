@@ -1,14 +1,17 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
-
+import { useRouter,Router} from 'vue-router'
+ 
 import qs from 'qs'
 
 import { config } from './config'
 
 import { ElMessage } from 'element-plus'
+import router from '@/router'
 
 const { result_code, base_url } = config
-
+ 
 export const PATH_URL = base_url[import.meta.env.VITE_API_BASEPATH]
+
 
 // 创建axios实例
 const service: AxiosInstance = axios.create({
@@ -62,6 +65,12 @@ service.interceptors.response.use(
       return response.data
     } else {
       ElMessage.error(response.data.message)
+      if (response.data.message='Unauthorized'){
+        router.push({
+          path: '/login',
+          name: 'Login',
+         })
+      }
     }
   },
   (error: any) => {

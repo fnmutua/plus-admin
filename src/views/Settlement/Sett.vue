@@ -21,11 +21,15 @@ import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
 
-interface Params {
-  pageIndex?: number
-  xpageSize?: number
-}
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+console.log("userInfo--->",userInfo )
+
 
 const { push } = useRouter()
 const value1 = ref([])

@@ -20,6 +20,7 @@ declare type AxiosHeaders =
   | 'application/json'
   | 'application/x-www-form-urlencoded'
   | 'multipart/form-data'
+  |  'Authorization'
 
 declare type AxiosMethod = 'get' | 'post' | 'delete' | 'put'
 
