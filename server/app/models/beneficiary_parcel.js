@@ -25,6 +25,10 @@ module.exports = function (sequelize, DataTypes) {
       intervention_phase: {
         type: DataTypes.INTEGER,
         allowNull: false
+      },
+      hh_code: {
+        type: DataTypes.STRING,
+        allowNull: true
       }
     },
     {

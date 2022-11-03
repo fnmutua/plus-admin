@@ -29,6 +29,10 @@ module.exports = function (sequelize, DataTypes) {
       benefit_type_id: {
         type: DataTypes.INTEGER,
         allowNull: false
+      },
+      hh_code: {
+        type: DataTypes.STRING,
+        allowNull: true
       }
     },
     {

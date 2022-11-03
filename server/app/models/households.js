@@ -140,6 +140,10 @@ module.exports = function (sequelize, DataTypes) {
       address: {
         type: DataTypes.STRING,
         allowNull: true
+      },
+      hh_code: {
+        type: DataTypes.STRING,
+        allowNull: false
       }
     },
     {

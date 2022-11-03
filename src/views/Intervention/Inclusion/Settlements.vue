@@ -41,7 +41,7 @@ let tableDataList = ref<UserType[]>([])
 var filters = ['intervention_type_id']
 var intervenComponent = [3] // Fiters tenure=1, inf=2, socio=3, caapcity=4
 var filterValues = [intervenComponent]
-var tblData = []
+var tblData =[]
 const associated_Model = ''
 const associated_multiple_models = ['settlement']
 
@@ -166,21 +166,19 @@ const getInterventionsAll = async () => {
   getFilteredData(filters, filterValues)
 }
 
-const destructure = (obj) => {
-  // console.log('deconstructing......')
-  const simpleObj = {}
-  for (let key in obj) {
-    const value = obj[key]
-    const type = typeof value
-    if (['string', 'boolean'].includes(type) || (type === 'number' && !isNaN(value))) {
-      simpleObj[key] = value
-    } else if (type === 'object') {
-      Object.assign(simpleObj, destructure(value))
-    }
-  }
+const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
+   for(let key in obj){
+    if (key!='geom') {
 
-  return simpleObj
-}
+      if(typeof obj[key] !== 'object'){
+         res[extraKey + key] = obj[key];
+      }else{
+         flattenJSON(obj[key], res, `${extraKey}${key}.`);
+      };
+   };
+  }
+   return res;
+};
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -213,7 +211,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
     //  console.log(countyOpt)
     // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
-    var dd = destructure(arrayItem)
+    var dd = flattenJSON(arrayItem)
 
     tblData.push(dd)
   })
@@ -341,8 +339,8 @@ const viewOnMap = (data: TableSlotDefault) => {
 
 <template>
   <ContentWrap
-    :title="t('Tenure Regularization Settlements')"
-    :message="t('The list of tenure regularization settlements. Use the filters to subset')"
+    :title="t('Socio-Economic Inclusion Settlements')"
+    :message="t('The list of Socio-Economic Inclusion Settlements. Use the filters to subset')"
   >
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 

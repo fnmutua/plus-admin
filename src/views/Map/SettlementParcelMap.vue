@@ -60,7 +60,12 @@ const getAll = async () => {
   const res = await getfilteredGeo(formData)
 
   console.log('All settlements Querry', res)
-  filtergeo.value = res.data[0].json_build_object
+
+  if (res.data[0].json_build_object) {
+
+    filtergeo.value = res.data[0].json_build_object
+
+  }
   total.value = res.total
 
   setTimeout(() => {
@@ -71,16 +76,25 @@ const getAll = async () => {
     nextTick().then(() => {
       var group = new featureGroup()
 
-      map.value.leafletObject.eachLayer(function (layer) {
+
+      if(map.value.leafletObject) {
+        map.value.leafletObject.eachLayer(function (layer) {
         //    console.log(layer.feature)
         if (layer.feature != undefined) {
           group.addLayer(layer)
         }
       })
 
-      //  console.log(group.getBounds())
-      map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
+           console.log(group.getBounds())
+          map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
       updateStyle()
+
+      }
+
+
+
+
+
     })
   }, 0) // 0ms seems enough to execute resize after tab opens.
 }
@@ -164,6 +178,10 @@ function getColor(d) {
 
 function updateStyle() {
   // console.log('Updating style....')
+
+  if (geo.value.leafletObject) {
+
+
   const geojsonLayer = geo.value.leafletObject
 
   // console.log(geojsonLayer)
@@ -186,7 +204,13 @@ function updateStyle() {
     }
   }
   geo.value.leafletObject.setStyle(styleFunction)
+
 }
+}
+
+
+
+
 const loading = ref(true)
 const total = ref(0)
 

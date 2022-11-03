@@ -17,7 +17,7 @@ verifyToken = (req, res, next) => {
         message: "Unauthorized!"
       });
     }
-     console.log("----x-----", decoded.id)
+    // console.log("----x-----", decoded.id)
     thisUser = User.findOne({
       where: {
         id: decoded.id
@@ -29,7 +29,7 @@ verifyToken = (req, res, next) => {
       req.userid = decoded.id;
       req.thisUser = user;
       next();
-      console.log("----xd-----", user)
+     // console.log("----xd-----", user)
 
       // res.status(200).send({
       //   code: 20000,
