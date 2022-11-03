@@ -8,7 +8,7 @@ import { getCountyListApi } from '@/api/counties'
 import {
   ElButton,
   ElSelect,
-  ElTable,
+   ElTable,
   ElIcon,
   ElTableColumn,
   ElInput,
@@ -20,8 +20,7 @@ import { ElUpload } from 'element-plus'
 import {
 
   Upload,
-  Tools
-} from '@element-plus/icons-vue'
+  Tools} from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
 import { ElDivider } from 'element-plus'
@@ -29,11 +28,6 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import type { UploadProps, UploadUserFile } from 'element-plus'
-import type { XlsxRead, XlsxTable, XlsxSheets, XlsxJson, XlsxWorkbook, XlsxSheet, XlsxDownload } from 'vue3-xlsx'
-import readXlsxFile from 'read-excel-file'
-
-
-
 
 const { push } = useRouter()
 const type = ref()
@@ -43,12 +37,6 @@ const value_switch = ref(false)
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 
-
-///---------------------xlsx-
-const file = ref()
-const selectedSheet = ref()
-const sheetName = ref()
-const tbl = ref()
 
 //// ------------------parameters -----------------------////
 const matchOptions = ref([])
@@ -72,10 +60,6 @@ const uploadOptions = [
       {
         value: 'parcel',
         label: 'Parcels'
-      },
-      {
-        value: 'intervention',
-        label: 'Interventions'
       }
     ]
   },
@@ -89,10 +73,6 @@ const uploadOptions = [
       {
         value: 'beneficiary',
         label: 'Beneficiaries'
-      },
-      {
-        value: 'beneficiary_parcel',
-        label: 'Parcel Owners'
       }
     ]
   },
@@ -112,10 +92,6 @@ const uploadOptions = [
 ]
 
 const settlement_fields = [
-{
-    field: 'id',
-    match: ''
-  },
   {
     field: 'name',
     match: ''
@@ -178,10 +154,6 @@ const hh_fields = [
     match: ''
   },
   {
-    field: 'hh_code',
-    match: ''
-  },
-  {
     field: 'hh_size_03',
     match: ''
   },
@@ -215,109 +187,24 @@ const hh_fields = [
 
 ]
 
-const interventions_fields = [
-  {
-    field: 'intervention_type_id',
-    match: ''
-  },
-  {
-    field: 'year',
-    match: ''
-  },
-  {
-    field: 'intervention_phase',
-    match: ''
-  },
-
-  {
-    field: 'cluster_id',
-    match: ''
-  },
-]
-
-const beneficiary_parcels = [
-  {
-    field: 'hh_id',
-    match: ''
-  },
-  {
-    field: 'intervention_id',
-    match: ''
-  },
-  {
-    field: 'intervention_phase',
-    match: ''
-  },
-
-  {
-    field: 'benefit_type_id',
-    match: ''
-  },
-
-  {
-    field: 'beneficiary_id',
-    match: ''
-  },
-
-  {
-    field: 'parcel_id',
-    match: ''
-  },
-  {
-    field: 'hh_code',
-    match: ''
-  },
-]
-
-const beneficiary_fields= [
-  {
-    field: 'hh_id',
-    match: ''
-  },
-
-  {
-    field: 'intervention_id',
-    match: ''
-  },
-  {
-    field: 'intervention_phase',
-    match: ''
-  },
-  {
-    field: 'benefit_type_id',
-    match: ''
-  },
-  {
-    field: 'hh_code',
-    match: ''
-  },
- 
-  
 
 
-]
-
-
-
-
-
-
-const handleMutlipleSettlements = async () => {
+const handleMutlipleSettlements = async () => { 
 
   console.log(value_switch)
-
-  showSettleementSelect.value = !value_switch.value
-
+ 
+          showSettleementSelect.value = !value_switch.value
+   
 }
 
 
 
 const handleProcess = async (settlements: any) => {
   console.log('mapped fields', settlements)
-  console.log('upload--->', uploadObj.value)
-  for (let i = 0; i < uploadObj.value.length; i++) {
+  console.log('upload--->', uploadObj.value[0])
+  for (let i = 0; i < uploadObj.value[0].length; i++) {
     //console.log(i, uploadObj.value[0][i])
-    let feature = uploadObj.value[i]
+    let feature = uploadObj.value[0][i]
     let conv_feature = {}
     for (var prop in feature) {
       var matched_field = fieldSet.value.filter((obj) => {
@@ -329,7 +216,7 @@ const handleProcess = async (settlements: any) => {
       }
       //   conv_feature.geom = (uploadObj.value[0][i].geometry)    // Asign Geometry then stringfy it 
       //console.log("showSettleementSelect, ",value_switch.value)
-      // console.log("type, ",type.value)
+     // console.log("type, ",type.value)
 
       if (type.value != 'settlement' && !value_switch.value) {
         conv_feature.settlement_id = settlement.value   // if not a settlement, add settleemnt id (remember to remove counties)
@@ -347,16 +234,13 @@ const handleProcess = async (settlements: any) => {
   formData.data = matchedObj.value
 
 
-  console.log("importData--->", formData)
-
-
-  // ************** Send data to server ***************** //
+  console.log("importData--->",formData )
   await BatchImportUpsert(formData)
     .catch((error) => {
       console.log('Error------>', error.response.data.message)
       ElMessage.error(error.response.data.message)
     })
-
+ 
 
 
 
@@ -384,18 +268,18 @@ const handleSelectType = async (type: any) => {
   console.log(type)
   if (type != 'settlement' && !value_switch.value) {
     showSettleementSelect.value = true
-    showSwitch.value = true
+    showSwitch.value=true
   } else {
     showSettleementSelect.value = false
-    showSwitch.value = false
+    showSwitch.value=false
 
   }
 
-
-  if (type === 'settlement') {
+  
+if (type === 'settlement') {
     fieldSet.value = settlement_fields
     console.log('settlements------>', type)
-  } else if (type === 'parcel') {
+  } else if(type === 'parcel') {
     fieldSet.value = parcel_fields
     console.log('parcel------>', parcel_fields)
 
@@ -405,30 +289,6 @@ const handleSelectType = async (type: any) => {
     console.log('households------>', hh_fields)
 
   }
-  else if (type === 'intervention') {
-    fieldSet.value = interventions_fields
-    console.log('interventions_fields------>', interventions_fields)
-
-  }
-
-  else if (type === 'beneficiary_parcel') {
-    fieldSet.value = beneficiary_parcels
-    console.log('beneficiary_parcel------>', beneficiary_parcels)
-
-  }
-  else if (type === 'beneficiary') {
-    fieldSet.value = beneficiary_fields
-    console.log('beneficiary_fields------>', beneficiary_fields)
-
-  }
-
-
-
-  
-
-  
-
-
 
 }
 
@@ -480,10 +340,6 @@ const fileList = ref<UploadUserFile[]>([])
 const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
   console.log(file, uploadFiles)
   show.value = false
-  uploadObj.value=[]
-  matchedObj.value=[]
-  fieldSet.value=[]
- 
 }
 
 const handlePreview: UploadProps['onPreview'] = (uploadFile) => {
@@ -509,23 +365,17 @@ const submitFiles = async () => {
   if (fileList.value.length == 0) {
     ElMessage.error('Select a  File first!')
   } else {
-    var rfile = fileList.value[0].raw
+    var file = fileList.value[0].raw
 
-    console.log("File type", rfile.name.split('.').pop())
+    console.log("File type", file.name.split('.').pop())
 
     let reader = new FileReader()
 
-    let ftype = rfile.name.split('.').pop()
+    let ftype = file.name.split('.').pop()
     if (ftype == 'json') {
       console.log('------Json----')
       reader.onload = readJson
-    } else if (ftype == 'xlsx')  {
-
-      reader.onload = readXLSX(rfile)
-    }
-    
-    
-    else {
+    } else {
       console.log('------csv----')
 
       reader.onload = readCsv
@@ -534,10 +384,10 @@ const submitFiles = async () => {
     }
 
 
-    reader.readAsText(rfile)
+    reader.readAsText(file)
   }
 }
-
+ 
 const readJson = (event) => {
   let str = event.target.result
   //console.log("file type", str)
@@ -550,10 +400,10 @@ const readJson = (event) => {
   makeOptions(fields)
   uploadObj.value.push(json) // Push to the temporary holder
   show.value = true
-
-  if (value_switch.value) {
+  
+  if (value_switch.value){
     console.log("=====Multiple settleemtns")
-    fieldSet.value.push({ field: 'settlement_id', match: '' })
+    fieldSet.value.push({field:'settlement_id', match:''})
 
   }
 }
@@ -569,77 +419,27 @@ const readCsv = (event) => {
   })
 
 
-
+ 
   const fields = Object.keys(csv[0]) //  get all proterit4s of the first feature
   console.log("fields-->", fields)
   makeOptions(fields)
 
-  var newArray = csv.filter((obj) => { return obj.name !== '' }) // remove any empty rows
-  var newArray = newArray.filter((obj) => { return obj.name !== 'name' })  // remove header row 
+   var newArray = csv.filter((obj) => { return obj.name !== '' }) // remove any empty rows
+   var newArray = newArray.filter((obj) => { return obj.name !== 'name' })  // remove header row 
 
 
-
-  for (let j = 1; j < newArray.length; j++) { 
-    uploadObj.value.push(newArray[j]) // Push each record to the temporary holder
-
-
-  }
-
-
+  uploadObj.value.push(newArray) // Push to the temporary holder
   show.value = true
-  console.log('csv----newr--->', newArray)
+  console.log('csv------->', uploadObj)
 
 
-  if (value_switch.value) {
+  if (value_switch.value){
     console.log("=====Multiple settleemtns")
-    fieldSet.value.push({ field: 'settlement_id', match: '' })
+    fieldSet.value.push({field:'settlement_id', match:''})
 
   }
 }
-
-const readXLSX = async (event) => {
-  console.log('on file change.......', event)
-  //file.value = event.target.files ? event.target.files[0] : null;   // Direct upload 
-  file.value = event   // called from the uplaod funtion 
-
-  console.log('The file---->', file)
-
-  readXlsxFile(file.value).then((rows) => {
-    const fields = Object.values(rows[0]) //  get all proterit4s of the first feature
-    console.log("fields-->", fields)
-    makeOptions(fields)
-    var newArray = rows.filter((obj) => { return obj.name !== '' }) // remove any empty rows
  
-  
-  
-    for (let j = 1; j < rows.length; j++) {
-      var record = {}
-      for (let i = 0; i < fields.length; i++) {
-        var f = fields[i] 
-        var v = rows[j][i]
-        record[f]=v
-    //    console.log(record)
-      }
-
-      uploadObj.value.push(record) // Push to the temporary holder
-     }  // remove header row
-    
-     console.log('rows-xlsx------>', uploadObj)    
-
-    show.value = true
-
-    if (value_switch.value) {
-      console.log("=====Multiple settlements")
-      fieldSet.value.push({ field: 'settlement_id', match: '' })
-
-    } 
-
-  })
-
-
-}
-
-
 </script>
 
 <template>
@@ -647,22 +447,51 @@ const readXLSX = async (event) => {
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="type" :onChange="handleSelectType" :onClear="handleClear" placeholder="Filter by Type">
+      <el-select
+        v-model="type"
+        :onChange="handleSelectType"
+        :onClear="handleClear"
+        placeholder="Filter by Type"
+      >
         <el-option-group v-for="group in uploadOptions" :key="group.label" :label="group.label">
-          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+          <el-option
+            v-for="item in group.options"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
         </el-option-group>
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
 
-      <el-switch v-model="value_switch" size="large" v-if="showSwitch" @click="handleMutlipleSettlements"
-        active-text="Multiple Settlements" />
+<el-switch
+v-model="value_switch"
+size="large"
+v-if="showSwitch"
+@click="handleMutlipleSettlements"
+active-text="Multiple Settlements"
 
-    </div>
+/>
+
+</div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
-        :onClear="handleClear" clearable filterable collapse-tags placeholder="Filter by Settlement">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+      <el-select
+        v-if="showSettleementSelect"
+        v-model="settlement"
+        :onChange="handleSelectSettlement"
+        :onClear="handleClear"
+        clearable
+        filterable
+        collapse-tags
+        placeholder="Filter by Settlement"
+      >
+        <el-option
+          v-for="item in settlementOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
       </el-select>
     </div>
 
@@ -671,9 +500,19 @@ const readXLSX = async (event) => {
 
 
     <el-divider border-style="dashed" content-position="left">Upload</el-divider>
-    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
-      v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
-      :limit="1" :on-exceed="handleExceed" :auto-upload="false">
+    <el-upload
+      class="upload-demo"
+      drag
+      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+      multiple
+      v-model:file-list="fileList"
+      :on-preview="handlePreview"
+      :on-remove="handleRemove"
+      :before-remove="beforeRemove"
+      :limit="1"
+      :on-exceed="handleExceed"
+      :auto-upload="false"
+    >
       <div class="el-upload__text"> Drop file here or <em>click to upload</em> </div>
     </el-upload>
 
@@ -690,8 +529,13 @@ const readXLSX = async (event) => {
       </el-table-column>
       <el-table-column prop="match" label="Match">
         <template #default="scope">
-          <el-select v-model="scope.row.match" filterable placeholder="Select">
-            <el-option v-for="item in matchOptions" :key="item.value" :label="item.label" :value="item.value" />
+          <el-select v-model="scope.row.match" filterable  placeholder="Select">
+            <el-option
+              v-for="item in matchOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
         </template>
       </el-table-column>
@@ -701,14 +545,7 @@ const readXLSX = async (event) => {
         <Tools />
       </el-icon>
     </el-button>
-    <!-- <section>
-      <input type="file" @change="readXLSX" />
-    </section> -->
-
-
   </ContentWrap>
-
-
 </template>
 
 <style scoped>
