@@ -28,7 +28,13 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
+
 console.log("userInfo--->",userInfo )
+
+
+
+
+
 
 
 const { push } = useRouter()
@@ -47,6 +53,17 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
+const showAdminButtons = ref(false)
+
+// flag for admin buttons
+if (userInfo.roles.includes("admin") ||userInfo.roles.includes("kisip_staff")    ) {
+  showAdminButtons.value=true
+  }  
+
+
+  console.log("Show Buttons -->",showAdminButtons)
+
+
 
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
@@ -367,6 +384,9 @@ const AddSettlement = (data: TableSlotDefault) => {
     name: 'AddSettlement'
   })
 }
+
+
+
 </script>
 
 <template>
@@ -436,7 +456,7 @@ const AddSettlement = (data: TableSlotDefault) => {
       :pageSize="pageSize"
       :currentPage="currentPage"
     >
-      <template #action="data">
+      <template  #action="data">
         <el-tooltip content="View Profile" placement="top">
           <el-button
             type="primary"
@@ -449,11 +469,13 @@ const AddSettlement = (data: TableSlotDefault) => {
 
         <el-tooltip content="View Households" placement="top">
           <el-button
+            v-if="showAdminButtons"
             type="success"
             :icon="User"
             size="small"
             @click="viewHHs(data as TableSlotDefault)"
             circle
+            
           />
         </el-tooltip>
         <el-tooltip content="View on Map" placement="top">

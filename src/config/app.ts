@@ -132,6 +132,10 @@ export const appModules: AppState = {
   // 灰色模式
   greyMode: false,
   // layout布局
+
+ //dynamicRouter: wsCache.get('dynamicRouter') || false, // 是否动态路由
+ dynamicRouter: true,// 是否动态路由
+
   layout: 'topLeft',
   // 暗黑模式
   isDark: false,

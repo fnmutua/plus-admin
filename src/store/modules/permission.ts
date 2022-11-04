@@ -11,17 +11,13 @@ export interface PermissionState {
   menuTabRouters: AppRouteRecordRaw[]
 }
 
-export const usePermissionStore = defineStore({
-  id: 'permission',
+export const usePermissionStore = defineStore('permission', {
   state: (): PermissionState => ({
     routers: [],
     addRouters: [],
     isAddRouters: false,
     menuTabRouters: []
   }),
-  persist: {
-    enabled: true
-  },
   getters: {
     getRouters(): AppRouteRecordRaw[] {
       return this.routers
@@ -43,17 +39,26 @@ export const usePermissionStore = defineStore({
     ): Promise<unknown> {
       return new Promise<void>((resolve) => {
         let routerMap: AppRouteRecordRaw[] = []
+        console.log('Tyoe---->--',type)
         if (type === 'admin') {
+          console.log("generating routes.....admin")
           // 模拟后端过滤菜单
           routerMap = generateRoutesFn2(routers as AppCustomRouteRecordRaw[])
+          console.log('routerMap--',routerMap)
         } else if (type === 'test') {
           // 模拟前端过滤菜单
-          routerMap = generateRoutesFn1(cloneDeep(asyncRouterMap), routers as string[])
+          console.log("generating routes.....test")
+         // routerMap = generateRoutesFn1(cloneDeep(asyncRouterMap), routers as string[])  // felix to edit
+          routerMap = generateRoutesFn2(routers as AppCustomRouteRecordRaw[])
+
+          console.log('routerMap-test-',routerMap)
+
         } else {
           // 直接读取静态路由表
           routerMap = cloneDeep(asyncRouterMap)
         }
         // 动态路由，404一定要放到最后面
+        console.log(this.addRouters )
         this.addRouters = routerMap.concat([
           {
             path: '/:path(.*)*',

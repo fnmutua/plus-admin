@@ -25,7 +25,7 @@ const request = (option: any) => {
     responseType: responseType,
     headers: {
       'Content-Type': headersType || default_headers,
-      'x-access-token': `${userToken}`    // felix - add auth token 
+      'x-access-token': `${userToken.data}`    // felix - add auth token 
     }
   })
 }

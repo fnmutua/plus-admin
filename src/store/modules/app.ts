@@ -69,6 +69,7 @@ export const useAppStore = defineStore({
     getUserInfo(): string {
       return this.userInfo
     },
+    
     getIsDark(): boolean {
       return this.isDark
     },
