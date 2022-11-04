@@ -2,7 +2,7 @@
 import { reactive, ref, unref, watch } from 'vue'
 import { Form } from '@/components/Form'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElButton, ElCheckbox, ElLink,ElDialog,ElForm, ElFormItem, ElInput } from 'element-plus'
+import { ElButton, ElCheckbox, ElLink, ElDialog, ElForm, ElFormItem, ElInput } from 'element-plus'
 import { useForm } from '@/hooks/web/useForm'
 import { loginApi, getTestRoleApi, getAdminRoleApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
@@ -12,7 +12,7 @@ import { useRouter } from 'vue-router'
 import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router'
 import { UserType } from '@/api/login/types'
 import { useValidator } from '@/hooks/web/useValidator'
-import { activateUserApi,updateUserApi,resetUserPassword } from '@/api/users'
+import { activateUserApi, updateUserApi, resetUserPassword } from '@/api/users'
 
 const { required } = useValidator()
 
@@ -33,9 +33,9 @@ const rules = {
   password: [required()]
 }
 
-const dialogFormVisible =ref(false)
+const dialogFormVisible = ref(false)
 const formLabelWidth = '140px'
- 
+
 const form = reactive({
   username: '',
 })
@@ -136,13 +136,20 @@ const signIn = async () => {
       try {
         const res = await loginApi(formData)
         console.log('After Login', res)
-        if (res) {
-          wsCache.set(appStore.getUserInfo, res.data)
+        const selUserDetails = (({ name, roles,data }) => ({ name, roles,data  }))(res);
+        if (selUserDetails) {
+          wsCache.set(appStore.getUserInfo, selUserDetails)
           // 是否使用动态路由
+
+          appStore.dynamicRouter = true    // felix to edit 
+          console.log("Dynamic router--->", appStore.getDynamicRouter)
           if (appStore.getDynamicRouter) {
-            getRole()
+
+
+            getRole(res)
           } else {
-            await permissionStore.generateRoutes('none').catch(() => {})
+            //getRole() // temp 
+            await permissionStore.generateRoutes('none').catch(() => { })
             permissionStore.getAddRouters.forEach((route) => {
               addRoute(route as RouteRecordRaw) // 动态添加可访问路由表
             })
@@ -158,24 +165,46 @@ const signIn = async () => {
 }
 
 
-const getRole = async () => {
+const getRole = async (authenitcatedUser) => {
+
   const { getFormData } = methods
   const formData = await getFormData<UserType>()
+  console.log('authenitcatedUser', authenitcatedUser)
+
+// use the user details to set paths to see 
+  if (authenitcatedUser.roles.includes("admin") ||authenitcatedUser.roles.includes("kisip_staff")    ) {
+    formData.role = 'admin'
+  } else if (authenitcatedUser.roles.includes("county_admin")) {
+    formData.role = 'admin'
+  } else {
+    formData.role = 'test'
+
+  }
+
+ 
+
   const params = {
-    roleName: formData.username
+    // roleName: formData.username
+    roleName:  formData.role
   }
   // admin - 模拟后端过滤菜单
   // test - 模拟前端过滤菜单
-  const res =
-    formData.username === 'admin' ? await getAdminRoleApi(params) : await getTestRoleApi(params)
+  formData.permissions = ['*.*.*']
+ 
+ // const color = d.y >= 70 ? "green" : (d.y < 50 ? "red" : "yellow");
+
+
+  const res =formData.role === 'admin' ? await getAdminRoleApi(params) : await getTestRoleApi(params)
   if (res) {
     const { wsCache } = useCache()
     const routers = res.data || []
     wsCache.set('roleRouters', routers)
+    console.log("  formData.role >>", formData.role)
 
-    formData.username === 'admin'
-      ? await permissionStore.generateRoutes('admin', routers).catch(() => {})
-      : await permissionStore.generateRoutes('test', routers).catch(() => {})
+
+    formData.role === 'admin'
+      ? await permissionStore.generateRoutes('admin', routers).catch(() => { })
+      : await permissionStore.generateRoutes('test', routers).catch(() => { })
 
     permissionStore.getAddRouters.forEach((route) => {
       addRoute(route as RouteRecordRaw) // 动态添加可访问路由表
@@ -196,15 +225,8 @@ const reset = () => {
 </script>
 
 <template>
-  <Form
-    :schema="schema"
-    :rules="rules"
-    label-position="top"
-    hide-required-asterisk
-    size="large"
-    class="dark:(border-1 border-[var(--el-border-color)] border-solid)"
-    @register="register"
-  >
+  <Form :schema="schema" :rules="rules" label-position="top" hide-required-asterisk size="large"
+    class="dark:(border-1 border-[var(--el-border-color)] border-solid)" @register="register">
     <template #title>
       <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.login') }}</h2>
     </template>
@@ -212,7 +234,7 @@ const reset = () => {
     <template #tool>
       <div class="flex justify-between items-center w-[100%]">
         <ElCheckbox v-model="remember" :label="t('login.remember')" size="small" />
-        <ElLink type="primary" @click="dialogFormVisible=true" :underline="false">{{ t('Forgot Password') }}</ElLink>
+        <ElLink type="primary" @click="dialogFormVisible = true" :underline="false">{{ t('Forgot Password') }}</ElLink>
       </div>
     </template>
 
@@ -231,52 +253,34 @@ const reset = () => {
 
     <template #otherIcon>
       <div class="flex justify-between w-[100%]">
-        <Icon
-          icon="ant-design:github-filled"
-          :size="iconSize"
-          class="cursor-pointer anticon"
-          :color="iconColor"
-        />
-        <Icon
-          icon="ant-design:wechat-filled"
-          :size="iconSize"
-          class="cursor-pointer anticon"
-          :color="iconColor"
-        />
-        <Icon
-          icon="ant-design:alipay-circle-filled"
-          :size="iconSize"
-          :color="iconColor"
-          class="cursor-pointer anticon"
-        />
-        <Icon
-          icon="ant-design:weibo-circle-filled"
-          :size="iconSize"
-          :color="iconColor"
-          class="cursor-pointer anticon"
-        />
+        <Icon icon="ant-design:github-filled" :size="iconSize" class="cursor-pointer anticon" :color="iconColor" />
+        <Icon icon="ant-design:wechat-filled" :size="iconSize" class="cursor-pointer anticon" :color="iconColor" />
+        <Icon icon="ant-design:alipay-circle-filled" :size="iconSize" :color="iconColor"
+          class="cursor-pointer anticon" />
+        <Icon icon="ant-design:weibo-circle-filled" :size="iconSize" :color="iconColor"
+          class="cursor-pointer anticon" />
       </div>
     </template>
   </Form>
-  
-  <el-dialog v-model="dialogFormVisible" title="Please enter the username used during registration">
-      <el-form :model="form">
-     
 
-        <el-form-item label="Username" :label-width="formLabelWidth">
-          <el-input v-model="form.username" autocomplete="off" />
-        </el-form-item>
- 
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogFormVisible = false">Cancel</el-button>
-          <el-button type="primary" @click="reset">
-            Reset
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
+  <el-dialog v-model="dialogFormVisible" title="Please enter the username used during registration">
+    <el-form :model="form">
+
+
+      <el-form-item label="Username" :label-width="formLabelWidth">
+        <el-input v-model="form.username" autocomplete="off" />
+      </el-form-item>
+
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="dialogFormVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="reset">
+          Reset
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 
 </template>
 

@@ -7,6 +7,12 @@ import { useRouter } from 'vue-router'
 import { loginOutApi } from '@/api/login'
 import { useDesign } from '@/hooks/web/useDesign'
 import { useTagsViewStore } from '@/store/modules/tagsView'
+import { useAppStoreWithOut } from '@/store/modules/app'
+ 
+
+
+
+
 
 const tagsViewStore = useTagsViewStore()
 
@@ -19,6 +25,15 @@ const { t } = useI18n()
 const { wsCache } = useCache()
 
 const { replace } = useRouter()
+
+
+ 
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+console.log("----user----",userInfo)
+
+
 
 const loginOut = () => {
   ElMessageBox.confirm(t('common.loginOutMessage'), t('common.reminder'), {
@@ -51,7 +66,7 @@ const toDocument = () => {
         alt=""
         class="w-[calc(var(--logo-height)-25px)] rounded-[50%]"
       />
-      <span class="<lg:hidden text-14px pl-[5px] text-[var(--top-header-text-color)]">Admin</span>
+      <span class="<lg:hidden text-14px pl-[5px] text-[var(--top-header-text-color)]">{{userInfo.name}}</span>
     </div>
     <template #dropdown>
       <ElDropdownMenu>

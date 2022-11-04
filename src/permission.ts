@@ -43,13 +43,15 @@ router.beforeEach(async (to, from, next) => {
           dictStore.setIsSetDict(true)
         }
       }
-
+ 
       // 开发者可根据实际情况进行修改
       const roleRouters = wsCache.get('roleRouters') || []
       const userInfo = wsCache.get(appStore.getUserInfo)
 
+
       // 是否使用动态路由
       if (appStore.getDynamicRouter) {
+        console.log('userInfo----roles', userInfo)
         userInfo.role === 'admin'
           ? await permissionStore.generateRoutes('admin', roleRouters as AppCustomRouteRecordRaw[])
           : await permissionStore.generateRoutes('test', roleRouters as string[])
@@ -72,7 +74,7 @@ router.beforeEach(async (to, from, next) => {
       console.log("Path--->", to.path)
       next()
     } else if (to.path.startsWith("/reset")){
-      next()
+      next()  // for reset do not redirect
     }
     
     else {

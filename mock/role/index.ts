@@ -1,472 +1,505 @@
 import { config } from '@/config/axios/config'
 import { MockMethod } from 'vite-plugin-mock'
+import { Layout, getParentLayout } from '@/utils/routerHelper'
 
 const { result_code } = config
 
 const timeout = 1000
 
+
 const adminList = [
   {
     path: '/dashboard',
     component: '#',
-    redirect: '/dashboard/analysis',
+    redirect: '/dashboard/national',
     name: 'Dashboard',
     meta: {
-      title: 'router.dashboard',
+      title: 'Dashboard',
       icon: 'ant-design:dashboard-filled',
       alwaysShow: true
     },
     children: [
       {
-        path: 'analysis',
-        component: 'views/Dashboard/Analysis',
-        name: 'Analysis',
+        path: 'national',
+        component: 'views/Dashboard/National',
+        name: 'National',
         meta: {
-          title: 'router.analysis',
+          title: 'National',
           noCache: true
         }
       },
       {
-        path: 'workplace',
-        component: 'views/Dashboard/Workplace',
-        name: 'Workplace',
+        path: 'status',
+        component: 'views/Dashboard/CurrentSlumStatus',
+        name: 'Status',
         meta: {
-          title: 'router.workplace',
+          title: 'Status',
           noCache: true
         }
-      }
-    ]
-  },
-  {
-    path: '/external-link',
-    component: '#',
-    meta: {},
-    name: 'ExternalLink',
-    children: [
+      },
       {
-        path: 'https://element-plus-admin-doc.cn/',
-        name: 'DocumentLink',
+        path: 'kisip',
+        component: 'views/Dashboard/Kisip',
+        name: 'Kisip',
         meta: {
-          title: 'router.document',
-          icon: 'clarity:document-solid'
+          title: 'Kisip',
+          noCache: true
         }
-      }
+      },
     ]
   },
   {
-    path: '/guide',
+    path: '/interventions',
     component: '#',
-    name: 'Guide',
-    meta: {},
-    children: [
-      {
-        path: 'index',
-        component: 'views/Guide/Guide',
-        name: 'GuideDemo',
-        meta: {
-          title: 'router.guide',
-          icon: 'cib:telegram-plane'
-        }
-      }
-    ]
-  },
-  {
-    path: '/components',
-    component: '#',
-    redirect: '/components/form/default-form',
-    name: 'ComponentsDemo',
+    redirect: '/interventions/tenure/settlements',
+    name: 'Interventions',
     meta: {
-      title: 'router.component',
-      icon: 'bx:bxs-component',
-      alwaysShow: true
+      title: 'Interventions',
+      icon: 'carbon:skill-level-advanced',
+      hidden: false
     },
     children: [
       {
-        path: 'form',
-        component: '##',
-        name: 'Form',
+        path: 'tenure',
+        name: 'tenureInterventions',
+        component: '#',
+        redirect: '/interventions/sett/settlements',
         meta: {
-          title: 'router.form',
-          alwaysShow: true
+          title: 'Tenure'
         },
         children: [
           {
-            path: 'default-form',
-            component: 'views/Components/Form/DefaultForm',
-            name: 'DefaultForm',
+            path: 'settlements',
+            name: 'InterventionTenureSettlements',
+            component:'views/Intervention/Tenure/Settlements',
             meta: {
-              title: 'router.defaultForm'
+              title: 'Settlements'
             }
           },
           {
-            path: 'use-form',
-            component: 'views/Components/Form/UseFormDemo',
-            name: 'UseForm',
+            path: 'ben',
+            name: 'InterventiontenureHouseholds',
+            component:'views/Intervention/Tenure/TenureBeneficiary',
             meta: {
-              title: 'UseForm'
-            }
-          },
-          {
-            path: 'ref-form',
-            component: 'views/Components/Form/RefForm',
-            name: 'RefForm',
-            meta: {
-              title: 'RefForm'
-            }
-          }
-        ]
-      },
-      {
-        path: 'table',
-        component: '##',
-        redirect: '/components/table/default-table',
-        name: 'TableDemo',
-        meta: {
-          title: 'router.table',
-          alwaysShow: true
-        },
-        children: [
-          {
-            path: 'default-table',
-            component: 'views/Components/Table/DefaultTable',
-            name: 'DefaultTable',
-            meta: {
-              title: 'router.defaultTable'
-            }
-          },
-          {
-            path: 'use-table',
-            component: 'views/Components/Table/UseTableDemo',
-            name: 'UseTable',
-            meta: {
-              title: 'UseTable'
-            }
-          },
-          {
-            path: 'ref-table',
-            component: 'views/Components/Table/RefTable',
-            name: 'RefTable',
-            meta: {
-              title: 'RefTable'
-            }
-          }
-        ]
-      },
-      {
-        path: 'editor-demo',
-        component: '##',
-        redirect: '/components/editor-demo/editor',
-        name: 'EditorDemo',
-        meta: {
-          title: 'router.editor',
-          alwaysShow: true
-        },
-        children: [
-          {
-            path: 'editor',
-            component: 'views/Components/Editor/Editor',
-            name: 'Editor',
-            meta: {
-              title: 'router.richText'
-            }
-          }
-        ]
-      },
-      {
-        path: 'search',
-        component: 'views/Components/Search',
-        name: 'Search',
-        meta: {
-          title: 'router.search'
-        }
-      },
-      {
-        path: 'descriptions',
-        component: 'views/Components/Descriptions',
-        name: 'Descriptions',
-        meta: {
-          title: 'router.descriptions'
-        }
-      },
-      {
-        path: 'image-viewer',
-        component: 'views/Components/ImageViewer',
-        name: 'ImageViewer',
-        meta: {
-          title: 'router.imageViewer'
-        }
-      },
-      {
-        path: 'dialog',
-        component: 'views/Components/Dialog',
-        name: 'Dialog',
-        meta: {
-          title: 'router.dialog'
-        }
-      },
-      {
-        path: 'icon',
-        component: 'views/Components/Icon',
-        name: 'Icon',
-        meta: {
-          title: 'router.icon'
-        }
-      },
-      {
-        path: 'echart',
-        component: 'views/Components/Echart',
-        name: 'Echart',
-        meta: {
-          title: 'router.echart'
-        }
-      },
-      {
-        path: 'count-to',
-        component: 'views/Components/CountTo',
-        name: 'CountTo',
-        meta: {
-          title: 'router.countTo'
-        }
-      },
-      {
-        path: 'qrcode',
-        component: 'views/Components/Qrcode',
-        name: 'Qrcode',
-        meta: {
-          title: 'router.qrcode'
-        }
-      },
-      {
-        path: 'highlight',
-        component: 'views/Components/Highlight',
-        name: 'Highlight',
-        meta: {
-          title: 'router.highlight'
-        }
-      },
-      {
-        path: 'infotip',
-        component: 'views/Components/Infotip',
-        name: 'Infotip',
-        meta: {
-          title: 'router.infotip'
-        }
-      },
-      {
-        path: 'input-password',
-        component: 'views/Components/InputPassword',
-        name: 'InputPassword',
-        meta: {
-          title: 'router.inputPassword'
-        }
-      },
-      {
-        path: 'sticky',
-        component: 'views/Components/Sticky',
-        name: 'Sticky',
-        meta: {
-          title: 'router.sticky'
-        }
-      }
-    ]
-  },
-  {
-    path: '/hooks',
-    component: '#',
-    redirect: '/hooks/useWatermark',
-    name: 'Hooks',
-    meta: {
-      title: 'hooks',
-      icon: 'ic:outline-webhook',
-      alwaysShow: true
-    },
-    children: [
-      {
-        path: 'useWatermark',
-        component: 'views/hooks/useWatermark',
-        name: 'UseWatermark',
-        meta: {
-          title: 'useWatermark'
-        }
-      },
-      {
-        path: 'useCrudSchemas',
-        component: 'views/hooks/useCrudSchemas',
-        name: 'UseCrudSchemas',
-        meta: {
-          title: 'useCrudSchemas'
-        }
-      }
-    ]
-  },
-  {
-    path: '/level',
-    component: '#',
-    redirect: '/level/menu1/menu1-1/menu1-1-1',
-    name: 'Level',
-    meta: {
-      title: 'router.level',
-      icon: 'carbon:skill-level-advanced'
-    },
-    children: [
-      {
-        path: 'menu1',
-        name: 'Menu1',
-        component: '##',
-        redirect: '/level/menu1/menu1-1/menu1-1-1',
-        meta: {
-          title: 'router.menu1'
-        },
-        children: [
-          {
-            path: 'menu1-1',
-            name: 'Menu11',
-            component: '##',
-            redirect: '/level/menu1/menu1-1/menu1-1-1',
-            meta: {
-              title: 'router.menu11',
-              alwaysShow: true
+              title: 'Beneficiaries'
             },
             children: [
               {
-                path: 'menu1-1-1',
-                name: 'Menu111',
-                component: 'views/Level/Menu111',
+                path: 'all',
+                name: 'InterventionTenureBeneficiary',
+                component:'views/Intervention/Tenure/TenureBeneficiary',
                 meta: {
-                  title: 'router.menu111'
+                  title: 'Secure Tenure'
+                }
+              },
+              {
+                path: 'owners',
+                name: 'InterventionTenureOwners',
+                component:'views/Intervention/Tenure/Owners',
+                meta: {
+                  title: 'Parcels'
                 }
               }
             ]
-          },
-          {
-            path: 'menu1-2',
-            name: 'Menu12',
-            component: 'views/Level/Menu12',
-            meta: {
-              title: 'router.menu12'
-            }
           }
         ]
       },
       {
-        path: 'menu2',
-        name: 'Menu2Demo',
-        component: 'views/Level/Menu2',
+        path: 'inf',
+        name: 'InfrastructureInterventions',
+        component: '#',
+        redirect: '/interventions/inf/settlements',
         meta: {
-          title: 'router.menu2'
+          title: 'Infrastructure'
+        },
+        children: [
+          {
+            path: 'settlements',
+            name: 'InterventionINFSettlements',
+            component:'views/Intervention/Infrastructure/Settlements',
+            meta: {
+              title: 'Settlements'
+            }
+          },
+  
+          {
+            path: 'ben',
+            name: 'InterventionINFHouseholds',
+            component:'views/Intervention/Infrastructure/InfBeneficiary',
+            meta: {
+              title: 'Beneficiaries'
+            },
+            children: [
+              {
+                path: 'infrastructure',
+                name: 'InterventionINFbeneficiary',
+                component:'views/Intervention/Infrastructure/InfBeneficiary',
+                meta: {
+                  title: 'Infrastructure'
+                }
+              },
+              {
+                path: 'water',
+                name: 'InterventionINFWater',
+                component:'views/Intervention/Infrastructure/WaterBeneficiary',
+                meta: {
+                  title: 'Water'
+                }
+              },
+              {
+                path: 'sewer',
+                name: 'InterventionINFSewer',
+                component:'views/Intervention/Infrastructure/Sewerbenf',
+                meta: {
+                  title: 'Sewer'
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        path: 'inclusion',
+        name: 'InclusionInterventions',
+        component: '#',
+        redirect: '/interventions/inclusion/settlements',
+        meta: {
+          title: 'Inclusion'
+        },
+        children: [
+          {
+            path: 'settlements',
+            name: 'InterventionInclusionSettlements',
+            component:'views/Intervention/Inclusion/Settlements',
+            meta: {
+              title: 'Settlements'
+            }
+          },
+          {
+            path: 'ben',
+            name: 'InterventionInclusionPaps',
+            component:'views/Intervention/Inclusion/SafetyNets',
+            meta: {
+              title: 'Beneficiaries'
+            },
+            children: [
+              {
+                path: 'safetynets',
+                name: 'InterventionInclusionBeneficiariesSafetyNets',
+                component:'views/Intervention/Inclusion/SafetyNets',
+                meta: {
+                  title: 'Safety Nets'
+                }
+              },
+              {
+                path: 'training',
+                name: 'InterventionInclusionTraining',
+                component:'views/Intervention/Inclusion/Training',
+                meta: {
+                  title: 'Training'
+                }
+              },
+              {
+                path: 'emp',
+                name: 'InterventionInclusionEmployment',
+                component:'views/Intervention/Inclusion/Employment',
+                meta: {
+                  title: 'Employment'
+                }
+              },
+              {
+                path: 'cdp',
+                name: 'InterventionInclusionCDP',
+                component:'views/Intervention/Inclusion/CDP',
+                meta: {
+                  title: 'CDP'
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        path: 'kensup',
+        name: 'kensup',
+        component:'views/Level/Menu2',
+        meta: {
+          title: 'KENSUP'
+        }
+      }
+    ]
+  },
+  
+  {
+    path: '/settlement',
+    component: '#',
+    redirect: '/settlement/list',
+    name: 'Settlements',
+    meta: {
+      title: 'Settlements',
+      icon: 'eos-icons:role-binding',
+      alwaysShow: false
+    },
+    children: [
+      {
+        path: 'list',
+        component: 'views/Settlement/Sett',
+        name: 'List',
+        meta: {
+          title: 'List'
+        }
+      },
+      {
+        path: ':id',
+        component: 'views/Settlement/SettlementDetails',
+        name: 'SettlementDetails',
+        meta: { hidden: true, title: 'Settlement Details', icon: 'example', noCache: true }
+      },
+      {
+        path: 'add',
+        component: 'views/Settlement/Add',
+        name: 'AddSettlement',
+        meta: { hidden: false, title: 'Add', noCache: true }
+      },
+      {
+        path: 'parcel',
+        component: 'views/Parcel/index',
+        name: 'Parcel',
+        meta: { hidden: true,
+          title: 'Parcel'
+        }
+      },
+      {
+        path: 'hh/:id',
+        component: 'views/Household/index',
+        name: 'Households',
+        props: {
+          name: String
+        },
+        meta: {
+          hidden: true,
+          title: 'Households'
+        }
+      },
+      {
+        path: 'map/:id',
+        component: 'views/Map/SettlementParcelMap',
+        name: 'SettlementMap',
+  
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Map'
+        }
+      },
+      {
+        path: 'uploads',
+        component: 'views/Uploads/uploads',
+        name: 'Uploads',
+  
+        meta: {
+          hidden: false,
+          props: true,
+          title: 'Documents'
+        }
+      },
+      {
+        path: 'upload/file',
+        component: 'views/Uploads/uploadFiles',
+        name: 'uploadFiles',
+  
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'uploadFiles'
+        }
+      },
+  
+      {
+        path: 'doc/:id',
+        component: 'views/Settlement/SettlementDocs',
+        name: 'SettlementDocs',
+  
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Documents'
+        }
+      },
+  
+      {
+        path: 'map',
+        component: 'views/Map/index',
+        name: 'Map',
+        meta: {
+          hidden: true,
+          title: 'Map'
         }
       }
     ]
   },
   {
-    path: '/example',
+    path: '/facilities',
     component: '#',
-    redirect: '/example/example-dialog',
-    name: 'Example',
+    redirect: '/facility/all',
+    name: 'Facilities',
     meta: {
-      title: 'router.example',
-      icon: 'ep:management',
-      alwaysShow: true
+      hidden: true,
+      title: 'Facilities',
+      icon: 'ant-design:shop-outlined',
+      alwaysShow: false
     },
     children: [
       {
-        path: 'example-dialog',
-        component: 'views/Example/Dialog/ExampleDialog',
-        name: 'ExampleDialog',
+        path: 'all',
+        component:'views/Map/index',
+        name: 'All',
         meta: {
-          title: 'router.exampleDialog'
-        }
-      },
-      {
-        path: 'example-page',
-        component: 'views/Example/Page/ExamplePage',
-        name: 'ExamplePage',
-        meta: {
-          title: 'router.examplePage'
-        }
-      },
-      {
-        path: 'example-add',
-        component: 'views/Example/Page/ExampleAdd',
-        name: 'ExampleAdd',
-        meta: {
-          title: 'router.exampleAdd',
-          noTagsView: true,
-          noCache: true,
           hidden: true,
-          showMainRoute: true,
-          activeMenu: '/example/example-page'
+          title: 'All'
         }
       },
       {
-        path: 'example-edit',
-        component: 'views/Example/Page/ExampleEdit',
-        name: 'ExampleEdit',
+        path: 'health',
+        component:'views/Map/index',
+        name: 'Health',
         meta: {
-          title: 'router.exampleEdit',
-          noTagsView: true,
-          noCache: true,
-          hidden: true,
-          showMainRoute: true,
-          activeMenu: '/example/example-page'
+          icon: 'ci-home-plus',
+          title: 'Health'
         }
       },
-      {
-        path: 'example-detail',
-        component: 'views/Example/Page/ExampleDetail',
-        name: 'ExampleDetail',
-        meta: {
-          title: 'router.exampleDetail',
-          noTagsView: true,
-          noCache: true,
-          hidden: true,
-          showMainRoute: true,
-          activeMenu: '/example/example-page'
-        }
-      }
-    ]
-  },
-  {
-    path: '/error',
-    component: '#',
-    redirect: '/error/404',
-    name: 'Error',
-    meta: {
-      title: 'router.errorPage',
-      icon: 'ci:error',
-      alwaysShow: true
-    },
-    children: [
-      {
-        path: '404-demo',
-        component: 'views/Error/404',
-        name: '404Demo',
-        meta: {
-          title: '404'
-        }
-      },
-      {
-        path: '403-demo',
-        component: 'views/Error/403',
-        name: '403Demo',
-        meta: {
-          title: '403'
-        }
-      },
-      {
-        path: '500-demo',
-        component: 'views/Error/500',
-        name: '500Demo',
-        meta: {
-          title: '500'
-        }
-      }
-    ]
-  }
-]
 
+      {
+        path: 'education',
+        component:'views/Map/index',
+        name: 'Education',
+        meta: {
+          icon: 'ci-youtube',
+
+          title: 'Education'
+        }
+      },
+
+      {
+        path: 'water',
+        component:'views/Map/index',
+        name: 'Water',
+        meta: {
+          title: 'Water'
+        }
+      },
+
+      {
+        path: 'utility',
+        component:'views/Map/index',
+        name: 'Utilities',
+        meta: {
+          title: 'Utilities'
+        }
+      },
+      {
+        path: 'security',
+        component:'views/Map/index',
+        name: 'Security',
+        meta: {
+          title: 'Security'
+        }
+      },
+
+      {
+        path: 'environment',
+        component:'views/Map/index',
+        name: 'Environment',
+        meta: {
+          title: 'Environment'
+        }
+      }
+    ]
+  },
+
+  {
+    path: '/data',
+    component: '#',
+    redirect: '/data/import',
+    name: 'Data',
+    meta: {
+      title: 'Import Data',
+      icon: 'ant-design:shop-outlined',
+      alwaysShow: false
+    },
+    children: [
+      {
+        path: 'list',
+        component: 'views/ImportData/list',
+        name: 'ImportData',
+        meta: {
+          title: 'List'
+        }
+      },
+      {
+        path: 'geo',
+        component: 'views/ImportData/geo',
+        name: 'Importgeo',
+        meta: {
+          title: 'Geometry'
+        }
+      }
+    ]
+  },
+
+
+
+  {
+    path: '/users',
+    redirect: '/users/user',
+    component: '#',
+    name: 'Users',
+    meta: {
+      title: 'Users',
+      icon: 'eos-icons:role-binding',
+ 
+       alwaysShow: true
+    },
+    children: [
+      {
+        path: 'user',
+        component: 'views/Users/User',
+        name: 'User',
+        meta: {
+          title: 'All'
+        }
+      },
+      {
+        path: 'county',
+        component:'views/Users/County',
+        name: 'CountyAdmin',
+        meta: {
+          title: 'County'
+        }
+      },
+      {
+        path: 'partner',
+        component:'views/Users/User',
+        name: 'Partner',
+        meta: {
+          title: 'Partner'
+        }
+      },
+ 
+      {
+        path: 'public',
+        component:'views/Users/User',
+        name: 'Public',
+        meta: {
+          title: 'Public'
+        }
+      }
+    ]
+  },
+]
+ 
 const testList: string[] = [
-  '/dashboard',
+  '/dashboard/kisip',
   '/dashboard/analysis',
   '/dashboard/workplace',
   'external-link',
@@ -517,6 +550,214 @@ const testList: string[] = [
   '/error/500-demo'
 ]
 
+const  publicList  = [
+  {
+    path: '/dashboard',
+    component: '#',
+    redirect: '/dashboard/national',
+    name: 'Dashboard',
+    meta: {
+      title: 'Public Dashboards',
+      icon: 'ant-design:dashboard-filled',
+      alwaysShow: true
+    },
+    children: [
+      {
+        path: 'national',
+        component: 'views/Dashboard/National',
+        name: 'National',
+        meta: {
+          title: 'National',
+          noCache: true
+        }
+      },
+      {
+        path: 'status',
+        component: 'views/Dashboard/CurrentSlumStatus',
+        name: 'Status',
+        meta: {
+          title: 'Status',
+          noCache: true
+        }
+      },
+      {
+        path: 'kisip',
+        component: 'views/Dashboard/Kisip',
+        name: 'Kisip',
+        meta: {
+          title: 'Kisip',
+          noCache: true
+        }
+      },
+    ]
+  },
+  {
+    path: '/interventions',
+    component: '#',
+    redirect: '/interventions/tenure/settlements',
+    name: 'Interventions',
+    meta: {
+      title: 'Interventions',
+      icon: 'carbon:skill-level-advanced',
+      hidden: false
+    },
+    children: [
+      {
+        path: 'tenure',
+        name: 'tenureInterventions',
+        component: '#',
+        redirect: '/interventions/sett/settlements',
+        meta: {
+          title: 'Tenure'
+        },
+        children: [
+          {
+            path: 'settlements',
+            name: 'InterventionTenureSettlements',
+            component:'views/Intervention/Tenure/Settlements',
+            meta: {
+              title: 'Tenure'
+            }
+          },
+        
+        ]
+      },
+      {
+        path: 'inf',
+        name: 'InfrastructureInterventions',
+        component: '#',
+        redirect: '/interventions/inf/settlements',
+        meta: {
+          title: 'Infrastructure'
+        },
+        children: [
+          {
+            path: 'settlements',
+            name: 'InterventionINFSettlements',
+            component:'views/Intervention/Infrastructure/Settlements',
+            meta: {
+              title: 'Infrastructure'
+            }
+          },
+  
+      
+        ]
+      },
+      {
+        path: 'inclusion',
+        name: 'InclusionInterventions',
+        component: '#',
+        redirect: '/interventions/inclusion/settlements',
+        meta: {
+          title: 'Inclusion'
+        },
+        children: [
+          {
+            path: 'settlements',
+            name: 'InterventionInclusionSettlements',
+            component:'views/Intervention/Inclusion/Settlements',
+            meta: {
+              title: 'Inclusion'
+            }
+          },
+ ]
+      },
+      {
+        path: 'kensup',
+        name: 'kensup',
+        component:'views/Level/Menu2',
+        meta: {
+          title: 'KENSUP'
+        }
+      }
+    ]
+  },
+  
+  {
+    path: '/settlement',
+    component: '#',
+    redirect: '/settlement/list',
+    name: 'Settlements',
+    meta: {
+      title: 'Settlements',
+      icon: 'eos-icons:role-binding',
+      alwaysShow: false
+    },
+    children: [
+      {
+        path: 'list',
+        component: 'views/Settlement/Sett',
+        name: 'List',
+        meta: {
+          title: 'Settlements',
+          icon: 'eos-icons:role-binding',
+
+        }
+      },
+      {
+        path: ':id',
+        component: 'views/Settlement/SettlementDetails',
+        name: 'SettlementDetails',
+        meta: { hidden: true, title: 'Settlement Details', icon: 'example', noCache: true }
+      },
+     
+      {
+        path: 'parcel',
+        component: 'views/Parcel/index',
+        name: 'Parcel',
+        meta: { hidden: true,
+          title: 'Parcel'
+        }
+      },
+      {
+        path: 'hh/:id',
+        component: 'views/Household/index',
+        name: 'Households',
+        props: {
+          name: String
+        },
+        meta: {
+          hidden: true,
+          title: 'Households'
+        }
+      },
+      {
+        path: 'map/:id',
+        component: 'views/Map/SettlementParcelMap',
+        name: 'SettlementMap',
+  
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Map'
+        }
+      },
+     
+  
+      {
+        path: 'doc/:id',
+        component: 'views/Settlement/SettlementDocs',
+        name: 'SettlementDocs',
+  
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Documents'
+        }
+      },
+  
+      {
+        path: 'map',
+        component: 'views/Map/index',
+        name: 'Map',
+        meta: {
+          hidden: true,
+          title: 'Map'
+        }
+      }
+    ]
+  },
+]
 export default [
   // 列表接口
   {
@@ -527,7 +768,7 @@ export default [
       const { roleName } = query
       return {
         code: result_code,
-        data: roleName === 'admin' ? adminList : testList
+        data: roleName === 'admin' ? adminList : publicList
       }
     }
   }
