@@ -4,12 +4,17 @@ import { config } from './config'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { reactive, ref, unref, watch } from 'vue'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userToken = wsCache.get(appStore.getUserInfo)
+const token =ref('')
 
-console.log("userInfo--->",userToken )
+if(userToken){
+  token.value= userToken.data
+} 
+console.log("userInfo--->",token.value )
 
 
 
@@ -25,7 +30,7 @@ const request = (option: any) => {
     responseType: responseType,
     headers: {
       'Content-Type': headersType || default_headers,
-      'x-access-token': `${userToken.data}`    // felix - add auth token 
+      'x-access-token': `${token.value}`    // felix - add auth token 
     }
   })
 }
