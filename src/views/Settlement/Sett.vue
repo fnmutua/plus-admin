@@ -461,7 +461,7 @@ const AddSettlement = (data: TableSlotDefault) => {
           <el-button
             type="primary"
             :icon="TopRight"
-            size="small"
+ 
             @click="viewProfile(data as TableSlotDefault)"
             circle
           />
@@ -472,7 +472,7 @@ const AddSettlement = (data: TableSlotDefault) => {
             v-if="showAdminButtons"
             type="success"
             :icon="User"
-            size="small"
+ 
             @click="viewHHs(data as TableSlotDefault)"
             circle
             
@@ -482,7 +482,7 @@ const AddSettlement = (data: TableSlotDefault) => {
           <el-button
             type="warning"
             :icon="Position"
-            size="small"
+ 
             @click="viewOnMap(data as TableSlotDefault)"
             circle
           />
@@ -491,7 +491,7 @@ const AddSettlement = (data: TableSlotDefault) => {
           <el-button
             type="primary"
             :icon="MessageBox"
-            size="small"
+ 
             @click="viewDocuments(data as TableSlotDefault)"
             circle
           />
