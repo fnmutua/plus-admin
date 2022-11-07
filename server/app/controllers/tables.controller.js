@@ -281,7 +281,7 @@ exports.modelCreateOneRecord = (req, res) => {
 }
 
 exports.modelAllGeo = async (req, res) => {
-  var reg_model = req.query.model
+  var reg_model = req.body.model
   var qry2 =
     " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +
     reg_model +
@@ -293,7 +293,7 @@ exports.modelAllGeo = async (req, res) => {
 
   res.status(200).send({
     data: result_geo,
-    code: 20000
+    code: '0000'
   })
 }
 

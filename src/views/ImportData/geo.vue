@@ -60,6 +60,10 @@ const uploadOptions = [
       {
         value: 'parcel',
         label: 'Parcels'
+      },
+      {
+        value: 'county',
+        label: 'Counties'
       }
     ]
   },
@@ -139,7 +143,21 @@ const parcel_fields = [
   }
 ]
 
-
+const county_fields = [
+  {
+    field: 'name',
+    match: ''
+  },
+  {
+    field: 'id',
+    match: ''
+  },
+ 
+  {
+    field: 'code',
+    match: ''
+  }
+]
 const handleMutlipleSettlements = async () => { 
 
   console.log(value_switch)
@@ -240,9 +258,11 @@ if (type === 'settlement') {
     fieldSet.value = parcel_fields
     console.log('parcel------>', parcel_fields)
 
+  } else if(type === 'county') {
+    fieldSet.value = county_fields
+    console.log('parcel------>', county_fields)
+
   }
-
-
 
 
 }

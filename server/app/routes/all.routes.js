@@ -29,7 +29,7 @@ module.exports = function (app) {
   app.post('/api/v1/data/column/paginated', controller.modelPaginatedDatafilterByColumn)
 
   // Gets the  All dataes
-  app.get('/api/v1/data/all/geo', controller.modelAllGeo)
+  app.post('/api/v1/data/all/geo', controller.modelAllGeo)
 
   // Gets the  All dataes
   app.post('/api/v1/data/one/geo', controller.modelOneGeo)
