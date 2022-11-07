@@ -72,7 +72,6 @@ exports.sumModelByColumnAssociated= (req, res) => {
   console.log('Summarizing:',reg_model, ' by ', summaryField)
 
 
-
   // models.user.find({where: { id: 1 }, 
   //   group:['user.id'], 
   //   attributes: [[Sequelize.fn('SUM', Sequelize.col('histories.amount')), 'total']], 
@@ -88,7 +87,7 @@ exports.sumModelByColumnAssociated= (req, res) => {
     db.models[reg_model]
     .findAll({
      //attributes: ['county_id', [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-      attributes: 'county_id',  [[Sequelize.fn(summaryFunction, Sequelize.col('county.id')), summaryFunction]], 
+      attributes: ['county_id',  [Sequelize.fn(summaryFunction, Sequelize.col('county.id')), summaryFunction]], 
       include: [nestedModels],
       group : ['county_id' ],
 
