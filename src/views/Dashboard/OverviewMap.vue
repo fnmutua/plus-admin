@@ -13,7 +13,7 @@ import { reactive, ref } from 'vue'
 
 
 import { getCountyGeoAll } from '@/api/counties'
-import { getSummarybyField } from '@/api/summary'
+import { getSummarybyField, getSummarybyFieldNested} from '@/api/summary'
 
 import { LControlLayers, LGeoJson, LMap, LTileLayer } from '@vue-leaflet/vue-leaflet'
 import { featureGroup } from 'leaflet'
@@ -224,6 +224,51 @@ const getSettlementAreaByCounty = async () => {
 
 }
 
+
+const getBeneficiariesByCounty = async () => {
+  const formData = {}
+  formData.model = 'beneficiary'
+  formData.summaryField = 'area'
+  formData.summaryFunction='sum'
+  formData.assoc_model=['settlement', 'county']
+
+  const settPerCounty = await getSummarybyFieldNested(formData)
+    // create the jensk breaks and assocaited coloes 
+  let result = settPerCounty.Total.map(a => parseInt(a.AVG))
+  classBreaks.value=ss.jenks( result , 5)   // creake breakpoints for colors 
+  ChoroPlethcolors.value = chroma.scale(['#ece2f0','#1c9099']).mode('lch').colors(5)
+
+  
+  console.log('---------->', settPerCounty)
+
+    // clear the chat arrays 
+    county.names.splice(0)
+  county.indicator.splice(0)
+  county.chart_title='Average Settlement Size(Ha) by County'
+
+
+
+  countyGeo.value.features.forEach(function (feature) {
+      const cnty = settPerCounty.Total.filter(object => {
+        return object.county_id === feature.properties.id;
+      });
+      if (cnty.length > 0) {
+        feature.properties.indicator = parseInt(cnty[0].AVG)
+        //   console.log(cnty[0].count)
+        county.names.push(feature.properties.name)
+        county.indicator.push(parseInt(cnty[0].AVG))
+      }
+    });
+    console.log('----getSettlementAveAreaByCounty------>', countyGeo)
+    updateStyle()
+
+}
+
+
+
+
+
+
 const getCountyGeo = async () => {
   const formData = {}
   formData.model = 'county'
@@ -290,6 +335,11 @@ const handleChangeIndicator = async (indicator: any) => {
   if (indicator==='AvgSizeHa') {
     getSettlementAreaByCounty()
 
+  } ,
+
+  if (indicator==='NoBeneficiary') {
+    getBeneficiariesByCounty()
+
   }  
 }
 
@@ -351,10 +401,7 @@ var osm_tile ="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World
   <div  :style="{'background-color':ChoroPlethcolors[4]}" >{{classBreaks[5]}}</div>
  
 </div>
-
- 
-  
-    
+   
        
       </l-control>
           </l-map>
@@ -400,6 +447,7 @@ var osm_tile ="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World
 
 .key {
   text-align: center;
+  color: white;
   font-weight: bold;
 }
 </style>
