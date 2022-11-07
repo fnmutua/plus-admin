@@ -81,15 +81,17 @@ exports.sumModelByColumnAssociated= (req, res) => {
   //     console.log(user);
   // }).catch(function(error) { console.log(error) });
 
-  var nestedModels = { model: assoc_model1, include:assoc_model2, raw: true,nested: true  }
+  //var nestedModels = { model: assoc_model1, include:assoc_model2, raw: true,nested: true  }
+  var nestedModels = { model: assoc_model1,   raw: true}
 
 
     db.models[reg_model]
     .findAll({
      //attributes: ['county_id', [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-      attributes: ['county_id',  [Sequelize.fn(summaryFunction, Sequelize.col('county.id')), summaryFunction]], 
-      include: [nestedModels],
-      group : [assoc_model1.county_id],
+      attributes: [ 'settlement.county_id', [Sequelize.fn(summaryFunction, Sequelize.col('county_id')), summaryFunction]], 
+     // include: [nestedModels],
+      include: [{model: assoc_model1,attributes:[]}],
+     group : ['settlement.id', 'settlement.county_id' ],
 
       raw: true
         })
