@@ -53,10 +53,59 @@ exports.sumModelByColumn= (req, res) => {
  
 }
 
+
+
+exports.sumModelByColumnAssociated= (req, res) => {
+
+  var reg_model = req.body.model
+ 
+
+  var assoc_model1 = db.models[req.body.assoc_model[0]]
+  var assoc_model2 = db.models[req.body.assoc_model[1]]
+
+
+
+
+  var summaryField = req.body.summaryField
+  var summaryFunction = req.body.summaryFunction
+
+  console.log('Summarizing:',reg_model, ' by ', summaryField)
+
+
+
+  // models.user.find({where: { id: 1 }, 
+  //   group:['user.id'], 
+  //   attributes: [[Sequelize.fn('SUM', Sequelize.col('histories.amount')), 'total']], 
+  //   include: [{model: models.history,attributes:[]}],
+  //   raw:true
+  // }).then(function(user) {
+  //     console.log(user);
+  // }).catch(function(error) { console.log(error) });
+
+  var nestedModels = { model: assoc_model1, include:assoc_model2, raw: true,nested: true  }
+
+
+    db.models[reg_model]
+    .findAll({
+     //attributes: ['county_id', [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+      attributes: 'county_id',  [[Sequelize.fn(summaryFunction, Sequelize.col('county.id')), summaryFunction]], 
+      include: [nestedModels],
+      group : ['county_id' ],
+
+      raw: true
+        })
+
+    .then((result) => {
+      if (result) {
+        // res.status(200).send(result);
+        res.status(200).send({
+          Total: result,
+          code: '0000'
+        })
+      }
+    })
+
+ 
+}
+
 	
-exports.getItemSaleCount = () => SaleItem.findAll({
-    attributes: ['itemId', [sequelize.fn('count', sequelize.col('itemId')), 'count']],
-    group : ['SaleItem.itemId'],
-    raw: true,
-    order: sequelize.literal('count DESC')
-  });
