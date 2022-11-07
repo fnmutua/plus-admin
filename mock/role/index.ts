@@ -6,7 +6,7 @@ const { result_code } = config
 
 const timeout = 1000
 
-
+ 
 const adminList = [
   {
     path: '/dashboard',
@@ -34,6 +34,15 @@ const adminList = [
         name: 'Status',
         meta: {
           title: 'Status',
+          noCache: true
+        }
+      },
+      {
+        path: 'map',
+        component: 'views/Dashboard/OverviewMap',
+        name: 'xOverviewMap',
+        meta: {
+          title: 'Map',
           noCache: true
         }
       },
@@ -557,7 +566,7 @@ const  publicList  = [
     redirect: '/dashboard/national',
     name: 'Dashboard',
     meta: {
-      title: 'Public Dashboards',
+      title: 'Dashboards',
       icon: 'ant-design:dashboard-filled',
       alwaysShow: true
     },
@@ -567,7 +576,7 @@ const  publicList  = [
         component: 'views/Dashboard/National',
         name: 'National',
         meta: {
-          title: 'National',
+          title: 'Overview',
           noCache: true
         }
       },
@@ -576,7 +585,7 @@ const  publicList  = [
         component: 'views/Dashboard/CurrentSlumStatus',
         name: 'Status',
         meta: {
-          title: 'Status',
+          title: 'Services',
           noCache: true
         }
       },

@@ -190,5 +190,6 @@ function initial() {
 require('./server/app/routes/auth.routes')(app)
 require('./server/app/routes/user.routes')(app)
 require('./server/app/routes/all.routes')(app)
+require('./server/app/routes/summary.routes')(app)
 
 // set port, listen for requests
