@@ -89,7 +89,7 @@ exports.sumModelByColumnAssociated= (req, res) => {
      //attributes: ['county_id', [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
       attributes: ['county_id',  [Sequelize.fn(summaryFunction, Sequelize.col('county.id')), summaryFunction]], 
       include: [nestedModels],
-      group : ['county_id' ],
+      group : [assoc_model1.county_id],
 
       raw: true
         })

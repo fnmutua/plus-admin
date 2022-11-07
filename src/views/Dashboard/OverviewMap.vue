@@ -335,7 +335,7 @@ const handleChangeIndicator = async (indicator: any) => {
   if (indicator==='AvgSizeHa') {
     getSettlementAreaByCounty()
 
-  } ,
+  } 
 
   if (indicator==='NoBeneficiary') {
     getBeneficiariesByCounty()
