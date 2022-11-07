@@ -9,6 +9,7 @@ module.exports = function (app) {
 
   // Gets the  table names
   app.post('/api/v1/summary/byfield', controller.sumModelByColumn)
+  app.post('/api/v1/summary/byfield/nested', controller.sumModelByColumnAssociated)
 
  
 }

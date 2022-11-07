@@ -11,3 +11,10 @@ export const getSummarybyField = (data: any): Promise<IResponse> => {
   console.log('filters....', data)
   return request.post({ url: prod + '/api/v1/summary/byfield', data })
 }
+
+
+
+export const getSummarybyFieldNested = (data: any): Promise<IResponse> => {
+  console.log('filters....', data)
+  return request.post({ url: prod + '/api/v1/summary/byfield/nested', data })
+}
