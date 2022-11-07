@@ -225,26 +225,45 @@ const getSettlementAreaByCounty = async () => {
 }
 
 
+function isNotNull(value) {
+  return value != null;
+}
+
 const getBeneficiariesByCounty = async () => {
   const formData = {}
   formData.model = 'beneficiary'
-  formData.summaryField = 'area'
-  formData.summaryFunction='sum'
+  formData.summaryField = 'county_id'
+  formData.summaryFunction='count'
   formData.assoc_model=['settlement', 'county']
 
   const settPerCounty = await getSummarybyFieldNested(formData)
     // create the jensk breaks and assocaited coloes 
-  let result = settPerCounty.Total.map(a => parseInt(a.AVG))
-  classBreaks.value=ss.jenks( result , 5)   // creake breakpoints for colors 
+
+
+    let result1  = settPerCounty.Total.filter(function(elt){
+     return elt.county_id != null;
+    });
+
+    console.log('Sett-->', result1)
+
+  let result = result1.map(a => parseInt(a.count))
+
+
+  console.log('Sett-->', result)
+
+
+
+
+  classBreaks.value=ss.jenks(result , 5)   // creake breakpoints for colors 
   ChoroPlethcolors.value = chroma.scale(['#ece2f0','#1c9099']).mode('lch').colors(5)
 
   
-  console.log('---------->', settPerCounty)
+  console.log('---------->', classBreaks.value)
 
     // clear the chat arrays 
     county.names.splice(0)
   county.indicator.splice(0)
-  county.chart_title='Average Settlement Size(Ha) by County'
+  county.chart_title='Number of Beneficiaries by County'
 
 
 
@@ -252,11 +271,13 @@ const getBeneficiariesByCounty = async () => {
       const cnty = settPerCounty.Total.filter(object => {
         return object.county_id === feature.properties.id;
       });
+
+    //  console.log('filtered-->',cnty )
       if (cnty.length > 0) {
-        feature.properties.indicator = parseInt(cnty[0].AVG)
+        feature.properties.indicator = parseInt(cnty[0].count)
         //   console.log(cnty[0].count)
         county.names.push(feature.properties.name)
-        county.indicator.push(parseInt(cnty[0].AVG))
+        county.indicator.push(parseInt(cnty[0].count))
       }
     });
     console.log('----getSettlementAveAreaByCounty------>', countyGeo)
