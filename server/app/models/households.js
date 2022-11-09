@@ -141,7 +141,7 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.STRING,
         allowNull: true
       },
-      hh_code: {
+      code: {
         type: DataTypes.STRING,
         allowNull: false
       }

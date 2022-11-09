@@ -168,22 +168,23 @@ const onPageSizeChange = async (size: any) => {
 const getInterventionsAll = async () => {
   getFilteredData(filters, filterValues)
 }
+ 
 
-const destructure = (obj) => {
-  // console.log('deconstructing......')
-  const simpleObj = {}
-  for (let key in obj) {
-    const value = obj[key]
-    const type = typeof value
-    if (['string', 'boolean'].includes(type) || (type === 'number' && !isNaN(value))) {
-      simpleObj[key] = value
-    } else if (type === 'object') {
-      Object.assign(simpleObj, destructure(value))
-    }
+const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
+   for(let key in obj){
+    if (key!='geom') {
+
+      if(typeof obj[key] !== 'object'){
+         res[extraKey + key] = obj[key];
+      }else{
+         flattenJSON(obj[key], res, `${extraKey}${key}.`);
+      };
+   };
   }
+   return res;
+};
 
-  return simpleObj
-}
+
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -203,12 +204,12 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.associated_multiple_models = associated_multiple_models
   //-------------------------
   //console.log(formData)
+ 
+//-------------------------
+  //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
-
-  // -- filter data only for tenure -------to be revisted
-
   tableDataList.value = res.data
   total.value = res.total
 
@@ -216,17 +217,14 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('TBL-b4', tblData)
   res.data.forEach(function (arrayItem) {
     //  console.log(countyOpt)
-    delete arrayItem[associated_Model]['geom'] //  remove the geometry column
+    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
-    var dd = destructure(arrayItem)
+    var dd = flattenJSON(arrayItem)
 
     tblData.push(dd)
   })
-  // console.log('Loading', loading)
-  // loading.value = false
-  //console.log('Loading', loading)
 
-  // console.log('TBL-4f', tblData)
+  console.log('TBL-4f', tblData)
 }
 
 const PhaseOptions = [

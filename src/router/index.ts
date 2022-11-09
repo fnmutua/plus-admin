@@ -598,6 +598,14 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'hh',
+        component: 'views/ImportData/hh',
+        name: 'ImportHH',
+        meta: {
+          title: 'Household'
+        }
+      },
+      {
         path: 'geo',
         component: () => import('@/views/ImportData/geo.vue'),
         name: 'Importgeo',

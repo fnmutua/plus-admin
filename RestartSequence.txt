@@ -2,7 +2,11 @@ ALTER SEQUENCE seq RESTART WITH 1;
 UPDATE t SET idcolumn=nextval('seq');
 
  ALTER SEQUENCE settlement_id_seq RESTART WITH 238 ;
- ALTER SEQUENCE households_id_seq RESTART WITH 254 ;
+ ALTER SEQUENCE households_id_seq RESTART WITH 445 ;
  
+  ALTER SEQUENCE beneficiary_id_seq RESTART WITH 483 ;
+
  
 ALTER TABLE settlement ADD COLUMN geom geometry(MultiPolygon,4326);
+
+

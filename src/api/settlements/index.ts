@@ -69,3 +69,7 @@ export const BatchImportUpsert = (data: SettlementType): Promise<IResponse<Settl
   return request.post({ url: prod + '/api/v1/data/import/upsert', data })
 }
 
+export const getParentIds = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('Getting parent....', data)
+  return request.post({ url: prod + '/api/v1/data/parentids', data })
+}

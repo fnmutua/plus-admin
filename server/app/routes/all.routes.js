@@ -77,4 +77,12 @@ module.exports = function (app) {
 
   // sum filtreed
   app.post('/api/v1/upload', controller.modelUpload)
+
+  // get parent IDS
+  app.post('/api/v1/data/parentids', controller.modelGetParentIDS)
+
+  
+
+
 }
+

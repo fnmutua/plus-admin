@@ -54,7 +54,6 @@ const tbl = ref()
 const matchOptions = ref([])
 const uploadObj = ref([])
 const matchedObj = ref([])
-const matchedObjwithparent = ref([])
 const fieldSet = ref([])
 const show = ref(false)
 const showSettleementSelect = ref(false)
@@ -113,7 +112,7 @@ const uploadOptions = [
 ]
 
 const settlement_fields = [
-  {
+{
     field: 'id',
     match: ''
   },
@@ -270,7 +269,7 @@ const beneficiary_parcels = [
   },
 ]
 
-const beneficiary_fields = [
+const beneficiary_fields= [
   {
     field: 'hh_id',
     match: ''
@@ -292,11 +291,15 @@ const beneficiary_fields = [
     field: 'hh_code',
     match: ''
   },
-
-
+ 
+  
 
 
 ]
+
+
+
+
 
 
 const handleMutlipleSettlements = async () => {
@@ -306,6 +309,8 @@ const handleMutlipleSettlements = async () => {
   showSettleementSelect.value = !value_switch.value
 
 }
+
+
 
 const handleProcess = async (settlements: any) => {
   console.log('mapped fields', settlements)
@@ -419,9 +424,9 @@ const handleSelectType = async (type: any) => {
 
 
 
+  
 
-
-
+  
 
 
 
@@ -430,6 +435,11 @@ const handleSelectType = async (type: any) => {
 const handleSelectSettlement = async (settlement: any) => {
   settlement = settlement
 }
+
+
+
+
+
 
 const getSettlementsOptions = async () => {
   const res = await getCountyListApi({
@@ -461,6 +471,7 @@ const getSettlementsOptions = async () => {
   })
 }
 
+
 getSettlementsOptions()
 
 
@@ -469,10 +480,10 @@ const fileList = ref<UploadUserFile[]>([])
 const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
   console.log(file, uploadFiles)
   show.value = false
-  uploadObj.value = []
-  matchedObj.value = []
-  fieldSet.value = []
-
+  uploadObj.value=[]
+  matchedObj.value=[]
+  fieldSet.value=[]
+ 
 }
 
 const handlePreview: UploadProps['onPreview'] = (uploadFile) => {
@@ -499,18 +510,21 @@ const submitFiles = async () => {
     ElMessage.error('Select a  File first!')
   } else {
     var rfile = fileList.value[0].raw
+
     console.log("File type", rfile.name.split('.').pop())
+
     let reader = new FileReader()
+
     let ftype = rfile.name.split('.').pop()
     if (ftype == 'json') {
       console.log('------Json----')
       reader.onload = readJson
-    } else if (ftype == 'xlsx') {
+    } else if (ftype == 'xlsx')  {
 
       reader.onload = readXLSX(rfile)
     }
-
-
+    
+    
     else {
       console.log('------csv----')
 
@@ -529,6 +543,7 @@ const readJson = (event) => {
   //console.log("file type", str)
   let json = JSON.parse(str)
 
+  console.log('json', json)
 
   const fields = Object.keys(json[0]) //  get all proterit4s of the first feature
   console.log("fields-->", fields)
@@ -562,17 +577,23 @@ const readCsv = (event) => {
   var newArray = csv.filter((obj) => { return obj.name !== '' }) // remove any empty rows
   var newArray = newArray.filter((obj) => { return obj.name !== 'name' })  // remove header row 
 
-  for (let j = 1; j < newArray.length; j++) {
+
+
+  for (let j = 1; j < newArray.length; j++) { 
     uploadObj.value.push(newArray[j]) // Push each record to the temporary holder
+
+
   }
+
 
   show.value = true
   console.log('csv----newr--->', newArray)
 
+
   if (value_switch.value) {
     console.log("=====Multiple settleemtns")
     fieldSet.value.push({ field: 'settlement_id', match: '' })
-    console.log("formatting")
+
   }
 }
 
@@ -588,25 +609,33 @@ const readXLSX = async (event) => {
     console.log("fields-->", fields)
     makeOptions(fields)
     var newArray = rows.filter((obj) => { return obj.name !== '' }) // remove any empty rows
-
+ 
+  
+  
     for (let j = 1; j < rows.length; j++) {
       var record = {}
       for (let i = 0; i < fields.length; i++) {
-        var f = fields[i]
+        var f = fields[i] 
         var v = rows[j][i]
-        record[f] = v
-        //    console.log(record)
+        record[f]=v
+    //    console.log(record)
       }
 
       uploadObj.value.push(record) // Push to the temporary holder
-    }  // remove header row
-    console.log('rows-xlsx------>', uploadObj)
+     }  // remove header row
+    
+     console.log('rows-xlsx------>', uploadObj)    
+
     show.value = true
+
     if (value_switch.value) {
       console.log("=====Multiple settlements")
       fieldSet.value.push({ field: 'settlement_id', match: '' })
-    }
+
+    } 
+
   })
+
 
 }
 

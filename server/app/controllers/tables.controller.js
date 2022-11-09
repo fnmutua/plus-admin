@@ -56,10 +56,10 @@ exports.modelData = (req, res) => {
 
   var qry = {}
   if (reg_model === 'users') {
-      ; (qry.offset = pg_number * limit),
-        (qry.limit = limit),
-        //  qry.include=[{ model:  db.role, required: true },],
-        (qry.order = [['id', sort]])
+    ; (qry.offset = pg_number * limit),
+      (qry.limit = limit),
+      //  qry.include=[{ model:  db.role, required: true },],
+      (qry.order = [['id', sort]])
   } else {
     ; (qry.offset = pg_number * limit), (qry.limit = limit), (qry.order = [['id', sort]])
   }
@@ -81,7 +81,7 @@ exports.modelAllData = (req, res) => {
   // console.log("All Data----->")
   var ass_model = db.models[req.query.assocModel]
 
-  console.log('All Model Data-----> 30/10', req)
+  //console.log('All Model Data-----> 30/10', req)
 
   if (ass_model) {
     var includeQuerry = {
@@ -162,10 +162,10 @@ exports.xmodelImportData = (req, res) => {
   console.log('here ----', req.body.data)
 
   // insert
- 
+
 
   db.models[reg_model]
-    .bulkCreate(req.body.data, { returning: true } )
+    .bulkCreate(req.body.data, { returning: true })
     .then(function (item) {
       console.log(req.body.count)
       res.status(200).send({
@@ -183,66 +183,66 @@ exports.xmodelImportData = (req, res) => {
       } else {
         var msg = 'The uploaded file does not match the required fields'
       }
-       return res.status(500).send({ message: msg})
+      return res.status(500).send({ message: msg })
 
     })
 }
 
 exports.modelImportData = async (req, res) => {
   var reg_model = req.body.model
-  let data =  req.body.data
+  let data = req.body.data
 
   //console.log('Model upsert----', data)
-  let errors =[]
+  let errors = []
   for (let i = 0; i < data.length; i++) {
- 
-   await db.models[reg_model].upsert(
-          req.body.data[i]
-      )
-        .then(data => console.log(data))
-        .catch(err => errors.push(err.original));
-    }
 
-    console.log("Errors ---->", errors)
-    if (errors.length>0) {
-      res.status(500).send({ message: 'Import/Update failed' })
-    } else {
-      res.status(200).send({
-        message: 'Import/Updated Successful',
-        code: '0000'
-      })
-    }
-
- 
+    await db.models[reg_model].upsert(
+      req.body.data[i]
+    )
+      .then(data => console.log(data))
+      .catch(err => errors.push(err.original));
   }
+
+  console.log("Errors ---->", errors)
+  if (errors.length > 0) {
+    res.status(500).send({ message: 'Import/Update failed' })
+  } else {
+    res.status(200).send({
+      message: 'Import/Updated Successful',
+      code: '0000'
+    })
+  }
+
+
+}
 
 exports.modelImportDataUpsert = async (req, res) => {
   var reg_model = req.body.model
-  let data =  req.body.data
+  let data = req.body.data
 
   //console.log('Model upsert----', data)
-  let errors =[]
+  let errors = []
   for (let i = 0; i < data.length; i++) {
- 
-   await db.models[reg_model].upsert(
-          req.body.data[i]
-      )
-        .then(data => console.log(data))
-        .catch(err => errors.push(err.original));
-    }
 
-    console.log("Errors ---->", errors)
-    if (errors.length>0) {
-      res.status(500).send({ message: 'Import/Update failed' })
-    } else {
-      res.status(200).send({
-        message: 'Import/Updated Successful',
-        code: '0000'
-      })
-    }
-
- 
+    await db.models[reg_model].upsert(
+      req.body.data[i]
+    )
+      .then(data => console.log(data))
+      .catch(err => errors.push(err.original));
   }
+
+  console.log("Errors ---->", errors)
+  if (errors.length > 0) {
+    res.status(500).send({ message: 'Import/Update failed' })
+  } else {
+    res.status(200).send({
+      message: 'Import/Updated Successful',
+      code: '0000'
+    })
+  }
+
+
+}
 
 
 
@@ -597,15 +597,15 @@ exports.modelAllUsers = (req, res) => {
 
   var qry = {}
 
- /*  if (reg_model === 'users') {
-    console.log('Include for users......')
-      ; (qry.offset = (pg_number - 1) * limit),
-        (qry.limit = limit),
-        (qry.where = { id: { [op.ne]: curUSer } }) // Exclude the logged in user returing in the list
-    qry.order = [['id', sort]]
-  } else {
-    ; (qry.offset = (pg_number - 1) * limit), (qry.limit = limit), (qry.order = [['id', sort]])
-  } */
+  /*  if (reg_model === 'users') {
+     console.log('Include for users......')
+       ; (qry.offset = (pg_number - 1) * limit),
+         (qry.limit = limit),
+         (qry.where = { id: { [op.ne]: curUSer } }) // Exclude the logged in user returing in the list
+     qry.order = [['id', sort]]
+   } else {
+     ; (qry.offset = (pg_number - 1) * limit), (qry.limit = limit), (qry.order = [['id', sort]])
+   } */
 
   console.log('The Querry', qry)
   db.models[reg_model].findAndCountAll(qry).then((list) => {
@@ -668,7 +668,7 @@ exports.modelPaginatedData = (req, res) => {
 
 exports.modelPaginatedDatafilterByColumn = (req, res) => {
   // console.log('Req-body', req.body)
- // console.log('nested filters....>', req.body.nested_filter[0])
+  // console.log('nested filters....>', req.body.nested_filter[0])
 
   var reg_model = req.body.model
 
@@ -685,10 +685,10 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
     var nestedQuery = {}
 
     // create the criterial for the grandchild 
-    if(req.body.nested_filter){
-    nestedQuery[req.body.nested_filter[0]] = req.body.nested_filter[1]
+    if (req.body.nested_filter) {
+      nestedQuery[req.body.nested_filter[0]] = req.body.nested_filter[1]
     }
- 
+
   }
 
   var qry = {}
@@ -699,21 +699,21 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
     var modelIncl = {}
     modelIncl.model = db.models[req.body.associated_multiple_models[i]]
     modelIncl.raw = true
-    modelIncl.nested= true 
+    modelIncl.nested = true
     includeModels.push(modelIncl)
 
-    
+
   }
 
   console.log(includeModels)
   if (associated_multiple_models) {
     if (nested_models) {
-      if(req.body.nested_filter){
-        var nestedModels = { model: child_model, include: [{model:grand_child_model, where : nestedQuery}], raw: true,nested: true  }
-      }else {
-        var nestedModels = { model: child_model, include:grand_child_model, raw: true,nested: true  }
+      if (req.body.nested_filter) {
+        var nestedModels = { model: child_model, include: [{ model: grand_child_model, where: nestedQuery }], raw: true, nested: true }
+      } else {
+        var nestedModels = { model: child_model, include: grand_child_model, raw: true, nested: true }
       }
- 
+
       includeModels.push(nestedModels)
       var qry = {
         include: includeModels
@@ -745,7 +745,7 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
     }
   }
 
-  qry.attributes = { exclude: ['password','resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only 
+  qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only 
   db.models[reg_model].findAndCountAll(qry).then((list) => {
     res.status(200).send({
       data: list.rows,
@@ -788,7 +788,7 @@ exports.modelPaginatedDatafilterBykeyWord = (req, res) => {
 
   if (associated_multiple_models) {
     if (nested_models) {
-      var nestedModels = { model: child_model, include: grand_child_model, raw: true ,nested: true }
+      var nestedModels = { model: child_model, include: grand_child_model, raw: true, nested: true }
       includeModels.push(nestedModels)
       var qry = {
         include: includeModels
@@ -870,6 +870,20 @@ exports.modelCountyUsers = (req, res) => {
       data: list.rows,
       total: list.count,
       code: 20000
+    })
+  })
+}
+
+
+exports.modelGetParentIDS = (req, res) => {
+  var reg_model = req.body.parent
+ 
+  db.models[reg_model].findAll({
+    attributes: ['id', 'code']
+  }).then((list) => {
+    res.status(200).send({
+      data: list,
+      code: "0000"
     })
   })
 }

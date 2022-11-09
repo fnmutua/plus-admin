@@ -446,6 +446,14 @@ const adminList = [
         }
       },
       {
+        path: 'hh',
+        component: 'views/ImportData/hh',
+        name: 'ImportHH',
+        meta: {
+          title: 'data'
+        }
+      },
+      {
         path: 'geo',
         component: 'views/ImportData/geo',
         name: 'Importgeo',
