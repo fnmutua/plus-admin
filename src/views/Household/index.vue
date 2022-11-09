@@ -187,6 +187,22 @@ const destructure = (obj) => {
 
   return simpleObj
 }
+
+const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
+   for(let key in obj){
+    if (key!='geom') {
+
+      if(typeof obj[key] !== 'object'){
+         res[extraKey + key] = obj[key];
+      }else{
+         flattenJSON(obj[key], res, `${extraKey}${key}.`);
+      };
+   };
+  }
+   return res;
+};
+
+
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -221,7 +237,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
     delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
     delete arrayItem['photo'] //  remove the geometry column
 
-    var dd = destructure(arrayItem)
+    var dd = flattenJSON(arrayItem)
     tblData.push(dd)
     //  generate the filter options
     var opt = {}

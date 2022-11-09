@@ -3,12 +3,12 @@ module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
     'beneficiary',
     {
-      id: {
-        autoIncrement: true,
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        primaryKey: true
-      },
+      // id: {
+      //   autoIncrement: true,
+      //   type: DataTypes.INTEGER,
+      //   allowNull: false,
+      //   primaryKey: true
+      // },
       hh_id: {
         type: DataTypes.INTEGER,
         allowNull: true

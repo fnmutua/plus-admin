@@ -28,6 +28,10 @@ module.exports = function (sequelize, DataTypes) {
       cluster_id: {
         type: DataTypes.INTEGER,
         allowNull: false
+      },
+      code: {
+        type: DataTypes.STRING,
+        allowNull: false
       }
     },
     {

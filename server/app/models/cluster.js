@@ -24,6 +24,10 @@ module.exports = function (sequelize, DataTypes) {
       consultant: {
         type: DataTypes.STRING,
         allowNull: false
+      },
+      code: {
+        type: DataTypes.STRING,
+        allowNull: false
       }
     },
     {
