@@ -442,15 +442,17 @@ const adminList = [
         component: 'views/ImportData/list',
         name: 'ImportData',
         meta: {
-          title: 'List'
+          title: 'List',
+          hidden: true
+
         }
       },
       {
         path: 'hh',
-        component: 'views/ImportData/hh',
+        component: 'views/ImportData/excel',
         name: 'ImportHH',
         meta: {
-          title: 'data'
+          title: 'Excel'
         }
       },
       {
@@ -458,7 +460,7 @@ const adminList = [
         component: 'views/ImportData/geo',
         name: 'Importgeo',
         meta: {
-          title: 'Geometry'
+          title: 'Geojson'
         }
       }
     ]

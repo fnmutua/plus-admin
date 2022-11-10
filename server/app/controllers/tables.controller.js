@@ -93,7 +93,7 @@ exports.modelAllData = (req, res) => {
   }
   console.log('the Querry', includeQuerry)
 
-  db.models[reg_model].findAndCountAll({}).then((list) => {
+  db.models[reg_model].findAndCountAll(includeQuerry).then((list) => {
     //db.models[reg_model].findAndCountAll({}).then(list => {
 
     //console.log(list.rows)

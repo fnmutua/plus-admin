@@ -22,14 +22,15 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: false
       },
+      intervention_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
       intervention_phase: {
         type: DataTypes.INTEGER,
         allowNull: false
       },
-      hh_code: {
-        type: DataTypes.STRING,
-        allowNull: true
-      },
+ 
       code: {
         type: DataTypes.STRING,
         allowNull: false
