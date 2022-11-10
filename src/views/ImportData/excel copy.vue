@@ -58,53 +58,63 @@ const { t } = useI18n()
 
 
 
-const uploadOptions = [
+const hh_fields = [
   {
-    label: 'Polygons',
-    options: [
-      {
-        value: 'settlement',
-        label: 'Settlements'
-      },
-      {
-        value: 'parcel',
-        label: 'Parcels'
-      },
-      {
-        value: 'county',
-        label: 'Counties'
-      }
-    ]
+    field: 'name',
+    match: ''
+  },
+
+  {
+    field: 'national_id',
+    match: ''
   },
   {
-    label: 'Points',
-    options: [
-      {
-        value: 'schools',
-        label: 'Schools'
-      },
-      {
-        value: 'health_care_facility',
-        label: 'Health Care Facility'
-      }
-    ]
+    field: 'gender',
+    match: ''
   },
   {
-    label: 'Linear',
-    options: [
-      {
-        value: 'road',
-        label: 'Roads'
-      },
-      {
-        value: 'path',
-        label: 'Paths'
-      }
-    ]
+    field: 'code',
+    match: ''
+  },
+  {
+    field: 'hh_size_03',
+    match: ''
+  },
+  {
+    field: 'hh_size_414',
+    match: ''
+  },
+  {
+    field: 'hh_size_1520',
+    match: ''
+  },
+  {
+    field: 'hh_size_2125',
+    match: ''
+  },
+  {
+    field: 'hh_size_2655',
+    match: ''
+  },
+  {
+    field: 'hh_size_gt55',
+    match: ''
+  },
+  {
+    field: 'over_80',
+    match: ''
   }
+
+
+
+
 ]
 
 const settlement_fields = [
+  {
+    field: 'id',
+    match: ''
+  },
   {
     field: 'name',
     match: ''
@@ -145,6 +155,27 @@ const parcel_fields = [
     field: 'area_ha',
     match: ''
   },
+
+  {
+    field: 'code',
+    match: ''
+  }
+]
+
+
+const interventions_fields = [
+  {
+    field: 'intervention_type_id',
+    match: ''
+  },
+  {
+    field: 'year',
+    match: ''
+  },
+  {
+    field: 'intervention_phase',
+    match: ''
+  },
   {
     field: 'settlement_id',
     match: ''
@@ -152,22 +183,124 @@ const parcel_fields = [
   {
     field: 'code',
     match: ''
-  }
+  },
+  {
+    field: 'cluster_id',
+    match: ''
+  },
 ]
 
-const county_fields = [
+const beneficiary_parcels = [
   {
-    field: 'name',
+    field: 'hh_id',
     match: ''
   },
   {
-    field: 'id',
+    field: 'intervention_id',
+    match: ''
+  },
+  {
+    field: 'intervention_phase',
     match: ''
   },
 
   {
-    field: 'code',
+    field: 'benefit_type_id',
     match: ''
+  },
+
+  {
+    field: 'beneficiary_id',
+    match: ''
+  },
+
+  {
+    field: 'parcel_id',
+    match: ''
+  },
+  {
+    field: 'hh_code',
+    match: ''
+  },
+]
+
+const beneficiary_fields = [
+  {
+    field: 'hh_id',
+    match: ''
+  },
+
+  {
+    field: 'intervention_id',
+    match: ''
+  },
+  {
+    field: 'intervention_phase',
+    match: ''
+  },
+  {
+    field: 'benefit_type_id',
+    match: ''
+  },
+  {
+    field: 'hh_code',
+    match: ''
+  },
+
+
+
+
+]
+
+//fieldSet.value = (hh_fields)
+
+const uploadOptions = [
+  {
+    label: 'Settlement',
+    options: [
+      {
+        value: 'settlement',
+        label: 'Settlements'
+      },
+      {
+        value: 'parcel',
+        label: 'Parcels'
+      },
+      {
+        value: 'intervention',
+        label: 'Interventions'
+      }
+    ]
+  },
+  {
+    label: 'Households',
+    options: [
+      {
+        value: 'households',
+        label: 'Households'
+      },
+      {
+        value: 'beneficiary',
+        label: 'Beneficiaries'
+      },
+      {
+        value: 'beneficiary_parcel',
+        label: 'Parcel Owners'
+      }
+    ]
+  },
+  {
+    label: 'Facilities',
+    options: [
+      {
+        value: 'road',
+        label: 'Roads'
+      },
+      {
+        value: 'path',
+        label: 'Paths'
+      }
+    ]
   }
 ]
 
@@ -188,6 +321,15 @@ const getParentOptions = async () => {
     //tableDataList.value = response.data
     const ret = response.data
     console.log('Received response:', ret)
+    // parentObj.value = (ret).map(({ id, code }) => {
+    //   var obj = {}
+    //   //    console.log(obj)
+    //   obj[parent_key.value] = id
+    //   obj['parent_code'] = code
+    //   return obj
+    // });
+
+
 
     parentObj.value = ret.map(elem => {
       elem[parent_key.value] = elem.id    // add the parent_key as is representd on the child 
@@ -195,8 +337,6 @@ const getParentOptions = async () => {
       return elem;
     });
 
-
-    parentObj.value.forEach(function (v) { delete v.geom });  // remove the parent geometry to avoid confusion 
 
 
     console.log('Received 3:', parentObj.value)
@@ -226,25 +366,26 @@ const handleSelectType = async (type: any) => {
     showSwitch.value = true
   } else {
     showSettleementSelect.value = false
-    showSwitch.value = true
+    showSwitch.value = false
 
   }
+
 
   if (type === 'settlement') {
     model.value = 'settlement'
     parentModel.value = 'county'
     parent_key.value = 'county_id'
-    code.value = 'pcode'
+    code.value = 'county_code'
     fieldSet.value = settlement_fields
-
     getParentOptions()
+
     console.log('settlements------>', type)
   } else if (type === 'parcel') {
 
     model.value = 'parcel'
     parentModel.value = 'settlement'
     parent_key.value = 'settlement_id'
-    code.value = 'pcode'
+    code.value = 'settlement_code'
     fieldSet.value = settlement_fields
     getParentOptions()
 
@@ -253,8 +394,43 @@ const handleSelectType = async (type: any) => {
     console.log('parcel------>', parcel_fields)
 
   }
+  else if (type === 'households') {
+    model.value = 'households'
+    parentModel.value = 'settlement'
+    parent_key.value = 'settlement_id'
+    code.value = 'settlement_code'
+    getParentOptions()
+    fieldSet.value = hh_fields
+    console.log('households------>', hh_fields)
+
+  }
+
+  else if (type === 'beneficiary') {
+    fieldSet.value = beneficiary_fields
+    console.log('beneficiary_fields------>', beneficiary_fields)
+    model.value = 'beneficiary'
+    parentModel.value = 'households'
+    parent_key.value = 'hh_id'
+    code.value = 'hh_code'
+    getParentOptions()
+  }
 
 
+
+  else if (type === 'intervention') {
+    fieldSet.value = interventions_fields
+    parentModel.value = 'settlement'
+    parent_key.value = 'settlement_id'
+    code.value = 'pcode'
+    console.log('interventions_fields------>', interventions_fields)
+
+  }
+
+  else if (type === 'beneficiary_parcel') {
+    fieldSet.value = beneficiary_parcels
+    console.log('beneficiary_parcel------>', beneficiary_parcels)
+
+  }
 
 
 
@@ -283,19 +459,12 @@ const handleProcess = async () => {
         // console.log('+++++', obj)
         return obj.match === prop
       })
-      console.log(i, matched_field)
+      //  console.log(i, matched_field)
       if (matched_field.length > 0) {
         conv_feature[matched_field[0].field] = feature[prop]  // Assign Field Vlue 
       }
 
-      console.log('feature----', feature)
-
-      conv_feature.geom = (feature.geom)    // Asign Geometry then stringfy it 
-
-
-      console.log('conv_feature----', conv_feature)
-
-
+      //console.log(conv_feature)
     }
     matchedObj.value.push(conv_feature)
   }
@@ -393,11 +562,22 @@ const submitFiles = async () => {
     let reader = new FileReader()
 
     let ftype = rfile.name.split('.').pop()
+    if (ftype == 'json') {
+      console.log('------Json----')
+      reader.onload = readJson
+    } else if (ftype == 'xlsx') {
 
-    console.log('------Json----')
-    reader.onload = readJson
+      reader.onload = readXLSX(rfile)
+    }
 
 
+    else {
+      console.log('------csv----')
+
+      reader.onload = readCsv
+
+
+    }
 
 
     reader.readAsText(rfile)
@@ -406,76 +586,122 @@ const submitFiles = async () => {
 
 const readJson = (event) => {
   let str = event.target.result
+  //console.log("file type", str)
   let json = JSON.parse(str)
 
-  console.log('json', json.features)
+  console.log('json', json)
 
-  // makeOptions(fields)
-  for (let i = 0; i < json.features.length; i++) {
-    uploadObj.value.push(json.features[i])  // Push to the temporary holder
-
-  }
-  show.value = true
-
-
-
-  console.log('rows-uploadObj------>', uploadObj.value)
-  console.log('rows-parentObj------>', parentObj.value)
-
-  for (let i = 0; i < uploadObj.value.length; i++) {
-
-
-    console.log('------------>', i, uploadObj.value[i])
-
-    var thisFeature = uploadObj.value[i].properties
-    thisFeature.geom = uploadObj.value[i].geometry
-
-    console.log('------matchedObj------>', i, thisFeature)
-
-    var filterParent = parentObj.value.filter(function (el) {
-      return el['code'] === uploadObj.value[i]['properties'][code.value]
-    });
-
-    // here we add a prefix to the parent detaisl to avoid confusion 
-    let pre = `parent_`;
-    let pfeature = Object.keys(filterParent[0]).reduce((a, c) => (a[`${pre}${c}`] = filterParent[0][c], a), {});
-
-    const mergedFeature = { ...thisFeature, ...pfeature }; //  merge the feature with the parent details 
-
-
-
-    matchedObjwithparent.value.push(mergedFeature)
-  }
-  console.log('children', matchedObjwithparent.value)
-
-  const mergedfields = (Object.getOwnPropertyNames(matchedObjwithparent.value[0]));  // get properties from first row
-
-
-  makeOptions(mergedfields)
-
-
-
-
-
+  const fields = Object.keys(json[0]) //  get all proterit4s of the first feature
+  console.log("fields-->", fields)
+  makeOptions(fields)
+  uploadObj.value.push(json) // Push to the temporary holder
   show.value = true
 
   if (value_switch.value) {
-    console.log("=====> Multiple settlements")
+    console.log("=====Multiple settlemes")
     fieldSet.value.push({ field: 'settlement_id', match: '' })
 
   }
+}
+
+const readCsv = (event) => {
+  let str = event.target.result
+
+  const lines = str.split('\n') // 1️⃣
+  const header = lines[0].split(',') // 2️⃣
+  const csv = lines.slice(1).map(line => {
+    const fields = line.split(',') // 3️⃣
+    return Object.fromEntries(header.map((h, i) => [h, fields[i]])) // 4️⃣
+  })
+
+
+
+  const fields = Object.keys(csv[0]) //  get all proterit4s of the first feature
+  console.log("fields-->", fields)
+  makeOptions(fields)
+
+  var newArray = csv.filter((obj) => { return obj.name !== '' }) // remove any empty rows
+  var newArray = newArray.filter((obj) => { return obj.name !== 'name' })  // remove header row 
+
+
+
+  for (let j = 1; j < newArray.length; j++) {
+    uploadObj.value.push(newArray[j]) // Push each record to the temporary holder
+
+
+  }
+
+
+  show.value = true
+  console.log('csv----newr--->', newArray)
+
+
+  if (value_switch.value) {
+    console.log("=====Multiple settleemtns")
+    fieldSet.value.push({ field: 'settlement_id', match: '' })
+
+  }
+}
+
+const readXLSX = async (event) => {
+  console.log('on file change.......', event)
+  //file.value = event.target.files ? event.target.files[0] : null;   // Direct upload 
+  file.value = event   // called from the uplaod funtion 
+
+  console.log('The file---->', file)
+
+  readXlsxFile(file.value).then((rows) => {
+    const fields = Object.values(rows[0]) //  get all proterit4s of the first feature
+    console.log("fields-->", fields)
+
+
+    for (let j = 1; j < rows.length; j++) {
+      var record = {}
+      for (let i = 0; i < fields.length; i++) {
+        var f = fields[i]
+        var v = rows[j][i]
+        record[f] = v
+        //  console.log(record)
+      }
+
+      uploadObj.value.push(record) // Push to the temporary holder
+    }  // remove header row
+
+    console.log('rows-uploadObj------>', uploadObj)
+    console.log('rows-parentObj------>', parentObj)
+
+
+    let mapped = parentObj.value.reduce((a, c) => (a[c.parent_code] = c, a), {})
+    matchedObjwithparent.value = uploadObj.value.map(o => Object.assign(o, mapped[o[code.value]]));
+
+    console.log('mapped--->', mapped)
+    const mergedfields = (Object.getOwnPropertyNames(matchedObjwithparent.value[0]));  // get properties from first row
+
+
+    makeOptions(mergedfields)
+
+
+
+
+
+    show.value = true
+
+    if (value_switch.value) {
+      console.log("=====> Multiple settlements")
+      fieldSet.value.push({ field: 'settlement_id', match: '' })
+
+    }
+
+  })
 
 
 }
 
 
-
-
 </script>
 
 <template>
-  <ContentWrap :title="t('Upload Geometry Data')"
-    :message="t('Ensure you have the required fields in the Geojson file')">
+  <ContentWrap :title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')">
     <el-divider border-style="dashed" content-position="left">Data</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">

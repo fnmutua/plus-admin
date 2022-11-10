@@ -30,7 +30,7 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: false
       },
-      hh_code: {
+      code: {
         type: DataTypes.STRING,
         allowNull: true
       }
