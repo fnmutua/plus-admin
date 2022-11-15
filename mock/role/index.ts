@@ -353,7 +353,7 @@ const adminList = [
     redirect: '/facility/all',
     name: 'Facilities',
     meta: {
-      hidden: true,
+      hidden: false,
       title: 'Facilities',
       icon: 'ant-design:shop-outlined',
       alwaysShow: false
@@ -370,14 +370,29 @@ const adminList = [
       },
       {
         path: 'health',
-        component:'views/Map/index',
+        component: 'views/Facilities/Health/Health',
         name: 'Health',
         meta: {
           icon: 'ci-home-plus',
           title: 'Health'
         }
       },
-
+      {
+        path: 'health/add',
+        component: 'views/Facilities/Health/Add',
+        name: 'Addhealth',
+        meta: { hidden: true, title: 'Add', noCache: true }
+      },
+      {
+        path: 'health/map/:id',
+        component:  'views/Facilities/Health/Map',
+        name: 'HealthFacilityMap',
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Facility Map'
+        }
+      },
       {
         path: 'education',
         component:'views/Map/index',

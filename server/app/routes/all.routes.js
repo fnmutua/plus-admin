@@ -82,7 +82,10 @@ module.exports = function (app) {
   app.post('/api/v1/data/parentids', controller.modelGetParentIDS)
 
   
-
+  app.post(
+    "/api/v1/model/fields",
+    controller.modelBoard
+  );
 
 }
 

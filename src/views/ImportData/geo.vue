@@ -5,6 +5,8 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getParentIds, BatchImportUpsert } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
+import { getModelSpecs } from '@/api/fields'
+
 import {
   ElButton,
   ElSelect,
@@ -84,7 +86,7 @@ const uploadOptions = [
         label: 'Schools'
       },
       {
-        value: 'health_care_facility',
+        value: 'health_facility',
         label: 'Health Care Facility'
       }
     ]
@@ -171,6 +173,38 @@ const county_fields = [
   }
 ]
 
+
+
+
+const getModeldefinition = async (selModel) => {
+
+  console.log(selModel)
+  var formData = {}
+  formData.model = selModel
+  console.log("gettign fields")
+
+
+  await getModelSpecs(formData).then((response) => {
+
+    var data = response.data
+
+    var fields = data.filter(function (obj) {
+      return (obj.field !== 'id');
+    });
+
+    var fields2 = fields.filter(function (obj) {
+      return (obj.field !== 'geom');
+    });
+
+    console.log("fields:", fields2)
+    //health_facility_fields.value = response.data
+    fieldSet.value = fields2
+  })
+
+
+}
+
+
 const getParentOptions = async () => {
 
   await getCountyListApi({
@@ -221,6 +255,8 @@ const getParentOptions = async () => {
 const handleSelectType = async (type: any) => {
   type = type
   console.log(type)
+  getModeldefinition(type)
+
   if (type != 'settlement' && !value_switch.value) {
     showSettleementSelect.value = true
     showSwitch.value = true
@@ -235,7 +271,7 @@ const handleSelectType = async (type: any) => {
     parentModel.value = 'county'
     parent_key.value = 'county_id'
     code.value = 'pcode'
-    fieldSet.value = settlement_fields
+    // fieldSet.value = settlement_fields
 
     getParentOptions()
     console.log('settlements------>', type)
@@ -245,17 +281,26 @@ const handleSelectType = async (type: any) => {
     parentModel.value = 'settlement'
     parent_key.value = 'settlement_id'
     code.value = 'pcode'
-    fieldSet.value = settlement_fields
+    //fieldSet.value = settlement_fields
     getParentOptions()
 
 
-    fieldSet.value = parcel_fields
-    console.log('parcel------>', parcel_fields)
+    // fieldSet.value = parcel_fields
+    console.log('parcel------>', fieldSet.value)
 
   }
 
 
 
+  else if (type === 'health_facility') {
+    // fieldSet.value = beneficiary_parcels
+    model.value = 'health_facility'
+    parentModel.value = 'settlement'
+    parent_key.value = 'settlement_id'
+    code.value = 'pcode'
+    console.log('health_facility------>', fieldSet.value)
+    getParentOptions()
+  }
 
 
 
@@ -457,13 +502,13 @@ const readJson = (event) => {
 
 
 
-  show.value = true
+  //show.value = true
 
-  if (value_switch.value) {
-    console.log("=====> Multiple settlements")
-    fieldSet.value.push({ field: 'settlement_id', match: '' })
-
-  }
+  /*  if (value_switch.value) {
+     console.log("=====> Multiple settlements")
+     fieldSet.value.push({ field: 'settlement_id', match: '' })
+ 
+   } */
 
 
 }

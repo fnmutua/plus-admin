@@ -224,7 +224,7 @@ const clear = () => {
       <ElDivider>{{ t('setting.systemTheme') }}</ElDivider>
       <ColorRadioPicker v-model="systemTheme" :schema="[
         '#409eff',
-        '#d45500',
+        '#cd7700', // #d45500
         '#009688',
         '#536dfe',
         '#ff5c93',

@@ -4,6 +4,10 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, uploadFiles, BatchImportUpsert } from '@/api/settlements'
+
+import { getModelFields } from '@/api/models'
+
+
 import { getCountyListApi } from '@/api/counties'
 import {
   ElButton,
@@ -299,6 +303,14 @@ const beneficiary_fields = [
 ]
 
 
+const getModeldefinition = async (model) => {
+
+  console.log('model=====', type)
+
+
+}
+
+
 const handleMutlipleSettlements = async () => {
 
   console.log(value_switch)
@@ -376,6 +388,7 @@ const handleClear = async () => {
 
 const handleSelectType = async (type: any) => {
   type = type
+  getModeldefinition(type)
   console.log(type)
   if (type != 'settlement' && !value_switch.value) {
     showSettleementSelect.value = true

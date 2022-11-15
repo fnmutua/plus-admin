@@ -1,0 +1,130 @@
+<script setup lang="ts">
+import { ContentWrap } from '@/components/ContentWrap'
+import { useI18n } from '@/hooks/web/useI18n'
+import { getOneGeo, getfilteredGeo } from '@/api/settlements'
+import { ref } from 'vue'
+import 'leaflet/dist/leaflet.css'
+import { LMap, LGeoJson, LTileLayer, LControlLayers } from '@vue-leaflet/vue-leaflet'
+import { featureGroup } from 'leaflet'
+import { nextTick } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+
+////Configurations //////////////
+const model = 'health_facility'
+////////////
+
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, function (txt) {
+    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+  })
+}
+
+const filtergeo = ref([])
+const map = ref()
+const geo = ref()
+const parcel_ref = ref()
+const parcel_geo = ref([])
+const mapCenter = ref([-1.30853, 36.917257])
+const { t } = useI18n()
+
+const getAll = async () => {
+  console.log('Get all facilities ')
+  const id = route.params.id
+  const settData = route.params.data
+  console.log('Faciity ID, Data:', id, settData)
+
+  const formData = {}
+  formData.model = model
+  formData.id = id
+
+  console.log(formData)
+  const res = await getOneGeo(formData)
+
+  console.log('Facility Geo:', res.data[0].json_build_object.features)
+  if (res.data[0].json_build_object.features) {
+    filtergeo.value = res.data[0].json_build_object
+    console.log(res.data[0].json_build_object.features[0].geometry.coordinates)
+    var coords = res.data[0].json_build_object.features[0].geometry.coordinates
+
+    var latLon = [coords[1], coords[0]]
+    console.log(latLon)
+
+    //coords.move(0, 1);   // rearrange to Lat,Lo
+
+    mapCenter.value = latLon
+    // 0ms seems enough to execute resize after tab opens.
+  }
+}
+
+const getParcelGeo = async () => {
+  console.log('Get all parcels for this settleemtn ')
+  const id = route.params.id
+  const settData = route.params.data
+  console.log('Settlement ID, Data:', id, settData)
+
+  const formData = {}
+  formData.model = 'parcel'
+  formData.columnFilterField = 'settlement_id'
+  formData.selectedParents = id
+  formData.id = id
+
+  console.log(formData)
+  const res = await getfilteredGeo(formData)
+
+  console.log('parcel Geo:', res.data[0].json_build_object.features)
+  if (res.data[0].json_build_object.features) {
+    parcel_geo.value = res.data[0].json_build_object
+
+    setTimeout(() => {
+      //   this.$refs.resizeMap();
+      //  map.value.leafletObject.invalidateSize()
+
+      // After building your geoJson layers, just add this:
+      nextTick().then(() => {
+        var group = new featureGroup()
+
+        map.value.leafletObject.eachLayer(function (layer) {
+          //    console.log(layer.feature)
+          if (layer.feature != undefined) {
+            group.addLayer(layer)
+          }
+        })
+
+        //  console.log(group.getBounds())
+        map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
+      })
+    }, 0) // 0ms seems enough to execute resize after tab opens.
+  }
+}
+getAll()
+//getParcelGeo()
+
+console.log(model)
+</script>
+
+<template>
+  <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Facility  Map ')">
+    <l-map ref="map" :zoom="16" :center="mapCenter" style="height: 66vh">
+      <l-tile-layer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
+        layer-type="base" min-zoom="1" max-zoom="21" useBounds="true" class="map" :max-bounds="maxBounds"
+        name="Satellite" />
+      <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" layer-type="base" min-zoom="1"
+        max-zoom="21" useBounds="true" class="map" :max-bounds="maxBounds" name="OpenStreetMap" />
+
+      <l-geo-json ref="geo" layer-type="overlay" name="Facility" :geojson="filtergeo" />
+
+      <l-control-layers position="topright" />
+    </l-map>
+  </ContentWrap>
+</template>
+
+<style>
+.leaflet-demo-control {
+  background: white;
+  border: 1px solid rgb(193, 215, 233);
+  border-radius: 0.2em;
+  padding: 0.5em;
+}
+</style>

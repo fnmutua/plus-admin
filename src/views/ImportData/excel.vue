@@ -5,6 +5,8 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getParentIds, BatchImportUpsert } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
+import { getModelSpecs } from '@/api/fields'
+
 import {
   ElButton,
   ElSelect,
@@ -256,7 +258,7 @@ const beneficiary_fields = [
 
 ]
 
-//fieldSet.value = (hh_fields)
+
 
 const uploadOptions = [
   {
@@ -297,6 +299,10 @@ const uploadOptions = [
     label: 'Facilities',
     options: [
       {
+        value: 'health_facility',
+        label: 'Health Facilities'
+      },
+      {
         value: 'road',
         label: 'Roads'
       },
@@ -307,6 +313,36 @@ const uploadOptions = [
     ]
   }
 ]
+
+
+const getModeldefinition = async (selModel) => {
+
+  console.log(selModel)
+  var formData = {}
+  formData.model = selModel
+  console.log("gettign fields")
+
+
+  await getModelSpecs(formData).then((response) => {
+
+    var data = response.data
+
+    var fields = data.filter(function (obj) {
+      return (obj.field !== 'id');
+    });
+
+    var fields2 = fields.filter(function (obj) {
+      return (obj.field !== 'geom');
+    });
+
+    console.log("fields:", fields2)
+    //health_facility_fields.value = response.data
+    fieldSet.value = fields2
+  })
+
+
+}
+
 
 const getParentOptions = async () => {
 
@@ -358,6 +394,8 @@ const getParentOptions = async () => {
 const handleSelectType = async (type: any) => {
   type = type
   console.log(type)
+  getModeldefinition(type)
+
   if (type != 'settlement' && !value_switch.value) {
     showSettleementSelect.value = true
     showSwitch.value = true
@@ -373,7 +411,7 @@ const handleSelectType = async (type: any) => {
     parentModel.value = 'county'
     parent_key.value = 'county_id'
     code.value = 'county_code'
-    fieldSet.value = settlement_fields
+    // fieldSet.value = settlement_fields
     getParentOptions()
 
     console.log('settlements------>', type)
@@ -383,11 +421,11 @@ const handleSelectType = async (type: any) => {
     parentModel.value = 'settlement'
     parent_key.value = 'settlement_id'
     code.value = 'pcode'
-    fieldSet.value = settlement_fields
+    // fieldSet.value = settlement_fields
     getParentOptions()
 
 
-    fieldSet.value = parcel_fields
+    //fieldSet.value = parcel_fields
     console.log('parcel------>', parcel_fields)
 
   }
@@ -397,13 +435,13 @@ const handleSelectType = async (type: any) => {
     parent_key.value = 'settlement_id'
     code.value = 'pcode'
     getParentOptions()
-    fieldSet.value = hh_fields
+    // fieldSet.value = hh_fields
     console.log('households------>', hh_fields)
 
   }
 
   else if (type === 'beneficiary') {
-    fieldSet.value = beneficiary_fields
+    // fieldSet.value = beneficiary_fields
     console.log('beneficiary_fields------>', beneficiary_fields)
     model.value = 'beneficiary'
     parentModel.value = 'households'
@@ -416,7 +454,7 @@ const handleSelectType = async (type: any) => {
 
 
   else if (type === 'intervention') {
-    fieldSet.value = interventions_fields
+    //fieldSet.value = interventions_fields
     model.value = 'intervention'
     parentModel.value = 'settlement'
     parent_key.value = 'settlement_id'
@@ -426,7 +464,7 @@ const handleSelectType = async (type: any) => {
   }
 
   else if (type === 'beneficiary_parcel') {
-    fieldSet.value = beneficiary_parcels
+    // fieldSet.value = beneficiary_parcels
     model.value = 'beneficiary_parcel'
     parentModel.value = 'beneficiary'
     parent_key.value = 'beneficiary_id'
@@ -435,6 +473,17 @@ const handleSelectType = async (type: any) => {
     getParentOptions()
   }
 
+
+
+  else if (type === 'health_facility') {
+    // fieldSet.value = beneficiary_parcels
+    model.value = 'health_facility'
+    parentModel.value = 'settlement'
+    parent_key.value = 'settlement_id'
+    code.value = 'pcode'
+    console.log('health_facility------>', interventions_fields)
+    getParentOptions()
+  }
 
 
 

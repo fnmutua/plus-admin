@@ -32,6 +32,10 @@ import {
   MapboxScaleControl,
   MapboxMarker
 } from 'vue-mapbox-ts'
+
+
+
+
 import { getCountyListApi } from '@/api/counties'
 
 import { CreateRecord } from '@/api/settlements'
@@ -163,42 +167,27 @@ const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 
 const mapHeight = '450px'
+
 </script>
 
 <template>
   <ContentWrap :title="title">
     <el-row :gutter="20">
       <el-col :span="10">
-        <el-form
-          ref="ruleFormRef"
-          :model="ruleForm"
-          :rules="rules"
-          label-width="120px"
-          class="demo-ruleForm"
-          status-icon
-        >
+        <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
+          status-icon>
           <el-form-item label="Name" prop="name">
             <el-input v-model="ruleForm.name" />
           </el-form-item>
           <el-form-item label="County" prop="county_id">
             <el-select v-model="ruleForm.county_id" placeholder="County">
-              <el-option
-                v-for="item in countiesOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
+              <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
           <el-form-item label="Type" prop="settlement_type">
             <el-select v-model="ruleForm.settlement_type" placeholder="settlement Type">
-              <el-option
-                v-for="item in typeOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
+              <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
@@ -228,19 +217,14 @@ const mapHeight = '450px'
 
       <el-col :span="14">
         <el-card class="box-card">
-          <mapbox-map
-            :center="[37.817, 0.606]"
-            :zoom="5"
-            :height="mapHeight"
-            :accessToken="MapBoxToken"
-            mapStyle="mapbox://styles/agspatial/ckd30gjyt3h8l1io35ve1fso4"
-          >
+          <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
+            mapStyle="mapbox://styles/agspatial/ckd30gjyt3h8l1io35ve1fso4">
             <mapbox-geocoder-control :countries="countries" />
             <mapbox-geolocate-control />
             <mapbox-draw-control @create="addPolygon" />
             <mapbox-navigation-control position="bottom-right" />
-            /></mapbox-map
-          >
+            />
+          </mapbox-map>
         </el-card>
       </el-col>
     </el-row>
