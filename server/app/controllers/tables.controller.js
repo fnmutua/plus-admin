@@ -28,7 +28,7 @@ exports.allAccess = (req, res) => {
 exports.modelBoard = (req, res) => {
   var fields = []
   var reg_model = req.body.model
-  console.log('Models:', db.models)
+  console.log('----->Models:', reg_model)
   // Find the right Model
 
   for (let key in db.models[reg_model].rawAttributes) {
@@ -36,11 +36,16 @@ exports.modelBoard = (req, res) => {
 
     myObject['field'] = key
     myObject['type'] = db.models[reg_model].rawAttributes[key].type.key
+    myObject['match']='' 
     fields.push(myObject)
   }
 
   // console.log(fields)
-  res.status(200).send(fields)
+ 
+  res.status(200).send({
+     data: fields,
+     code: '0000'
+  })
 }
 
 exports.modelData = (req, res) => {
@@ -313,7 +318,7 @@ exports.modelOneGeo = async (req, res) => {
 
   const json = JSON.stringify(result_geo) // [1,2,3]
 
-  //  console.log('GEo----->', result_geo[0])
+   console.log('GEo----->', result_geo[0])
   if (json[0].json_build_object) {
     msg = 'Shapes found. Loading shortly...'
     console.log(msg)

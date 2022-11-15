@@ -170,5 +170,14 @@ db.models.settlement.hasMany(db.models.settlement_status, {
   foreignKey: 'settlement_id'
 })
 
+db.models.health_facility.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.health_facility, {
+  foreignKey: 'settlement_id'
+})
+
+
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

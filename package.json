@@ -58,6 +58,7 @@
     "lodash-es": "^4.17.21",
     "mapbox-gl": "^1.13.2",
     "mapbox-gl-vue": "^2.0.4",
+    "mapbox-layer-switcher": "^0.0.6",
     "mitt": "^3.0.0",
     "mockjs": "^1.1.0",
     "mongoose": "^6.3.6",

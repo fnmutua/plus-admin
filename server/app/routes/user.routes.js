@@ -32,10 +32,7 @@ module.exports = function(app) {
     [authJwt.verifyToken, authJwt.isAdmin],
     controller.adminBoard
   );
-  app.post(
-    "/api/v1/model",
-    controller.modelBoard
-  );
+
   app.post(
     "/api/v1/user/logout",
     controller.Logout
