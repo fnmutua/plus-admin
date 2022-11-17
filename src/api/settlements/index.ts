@@ -23,6 +23,16 @@ export const getfilteredGeo = (data: SettlementType): Promise<IResponse<Settleme
   return request.post({ url: prod + '/api/v1/data/subset/geo', data })
 }
 
+export const getAllGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('getGeo....', data)
+  return request.post({ url: prod + '/api/v1/data/all/geo', data })
+}
+
+
+
+
+
+
 export const getOneGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
   console.log('getGeo....', data)
   return request.post({ url: prod + '/api/v1/data/one/geo', data })

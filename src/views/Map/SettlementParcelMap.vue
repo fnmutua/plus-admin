@@ -14,7 +14,7 @@ import { featureGroup } from 'leaflet'
 import { nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { setup } from 'mockjs'
-
+import { ElLoading } from 'element-plus'
 const route = useRoute()
 
 interface Params {
@@ -30,6 +30,9 @@ const filterCol = 'settlement_id'
 const searchField = 'parcel_no'
 ////////////
 
+const loading = ref(true)
+const total = ref(0)
+
 function toTitleCase(str) {
   return str.replace(/\w\S*/g, function (txt) {
     return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
@@ -40,7 +43,11 @@ const parentOptions = []
 const selectedParents = []
 const filtergeo = ref([])
 const settlementgeo = ref([])
+const settlementName = ref()
+const ParcelDataLoaded = ref(false)
+const SettDataLoaded = ref(false)
 
+//const loading = ref(true)
 const map = ref()
 const geo = ref()
 const sett = ref()
@@ -48,8 +55,47 @@ const settlement = ref()
 const { t } = useI18n()
 
 console.log('Settlement', route)
+const xloading = ElLoading.service({
+  lock: false,
+  text: 'Loading',
+  background: 'rgba(0, 0, 0, 0.7)',
+})
 
-const getAll = async () => {
+
+function updateStyle() {
+  console.log('Updating style....')
+
+  if (geo.value.leafletObject) {
+
+
+    const geojsonLayer = geo.value.leafletObject
+
+    // console.log(geojsonLayer)
+    if (!geojsonLayer) {
+      return
+    }
+
+    let styleFunction
+
+    styleFunction = (feature) => {
+      // add feature here to access this prop
+      // console.log(feature.properties.landuse_id)
+      return {
+        weight: 1,
+        opacity: 0.45,
+        borderWidth: 'thin',
+        borderColor: 'white',
+        color: getColor(feature.properties.landuse_id), // send it here
+        fillOpacity: 0.5
+      }
+    }
+    geo.value.leafletObject.setStyle(styleFunction)
+
+  }
+}
+
+
+const getParcels = async () => {
   const id = route.params.id
   const formData = {}
   formData.model = model
@@ -57,46 +103,48 @@ const getAll = async () => {
   formData.selectedParents = id
 
   console.log(formData)
-  const res = await getfilteredGeo(formData)
+  await getfilteredGeo(formData)
+    .then((response: { data: any }) => {
+      filtergeo.value = response.data[0].json_build_object
+      ParcelDataLoaded.value = true
+      loading.value = false
+      total.value = response.total
+      //updateStyle()
 
-  console.log('All settlements Querry', res)
-
-  if (res.data[0].json_build_object) {
-
-    filtergeo.value = res.data[0].json_build_object
-
-  }
-  total.value = res.total
-
-  setTimeout(() => {
-    //   this.$refs.resizeMap();
-    //  map.value.leafletObject.invalidateSize()
-
-    // After building your geoJson layers, just add this:
-    nextTick().then(() => {
-      var group = new featureGroup()
+      xloading.close()
 
 
-      if(map.value.leafletObject) {
-        map.value.leafletObject.eachLayer(function (layer) {
-        //    console.log(layer.feature)
-        if (layer.feature != undefined) {
-          group.addLayer(layer)
-        }
-      })
-
-           console.log(group.getBounds())
-          map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
-      updateStyle()
-
-      }
 
 
+      setTimeout(() => {
+        // After building your geoJson layers, just add this:
+        nextTick().then(() => {
+          var group = new featureGroup()
+
+          if (map.value.leafletObject) {
+            map.value.leafletObject.eachLayer(function (layer) {
+              //    console.log(layer.feature)
+              if (layer.feature != undefined) {
+                group.addLayer(layer)
+              }
+            })
+
+            console.log(group.getBounds())
+            map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
+            updateStyle()
+
+          }
+        })
+      }, 100) // 0ms seems enough to execute resize after tab opens.
 
 
 
     })
-  }, 0) // 0ms seems enough to execute resize after tab opens.
+
+
+
+
+
 }
 
 const getSettlement = async (id) => {
@@ -108,6 +156,7 @@ const getSettlement = async (id) => {
   const res = await getOneSettlement(formData)
 
   settlement.value = res.data
+  settlementName.value = res.data.name
 
   console.log('All settlements Querry', res.data)
 }
@@ -121,23 +170,7 @@ const getSettlementBoundary = async (id) => {
   console.log(formData)
   const res = await getfilteredGeo(formData)
   settlementgeo.value = res.data[0].json_build_object
-
-  setTimeout(() => {
-    //   this.$refs.resizeMap();
-    //  map.value.leafletObject.invalidateSize()
-
-    // After building your geoJson layers, just add this:
-    nextTick().then(() => {
-      var group = new featureGroup()
-
-      map.value.leafletObject.eachLayer(function (layer) {
-        //    console.log(layer.feature)
-        if (layer.feature != undefined) {
-          group.addLayer(layer)
-        }
-      })
-    })
-  }, 0) // 0ms seems enough to execute resize after tab opens.
+  SettDataLoaded.value = true
 }
 
 function getColor(d) {
@@ -176,44 +209,6 @@ function getColor(d) {
   }
 }
 
-function updateStyle() {
-  // console.log('Updating style....')
-
-  if (geo.value.leafletObject) {
-
-
-  const geojsonLayer = geo.value.leafletObject
-
-  // console.log(geojsonLayer)
-  if (!geojsonLayer) {
-    return
-  }
-
-  let styleFunction
-
-  styleFunction = (feature) => {
-    // add feature here to access this prop
-    // console.log(feature.properties.landuse_id)
-    return {
-      weight: 1,
-      opacity: 0.45,
-      borderWidth: 'thin',
-      borderColor: 'white',
-      color: getColor(feature.properties.landuse_id), // send it here
-      fillOpacity: 0.5
-    }
-  }
-  geo.value.leafletObject.setStyle(styleFunction)
-
-}
-}
-
-
-
-
-const loading = ref(true)
-const total = ref(0)
-
 const getParents = async (params?: Params) => {
   const res = await getCountyListApi({
     params: {
@@ -230,7 +225,7 @@ const getParents = async (params?: Params) => {
     //tableDataList.value = response.data
     var cnty = response.data
 
-    loading.value = false
+    // loading.value = false
 
     cnty.forEach(function (arrayItem) {
       var countyOpt = {}
@@ -242,62 +237,33 @@ const getParents = async (params?: Params) => {
   })
 }
 
-getSettlementBoundary(route.params.id)
 
 getSettlement(route.params.id)
 getParents()
-getAll()
-console.log('pagination', parentOptions)
+getParcels()
+getSettlementBoundary(route.params.id)
+
+
 </script>
 
 <template>
-  <ContentWrap
-    :title="toTitleCase(settlement.name + ' Settlement')"
-    :message="t('The Map of ' + model + 's  by ' + assoc_model + '. Use the filter to subset')"
-  >
+  <ContentWrap :title="toTitleCase(settlementName + ' Settlement')"
+    :message="t('The Map of ' + model + 's  by ' + assoc_model + '. Use the filter to subset')">
     <l-map ref="map" :zoom="16" :center="[-1.30853, 36.917257]" style="height: 66vh">
-      <l-tile-layer
-        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
-        layer-type="base"
-        min-zoom="1"
-        max-zoom="21"
-        useBounds="true"
-        class="map"
-        :max-bounds="maxBounds"
-        name="Satellite"
-      />
-      <l-tile-layer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        layer-type="base"
-        min-zoom="1"
-        max-zoom="21"
-        useBounds="true"
-        class="map"
-        :max-bounds="maxBounds"
-        name="OpenStreetMap"
-      />
+      <l-tile-layer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
+        layer-type="base" min-zoom="1" max-zoom="21" useBounds="true" class="map" name="Satellite" />
+      <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" layer-type="base" min-zoom="1"
+        max-zoom="21" useBounds="true" class="map" name="OpenStreetMap" />
 
-      <l-geo-json
-        ref="geo"
-        layer-type="overlay"
-        name="Parcels"
-        :geojson="filtergeo"
-        @ready="updateStyle"
-      />
-      <l-geo-json
-        ref="sett"
-        layer-type="overlay"
-        name="Settlement"
-        :geojson="settlementgeo"
-        @ready="updateStyle"
-      />
+      <l-geo-json v-if="ParcelDataLoaded" ref="geo" layer-type="overlay" name="Parcels" :geojson="filtergeo"
+        @ready="updateStyle" />
+      <l-geo-json v-if="SettDataLoaded" ref="sett" layer-type="overlay" name="Settlement" :geojson="settlementgeo" />
       <l-control-layers position="topright" />
       <l-control class="leaflet-bottom leaflet-left leaflet-demo-control">
         <div class="key">KEY</div>
         <div class="residentail">Residential</div>
 
-        <div
-          style="
+        <div style="
             background: orange;
             color: white;
             width: 90px;
@@ -306,11 +272,8 @@ console.log('pagination', parentOptions)
 
             text-align: center;
             border-radius: 0.26em;
-          "
-          >Educational</div
-        >
-        <div
-          style="
+          ">Educational</div>
+        <div style="
             background: purple;
             color: white;
             width: 90px;
@@ -319,11 +282,8 @@ console.log('pagination', parentOptions)
             opacity: 0.5;
 
             border-radius: 0.26em;
-          "
-          >Industrial</div
-        >
-        <div
-          style="
+          ">Industrial</div>
+        <div style="
             background: green;
             color: white;
             width: 90px;
@@ -332,12 +292,9 @@ console.log('pagination', parentOptions)
             height: 20px;
             text-align: center;
             border-radius: 0.26em;
-          "
-          >Recreational</div
-        >
+          ">Recreational</div>
 
-        <div
-          style="
+        <div style="
             background: red;
             color: white;
             width: 90px;
@@ -346,11 +303,8 @@ console.log('pagination', parentOptions)
             opacity: 0.5;
 
             border-radius: 0.26em;
-          "
-          >Commerical</div
-        >
-        <div
-          style="
+          ">Commerical</div>
+        <div style="
             background: yellow;
             color: gray;
             width: 90px;
@@ -359,11 +313,8 @@ console.log('pagination', parentOptions)
 
             text-align: center;
             border-radius: 0.26em;
-          "
-          >Public Use</div
-        >
-        <div
-          style="
+          ">Public Use</div>
+        <div style="
             background: blue;
             color: white;
             width: 90px;
@@ -371,11 +322,8 @@ console.log('pagination', parentOptions)
             opacity: 0.5;
             text-align: center;
             border-radius: 0.26em;
-          "
-          >Public utility</div
-        >
-        <div
-          style="
+          ">Public utility</div>
+        <div style="
             background: #ffffed;
             color: grey;
             opacity: 0.5;
@@ -383,9 +331,7 @@ console.log('pagination', parentOptions)
             height: 20px;
             text-align: center;
             border-radius: 0.26em;
-          "
-          >Agriculture</div
-        >
+          ">Agriculture</div>
       </l-control>
     </l-map>
   </ContentWrap>

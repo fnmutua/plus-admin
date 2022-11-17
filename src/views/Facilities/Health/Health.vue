@@ -17,24 +17,46 @@ import {
   MessageBox
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { ref, reactive, nextTick } from 'vue'
+import { ElPagination, ElTooltip, ElOption, ElDivider, ElTabPane, ElTabs } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import {
+  MapboxMap,
+  MapboxGeocoderControl,
+  MapboxDrawControl,
+  MapboxGeolocateControl,
+  MapboxNavigationControl,
+  MapboxGeogeometryRaw,
+  MapboxGeogeometryPolygon,
+  MapboxMarker
+} from 'vue-mapbox-ts'
+
+import 'leaflet/dist/leaflet.css'
+import { LMap, LGeoJson, LTileLayer, LMarker, LPopup, LControlLayers } from '@vue-leaflet/vue-leaflet'
+import { featureGroup } from 'leaflet'
+
+import { getAllGeo } from '@/api/settlements'
+import { get } from '@vueuse/shared'
+
+
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-
+const map = ref()
 
 console.log("userInfo--->", userInfo)
 
-
-
-
-
+// Map 
+const polygons = ref([]) as Ref<[number, number][][]>
+const shp = []
+const geoLoaded = ref(false)
+const facility = ref()
+const markerLatlon = ref([])
+const maxBounds = ref()
 
 
 const { push } = useRouter()
@@ -76,6 +98,102 @@ const associated_multiple_models = ['settlement']
 const model = 'health_facility'
 const model_parent_key = 'settlement_id'
 //// ------------------parameters -----------------------////
+
+
+//// ------------------Map -----------------------////
+const addPolygon = (poly: any) => {
+  polygons.value.push(poly.features[0].geometry.coordinates[0])
+  var polyShape = poly
+
+  shp.push(polyShape)
+  // ruleForm.geom = poly
+}
+
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+
+const mapHeight = '450px'
+const countries = 'ke'
+const facilityGeo = ref([])
+const facilityGeoOptions = ref()
+
+
+function updateStyle() {
+  console.log('Updating style....')
+
+
+
+}
+
+
+
+//// ------------------Map -----------------------////
+
+const onMap = async (obj) => {
+  console.log(obj.props.label)
+  if (obj.props.label == "Map") {
+
+
+    // nextTick().then(() => {
+    // setTimeout(function () { window.dispatchEvent(new Event('resize')) }, 10)
+    // // updateStyle()
+    // if (map.value.leafletObject && geoLoaded) {
+    //   var group = new featureGroup()
+    //   map.value.leafletObject.eachLayer(function (layer) {
+
+    //     if (layer.feature != undefined && layer.options.pane == "markerPane") {
+    //       group.addLayer(layer)
+    //       console.log(layer.feature.geometry.coordinates)
+    //       var coord = [layer.feature.geometry.coordinates[1], layer.feature.geometry.coordinates[0]]
+    //       markerLatlon.value.push(coord)
+    //       console.log(layer.options.pane)
+    //     }
+    //   })
+
+
+    //   console.log(group.getBounds())
+    //   console.log(facility.value.leafletObject.getBounds())
+    //   map.value.leafletObject.fitBounds(group.getBounds(), { padding: [80, 80] })
+
+    // }
+    // }
+
+    setTimeout(() => {
+      //   this.$refs.resizeMap();
+      map.value.leafletObject.invalidateSize()
+
+      // After building your geoJson layers, just add this:
+      nextTick().then(() => {
+        var group = new featureGroup()
+
+
+        if (map.value.leafletObject) {
+          map.value.leafletObject.eachLayer(function (layer) {
+            //    console.log(layer.feature)
+            if (layer.feature != undefined) {
+              group.addLayer(layer)
+            }
+          })
+
+          console.log(group.getBounds())
+          map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
+          //   updateStyle()
+
+        }
+
+
+
+
+
+      })
+    }, 0) // 0ms seems enough to execute resize after tab opens.
+
+  }
+
+}
+
+
+
 
 const { t } = useI18n()
 
@@ -332,17 +450,45 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
+
+
+const getGeo = async () => {
+
+  const formData = {}
+  formData.model = model
+
+
+  console.log(formData)
+  const res = await getAllGeo(formData)
+
+
+
+  if (res.data[0].json_build_object) {
+
+
+    facilityGeo.value = res.data[0].json_build_object
+    console.log('Geo Returns---', res.data[0].json_build_object.features[0].geometry.coordinates)
+    console.log("Facility Geo", facilityGeo)
+    geoLoaded.value = true
+
+
+
+  }
+
+
+
+}
 getParentNames()
 getModelOptions()
 getInterventionsAll()
-
+getGeo()
 console.log('Options---->', countiesOptions)
 const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
 
   push({
-    path: '/settlement/:id',
-    name: 'SettlementDetails',
+    path: '/health/details/:id',
+    name: 'HealthFacilityDetails',
     params: { data: data.row.id, id: data.row.id }
   })
 }
@@ -377,51 +523,77 @@ const AddFacility = (data: TableSlotDefault) => {
 
 <template>
   <ContentWrap :title="t('Health Care Facilities')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+    <el-tabs @tab-click="onMap" type="border-card">
+      <el-tab-pane label="List">
+        <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+        <div style="display: inline-block; margin-left: 20px">
+          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable
+            filterable collapse-tags placeholder="Filter by">
+            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </div>
+        <div style="display: inline-block; margin-left: 20px">
+          <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable
+            filterable collapse-tags placeholder="Filter by  Name">
+            <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </div>
+        <div style="display: inline-block; margin-left: 20px">
+          <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+        </div>
+        <div style="display: inline-block; margin-left: 20px">
+          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+        </div>
+        <div style="display: inline-block; margin-left: 20px">
+          <el-tooltip content="Add Settlement" placement="top">
+            <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
+          </el-tooltip>
+        </div>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter by">
-        <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter by  Name">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Settlement" placement="top">
-        <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
+        <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
-
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="View Profile" placement="top">
-          <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
-        </el-tooltip>
+        <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+          :currentPage="currentPage">
+          <template #action="data">
+            <el-tooltip content="View Profile" placement="top">
+              <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
+            </el-tooltip>
 
 
-        <el-tooltip content="View on Map" placement="top">
-          <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
-        </el-tooltip>
+            <el-tooltip content="View on Map" placement="top">
+              <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
+            </el-tooltip>
 
-      </template>
-    </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+          </template>
+        </Table>
+        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      </el-tab-pane>
+      <el-tab-pane label="Map">
+        <el-card class="box-card">
+          <l-map ref="map" :center="[-1.30853, 36.917257]" style="height: 64vh">
+            <l-tile-layer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
+              layer-type="base" min-zoom="1" max-zoom="21" useBounds="true" class="map" name="Satellite" />
+            <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" layer-type="base" min-zoom="1"
+              max-zoom="21" useBounds="true" :max-bounds="maxBounds" class="map" name="OpenStreetMap" />
+
+            <l-geo-json ref="facility" layer-type="overlay" name="Facility" :geojson="facilityGeo">
+              <!--               <l-popup v-if="geoLoaded" :content="facilityGeo.features[0].properties.name" /> -->
+            </l-geo-json>
+            <l-control-layers position="topright" />
+
+          </l-map>
+        </el-card>
+
+      </el-tab-pane>
+
+    </el-tabs>
+
+
   </ContentWrap>
 </template>
  
+
+mapLink = 
