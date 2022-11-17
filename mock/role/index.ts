@@ -394,6 +394,16 @@ const adminList = [
         }
       },
       {
+        path: 'health/details/:id',
+        component:  'views/Facilities/Health/HealthFacilityDetails',
+        name: 'HealthFacilityDetails',
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Facility Profile'
+        }
+      },
+      {
         path: 'education',
         component:'views/Map/index',
         name: 'Education',
