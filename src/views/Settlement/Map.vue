@@ -46,25 +46,6 @@ const getAll = async () => {
   if (res.data[0].json_build_object.features) {
     filtergeo.value = res.data[0].json_build_object
 
-    setTimeout(() => {
-      //   this.$refs.resizeMap();
-      //  map.value.leafletObject.invalidateSize()
-
-      // After building your geoJson layers, just add this:
-      nextTick().then(() => {
-        var group = new featureGroup()
-
-        map.value.leafletObject.eachLayer(function (layer) {
-          //    console.log(layer.feature)
-          if (layer.feature != undefined) {
-            group.addLayer(layer)
-          }
-        })
-
-        //  console.log(group.getBounds())
-        map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
-      })
-    }, 0) // 0ms seems enough to execute resize after tab opens.
   }
 }
 
@@ -87,25 +68,6 @@ const getParcelGeo = async () => {
   if (res.data[0].json_build_object.features) {
     parcel_geo.value = res.data[0].json_build_object
 
-    setTimeout(() => {
-      //   this.$refs.resizeMap();
-      //  map.value.leafletObject.invalidateSize()
-
-      // After building your geoJson layers, just add this:
-      nextTick().then(() => {
-        var group = new featureGroup()
-
-        map.value.leafletObject.eachLayer(function (layer) {
-          //    console.log(layer.feature)
-          if (layer.feature != undefined) {
-            group.addLayer(layer)
-          }
-        })
-
-        //  console.log(group.getBounds())
-        map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
-      })
-    }, 0) // 0ms seems enough to execute resize after tab opens.
   }
 }
 getAll()
@@ -117,26 +79,11 @@ console.log(model)
 <template>
   <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Settlement  Map ')">
     <l-map ref="map" :zoom="16" :center="[-1.30853, 36.917257]" style="height: 66vh">
-      <l-tile-layer
-        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
-        layer-type="base"
-        min-zoom="1"
-        max-zoom="21"
-        useBounds="true"
-        class="map"
-        :max-bounds="maxBounds"
-        name="Satellite"
-      />
-      <l-tile-layer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        layer-type="base"
-        min-zoom="1"
-        max-zoom="21"
-        useBounds="true"
-        class="map"
-        :max-bounds="maxBounds"
-        name="OpenStreetMap"
-      />
+      <l-tile-layer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
+        layer-type="base" min-zoom="1" max-zoom="21" useBounds="true" class="map" :max-bounds="maxBounds"
+        name="Satellite" />
+      <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" layer-type="base" min-zoom="1"
+        max-zoom="21" useBounds="true" class="map" name="OpenStreetMap" />
 
       <l-geo-json ref="geo" layer-type="overlay" name="Settlement" :geojson="filtergeo" />
       <l-geo-json ref="parcel_ref" layer-type="overlay" name="Parcel" :geojson="parcel_geo" />

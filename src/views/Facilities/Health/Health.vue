@@ -18,28 +18,46 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, nextTick } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElTabPane, ElTabs } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElTabPane, ElTabs, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import {
-  MapboxMap,
-  MapboxGeocoderControl,
-  MapboxDrawControl,
-  MapboxGeolocateControl,
-  MapboxNavigationControl,
-  MapboxGeogeometryRaw,
-  MapboxGeogeometryPolygon,
-  MapboxMarker
-} from 'vue-mapbox-ts'
 
-import 'leaflet/dist/leaflet.css'
-import { LMap, LGeoJson, LTileLayer, LMarker, LPopup, LControlLayers } from '@vue-leaflet/vue-leaflet'
+
+
 import { featureGroup } from 'leaflet'
 
 import { getAllGeo } from '@/api/settlements'
-import { get } from '@vueuse/shared'
+
+import { StarFilled } from '@element-plus/icons-vue'
+//import { MapboxMap, MapboxNavigationControl, MapboxMarker, MapboxGeolocateControl, MapboxGeocoder } from '@studiometa/vue-mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
+
+
+import { MapboxMap as MapboxMap } from 'vue-mapbox-ts'
+import { MapboxMarker as MapboxMarker } from 'vue-mapbox-ts'
+import { MapboxNavigationControl as MapboxNavigationControl } from 'vue-mapbox-ts'
+
+import { MapboxGeolocateControl as MapboxGeolocateControl } from 'vue-mapbox-ts'
+
+
+import {
+  MapboxGeocoderControl,
+  MapboxAttributionControl,
+  MapboxDrawControl,
+  MapboxPopup, MapboxGeogeometryRaw,
+  MapboxGeogeometryPolygon,
+  MapboxSourceGeoJson,
+  MapboxScaleControl
+} from 'vue-mapbox-ts'
+
+import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
+import * as turf from '@turf/turf'
+
+
+const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 
 
 
@@ -54,10 +72,11 @@ console.log("userInfo--->", userInfo)
 const polygons = ref([]) as Ref<[number, number][][]>
 const shp = []
 const geoLoaded = ref(false)
-const facility = ref()
-const markerLatlon = ref([])
-const maxBounds = ref()
 
+const markerLatlon = ref([])
+const markerProperties = ref([])
+
+const markers = ref()
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -76,6 +95,10 @@ const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
+
+
+
+
 
 // flag for admin buttons
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
@@ -100,32 +123,20 @@ const model_parent_key = 'settlement_id'
 //// ------------------parameters -----------------------////
 
 
-//// ------------------Map -----------------------////
-const addPolygon = (poly: any) => {
-  polygons.value.push(poly.features[0].geometry.coordinates[0])
-  var polyShape = poly
 
-  shp.push(polyShape)
-  // ruleForm.geom = poly
-}
 
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 
 const mapHeight = '450px'
 const countries = 'ke'
 const facilityGeo = ref([])
-const facilityGeoOptions = ref()
-
-
-function updateStyle() {
-  console.log('Updating style....')
 
 
 
-}
 
-
+const maxBounds = ref([
+  [32.958984, -5.353521], // southwestern corner of the bounds
+  [43.50585, 5.615985] // northeastern corner of the bounds
+])
 
 //// ------------------Map -----------------------////
 
@@ -133,60 +144,11 @@ const onMap = async (obj) => {
   console.log(obj.props.label)
   if (obj.props.label == "Map") {
 
-
-    // nextTick().then(() => {
-    // setTimeout(function () { window.dispatchEvent(new Event('resize')) }, 10)
-    // // updateStyle()
-    // if (map.value.leafletObject && geoLoaded) {
-    //   var group = new featureGroup()
-    //   map.value.leafletObject.eachLayer(function (layer) {
-
-    //     if (layer.feature != undefined && layer.options.pane == "markerPane") {
-    //       group.addLayer(layer)
-    //       console.log(layer.feature.geometry.coordinates)
-    //       var coord = [layer.feature.geometry.coordinates[1], layer.feature.geometry.coordinates[0]]
-    //       markerLatlon.value.push(coord)
-    //       console.log(layer.options.pane)
-    //     }
-    //   })
-
-
-    //   console.log(group.getBounds())
-    //   console.log(facility.value.leafletObject.getBounds())
-    //   map.value.leafletObject.fitBounds(group.getBounds(), { padding: [80, 80] })
-
-    // }
-    // }
-
-    setTimeout(() => {
-      //   this.$refs.resizeMap();
-      map.value.leafletObject.invalidateSize()
-
-      // After building your geoJson layers, just add this:
-      nextTick().then(() => {
-        var group = new featureGroup()
-
-
-        if (map.value.leafletObject) {
-          map.value.leafletObject.eachLayer(function (layer) {
-            //    console.log(layer.feature)
-            if (layer.feature != undefined) {
-              group.addLayer(layer)
-            }
-          })
-
-          console.log(group.getBounds())
-          map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
-          //   updateStyle()
-
-        }
+    console.log(map.value)
+    maxBounds.value = turf.bbox(facilityGeo.value);
 
 
 
-
-
-      })
-    }, 0) // 0ms seems enough to execute resize after tab opens.
 
   }
 
@@ -469,9 +431,24 @@ const getGeo = async () => {
     facilityGeo.value = res.data[0].json_build_object
     console.log('Geo Returns---', res.data[0].json_build_object.features[0].geometry.coordinates)
     console.log("Facility Geo", facilityGeo)
+
+
+
+    //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
     geoLoaded.value = true
 
 
+    for (let i in res.data[0].json_build_object.features) {
+
+      console.log(res.data[0].json_build_object.features[i].geometry.coordinates)
+      markerLatlon.value.push(res.data[0].json_build_object.features[i].geometry.coordinates)
+      var markProp = {}
+      markProp.name = res.data[0].json_build_object.features[i].properties.name
+      markerProperties.value.push(markProp)
+
+
+    }
+    console.log(markerProperties)
 
   }
 
@@ -570,22 +547,64 @@ const AddFacility = (data: TableSlotDefault) => {
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
+
+
       <el-tab-pane label="Map">
-        <el-card class="box-card">
-          <l-map ref="map" :center="[-1.30853, 36.917257]" style="height: 64vh">
-            <l-tile-layer
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
-              layer-type="base" min-zoom="1" max-zoom="21" useBounds="true" class="map" name="Satellite" />
-            <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" layer-type="base" min-zoom="1"
-              max-zoom="21" useBounds="true" :max-bounds="maxBounds" class="map" name="OpenStreetMap" />
+        <el-card class="box-card" />
+        <!-- 
+        <MapboxMap ref="map" style="height: 400px"
+          access-token="pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw"
+          map-style="mapbox://styles/mapbox/light-v10" :center="markerLatlon[0]" :zoom="11">
+          <MapboxMarker ref="markers" v-for="(l, key) in markerLatlon" :key="key" :lng-Lat="l" popup>
+            <template #popup>
+              <div class="card-header">
+                <span style="color:blue;font-weight:bold; font-size: 12;">
+                  <h1>{{ markerProperties[key].name }}</h1>
+                </span>
+                <div>
+                  <el-divider>
+                    <el-icon>
+                      <star-filled />
+                    </el-icon>
+                  </el-divider>
+                  <h2>details....</h2>
+                </div>
+              </div>
+            </template>
+          </MapboxMarker>
+          <MapboxGeocoder />
+          <MapboxNavigationControl position="bottom-right" />
+          <MapboxGeolocateControl />
+        </MapboxMap> -->
+        <mapbox-map ref="map" auto-resize="true" :maxBounds="maxBounds" :center="[37.817, 0.606]" :zoom="5"
+          :height="mapHeight" :accessToken="MapBoxToken" mapStyle="mapbox://styles/mapbox/light-v10">
+          <mapbox-geocoder-control :countries="countries" />
 
-            <l-geo-json ref="facility" layer-type="overlay" name="Facility" :geojson="facilityGeo">
-              <!--               <l-popup v-if="geoLoaded" :content="facilityGeo.features[0].properties.name" /> -->
-            </l-geo-json>
-            <l-control-layers position="topright" />
 
-          </l-map>
-        </el-card>
+
+          <mapbox-marker ref="markers" v-for="(l, key) in markerLatlon" :key="key" :lngLat="l" popup>
+            <mapbox-popup>
+              <div class="card-header">
+                <span style="color:blue;font-weight:bold; font-size: 45;">
+                  <h1>{{ markerProperties[key].name }}</h1>
+                </span>
+                <div>
+                  <el-divider>
+                    <el-icon>
+                      <star-filled />
+                    </el-icon>
+                  </el-divider>
+                  <h2>details....</h2>
+                </div>
+              </div>
+            </mapbox-popup>
+          </mapbox-marker>
+
+
+          <mapbox-geolocate-control />
+          <mapbox-navigation-control position="bottom-right" />
+
+        </mapbox-map>
 
       </el-tab-pane>
 

@@ -15,6 +15,18 @@ import { nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { setup } from 'mockjs'
 import { ElLoading } from 'element-plus'
+
+import * as turf from '@turf/turf'
+
+
+
+
+
+
+
+
+
+
 const route = useRoute()
 
 interface Params {
@@ -118,24 +130,19 @@ const getParcels = async () => {
 
       setTimeout(() => {
         // After building your geoJson layers, just add this:
-        nextTick().then(() => {
-          var group = new featureGroup()
 
-          if (map.value.leafletObject) {
-            map.value.leafletObject.eachLayer(function (layer) {
-              //    console.log(layer.feature)
-              if (layer.feature != undefined) {
-                group.addLayer(layer)
-              }
-            })
 
-            console.log(group.getBounds())
-            map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
-            updateStyle()
 
-          }
-        })
-      }, 100) // 0ms seems enough to execute resize after tab opens.
+        if (map.value.leafletObject && ParcelDataLoaded) {
+
+
+          console.log("----Bounds", geo.value.leafletObject.getBounds())  // parecl  mapbounds
+          map.value.leafletObject.fitBounds(geo.value.leafletObject.getBounds(), { padding: [20, 20] })
+          updateStyle()
+
+        }
+
+      }, 140) // 0ms seems enough to execute resize after tab opens.
 
 
 
