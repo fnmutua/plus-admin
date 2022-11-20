@@ -319,7 +319,7 @@ exports.modelOneGeo = async (req, res) => {
   const json = JSON.stringify(result_geo) // [1,2,3]
 
    console.log('GEo----->', result_geo[0])
-  if (json[0].json_build_object) {
+  if (result_geo) {
     msg = 'Shapes found. Loading shortly...'
     console.log(msg)
     res.status(200).send({
@@ -328,16 +328,7 @@ exports.modelOneGeo = async (req, res) => {
       message: 'Shapes found. Loading...'
     })
     // console.log('Found ...', json[0].json_build_object)
-  } else {
-    msg = 'Boundar shapes NOT found....'
-    //  console.log('Not found.....')
-    console.log(msg)
-    res.status(200).send({
-      data: result_geo,
-      code: '0000',
-      message: 'Not found..'
-    })
-  }
+  } 
 }
 
 exports.modelSelectGeo = async (req, res) => {

@@ -82,12 +82,16 @@ const uploadOptions = [
     label: 'Points',
     options: [
       {
-        value: 'schools',
+        value: 'education_facility',
         label: 'Schools'
       },
       {
         value: 'health_facility',
         label: 'Health Care Facility'
+      },
+      {
+        value: 'water_point',
+        label: 'Water Points'
       }
     ]
   },
@@ -103,73 +107,6 @@ const uploadOptions = [
         label: 'Paths'
       }
     ]
-  }
-]
-
-const settlement_fields = [
-  {
-    field: 'name',
-    match: ''
-  },
-  {
-    field: 'county_id',
-    match: ''
-  },
-  {
-    field: 'settlement_type',
-    match: ''
-  },
-  {
-    field: 'area',
-    match: ''
-  },
-  {
-    field: 'population',
-    match: ''
-  },
-  {
-    field: 'code',
-    match: ''
-  }
-]
-
-const parcel_fields = [
-  {
-    field: 'parcel_no',
-    match: ''
-  },
-
-  {
-    field: 'landuse_id',
-    match: ''
-  },
-  {
-    field: 'area_ha',
-    match: ''
-  },
-  {
-    field: 'settlement_id',
-    match: ''
-  },
-  {
-    field: 'code',
-    match: ''
-  }
-]
-
-const county_fields = [
-  {
-    field: 'name',
-    match: ''
-  },
-  {
-    field: 'id',
-    match: ''
-  },
-
-  {
-    field: 'code',
-    match: ''
   }
 ]
 
@@ -299,6 +236,35 @@ const handleSelectType = async (type: any) => {
     parent_key.value = 'settlement_id'
     code.value = 'pcode'
     console.log('health_facility------>', fieldSet.value)
+    getParentOptions()
+  }
+
+  else if (type === 'education_facility') {
+    // fieldSet.value = beneficiary_parcels
+    model.value = 'education_facility'
+    parentModel.value = 'settlement'
+    parent_key.value = 'settlement_id'
+    code.value = 'pcode'
+    console.log('education_facility------>', fieldSet.value)
+    getParentOptions()
+  }
+  else if (type === 'road') {
+    // fieldSet.value = beneficiary_parcels
+    model.value = 'road'
+    parentModel.value = 'settlement'
+    parent_key.value = 'settlement_id'
+    code.value = 'pcode'
+    console.log('Road------>', fieldSet.value)
+    getParentOptions()
+  }
+
+  else if (type === 'water_point') {
+    // fieldSet.value = beneficiary_parcels
+    model.value = 'water_point'
+    parentModel.value = 'settlement'
+    parent_key.value = 'settlement_id'
+    code.value = 'pcode'
+    console.log('Road------>', fieldSet.value)
     getParentOptions()
   }
 
