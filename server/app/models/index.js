@@ -170,6 +170,8 @@ db.models.settlement.hasMany(db.models.settlement_status, {
   foreignKey: 'settlement_id'
 })
 
+/// Health Facilities 
+
 db.models.health_facility.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
 })
@@ -177,6 +179,38 @@ db.models.health_facility.belongsTo(db.models.settlement, {
 db.models.settlement.hasMany(db.models.health_facility, {
   foreignKey: 'settlement_id'
 })
+
+
+/// Education Facilities 
+
+db.models.education_facility.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.education_facility, {
+  foreignKey: 'settlement_id'
+})
+
+/// Roads
+db.models.road.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.road, {
+  foreignKey: 'settlement_id'
+})
+
+/// water points
+db.models.water_point.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.water_point, {
+  foreignKey: 'settlement_id'
+})
+
+
+
 
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];

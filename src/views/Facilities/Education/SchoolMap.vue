@@ -9,10 +9,27 @@ import { featureGroup } from 'leaflet'
 import { nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 
+
+import {
+  MapboxMap,
+  MapboxGeocoderControl,
+  MapboxAttributionControl,
+  MapboxDrawControl,
+  MapboxGeolocateControl,
+  MapboxGeogeometryPolygon,
+  MapboxNavigationControl,
+  MapboxSourceGeoJson,
+  MapboxScaleControl,
+  MapboxMarker,
+  MapboxPopup
+} from 'vue-mapbox-ts'
+
+
+
 const route = useRoute()
 
 ////Configurations //////////////
-const model = 'health_facility'
+const model = 'education_facility'
 ////////////
 
 function toTitleCase(str) {
@@ -27,7 +44,8 @@ const geo = ref()
 const parcel_ref = ref()
 const geoLoaded = ref(false)
 const parcel_geo = ref([])
-const mapCenter = ref([-1.30853, 36.917257])
+const mapCenter = ref([])
+const facilityName = ref()
 const { t } = useI18n()
 
 const getAll = async () => {
@@ -49,13 +67,15 @@ const getAll = async () => {
     console.log(res.data[0].json_build_object.features[0].geometry.coordinates)
     var coords = res.data[0].json_build_object.features[0].geometry.coordinates
 
-    var latLon = [coords[1], coords[0]]
+    var latLon = [coords[0], coords[1]]
     console.log(latLon)
 
     //coords.move(0, 1);   // rearrange to Lat,Lo
 
     mapCenter.value = latLon
+    facilityName.value = res.data[0].json_build_object.features[0].properties.name
     geoLoaded.value = true
+
     // 0ms seems enough to execute resize after tab opens.
   }
 }
@@ -104,26 +124,27 @@ getAll()
 //getParcelGeo()
 
 console.log(model)
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+const mapHeight = '480px'
+
+
 </script>
 
 <template>
-  <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Facility  Map ')">
-    <l-map ref="map" :zoom="16" :center="mapCenter" style="height: 66vh">
-      <!--     <l-tile-layer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
-        layer-type="base" min-zoom="1" max-zoom="21" useBounds="true" class="map" :max-bounds="maxBounds"
-        name="Satellite" /> -->
-      <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" layer-type="base" min-zoom="1"
-        max-zoom="21" useBounds="true" class="map" :max-bounds="maxBounds" name="OpenStreetMap" />
-
-      <l-geo-json ref="geo" layer-type="overlay" name="Facility" :geojson="filtergeo">
-
-        <l-popup v-if="geoLoaded" :content="filtergeo.features[0].properties.name" />
-      </l-geo-json>
+  <ContentWrap :title="toTitleCase(facilityName)">
 
 
+    <mapbox-map :height="mapHeight" :zoom="17" :center="mapCenter" :accessToken="MapBoxToken">
+      <mapbox-marker v-if="geoLoaded" :lngLat="mapCenter">
+        <mapbox-popup>
+          <div v-if="geoLoaded">{{ facilityName }}</div>
+        </mapbox-popup>
+      </mapbox-marker>
 
-      <l-control-layers position="topright" />
-    </l-map>
+    </mapbox-map>
+
+
   </ContentWrap>
 </template>
 

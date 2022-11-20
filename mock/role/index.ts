@@ -385,7 +385,7 @@ const adminList = [
       },
       {
         path: 'health/map/:id',
-        component:  'views/Facilities/Health/Map',
+        component:  'views/Facilities/Health/HealthMap',
         name: 'HealthFacilityMap',
         meta: {
           hidden: true,
@@ -403,25 +403,128 @@ const adminList = [
           title: 'Facility Profile'
         }
       },
+
+      /// Schools -----------------------
       {
-        path: 'education',
-        component:'views/Map/index',
+        path: 'edu',
+        component: 'views/Facilities/Education/Education',
         name: 'Education',
         meta: {
-          icon: 'ci-youtube',
-
+          icon: 'ci-building',
           title: 'Education'
         }
       },
-
       {
-        path: 'water',
-        component:'views/Map/index',
-        name: 'Water',
+        path: 'edu/add',
+        component: 'views/Facilities/Education/Add',
+        name: 'AddEducation',
+        meta: { hidden: true, title: 'Add', noCache: true }
+      },
+      {
+        path: 'edu/map/:id',
+        component:  'views/Facilities/Education/SchoolMap',
+        name: 'EducationFacilityMap',
         meta: {
-          title: 'Water'
+          hidden: true,
+          props: true,
+          title: 'School Map'
         }
       },
+      {
+        path: 'edu/details/:id',
+        component:  'views/Facilities/Education/EducationFacilityDetails',
+        name: 'EducationFacilityDetails',
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'School Profile'
+        }
+      },
+
+
+      /// Roads -----------------------
+
+      {
+        path: 'road',
+        component: 'views/Facilities/Roads/Roads',
+        name: 'Road',
+        meta: {
+          icon: 'ant-design:node-index-outlined',
+          title: 'Roads'
+        }
+      },
+      {
+        path: 'road/add',
+        component: 'views/Facilities/Roads/Add',
+        name: 'AddRoad',
+        icon: 'ant-design:plus-square-filled',
+        meta: { hidden: true, title: 'Add', noCache: true }
+      },
+      {
+        path: 'road/map/:id',
+        component:  'views/Facilities/Roads/RoadMap',
+        name: 'RoadsMap',
+        icon: 'ant-design:plus-square-filled',
+
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Road Map'
+        }
+      },
+      {
+        path: 'road/details/:id',
+        component:  'views/Facilities/Roads/RoadDetails',
+        name: 'RoadsDetails',
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Road Profile'
+        }
+      },
+
+      /// Water -----------------------
+      {
+        path: 'water',
+        component: 'views/Facilities/Water/Water',
+        name: 'Water',
+        meta: {
+          icon: 'ant-design:bg-colors-outlined',
+          title: 'Water Points'
+        }
+      },
+      {
+        path: 'water/add',
+        component: 'views/Facilities/Water/Add',
+        name: 'AddWaterPoint',
+        icon: 'ant-design:plus-square-filled',
+        meta: { hidden: true, title: 'Add', noCache: true }
+      },
+      {
+        path: 'water/map/:id',
+        component:  'views/Facilities/Water/WaterMap',
+        name: 'WaterMap',
+        icon: 'ant-design:plus-square-filled',
+
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Water Point Map'
+        }
+      },
+      {
+        path: 'water/details/:id',
+        component:  'views/Facilities/Water/WaterFacilityDetails',
+        name: 'RoadsDetails',
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Water Point Profile'
+        }
+      },
+
+      ///-------------------------------
+ 
 
       {
         path: 'utility',

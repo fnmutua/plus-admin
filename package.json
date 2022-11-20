@@ -60,7 +60,6 @@
     "jsonwebtoken": "^8.5.1",
     "leaflet": "^1.9.2",
     "lodash-es": "^4.17.21",
-    "mapbox-gl": "^1.13.2",
     "mapbox-gl-vue": "^2.0.4",
     "mapbox-layer-switcher": "^0.0.6",
     "mitt": "^3.0.0",

@@ -118,7 +118,7 @@ var filterValues = []
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement']
-const model = 'health_facility'
+const model = 'water_point'
 const model_parent_key = 'settlement_id'
 //// ------------------parameters -----------------------////
 
@@ -152,6 +152,13 @@ const onMap = async (obj) => {
 
   }
 
+}
+
+
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, function (txt) {
+    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+  })
 }
 
 
@@ -267,7 +274,7 @@ const handleSelectByName = async (settlement: any) => {
 }
 
 const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
+  console.log('on change change: selected   ', selCounties)
   page.value = selPage
   getFilteredData(filters, filterValues)
 }
@@ -407,7 +414,7 @@ const makeSettlementOptions = (list) => {
 const handleDownload = () => {
   downloadLoading.value = true
   const data = tblData
-  const fileName = 'data.xlsx'
+  const fileName = 'schools.xlsx'
   const exportType = exportFromJSON.types.csv
   if (data) exportFromJSON({ data, fileName, exportType })
 }
@@ -464,8 +471,8 @@ const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
 
   push({
-    path: '/health/details/:id',
-    name: 'HealthFacilityDetails',
+    path: '/education/details/:id',
+    name: 'EducationFacilityDetails',
     params: { data: data.row.id, id: data.row.id }
   })
 }
@@ -476,8 +483,8 @@ const viewOnMap = (data: TableSlotDefault) => {
   console.log('On map.....', data.row)
   if (data.row.geom) {
     push({
-      path: '/facilities/health/map/:id',
-      name: 'HealthFacilityMap',
+      path: '/facilities/water/map/:id',
+      name: 'WaterMap',
       params: { id: data.row.id }
     })
   } else {
@@ -489,8 +496,8 @@ const viewOnMap = (data: TableSlotDefault) => {
 
 const AddFacility = (data: TableSlotDefault) => {
   push({
-    path: '/facilities/health/add',
-    name: 'Addhealth'
+    path: '/facilities/water/add',
+    name: 'AddWaterPoint'
   })
 }
 
@@ -499,7 +506,7 @@ const AddFacility = (data: TableSlotDefault) => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Health Care Facilities')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t(toTitleCase(model) + ' Facilities')" :message="t('Use the filters to subset')">
     <el-tabs @tab-click="onMap" type="border-card">
       <el-tab-pane label="List">
         <el-divider border-style="dashed" content-position="left">Filters</el-divider>
@@ -522,7 +529,7 @@ const AddFacility = (data: TableSlotDefault) => {
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </div>
         <div style="display: inline-block; margin-left: 20px">
-          <el-tooltip content="Add Settlement" placement="top">
+          <el-tooltip content="Add Facility" placement="top">
             <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
           </el-tooltip>
         </div>

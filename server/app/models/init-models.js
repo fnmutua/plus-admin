@@ -27,6 +27,8 @@ var _lot = require('./lot')
 var _benefit_type = require('./benefit_type')
 var _settlement_status = require('./settlement_status')
 var _health_facility = require('./health_facility')
+var _education_facility = require('./education_facility')
+var _water_point = require('./water_point')
 
 var _settlement_uploads = require('./settlement_uploads')
 
@@ -60,6 +62,9 @@ function initModels(sequelize) {
   var settlement_uploads = _settlement_uploads(sequelize, DataTypes)
   var settlement_status = _settlement_status(sequelize, DataTypes)
   var health_facility = _health_facility(sequelize, DataTypes)
+  var education_facility = _education_facility(sequelize, DataTypes)
+  
+  var water_point = _water_point(sequelize, DataTypes)
 
 
   
@@ -92,6 +97,8 @@ function initModels(sequelize) {
     benefit_type,
     settlement_status,
     health_facility,
+    education_facility,
+    water_point,
     settlement_uploads
   }
 }

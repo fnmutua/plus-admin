@@ -1,80 +1,70 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('road', {
-    id: {
-      autoIncrement: true,
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      primaryKey: true
-    },
-     name: {
+  return sequelize.define('water_point', {
+    
+    name: {
       type: DataTypes.STRING,
       allowNull: false
     },
-    rdNum: {
+   
+    type: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    rdClass: {
+    capacity: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    width: {
-      type: DataTypes.DOUBLE,
+    depth: {
+      type: DataTypes.INTEGER,
       allowNull: true
     },
 
-
-    rdReserve: {
+    ownership_type: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    surfaceType: {
+    owner: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },  
+    catchment: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    surfaceCondition: {
-      type: DataTypes.STRING,
+ 
+  price: {
+      type: DataTypes.INTEGER,
       allowNull: true
     },
-    traffic: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-
-    direction: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-
-    drainage: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    drainageCondition: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-
-
-    
-
+ 
     settlement_id: {
       type: DataTypes.INTEGER,
       allowNull: false
     },
+   
+ 
+    code: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
+    },
+ 
+ 
+
     geom: {
       type: DataTypes.GEOMETRY('Geometry', 4326),
       allowNull: true
     },
+
   }, {
     sequelize,
-    tableName: 'road',
+    tableName: 'water_point',
     schema: 'public',
     timestamps: false,
     indexes: [
       {
-        name: "road_pkey",
+        name: "water_facility_pkey",
         unique: true,
         fields: [
           { name: "id" },
