@@ -210,8 +210,36 @@ db.models.settlement.hasMany(db.models.water_point, {
 })
 
 
+/// sewer  
+db.models.sewer.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.sewer, {
+  foreignKey: 'settlement_id'
+})
 
 
+
+/// Road Assets  
+db.models.road_asset.belongsTo(db.models.road, {
+  foreignKey: 'road_id'
+})
+
+db.models.road.hasMany(db.models.road_asset, {
+  foreignKey: 'road_id'
+})
+
+
+
+/// Other Facilities  
+db.models.other_facility.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.other_facility, {
+  foreignKey: 'settlement_id'
+})
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

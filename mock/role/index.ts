@@ -482,9 +482,27 @@ const adminList = [
           title: 'Road Profile'
         }
       },
+   /// Roads Assets-----------------------
+   {
+    path: 'roadasset',
+    component: 'views/Facilities/Roads/Assets',
+    name: 'RoadAsset',
+    meta: {
+      icon: 'ant-design:node-index-outlined',
+      title: 'Road Structures'
+    }
+  },
+  {
+    path: 'roadasset/add',
+    component: 'views/Facilities/Roads/AddAsset',
+    name: 'AddRoadStructure',
+    icon: 'ant-design:plus-square-filled',
+    meta: { hidden: true, title: 'Add', noCache: true }
+      },
+  
 
       /// Water -----------------------
-      {
+   {
         path: 'water',
         component: 'views/Facilities/Water/Water',
         name: 'Water',
@@ -515,7 +533,7 @@ const adminList = [
       {
         path: 'water/details/:id',
         component:  'views/Facilities/Water/WaterFacilityDetails',
-        name: 'RoadsDetails',
+        name: 'WaterDetails',
         meta: {
           hidden: true,
           props: true,
@@ -523,25 +541,67 @@ const adminList = [
         }
       },
 
-      ///-------------------------------
- 
+  
+   /// Sewer -----------------------
+            {
+              path: 'sewer',
+              component: 'views/Facilities/Sewer/Sewer',
+              name: 'Sewer',
+              meta: {
+                icon: 'ant-design:node-index-outlined',
+                title: 'Sewer'
+              }
+            },
+            {
+              path: 'sewer/add',
+              component: 'views/Facilities/Sewer/Add',
+              name: 'AddSewer',
+              icon: 'ant-design:plus-square-filled',
+              meta: { hidden: true, title: 'Add', noCache: true }
+            },
+            {
+              path: 'sewer/map/:id',
+              component:  'views/Facilities/Sewer/SewerMap',
+              name: 'SewerMap',
+              icon: 'ant-design:plus-square-filled',
+      
+              meta: {
+                hidden: true,
+                props: true,
+                title: 'Road Map'
+              }
+            },
+            {
+              path: 'sewer/details/:id',
+              component:  'views/Facilities/Sewer/SewerFacilityDetails',
+              name: 'SewerFacilityDetails',
+              meta: {
+                hidden: true,
+                props: true,
+                title: 'Sewer Profile'
+              }
+      },
+            
 
-      {
-        path: 'utility',
-        component:'views/Map/index',
-        name: 'Utilities',
-        meta: {
-          title: 'Utilities'
-        }
-      },
-      {
-        path: 'security',
-        component:'views/Map/index',
-        name: 'Security',
-        meta: {
-          title: 'Security'
-        }
-      },
+      
+    /// Other Facilities-----------------------
+   {
+    path: 'other',
+    component: 'views/Facilities/Other/Other',
+    name: 'OtherFacility',
+    meta: {
+      icon: 'ant-design:node-index-outlined',
+      title: 'Other Facilities'
+    }
+  }, 
+  {
+    path: 'other/add',
+    component: 'views/Facilities/Other/AddOther',
+    name: 'AddOther',
+    icon: 'ant-design:plus-square-filled',
+    meta: { hidden: true, title: 'Add Facility', noCache: true }
+  },
+   
 
       {
         path: 'environment',

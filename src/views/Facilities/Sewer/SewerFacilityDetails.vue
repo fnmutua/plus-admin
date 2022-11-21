@@ -32,16 +32,16 @@ const schemaProfile = reactive<DescriptionsSchema[]>([
     label: t('Name')
   },
   {
-    field: 'level',
-    label: t('Level')
+    field: 'number_connections',
+    label: t('Number of Connections')
   },
   {
     field: 'county',
     label: t('County')
   },
   {
-    field: 'status',
-    label: t('Status')
+    field: 'length',
+    label: t('Length(Km)')
   },
 
   {
@@ -52,56 +52,6 @@ const schemaProfile = reactive<DescriptionsSchema[]>([
     field: 'owner',
     label: t('Owner')
   },
-])
-
-const schemaStaffing = reactive<DescriptionsSchema[]>([
-  {
-    field: 'male_enrollment',
-    label: t('Number of Male Students')
-  },
-
-  {
-    field: 'female_enrollment',
-    label: t('Number of Female Students')
-  },
-
-  {
-    field: 'number_teachers',
-    label: t('Number of Teachers')
-  },
-
-  {
-    field: 'number_other_staff',
-    label: t('Number of Support Staff')
-  },
-
-
-])
-
-const schemaInfrastructure = reactive<DescriptionsSchema[]>([
-  {
-    field: 'number_classrooms',
-    label: t('Number of Classrooms')
-  },
-
-  {
-    field: 'number_female_toilets',
-    label: t('Number of Female Toilets')
-  },
-
-  {
-    field: 'number_male_toilets',
-    label: t('Number of Male Toilets')
-  },
-  {
-    field: 'number_handwashing_stns',
-    label: t('Number of H/W stations')
-  },
-
-
-
-
-
 ])
 
 
@@ -127,7 +77,7 @@ var filterValues = [intervenComponent]
 
 //const associated_Model = ''
 const associated_multiple_models = ['settlement']
-const model = 'water_point'
+const model = 'sewer'
 const nested_models = ['settlement', 'county'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -142,25 +92,13 @@ let settlement = reactive({
 const profile = reactive({
   name: '',
   county: '',
-  level: '',
-  status: '',
+  number_connections: '',
+  length: '',
   settlement: '',
   ownership: '',
   owner: ''
 })
-const enrollment_staffing = reactive({
-  male_enrollment: '',
-  female_enrollment: '',
-  number_teachers: '',
-  number_other_staff: '',
-})
 
-const Infrastructure = reactive({
-  number_classrooms: '',
-  number_female_toilets: '',
-  number_male_toilets: '',
-  number_handwashing_stns: '',
-})
 
 
 
@@ -198,22 +136,10 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   profile.name = res.data[0].name
   profile.county = res.data[0].settlement.county.name
   profile.settlement = res.data[0].settlement.name
-  profile.level = res.data[0].level
-  profile.status = res.data[0].reg_status
+  profile.number_connections = res.data[0].number_connections
+  profile.length = res.data[0].length
   profile.ownership = res.data[0].ownership_type
   profile.owner = res.data[0].owner
-
-  // set the Facility staff  details ------------------------------------
-  capacity.number_teachers = res.data[0].number_teachers
-  capacity.number_other_staff = res.data[0].number_other_staff
-  capacity.male_enrollment = res.data[0].male_enrollment
-  capacity.female_enrollment = res.data[0].female_enrollment
-
-  // set the Facility capacity  details ------------------------------------
-  staffing.number_classrooms = res.data[0].number_classrooms
-  staffing.number_male_toilets = res.data[0].number_male_toilets
-  staffing.number_female_toilets = res.data[0].number_female_toilets
-  staffing.number_handwashing_stns = res.data[0].number_handwashing_stns
 
 
 }
@@ -231,15 +157,9 @@ onMounted(() => {
 <template>
   <Descriptions :title="t('Profile')" :message="t('Facility Profile')" :data="profile" :schema="schemaProfile" />
 
-  <Form is-custom :model="form" @register="register">
-    <Descriptions :title="t('Enrollment/Staffing')" :message="t('Facility Enrollment/Staffing Levels')"
-      :data="enrollment_staffing" :schema="schemaStaffing" />
-  </Form>
 
-  <Form is-custom :model="form" @register="register">
-    <Descriptions :title="t('Infrastructure')" :message="t('Infrastructure')" :data="Infrastructure"
-      :schema="schemaInfrastructure" />
-  </Form>
+
+
 </template>
 
 <style lang="less" scoped>
