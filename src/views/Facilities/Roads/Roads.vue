@@ -57,7 +57,12 @@ import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
 
 
-const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+import mapboxgl from "mapbox-gl";
+import 'mapbox-gl/dist/mapbox-gl.css'
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+mapboxgl.accessToken = MapBoxToken;
+
 
 
 
@@ -132,27 +137,8 @@ const facilityGeo = ref([])
 
 
 
-
-const maxBounds = ref([
-  [32.958984, -5.353521], // southwestern corner of the bounds
-  [43.50585, 5.615985] // northeastern corner of the bounds
-])
-
 //// ------------------Map -----------------------////
 
-const onMap = async (obj) => {
-  console.log(obj.props.label)
-  if (obj.props.label == "Map") {
-
-    console.log(map.value)
-    maxBounds.value = turf.bbox(facilityGeo.value);
-
-
-
-
-  }
-
-}
 
 
 function toTitleCase(str) {
@@ -178,14 +164,11 @@ const columns: TableColumn[] = [
     label: t('Name')
   },
   {
-    field: 'reg_status',
-    label: t('Status')
+    field: 'length',
+    label: t('Length(Km)')
   },
 
-  {
-    field: 'level',
-    label: t('Level')
-  },
+
   {
     field: 'settlement.name',
     label: t('Settlement')
@@ -419,7 +402,62 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
+const loadMap = () => {
+  var nmap = new mapboxgl.Map({
+    container: "mapContainer",
+    style: "mapbox://styles/mapbox/streets-v11",
+    center: [37.137343, 1.137451], // starting position
+    zoom: 6,
 
+  })
+
+  console.log("resizing....")
+
+  const nav = new mapboxgl.NavigationControl();
+  nmap.addControl(nav, "top-right");
+  nmap.on('load', () => {
+    nmap.addSource('kenya', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: facilityGeo.value,
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+    nmap.addLayer({
+      'id': 'earthquakes-layer',
+      "type": "line",
+      'source': 'kenya',
+      'paint': {
+        "line-color": "red"
+      }
+    });
+
+    nmap.resize()
+
+
+    var bounds = turf.bbox(facilityGeo.value);
+    nmap.fitBounds(bounds, { padding: 20 });
+
+
+
+
+
+
+  });
+
+
+}
+
+
+const onMap = async (obj) => {
+  console.log(obj.props.label)
+  if (obj.props.label == "Map") {
+    loadMap()
+    //console.log(map.value)
+    //maxBounds.value = turf.bbox(facilityGeo.value);
+  }
+
+}
 
 const getGeo = async () => {
 
@@ -445,23 +483,13 @@ const getGeo = async () => {
     geoLoaded.value = true
 
 
-    for (let i in res.data[0].json_build_object.features) {
-
-      console.log(res.data[0].json_build_object.features[i].geometry.coordinates)
-      markerLatlon.value.push(res.data[0].json_build_object.features[i].geometry.coordinates)
-      var markProp = {}
-      markProp.name = res.data[0].json_build_object.features[i].properties.name
-      markerProperties.value.push(markProp)
-
-
-    }
-    console.log(markerProperties)
-
   }
 
 
 
 }
+
+
 getParentNames()
 getModelOptions()
 getInterventionsAll()
@@ -471,9 +499,9 @@ const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
 
   push({
-    path: '/education/details/:id',
-    name: 'EducationFacilityDetails',
-    params: { data: data.row.id, id: data.row.id }
+    path: '/facilities/road/details/:id',
+    name: 'RoadsDetails',
+    params: { id: data.row.id }
   })
 }
 
@@ -492,6 +520,8 @@ const viewOnMap = (data: TableSlotDefault) => {
     open(msg)
   }
 }
+
+
 
 
 const AddFacility = (data: TableSlotDefault) => {
@@ -558,37 +588,9 @@ const AddFacility = (data: TableSlotDefault) => {
 
       <el-tab-pane label="Map">
         <el-card class="box-card" />
-        <!-- 
-        <MapboxMap ref="map" style="height: 400px"
-          access-token="pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw"
-          map-style="mapbox://styles/mapbox/light-v10" :center="markerLatlon[0]" :zoom="11">
-          <MapboxMarker ref="markers" v-for="(l, key) in markerLatlon" :key="key" :lng-Lat="l" popup>
-            <template #popup>
-              <div class="card-header">
-                <span style="color:blue;font-weight:bold; font-size: 12;">
-                  <h1>{{ markerProperties[key].name }}</h1>
-                </span>
-                <div>
-                  <el-divider>
-                    <el-icon>
-                      <star-filled />
-                    </el-icon>
-                  </el-divider>
-                  <h2>details....</h2>
-                </div>
-              </div>
-            </template>
-          </MapboxMarker>
-          <MapboxGeocoder />
-          <MapboxNavigationControl position="bottom-right" />
-          <MapboxGeolocateControl />
-        </MapboxMap> -->
-        <mapbox-map ref="map" auto-resize="true" :maxBounds="maxBounds" :center="[37.817, 0.606]" :zoom="5"
+        <!--         <mapbox-map ref="map" auto-resize="true" :maxBounds="maxBounds" :center="[37.817, 0.606]" :zoom="5"
           :height="mapHeight" :accessToken="MapBoxToken" mapStyle="mapbox://styles/mapbox/light-v10">
           <mapbox-geocoder-control :countries="countries" />
-
-
-
           <mapbox-marker ref="markers" v-for="(l, key) in markerLatlon" :key="key" :lngLat="l" popup>
             <mapbox-popup>
               <div class="card-header">
@@ -606,12 +608,10 @@ const AddFacility = (data: TableSlotDefault) => {
               </div>
             </mapbox-popup>
           </mapbox-marker>
-
-
           <mapbox-geolocate-control />
           <mapbox-navigation-control position="bottom-right" />
-
-        </mapbox-map>
+        </mapbox-map> -->
+        <div id="mapContainer" class="basemap"></div>
 
       </el-tab-pane>
 
@@ -621,5 +621,9 @@ const AddFacility = (data: TableSlotDefault) => {
   </ContentWrap>
 </template>
  
-
-mapLink = 
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 450px;
+}
+</style>

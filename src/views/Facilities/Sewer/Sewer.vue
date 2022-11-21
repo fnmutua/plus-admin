@@ -123,7 +123,7 @@ var filterValues = []
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement']
-const model = 'water_point'
+const model = 'sewer'
 const model_parent_key = 'settlement_id'
 //// ------------------parameters -----------------------////
 
@@ -164,14 +164,11 @@ const columns: TableColumn[] = [
     label: t('Name')
   },
   {
-    field: 'capacity',
-    label: t('Category')
+    field: 'length',
+    label: t('Length(Km)')
   },
 
-  {
-    field: 'owner',
-    label: t('Owner')
-  },
+
   {
     field: 'settlement.name',
     label: t('Settlement')
@@ -400,7 +397,7 @@ const makeSettlementOptions = (list) => {
 const handleDownload = () => {
   downloadLoading.value = true
   const data = tblData
-  const fileName = 'water_points.xlsx'
+  const fileName = 'sewer.xlsx'
   const exportType = exportFromJSON.types.csv
   if (data) exportFromJSON({ data, fileName, exportType })
 }
@@ -419,77 +416,28 @@ const loadMap = () => {
   const nav = new mapboxgl.NavigationControl();
   nmap.addControl(nav, "top-right");
   nmap.on('load', () => {
-    nmap.addSource('water_points', {
+    nmap.addSource('kenya', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
       data: facilityGeo.value,
       // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
     });
 
-
     nmap.addLayer({
-      'id': 'pontLayer',
-      "type": "circle",
-      'source': 'water_points',
+      'id': 'earthquakes-layer',
+      "type": "line",
+      'source': 'kenya',
       'paint': {
-        'circle-radius': 6,
-        'circle-stroke-width': 2,
-        'circle-color': 'red',
-        'circle-stroke-color': 'white'
+        "line-color": "blue"
       }
     });
 
     nmap.resize()
-    console.log(markerLatlon.value)
-    const bounds = new mapboxgl.LngLatBounds(
-      markerLatlon.value[0],
-      markerLatlon.value[0]
-    );
 
 
-    for (const coord of markerLatlon.value) {
+    var bounds = turf.bbox(facilityGeo.value);
+    nmap.fitBounds(bounds, { padding: 20 });
 
-      bounds.extend(coord);
-    }
-
-    nmap.fitBounds(bounds, {
-      padding: 20
-    });
-
-
-    nmap.on('click', 'pontLayer', (e) => {
-      console.log("Onclikc..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.name;
-      const reg_status = e.features[0].properties.reg_status;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-
-
-
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + reg_status + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-
-    });
-
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'pontLayer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'pontLayer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
 
 
 
@@ -535,19 +483,6 @@ const getGeo = async () => {
     geoLoaded.value = true
 
 
-    for (let i in res.data[0].json_build_object.features) {
-
-      console.log(res.data[0].json_build_object.features[i].geometry.coordinates)
-      markerLatlon.value.push(res.data[0].json_build_object.features[i].geometry.coordinates)
-
-      var markProp = {}
-      markProp.name = res.data[0].json_build_object.features[i].properties.name
-      markerProperties.value.push(markProp)
-
-
-    }
-    console.log(markerProperties)
-
   }
 
 
@@ -564,9 +499,9 @@ const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
 
   push({
-    path: '/facilities/water/details/:id',
-    name: 'WaterDetails',
-    params: { data: data.row.id, id: data.row.id }
+    path: '/facilities/sewer/details/:id',
+    name: 'SewerFacilityDetails',
+    params: { id: data.row.id }
   })
 }
 
@@ -576,8 +511,8 @@ const viewOnMap = (data: TableSlotDefault) => {
   console.log('On map.....', data.row)
   if (data.row.geom) {
     push({
-      path: '/facilities/water/map/:id',
-      name: 'WaterMap',
+      path: '/facilities/sewer/map/:id',
+      name: 'SewerMap',
       params: { id: data.row.id }
     })
   } else {
@@ -588,10 +523,11 @@ const viewOnMap = (data: TableSlotDefault) => {
 
 
 
+
 const AddFacility = (data: TableSlotDefault) => {
   push({
-    path: '/facilities/water/add',
-    name: 'AddWaterPoint'
+    path: '/facilities/sewer/add',
+    name: 'AddSewer'
   })
 }
 
@@ -600,9 +536,7 @@ const AddFacility = (data: TableSlotDefault) => {
 </script>
 
 <template>
-  <ContentWrap :title="toTitleCase(model.replace('_', ' '))"
-    :message="t('Use the filters on the list of view the Map ')">
-
+  <ContentWrap :title="t(toTitleCase(model) + ' Facilities')" :message="t('Use the filters to subset')">
     <el-tabs @tab-click="onMap" type="border-card">
       <el-tab-pane label="List">
         <el-divider border-style="dashed" content-position="left">Filters</el-divider>

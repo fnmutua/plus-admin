@@ -29,6 +29,8 @@ var _settlement_status = require('./settlement_status')
 var _health_facility = require('./health_facility')
 var _education_facility = require('./education_facility')
 var _water_point = require('./water_point')
+var _road_asset = require('./road_asset')
+var _other_facility = require('./other_facility')
 
 var _settlement_uploads = require('./settlement_uploads')
 
@@ -63,9 +65,11 @@ function initModels(sequelize) {
   var settlement_status = _settlement_status(sequelize, DataTypes)
   var health_facility = _health_facility(sequelize, DataTypes)
   var education_facility = _education_facility(sequelize, DataTypes)
-  
   var water_point = _water_point(sequelize, DataTypes)
+  var road_asset = _road_asset(sequelize, DataTypes)
+  var other_facility = _other_facility(sequelize, DataTypes)
 
+  
 
   
   return {
@@ -99,6 +103,8 @@ function initModels(sequelize) {
     health_facility,
     education_facility,
     water_point,
+    road_asset,
+    other_facility,
     settlement_uploads
   }
 }

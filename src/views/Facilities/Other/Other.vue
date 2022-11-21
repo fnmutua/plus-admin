@@ -26,7 +26,6 @@ import { useCache } from '@/hooks/web/useCache'
 
 
 
-import { featureGroup } from 'leaflet'
 
 import { getAllGeo } from '@/api/settlements'
 
@@ -36,22 +35,6 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 
 
-import { MapboxMap as MapboxMap } from 'vue-mapbox-ts'
-import { MapboxMarker as MapboxMarker } from 'vue-mapbox-ts'
-import { MapboxNavigationControl as MapboxNavigationControl } from 'vue-mapbox-ts'
-
-import { MapboxGeolocateControl as MapboxGeolocateControl } from 'vue-mapbox-ts'
-
-
-import {
-  MapboxGeocoderControl,
-  MapboxAttributionControl,
-  MapboxDrawControl,
-  MapboxPopup, MapboxGeogeometryRaw,
-  MapboxGeogeometryPolygon,
-  MapboxSourceGeoJson,
-  MapboxScaleControl
-} from 'vue-mapbox-ts'
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
@@ -69,19 +52,14 @@ mapboxgl.accessToken = MapBoxToken;
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-const map = ref()
 
 console.log("userInfo--->", userInfo)
 
-// Map 
-const polygons = ref([]) as Ref<[number, number][][]>
-const shp = []
+
 const geoLoaded = ref(false)
 
-const markerLatlon = ref([])
-const markerProperties = ref([])
 
-const markers = ref()
+
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -123,30 +101,25 @@ var filterValues = []
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement']
-const model = 'water_point'
+const model = 'other_facility'
 const model_parent_key = 'settlement_id'
 //// ------------------parameters -----------------------////
 
 
 
-
-
-const mapHeight = '450px'
-const countries = 'ke'
 const facilityGeo = ref([])
-
+const facilityGeoPoints = ref([])
+const facilityGeoLines = ref([])
+const facilityGeoPolygons = ref([])
 
 
 //// ------------------Map -----------------------////
-
-
 
 function toTitleCase(str) {
   return str.replace(/\w\S*/g, function (txt) {
     return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
   })
 }
-
 
 
 
@@ -160,26 +133,20 @@ const columns: TableColumn[] = [
   },
 
   {
-    field: 'name',
-    label: t('Name')
+    field: 'type',
+    label: t('Type')
   },
   {
-    field: 'capacity',
-    label: t('Category')
+    field: 'condition',
+    label: t('Condition')
   },
 
+
   {
-    field: 'owner',
-    label: t('Owner')
+    field: 'road.name',
+    label: t('Road')
   },
-  {
-    field: 'settlement.name',
-    label: t('Settlement')
-  },
-  {
-    field: 'action',
-    label: t('userDemo.action')
-  }
+
 ]
 const handleClear = async () => {
   console.log('cleared....')
@@ -381,9 +348,7 @@ const getModelOptions = async () => {
   })
 }
 
-const open = (msg: MessageParamsWithType) => {
-  ElMessage.error(msg)
-}
+
 
 const makeSettlementOptions = (list) => {
   console.log('making the options..............', list)
@@ -400,7 +365,7 @@ const makeSettlementOptions = (list) => {
 const handleDownload = () => {
   downloadLoading.value = true
   const data = tblData
-  const fileName = 'water_points.xlsx'
+  const fileName = 'road_assets.xlsx'
   const exportType = exportFromJSON.types.csv
   if (data) exportFromJSON({ data, fileName, exportType })
 }
@@ -419,50 +384,54 @@ const loadMap = () => {
   const nav = new mapboxgl.NavigationControl();
   nmap.addControl(nav, "top-right");
   nmap.on('load', () => {
-    nmap.addSource('water_points', {
+    nmap.addSource('lines', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
-      data: facilityGeo.value,
+      data: turf.featureCollection(facilityGeoLines.value),
       // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+    nmap.addSource('points', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: turf.featureCollection(facilityGeoPoints.value),
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+    nmap.addLayer({
+      'id': 'lines-layer',
+      "type": "line",
+      'source': 'lines',
+      'paint': {
+        "line-color": "red"
+      }
     });
 
 
     nmap.addLayer({
-      'id': 'pontLayer',
+      'id': 'points-layer',
       "type": "circle",
-      'source': 'water_points',
+      'source': 'points',
       'paint': {
-        'circle-radius': 6,
-        'circle-stroke-width': 2,
-        'circle-color': 'red',
-        'circle-stroke-color': 'white'
+        "circle-color": "red"
       }
     });
 
+
     nmap.resize()
-    console.log(markerLatlon.value)
-    const bounds = new mapboxgl.LngLatBounds(
-      markerLatlon.value[0],
-      markerLatlon.value[0]
-    );
 
 
-    for (const coord of markerLatlon.value) {
-
-      bounds.extend(coord);
-    }
-
-    nmap.fitBounds(bounds, {
-      padding: 20
-    });
+    var bounds = turf.bbox((facilityGeo.value));
+    nmap.fitBounds(bounds, { padding: 20 });
 
 
-    nmap.on('click', 'pontLayer', (e) => {
+
+    nmap.on('click', 'points-layer', (e) => {
       console.log("Onclikc..........")
       // Copy coordinates array.
       const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.name;
-      const reg_status = e.features[0].properties.reg_status;
+      const description = e.features[0].properties.asset_type;
+      const condition = e.features[0].properties.asset_condition;
 
       // Ensure that if the map is zoomed out such that multiple
       // copies of the feature are visible, the popup appears
@@ -470,26 +439,58 @@ const loadMap = () => {
       while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
         coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
       }
-
-
-
       new mapboxgl.Popup({ offset: [0, -15] })
         .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + reg_status + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap);
+
+    });
+
+
+    // Change the cursor to a pointer when the mouse is over the places layer.
+    nmap.on('mouseenter', 'points-layer', () => {
+      nmap.getCanvas().style.cursor = 'pointer';
+    });
+
+    // Change it back to a pointer when it leaves.
+    nmap.on('mouseleave', 'points-layer', () => {
+      nmap.getCanvas().style.cursor = '';
+    });
+
+
+
+    nmap.on('click', 'lines-layer', (e) => {
+      console.log("click line..........")
+      // Copy coordinates array.
+      const coordinates = e.features[0].geometry.coordinates.slice();
+      const description = e.features[0].properties.asset_type;
+      const condition = e.features[0].properties.asset_condition;
+
+      // Ensure that if the map is zoomed out such that multiple
+      // copies of the feature are visible, the popup appears
+      // over the copy being pointed to.
+      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      }
+      new mapboxgl.Popup({ offset: [0, -15] })
+        .setLngLat(coordinates)
+        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
         .addTo(nmap);
 
 
     });
 
+
     // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'pontLayer', () => {
+    nmap.on('mouseenter', 'lines-layer', () => {
       nmap.getCanvas().style.cursor = 'pointer';
     });
 
     // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'pontLayer', () => {
+    nmap.on('mouseleave', 'lines-layer', () => {
       nmap.getCanvas().style.cursor = '';
     });
+
 
 
 
@@ -524,29 +525,41 @@ const getGeo = async () => {
 
   if (res.data[0].json_build_object) {
 
-
+    var points = []
+    var lines = []
+    var polygons = []
     facilityGeo.value = res.data[0].json_build_object
     console.log('Geo Returns---', res.data[0].json_build_object.features[0].geometry.coordinates)
     console.log("Facility Geo", facilityGeo)
+
+    for (let i = 0; i < res.data[0].json_build_object.features.length; i++) {
+
+      if (res.data[0].json_build_object.features[i].geometry.type === "Point") {
+
+        points.push(res.data[0].json_build_object.features[i])
+      } else if (res.data[0].json_build_object.features[i].geometry.type === "LineString") {
+
+        lines.push(res.data[0].json_build_object.features[i])
+
+      } else {
+        polygons.push(res.data[0].json_build_object.features[i])
+
+      }
+
+    }
+
+    console.log(points)
+    console.log(lines)
+    facilityGeoPoints.value = points
+    facilityGeoLines.value = lines
+    facilityGeoPolygons.value = polygons
+
 
 
 
     //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
     geoLoaded.value = true
 
-
-    for (let i in res.data[0].json_build_object.features) {
-
-      console.log(res.data[0].json_build_object.features[i].geometry.coordinates)
-      markerLatlon.value.push(res.data[0].json_build_object.features[i].geometry.coordinates)
-
-      var markProp = {}
-      markProp.name = res.data[0].json_build_object.features[i].properties.name
-      markerProperties.value.push(markProp)
-
-
-    }
-    console.log(markerProperties)
 
   }
 
@@ -560,38 +573,14 @@ getModelOptions()
 getInterventionsAll()
 getGeo()
 console.log('Options---->', countiesOptions)
-const viewProfile = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
 
-  push({
-    path: '/facilities/water/details/:id',
-    name: 'WaterDetails',
-    params: { data: data.row.id, id: data.row.id }
-  })
-}
-
-
-
-const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On map.....', data.row)
-  if (data.row.geom) {
-    push({
-      path: '/facilities/water/map/:id',
-      name: 'WaterMap',
-      params: { id: data.row.id }
-    })
-  } else {
-    var msg = 'This Facility  does not have the location defined in the database!'
-    open(msg)
-  }
-}
 
 
 
 const AddFacility = (data: TableSlotDefault) => {
   push({
-    path: '/facilities/water/add',
-    name: 'AddWaterPoint'
+    path: '/facilities/other/add',
+    name: 'AddOther'
   })
 }
 
@@ -600,6 +589,7 @@ const AddFacility = (data: TableSlotDefault) => {
 </script>
 
 <template>
+
   <ContentWrap :title="toTitleCase(model.replace('_', ' '))"
     :message="t('Use the filters on the list of view the Map ')">
 
@@ -640,10 +630,6 @@ const AddFacility = (data: TableSlotDefault) => {
             </el-tooltip>
 
 
-            <el-tooltip content="View on Map" placement="top">
-              <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
-            </el-tooltip>
-
           </template>
         </Table>
         <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
@@ -654,29 +640,7 @@ const AddFacility = (data: TableSlotDefault) => {
 
       <el-tab-pane label="Map">
         <el-card class="box-card" />
-        <!--         <mapbox-map ref="map" auto-resize="true" :maxBounds="maxBounds" :center="[37.817, 0.606]" :zoom="5"
-          :height="mapHeight" :accessToken="MapBoxToken" mapStyle="mapbox://styles/mapbox/light-v10">
-          <mapbox-geocoder-control :countries="countries" />
-          <mapbox-marker ref="markers" v-for="(l, key) in markerLatlon" :key="key" :lngLat="l" popup>
-            <mapbox-popup>
-              <div class="card-header">
-                <span style="color:blue;font-weight:bold; font-size: 45;">
-                  <h1>{{ markerProperties[key].name }}</h1>
-                </span>
-                <div>
-                  <el-divider>
-                    <el-icon>
-                      <star-filled />
-                    </el-icon>
-                  </el-divider>
-                  <h2>Coming soon....</h2>
-                </div>
-              </div>
-            </mapbox-popup>
-          </mapbox-marker>
-          <mapbox-geolocate-control />
-          <mapbox-navigation-control position="bottom-right" />
-        </mapbox-map> -->
+
         <div id="mapContainer" class="basemap"></div>
 
       </el-tab-pane>

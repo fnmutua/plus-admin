@@ -57,7 +57,12 @@ import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
 
 
-const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+import mapboxgl from "mapbox-gl";
+import 'mapbox-gl/dist/mapbox-gl.css'
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+mapboxgl.accessToken = MapBoxToken;
+
 
 
 
@@ -132,26 +137,14 @@ const facilityGeo = ref([])
 
 
 
-
-const maxBounds = ref([
-  [32.958984, -5.353521], // southwestern corner of the bounds
-  [43.50585, 5.615985] // northeastern corner of the bounds
-])
-
 //// ------------------Map -----------------------////
 
-const onMap = async (obj) => {
-  console.log(obj.props.label)
-  if (obj.props.label == "Map") {
-
-    console.log(map.value)
-    maxBounds.value = turf.bbox(facilityGeo.value);
 
 
-
-
-  }
-
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, function (txt) {
+    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+  })
 }
 
 
@@ -176,8 +169,8 @@ const columns: TableColumn[] = [
   },
 
   {
-    field: 'level',
-    label: t('Level')
+    field: 'owner',
+    label: t('Owner')
   },
   {
     field: 'settlement.name',
@@ -267,7 +260,7 @@ const handleSelectByName = async (settlement: any) => {
 }
 
 const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
+  console.log('on change change: selected   ', selCounties)
   page.value = selPage
   getFilteredData(filters, filterValues)
 }
@@ -407,12 +400,116 @@ const makeSettlementOptions = (list) => {
 const handleDownload = () => {
   downloadLoading.value = true
   const data = tblData
-  const fileName = 'data.xlsx'
+  const fileName = 'hcf.xlsx'
   const exportType = exportFromJSON.types.csv
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
+const loadMap = () => {
+  var nmap = new mapboxgl.Map({
+    container: "mapContainer",
+    style: "mapbox://styles/mapbox/streets-v11",
+    center: [37.137343, 1.137451], // starting position
+    zoom: 6,
 
+  })
+
+  console.log("resizing....")
+
+  const nav = new mapboxgl.NavigationControl();
+  nmap.addControl(nav, "top-right");
+  nmap.on('load', () => {
+    nmap.addSource('hcf', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: facilityGeo.value,
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+
+    nmap.addLayer({
+      'id': 'pontLayer',
+      "type": "circle",
+      'source': 'hcf',
+      'paint': {
+        'circle-radius': 6,
+        'circle-stroke-width': 2,
+        'circle-color': 'red',
+        'circle-stroke-color': 'white'
+      }
+    });
+
+    nmap.resize()
+    console.log(markerLatlon.value)
+    const bounds = new mapboxgl.LngLatBounds(
+      markerLatlon.value[0],
+      markerLatlon.value[0]
+    );
+
+
+    for (const coord of markerLatlon.value) {
+
+      bounds.extend(coord);
+    }
+
+    nmap.fitBounds(bounds, {
+      padding: 20
+    });
+
+
+    nmap.on('click', 'pontLayer', (e) => {
+      console.log("Onclikc..........")
+      // Copy coordinates array.
+      const coordinates = e.features[0].geometry.coordinates.slice();
+      const description = e.features[0].properties.name;
+      const reg_status = e.features[0].properties.reg_status;
+
+      // Ensure that if the map is zoomed out such that multiple
+      // copies of the feature are visible, the popup appears
+      // over the copy being pointed to.
+      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      }
+
+
+
+      new mapboxgl.Popup({ offset: [0, -15] })
+        .setLngLat(coordinates)
+        .setHTML('<h3>' + description + '</h3><p>' + reg_status + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap);
+
+
+    });
+
+    // Change the cursor to a pointer when the mouse is over the places layer.
+    nmap.on('mouseenter', 'pontLayer', () => {
+      nmap.getCanvas().style.cursor = 'pointer';
+    });
+
+    // Change it back to a pointer when it leaves.
+    nmap.on('mouseleave', 'pontLayer', () => {
+      nmap.getCanvas().style.cursor = '';
+    });
+
+
+
+
+
+  });
+
+
+}
+
+
+const onMap = async (obj) => {
+  console.log(obj.props.label)
+  if (obj.props.label == "Map") {
+    loadMap()
+    //console.log(map.value)
+    //maxBounds.value = turf.bbox(facilityGeo.value);
+  }
+
+}
 
 const getGeo = async () => {
 
@@ -442,6 +539,7 @@ const getGeo = async () => {
 
       console.log(res.data[0].json_build_object.features[i].geometry.coordinates)
       markerLatlon.value.push(res.data[0].json_build_object.features[i].geometry.coordinates)
+
       var markProp = {}
       markProp.name = res.data[0].json_build_object.features[i].properties.name
       markerProperties.value.push(markProp)
@@ -455,6 +553,8 @@ const getGeo = async () => {
 
 
 }
+
+
 getParentNames()
 getModelOptions()
 getInterventionsAll()
@@ -464,7 +564,7 @@ const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
 
   push({
-    path: '/health/details/:id',
+    path: '/facilities/health/details/:id',
     name: 'HealthFacilityDetails',
     params: { data: data.row.id, id: data.row.id }
   })
@@ -487,6 +587,9 @@ const viewOnMap = (data: TableSlotDefault) => {
 }
 
 
+
+
+
 const AddFacility = (data: TableSlotDefault) => {
   push({
     path: '/facilities/health/add',
@@ -499,7 +602,9 @@ const AddFacility = (data: TableSlotDefault) => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Health Care Facilities')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="toTitleCase(model.replace('_', ' '))"
+    :message="t('Use the filters on the list of view the Map ')">
+
     <el-tabs @tab-click="onMap" type="border-card">
       <el-tab-pane label="List">
         <el-divider border-style="dashed" content-position="left">Filters</el-divider>
@@ -522,7 +627,7 @@ const AddFacility = (data: TableSlotDefault) => {
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </div>
         <div style="display: inline-block; margin-left: 20px">
-          <el-tooltip content="Add Settlement" placement="top">
+          <el-tooltip content="Add Facility" placement="top">
             <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
           </el-tooltip>
         </div>
@@ -551,37 +656,9 @@ const AddFacility = (data: TableSlotDefault) => {
 
       <el-tab-pane label="Map">
         <el-card class="box-card" />
-        <!-- 
-        <MapboxMap ref="map" style="height: 400px"
-          access-token="pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw"
-          map-style="mapbox://styles/mapbox/light-v10" :center="markerLatlon[0]" :zoom="11">
-          <MapboxMarker ref="markers" v-for="(l, key) in markerLatlon" :key="key" :lng-Lat="l" popup>
-            <template #popup>
-              <div class="card-header">
-                <span style="color:blue;font-weight:bold; font-size: 12;">
-                  <h1>{{ markerProperties[key].name }}</h1>
-                </span>
-                <div>
-                  <el-divider>
-                    <el-icon>
-                      <star-filled />
-                    </el-icon>
-                  </el-divider>
-                  <h2>details....</h2>
-                </div>
-              </div>
-            </template>
-          </MapboxMarker>
-          <MapboxGeocoder />
-          <MapboxNavigationControl position="bottom-right" />
-          <MapboxGeolocateControl />
-        </MapboxMap> -->
-        <mapbox-map ref="map" auto-resize="true" :maxBounds="maxBounds" :center="[37.817, 0.606]" :zoom="5"
+        <!--         <mapbox-map ref="map" auto-resize="true" :maxBounds="maxBounds" :center="[37.817, 0.606]" :zoom="5"
           :height="mapHeight" :accessToken="MapBoxToken" mapStyle="mapbox://styles/mapbox/light-v10">
           <mapbox-geocoder-control :countries="countries" />
-
-
-
           <mapbox-marker ref="markers" v-for="(l, key) in markerLatlon" :key="key" :lngLat="l" popup>
             <mapbox-popup>
               <div class="card-header">
@@ -599,12 +676,10 @@ const AddFacility = (data: TableSlotDefault) => {
               </div>
             </mapbox-popup>
           </mapbox-marker>
-
-
           <mapbox-geolocate-control />
           <mapbox-navigation-control position="bottom-right" />
-
-        </mapbox-map>
+        </mapbox-map> -->
+        <div id="mapContainer" class="basemap"></div>
 
       </el-tab-pane>
 
@@ -614,5 +689,9 @@ const AddFacility = (data: TableSlotDefault) => {
   </ContentWrap>
 </template>
  
-
-mapLink = 
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 450px;
+}
+</style>
