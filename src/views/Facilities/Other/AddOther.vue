@@ -16,7 +16,8 @@ import {
   ElIcon,
   ElRow,
   ElDivider,
-
+  ElDatePicker,
+  ElInputNumber,
   FormRules
 } from 'element-plus'
 
@@ -49,6 +50,18 @@ const parentOptions = ref([])
 const loading = ref(true)
 const tmpSel = ref([])
 
+///--------switches to enable fields on form based on selected feature --------------
+const rating = ref(false)
+const phase = ref(false)
+const height = ref(false)
+const date_install = ref(false)
+const stances = ref(false)
+const cost = ref(false)
+const waste = ref(false)
+const security = ref(false)
+const hazards = ref(false)
+
+///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   type: '',
@@ -57,11 +70,12 @@ const ruleForm = reactive({
   cost_per_use: 0,
   number_stances: 0,
   number_staff: 0,
-  number_phases: 0,
+  number_phases: '',
   size_reserve: 0,
   rating: '',
   number_vehicles: 0,
   height: 0,
+  frequency: '',
   date_install: Date.now(),
   ownership_type: '',
   owner: '',
@@ -101,52 +115,19 @@ const getParentNames = async () => {
   })
 }
 getParentNames()
-
 console.log('--> parent options', parentOptions.value)
 const polygons = ref([]) as Ref<[number, number][][]>
 const shp = []
 const rules = reactive<FormRules>({
-
   settlement_id: [{ required: true, message: 'Please select a settlemtn', trigger: 'blur' }],
-
   type: [{ required: true, message: 'Facility Type is required', trigger: 'blur' }],
   condition: [{ required: true, message: 'Facility condition is required', trigger: 'blur' }],
-
-
 })
 
 const countries = 'ke'
 
 
 
-const AssetTypeOptions = [
-  {
-    value: '100',
-    label: 'Footpath'
-  },
-  {
-    value: '200',
-    label: 'Cycling Lane'
-  }, {
-    value: '300',
-    label: 'Streetlights'
-  }, {
-    value: '400',
-    label: 'Culvert'
-  }, {
-    value: '500',
-    label: 'Bridge'
-  },
-  {
-    value: '600',
-    label: 'Drift'
-  },
-  {
-    value: '700',
-    label: 'Parking'
-  },
-
-]
 
 const FacilityConditionOptions = [
   {
@@ -189,14 +170,12 @@ const cascadeOptions = [
         value: 'power_asset',
         label: 'Power Assets',
         children: [
-
           {
             value: 'primary_substation',
             label: 'Primary Substation',
           },
-
           {
-            value: 'Secondary_substation',
+            value: 'secondary_substation',
             label: ' Secondary substation(transformer) ',
           },
           {
@@ -225,7 +204,7 @@ const cascadeOptions = [
         label: 'Chiefs Camp',
       },
       {
-        value: 'crime_sport',
+        value: 'crime_spot',
         label: 'Crime Hotspot',
       }
 
@@ -262,11 +241,11 @@ const cascadeOptions = [
         label: 'Dumping Sites',
         children: [
           {
-            value: 'illegal',
+            value: 'illegal_dumping_site',
             label: 'Illegal',
           },
           {
-            value: 'legal',
+            value: 'llegal_dumping_site',
             label: 'Legal',
           },
         ]
@@ -378,6 +357,74 @@ const cascadeOptions = [
   },
 ]
 
+const phase_options = [{
+  value: 'single',
+  label: 'Single-Phase',
+},
+{
+  value: '3_phase',
+  label: 'Three-Phase',
+}]
+
+
+
+
+const frequencyOptions = [{
+  value: 'rare',
+  label: 'Rare',
+},
+{
+  value: 'often',
+  label: 'Often',
+},
+{
+  value: 'very_often',
+  label: 'Very Often',
+}
+
+]
+
+
+
+const ownsershipOptions = [
+  {
+    value: 'Private',
+    label: 'Private'
+  },
+  {
+    value: 'public',
+    label: 'Public'
+  },
+  {
+    value: 'Faith Based Organization',
+    label: 'Faith Based Organization'
+  },
+  {
+    value: 'Non - Governmental Organizations',
+    label: 'Non - Governmental Organizations'
+  }
+]
+
+const wasteOptions = [
+  {
+    value: 'Domestic',
+    label: 'Domestic'
+  },
+  {
+    value: 'Industrial',
+    label: 'Industrial'
+  },
+  {
+    value: 'Medical',
+    label: 'Medical'
+  },
+  {
+    value: 'Environmental',
+    label: 'Environmental'
+  }
+]
+
+
 
 const active = ref(0)
 
@@ -397,10 +444,78 @@ function toTitleCase(str) {
 
 
 const handleChange = (selected) => {
-  console.log(selected.length)
-  console.log(selected[selected.length - 1])
+  //  console.log(selected.length)
+  // console.log(selected[selected.length - 1])
   ruleForm.type = selected[selected.length - 1]
-  console.log(ruleForm)
+  var selection = selected[selected.length - 1]
+  // console.log(ruleForm)
+
+
+  //------------------rating and phases------------------
+  if (selection === 'primary_substation' || selection === 'powerline' || selection === 'floodlight' || selection === 'secondary_substation') {
+    rating.value = true
+    phase.value = true
+  } else {
+    rating.value = false
+    phase.value = false
+  }
+
+  //---------------height of floodlights----------
+  if (selection === 'floodlight') {
+    height.value = true
+    date_install.value = true
+  } else {
+    height.value = false
+    date_install.value = false
+  }
+
+  //---------------stances----------
+  if (selection === 'toilet' || selection === 'shower') {
+    stances.value = true
+  } else {
+    stances.value = false
+  }
+
+  //---------------stances----------
+  if (selection === 'toilet' || selection === 'shower') {
+    stances.value = true
+    cost.value = true
+  } else {
+    stances.value = false
+    cost.value = false
+  }
+
+  if (selection === 'illegal_dumping_site' || selection === 'legal_dumping_site' || selection === 'treatment_center' || selection === 'collection_point' || selection === 'waste_mgmt_project' || selection === 'other_waste_mgmt') {
+    waste.value = true
+    cost.value = true
+  } else {
+    waste.value = false
+    cost.value = false
+  }
+
+  if (selection === 'police_stn' || selection === 'police_post' || selection === 'chiefs_camp') {
+    security.value = true
+  } else {
+    security.value = false
+
+  }
+
+  if (selection === 'other_hazard' || selection === 'landslide' || selection === 'flooding' || selection === 'fire') {
+    hazards.value = true
+  } else {
+    hazards.value = false
+
+  }
+
+
+
+
+
+
+
+
+
+
 }
 
 
@@ -477,15 +592,75 @@ const mapHeight = '450px'
                 </el-form-item>
 
 
-
-
                 <el-form-item label="Type" prop="type">
                   <el-cascader v-model="tmpSel" :options="cascadeOptions" :show-all-levels="false"
                     @change="handleChange" />
 
                 </el-form-item>
 
+                <el-form-item v-if="rating" label="Rating(V)" prop="rating">
+                  <el-input v-model="ruleForm.rating" />
+                </el-form-item>
 
+                <el-form-item v-if="height" label="Height(m)" prop="height">
+                  <el-input-number v-model="ruleForm.height" />
+                </el-form-item>
+
+                <el-form-item v-if="height" label="Installation Date" prop="date_install">
+                  <el-date-picker v-model="ruleForm.date_install" type="date" placeholder="Select date" :size="small" />
+                </el-form-item>
+
+                <el-form-item v-if="stances" label="# of Stances" prop="stances">
+                  <el-input-number v-model="ruleForm.number_stances" />
+                </el-form-item>
+
+                <el-form-item v-if="cost" label="Cost per use" prop="cost">
+                  <el-input-number v-model="ruleForm.cost_per_use" />
+                </el-form-item>
+
+                <el-form-item v-if="security" label="#Patrol Vehicles" prop="cost">
+                  <el-input-number v-model="ruleForm.number_vehicles" />
+                </el-form-item>
+
+                <el-form-item v-if="security" label="#Security staff" prop="cost">
+                  <el-input-number v-model="ruleForm.number_staff" />
+                </el-form-item>
+
+
+
+                <el-form-item v-if="phase" label="Phase" prop="phase">
+                  <el-select v-model="ruleForm.number_phases" filterable placeholder="Select">
+                    <el-option v-for="item in phase_options" :key="item.value" :label="item.label"
+                      :value="item.value" />
+                  </el-select>
+                </el-form-item>
+
+
+                <el-form-item v-if="waste" label="Type of Waste" prop="type">
+                  <el-select v-model="ruleForm.type_waste" filterable placeholder="Select">
+                    <el-option v-for="item in wasteOptions" :key="item.value" :label="item.label" :value="item.value" />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item v-if="hazards" label="Frequency" prop="frequency">
+                  <el-select v-model="ruleForm.frequency" filterable placeholder="Select">
+                    <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label"
+                      :value="item.value" />
+                  </el-select>
+                </el-form-item>
+
+
+                <el-form-item label="Ownership" prop="ownership_type">
+                  <el-select v-model="ruleForm.ownership_type" filterable placeholder="Select">
+                    <el-option v-for="item in ownsershipOptions" :key="item.value" :label="item.label"
+                      :value="item.value" />
+                  </el-select>
+                </el-form-item>
+
+
+                <el-form-item label="Owner" prop="owner">
+                  <el-input v-model="ruleForm.owner" />
+                </el-form-item>
 
                 <el-form-item label="Condition" prop="asset_condition">
                   <el-select v-model="ruleForm.condition" filterable placeholder="Select">
@@ -493,6 +668,8 @@ const mapHeight = '450px'
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
+
+
 
               </el-col>
             </el-row>
