@@ -74,12 +74,7 @@ const schema = reactive<FormSchema[]>([
       placeholder: t('login.passwordPlaceholder')
     }
   },
-  {
-    field: 'tool',
-    colProps: {
-      span: 24
-    }
-  },
+
   {
     field: 'login',
     colProps: {
@@ -87,30 +82,19 @@ const schema = reactive<FormSchema[]>([
     }
   },
   {
-    field: 'other',
-    component: 'Divider',
-    label: t('login.otherLogin'),
-    componentProps: {
-      contentPosition: 'center'
-    }
-  },
-  {
-    field: 'otherIcon',
+    field: 'tool',
     colProps: {
       span: 24
     }
-  }
+  },
 ])
 
-const iconSize = 30
-
-const remember = ref(false)
 
 const { register, elFormRef, methods } = useForm()
 
 const loading = ref(false)
 
-const iconColor = '#999'
+
 
 const redirect = ref<string>('')
 
@@ -136,7 +120,7 @@ const signIn = async () => {
       try {
         const res = await loginApi(formData)
         console.log('After Login', res)
-        const selUserDetails = (({ name, roles,data }) => ({ name, roles,data  }))(res);
+        const selUserDetails = (({ name, roles, data }) => ({ name, roles, data }))(res);
         if (selUserDetails) {
           wsCache.set(appStore.getUserInfo, selUserDetails)
           // 是否使用动态路由
@@ -171,8 +155,8 @@ const getRole = async (authenitcatedUser) => {
   const formData = await getFormData<UserType>()
   console.log('authenitcatedUser', authenitcatedUser)
 
-// use the user details to set paths to see 
-  if (authenitcatedUser.roles.includes("admin") ||authenitcatedUser.roles.includes("kisip_staff")    ) {
+  // use the user details to set paths to see 
+  if (authenitcatedUser.roles.includes("admin") || authenitcatedUser.roles.includes("kisip_staff")) {
     formData.role = 'admin'
   } else if (authenitcatedUser.roles.includes("county_admin")) {
     formData.role = 'admin'
@@ -181,20 +165,20 @@ const getRole = async (authenitcatedUser) => {
 
   }
 
- 
+
 
   const params = {
     // roleName: formData.username
-    roleName:  formData.role
+    roleName: formData.role
   }
   // admin - 模拟后端过滤菜单
   // test - 模拟前端过滤菜单
   formData.permissions = ['*.*.*']
- 
- // const color = d.y >= 70 ? "green" : (d.y < 50 ? "red" : "yellow");
+
+  // const color = d.y >= 70 ? "green" : (d.y < 50 ? "red" : "yellow");
 
 
-  const res =formData.role === 'admin' ? await getAdminRoleApi(params) : await getTestRoleApi(params)
+  const res = formData.role === 'admin' ? await getAdminRoleApi(params) : await getTestRoleApi(params)
   if (res) {
     const { wsCache } = useCache()
     const routers = res.data || []
@@ -231,12 +215,7 @@ const reset = () => {
       <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.login') }}</h2>
     </template>
 
-    <template #tool>
-      <div class="flex justify-between items-center w-[100%]">
-        <ElCheckbox v-model="remember" :label="t('login.remember')" size="small" />
-        <ElLink type="primary" @click="dialogFormVisible = true" :underline="false">{{ t('Forgot Password') }}</ElLink>
-      </div>
-    </template>
+
 
     <template #login>
       <div class="w-[100%]">
@@ -250,15 +229,9 @@ const reset = () => {
         </ElButton>
       </div>
     </template>
-
-    <template #otherIcon>
-      <div class="flex justify-between w-[100%]">
-        <Icon icon="ant-design:github-filled" :size="iconSize" class="cursor-pointer anticon" :color="iconColor" />
-        <Icon icon="ant-design:wechat-filled" :size="iconSize" class="cursor-pointer anticon" :color="iconColor" />
-        <Icon icon="ant-design:alipay-circle-filled" :size="iconSize" :color="iconColor"
-          class="cursor-pointer anticon" />
-        <Icon icon="ant-design:weibo-circle-filled" :size="iconSize" :color="iconColor"
-          class="cursor-pointer anticon" />
+    <template #tool>
+      <div class="flex justify-right items-center w-[100%]">
+        <ElLink @click="dialogFormVisible = true" :underline="false">{{ t('Forgot Password') }}</ElLink>
       </div>
     </template>
   </Form>

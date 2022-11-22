@@ -22,7 +22,11 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
-  
+    frequency: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    
     type_waste: {
       type: DataTypes.STRING,
       allowNull: true
@@ -44,7 +48,7 @@ module.exports = function(sequelize, DataTypes) {
     },
 
     number_phases: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: true
     },
 

@@ -239,7 +239,7 @@ const clear = () => {
       <ColorRadioPicker v-model="headerTheme" :schema="[
         '#fff',
         '#f5f5f5',
-        '#cd7f32', // #803300  KISIP theme 
+        '#684b45', // #803300  KISIP theme  
         '#5172dc',
         '#e74c3c',
         '#24292e',
@@ -254,7 +254,7 @@ const clear = () => {
         <ColorRadioPicker v-model="menuTheme" :schema="[
           '#fff',
           '#d45500',
-          '#e3e2df', // #d1d0d1  #e3e2df  KISIP theme 
+          '#684b45', // #d1d0d1  #e3e2df  KISIP theme 
           '#001529',
           '#212121',
           '#273352',
