@@ -7,6 +7,7 @@ import { ref, reactive } from 'vue'
 import { getCountApi } from '@/api/dashboard/analysis'
 import type { AnalysisTotalTypes } from '@/api/dashboard/analysis/types'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
+import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
 
 const { t } = useI18n()
 
@@ -24,12 +25,24 @@ let totalState = reactive<AnalysisTotalTypes>({
   NoSettlements: 0,
   NoSlums: 0,
   NoSlumResidents: 0,
-  NoSlumBeneficiaries: 0
+  NoSlumBeneficiaries: 0,
+  AverageLengthStay: 0,
+  proportionOwners: 0,
+  majorityIncomeLevel: ''
 })
+
+
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, function (txt) {
+    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+  })
+}
+
+
 
 const getCount = async () => {
   const res = await getCountApi()
-    .catch(() => {})
+    .catch(() => { })
     .finally(() => {
       loading.value = false
     })
@@ -62,9 +75,84 @@ const getPopulationSummary = async () => {
   })
 }
 
+const getaverageLengthStay = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'length_stay'
+  formData.summaryFunction = 'AVG'
+  formData.groupField = ''
+  const length_stay = await getSummarybyField(formData)
+  console.log('length_stay---->', Math.round(length_stay.Total[0].AVG))
+  totalState.AverageLengthStay = Math.round(length_stay.Total[0].AVG)
+}
+
+// Income 
+const getAverageIncome = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'income_level'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'income_level'
+
+  await getSummarybyField(formData)
+    .then(response => {
+      var res = response.Total
+      console.log('summary income---->', response)
+      var res = response.Total
+      var max = Math.max.apply(Math, res.map(function (o) { return o.count; }))
+      console.log("max", max)
+
+      res.forEach(function (item) {
+        console.log("Looping----", item)
+        if (item.count == max) {
+          console.log(item.income_level)
+          totalState.majorityIncomeLevel = toTitleCase(item.income_level.replace("_", "-"))
+
+        }
+      });
+
+    });
+
+
+}
+
+
+///////--- Tenure------------
+const tenure = ref([])
+const getTenureStatus = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'ownership_status'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'ownership_status'
+  await getSummarybyField(formData)
+    .then(response => {
+      var res = response.Total
+      console.log(res.reduce((n, { count }) => n + parseInt(count), 0))
+      var data = res,
+        sum = data.reduce((s, { count }) => s + parseInt(count), 0),
+        proportion = data.map(({ ownership_status, count }) => ({ ownership_status, percentage: count * 100 / sum }));
+      console.log(proportion);
+
+      proportion.forEach(function (item) {
+        if (item.ownership_status === "plot_Owner") {
+          totalState.proportionOwners = Math.round(item.percentage)
+        }
+      });
+
+
+    });
+
+}
+
+
+
 getCount()
 getSettlementSummary()
 getPopulationSummary()
+getaverageLengthStay()
+getTenureStatus()
+getAverageIncome()
 </script>
 
 <template>
@@ -77,19 +165,15 @@ getPopulationSummary()
               <div> </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
-                  t('Average Monthly Household Income (KES)')
+                    t('Average Monthly Household Income (KES)')
                 }}</div>
-                <CountTo
-                  class="text-20px font-700 text-center"
-                  :start-val="0"
-                  :end-val="totalState.NoSlumResidents"
-                  :duration="2600"
-                />
+
+                <div class="text-20px font-700 text-center">
+                  {{ totalState.majorityIncomeLevel }}</div>
+
               </div>
-              <div
-                :class="`${prefixCls}__item--icon ${prefixCls}__item--peoples p-16px inline-block rounded-6px`"
-              >
-                <font-awesome-icon size="4x" icon="fa-solid fa-dollar-sign" />
+              <div :class="`${prefixCls}__item--icon ${prefixCls}__item--peoples p-16px inline-block rounded-6px`">
+                <font-awesome-icon size="4x" icon="fa-solid fa-sack-dollar" />
               </div>
             </div>
           </template>
@@ -105,19 +189,14 @@ getPopulationSummary()
               <div> </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
-                  t('Proportion of Households with permanent source of income (%)')
+                    t('Average Duration of Stay within a settlement (years)')
                 }}</div>
-                <CountTo
-                  class="text-20px font-700 text-center"
-                  :start-val="0"
-                  :end-val="80"
-                  :duration="2600"
-                />
+                <CountTo class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.AverageLengthStay"
+                  :duration="2600" />
               </div>
-              <div
-                :class="`${prefixCls}__item--icon ${prefixCls}__item--proportion  p-16px inline-block rounded-6px`"
-              >
-                <font-awesome-icon size="4x" icon="fa-solid fa-filter-circle-dollar" />
+              <div :class="`${prefixCls}__item--icon ${prefixCls}__item--proportion  p-16px inline-block rounded-6px`">
+
+                <font-awesome-icon size="4x" icon="fa-solid fa-calendar-days" />
               </div>
             </div>
           </template>
@@ -133,19 +212,13 @@ getPopulationSummary()
               <div> </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
-                  t('Proportion of Households that own structures within slums')
+                    t('Proportion of Households that own structures within slums (%)')
                 }}</div>
-                <CountTo
-                  class="text-20px font-700 text-center"
-                  :start-val="0"
-                  :end-val="80"
-                  :duration="2600"
-                />
+                <CountTo class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.proportionOwners"
+                  :duration="2600" />
               </div>
-              <div
-                :class="`${prefixCls}__item--icon ${prefixCls}__item--structures  p-16px inline-block rounded-6px`"
-              >
-                <font-awesome-icon size="4x" icon="fa-solid fa-house-lock" />
+              <div :class="`${prefixCls}__item--icon ${prefixCls}__item--structures  p-16px inline-block rounded-6px`">
+                <font-awesome-icon size="4x" icon="fa-solid fa-house" />
               </div>
             </div>
           </template>
@@ -167,9 +240,11 @@ getPopulationSummary()
     &--message {
       color: #36a3f7;
     }
+
     &--peoples {
       color: #c9d30c;
     }
+
     &--money {
       color: #f4516c;
     }
@@ -177,25 +252,32 @@ getPopulationSummary()
     &--shopping {
       color: #34bfa3;
     }
+
     &--structures {
       color: #ed4415;
     }
+
     &:hover {
       :deep(.@{namespace}-icon) {
         color: #fff !important;
       }
+
       .@{prefix-cls}__item--icon {
         transition: all 0.38s ease-out;
       }
+
       .@{prefix-cls}__item--peoples {
         background: #40c9c6;
       }
+
       .@{prefix-cls}__item--message {
         background: #36a3f7;
       }
+
       .@{prefix-cls}__item--money {
         background: #f4516c;
       }
+
       .@{prefix-cls}__item--shopping {
         background: #34bfa3;
       }

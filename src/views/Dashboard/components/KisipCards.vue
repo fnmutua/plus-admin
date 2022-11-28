@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ElRow, ElCol, ElCard, ElSkeleton } from 'element-plus'
+import { ElRow, ElCol, ElCard, ElSkeleton, ElProgress } from 'element-plus'
 import { CountTo } from '@/components/CountTo'
 import { useDesign } from '@/hooks/web/useDesign'
 import { useI18n } from '@/hooks/web/useI18n'
@@ -30,7 +30,7 @@ let totalState = reactive<AnalysisTotalTypes>({
 
 const getCount = async () => {
   const res = await getCountApi()
-    .catch(() => {})
+    .catch(() => { })
     .finally(() => {
       loading.value = false
     })
@@ -76,22 +76,18 @@ getPopulationSummary()
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
-                <div
-                  :class="`${prefixCls}__item--icon ${prefixCls}__item--peoples p-16px inline-block rounded-6px`"
-                >
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--peoples p-16px inline-block rounded-6px`">
                   <font-awesome-icon size="4x" icon="fa-solid fa-city" />
                 </div>
               </div>
+
+
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Beneficiary Slums')
+                    t('Beneficiary Slums')
                 }}</div>
-                <CountTo
-                  class="text-20px font-700 text-right"
-                  :start-val="0"
-                  :end-val="totalState.NoSettlements"
-                  :duration="2600"
-                />
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSettlements"
+                  :duration="2600" />
               </div>
             </div>
           </template>
@@ -105,22 +101,16 @@ getPopulationSummary()
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
-                <div
-                  :class="`${prefixCls}__item--icon ${prefixCls}__item--message p-16px inline-block rounded-6px`"
-                >
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--message p-16px inline-block rounded-6px`">
                   <font-awesome-icon size="4x" icon="fa-solid fa-hands-holding-child" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Beneficiaries under Safety Nets')
+                    t('Beneficiaries under Safety Nets')
                 }}</div>
-                <CountTo
-                  class="text-20px font-700 text-right"
-                  :start-val="0"
-                  :end-val="totalState.NoSlumResidents"
-                  :duration="2600"
-                />
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSlumResidents"
+                  :duration="2600" />
               </div>
             </div>
           </template>
@@ -134,22 +124,15 @@ getPopulationSummary()
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
-                <div
-                  :class="`${prefixCls}__item--icon ${prefixCls}__item--money p-16px inline-block rounded-6px`"
-                >
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--money p-16px inline-block rounded-6px`">
                   <font-awesome-icon size="4x" icon="fa-solid fa-map" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Participating Counties	')
+                    t('Participating Counties ')
                 }}</div>
-                <CountTo
-                  class="text-20px font-700 text-right"
-                  :start-val="0"
-                  :end-val="5"
-                  :duration="2600"
-                />
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="5" :duration="2600" />
               </div>
             </div>
           </template>
@@ -163,22 +146,15 @@ getPopulationSummary()
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
-                <div
-                  :class="`${prefixCls}__item--icon ${prefixCls}__item--shopping p-16px inline-block rounded-6px`"
-                >
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--shopping p-16px inline-block rounded-6px`">
                   <font-awesome-icon size="4x" icon="fa-solid fa-road" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Rehabilitated Roads')
+                    t('Rehabilitated Roads')
                 }}</div>
-                <CountTo
-                  class="text-20px font-700 text-right"
-                  :start-val="0"
-                  :end-val="5344"
-                  :duration="2600"
-                />
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="5344" :duration="2600" />
               </div>
             </div>
           </template>
@@ -213,18 +189,23 @@ getPopulationSummary()
       :deep(.@{namespace}-icon) {
         color: #fff !important;
       }
+
       .@{prefix-cls}__item--icon {
         transition: all 0.38s ease-out;
       }
+
       .@{prefix-cls}__item--peoples {
         background: #40c9c6;
       }
+
       .@{prefix-cls}__item--message {
         background: #36a3f7;
       }
+
       .@{prefix-cls}__item--money {
         background: #f4516c;
       }
+
       .@{prefix-cls}__item--shopping {
         background: #34bfa3;
       }

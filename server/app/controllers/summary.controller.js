@@ -28,18 +28,25 @@ exports.sumModelByColumn= (req, res) => {
   var reg_model = req.body.model
   var summaryField = req.body.summaryField
   var summaryFunction = req.body.summaryFunction
+  var groupField = req.body.groupField
 
-  console.log('Summarizing:',reg_model, ' by ', summaryField)
+  console.log('Summarizing:', reg_model, ' by ', summaryField)
+  if (req.body.groupField) {
+    var qry = {
+      attributes: [groupField, [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+      group: [groupField],
+      raw: true
+    }
+  } else {
+    var qry = {
+      attributes: [[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+      raw: true
+    }
 
+  }
 
     db.models[reg_model]
-    .findAll({
-      attributes: ['county_id', [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-     // [sequelize.fn('COUNT', sequelize.col('hats')), 'n_hats'],
-
-      group : ['county_id' ],
-      raw: true
-        })
+    .findAll(qry)
     .then((result) => {
       if (result) {
         // res.status(200).send(result);
@@ -58,13 +65,11 @@ exports.sumModelByColumn= (req, res) => {
 exports.sumModelByColumnAssociated= (req, res) => {
 
   var reg_model = req.body.model
- 
-
   var assoc_model1 = db.models[req.body.assoc_model[0]]
   var assoc_model2 = db.models[req.body.assoc_model[1]]
-
-
-
+  var groupField = req.body.groupField
+  var childGroupField = req.body.childGroupField
+  //var childGroupField2 = req.body.childGroupField2
 
   var summaryField = req.body.summaryField
   var summaryFunction = req.body.summaryFunction
@@ -88,10 +93,10 @@ exports.sumModelByColumnAssociated= (req, res) => {
     db.models[reg_model]
     .findAll({
      //attributes: ['county_id', [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-      attributes: [ 'settlement.county_id', [Sequelize.fn(summaryFunction, Sequelize.col('county_id')), summaryFunction]], 
+      attributes: [ childGroupField,groupField, [Sequelize.fn(summaryFunction, Sequelize.col(childGroupField)), summaryFunction]], 
      // include: [nestedModels],
-      include: [{model: assoc_model1,attributes:[]}],
-     group : [ 'settlement.county_id' ],
+      include: [{model: assoc_model1,attributes:['name']}],
+     group : [childGroupField, groupField],
 
       raw: true
         })
