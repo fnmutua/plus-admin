@@ -20,7 +20,7 @@ dotenv.config()
  
 
 app.use(cors(corsOptions))
-// app.use(cors())
+// app.use(cors()) 
 
 // middle ware
 // app.use(express.static('public')); //to access the files in public folder
