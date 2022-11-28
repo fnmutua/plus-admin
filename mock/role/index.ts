@@ -24,7 +24,7 @@ const adminList = [
         component: 'views/Dashboard/National',
         name: 'National',
         meta: {
-          title: 'National',
+          title: 'Overview',
           noCache: true
         }
       },
@@ -33,7 +33,7 @@ const adminList = [
         component: 'views/Dashboard/CurrentSlumStatus',
         name: 'Status',
         meta: {
-          title: 'Status',
+          title: 'Socio-Economic',
           noCache: true
         }
       },

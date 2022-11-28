@@ -43,7 +43,7 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       },
       length_stay: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
         allowNull: true
       },
       ownership_status: {
@@ -56,37 +56,76 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       },
 
-      hh_size_03: {
+      age_00_04: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      hh_size_414: {
+      age_05_09: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      hh_size_1520: {
+      age_10_14: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      hh_size_2125: {
+      age_15_19: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      hh_size_2655: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-
-      hh_size_gt55: {
+      age_20_24: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
 
-      over_80: {
+      age_24_29: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
 
+      age_30_34: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+
+      age_35_39: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+      age_40_44: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+      age_45_49: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_50_54: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_55_59: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_60_64: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_65_69: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_70_plus: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      hh_size: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
       terminally_ill: {
         type: DataTypes.INTEGER,
         allowNull: true
@@ -141,6 +180,40 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.STRING,
         allowNull: true
       },
+
+      sanitation: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      source_water: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      mode_transport: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      access_health: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      handwashing: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+ 
+
+      solid_waste: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+
+      solid_waste: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+ 
+
       code: {
         type: DataTypes.STRING,
         allowNull: false

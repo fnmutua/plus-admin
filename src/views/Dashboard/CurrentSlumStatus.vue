@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ElRow, ElCol, ElCard, ElCollapse, ElCollapseItem, ElSkeleton } from 'element-plus'
+import {
+  ElRow, ElCol, ElCard, ElCollapse, ElCollapseItem, ElDivider, ElProgress, ElSkeleton
+} from 'element-plus'
 import { pieOptions, barOptions, lineOptions } from './echarts-data'
 import { ref, reactive } from 'vue'
 import {
@@ -10,18 +12,21 @@ import {
 import { set } from 'lodash-es'
 import { EChartsOption } from 'echarts'
 import { useI18n } from '@/hooks/web/useI18n'
-import PanelGroup from './components/PanelGroup.vue'
-import Income from './components/StatusCards/Income.vue'
+import Income from './components/StatusCards/Summary.vue'
+import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
+
+
 
 const { t } = useI18n()
 
 const loading = ref(true)
+const wchart = ref()
 
 const pieOptionsData = reactive<EChartsOption>(pieOptions) as EChartsOption
 
 // 用户来源
 const getUserAccessSource = async () => {
-  const res = await getUserAccessSourceApi().catch(() => {})
+  const res = await getUserAccessSourceApi().catch(() => { })
   if (res) {
     set(
       pieOptionsData,
@@ -37,13 +42,757 @@ const getUserAccessSource = async () => {
   }
 }
 
+
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, function (txt) {
+    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+  })
+}
+
+
+const getAverageIncome = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'income_level'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'income_level'
+  const income_levels = await getSummarybyField(formData)
+  console.log('income_levels---->', income_levels)
+
+}
+
+
+
+
+///////--- Source of Water------------
+const water_src_chartOptions = ref()
+const water_src_series = ref()
+//-----
+const stackchartOptions = ref()
+const stackchartSeries = ref()
+
+const getWater = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'source_water'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'source_water'
+
+  let categories = []
+  let series = []
+
+  getSummarybyField(formData)
+    .then(response => {
+      console.log('waterssss----------', response.Total)
+      var results = response.Total
+      results.forEach(function (item) {
+        let lbl = toTitleCase(item.source_water.replace("_", " "))
+        categories.push(lbl)
+        series.push(parseInt(item.count)) // very critcal eles wont display on the graph
+      });
+      //    console.log('----------', categories, series)
+      water_src_chartOptions.value = {
+        chart: {
+          width: 380,
+          type: 'pie',
+          toolbar: {
+            show: true,
+            offsetX: 0,
+            offsetY: 0,
+            tools: {
+              download: true,
+              selection: true,
+              zoom: true,
+              zoomin: true,
+              zoomout: true,
+              pan: true,
+
+            },
+            export: {
+              csv: {
+                filename: undefined,
+              },
+              svg: {
+                filename: undefined,
+              },
+              png: {
+                filename: undefined,
+              }
+            },
+            autoSelected: 'zoom'
+          }
+        },
+        title: {
+          text: 'Access to Drinking water',
+          align: 'center'
+        },
+        subtitle: {
+          text: 'National Slum Mapping, 2022',
+          align: 'center'
+        },
+        dataLabels: {
+          enabled: true
+        },
+        legend: {
+          position: 'bottom'
+        },
+        labels: categories,
+        responsive: [{
+          breakpoint: 480,
+          options: {
+            chart: {
+              width: 200
+            },
+            legend: {
+              position: 'bottom'
+            }
+          }
+        }]
+      }
+      water_src_series.value = series
+    });
+
+
+  //-------------------------------------------------------------------//
+  // segregated by the settlement and county// Linking to be done later//
+  formData.assoc_model = ['settlement', 'county']
+  formData.childGroupField = 'settlement.name'
+
+  let clabels = []
+  let subCategories = []
+  var cData = []
+
+  await getSummarybyFieldNested(formData)
+    .then(response => {
+      var results = response.Total
+      console.log(results)
+      results.forEach(function (item) {
+        if (!clabels.includes(item.name)) {
+          clabels.push(item.name);
+        }
+        if (!subCategories.includes(item.source_water)) {
+          subCategories.push(item.source_water)
+        }
+      });
+      // console.log('clabels....', clabels)
+      subCategories.forEach(function (item) {
+        var dataObj = {}
+        dataObj.name = item
+        dataObj.data = []
+        results.forEach(function (dt) {
+          if (dt.source_water == item)
+            dataObj.data.push(parseInt(dt.count))
+        })
+        cData.push(dataObj)
+      })
+    });
+
+  stackchartOptions.value = {
+    title: {
+      text: 'Access to Water Across Settlements in the Counties',
+      align: 'center'
+    },
+    subtitle: {
+      text: 'National Slum Mapping, 2022',
+      align: 'center'
+    },
+
+    dataLabels: {
+      enabled: false
+    },
+    chart: {
+      type: 'bar',
+      height: 350,
+      stacked: true,
+      stackType: '100%',
+      toolbar: {
+        show: true
+      },
+      zoom: {
+        enabled: true,
+        autoScaleYaxis: true,
+        zoomedArea: {
+          fill: {
+            color: '#90CAF9',
+            opacity: 0.4
+          },
+          stroke: {
+            color: '#0D47A1',
+            opacity: 0.4,
+            width: 1
+          }
+        }
+      }
+    },
+    responsive: [{
+      breakpoint: 480,
+      options: {
+        legend: {
+          position: 'bottom',
+          offsetX: -10,
+          offsetY: 0
+        }
+      }
+    }],
+    xaxis: {
+      categories: clabels,
+      tickPlacement: 'on'
+
+    },
+    fill: {
+      opacity: 1
+    },
+    legend: {
+      position: 'right',
+      offsetX: 0,
+      offsetY: 50
+    },
+  }
+  stackchartSeries.value = cData
+
+  //-----------end-water------------------------------------
+
+
+}
+
+
+
+///////--- Health------------
+//----------pie-----------
+const health_access_chartOptions = ref()
+const health_access_series = ref()
+//-------------stack============
+const healthStackchartOptions = ref()
+const healthStackchartSeries = ref()
+
+const getAccessTohealth = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'access_health'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'access_health'
+
+  let categories = []
+  let series = []
+
+  getSummarybyField(formData)
+    .then(response => {
+      console.log('waterssss----------', response.Total)
+      var results = response.Total
+      results.forEach(function (item) {
+        let lbl = toTitleCase(item.access_health.replace("_", " "))
+        categories.push(lbl)
+        series.push(parseInt(item.count)) // very critcal eles wont display on the graph
+      });
+      //    console.log('----------', categories, series)
+      health_access_chartOptions.value = {
+        chart: {
+          width: 380,
+          type: 'pie',
+          toolbar: {
+            show: true,
+            offsetX: 0,
+            offsetY: 0,
+            tools: {
+              download: true,
+              selection: true,
+              zoom: true,
+              zoomin: true,
+              zoomout: true,
+              pan: true,
+
+            },
+            export: {
+              csv: {
+                filename: undefined,
+              },
+              svg: {
+                filename: undefined,
+              },
+              png: {
+                filename: undefined,
+              }
+            },
+            autoSelected: 'zoom'
+          }
+        },
+        title: {
+          text: 'Access to Health Services',
+          align: 'center'
+        },
+        subtitle: {
+          text: 'National Slum Mapping, 2022',
+          align: 'center'
+        },
+        dataLabels: {
+          enabled: true
+        },
+        legend: {
+          position: 'bottom'
+        },
+        labels: categories,
+        responsive: [{
+          breakpoint: 480,
+          options: {
+            chart: {
+              width: 200
+            },
+            legend: {
+              position: 'bottom'
+            }
+          }
+        }]
+      }
+      health_access_series.value = series
+    });
+
+
+  //-------------------------------------------------------------------//
+  // segregated by the settlement and county// Linking to be done later//
+  formData.assoc_model = ['settlement', 'county']
+  formData.childGroupField = 'settlement.name'
+
+  let clabels = []
+  let subCategories = []
+  var cData = []
+
+  await getSummarybyFieldNested(formData)
+    .then(response => {
+      var results = response.Total
+      console.log(results)
+      results.forEach(function (item) {
+        if (!clabels.includes(item.name)) {
+          clabels.push(item.name);
+        }
+        if (!subCategories.includes(item.access_health)) {
+          subCategories.push(item.access_health)
+        }
+      });
+      // console.log('clabels....', clabels)
+      subCategories.forEach(function (item) {
+        var dataObj = {}
+        dataObj.name = item
+        dataObj.data = []
+        results.forEach(function (dt) {
+          if (dt.access_health == item)
+            dataObj.data.push(parseInt(dt.count))
+        })
+        cData.push(dataObj)
+      })
+    });
+
+  healthStackchartOptions.value = {
+    title: {
+      text: 'Access to Health Services Settlements',
+      align: 'center'
+    },
+    subtitle: {
+      text: 'National Slum Mapping, 2022',
+      align: 'center'
+    },
+
+    dataLabels: {
+      enabled: false
+    },
+    chart: {
+      type: 'bar',
+      height: 350,
+      stacked: true,
+      stackType: '100%',
+      toolbar: {
+        show: true
+      },
+      zoom: {
+        enabled: true,
+        autoScaleYaxis: true,
+        zoomedArea: {
+          fill: {
+            color: '#90CAF9',
+            opacity: 0.4
+          },
+          stroke: {
+            color: '#0D47A1',
+            opacity: 0.4,
+            width: 1
+          }
+        }
+      }
+    },
+    responsive: [{
+      breakpoint: 350,
+      options: {
+        legend: {
+          position: 'bottom',
+          offsetX: -10,
+          offsetY: 0
+        }
+      }
+    }],
+    xaxis: {
+      categories: clabels,
+      tickPlacement: 'on'
+
+    },
+    fill: {
+      opacity: 1
+    },
+    legend: {
+      position: 'right',
+      offsetX: 0,
+      offsetY: 50
+    },
+  }
+  healthStackchartSeries.value = cData
+
+  //-----------end-water------------------------------------
+
+
+}
+
+
+
+///////---Gender------------
+
+//----------pie-----------
+const gender_chartOptions = ref()
+const gender_series = ref()
+const getGender = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'gender'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'gender'
+
+  let categories = []
+  let series = []
+
+  getSummarybyField(formData)
+    .then(response => {
+      var results = response.Total
+      results.forEach(function (item) {
+        let lbl = toTitleCase(item.gender.replace("_", " "))
+        categories.push(lbl)
+        series.push(parseInt(item.count)) // very critcal eles wont display on the graph
+      });
+      //    console.log('----------', categories, series)
+      gender_chartOptions.value = {
+        chart: {
+          type: 'pie',
+          toolbar: {
+            show: true,
+            offsetX: 0,
+            offsetY: 0,
+            tools: {
+              download: true,
+              selection: true,
+              zoom: true,
+              zoomin: true,
+              zoomout: true,
+              pan: true,
+
+            },
+            export: {
+              csv: {
+                filename: undefined,
+              },
+              svg: {
+                filename: undefined,
+              },
+              png: {
+                filename: undefined,
+              }
+            },
+            autoSelected: 'zoom'
+          }
+        },
+        title: {
+          text: 'Population Proportion by Gender',
+          align: 'center'
+        },
+        subtitle: {
+          text: 'National Slum Mapping, 2022',
+          align: 'center'
+        },
+        dataLabels: {
+          enabled: true
+        },
+        legend: {
+          position: 'bottom'
+        },
+        labels: categories,
+        responsive: [
+          {
+            breakpoint: 1000,
+            options: {
+              plotOptions: {
+                bar: {
+                  horizontal: false
+                }
+              },
+              legend: {
+                position: "bottom"
+              }
+            }
+          }
+        ]
+      }
+      gender_series.value = series
+    });
+
+
+}
+
+
+
+///////---Rent------------
+const rent_chartOptions = ref()
+const rent_series = ref()
+const getRent = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'rent_payable'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'rent_payable'
+
+  let categories = []
+  let series = []
+
+  getSummarybyField(formData)
+    .then(response => {
+      var results = response.Total
+      results.forEach(function (item) {
+        let lbl = toTitleCase(item.rent_payable.replace("_", "-"))
+        categories.push(lbl)
+        series.push(parseInt(item.count)) // very critcal eles wont display on the graph
+      });
+      //    console.log('----------', categories, series)
+      rent_chartOptions.value = {
+        chart: {
+          type: 'pie',
+          toolbar: {
+            show: true,
+            offsetX: 0,
+            offsetY: 0,
+            tools: {
+              download: true,
+              selection: true,
+              zoom: true,
+              zoomin: true,
+              zoomout: true,
+              pan: true,
+
+            },
+            export: {
+              csv: {
+                filename: undefined,
+              },
+              svg: {
+                filename: undefined,
+              },
+              png: {
+                filename: undefined,
+              }
+            },
+            autoSelected: 'zoom'
+          }
+        },
+        title: {
+          text: 'Proportion by Rent Payable',
+          align: 'center'
+        },
+        subtitle: {
+          text: 'National Slum Mapping, 2022',
+          align: 'center'
+        },
+        dataLabels: {
+          enabled: true
+        },
+        legend: {
+          position: 'bottom'
+        },
+        labels: categories,
+        responsive: [
+          {
+            breakpoint: 1000,
+            options: {
+              plotOptions: {
+                bar: {
+                  horizontal: false
+                }
+              },
+              legend: {
+                position: "bottom"
+              }
+            }
+          }
+        ]
+      }
+      rent_series.value = series
+    });
+
+
+}
+
+
+
+///////---Employments------------
+
+const employment_chartOptions = ref()
+const employment_series = ref()
+const getEmployment = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'emp_status'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'emp_status'
+
+  let categories = []
+  let series = []
+
+  getSummarybyField(formData)
+    .then(response => {
+      var results = response.Total
+      results.forEach(function (item) {
+        let lbl = toTitleCase(item.emp_status.replace("_", "-"))
+        categories.push(lbl)
+        series.push(parseInt(item.count)) // very critcal eles wont display on the graph
+      });
+      //    console.log('----------', categories, series)
+      employment_chartOptions.value = {
+        chart: {
+          type: 'donut',
+          toolbar: {
+            show: true,
+            offsetX: 0,
+            offsetY: 0,
+            tools: {
+              download: true,
+              selection: true,
+              zoom: true,
+              zoomin: true,
+              zoomout: true,
+              pan: true,
+
+            },
+            export: {
+              csv: {
+                filename: undefined,
+              },
+              svg: {
+                filename: undefined,
+              },
+              png: {
+                filename: undefined,
+              }
+            },
+            autoSelected: 'zoom'
+          }
+        },
+        title: {
+          text: 'Proportion by Employment Status',
+          align: 'center'
+        },
+        subtitle: {
+          text: 'National Slum Mapping, 2022',
+          align: 'center'
+        },
+        dataLabels: {
+          enabled: true
+        },
+        legend: {
+          position: 'bottom'
+        },
+        labels: categories,
+        responsive: [
+          {
+            breakpoint: 1000,
+            options: {
+              plotOptions: {
+                bar: {
+                  horizontal: false
+                }
+              },
+              legend: {
+                position: "bottom"
+              }
+            }
+          }
+        ]
+      }
+      employment_series.value = series
+    });
+
+
+}
+
+
+
+
+
+
+///////--- Sanitation------------
+const sanitation = ref([])
+const getSanitation = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'sanitation'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'sanitation'
+  sanitation.value = await getSummarybyField(formData)
+  console.log('sanitation---->', sanitation.value)
+}
+
+///////--- Transport------------
+const transport = ref([])
+const getTransport = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'mode_transport'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'mode_transport'
+  transport.value = await getSummarybyField(formData)
+  console.log('transport---->', transport.value)
+}
+
+
+
+///////--- Solid Waste------------
+const solid_waste = ref([])
+const getSolidWaste = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'solid_waste'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'solid_waste'
+  solid_waste.value = await getSummarybyField(formData)
+  console.log('solid_waste---->', solid_waste.value)
+}
+
+
+
+///////--- Tenure------------
+const tenure = ref([])
+const getOwnershipStatus = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'ownership_status'
+  formData.summaryFunction = 'count'
+  formData.groupField = 'ownership_status'
+  tenure.value = await getSummarybyField(formData)
+  console.log('tenure---->', tenure.value)
+}
+
+
+
+
+
 ////////////Housing----------------------------------
 
 const barOptionsData = reactive<EChartsOption>(barOptions) as EChartsOption
 
 // 周活跃量
 const getWeeklyUserActivity = async () => {
-  const res = await getWeeklyUserActivityApi().catch(() => {})
+  const res = await getWeeklyUserActivityApi().catch(() => { })
   if (res) {
     set(
       barOptionsData,
@@ -64,7 +813,7 @@ const lineOptionsData = reactive<EChartsOption>(lineOptions) as EChartsOption
 
 // 每月销售总额
 const getMonthlySales = async () => {
-  const res = await getMonthlySalesApi().catch(() => {})
+  const res = await getMonthlySalesApi().catch(() => { })
   if (res) {
     set(
       lineOptionsData,
@@ -96,6 +845,16 @@ const getMonthlySales = async () => {
 const getAllApi = async () => {
   await Promise.all([
     getUserAccessSource(),
+    getAverageIncome(),
+    getRent(),
+    getEmployment(),
+    getGender(),
+    getWater(),
+    getSanitation(),
+    getTransport(),
+    getAccessTohealth(),
+    getSolidWaste(),
+    getOwnershipStatus(),
     //  getUserAccesstoWater(),
     //getUserAccesstoHousing(),
     getWeeklyUserActivity(),
@@ -106,591 +865,55 @@ const getAllApi = async () => {
 
 getAllApi()
 
-// Experiment with apex charts
-const series = [
-  {
-    name: 'Number of Slums',
-    data: [13, 14, 14, 17, 18, 20, 24, 99, 148]
-  }
-]
-
-const chartOptions = {
-  chart: {
-    type: 'bar',
-    height: 400
-  },
-  plotOptions: {
-    bar: {
-      barHeight: '100%',
-      distributed: true,
-      horizontal: true,
-      dataLabels: {
-        position: 'bottom'
-      }
-    }
-  },
-  colors: [
-    '#f7f4f9',
-    '#e7e1ef',
-    '#d4b9da',
-    '#c994c7',
-    '#df65b0',
-    '#e7298a',
-    '#ce1256',
-    '#980043',
-    '#67001f'
-  ],
-  dataLabels: {
-    enabled: true,
-    textAnchor: 'start',
-    style: {
-      colors: ['#fff']
-    },
-    formatter: function (val, opt) {
-      return opt.w.globals.labels[opt.dataPointIndex] + ':  ' + val
-    },
-    offsetX: 0,
-    dropShadow: {
-      enabled: true
-    }
-  },
-  stroke: {
-    width: 1,
-    colors: ['#fff']
-  },
-  xaxis: {
-    categories: [
-      'Laikipia',
-      'Migori',
-      'Uasin Gishu',
-      'Turkana',
-      'Kiambu',
-      'Nakuru',
-      'Kirinyaga',
-      'Mombasa',
-      'Nairobi'
-    ]
-  },
-  yaxis: {
-    labels: {
-      show: false
-    }
-  },
-  title: {
-    text: 'Counties with the highest number of Slums',
-    align: 'center',
-    style: {
-      fontSize: '18px',
-      fontWeight: 'bold',
-      fontFamily: undefined,
-      color: '#263238'
-    },
-    floating: true
-  },
-  subtitle: {
-    text: 'National Slum Mapping, 2022',
-    align: 'center'
-  },
-  tooltip: {
-    theme: 'dark',
-    x: {
-      show: true
-    },
-    y: {
-      title: {
-        formatter: function () {
-          return ''
-        }
-      }
-    }
-  }
-}
 
 //Demographics charts
 
-const demographSeries = [
-  {
-    name: 'Males',
-    data: [0.4, 0.65, 0.76, 0.88, 1.5, 2.1, 2.9, 3.8, 3.9, 4.2, 4, 4.3, 4.1, 4.2, 4.5, 3.9, 3.5, 3]
-  },
-  {
-    name: 'Females',
-    data: [
-      -0.8, -1.05, -1.06, -1.18, -1.4, -2.2, -2.85, -3.7, -3.96, -4.22, -4.3, -4.4, -4.1, -4, -4.1,
-      -3.4, -3.1, -2.8
-    ]
-  }
-]
 
-const demographOptions = {
-  chart: {
-    type: 'bar',
-    height: 440,
-    stacked: true
-  },
-  colors: ['#008FFB', '#FF4560'],
-  plotOptions: {
-    bar: {
-      horizontal: true,
-      barHeight: '80%'
-    }
-  },
-  dataLabels: {
-    enabled: false
-  },
-  stroke: {
-    width: 1,
-    colors: ['#fff']
-  },
-
-  grid: {
-    xaxis: {
-      lines: {
-        show: false
-      }
-    }
-  },
-  yaxis: {
-    min: -5,
-    max: 5,
-    title: {
-      // text: 'Age',
-    }
-  },
-  tooltip: {
-    shared: false,
-    x: {
-      formatter: function (val) {
-        return val
-      }
-    },
-    y: {
-      formatter: function (val) {
-        return Math.abs(val) + '%'
-      }
-    }
-  },
-  title: {
-    text: "Kenya's Slum Population Pyramid",
-    align: 'center',
-    style: {
-      fontSize: '18px',
-      fontWeight: 'bold',
-      fontFamily: undefined,
-      color: '#263238'
-    }
-  },
-  subtitle: {
-    text: 'National Slum Mapping, 2022',
-    align: 'center'
-  },
-  xaxis: {
-    categories: [
-      '85+',
-      '80-84',
-      '75-79',
-      '70-74',
-      '65-69',
-      '60-64',
-      '55-59',
-      '50-54',
-      '45-49',
-      '40-44',
-      '35-39',
-      '30-34',
-      '25-29',
-      '20-24',
-      '15-19',
-      '10-14',
-      '5-9',
-      '0-4'
-    ],
-    title: {
-      text: 'Percent',
-      align: 'center'
-    },
-
-    labels: {
-      formatter: function (val) {
-        return Math.abs(Math.round(val)) + '%'
-      }
-    }
-  }
-}
 
 //housing
-const housingSeries = [44, 55]
-const housingFilename = 'housing'
-const housingOptions = {
-  chart: {
-    type: 'pie',
-    toolbar: {
-      show: true,
-      offsetX: 0,
-      offsetY: 0,
-      tools: {
-        download: true
-      },
-      export: {
-        csv: {
-          filename: housingFilename,
-          columnDelimiter: ',',
-          headerCategory: 'category',
-          headerValue: 'value',
-          dateFormatter(timestamp) {
-            return new Date(timestamp).toDateString()
-          }
-        },
-        svg: {
-          filename: housingFilename
-        },
-        png: {
-          filename: housingFilename
-        }
-      }
-    }
-  },
-  title: {
-    text: 'Proportion of Structure owners within Slums',
-    align: 'center'
-  },
-  subtitle: {
-    text: 'National Slum Mapping, 2022',
-    align: 'center'
-  },
-  dataLabels: {
-    enabled: true
-  },
-  legend: {
-    position: 'bottom'
-  },
-  labels: ['Own', 'Rent'],
-  tickPlacement: 'on',
-  total: {
-    show: false
-  },
-  toolbar: {
-    tools: {
-      download: true,
-      selection: true,
-      zoom: true,
-      zoomin: true,
-      zoomout: true,
-      pan: true,
-      reset: true,
-      customIcons: []
-    }
-  }
-}
 
-//housing permanent of structures
-const structSeries = [25, 55, 30]
-const structFilename = 'structure'
-const StructOptions = {
-  chart: {
-    type: 'donut',
-    toolbar: {
-      show: true,
-      offsetX: 0,
-      offsetY: 0,
-      tools: {
-        download: true
-      },
-      export: {
-        csv: {
-          filename: structFilename,
-          columnDelimiter: ',',
-          headerCategory: 'category',
-          headerValue: 'value',
-          dateFormatter(timestamp) {
-            return new Date(timestamp).toDateString()
-          }
-        },
-        svg: {
-          filename: structFilename
-        },
-        png: {
-          filename: housingFilename
-        }
-      }
-    }
-  },
-  dataLabels: {
-    enabled: true
-  },
-  title: {
-    text: 'Permanency of Structures within Slums',
-    align: 'center'
-  },
-  subtitle: {
-    text: 'National Slum Mapping, 2022',
-    align: 'center'
-  },
-  legend: {
-    position: 'bottom'
-  },
-  labels: ['Permanent', 'Semi-Permanent', 'Temporary'],
 
-  toolbar: {
-    tools: {
-      download: true,
-      selection: true,
-      zoom: true,
-      zoomin: true,
-      zoomout: true,
-      pan: true,
-      reset: true,
-      customIcons: []
-    }
-  }
-}
 
-//Duration of stay within a settleemnt
-const ResidencySeries = [25, 55, 56, 70]
-const ResidencyFilename = 'residency'
-const ResidencyOptions = {
-  chart: {
-    type: 'donut',
-    toolbar: {
-      show: true,
-      offsetX: 0,
-      offsetY: 0,
-      tools: {
-        download: true
-      },
-      export: {
-        csv: {
-          filename: ResidencyFilename,
-          columnDelimiter: ',',
-          headerCategory: 'category',
-          headerValue: 'value',
-          dateFormatter(timestamp) {
-            return new Date(timestamp).toDateString()
-          }
-        },
-        svg: {
-          filename: ResidencyFilename
-        },
-        png: {
-          filename: ResidencyFilename
-        }
-      }
-    }
-  },
-  dataLabels: {
-    enabled: true
-  },
-  title: {
-    text: 'Duration of stay within the settlement',
-    align: 'center'
-  },
-  subtitle: {
-    text: 'National Slum Mapping, 2022',
-    align: 'center'
-  },
-  legend: {
-    position: 'bottom'
-  },
-  labels: ['Less than 1 year', '1-5 years', '5-10 years', 'More than 10 years'],
-
-  toolbar: {
-    tools: {
-      download: true,
-      selection: true,
-      zoom: true,
-      zoomin: true,
-      zoomout: true,
-      pan: true,
-      reset: true,
-      customIcons: []
-    }
-  }
-}
 
 // Water access by type
-const WaterSeries = [
-  {
-    name: 'Piped Water',
-    data: [440, 505, 414, 671, 227, 413, 201, 352, 752, 320, 257, 160]
-  },
-  {
-    name: 'Other Sources',
-    data: [23, 42, 35, 27, 43, 22, 17, 31, 22, 22, 12, 16]
-  }
-]
-const WaterFilename = 'Water'
-const WaterOptions = {
-  chart: {
-    type: 'bar',
-    height: 350,
-    stacked: true,
-    stackType: '100%',
-    toolbar: {
-      show: true,
-      offsetX: 0,
-      offsetY: 0,
-      tools: {
-        download: true,
-        selection: true,
-        zoom: true,
-        zoomin: true,
-        zoomout: true,
-        pan: true,
-        reset: true,
-        customIcons: []
-      },
-      export: {
-        csv: {
-          filename: WaterFilename,
-          columnDelimiter: ',',
-          headerCategory: 'category',
-          headerValue: 'value',
-          dateFormatter(timestamp) {
-            return new Date(timestamp).toDateString()
-          }
-        },
-        svg: {
-          filename: WaterFilename
-        },
-        png: {
-          filename: WaterFilename
-        }
-      },
-      autoSelected: 'zoom'
-    }
-  },
 
-  title: {
-    text: 'Access to Water'
-  },
-  dataLabels: {
-    enabled: true
-  },
-  labels: [
-    'Nyamira',
-    'Muranga',
-    'Busia',
-    'Kisii',
-    'Siaya',
-    'Kwale',
-    'Narok',
-    'Wajir',
-    'Kericho',
-    'Nyandarua',
-    'Bungoma',
-    'Tana River'
-  ],
-  xaxis: {
-    type: 'category'
-  }
-}
 
-const PipedWaterSeries = [44, 55]
-const PipedWaterFilename = 'PipedWater'
-const PipedWaterOptions = {
-  chart: {
-    type: 'pie',
-    toolbar: {
-      show: true,
-      offsetX: 0,
-      offsetY: 0,
-      tools: {
-        download: true
-      },
-      export: {
-        csv: {
-          filename: PipedWaterFilename,
-          columnDelimiter: ',',
-          headerCategory: 'category',
-          headerValue: 'value',
-          dateFormatter(timestamp) {
-            return new Date(timestamp).toDateString()
-          }
-        },
-        svg: {
-          filename: PipedWaterFilename
-        },
-        png: {
-          filename: PipedWaterFilename
-        }
-      }
-    }
-  },
-  title: {
-    text: 'Access to piped water',
-    align: 'center'
-  },
-  subtitle: {
-    text: 'National Slum Mapping, 2022',
-    align: 'center'
-  },
-  dataLabels: {
-    enabled: true
-  },
-  legend: {
-    position: 'bottom'
-  },
-  labels: ['Piped Water', 'Other Sources'],
-  tickPlacement: 'on',
-  total: {
-    show: false
-  },
-  toolbar: {
-    tools: {
-      download: true,
-      selection: true,
-      zoom: true,
-      zoomin: true,
-      zoomout: true,
-      pan: true,
-      reset: true,
-      customIcons: []
-    }
-  }
-}
-
-const activeCollapse = ref(['2'])
+const activeCollapse = ref(['1'])
 </script>
 
 <template>
   <el-collapse v-model="activeCollapse">
     <el-collapse-item name="1">
       <template #title>
-        <div class="text-20px text-700 myDiv"> Income </div>
+        <div class="text-20px text-700 myDiv">Summary </div>
       </template>
       <div>
         <Income />
-      </div>
-    </el-collapse-item>
-
-    <el-collapse-item name="2">
-      <template #title>
-        <div class="text-20px text-700 myDiv">Housing </div>
-      </template>
-      <div>
+        <el-divider content-position="left" />
         <ElRow class="mt-10px" :gutter="10" justify="space-between">
-          <ElCol :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
+          <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
             <ElCard shadow="hover" class="mb-20px">
               <ElSkeleton :loading="loading" animated>
-                <!-- <Echart :options="SlumsPerCountyChartData" :height="400" /> -->
-                <apexchart :height="350" :options="housingOptions" :series="housingSeries" />
+                <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
+                <apexchart :height="350" :options="gender_chartOptions" :series="gender_series" />
               </ElSkeleton>
             </ElCard>
           </ElCol>
+          <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
+            <ElCard shadow="hover" class="mb-20px">
+              <ElSkeleton :loading="loading" animated>
+                <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
+                <apexchart :height="350" :options="rent_chartOptions" :series="rent_series" />
+              </ElSkeleton>
+            </ElCard>
+          </ElCol>
+          <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
+            <ElCard shadow="hover" class="mb-20px">
+              <ElSkeleton :loading="loading" animated>
+                <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
+                <apexchart :height="350" :options="employment_chartOptions" :series="employment_series" />
 
-          <ElCol :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
-            <ElCard shadow="hover" class="mb-20px">
-              <ElSkeleton :loading="loading" animated>
-                <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-                <apexchart height="350" :options="StructOptions" :series="structSeries" />
-              </ElSkeleton>
-            </ElCard>
-          </ElCol>
-          <ElCol :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
-            <ElCard shadow="hover" class="mb-20px">
-              <ElSkeleton :loading="loading" animated>
-                <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-                <apexchart height="350" :options="ResidencyOptions" :series="ResidencySeries" />
+
               </ElSkeleton>
             </ElCard>
           </ElCol>
@@ -698,9 +921,40 @@ const activeCollapse = ref(['2'])
       </div>
     </el-collapse-item>
 
+    <el-collapse-item name="2">
+      <template #title>
+        <div class="text-20px text-700 myDiv">Health Services </div>
+      </template>
+      <div>
+        <ElRow class="mt-10px" :gutter="10" justify="space-between">
+
+          <ElCol :xl="8" :lg="16" :md="24" :sm="24" :xs="24">
+            <ElCard shadow="hover" class="mb-20px">
+              <ElSkeleton :loading="loading" animated>
+                <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
+                <apexchart height="350" :options="healthStackchartOptions" :series="healthStackchartSeries" />
+              </ElSkeleton>
+            </ElCard>
+          </ElCol>
+
+
+          <ElCol :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
+            <ElCard shadow="hover" class="mb-20px">
+              <ElSkeleton :loading="loading" animated>
+                <!-- <Echart :options="SlumsPerCountyChartData" :height="400" /> -->
+                <apexchart :height="400" :options="health_access_chartOptions" :series="health_access_series" />
+              </ElSkeleton>
+            </ElCard>
+          </ElCol>
+
+
+        </ElRow>
+      </div>
+    </el-collapse-item>
+
     <el-collapse-item name="3">
       <template #title>
-        <div class="text-20px text-700 myDiv">Water </div>
+        <div class="text-20px text-700 myDiv">Drinking Water</div>
       </template>
       <div>
         <ElRow class="mt-20px" :gutter="20" justify="space-between">
@@ -708,7 +962,7 @@ const activeCollapse = ref(['2'])
             <ElCard shadow="always" class="mb-20px">
               <ElSkeleton :loading="loading" animated>
                 <!-- <Echart :options="SlumsPerCountyChartData" :height="400" /> -->
-                <apexchart :height="400" :options="PipedWaterOptions" :series="PipedWaterSeries" />
+                <apexchart :height="400" :options="water_src_chartOptions" :series="water_src_series" />
               </ElSkeleton>
             </ElCard>
           </ElCol>
@@ -717,11 +971,13 @@ const activeCollapse = ref(['2'])
             <ElCard shadow="always" class="mb-20px">
               <ElSkeleton :loading="loading" animated>
                 <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-                <apexchart height="350" :options="WaterOptions" :series="WaterSeries" />
+                <apexchart height="350" :options="stackchartOptions" :series="stackchartSeries" />
+
               </ElSkeleton>
             </ElCard>
           </ElCol>
         </ElRow>
+
       </div>
     </el-collapse-item>
   </el-collapse>
@@ -731,5 +987,28 @@ const activeCollapse = ref(['2'])
 .myDiv {
   text-align: center;
   padding-left: 10px;
+}
+</style>
+
+<style scoped>
+.percentage-value {
+  display: block;
+  margin-top: 10px;
+  font-size: 28px;
+}
+
+.percentage-label {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.demo-progress .el-progress--line {
+  margin-bottom: 15px;
+  width: 350px;
+}
+
+.demo-progress .el-progress--circle {
+  margin-right: 15px;
 }
 </style>

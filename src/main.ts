@@ -44,10 +44,10 @@ import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 /* import specific icons */
-import { faUserSecret, faCity,faPeopleRoof,faPeopleGroup,faMoneyCheckDollar,faDollarSign, faHouseLock, faFilterCircleDollar, faRoad, faHandsHoldingChild, faFileLines,  faMap} from '@fortawesome/free-solid-svg-icons'
+import { faUserSecret,faHouse, faCity,faPeopleRoof,faPeopleGroup,faMoneyCheckDollar,faDollarSign, faHouseLock, faFilterCircleDollar, faRoad, faHandsHoldingChild, faFileLines, faCalendarDays, faMap, faSackDollar} from '@fortawesome/free-solid-svg-icons'
 
 /* add icons to the library */
-library.add(faUserSecret,faCity,faPeopleGroup,faPeopleRoof,faMoneyCheckDollar,faMap,faFilterCircleDollar,faHouseLock, faDollarSign,faHandsHoldingChild,faFileLines,faRoad)
+library.add(faUserSecret,faCity,faPeopleGroup,faPeopleRoof,faMoneyCheckDollar,faMap,faFilterCircleDollar,faHouseLock, faDollarSign,faHandsHoldingChild,faFileLines,faRoad,faHouse,faSackDollar,faCalendarDays)
 
 import JsonCSV from 'vue-json-csv'
 
