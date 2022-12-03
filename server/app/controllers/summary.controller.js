@@ -53,7 +53,7 @@ exports.nestedSumModelByColumn= (req, res) => {
   var summaryFunction = req.body.summaryFunction
   var assoc_model = db.models[req.body.assoc_model[0]]
   
-  var groupField = req.body.groupField
+  var groupField = req.body.groupField[0]
 
   var nestedModels = { model: assoc_model,attributes: [] }
 
@@ -86,17 +86,26 @@ exports.nestedSumModelByColumn= (req, res) => {
 
 
 exports.sumModelByColumn= (req, res) => {
-
   var reg_model = req.body.model
   var summaryField = req.body.summaryField
   var summaryFunction = req.body.summaryFunction
-  var groupField = req.body.groupField
+ // var groupField = req.body.groupField[0]
 
-  console.log('Summarizing:', reg_model, ' by ', summaryField)
-  if (req.body.groupField) {
+
+  console.log('Summarizing Model by Column:', reg_model, ' by ', summaryField)
+   let groupfields  = []
+  if (req.body.groupField.length > 0) {
+    
+    for (let i = 0; i < req.body.groupField.length; i++) {
+      let field = req.body.groupField[i]
+      groupfields.push(field)
+    }
+    
+    console.log("groupfields, ",groupfields)
+
     var qry = {
-      attributes: [groupField, [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-      group: [groupField],
+      attributes: [...groupfields, [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+      group: [...groupfields],
       raw: true
     }
   } else {
@@ -111,6 +120,7 @@ exports.sumModelByColumn= (req, res) => {
     .findAll(qry)
     .then((result) => {
       if (result) {
+        console.log(result)
         // res.status(200).send(result);
         res.status(200).send({
           Total: result,
@@ -129,7 +139,7 @@ exports.sumModelByColumnAssociated= (req, res) => {
   var reg_model = req.body.model
   var assoc_model1 = db.models[req.body.assoc_model[0]]
   var assoc_model2 = db.models[req.body.assoc_model[1]]
-  var groupField = req.body.groupField
+  var groupField = req.body.groupField[0]
   var childGroupField = req.body.childGroupField
   //var childGroupField2 = req.body.childGroupField2
 

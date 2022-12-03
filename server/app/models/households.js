@@ -21,6 +21,10 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.STRING,
         allowNull: true
       },
+      age_plot_owner: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
       national_id: {
         type: DataTypes.STRING,
         allowNull: false,

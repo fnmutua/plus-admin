@@ -291,7 +291,7 @@ const getSettlementCountByCounty = async () => {
   formData.model = 'settlement'
   formData.summaryField = 'county_id'
   formData.summaryFunction = 'count'
-  formData.groupField = 'county_id'
+  formData.groupField = ['county_id']
 
   // Asccoiated models 
   formData.assoc_model = ['county']
@@ -418,7 +418,10 @@ const getCountyGeo = async () => {
         text: 'Informal Settlements per county',
         subtext: 'National Slum Mapping, 2023',
         sublink: 'https://kisip.go.ke/',
-        left: 'right'
+        left: 'right',
+        textStyle: {
+          fontSize: 14
+        },
       },
       tooltip: {
         trigger: 'item',
@@ -460,7 +463,7 @@ const getCountyGeo = async () => {
       },
       series: [
         {
-          name: 'KE PopEstimates',
+          name: '# Settlements',
           type: 'map',
           roam: true,
           map: 'KE',
@@ -501,7 +504,7 @@ const getSettlementPopulation = async () => {
   // segregated by the settlement and county// Linking to be done later//
   formData.assoc_model = ['county']
   formData.summaryField = 'settlement.population'
-  formData.groupField = 'county.name'
+  formData.groupField = ['county.name']
 
 
   // Directbeneficisaries 
@@ -527,7 +530,10 @@ const getSettlementPopulation = async () => {
       text: 'Population in informal Settlements per county',
       subtext: 'National Slum Mapping, 2023',
       sublink: 'https://kisip.go.ke/',
-      left: 'right'
+      left: 'right',
+      textStyle: {
+        fontSize: 14
+      },
     },
     tooltip: {
       trigger: 'item',
@@ -569,7 +575,7 @@ const getSettlementPopulation = async () => {
     },
     series: [
       {
-        name: 'population',
+        name: '# persons in informal settlements',
         type: 'map',
         roam: true,
         map: 'KE',

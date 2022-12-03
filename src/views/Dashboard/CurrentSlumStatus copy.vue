@@ -56,7 +56,7 @@ const getAverageIncome = async () => {
   formData.model = 'households'
   formData.summaryField = 'income_level'
   formData.summaryFunction = 'count'
-  formData.groupField = 'income_level'
+  formData.groupField = ['income_level']
   const income_levels = await getSummarybyField(formData)
   // console.log('income_levels---->', income_levels)
 
@@ -77,7 +77,7 @@ const getWater = async () => {
   formData.model = 'households'
   formData.summaryField = 'source_water'
   formData.summaryFunction = 'count'
-  formData.groupField = 'source_water'
+  formData.groupField = ['source_water']
 
   let categories = []
   let series = []
@@ -271,7 +271,7 @@ const getAccessTohealth = async () => {
   formData.model = 'households'
   formData.summaryField = 'access_health'
   formData.summaryFunction = 'count'
-  formData.groupField = 'access_health'
+  formData.groupField = ['access_health']
 
   let categories = []
   let series = []

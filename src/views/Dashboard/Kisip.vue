@@ -116,8 +116,7 @@ const getBeneficiaryCount = async () => {
   // segregated by the settlement and county// Linking to be done later//
   formData.assoc_model = ['households']
   formData.summaryField = 'household.gender'
-  formData.groupField = 'household.gender'
-
+  formData.groupField = ['household.gender']
 
   var seriesData = []
   var indirectData = []
