@@ -113,7 +113,7 @@ const getSettlementCountByCounty = async () => {
   formData.model = 'settlement'
   formData.summaryField = 'county_id'
   formData.summaryFunction = 'count'
-  formData.groupField = 'county_id'
+  formData.groupField = ['county_id']
 
   const settPerCounty = await getSummarybyField(formData)
 
@@ -154,7 +154,7 @@ const getSettlementPopByCounty = async () => {
   formData.model = 'settlement'
   formData.summaryField = 'population'
   formData.summaryFunction = 'sum'
-  formData.groupField = 'county_id'
+  formData.groupField = ['county_id']
 
   const settPerCounty = await getSummarybyField(formData)
   // create the jensk breaks and assocaited coloes 
@@ -193,7 +193,7 @@ const getSettlementAreaByCounty = async () => {
   formData.model = 'settlement'
   formData.summaryField = 'area'
   formData.summaryFunction = 'AVG'
-  formData.groupField = 'county_id'
+  formData.groupField = ['county_id']
 
   const settPerCounty = await getSummarybyField(formData)
   // create the jensk breaks and assocaited coloes 
@@ -237,7 +237,7 @@ const getBeneficiariesByCounty = async () => {
   formData.model = 'beneficiary'
   formData.summaryField = 'county_id'
   formData.summaryFunction = 'count'
-  formData.groupField = 'county_id'
+  formData.groupField = ['county_id']
 
   formData.assoc_model = ['settlement', 'county']
 

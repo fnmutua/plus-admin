@@ -92,7 +92,7 @@ const getAverageIncome = async () => {
   formData.model = 'households'
   formData.summaryField = 'income_level'
   formData.summaryFunction = 'count'
-  formData.groupField = 'income_level'
+  formData.groupField = ['income_level']
 
   await getSummarybyField(formData)
     .then(response => {
@@ -124,7 +124,7 @@ const getTenureStatus = async () => {
   formData.model = 'households'
   formData.summaryField = 'ownership_status'
   formData.summaryFunction = 'count'
-  formData.groupField = 'ownership_status'
+  formData.groupField = ['ownership_status']
   await getSummarybyField(formData)
     .then(response => {
       var res = response.Total
