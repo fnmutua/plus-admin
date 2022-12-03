@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElCollapse, ElCollapseItem, ElDivider, ElTabs, ElTabPane, ElProgress, ElSkeleton
+  ElRow, ElCol, ElCard, ElCollapse, ElCollapseItem, ElDivider, ElProgress, ElSkeleton
 } from 'element-plus'
-
 import { pieOptions, barOptions, lineOptions } from './echarts-data'
 import { ref, reactive } from 'vue'
 import {
@@ -521,7 +520,7 @@ const getGender = async () => {
           }
         },
         title: {
-          text: 'Population  by Gender',
+          text: 'Population Proportion by Gender',
           align: 'center'
         },
         subtitle: {
@@ -556,7 +555,7 @@ const getGender = async () => {
 
   echartOptionsGender.value = {
     title: {
-      text: 'Population  by Gender',
+      text: 'Population Proportion by Gender',
       subtext: 'National Slum Mapping, 2023',
       left: 'center',
       textStyle: {
@@ -647,7 +646,7 @@ const getRent = async () => {
 
   rentEchart.value = {
     title: {
-      text: 'Rent Payable',
+      text: 'Proportion by Rent Payable',
       subtext: 'National Slum Mapping, 2023',
       left: 'center',
       textStyle: {
@@ -932,93 +931,130 @@ const getAllApi = async () => {
 getAllApi()
 
 
+//Demographics charts
 
 
-const activeName = ref('summary')
 
+//housing
+
+
+
+
+// Water access by type
+
+
+const activeCollapse = ref(['1'])
 </script>
 
 <template>
-  <Income />
-  <el-tabs v-model="activeName" class="demo-tabs">
-    <el-tab-pane label="Summary" name="summary">
+  <el-collapse v-model="activeCollapse">
+    <el-collapse-item name="1">
+      <template #title>
+        <div class="text-20px text-700 myDiv">Summary </div>
+      </template>
+      <div>
+        <Income />
+        <el-divider content-position="left" />
+        <ElRow class="mt-10px" :gutter="10" justify="space-between">
+          <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
+            <ElCard shadow="hover" class="mb-20px">
+              <ElSkeleton :loading="loading" animated>
+                <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
+                <!-- <apexchart :height="350" :options="gender_chartOptions" :series="gender_series" /> -->
+                <Echart :options="echartOptionsGender" :height="350" />
+
+              </ElSkeleton>
+            </ElCard>
+          </ElCol>
+          <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
+            <ElCard shadow="hover" class="mb-20px">
+              <ElSkeleton :loading="loading" animated>
+                <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
+                <!-- <apexchart :height="350" :options="rent_chartOptions" :series="rent_series" /> -->
+
+                <Echart :options="rentEchart" :height="350" />
 
 
-      <ElRow :gutter="20" justify="space-between">
-        <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
-          <ElCard shadow="hover" class="mb-20px">
-            <ElSkeleton :loading="loading" animated>
-              <Echart :options="echartOptionsGender" :height="350" />
-            </ElSkeleton>
-          </ElCard>
-        </ElCol>
 
-        <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
-          <ElCard shadow="hover" class="mb-20px">
-            <ElSkeleton :loading="loading" animated>
-              <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-              <Echart :options="rentEchart" :height="350" />
 
-            </ElSkeleton>
-          </ElCard>
-        </ElCol>
 
-        <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
-          <ElCard shadow="hover" class="mb-20px">
-            <ElSkeleton :loading="loading" animated>
-              <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-              <Echart :options="employment_chartOptions" :height="350" />
+              </ElSkeleton>
+            </ElCard>
+          </ElCol>
+          <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
+            <ElCard shadow="hover" class="mb-20px">
+              <ElSkeleton :loading="loading" animated>
+                <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
+                <!-- <apexchart :height="350" :options="employment_chartOptions" :series="employment_series" /> -->
+                <Echart :options="employment_chartOptions" :height="350" />
 
-            </ElSkeleton>
-          </ElCard>
-        </ElCol>
-      </ElRow>
-    </el-tab-pane>
-    <el-tab-pane label="Health" name="health">
-      <ElRow class="mt-10px" :gutter="10" justify="space-between">
-        <ElCol :xl="8" :lg="16" :md="24" :sm="24" :xs="24">
-          <ElCard shadow="hover" class="mb-20px">
-            <ElSkeleton :loading="loading" animated>
-              <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-              <apexchart height="350" :options="healthStackchartOptions" :series="healthStackchartSeries" />
-            </ElSkeleton>
-          </ElCard>
-        </ElCol>
-        <ElCol :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
-          <ElCard shadow="hover" class="mb-20px">
-            <ElSkeleton :loading="loading" animated>
-              <!-- <Echart :options="SlumsPerCountyChartData" :height="400" /> -->
-              <apexchart :height="400" :options="health_access_chartOptions" :series="health_access_series" />
-            </ElSkeleton>
-          </ElCard>
-        </ElCol>
-      </ElRow>
-    </el-tab-pane>
 
-    <el-tab-pane label="Water" name="water">
-      <ElRow class="mt-20px" :gutter="20" justify="space-between">
-        <ElCol :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
-          <ElCard shadow="always" class="mb-20px">
-            <ElSkeleton :loading="loading" animated>
-              <apexchart :height="400" :options="water_src_chartOptions" :series="water_src_series" />
-            </ElSkeleton>
-          </ElCard>
-        </ElCol>
+              </ElSkeleton>
+            </ElCard>
+          </ElCol>
+        </ElRow>
+      </div>
+    </el-collapse-item>
 
-        <ElCol :xl="8" :lg="16" :md="24" :sm="24" :xs="24">
-          <ElCard shadow="always" class="mb-20px">
-            <ElSkeleton :loading="loading" animated>
-              <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-              <apexchart height="350" :options="stackchartOptions" :series="stackchartSeries" />
+    <el-collapse-item name="2">
+      <template #title>
+        <div class="text-20px text-700 myDiv">Health Services </div>
+      </template>
+      <div>
+        <ElRow class="mt-10px" :gutter="10" justify="space-between">
 
-            </ElSkeleton>
-          </ElCard>
-        </ElCol>
-      </ElRow>
-    </el-tab-pane>
+          <ElCol :xl="8" :lg="16" :md="24" :sm="24" :xs="24">
+            <ElCard shadow="hover" class="mb-20px">
+              <ElSkeleton :loading="loading" animated>
+                <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
+                <apexchart height="350" :options="healthStackchartOptions" :series="healthStackchartSeries" />
+              </ElSkeleton>
+            </ElCard>
+          </ElCol>
 
-  </el-tabs>
 
+          <ElCol :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
+            <ElCard shadow="hover" class="mb-20px">
+              <ElSkeleton :loading="loading" animated>
+                <!-- <Echart :options="SlumsPerCountyChartData" :height="400" /> -->
+                <apexchart :height="400" :options="health_access_chartOptions" :series="health_access_series" />
+              </ElSkeleton>
+            </ElCard>
+          </ElCol>
+
+
+        </ElRow>
+      </div>
+    </el-collapse-item>
+
+    <el-collapse-item name="3">
+      <template #title>
+        <div class="text-20px text-700 myDiv">Drinking Water</div>
+      </template>
+      <div>
+        <ElRow class="mt-20px" :gutter="20" justify="space-between">
+          <ElCol :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
+            <ElCard shadow="always" class="mb-20px">
+              <ElSkeleton :loading="loading" animated>
+                <apexchart :height="400" :options="water_src_chartOptions" :series="water_src_series" />
+              </ElSkeleton>
+            </ElCard>
+          </ElCol>
+
+          <ElCol :xl="8" :lg="16" :md="24" :sm="24" :xs="24">
+            <ElCard shadow="always" class="mb-20px">
+              <ElSkeleton :loading="loading" animated>
+                <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
+                <apexchart height="350" :options="stackchartOptions" :series="stackchartSeries" />
+
+              </ElSkeleton>
+            </ElCard>
+          </ElCol>
+        </ElRow>
+
+      </div>
+    </el-collapse-item>
+  </el-collapse>
 </template>
 
 <style>

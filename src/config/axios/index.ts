@@ -14,9 +14,9 @@ const token =ref('')
 if(userToken){
   token.value= userToken.data
 } 
-console.log("userInfo--->",token.value )
+console.log("userToken token--->",wsCache.get(appStore.getUserInfo) )
 
-
+  
 
 const { default_headers } = config
 

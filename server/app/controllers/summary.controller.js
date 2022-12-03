@@ -23,6 +23,68 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
 })
  
 
+exports.SimpleSumModelByColumn= (req, res) => {
+  var reg_model = req.body.model
+  var summaryField = req.body.summaryField
+  var summaryFunction = req.body.summaryFunction
+ 
+  console.log('Summarizing:', reg_model, ' by ', summaryField)
+  
+    var qry = {
+      attributes: [[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+      raw: true
+    }
+    db.models[reg_model]
+    .findAll(qry)
+    .then((result) => {
+      if (result) {
+        // res.status(200).send(result);
+        res.status(200).send({
+          Total: result,
+          code: '0000'
+        })
+      }
+    })
+}
+
+exports.nestedSumModelByColumn= (req, res) => {
+  var reg_model = req.body.model
+  var summaryField = req.body.summaryField
+  var summaryFunction = req.body.summaryFunction
+  var assoc_model = db.models[req.body.assoc_model[0]]
+  
+  var groupField = req.body.groupField
+
+  var nestedModels = { model: assoc_model,attributes: [] }
+
+     var qry = {
+       attributes: [groupField, [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+       include: nestedModels,
+       group:[groupField],
+      raw: true
+  }
+  console.log("--groupField-----", qry)
+  
+  console.log("-------", qry)
+
+
+    db.models[reg_model]
+    .findAll(qry)
+    .then((result) => {
+      if (result) {
+        console.log(result)
+        // res.status(200).send(result);
+        res.status(200).send({
+          Total: result,
+          code: '0000'
+        })
+      }
+    })
+}
+
+
+
+
 exports.sumModelByColumn= (req, res) => {
 
   var reg_model = req.body.model
@@ -57,7 +119,7 @@ exports.sumModelByColumn= (req, res) => {
       }
     })
 
- 
+
 }
 
 
@@ -76,28 +138,17 @@ exports.sumModelByColumnAssociated= (req, res) => {
 
   console.log('Summarizing:',reg_model, ' by ', summaryField)
 
-
-  // models.user.find({where: { id: 1 }, 
-  //   group:['user.id'], 
-  //   attributes: [[Sequelize.fn('SUM', Sequelize.col('histories.amount')), 'total']], 
-  //   include: [{model: models.history,attributes:[]}],
-  //   raw:true
-  // }).then(function(user) {
-  //     console.log(user);
-  // }).catch(function(error) { console.log(error) });
-
-  //var nestedModels = { model: assoc_model1, include:assoc_model2, raw: true,nested: true  }
+ 
   var nestedModels = { model: assoc_model1,   raw: true}
+const groups = ['WorkingCalendar.PeriodId', 'WorkingCalendar.date', 'Period.name']
 
 
     db.models[reg_model]
     .findAll({
-     //attributes: ['county_id', [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
       attributes: [ childGroupField,groupField, [Sequelize.fn(summaryFunction, Sequelize.col(childGroupField)), summaryFunction]], 
-     // include: [nestedModels],
-      include: [{model: assoc_model1,attributes:['name']}],
+      include: [{model: assoc_model1,attributes:['name'],nested: true} ],
      group : [childGroupField, groupField],
-
+     order: [['count', 'DESC']],
       raw: true
         })
 

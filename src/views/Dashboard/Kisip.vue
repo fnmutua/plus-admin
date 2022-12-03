@@ -22,16 +22,18 @@ import {
 import { set } from 'lodash-es'
 import { EChartsOption } from 'echarts'
 import { useI18n } from '@/hooks/web/useI18n'
+import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldSimple } from '@/api/summary'
 
 const { t } = useI18n()
 
 const loading = ref(true)
+const colorPalette = ['#0000ff', '#ff007f'];  // Male-Female
 
 const pieOptionsData = reactive<EChartsOption>(pieOptions) as EChartsOption
 
 // 用户来源
 const getUserAccessSource = async () => {
-  const res = await getUserAccessSourceApi().catch(() => {})
+  const res = await getUserAccessSourceApi().catch(() => { })
   if (res) {
     set(
       pieOptionsData,
@@ -47,35 +49,11 @@ const getUserAccessSource = async () => {
   }
 }
 
-const waterOptionsData = reactive<EChartsOption>(waterOptions) as EChartsOption
-
-const getUserAccesstoWater = async () => {
-  const res = await getWaterAccessApi().catch(() => {})
-
-  if (res) {
-    console.log(res)
-    set(
-      waterOptionsData,
-      'legend.data',
-      res.data.map((v) => t(v.name))
-    )
-    waterOptionsData!.series![0].data = res.data.map((v) => {
-      return {
-        name: t(v.name),
-        value: v.value
-      }
-    })
-  }
-}
-
-////////////Housing----------------------------------
-const housingOptionsData = reactive<EChartsOption>(housingOptions) as EChartsOption
-
 const barOptionsData = reactive<EChartsOption>(barOptions) as EChartsOption
 
 // 周活跃量
 const getWeeklyUserActivity = async () => {
-  const res = await getWeeklyUserActivityApi().catch(() => {})
+  const res = await getWeeklyUserActivityApi().catch(() => { })
   if (res) {
     set(
       barOptionsData,
@@ -96,7 +74,7 @@ const lineOptionsData = reactive<EChartsOption>(lineOptions) as EChartsOption
 
 // 每月销售总额
 const getMonthlySales = async () => {
-  const res = await getMonthlySalesApi().catch(() => {})
+  const res = await getMonthlySalesApi().catch(() => { })
   if (res) {
     set(
       lineOptionsData,
@@ -125,170 +103,194 @@ const getMonthlySales = async () => {
   }
 }
 
+
+const directBeneficiaries = ref()
+const inDirectBeneficiaries = ref()
+
+const getBeneficiaryCount = async () => {
+  const formData = {}
+  formData.model = 'beneficiary'
+  formData.summaryFunction = 'count'
+
+
+  // segregated by the settlement and county// Linking to be done later//
+  formData.assoc_model = ['households']
+  formData.summaryField = 'household.gender'
+  formData.groupField = 'household.gender'
+
+
+  var seriesData = []
+  var indirectData = []
+
+  // Directbeneficisaries 
+  await getSummarybyFieldFromInclude(formData)
+    .then(response => {
+      var results = response.Total
+      console.log(results)
+      results.forEach(function (item) {
+        let pieObjectEchart = {}
+        let lbl = item.gender
+        // for eacharts
+        if (lbl) {
+          pieObjectEchart.value = parseInt(item.count)
+          pieObjectEchart.name = lbl
+          seriesData.push(pieObjectEchart)
+        }
+      });
+      directBeneficiaries.value = {
+        title: {
+          text: 'Direct Tenure Beneficiaries, by gender	',
+          subtext: 'National Slum Mapping, 2023',
+          left: 'center',
+          textStyle: {
+            fontSize: 14
+          },
+          subtextStyle: {
+            fontSize: 12
+          }
+        },
+        tooltip: {
+          trigger: 'item',
+          formatter: '{a} <br/>{b} : {c} ({d}%)'
+
+        },
+        selectedMode: true,
+
+        toolbox: {
+          show: true,
+          feature: {
+            mark: { show: true },
+            dataView: { show: true, readOnly: false },
+            restore: { show: true },
+            saveAsImage: { show: true, pixelRatio: 4 }
+          }
+        },
+        legend: {
+          orient: 'horizontal',
+          type: 'scroll',
+          bottom: 10
+        },
+        series: [
+          {
+            name: 'Proportion',
+            type: 'pie',
+            color: colorPalette,
+            data: seriesData,
+            radius: '70%',
+            center: ['50%', '50%'],
+            roseType: 'area',
+
+            itemStyle: {
+              borderRadius: 1,
+              borderColor: '#fff',
+              borderWidth: 1
+            },
+          }
+        ]
+      };
+
+    });
+
+
+  // indirectbeneficisaries 
+  const indirect = {}
+  indirect.model = 'beneficiary'
+  indirect.summaryFunction = 'SUM'
+
+
+  // segregated by the settlement and county// Linking to be done later//
+  indirect.assoc_model = ['households']
+  indirect.summaryField = 'household.age_30_34m'
+  indirect.groupField = 'household.gender'
+
+  await getSummarybyFieldFromInclude(indirect)
+    .then(response => {
+      var results = response.Total
+      console.log(results)
+      results.forEach(function (item) {
+        let pieObjectEchart = {}
+        let lbl = item.gender
+        // for eacharts
+        if (lbl) {
+          pieObjectEchart.value = parseInt(item.SUM)
+          pieObjectEchart.name = lbl
+          indirectData.push(pieObjectEchart)
+        }
+      });
+
+      console.log(indirectData)
+      inDirectBeneficiaries.value = {
+        title: {
+          text: 'Indirect Tenure Beneficiaries, by gender	',
+          subtext: 'National Slum Mapping, 2023',
+          left: 'center',
+          textStyle: {
+            fontSize: 14
+          },
+          subtextStyle: {
+            fontSize: 12
+          }
+        },
+        tooltip: {
+          trigger: 'item',
+          formatter: '{a} <br/>{b} : {c} ({d}%)'
+
+        },
+        selectedMode: true,
+
+        toolbox: {
+          show: true,
+          feature: {
+            mark: { show: true },
+            dataView: { show: true, readOnly: false },
+            restore: { show: true },
+            saveAsImage: { show: true, pixelRatio: 4 }
+          }
+        },
+        legend: {
+          orient: 'horizontal',
+          type: 'scroll',
+          bottom: 10
+        },
+        series: [
+          {
+            name: 'Proportion',
+            type: 'pie',
+            color: colorPalette,
+            data: indirectData,
+            radius: '70%',
+            center: ['50%', '50%'],
+            roseType: 'area',
+
+            itemStyle: {
+              borderRadius: 1,
+              borderColor: '#fff',
+              borderWidth: 1
+            },
+          }
+        ]
+      };
+
+    });
+
+
+}
+
+
 const getAllApi = async () => {
   await Promise.all([
     getUserAccessSource(),
     //  getUserAccesstoWater(),
     //getUserAccesstoHousing(),
     getWeeklyUserActivity(),
-    getMonthlySales()
+    getMonthlySales(),
+    getBeneficiaryCount()
   ])
   loading.value = false
 }
 
 getAllApi()
 
-// Experiment with apex charts
-const series = [
-  {
-    name: 'Number of Slums',
-    data: [13, 14, 14, 17, 18, 20, 24, 99, 148]
-  }
-]
-
-const chartOptions = {
-  chart: {
-    type: 'bar',
-    height: 400
-  },
-  plotOptions: {
-    bar: {
-      barHeight: '100%',
-      distributed: true,
-      horizontal: true,
-      dataLabels: {
-        position: 'bottom'
-      }
-    }
-  },
-  colors: [
-    '#f7f4f9',
-    '#e7e1ef',
-    '#d4b9da',
-    '#c994c7',
-    '#df65b0',
-    '#e7298a',
-    '#ce1256',
-    '#980043',
-    '#67001f'
-  ],
-  dataLabels: {
-    enabled: true,
-    textAnchor: 'start',
-    style: {
-      colors: ['#fff']
-    },
-    formatter: function (val, opt) {
-      return opt.w.globals.labels[opt.dataPointIndex] + ':  ' + val
-    },
-    offsetX: 0,
-    dropShadow: {
-      enabled: true
-    }
-  },
-  stroke: {
-    width: 1,
-    colors: ['#fff']
-  },
-  xaxis: {
-    categories: [
-      'Laikipia',
-      'Migori',
-      'Uasin Gishu',
-      'Turkana',
-      'Kiambu',
-      'Nakuru',
-      'Kirinyaga',
-      'Mombasa',
-      'Nairobi'
-    ]
-  },
-  yaxis: {
-    labels: {
-      show: false
-    }
-  },
-  title: {
-    text: 'Counties with the highest number of Slums',
-    align: 'center',
-    style: {
-      fontSize: '18px',
-      fontWeight: 'bold',
-      fontFamily: undefined,
-      color: '#263238'
-    },
-    floating: true
-  },
-  subtitle: {
-    text: 'National Slum Mapping, 2022',
-    align: 'center'
-  },
-  tooltip: {
-    theme: 'dark',
-    x: {
-      show: true
-    },
-    y: {
-      title: {
-        formatter: function () {
-          return ''
-        }
-      }
-    }
-  }
-}
-
-const progresSeries = [240000, 560000]
-
-const progressOptions = {
-  chart: {
-    width: 380,
-    type: 'donut'
-  },
-
-  plotOptions: {
-    pie: {
-      startAngle: -90,
-      endAngle: 270
-    }
-  },
-  dataLabels: {
-    enabled: true
-  },
-  fill: {
-    type: 'gradient'
-  },
-  legend: {
-    show: true,
-    position: 'bottom',
-    formatter: function (val, opts) {
-      return val + ' - ' + opts.w.globals.series[opts.seriesIndex]
-    }
-  },
-  title: {
-    text: 'Enhanced Tenure Beneficiaries, by gender	',
-    style: {
-      fontSize: '18px',
-      fontWeight: 'bold',
-      fontFamily: undefined,
-      color: '#263238'
-    }
-  },
-  labels: ['Female', 'Male'],
-
-  toolbar: {
-    tools: {
-      download: true,
-      selection: true,
-      zoom: true,
-      zoomin: true,
-      zoomout: true,
-      pan: true,
-      reset: true | '<img src="/static/icons/reset.png" width="20">',
-      customIcons: []
-    }
-  }
-}
 </script>
 
 <template>
@@ -298,37 +300,24 @@ const progressOptions = {
       <ElCard shadow="hover" class="mb-20px">
         <ElSkeleton :loading="loading" animated>
           <!-- <Echart :options="SlumsPerCountyChartData" :height="400" /> -->
-          <apexchart
-            :height="400"
-            :type="radialBar"
-            :options="progressOptions"
-            :series="progresSeries"
-          />
+          <!--           <apexchart :height="400" :type="radialBar" :options="progressOptions" :series="progresSeries" /> -->
+          <Echart :options="directBeneficiaries" :height="350" />
+
+        </ElSkeleton>
+      </ElCard>
+    </ElCol>
+    <ElCol :xl="8" :lg="12" :md="24" :sm="24" :xs="24">
+      <ElCard shadow="hover" class="mb-20px">
+        <ElSkeleton :loading="loading" animated>
+          <!-- <Echart :options="SlumsPerCountyChartData" :height="400" /> -->
+          <!--           <apexchart :height="400" :type="radialBar" :options="progressOptions" :series="progresSeries" /> -->
+          <Echart :options="inDirectBeneficiaries" :height="350" />
+
         </ElSkeleton>
       </ElCard>
     </ElCol>
 
-    <ElCol :xl="8" :lg="12" :md="24" :sm="24" :xs="24">
-      <ElCard shadow="hover" class="mb-20px">
-        <ElSkeleton :loading="loading" animated>
-          <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-          <apexchart type="bar" height="400" :options="chartOptions" :series="series" />
-        </ElSkeleton>
-      </ElCard>
-    </ElCol>
-    <ElCol :xl="10" :lg="12" :md="24" :sm="24" :xs="24">
-      <ElCard shadow="hover" class="mb-10px">
-        <ElSkeleton :loading="loading" animated>
-          <Echart :options="housingOptionsData" :height="300" />
-        </ElSkeleton>
-      </ElCard>
-    </ElCol>
-    <ElCol :xl="8" :lg="12" :md="24" :sm="24" :xs="24">
-      <ElCard shadow="hover" class="mb-20px">
-        <ElSkeleton :loading="loading" animated>
-          <Echart :options="waterOptionsData" :height="300" />
-        </ElSkeleton>
-      </ElCard>
-    </ElCol>
+
+
   </ElRow>
 </template>
