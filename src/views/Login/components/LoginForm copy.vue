@@ -124,9 +124,6 @@ const signIn = async () => {
         if (selUserDetails) {
           wsCache.set(appStore.getUserInfo, selUserDetails)
           // 是否使用动态路由
-          const userDeatilsAfterLogin = wsCache.get(appStore.getUserInfo)
-
-          console.log("----userDeatilsAfterLogin----", userDeatilsAfterLogin)
 
           appStore.dynamicRouter = true    // felix to edit 
           console.log("Dynamic router--->", appStore.getDynamicRouter)

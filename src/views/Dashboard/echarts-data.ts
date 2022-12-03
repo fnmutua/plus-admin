@@ -2,7 +2,7 @@ import { EChartsOption } from 'echarts'
 import { EChartsOption as EChartsWordOption } from 'echarts-wordcloud'
 import { useI18n } from '@/hooks/web/useI18n'
 import 'echarts/lib/component/toolbox'
-import VueApexCharts from 'vue-apexcharts'
+import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
 
 const { t } = useI18n()
 

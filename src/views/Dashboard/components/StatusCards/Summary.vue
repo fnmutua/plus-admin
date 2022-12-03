@@ -57,7 +57,7 @@ const getSettlementSummary = async () => {
   countQuerry.model = 'settlement'
   await getCountFilter(countQuerry, { model: 'settlement' }).then((response) => {
     totalState.NoSettlements = response.count
-    console.log('The NoSettlements', totalState.NoSettlements)
+    //   console.log('The NoSettlements', totalState.NoSettlements)
   })
 }
 
@@ -69,9 +69,9 @@ const getPopulationSummary = async () => {
   countQuerry.model = 'settlement'
   countQuerry.sumField = 'population'
   await getSumFilter(countQuerry).then((response) => {
-    console.log(response.data)
+    //  console.log(response.data)
     totalState.NoSlumResidents = parseInt(response.data)
-    console.log('The NoSlumResidents', totalState.NoSlumResidents)
+    //   console.log('The NoSlumResidents', totalState.NoSlumResidents)
   })
 }
 
@@ -82,7 +82,7 @@ const getaverageLengthStay = async () => {
   formData.summaryFunction = 'AVG'
   formData.groupField = ''
   const length_stay = await getSummarybyField(formData)
-  console.log('length_stay---->', Math.round(length_stay.Total[0].AVG))
+  // console.log('length_stay---->', Math.round(length_stay.Total[0].AVG))
   totalState.AverageLengthStay = Math.round(length_stay.Total[0].AVG)
 }
 
@@ -97,15 +97,15 @@ const getAverageIncome = async () => {
   await getSummarybyField(formData)
     .then(response => {
       var res = response.Total
-      console.log('summary income---->', response)
+      //   console.log('summary income---->', response)
       var res = response.Total
       var max = Math.max.apply(Math, res.map(function (o) { return o.count; }))
-      console.log("max", max)
+      //   console.log("max", max)
 
       res.forEach(function (item) {
-        console.log("Looping----", item)
+        //  console.log("Looping----", item)
         if (item.count == max) {
-          console.log(item.income_level)
+          //    console.log(item.income_level)
           totalState.majorityIncomeLevel = toTitleCase(item.income_level.replace("_", "-"))
 
         }
@@ -128,11 +128,11 @@ const getTenureStatus = async () => {
   await getSummarybyField(formData)
     .then(response => {
       var res = response.Total
-      console.log(res.reduce((n, { count }) => n + parseInt(count), 0))
+      //   console.log(res.reduce((n, { count }) => n + parseInt(count), 0))
       var data = res,
         sum = data.reduce((s, { count }) => s + parseInt(count), 0),
         proportion = data.map(({ ownership_status, count }) => ({ ownership_status, percentage: count * 100 / sum }));
-      console.log(proportion);
+      //   console.log(proportion);
 
       proportion.forEach(function (item) {
         if (item.ownership_status === "plot_Owner") {

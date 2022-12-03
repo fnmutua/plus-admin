@@ -55,73 +55,146 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.BLOB,
         allowNull: true
       },
+  
 
-      age_00_04: {
+      /// Household - male ------------
+      age_00_04m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      age_05_09: {
+      age_05_09m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      age_10_14: {
+      age_10_14m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      age_15_19: {
+      age_15_19m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      age_20_24: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-      },
-
-      age_24_29: {
+      age_20_24m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
 
-      age_30_34: {
+      age_24_29m: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+      age_30_34m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
 
 
-      age_35_39: {
+      age_35_39m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
 
-      age_40_44: {
+      age_40_44m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
 
-      age_45_49: {
+      age_45_49m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      age_50_54: {
+      age_50_54m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      age_55_59: {
+      age_55_59m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      age_60_64: {
+      age_60_64m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      age_65_69: {
+      age_65_69m: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      age_70_plus: {
+      age_70_plusm: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
+
+
+      // femaile 
+      age_00_04f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_05_09f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_10_14f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_15_19f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_20_24f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+      age_24_29f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+      age_30_34f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+
+      age_35_39f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+      age_40_44f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+      age_45_49f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_50_54f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_55_59f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_60_64f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_65_69f: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      age_70_plusf: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+      //---------
       hh_size: {
         type: DataTypes.INTEGER,
         allowNull: true

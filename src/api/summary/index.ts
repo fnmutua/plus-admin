@@ -18,3 +18,16 @@ export const getSummarybyFieldNested = (data: any): Promise<IResponse> => {
  // console.log('filters....', data)
   return request.post({ url: prod + '/api/v1/summary/byfield/nested', data })
 }
+
+export const getSummarybyFieldSimple= (data: any): Promise<IResponse> => {
+  // console.log('filters....', data)
+   return request.post({ url: prod + '/api/v1/summary/byfield/simple', data })
+}
+ 
+
+export const getSummarybyFieldFromInclude= (data: any): Promise<IResponse> => {
+  // console.log('filters....', data)
+   return request.post({ url: prod + '/api/v1/summary/byfield/include', data })
+}
+
+
