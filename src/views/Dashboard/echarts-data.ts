@@ -180,7 +180,7 @@ export const housingOptions: EChartsOption = {
     show: true,
     feature: {
       mark: { show: true },
-      dataView: { show: true, readOnly: false },
+      dataView: { show: true, readOnly: true },
       restore: { show: true },
       saveAsImage: { show: true }
     }
@@ -222,7 +222,7 @@ export const SlumsPerCountyChart: EChartsOption = {
     show: true,
     feature: {
       mark: { show: true },
-      dataView: { show: true, readOnly: false },
+      dataView: { show: true, readOnly: true },
       restore: { show: true },
       saveAsImage: { show: true }
     }
@@ -310,7 +310,7 @@ export const topCountiesWithSlums: EChartsOption = {
     show: true,
     feature: {
       mark: { show: true },
-      dataView: { show: true, readOnly: false },
+      dataView: { show: true, readOnly: true },
       restore: { show: true },
       saveAsImage: { show: true }
     }

@@ -30,4 +30,8 @@ export const getSummarybyFieldFromInclude= (data: any): Promise<IResponse> => {
    return request.post({ url: prod + '/api/v1/summary/byfield/include', data })
 }
 
+export const getSummarybyFieldFromMultipleIncludes= (data: any): Promise<IResponse> => {
+  // console.log('filters....', data)
+   return request.post({ url: prod + '/api/v1/summary/byfield/multiple', data })
+}
 
