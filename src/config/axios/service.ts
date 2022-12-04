@@ -58,10 +58,10 @@ service.interceptors.response.use(
       // 如果是文件流，直接过
       return response
     } else if (response.data.code === result_code) {
-      // ElMessage({
-      //   message: response.data.message,
-      //   type: 'success'
-      // })    // felix - show message on success request 
+      ElMessage({
+        message: response.data.message,
+        type: 'success'
+      })    // felix - show message on success request 
       return response.data
     } else {
       ElMessage.error(response.data.message)

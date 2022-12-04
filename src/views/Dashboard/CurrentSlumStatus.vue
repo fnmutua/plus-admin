@@ -19,6 +19,12 @@ import { Echart } from '@/components/Echart'
 import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldSimple } from '@/api/summary'
 
 
+import { use } from "echarts/core";
+import { GaugeChart } from "echarts/charts";
+
+use([
+  GaugeChart
+]);
 
 
 const { t } = useI18n()
@@ -1035,6 +1041,248 @@ const getOwnershipStatusByGender = async () => {
 
 
 }
+const stackedEducationBygender = ref()
+const educationGauge = ref()
+
+
+const getEducationByGender = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryFunction = 'count'
+
+
+  // segregated by the settlement and county// Linking to be done later//
+  formData.summaryField = 'education_level'
+  formData.groupField = ['education_level', 'gender']
+
+
+
+  let clabels = []
+  let subCategories = []
+  var cData = []
+  var maleData = []
+  var femaleData = []
+
+
+  // Directbeneficisaries 
+  await getSummarybyField(formData)
+    .then(response => {
+      var results = response.Total
+      console.log("ownership by gender ---->", results)
+
+      //create the subcategories 
+      results.forEach(function (item) {
+        if (!clabels.includes(item.name)) {
+          clabels.push(item.name);
+        }
+        if (!subCategories.includes(item.education_level)) {
+          subCategories.push(item.education_level)
+        }
+      });
+      // console.log('clabels....', clabels)
+
+      //create data by gender
+      results.forEach(function (dt) {
+        if (dt.gender === 'Male') {
+          console.log(dt)
+          maleData.push(parseInt(dt.count))
+        } else {
+          femaleData.push(parseInt(dt.count))
+        }
+      })
+
+      //create data by gender
+      let atleastSecondarylevel = []
+      let allLevels = []
+
+      results.forEach(function (dt) {
+        allLevels.push(parseInt(dt.count))
+        if (dt.education_level != 'primary' && dt.education_level != 'none') {
+          console.log(dt.education_level)
+          atleastSecondarylevel.push(parseInt(dt.count))
+        }
+      })
+
+      // stacked Education 
+      stackedEducationBygender.value = {
+        title: {
+          text: 'Edcuation Status by Gender',
+          subtext: 'National Slum Mapping, 2023',
+          left: 'center',
+          textStyle: {
+            fontSize: 14
+          },
+          subtextStyle: {
+            fontSize: 12
+          }
+        },
+
+        tooltip: {
+          trigger: 'axis',
+
+          axisPointer: {
+            // Use axis to trigger tooltip
+            type: 'line' // 'shadow' as default; can also be 'line' or 'shadow'
+          }
+        },
+        toolbox: {
+          show: true,
+          feature: {
+            mark: { show: true },
+            dataView: { show: true, readOnly: false },
+            restore: { show: true },
+            saveAsImage: { show: true, pixelRatio: 4 }
+          }
+        },
+        legend: {
+          orient: 'horizontal',
+          type: 'scroll',
+          left: 'left',
+          itemWidth: 20,
+          itemHeight: 20,
+          data: [
+            {
+              name: 'Male',
+              icon: maleIcon
+            },
+            {
+              name: 'Female',
+              icon: femaleIcon
+            }
+          ]
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          containLabel: true
+        },
+        xAxis: {
+          data: subCategories
+
+        },
+        yAxis: {
+          type: 'value'
+
+        },
+        series: [
+          {
+            name: 'Male',
+            type: 'bar',
+            stack: 'total',
+            label: {
+              show: true
+            },
+            emphasis: {
+              focus: 'series'
+            },
+            color: colorPalette[1],
+            data: maleData
+          },
+          {
+            name: 'Female',
+            type: 'bar',
+            stack: 'total',
+            color: colorPalette[0],
+
+            label: {
+              show: true
+            },
+            emphasis: {
+              focus: 'series'
+            },
+            data: femaleData
+          },
+
+        ]
+      };
+
+
+      let totalHH = allLevels.reduce((a, b) => a + b, 0)
+      let totalSeclevelAbove = atleastSecondarylevel.reduce((a, b) => a + b, 0)
+      let propSeclevelAbove = 100 * totalSeclevelAbove / totalHH
+
+      // Gauge bar 
+      educationGauge.value = {
+        title: {
+          text: 'Slums Residents with atleast a  degree',
+          subtext: 'National Slum Mapping, 2023',
+          left: 'center',
+          textStyle: {
+            fontSize: 14
+          },
+          subtextStyle: {
+            fontSize: 12
+          }
+        },
+
+        series: [
+          {
+            type: 'gauge',
+            progress: {
+              show: true,
+              width: 24
+            },
+            axisLine: {
+              lineStyle: {
+                width: 24,
+                color: [
+                  [0.25, '#67e0e3'],
+                  [0.8, '#1bf2a8'],
+                  [1, '#1bf2a8']
+                ]
+              }
+            },
+            axisTick: {
+              show: true
+            },
+            splitLine: {
+              length: 15,
+              lineStyle: {
+                width: 2,
+                color: '#999'
+              }
+            },
+            axisLabel: {
+              distance: 25,
+              color: '#999',
+              fontSize: 12
+            },
+            anchor: {
+              show: true,
+              showAbove: true,
+              size: 25,
+              itemStyle: {
+                borderWidth: 10
+              }
+            },
+            title: {
+              show: false
+            },
+            detail: {
+              valueAnimation: true,
+              fontSize: 45,
+              formatter: '{value}%',
+
+              offsetCenter: [0, '99%']
+            },
+            data: [
+              {
+                value: Math.round(propSeclevelAbove)
+              }
+            ]
+          }
+        ]
+      };
+    });
+
+
+
+
+
+}
+
+
 
 
 
@@ -1088,57 +1336,6 @@ const getSolidWaste = async () => {
 
 const barOptionsData = reactive<EChartsOption>(barOptions) as EChartsOption
 
-// 周活跃量
-const getWeeklyUserActivity = async () => {
-  const res = await getWeeklyUserActivityApi().catch(() => { })
-  if (res) {
-    set(
-      barOptionsData,
-      'xAxis.data',
-      res.data.map((v) => t(v.name))
-    )
-    set(barOptionsData, 'series', [
-      {
-        name: t('analysis.activeQuantity'),
-        data: res.data.map((v) => v.value),
-        type: 'bar'
-      }
-    ])
-  }
-}
-
-const lineOptionsData = reactive<EChartsOption>(lineOptions) as EChartsOption
-
-// 每月销售总额
-const getMonthlySales = async () => {
-  const res = await getMonthlySalesApi().catch(() => { })
-  if (res) {
-    set(
-      lineOptionsData,
-      'xAxis.data',
-      res.data.map((v) => t(v.name))
-    )
-    set(lineOptionsData, 'series', [
-      {
-        name: t('analysis.estimate'),
-        smooth: true,
-        type: 'line',
-        data: res.data.map((v) => v.estimate),
-        animationDuration: 2800,
-        animationEasing: 'cubicInOut'
-      },
-      {
-        name: t('analysis.actual'),
-        smooth: true,
-        type: 'line',
-        itemStyle: {},
-        data: res.data.map((v) => v.actual),
-        animationDuration: 2800,
-        animationEasing: 'quadraticOut'
-      }
-    ])
-  }
-}
 
 const getAllApi = async () => {
   await Promise.all([
@@ -1154,10 +1351,7 @@ const getAllApi = async () => {
     getSolidWaste(),
     getOwnershipStatus(),
     getOwnershipStatusByGender(),
-    //  getUserAccesstoWater(),
-    //getUserAccesstoHousing(),
-    getWeeklyUserActivity(),
-    getMonthlySales()
+    getEducationByGender()
   ])
   loading.value = false
 }
@@ -1294,21 +1488,22 @@ const activeName = ref('summary')
       </ElRow>
     </el-tab-pane>
 
-    <el-tab-pane label="Education" name="sanitation">
+    <el-tab-pane label="Education" name="education">
       <ElRow class="mt-20px" :gutter="20" justify="space-between">
         <ElCol :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
           <ElCard shadow="always" class="mb-20px">
             <ElSkeleton :loading="loading" animated>
-              <apexchart :height="400" :options="water_src_chartOptions" :series="water_src_series" />
+              <Echart :options="educationGauge" :height="350" />
             </ElSkeleton>
           </ElCard>
         </ElCol>
+
 
         <ElCol :xl="8" :lg="16" :md="24" :sm="24" :xs="24">
           <ElCard shadow="always" class="mb-20px">
             <ElSkeleton :loading="loading" animated>
               <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-              <apexchart height="350" :options="stackchartOptions" :series="stackchartSeries" />
+              <Echart :options="stackedEducationBygender" :height="350" />
 
             </ElSkeleton>
           </ElCard>
