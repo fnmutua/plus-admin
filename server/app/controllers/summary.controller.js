@@ -134,8 +134,9 @@ exports.sumModelByColumn= (req, res) => {
 
 
 
-exports.sumModelByColumnAssociated= (req, res) => {
-
+exports.sumModelByColumnAssociated = (req, res) => {
+  
+ 
   var reg_model = req.body.model
   var assoc_model1 = db.models[req.body.assoc_model[0]]
   var assoc_model2 = db.models[req.body.assoc_model[1]]
@@ -150,7 +151,6 @@ exports.sumModelByColumnAssociated= (req, res) => {
 
  
   var nestedModels = { model: assoc_model1,   raw: true}
-const groups = ['WorkingCalendar.PeriodId', 'WorkingCalendar.date', 'Period.name']
 
 
     db.models[reg_model]
@@ -176,3 +176,77 @@ const groups = ['WorkingCalendar.PeriodId', 'WorkingCalendar.date', 'Period.name
 }
 
 	
+
+exports.sumModelAssociatedMultipleModels = (req, res) => {
+  
+  console.log('xxxxsumModelByColumnAssociated.........')
+
+ 
+  var reg_model = req.body.model
+  var summaryField = req.body.summaryField
+  var summaryFunction = req.body.summaryFunction
+
+
+
+
+
+  let groupfields = []
+  
+  if (req.body.groupFields) {
+    for (let i = 0; i < req.body.groupFields.length; i++) {
+      let field = req.body.groupFields[i]
+      groupfields.push(field)
+    }
+
+
+
+    
+    console.log("groupfields, ",groupfields)
+    console.log("summaryFunction, ",summaryFunction)
+
+    var qry = {
+      attributes: [...groupfields,[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+      group: [...groupfields],
+      raw: true
+    }
+  } else {
+    var qry = {
+      attributes: [...groupfields,[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+      raw: true
+    }
+
+  }
+
+  
+ 
+   
+ var nestedModels = { model: db.models[req.body.assoc_models[0]], attributes: [],include: [{ model: db.models[req.body.assoc_models[1]], attributes: [] }] }
+
+
+  qry.include=nestedModels
+ 
+  
+  if (req.body.filterField) {
+    let filterCol = req.body.filterField
+    let filterValue = req.body.filterValue
+    qry.where = { [filterCol]: { [op.eq]: filterValue } } // Exclude the logged in user returing in the list
+
+  }
+
+
+  console.log("202020 - the ", qry)
+
+
+  db.models[reg_model]
+  .findAll(qry)
+  .then((result) => {
+    if (result) {
+      console.log(result)
+      // res.status(200).send(result);
+      res.status(200).send({
+        Total: result,
+        code: '0000'
+      })
+    }
+  })
+}

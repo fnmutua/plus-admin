@@ -196,7 +196,7 @@ const getSettlementPopPyramid = async () => {
       show: true,
       feature: {
         mark: { show: true },
-        dataView: { show: true, readOnly: false },
+        dataView: { show: true, readOnly: true },
         restore: { show: true },
         saveAsImage: { show: true, pixelRatio: 4 }
       }
@@ -345,7 +345,7 @@ const getSettlementCountByCounty = async () => {
       show: true,
       feature: {
         mark: { show: true },
-        dataView: { show: true, readOnly: false },
+        dataView: { show: true, readOnly: true },
         restore: { show: true },
         saveAsImage: { show: true, pixelRatio: 4 }
       }
@@ -456,7 +456,7 @@ const getCountyGeo = async () => {
         left: 'left',
         top: 'top',
         feature: {
-          dataView: { readOnly: false },
+          dataView: { readOnly: true },
           restore: {},
           saveAsImage: {}
         }
@@ -568,7 +568,7 @@ const getSettlementPopulation = async () => {
       left: 'left',
       top: 'top',
       feature: {
-        dataView: { readOnly: false },
+        dataView: { readOnly: true },
         restore: {},
         saveAsImage: {}
       }

@@ -14,17 +14,17 @@ export const getSettlementListApi = ({ params }: AxiosConfig) => {
 export const getSettlementListByCounty = (
   data: SettlementType
 ): Promise<IResponse<SettlementType>> => {
-  console.log('getSettlementListByCounty....', data)
+//  console.log('getSettlementListByCounty....', data)
   return request.post({ url: prod + '/api/v1/data/column/paginated', data })
 }
 
 export const getfilteredGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  console.log('getGeo....', data)
+//  console.log('getGeo....', data)
   return request.post({ url: prod + '/api/v1/data/subset/geo', data })
 }
 
 export const getAllGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  console.log('getGeo....', data)
+  //console.log('getGeo....', data)
   return request.post({ url: prod + '/api/v1/data/all/geo', data })
 }
 
@@ -34,32 +34,32 @@ export const getAllGeo = (data: SettlementType): Promise<IResponse<SettlementTyp
 
 
 export const getOneGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  console.log('getGeo....', data)
+  //console.log('getGeo....', data)
   return request.post({ url: prod + '/api/v1/data/one/geo', data })
 }
 
 export const getCountFilter = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  console.log('Number of Settlements....', data)
+  //console.log('Number of Settlements....', data)
   return request.post({ url: prod + '/api/v1/data/count/filter', data })
 }
 
 export const getSumFilter = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  console.log('Sums.....', data)
+  //console.log('Sums.....', data)
   return request.post({ url: prod + '/api/v1/data/sum/filter', data })
 }
 
 export const getOneSettlement = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  console.log('Number of Settlements....', data)
+//  console.log('Number of Settlements....', data)
   return request.post({ url: prod + '/api/v1/data/one', data })
 }
 
 export const searchByKeyWord = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  console.log('....', data)
+ // console.log('....', data)
   return request.post({ url: prod + '/api/v1/data/paginated/filter', data })
 }
 
 export const uploadFiles = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  console.log('....', data)
+ // console.log('....', data)
   return request.post({ url: prod + '/api/v1/upload', data })
 }
 

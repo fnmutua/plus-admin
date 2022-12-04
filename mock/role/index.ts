@@ -42,6 +42,8 @@ const adminList = [
         component: 'views/Dashboard/OverviewMap',
         name: 'xOverviewMap',
         meta: {
+          hidden: true,
+
           title: 'Map',
           noCache: true
         }

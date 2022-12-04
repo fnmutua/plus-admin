@@ -84,7 +84,7 @@ const water_src_series = ref()
 const stackchartOptions = ref()
 const stackchartSeries = ref()
 
-const getWater = async () => {
+const xgetWater = async () => {
   const formData = {}
   formData.model = 'households'
   formData.summaryField = 'source_water'
@@ -290,12 +290,16 @@ const getAccessTohealth = async () => {
 
   getSummarybyField(formData)
     .then(response => {
-      // console.log('waterssss----------', response.Total)
+      console.log('Acee----------', response.Total)
       var results = response.Total
       results.forEach(function (item) {
-        let lbl = toTitleCase(item.access_health.replace("_", " "))
-        categories.push(lbl)
-        series.push(parseInt(item.count)) // very critcal eles wont display on the graph
+        if (item.access_health) {
+          let lbl = toTitleCase(item.access_health.replace("_", " "))
+          categories.push(lbl)
+          series.push(parseInt(item.count)) // very critcal eles wont display on the graph
+
+        }
+
       });
       //    console.log('----------', categories, series)
       health_access_chartOptions.value = {
@@ -372,14 +376,21 @@ const getAccessTohealth = async () => {
   await getSummarybyFieldNested(formData)
     .then(response => {
       var results = response.Total
-      //   console.log(results)
+      console.log(results)
       results.forEach(function (item) {
-        if (!clabels.includes(item.name)) {
-          clabels.push(item.name);
+        if (item.access_health) {
+
+          if (item.name) {
+            if (!clabels.includes(item.name)) {
+              clabels.push(item.name);
+            }
+            if (!subCategories.includes(item.access_health)) {
+              subCategories.push(item.access_health)
+            }
+          }
         }
-        if (!subCategories.includes(item.access_health)) {
-          subCategories.push(item.access_health)
-        }
+
+
       });
       // console.log('clabels....', clabels)
       subCategories.forEach(function (item) {
@@ -486,7 +497,7 @@ const getGender = async () => {
     .then(response => {
       var results = response.Total
 
-      console.log(results)
+      console.log('Gender---', results)
       results.forEach(function (item) {
         let pieObjectEchart = {}
         let lbl = toTitleCase(item.gender.replace("_", " "))
@@ -642,13 +653,16 @@ const getRent = async () => {
       var results = response.Total
       results.forEach(function (item) {
         let pieObjectEchart = {}
-        let lbl = toTitleCase(item.rent_payable.replace("_", "-"))
-        categories.push(lbl)
-        series.push(parseInt(item.count)) // very critcal eles wont display on the graph
-        // for eacharts
-        pieObjectEchart.value = parseInt(item.count)
-        pieObjectEchart.name = lbl
-        seriesData.push(pieObjectEchart)
+        if (item.rent_payable) {
+          let lbl = toTitleCase(item.rent_payable.replace("_", "-"))
+          categories.push(lbl)
+          series.push(parseInt(item.count)) // very critcal eles wont display on the graph
+          // for eacharts
+          pieObjectEchart.value = parseInt(item.count)
+          pieObjectEchart.name = lbl
+          seriesData.push(pieObjectEchart)
+        }
+
 
       });
 
@@ -730,16 +744,16 @@ const getEmployment = async () => {
   getSummarybyField(formData)
     .then(response => {
       var results = response.Total
+      console.log("employment_chartOptions", results)
       results.forEach(function (item) {
         let pieObjectEchart = {}
-        let lbl = toTitleCase(item.emp_status.replace("_", "-"))
-        //  categories.push(lbl)
-        // series.push(parseInt(item.count)) // very critcal eles wont display on the graph
+        if (item.emp_status) {
+          let lbl = toTitleCase(item.emp_status.replace("_", "-"))
+          pieObjectEchart.value = parseInt(item.count)
+          pieObjectEchart.name = lbl
+          series.push(pieObjectEchart)
+        }
 
-        // for eacharts
-        pieObjectEchart.value = parseInt(item.count)
-        pieObjectEchart.name = lbl
-        series.push(pieObjectEchart)
       });
 
       employment_chartOptions.value = {
@@ -816,6 +830,7 @@ const getOwnershipStatus = async () => {
   getSummarybyField(formData)
     .then(response => {
       var results = response.Total
+      console.log('age_plot_owner', results)
       results.forEach(function (item) {
         let pieObjectEchart = {}
         let lbl = toTitleCase(item.age_plot_owner.replace("_", "-"))
@@ -1205,7 +1220,7 @@ const getEducationByGender = async () => {
       // Gauge bar 
       educationGauge.value = {
         title: {
-          text: 'Slums Residents with atleast a  degree',
+          text: 'Residents with Secondary Education and above',
           subtext: 'National Slum Mapping, 2023',
           left: 'center',
           textStyle: {
@@ -1281,22 +1296,484 @@ const getEducationByGender = async () => {
 
 
 }
+const stackedSanitationBygender = ref()
+const SanitationGauge = ref()
 
-
-
-
-
-///////--- Sanitation------------
-const sanitation = ref([])
 const getSanitation = async () => {
   const formData = {}
   formData.model = 'households'
-  formData.summaryField = 'sanitation'
   formData.summaryFunction = 'count'
-  formData.groupField = ['sanitation']
-  sanitation.value = await getSummarybyField(formData)
-  //  console.log('sanitation---->', sanitation.value)
+
+
+  // segregated by the settlement and county// Linking to be done later//
+  formData.summaryField = 'sanitation'
+  formData.groupField = ['sanitation', 'gender']
+
+
+
+  let clabels = []
+  let subCategories = []
+  var cData = []
+  var maleData = []
+  var femaleData = []
+
+
+  // Directbeneficisaries 
+  await getSummarybyField(formData)
+    .then(response => {
+      var results = response.Total
+      console.log("sanitation by gender ---->", results)
+
+      //create the subcategories 
+      results.forEach(function (item) {
+        if (!clabels.includes(item.name)) {
+          clabels.push(item.name);
+        }
+        if (!subCategories.includes(item.sanitation)) {
+          subCategories.push(item.sanitation)
+        }
+      });
+      // console.log('clabels....', clabels)
+
+      //create data by gender
+      results.forEach(function (dt) {
+        if (dt.gender === 'Male') {
+          console.log(dt)
+          maleData.push(parseInt(dt.count))
+        } else {
+          femaleData.push(parseInt(dt.count))
+        }
+      })
+
+      //create data by gender
+      let safelyManaged = []
+      let allLevels = []
+
+      results.forEach(function (dt) {
+        allLevels.push(parseInt(dt.count))
+        if (dt.sanitation == 'flush' && dt.sanitation == 'VIP') {
+          console.log(dt.sanitation)
+          safelyManaged.push(parseInt(dt.count))
+        }
+      })
+
+      // stacked   
+      stackedSanitationBygender.value = {
+        title: {
+          text: 'Sanitation Status by Gender',
+          subtext: 'National Slum Mapping, 2023',
+          left: 'center',
+          textStyle: {
+            fontSize: 14
+          },
+          subtextStyle: {
+            fontSize: 12
+          }
+        },
+
+        tooltip: {
+          trigger: 'axis',
+
+          axisPointer: {
+            // Use axis to trigger tooltip
+            type: 'line' // 'shadow' as default; can also be 'line' or 'shadow'
+          }
+        },
+        toolbox: {
+          show: true,
+          feature: {
+            mark: { show: true },
+            dataView: { show: true, readOnly: false },
+            restore: { show: true },
+            saveAsImage: { show: true, pixelRatio: 4 }
+          }
+        },
+        legend: {
+          orient: 'horizontal',
+          type: 'scroll',
+          left: 'left',
+          itemWidth: 20,
+          itemHeight: 20,
+          data: [
+            {
+              name: 'Male',
+              icon: maleIcon
+            },
+            {
+              name: 'Female',
+              icon: femaleIcon
+            }
+          ]
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          containLabel: true
+        },
+        xAxis: {
+          data: subCategories
+
+        },
+        yAxis: {
+          type: 'value'
+
+        },
+        series: [
+          {
+            name: 'Male',
+            type: 'bar',
+            stack: 'total',
+            label: {
+              show: true
+            },
+            emphasis: {
+              focus: 'series'
+            },
+            color: colorPalette[1],
+            data: maleData
+          },
+          {
+            name: 'Female',
+            type: 'bar',
+            stack: 'total',
+            color: colorPalette[0],
+
+            label: {
+              show: true
+            },
+            emphasis: {
+              focus: 'series'
+            },
+            data: femaleData
+          },
+
+        ]
+      };
+
+
+      let totalHH = allLevels.reduce((a, b) => a + b, 0)
+      let safe = safelyManaged.reduce((a, b) => a + b, 0)
+      let prop_safely_managed = 100 * safe / totalHH
+
+      console.log("Safely Managed")
+
+      SanitationGauge.value = {
+        title: {
+          text: 'Access to Safely Managed Sanitation',
+          subtext: 'National Slum Mapping, 2023',
+          left: 'center',
+          textStyle: {
+            fontSize: 14
+          },
+          subtextStyle: {
+            fontSize: 12
+          }
+        },
+        series: [
+          {
+            type: 'gauge',
+            axisLine: {
+              lineStyle: {
+                width: 30,
+                color: [
+                  [0.3, '#fd666d'],
+                  [0.7, '#37a2da '],
+                  [1, '#00ff00']
+
+                ]
+              }
+            },
+            pointer: {
+              itemStyle: {
+                color: 'auto'
+              }
+            },
+            axisTick: {
+              distance: -30,
+              length: 8,
+              lineStyle: {
+                color: '#fff',
+                width: 2
+              }
+            },
+            splitLine: {
+              distance: -30,
+              length: 30,
+              lineStyle: {
+                color: '#fff',
+                width: 4
+              }
+            },
+            axisLabel: {
+              color: 'auto',
+              distance: 40,
+              fontSize: 12
+            },
+            detail: {
+              valueAnimation: true,
+              formatter: '{value}%',
+              offsetCenter: [0, '90%'],
+              color: 'auto'
+            },
+            data: [
+              {
+                value: Math.round(prop_safely_managed)
+              }
+            ]
+          }
+        ]
+      };
+
+    });
+
+
+
+
+
 }
+
+
+
+
+const stackedWaterBygender = ref()
+const waterGauge = ref()
+
+const getWater = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryFunction = 'count'
+
+
+  // segregated by the settlement and county// Linking to be done later//
+  formData.summaryField = 'source_water'
+  formData.groupField = ['source_water', 'gender']
+
+
+
+  let clabels = []
+  let subCategories = []
+  var cData = []
+  var maleData = []
+  var femaleData = []
+
+
+  // Directbeneficisaries 
+  await getSummarybyField(formData)
+    .then(response => {
+      var results = response.Total
+      console.log("source_water by gender ---->", results)
+
+      //create the subcategories 
+      results.forEach(function (item) {
+        if (!clabels.includes(item.name)) {
+          clabels.push(item.name);
+        }
+        if (!subCategories.includes(item.source_water)) {
+          subCategories.push(item.source_water)
+        }
+      });
+      // console.log('clabels....', clabels)
+
+      //create data by gender
+      results.forEach(function (dt) {
+        if (dt.gender === 'Male') {
+          console.log(dt)
+          maleData.push(parseInt(dt.count))
+        } else {
+          femaleData.push(parseInt(dt.count))
+        }
+      })
+
+      //create data by gender
+      let safelyManagedWater = []
+      let allLevels = []
+
+      results.forEach(function (dt) {
+        allLevels.push(parseInt(dt.count))
+        if (dt.source_water === 'piped') {
+          console.log(dt.source_water)
+          safelyManagedWater.push(parseInt(dt.count))
+        }
+      })
+
+      // stacked Education 
+      stackedWaterBygender.value = {
+        title: {
+          text: 'Access to Water by Gender',
+          subtext: 'National Slum Mapping, 2023',
+          left: 'center',
+          textStyle: {
+            fontSize: 14
+          },
+          subtextStyle: {
+            fontSize: 12
+          }
+        },
+
+        tooltip: {
+          trigger: 'axis',
+
+          axisPointer: {
+            // Use axis to trigger tooltip
+            type: 'line' // 'shadow' as default; can also be 'line' or 'shadow'
+          }
+        },
+        toolbox: {
+          show: true,
+          feature: {
+            mark: { show: true },
+            dataView: { show: true, readOnly: false },
+            restore: { show: true },
+            saveAsImage: { show: true, pixelRatio: 4 }
+          }
+        },
+        legend: {
+          orient: 'horizontal',
+          type: 'scroll',
+          left: 'left',
+          itemWidth: 20,
+          itemHeight: 20,
+          data: [
+            {
+              name: 'Male',
+              icon: maleIcon
+            },
+            {
+              name: 'Female',
+              icon: femaleIcon
+            }
+          ]
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          containLabel: true
+        },
+        xAxis: {
+          data: subCategories
+
+        },
+        yAxis: {
+          type: 'value'
+
+        },
+        series: [
+          {
+            name: 'Male',
+            type: 'bar',
+            stack: 'total',
+            label: {
+              show: true
+            },
+            emphasis: {
+              focus: 'series'
+            },
+            color: colorPalette[1],
+            data: maleData
+          },
+          {
+            name: 'Female',
+            type: 'bar',
+            stack: 'total',
+            color: colorPalette[0],
+
+            label: {
+              show: true
+            },
+            emphasis: {
+              focus: 'series'
+            },
+            data: femaleData
+          },
+
+        ]
+      };
+
+
+      let totalHH = allLevels.reduce((a, b) => a + b, 0)
+      let safe = safelyManagedWater.reduce((a, b) => a + b, 0)
+      let prop_safely_managed = 100 * safe / totalHH
+
+
+
+      waterGauge.value = {
+        title: {
+          text: 'Access to Safely Drinking Water',
+          subtext: 'National Slum Mapping, 2023',
+          left: 'center',
+          textStyle: {
+            fontSize: 14
+          },
+          subtextStyle: {
+            fontSize: 12
+          }
+        },
+        series: [
+          {
+            type: 'gauge',
+            axisLine: {
+              lineStyle: {
+                width: 30,
+                color: [
+                  [0.3, '#fd666d'],
+                  [0.7, '#37a2da '],
+                  [1, '#00ff00']
+
+                ]
+              }
+            },
+            pointer: {
+              itemStyle: {
+                color: 'auto'
+              }
+            },
+            axisTick: {
+              distance: -30,
+              length: 8,
+              lineStyle: {
+                color: '#fff',
+                width: 2
+              }
+            },
+            splitLine: {
+              distance: -30,
+              length: 30,
+              lineStyle: {
+                color: '#fff',
+                width: 4
+              }
+            },
+            axisLabel: {
+              color: 'auto',
+              distance: 40,
+              fontSize: 12
+            },
+            detail: {
+              valueAnimation: true,
+              formatter: '{value}%',
+              offsetCenter: [0, '90%'],
+              color: 'auto'
+            },
+            data: [
+              {
+                value: Math.round(prop_safely_managed)
+              }
+            ]
+          }
+        ]
+      };
+
+    });
+
+
+
+
+
+}
+
+
 
 ///////--- Transport------------
 const transport = ref([])
@@ -1325,16 +1802,6 @@ const getSolidWaste = async () => {
 }
 
 
-
-
-
-
-
-
-
-////////////Housing----------------------------------
-
-const barOptionsData = reactive<EChartsOption>(barOptions) as EChartsOption
 
 
 const getAllApi = async () => {
@@ -1449,7 +1916,7 @@ const activeName = ref('summary')
         <ElCol :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
           <ElCard shadow="always" class="mb-20px">
             <ElSkeleton :loading="loading" animated>
-              <apexchart :height="400" :options="water_src_chartOptions" :series="water_src_series" />
+              <Echart :options="waterGauge" :height="350" />
             </ElSkeleton>
           </ElCard>
         </ElCol>
@@ -1458,7 +1925,7 @@ const activeName = ref('summary')
           <ElCard shadow="always" class="mb-20px">
             <ElSkeleton :loading="loading" animated>
               <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-              <apexchart height="350" :options="stackchartOptions" :series="stackchartSeries" />
+              <Echart :options="stackedWaterBygender" :height="350" />
 
             </ElSkeleton>
           </ElCard>
@@ -1471,7 +1938,7 @@ const activeName = ref('summary')
         <ElCol :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
           <ElCard shadow="always" class="mb-20px">
             <ElSkeleton :loading="loading" animated>
-              <apexchart :height="400" :options="water_src_chartOptions" :series="water_src_series" />
+              <Echart :options="SanitationGauge" :height="350" />
             </ElSkeleton>
           </ElCard>
         </ElCol>
@@ -1480,7 +1947,7 @@ const activeName = ref('summary')
           <ElCard shadow="always" class="mb-20px">
             <ElSkeleton :loading="loading" animated>
               <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-              <apexchart height="350" :options="stackchartOptions" :series="stackchartSeries" />
+              <Echart :options="stackedSanitationBygender" :height="350" />
 
             </ElSkeleton>
           </ElCard>

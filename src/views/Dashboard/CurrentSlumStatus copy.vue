@@ -576,7 +576,7 @@ const getGender = async () => {
       show: true,
       feature: {
         mark: { show: true },
-        dataView: { show: true, readOnly: false },
+        dataView: { show: true, readOnly: true },
         restore: { show: true },
         saveAsImage: { show: true, pixelRatio: 4 }
       }
@@ -667,7 +667,7 @@ const getRent = async () => {
       show: true,
       feature: {
         mark: { show: true },
-        dataView: { show: true, readOnly: false },
+        dataView: { show: true, readOnly: true },
         restore: { show: true },
         saveAsImage: { show: true, pixelRatio: 4 }
       }
@@ -754,7 +754,7 @@ const getEmployment = async () => {
           show: true,
           feature: {
             mark: { show: true },
-            dataView: { show: true, readOnly: false },
+            dataView: { show: true, readOnly: true },
             restore: { show: true },
             saveAsImage: { show: true, pixelRatio: 4 }
           }
