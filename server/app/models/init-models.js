@@ -32,6 +32,13 @@ var _water_point = require('./water_point')
 var _road_asset = require('./road_asset')
 var _other_facility = require('./other_facility')
 
+var _category = require('./category')
+var _indicator = require('./indicator')
+var _indicator_category = require('./indicator_category')
+var _indicator_category_report = require('./indicator_category_report')
+
+
+
 var _settlement_uploads = require('./settlement_uploads')
 
 function initModels(sequelize) {
@@ -69,8 +76,13 @@ function initModels(sequelize) {
   var road_asset = _road_asset(sequelize, DataTypes)
   var other_facility = _other_facility(sequelize, DataTypes)
 
-  
+  var category = _category(sequelize, DataTypes)
+  var indicator = _indicator(sequelize, DataTypes)
+  var indicator_category = _indicator_category(sequelize, DataTypes)
+  var indicator_category_report = _indicator_category_report(sequelize, DataTypes)
 
+ 
+  
   
   return {
     beneficiary,
@@ -105,6 +117,14 @@ function initModels(sequelize) {
     water_point,
     road_asset,
     other_facility,
+    category,
+     indicator ,
+     indicator_category,
+     indicator_category_report,
+  
+   
+
+
     settlement_uploads
   }
 }

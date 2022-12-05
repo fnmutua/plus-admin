@@ -725,9 +725,13 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
   }
 
   console.log('The Querry----->', qry)
+  if (req.body.limit ) {
+    qry.limit = req.body.limit 
+  }
+  if (req.body.page ) {
+    qry.offset = (req.body.page - 1) * req.body.limit
+  }
 
-  qry.limit = req.body.limit
-  qry.offset = (req.body.page - 1) * req.body.limit
 
   /// use the multpiple filters
   var queryFields = {}

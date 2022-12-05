@@ -117,36 +117,7 @@ const hh_fields = [
 
 ]
 
-const settlement_fields = [
-  {
-    field: 'id',
-    match: ''
-  },
-  {
-    field: 'name',
-    match: ''
-  },
-  {
-    field: 'county_id',
-    match: ''
-  },
-  {
-    field: 'settlement_type',
-    match: ''
-  },
-  {
-    field: 'area',
-    match: ''
-  },
-  {
-    field: 'population',
-    match: ''
-  },
-  {
-    field: 'code',
-    match: ''
-  }
-]
+
 
 const parcel_fields = [
   {
@@ -197,34 +168,6 @@ const interventions_fields = [
   },
 ]
 
-const beneficiary_parcels = [
-  {
-    field: 'beneficiary_id',
-    match: ''
-  },
-  {
-    field: 'intervention_id',
-    match: ''
-  },
-  {
-    field: 'intervention_phase',
-    match: ''
-  },
-  {
-    field: 'settlement_id',
-    match: ''
-  },
-
-
-  {
-    field: 'parcel_id',
-    match: ''
-  },
-  {
-    field: 'code',
-    match: ''
-  },
-]
 
 const beneficiary_fields = [
   {
@@ -310,6 +253,20 @@ const uploadOptions = [
         value: 'path',
         label: 'Paths'
       }
+    ]
+  },
+  {
+    label: 'Indicators',
+    options: [
+      {
+        value: 'category',
+        label: 'Indicator Categories'
+      },
+      {
+        value: 'indicator',
+        label: 'Indicators'
+      },
+
     ]
   }
 ]
@@ -485,8 +442,16 @@ const handleSelectType = async (type: any) => {
     getParentOptions()
   }
 
+  else if (type === 'category') {
+    model.value = 'category'
+    code.value = 'code'
+  }
 
 
+  else if (type === 'indicator') {
+    model.value = 'indicator'
+    code.value = 'code'
+  }
 
 }
 
@@ -723,36 +688,47 @@ const readXLSX = async (event) => {
     console.log('rows-parentObj------>', parentObj)
 
 
-    for (let i = 0; i < uploadObj.value.length; i++) {
+    if (parentObj.value.length > 0) {
+      console.log("Those nested... with parents")
+
+      for (let i = 0; i < uploadObj.value.length; i++) {
+        console.log('------------>', i, uploadObj.value[i])
+        var thisFeature = uploadObj.value[i]
+        console.log('------matchedObj------>', i, thisFeature)
+        var filterParent = parentObj.value.filter(function (el) {
+          return el['code'] === uploadObj.value[i][code.value]
+        });
+        // here we add a prefix to the parent detaisl to avoid confusion 
+        let pre = `parent_`;
+        let pfeature = Object.keys(filterParent[0]).reduce((a, c) => (a[`${pre}${c}`] = filterParent[0][c], a), {});
+        const mergedFeature = { ...thisFeature, ...pfeature }; //  merge the feature with the parent details 
+        matchedObjwithparent.value.push(mergedFeature)
+      }
+
+      console.log('children', matchedObjwithparent.value)
+      const mergedfields = (Object.getOwnPropertyNames(matchedObjwithparent.value[0]));  // get properties from first row
+
+      makeOptions(mergedfields)
+
+    } else {
+      console.log("Those without parents")
+
+      for (let i = 0; i < uploadObj.value.length; i++) {
+        console.log('------------>', i, uploadObj.value[i])
+        var thisFeature = uploadObj.value[i]
+
+        matchedObjwithparent.value.push(thisFeature)
+      }
 
 
-      console.log('------------>', i, uploadObj.value[i])
-
-      var thisFeature = uploadObj.value[i]
 
 
-      console.log('------matchedObj------>', i, thisFeature)
+      const withoutParentFields = (Object.getOwnPropertyNames(uploadObj.value[0]));  // get properties from first row
 
-      var filterParent = parentObj.value.filter(function (el) {
-        return el['code'] === uploadObj.value[i][code.value]
-      });
+      makeOptions(withoutParentFields)
 
-      // here we add a prefix to the parent detaisl to avoid confusion 
-      let pre = `parent_`;
-      let pfeature = Object.keys(filterParent[0]).reduce((a, c) => (a[`${pre}${c}`] = filterParent[0][c], a), {});
-
-      const mergedFeature = { ...thisFeature, ...pfeature }; //  merge the feature with the parent details 
-
-
-
-      matchedObjwithparent.value.push(mergedFeature)
     }
-    console.log('children', matchedObjwithparent.value)
 
-    const mergedfields = (Object.getOwnPropertyNames(matchedObjwithparent.value[0]));  // get properties from first row
-
-
-    makeOptions(mergedfields)
     show.value = true
 
   })
