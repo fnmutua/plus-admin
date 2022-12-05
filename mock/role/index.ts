@@ -655,6 +655,56 @@ const adminList = [
       }
     ]
   },
+  {
+    path: '/mne',
+    component: '#',
+    redirect: '/data/indicator',
+    name: 'Data',
+    meta: {
+      title: 'M&E',
+      icon: 'ant-design:shop-outlined',
+      alwaysShow: false
+    },
+    children: [
+ 
+      {
+        path: 'list',
+        component: 'views/Indicators/indicator_category',
+        name: 'IndicatorCategory',
+        meta: {
+          title: 'Indicators',
+          hidden: false
+
+        }
+      },
+      {
+        path: 'names',
+        component: 'views/Indicators/indicator',
+        name: 'Indicators',
+        meta: {
+          title: 'List',
+          hidden: false
+
+        }
+      },
+      {
+        path: 'reports',
+        component: 'views/Indicators/indicator_category_report',
+        name: 'Reports',
+        meta: {
+          title: 'Reports'
+        }
+      },
+      {
+        path: 'category',
+        component: 'views/Indicators/category',
+        name: 'Category',
+        meta: {
+          title: 'Category'
+        }
+      } 
+    ]
+  },
 
 
 

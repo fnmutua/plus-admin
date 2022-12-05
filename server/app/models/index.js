@@ -241,5 +241,52 @@ db.models.settlement.hasMany(db.models.other_facility, {
   foreignKey: 'settlement_id'
 })
 
+
+/// indicator-category - category  
+db.models.indicator_category.belongsTo(db.models.category, {
+  foreignKey: 'category_id'
+})
+
+db.models.category.hasMany(db.models.indicator_category, {
+  foreignKey: 'category_id'
+})
+
+//indicator - indciator:category
+db.models.indicator_category.belongsTo(db.models.indicator, {
+  foreignKey: 'indicator_id'
+})
+
+db.models.indicator.hasMany(db.models.indicator_category, {
+  foreignKey: 'indicator_id'
+})
+
+//reports - indciator:category
+db.models.indicator_category_report.belongsTo(db.models.indicator_category, {
+  foreignKey: 'indicator_category_id'
+})
+
+db.models.indicator_category.hasMany(db.models.indicator_category_report, {
+  foreignKey: 'indicator_category_id'
+})
+
+
+// county  - indicator_category_report
+db.models.indicator_category_report.belongsTo(db.models.county, {
+  foreignKey: 'location_id'
+})
+
+db.models.county.hasMany(db.models.indicator_category_report, {
+  foreignKey: 'location_id'
+})
+
+// county  - indicator_category_report
+db.models.indicator_category_report.belongsTo(db.models.settlement, {
+  foreignKey: 'location_id'
+})
+
+db.models.settlement.hasMany(db.models.indicator_category_report, {
+  foreignKey: 'location_id'
+})
+
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db
