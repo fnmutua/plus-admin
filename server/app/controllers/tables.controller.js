@@ -389,7 +389,7 @@ exports.modelOneRecord = (req, res) => {
 }
 
 exports.modelEditOneRecord = (req, res) => {
-  var reg_model = req.query.model
+  var reg_model = req.body.model
   // get this one  record and update it by replacing the whole docuemnt
   db.models[reg_model].findAll({ where: { id: req.body.id } }).then((result) => {
     if (result) {
@@ -397,8 +397,8 @@ exports.modelEditOneRecord = (req, res) => {
       result[0].set(req.body)
       result[0].save() // This is a promise
       res.status(200).send({
-        data: result,
-        code: 20000
+        message: "Update successful",
+        code: "0000"
       })
     }
   })
@@ -460,14 +460,14 @@ exports.modelActivateUser = (req, res) => {
 }
 
 exports.modelDeleteOneRecord = (req, res) => {
-  var reg_model = req.query.model
+  var reg_model = req.body.model
   // get this one  record and update it by replacing the whole docuemnt
   db.models[reg_model].destroy({ where: { id: req.body.id } }).then((result) => {
     if (result) {
       // res.status(200).send(result);
       res.status(200).send({
-        data: 'delete successful',
-        code: 20000
+        message: 'Delete successful',
+        code: '0000'
       })
     }
   })

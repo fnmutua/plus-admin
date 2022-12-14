@@ -83,3 +83,20 @@ export const getParentIds = (data: SettlementType): Promise<IResponse<Settlement
   console.log('Getting parent....', data)
   return request.post({ url: prod + '/api/v1/data/parentids', data })
 }
+
+
+export const DeleteRecord = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/data/delete', data })
+}
+
+
+export const updateOneRecord = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/data/edit', data })
+}
+
+
+
+
+

@@ -12,17 +12,21 @@ import {
   TopRight,
   User,
   Plus,
+  Edit,
+  Delete,
   Download,
   Filter,
   MessageBox
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
+import { uuid } from 'vue-uuid'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -42,7 +46,7 @@ const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
 const indicatorsOptions = ref([])
-const settlementOptions = ref([])
+const categoryOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
@@ -59,6 +63,11 @@ const showAdminButtons = ref(false)
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
   showAdminButtons.value = true
 }
+
+const AddDialogVisible = ref(false)
+const formHeader = ref('Add Indicator')
+const showSubmitBtn = ref(true)
+const showEditSaveButton = ref(false)
 
 
 console.log("Show Buttons -->", showAdminButtons)
@@ -99,7 +108,10 @@ const columns: TableColumn[] = [
     field: 'frequency',
     label: t('frequency')
   },
-
+  {
+    field: 'action',
+    label: t('Actions')
+  }
 ]
 const handleClear = async () => {
   console.log('cleared....')
@@ -301,19 +313,16 @@ const getCategoryOptions = async () => {
   })
 }
 
-const open = (msg: MessageParamsWithType) => {
-  ElMessage.error(msg)
-}
 
 const makeSettlementOptions = (list) => {
   console.log('making the options..............', list)
-  settlementOptions.value = []
+  categoryOptions.value = []
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
     countyOpt.label = arrayItem.category + '(' + arrayItem.id + ')'
     //  console.log(countyOpt)
-    settlementOptions.value.push(countyOpt)
+    categoryOptions.value.push(countyOpt)
   })
 }
 
@@ -329,55 +338,142 @@ getIndicatorNames()
 getCategoryOptions()
 getInterventionsAll()
 
-console.log('Options---->', indicatorsOptions)
-const viewProfile = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
 
-  push({
-    path: '/settlement/:id',
-    name: 'SettlementDetails',
-    params: { data: data.row.id, id: data.row.id }
-  })
+
+
+
+const editIndicator = (data: TableSlotDefault) => {
+  showSubmitBtn.value = false
+  showEditSaveButton.value = true
+  console.log(data)
+  ruleForm.id = data.row.id
+  ruleForm.indicator_name = data.row.indicator.indicator_name
+  ruleForm.indicator_id = data.row.indicator_id
+  ruleForm.category_id = data.row.category_id
+  ruleForm.frequency = data.row.frequency
+
+  formHeader.value = 'Edit Indicator'
+
+
+  AddDialogVisible.value = true
 }
 
-const viewHHs = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
-  push({
-    path: '/settlement/hh/:id',
-    name: 'Households',
-    params: { id: data.row.id, name: data.row.name }
-  })
-}
 
-const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On map.....', data.row)
-  if (data.row.geom) {
-    push({
-      path: '/settlement/map/:id',
-      name: 'SettlementMap',
-      params: { id: data.row.id }
-    })
-  } else {
-    var msg = 'This Settlement does not have the boundary defined in the database!'
-    open(msg)
+const DeleteIndicator = (data: TableSlotDefault) => {
+  console.log('----->', data.row.id)
+  let formData = {}
+  formData.id = data.row.id
+  formData.model = 'indicator_category'
+  DeleteRecord(formData)
+  console.log(tableDataList.value)
+
+  // remove the deleted object from array list 
+  let index = tableDataList.value.indexOf(data.row);
+  if (index !== -1) {
+    tableDataList.value.splice(index, 1);
   }
-}
-const viewDocuments = (data: TableSlotDefault) => {
-  console.log('On map.....', data.row)
 
-  push({
-    path: '/settlement/doc/:id',
-    name: 'SettlementDocs',
-    params: { id: data.row.id }
+}
+
+
+const handleClose = () => {
+
+  console.log("Clsoing the dialoig")
+  showSubmitBtn.value = true
+  showEditSaveButton.value = false
+
+  ruleForm.indicator_id = ''
+  ruleForm.indicator_name = ''
+  ruleForm.category_id = ''
+  ruleForm.frequency = ''
+
+
+  formHeader.value = 'Add Indicator'
+
+}
+
+
+
+const changeCategory = async (category: any) => {
+  ruleForm.category_id = category
+}
+
+const changeIndicator = async (indicator: any) => {
+  ruleForm.indicator_id = indicator
+
+  var filtredOptions = indicatorsOptions.value.filter(function (el) {
+    return el.value == indicator
+  });
+
+  console.log("Filtered Idnciators", filtredOptions[0].label)
+  ruleForm.indicator_name = filtredOptions[0].label
+}
+
+
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  indicator_id: '',
+  indicator_name: '',
+  category_id: '',
+  frequency: '',
+})
+
+const rules = reactive<FormRules>({
+  indicator_id: [
+    { required: true, message: 'Please provide indicator name', trigger: 'blur' },
+    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+  ],
+  category_id: [
+    { required: true, message: 'Indicator category is required', trigger: 'blur' }],
+  frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
+
+})
+
+const AddIndicator = () => {
+  AddDialogVisible.value = true
+}
+
+
+const submitForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate((valid, fields) => {
+    if (valid) {
+      ruleForm.model = 'indicator_category'
+      ruleForm.code = uuid.v4()
+      const res = CreateRecord(ruleForm)
+
+    } else {
+      console.log('error submit!', fields)
+    }
   })
 }
 
-const AddSettlement = (data: TableSlotDefault) => {
-  push({
-    path: '/settlement/add',
-    name: 'AddSettlement'
+
+const editForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate((valid, fields) => {
+    if (valid) {
+      ruleForm.model = 'indicator_category'
+
+      updateOneRecord(ruleForm).then(() => { })
+
+      // dialogFormVisible.value = false
+
+
+    } else {
+      console.log('error submit!', fields)
+    }
   })
 }
+
+
+
+
+
+
+
+console.log('Options---->', indicatorsOptions)
+
 
 
 
@@ -396,7 +492,7 @@ const AddSettlement = (data: TableSlotDefault) => {
     <div style="display: inline-block; margin-left: 20px">
       <el-select v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by Category">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
@@ -406,8 +502,8 @@ const AddSettlement = (data: TableSlotDefault) => {
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Settlement" placement="top">
-        <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
+      <el-tooltip content="Add Indicator Configuration" placement="top">
+        <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
 
@@ -416,25 +512,65 @@ const AddSettlement = (data: TableSlotDefault) => {
     <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
-        <el-tooltip content="View Profile" placement="top">
-          <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
+        <el-tooltip content="Edit" placement="top">
+          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
         </el-tooltip>
 
-        <el-tooltip content="View Households" placement="top">
-          <el-button v-if="showAdminButtons" type="success" :icon="User" @click="viewHHs(data as TableSlotDefault)"
-            circle />
+        <el-tooltip content="Delete" placement="top">
+          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+            <template #reference>
+              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
+            </template>
+          </el-popconfirm>
         </el-tooltip>
-        <el-tooltip content="View on Map" placement="top">
-          <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
-        </el-tooltip>
-        <el-tooltip content="View Documents" placement="top">
-          <el-button type="primary" :icon="MessageBox" @click="viewDocuments(data as TableSlotDefault)" circle />
-        </el-tooltip>
+
       </template>
     </Table>
     <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
+
+
+  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+
+      <el-form-item label="Indicator">
+        <el-select v-model="ruleForm.indicator_id" :onChange="changeIndicator" placeholder="Select Indicator">
+          <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+
+      <el-form-item label="Category">
+        <el-select v-model="ruleForm.category_id" :onChange="changeCategory" placeholder="Select Category">
+          <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+
+
+
+      <el-form-item label="Frequency">
+        <el-select clearable filterable v-model="ruleForm.frequency" placeholder="Unit">
+          <el-option label="Quarterly" value="Quarterly" />
+          <el-option label="Monthly" value="Monthly" />
+          <el-option label="Annually" value="Annually" />
+
+        </el-select>
+      </el-form-item>
+
+    </el-form>
+    <template #footer>
+
+      <span class="dialog-footer">
+        <el-button @click="AddDialogVisible = false">Cancel</el-button>
+        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
 </template>
  
