@@ -668,21 +668,21 @@ const adminList = [
     children: [
  
       {
-        path: 'list',
+        path: 'config',
         component: 'views/Indicators/indicator_category',
         name: 'IndicatorCategory',
         meta: {
-          title: 'Indicators',
+          title: 'Configurations',
           hidden: false
 
         }
       },
       {
-        path: 'names',
+        path: 'list',
         component: 'views/Indicators/indicator',
         name: 'Indicators',
         meta: {
-          title: 'List',
+          title: 'Indicators',
           hidden: false
 
         }
