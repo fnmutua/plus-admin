@@ -10,3 +10,5 @@ UPDATE t SET idcolumn=nextval('seq');
 ALTER TABLE settlement ADD COLUMN geom geometry(MultiPolygon,4326);
 
 
+  ALTER SEQUENCE indicator_category_id_seq  RESTART WITH 35 ;
+

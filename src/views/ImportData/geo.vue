@@ -530,7 +530,7 @@ const readJson = (event) => {
     <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe">
       <el-table-column prop="column" label="Field">
         <template #default="scope">
-          <el-input v-model="scope.row.field" controls-position="left" />
+          <el-input v-model="scope.row.field" controls-position="left" disabled />
         </template>
       </el-table-column>
       <el-table-column prop="match" label="Match">

@@ -593,7 +593,7 @@ const adminList = [
     name: 'OtherFacility',
     meta: {
       icon: 'ant-design:node-index-outlined',
-      title: 'Other Facilities'
+      title: 'Others'
     }
   }, 
   {
@@ -602,17 +602,7 @@ const adminList = [
     name: 'AddOther',
     icon: 'ant-design:plus-square-filled',
     meta: { hidden: true, title: 'Add Facility', noCache: true }
-  },
-   
-
-      {
-        path: 'environment',
-        component:'views/Map/index',
-        name: 'Environment',
-        meta: {
-          title: 'Environment'
-        }
-      }
+  }
     ]
   },
 
@@ -658,8 +648,8 @@ const adminList = [
   {
     path: '/mne',
     component: '#',
-    redirect: '/data/indicator',
-    name: 'Data',
+    redirect: '/mne/indicator',
+    name: 'MonitoringEvaluation',
     meta: {
       title: 'M&E',
       icon: 'ant-design:shop-outlined',

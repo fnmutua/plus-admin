@@ -321,6 +321,7 @@ const makeSettlementOptions = (list) => {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
     countyOpt.label = arrayItem.category + '(' + arrayItem.id + ')'
+
     //  console.log(countyOpt)
     categoryOptions.value.push(countyOpt)
   })
@@ -351,6 +352,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.indicator_id = data.row.indicator_id
   ruleForm.category_id = data.row.category_id
   ruleForm.frequency = data.row.frequency
+  ruleForm.category_title = data.row.category_title
 
   formHeader.value = 'Edit Indicator'
 
@@ -378,17 +380,19 @@ const DeleteIndicator = (data: TableSlotDefault) => {
 
 const handleClose = () => {
 
-  console.log("Clsoing the dialoig")
+  console.log("Closing the dialoig")
   showSubmitBtn.value = true
   showEditSaveButton.value = false
 
   ruleForm.indicator_id = ''
   ruleForm.indicator_name = ''
   ruleForm.category_id = ''
+  ruleForm.category_title = ''
   ruleForm.frequency = ''
 
 
   formHeader.value = 'Add Indicator'
+  AddDialogVisible.value = false
 
 }
 
@@ -396,6 +400,11 @@ const handleClose = () => {
 
 const changeCategory = async (category: any) => {
   ruleForm.category_id = category
+  var filtredCategories = categoryOptions.value.filter(function (el) {
+    return el.value == category
+  });
+  ruleForm.category_title = filtredCategories[0].label
+
 }
 
 const changeIndicator = async (indicator: any) => {
@@ -415,6 +424,7 @@ const ruleForm = reactive({
   indicator_id: '',
   indicator_name: '',
   category_id: '',
+  category_title: '',
   frequency: '',
 })
 
@@ -441,6 +451,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.model = 'indicator_category'
       ruleForm.code = uuid.v4()
       const res = CreateRecord(ruleForm)
+      AddDialogVisible.value = false
 
     } else {
       console.log('error submit!', fields)
@@ -537,7 +548,8 @@ console.log('Options---->', indicatorsOptions)
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
       <el-form-item label="Indicator">
-        <el-select v-model="ruleForm.indicator_id" :onChange="changeIndicator" placeholder="Select Indicator">
+        <el-select filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
+          placeholder="Select Indicator">
           <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>

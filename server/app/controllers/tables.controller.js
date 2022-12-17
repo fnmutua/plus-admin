@@ -233,12 +233,18 @@ exports.modelImportDataUpsert = async (req, res) => {
       req.body.data[i]
     )
       .then(data => console.log(data))
-      .catch(err => errors.push(err.original));
+     .catch(err => errors.push(err.original));
+      //.catch(err => console.log(err.original));
   }
 
-  console.log("Errors ---->", errors)
+  console.log("Upsert Errors ---->", errors[0])
   if (errors.length > 0) {
-    res.status(500).send({ message: 'Import/Update failed' })
+    let errorCodes = [...new Set(errors)];
+    if (errorCodes.includes("42P10")) {
+      var errorMsg = 'There are one or more duplicate records'
+    }
+
+    res.status(500).send({ message: 'Import/Update failed:'+errorMsg})
   } else {
     res.status(200).send({
       message: 'Import/Updated Successful',

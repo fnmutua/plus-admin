@@ -17,11 +17,18 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      frequency: {
+      category_title: {
         type: DataTypes.STRING,
         allowNull: false
       },
-      	
+      frequency: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },	
+      code: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },	
     },
     {
       sequelize,

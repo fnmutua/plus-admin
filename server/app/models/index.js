@@ -272,20 +272,20 @@ db.models.indicator_category.hasMany(db.models.indicator_category_report, {
 
 // county  - indicator_category_report
 db.models.indicator_category_report.belongsTo(db.models.county, {
-  foreignKey: 'location_id'
+  foreignKey: 'county_id'
 })
 
 db.models.county.hasMany(db.models.indicator_category_report, {
-  foreignKey: 'location_id'
+  foreignKey: 'county_id'
 })
 
 // county  - indicator_category_report
 db.models.indicator_category_report.belongsTo(db.models.settlement, {
-  foreignKey: 'location_id'
+  foreignKey: 'settlement_id'
 })
 
 db.models.settlement.hasMany(db.models.indicator_category_report, {
-  foreignKey: 'location_id'
+  foreignKey: 'settlement_id'
 })
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];

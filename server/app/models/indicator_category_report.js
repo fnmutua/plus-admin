@@ -8,9 +8,13 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      location_id: {
+      county_id: {
         type: DataTypes.INTEGER,
         allowNull: false
+      },
+      settlement_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true
       },
       period: {
         type: DataTypes.STRING,
@@ -24,6 +28,11 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.DECIMAL,
         allowNull: false
       },  	
+      code: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique:true
+      },  
     },
     {
       sequelize,
