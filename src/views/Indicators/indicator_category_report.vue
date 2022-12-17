@@ -5,24 +5,38 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, MessageParamsWithType } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Position,
   TopRight,
   User,
   Plus,
+  Edit,
+  Delete,
   Download,
   Filter,
+  UploadFilled,
   MessageBox
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import {
+  ElPagination, ElInputNumber, ElTable,
+  ElTableColumn,
+  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, ElCascader, FormRules, ElPopconfirm
+} from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
+import { uuid } from 'vue-uuid'
+import type { UploadProps, UploadUserFile } from 'element-plus'
+import readXlsxFile from 'read-excel-file'
+import { getModelSpecs } from '@/api/fields'
+import { BatchImportUpsert } from '@/api/settlements'
+
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -42,7 +56,10 @@ const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
 const indicatorsOptions = ref([])
+const countyOptions = ref([])
 const settlementOptions = ref([])
+
+
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
@@ -60,11 +77,14 @@ if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) 
   showAdminButtons.value = true
 }
 
+const AddDialogVisible = ref(false)
+const ImportDialogVisible = ref(false)
+const formHeader = ref('Add Report')
+const showSubmitBtn = ref(false)
+const showProcessBtn = ref(true)
 
-console.log("Show Buttons -->", showAdminButtons)
-
-
-
+const showEditSaveButton = ref(false)
+const cascadeOptions = ref([])
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
@@ -72,11 +92,15 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = []
 const model = 'indicator_category_report'
+const associated_multiple_models = ['settlement', 'county']
 const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
+
+const fieldSet = ref([])
+const show = ref(false)
+
 
 const { t } = useI18n()
 
@@ -88,20 +112,34 @@ const columns: TableColumn[] = [
   },
 
   {
-    field: 'indicator.name',
-    label: t('Name')
-  },
-
-
-  {
-    field: 'indicator.level',
-    label: t('Level')
+    field: 'indicator_category.indicator.name',
+    label: t('Indicator')
   },
   {
-    field: 'frequency',
-    label: t('frequency')
+    field: 'settlement.name',
+    label: t('Settlement')
+  },
+  {
+    field: 'county.name',
+    label: t('County')
   },
 
+  {
+    field: 'indicator_category.indicator.unit',
+    label: t('Unit')
+  },
+  {
+    field: 'amount',
+    label: t('Amount')
+  },
+  {
+    field: 'date',
+    label: t('Date')
+  },
+  {
+    field: 'action',
+    label: t('Actions')
+  }
 ]
 const handleClear = async () => {
   console.log('cleared....')
@@ -148,13 +186,29 @@ const handleSelectIndicatorCategory = async (indicator: any) => {
     (category) => category.indicator == indicator
   )
   console.log('filyterested  ------>', filteredIndicators)
-  makeSettlementOptions(filteredIndicators)
+  //makeSettlementOptions(filteredIndicators)
 
   getFilteredData(filters, filterValues)
 }
 
-const handleSelectIndicator = async (category: any) => {
-  var selectOption = 'category_id'
+const handleSelectLocation = async (selectedLocation: any) => {
+
+
+  if (selectedLocation.length > 1) {
+    var selectOption = 'settlement_id'
+    var location = [selectedLocation[selectedLocation.length - 1]] // take the last value selected
+
+  } else {
+    var selectOption = 'county_id'
+    var location = [selectedLocation[0]]
+
+  }
+
+  console.log("Level", selectOption)
+  console.log("location", location)
+
+
+
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -167,19 +221,33 @@ const handleSelectIndicator = async (category: any) => {
     filterValues.splice(index, 1)
   }
 
-  if (!filterValues.includes(category) && category.length > 0) {
-    filterValues.splice(index, 0, category) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  if (!filterValues.includes(location) && location.length > 0) {
+    filterValues.splice(index, 0, location) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
   }
 
   // expunge the filter if the filter values are null
-  if (category.length === 0) {
+  if (location.length === 0) {
     filters.splice(index, 1)
   }
 
+  console.log('filters:', filters)
   console.log('FilterValues:', filterValues)
+
 
   getFilteredData(filters, filterValues)
 }
+
+
+
+const getCascadeSelectedValues = async (location: any) => {
+  console.log("Selected - settlement_id", (location.length))
+  ruleForm.county_id = location[0] // take the last value selected
+  if (location.length > 1) {
+    ruleForm.settlement_id = location[location.length - 1] // take the last value selected
+  }
+
+}
+
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
@@ -210,6 +278,34 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
+
+const getModeldefinition = async (selModel) => {
+
+  console.log(selModel)
+  var formData = {}
+  formData.model = selModel
+  console.log("gettign fields")
+
+
+  await getModelSpecs(formData).then((response) => {
+
+    var data = response.data
+
+    var fields = data.filter(function (obj) {
+      return (obj.field !== 'id');
+    });
+
+    var fields2 = fields.filter(function (obj) {
+      return (obj.field !== 'geom');
+    });
+
+    console.log("fields:", fields2)
+    //health_facility_fields.value = response.data
+    fieldSet.value = fields2
+  })
+
+
+}
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
@@ -273,53 +369,94 @@ const getIndicatorNames = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
       opt.value = arrayItem.id
-      opt.label = arrayItem.indicator_name + '(' + arrayItem.frequency + ')'
+      opt.label = arrayItem.indicator_name + ' | ' + arrayItem.frequency + ' | ' + arrayItem.category_title
+      opt.title = arrayItem.category_title
       //  console.log(countyOpt)
       indicatorsOptions.value.push(opt)
     })
   })
 }
 
-const getCategoryOptions = async () => {
+const getCounties = async () => {
   const res = await getCountyListApi({
     params: {
       //   pageIndex: 1,
       //   limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'category',
+      model: 'county',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received response:', response)
+    console.log('Received county response:', response)
     //tableDataList.value = response.data
     var ret = response.data
 
     loading.value = false
     // pass result to the makeoptions
 
-    categories.value = ret
-    makeSettlementOptions(categories)
+    //categories.value = ret
+    makeCountyOptions(ret)
   })
 }
 
-const open = (msg: MessageParamsWithType) => {
-  ElMessage.error(msg)
+const getSettlement = async () => {
+  const res = await getCountyListApi({
+    params: {
+      //   pageIndex: 1,
+      //   limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'settlement',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then(async (response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+
+    loading.value = false
+    // pass result to the makeoptions
+    await getCounties()
+    //categories.value = ret
+    makeSettlementOptions(ret)
+
+
+  })
+}
+
+
+const makeCountyOptions = (list) => {
+  console.log('making the county options..............', list)
+  countyOptions.value = []
+  list.forEach(function (arrayItem: { id: string; type: string }) {
+    var countyOpt = {}
+    countyOpt.value = arrayItem.id
+    countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    countyOpt.children = []
+    //  console.log(countyOpt)
+    countyOptions.value.push(countyOpt)
+  })
+  console.log("County options", countyOptions)
 }
 
 const makeSettlementOptions = (list) => {
-  console.log('making the options..............', list)
+  console.log('making the settleemnt options..............', list)
   settlementOptions.value = []
-  list.value.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.category + '(' + arrayItem.id + ')'
+  list.forEach(function (arrayItem: { id: string; type: string }) {
+    var settOpt = {}
+    settOpt.value = arrayItem.id
+    settOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    settOpt.county_id = arrayItem.county_id
     //  console.log(countyOpt)
-    settlementOptions.value.push(countyOpt)
+    settlementOptions.value.push(settOpt)
   })
+  console.log("settlementOptions options", settlementOptions)
+  mergeCountyAndSettlementOptions()
 }
-
 const handleDownload = () => {
   downloadLoading.value = true
   const data = tblData
@@ -328,61 +465,427 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
-getIndicatorNames()
-getCategoryOptions()
-getInterventionsAll()
 
-console.log('Options---->', indicatorsOptions)
-const viewProfile = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
+const mergeCountyAndSettlementOptions = () => {
 
-  push({
-    path: '/settlement/:id',
-    name: 'SettlementDetails',
-    params: { data: data.row.id, id: data.row.id }
+
+  var arr = countyOptions.value.map(function (thisCounty, i) {
+    settlementOptions.value.map(function (sett, i) {
+      // console.log(thisCounty)
+      if (thisCounty.value == sett.county_id) {
+        thisCounty.children.push(sett)
+
+      }
+    });
+    return thisCounty;
+  });
+
+  cascadeOptions.value = arr
+  console.log("merged Options", arr)
+}
+
+
+const props1 = {
+  checkStrictly: true,
+}
+
+const editIndicator = (data: TableSlotDefault) => {
+  showSubmitBtn.value = false
+  showEditSaveButton.value = true
+  console.log(data)
+  ruleForm.id = data.row.id
+  ruleForm.county_id = data.row.county_id
+  ruleForm.settlement_id = data.row.county_id
+  ruleForm.date = data.row.date
+  ruleForm.amount = data.row.amount
+  ruleForm.indicator_category_id = data.row.indicator_category_id
+
+  formHeader.value = 'Edit Report'
+
+
+  AddDialogVisible.value = true
+}
+
+
+const DeleteIndicator = (data: TableSlotDefault) => {
+  console.log('----->', data.row.id)
+  let formData = {}
+  formData.id = data.row.id
+  formData.model = 'indicator_category_report'
+  DeleteRecord(formData)
+  console.log(tableDataList.value)
+
+  // remove the deleted object from array list 
+  let index = tableDataList.value.indexOf(data.row);
+  if (index !== -1) {
+    tableDataList.value.splice(index, 1);
+  }
+
+}
+
+
+const handleClose = () => {
+
+  console.log("Closing the dialoig")
+  showSubmitBtn.value = true
+  showEditSaveButton.value = false
+  ruleForm.settlement_id = null
+  ruleForm.county_id = null
+  ruleForm.indicator_category_id = null
+  ruleForm.date = null
+  ruleForm.amount = null
+
+
+  formHeader.value = 'Add Report'
+  AddDialogVisible.value = false
+
+}
+
+
+
+
+const changeIndicator = async (indicator: any) => {
+  ruleForm.indicator_id = indicator
+
+  var filtredOptions = indicatorsOptions.value.filter(function (el) {
+    return el.value == indicator
+  });
+
+  console.log("Filtered Idnciators", filtredOptions[0].label)
+  //ruleForm.indicator_category_title = filtredOptions[0].category_title
+
+}
+
+function getQuarter(date = new Date()) {
+  return Math.floor(date.getMonth() / 3 + 1);
+}
+
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  indicator_category_id: '',
+  county_id: '',
+  settlement_id: null,
+  period: getQuarter,
+  date: new Date(),
+  amount: '',
+})
+
+const rules = reactive<FormRules>({
+  indicator_id: [
+    { required: true, message: 'Please provide indicator name', trigger: 'blur' },
+    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+  ],
+  category_id: [
+    { required: true, message: 'Indicator category is required', trigger: 'blur' }],
+  frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
+
+})
+
+const AddReport = () => {
+  AddDialogVisible.value = true
+}
+
+const ImportReports = () => {
+  ImportDialogVisible.value = true
+}
+
+const submitForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate((valid, fields) => {
+    if (valid) {
+      ruleForm.model = 'indicator_category_report'
+      ruleForm.period = getQuarter()
+      ruleForm.code = uuid.v4()
+      const res = CreateRecord(ruleForm)
+      AddDialogVisible.value = false
+
+    } else {
+      console.log('error submit!', fields)
+    }
   })
 }
 
-const viewHHs = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
-  push({
-    path: '/settlement/hh/:id',
-    name: 'Households',
-    params: { id: data.row.id, name: data.row.name }
+
+const editForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate((valid, fields) => {
+    if (valid) {
+      ruleForm.model = 'indicator_category'
+
+      updateOneRecord(ruleForm).then(() => { })
+
+      // dialogFormVisible.value = false
+
+
+    } else {
+      console.log('error submit!', fields)
+    }
   })
 }
 
-const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On map.....', data.row)
-  if (data.row.geom) {
-    push({
-      path: '/settlement/map/:id',
-      name: 'SettlementMap',
-      params: { id: data.row.id }
+
+const batchData = ref([])
+const submitBatchImport = async () => {
+  console.log('upload--->', uploadedData.value)
+  for (let i = 0; i < uploadedData.value.length; i++) {
+
+    let feature = uploadedData.value[i]
+    let conv_feature = {}
+    for (var prop in feature) {
+      var matched_field = fieldSet.value.filter((obj) => {
+        // console.log('+++++', obj)
+        return obj.match === prop
+      })
+      //  console.log(i, matched_field)
+      if (matched_field.length > 0) {
+        conv_feature[matched_field[0].field] = feature[prop]  // Assign Field Vlue 
+      }
+
+      //console.log(conv_feature)
+    }
+    batchData.value.push(conv_feature)
+  }
+  console.log('processed:', batchData)
+
+  // ************** prepare data to server ***************** //
+
+  var formData = {}
+  formData.model = model
+  formData.data = batchData.value
+
+
+  console.log("importData--->", formData)
+
+
+  // ************** Send data to server ***************** //
+  await BatchImportUpsert(formData)
+    .catch((error) => {
+      console.log('Error------>', error.response.data.message)
+      ElMessage.error(error.response.data.message)
     })
-  } else {
-    var msg = 'This Settlement does not have the boundary defined in the database!'
-    open(msg)
+
+
+
+}
+
+
+
+
+/// Import multiple reports - ----------------
+// ----------------------------------------------
+//const parentModels = ['county']
+const parentModels = ['county', 'settlement', 'indicator_category']
+const parentCodes = ['countyCode', 'settlementCode', 'indicator_categoryCode']
+//const parentCodes = ['countyCode', 'settlementCode', 'indicator_categoryCode']
+//const parentCodes = ['countyCode']
+
+
+const uploadedData = ref([])
+
+const parentData = ref([]);
+const getParentOptions = async (parent, parentSNo) => {
+
+  await getCountyListApi({
+    params: {
+      curUser: 1, // Id for logged in user
+      model: parent,
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    //tableDataList.value = response.data
+    const ret = response.data
+    //  console.log('Received response:', parent, ret)
+    parentData.value.push(ret)
+
+
+
+
+
+  })
+}
+
+const fileList = ref<UploadUserFile[]>([])
+
+const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
+  console.log(file, uploadFiles)
+  show.value = false
+  uploadedData.value = []
+  batchData.value = []
+  fieldSet.value = []
+
+}
+
+const handlePreview: UploadProps['onPreview'] = (uploadFile) => {
+  console.log(uploadFile)
+}
+
+const handleExceed: UploadProps['onExceed'] = (files, uploadFiles) => {
+  ElMessage.warning(
+    `The limit is 1, you selected ${files.length} files this time, add up to ${files.length + uploadFiles.length
+    } totally`
+  )
+}
+
+const beforeRemove: UploadProps['beforeRemove'] = (uploadFile) => {
+  return ElMessageBox.confirm(`Cancel the uploading of  ${uploadFile.name} ?`).then(
+    () => true,
+    () => false
+  )
+}
+
+
+const matchOptions = ref([])
+const makeOptions = (list) => {
+  matchOptions.value = []
+  for (let i = 0; i < list.length; i++) {
+    var opt = {}
+    opt.value = list[i]
+    opt.label = list[i]
+    matchOptions.value.push(opt)
   }
 }
-const viewDocuments = (data: TableSlotDefault) => {
-  console.log('On map.....', data.row)
 
-  push({
-    path: '/settlement/doc/:id',
-    name: 'SettlementDocs',
-    params: { id: data.row.id }
+const file = ref()
+const readXLSX = async (event) => {
+  console.log('on file change.......', event)
+  //file.value = event.target.files ? event.target.files[0] : null;   // Direct upload 
+  file.value = event   // called from the uplaod funtion 
+
+  console.log('The file---->', file)
+
+  await readXlsxFile(file.value).then((rows) => {
+    const fields = Object.values(rows[0]) //  get all proterit4s of the first feature
+    console.log("fields-->", fields)
+
+
+    for (let j = 1; j < rows.length; j++) {
+      var record = {}
+      for (let i = 0; i < fields.length; i++) {
+        var f = fields[i]
+        var v = rows[j][i]
+        record[f] = v
+        //  console.log(record)
+      }
+
+      console.log("record", record) // Push to the temporary holder
+      uploadedData.value.push(record)
+
+    }  // remove header row
+
   })
+
+
+
+
+
+  console.log('Parent data', parentData.value)
+
+
+
+  for (let k = 0; k < parentData.value.length; k++) {
+    console.log('processing parent', k)
+    var pcode = parentCodes[k]
+    let editedArrray = []
+    console.log('processing code', pcode)
+
+    //  console.log(uploadedData.value[1][pcode])
+
+    for (let i = 0; i < uploadedData.value.length; i++) {
+
+
+      var parentMatch = parentData.value[k].filter(function (el) {
+        return el.code === uploadedData.value[i][pcode]
+      });
+
+
+      if (parentMatch.length > 0) {
+        let pkey = parentModels[k] + '_id'
+        console.log('parentMatch', pkey, parentMatch)
+
+        parentMatch[0][pkey] = parentMatch[0]['id'];
+        console.log(parentMatch[0])
+
+
+        const keys_to_keep = [pkey];
+        const result = parentMatch.map(e => {
+          const obj = {};
+          keys_to_keep.forEach(k => obj[k] = e[k])
+          return obj;
+        });
+
+        //  console.log(result);
+
+
+        const match = { ...uploadedData.value[i], ...result[0] };
+        editedArrray.push(match)
+      }
+
+    }
+
+
+
+    console.log('Proceeed............')
+    // proceed
+    if (editedArrray.length > 0) {
+      uploadedData.value = editedArrray.slice(0);
+    }
+
+  }
+
+  const mergedfields = (Object.getOwnPropertyNames(uploadedData.value[0]));  // get properties from first row
+
+  console.log('mergedfields', mergedfields)
+
+  makeOptions(mergedfields)
+  show.value = true
+  showSubmitBtn.value = true
+  showProcessBtn.value = false
 }
 
-const AddSettlement = (data: TableSlotDefault) => {
-  push({
-    path: '/settlement/add',
-    name: 'AddSettlement'
-  })
+const submitFiles = async () => {
+  console.log('on Submit....', fileList.value.length)
+
+
+  if (fileList.value.length == 0) {
+    ElMessage.error('Select a  File first!')
+  } else {
+    var rfile = fileList.value[0].raw
+
+    console.log("File type", rfile.name.split('.').pop())
+    let reader = new FileReader()
+    let ftype = rfile.name.split('.').pop()
+    if (ftype == 'xlsx') {
+
+      // Get the parents 
+
+      for (let parent in parentModels) {
+
+        await getParentOptions(parentModels[parent], parent)
+
+
+      }
+      console.log('parent data ---->', parentData.value)
+      reader.onload = readXLSX(rfile)
+    }
+    else {
+      console.log("Wrong File Format")
+      ElMessage.error('Wrong File Format!. Select XLSX files only!')
+
+    }
+
+  }
 }
 
+getModeldefinition(model)
 
+getIndicatorNames()
+//getCategoryOptions()
+getInterventionsAll()
+
+
+getSettlement()
 
 </script>
 
@@ -391,17 +894,21 @@ const AddSettlement = (data: TableSlotDefault) => {
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Filter by Indicator">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter by Category">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+      <el-cascader
+:options="cascadeOptions" @change="handleSelectLocation" :props="props1" filterable clearable
+        placeholder="Select Location of Monitoring" />
+
     </div>
+
+
+
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleDownload" type="primary" :icon="Download" />
     </div>
@@ -409,35 +916,116 @@ const AddSettlement = (data: TableSlotDefault) => {
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Settlement" placement="top">
-        <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
+      <el-tooltip content="Add Report " placement="top">
+        <el-button :onClick="AddReport" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
 
+    <div style="display: inline-block; margin-left: 20px">
+      <el-tooltip content="Import" placement="top">
+        <el-button :onClick="ImportReports" type="primary" :icon="UploadFilled" />
+      </el-tooltip>
+    </div>
+
+
+
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+    <Table
+:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
-        <el-tooltip content="View Profile" placement="top">
-          <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
+        <el-tooltip content="Edit" placement="top">
+          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
         </el-tooltip>
 
-        <el-tooltip content="View Households" placement="top">
-          <el-button v-if="showAdminButtons" type="success" :icon="User" @click="viewHHs(data as TableSlotDefault)"
-            circle />
+        <el-tooltip content="Delete" placement="top">
+          <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+            <template #reference>
+              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
+            </template>
+          </el-popconfirm>
         </el-tooltip>
-        <el-tooltip content="View on Map" placement="top">
-          <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
-        </el-tooltip>
-        <el-tooltip content="View Documents" placement="top">
-          <el-button type="primary" :icon="MessageBox" @click="viewDocuments(data as TableSlotDefault)" circle />
-        </el-tooltip>
+
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
+
+  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+
+      <el-form-item label="Indicator">
+        <el-select
+filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
+          placeholder="Select Indicator">
+          <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+
+      <el-form-item label="Location">
+        <el-cascader
+:options="cascadeOptions" @change="getCascadeSelectedValues" :props="props1" filterable clearable
+          placeholder="Select Location of Monitoring" />
+      </el-form-item>
+      <el-form-item label="Date">
+        <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />
+      </el-form-item>
+      <el-form-item label="Quantity">
+        <el-input-number v-model="ruleForm.amount" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+
+      <span class="dialog-footer">
+        <el-button @click="AddDialogVisible = false">Cancel</el-button>
+        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" width="50%" draggable>
+    <el-upload
+class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+      v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
+      :limit="1" :on-exceed="handleExceed" :auto-upload="false">
+      <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>
+    </el-upload>
+
+    <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe">
+      <el-table-column prop="column" label="Field">
+        <template #default="scope">
+          <el-input v-model="scope.row.field" controls-position="left" disabled />
+        </template>
+      </el-table-column>
+      <el-table-column prop="match" label="Match">
+        <template #default="scope">
+          <el-select v-model="scope.row.match" filterable placeholder="Select">
+            <el-option v-for="item in matchOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </template>
+      </el-table-column>
+    </el-table>
+    <template #footer>
+
+      <span class="dialog-footer">
+        <el-button @click="ImportDialogVisible = false">Cancel</el-button>
+        <el-button v-if="showProcessBtn" type="secondary" @click="submitFiles()">Process</el-button>
+        <el-button v-if="showSubmitBtn" type="primary" @click="submitBatchImport()">Submit</el-button>
+
+        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+   
+
 </template>
  

@@ -5,7 +5,10 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
+import {
+  ElButton, ElCascader, ElDatePicker, ElDialog, ElForm, ElFormItem,
+  ElInputNumber, ElSelect, FormInstance, FormRules, MessageParamsWithType
+} from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Position,
@@ -14,15 +17,20 @@ import {
   Plus,
   Download,
   Filter,
-  MessageBox
+  Edit,
+  Delete,
+  MessageBox,
+  InfoFilled
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElPopconfirm, ElDivider, ElInput, ElAutoResizer, ElTableV2 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { UserType } from '@/api/register/types'
+import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -60,6 +68,8 @@ if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) 
   showAdminButtons.value = true
 }
 
+const editDialogVisible = ref(false)
+const showEditSaveButton = ref(true)
 
 console.log("Show Buttons -->", showAdminButtons)
 
@@ -104,7 +114,9 @@ const columns: TableColumn[] = [
   },
   {
     field: 'action',
-    label: t('userDemo.action')
+    width: "300",
+    fixed: "right",
+    label: 'Operations'
   }
 ]
 const handleClear = async () => {
@@ -331,6 +343,30 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  id: '',
+  name: '',
+  county_id: '',
+  settlement_type: null,
+  area: null,
+  population: null,
+  description: null,
+  code: null,
+
+})
+
+const rules = reactive<FormRules>({
+  name: [
+    { required: true, message: 'Please provide  a name', trigger: 'blur' },
+    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+  ],
+  county_id: [
+    { required: true, message: 'Indicator category is required', trigger: 'blur' }],
+  code: [{ required: true, message: 'The code is required', trigger: 'blur' }],
+
+})
+
 getCountyNames()
 getSettlementsOptions()
 getInterventionsAll()
@@ -385,6 +421,54 @@ const AddSettlement = (data: TableSlotDefault) => {
   })
 }
 
+const editSettlement = (data: TableSlotDefault) => {
+  editDialogVisible.value = true
+  ruleForm.id = data.row.id
+  ruleForm.county_id = data.row.county_id
+  ruleForm.name = data.row.name
+  ruleForm.area = data.row.area
+  ruleForm.population = data.row.population
+  ruleForm.description = data.row.description
+  ruleForm.code = data.row.code
+  ruleForm.settlement_type = data.row.settlement_type
+}
+
+
+
+const saveEdits = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate((valid, fields) => {
+    if (valid) {
+      ruleForm.model = 'settlement'
+      console.log(ruleForm)
+
+      updateOneRecord(ruleForm).then(() => { })
+
+      // dialogFormVisible.value = false
+
+
+    } else {
+      console.log('error submit!', fields)
+    }
+  })
+}
+
+
+const DeleteIndicator = (data: TableSlotDefault) => {
+  console.log('----->', data.row.id)
+  let formData = {}
+  formData.id = data.row.id
+  formData.model = model
+  DeleteRecord(formData)
+  console.log(tableDataList.value)
+
+  // remove the deleted object from array list 
+  let index = tableDataList.value.indexOf(data.row);
+  if (index !== -1) {
+    tableDataList.value.splice(index, 1);
+  }
+
+}
 
 
 </script>
@@ -436,11 +520,70 @@ const AddSettlement = (data: TableSlotDefault) => {
         <el-tooltip content="View Documents" placement="top">
           <el-button type="primary" :icon="MessageBox" @click="viewDocuments(data as TableSlotDefault)" circle />
         </el-tooltip>
+        <el-tooltip content="Edit" placement="top">
+          <el-button type="success" :icon="Edit" @click="editSettlement(data as TableSlotDefault)" circle />
+        </el-tooltip>
+
+        <el-tooltip content="Delete" placement="top">
+          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+            <template #reference>
+              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
+            </template>
+          </el-popconfirm>
+        </el-tooltip>
+
       </template>
     </Table>
     <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+
+    <el-dialog v-model="editDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
+      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+
+        <el-form-item label="Name">
+          <el-input v-model="ruleForm.name" />
+        </el-form-item>
+
+        <el-form-item label="County">
+          <el-select filterable v-model="ruleForm.county_id" :onChange="changeIndicator" placeholder="Select Indicator">
+            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+
+        <el-form-item label="Type">
+          <el-input v-model="ruleForm.settlement_type" />
+        </el-form-item>
+
+
+        <el-form-item label="Description">
+          <el-input v-model="ruleForm.description" />
+        </el-form-item>
+
+        <el-form-item label="Area(ha)">
+          <el-input-number v-model="ruleForm.area" />
+        </el-form-item>
+
+        <el-form-item label="Population">
+          <el-input-number v-model="ruleForm.population" />
+        </el-form-item>
+
+
+
+
+      </el-form>
+      <template #footer>
+
+        <span class="dialog-footer">
+          <el-button @click="editDialogVisible = false">Cancel</el-button>
+          <el-button v-if="showEditSaveButton" type="primary" @click="saveEdits(ruleFormRef)">Save</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
   </ContentWrap>
 </template>
  

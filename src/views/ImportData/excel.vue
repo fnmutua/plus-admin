@@ -260,13 +260,16 @@ const uploadOptions = [
     options: [
       {
         value: 'category',
-        label: 'Indicator Categories'
+        label: 'Categories'
       },
       {
         value: 'indicator',
         label: 'Indicators'
       },
-
+      {
+        value: 'indicator_category',
+        label: 'Indicator Configurations'
+      },
     ]
   }
 ]
@@ -452,6 +455,11 @@ const handleSelectType = async (type: any) => {
     model.value = 'indicator'
     code.value = 'code'
   }
+
+
+
+
+
 
 }
 
@@ -753,7 +761,6 @@ const readXLSX = async (event) => {
 
 
     <div style="display: inline-block; margin-left: 20px">
-
       <el-switch v-model="value_switch" v-if="showSwitch" size="large" @click="handleMutlipleSettlements"
         active-text="Multiple Settlements" />
 
@@ -784,7 +791,7 @@ const readXLSX = async (event) => {
     <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe">
       <el-table-column prop="column" label="Field">
         <template #default="scope">
-          <el-input v-model="scope.row.field" controls-position="left" />
+          <el-input v-model="scope.row.field" controls-position="left" disabled />
         </template>
       </el-table-column>
       <el-table-column prop="match" label="Match">
