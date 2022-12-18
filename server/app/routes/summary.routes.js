@@ -9,11 +9,11 @@ module.exports = function (app) {
   })
 
   // Gets the  table names
-  app.post('/api/v1/summary/byfield', [authJwt.verifyToken], controller.sumModelByColumn)
-  app.post('/api/v1/summary/byfield/simple', [authJwt.verifyToken], controller.SimpleSumModelByColumn)
-  app.post('/api/v1/summary/byfield/nested',  [authJwt.verifyToken], controller.sumModelByColumnAssociated)
-  app.post('/api/v1/summary/byfield/include',  [authJwt.verifyToken], controller.nestedSumModelByColumn)
-  app.post('/api/v1/summary/byfield/multiple',  [authJwt.verifyToken], controller.sumModelAssociatedMultipleModels)
+  app.post('/api/v1/summary/byfield',   controller.sumModelByColumn)
+  app.post('/api/v1/summary/byfield/simple',   controller.SimpleSumModelByColumn)
+  app.post('/api/v1/summary/byfield/nested',   controller.sumModelByColumnAssociated)
+  app.post('/api/v1/summary/byfield/include',   controller.nestedSumModelByColumn)
+  app.post('/api/v1/summary/byfield/multiple',  controller.sumModelAssociatedMultipleModels)
 
   
  

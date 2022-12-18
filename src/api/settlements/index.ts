@@ -24,7 +24,7 @@ export const getfilteredGeo = (data: SettlementType): Promise<IResponse<Settleme
 }
 
 export const getAllGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  //console.log('getGeo....', data)
+  console.log('getGeo....', data)
   return request.post({ url: prod + '/api/v1/data/all/geo', data })
 }
 

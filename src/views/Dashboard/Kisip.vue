@@ -16,6 +16,7 @@ import { Echart } from '@/components/Echart'
 import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { getCountyGeoAll } from '@/api/counties'
 import * as turf from '@turf/turf'
+import { getAllGeo } from '@/api/settlements'
 
 
 import { use } from "echarts/core";
@@ -660,7 +661,7 @@ const InclusionSettlementsByCountiesMap = ref()
 const getCountyGeo = async () => {
   const formData = {}
   formData.model = 'county'
-  const res = await getCountyGeoAll(formData)
+  const res = await getAllGeo(formData)
   //  console.log(res.data[0].json_build_object)
   if (res.data[0].json_build_object.features) {
     countyGeo.value = res.data[0].json_build_object

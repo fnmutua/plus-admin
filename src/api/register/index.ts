@@ -5,6 +5,6 @@ const dev = import.meta.env.VITE_APP_HOST + ':4000' // Add the port for local De
 const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
 export const registerApi = (data: UserType): Promise<IResponse<UserType>> => {
-  console.log('Login....', data)
+  console.log('regs....', data)
   return request.post({ url: prod + '/api/auth/signup', data })
 }

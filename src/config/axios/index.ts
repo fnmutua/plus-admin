@@ -9,7 +9,7 @@ import { reactive, ref, unref, watch } from 'vue'
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userToken = wsCache.get(appStore.getUserInfo)
-const token =ref('')
+const token =ref(null)
 
 if(userToken){
   token.value= userToken.data
@@ -22,6 +22,10 @@ const { default_headers } = config
 
 const request = (option: any) => {
   const { url, method, params, data, headersType, responseType } = option
+  console.log("Request",wsCache.get(appStore.getUserInfo), '|',option.url  )
+
+
+
   return service({
     url: url,
     method,
@@ -34,6 +38,8 @@ const request = (option: any) => {
     }
   })
 }
+ 
+
 export default {
   get: <T = any>(option: any) => {
     return request({ method: 'get', ...option }) as unknown as T
@@ -47,4 +53,10 @@ export default {
   put: <T = any>(option: any) => {
     return request({ method: 'put', ...option }) as unknown as T
   }
+
+  /// just for login to get 
+
+
+
+
 }
