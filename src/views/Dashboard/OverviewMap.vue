@@ -12,7 +12,6 @@ import { reactive, ref } from 'vue'
 
 
 
-import { getCountyGeoAll } from '@/api/counties'
 import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
 
 import { LControlLayers, LGeoJson, LMap, LTileLayer } from '@vue-leaflet/vue-leaflet'
@@ -22,6 +21,7 @@ import { nextTick } from 'vue'
 
 import * as ss from 'simple-statistics'   // clasification of data 
 import chroma from "chroma-js"   // color scheme 
+import { getAllGeo } from '@/api/settlements'
 
 
 
@@ -298,7 +298,7 @@ const getBeneficiariesByCounty = async () => {
 const getCountyGeo = async () => {
   const formData = {}
   formData.model = 'county'
-  const res = await getCountyGeoAll(formData)
+  const res = await getAllGeo(formData)
   console.log(res.data[0].json_build_object)
   if (res.data[0].json_build_object.features) {
     countyGeo.value = res.data[0].json_build_object

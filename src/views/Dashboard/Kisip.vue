@@ -14,7 +14,6 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Echart } from '@/components/Echart'
 
 import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
-import { getCountyGeoAll } from '@/api/counties'
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
 
