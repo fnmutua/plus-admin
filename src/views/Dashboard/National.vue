@@ -19,9 +19,9 @@ import { set } from 'lodash-es'
 import { EChartsOption, registerMap } from 'echarts'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSummarybyField, getSummarybyFieldSimple, getSummarybyFieldNested } from '@/api/summary'
-import { getCountyGeoAll } from '@/api/counties'
 import * as turf from '@turf/turf'
 import { getSummarybyFieldFromInclude, } from '@/api/summary'
+import { getAllGeo } from '@/api/settlements'
 
 const { t } = useI18n()
 const countyGeo = ref([])
@@ -402,7 +402,7 @@ const mapOption = ref()
 const getCountyGeo = async () => {
   const formData = {}
   formData.model = 'county'
-  const res = await getCountyGeoAll(formData)
+  const res = await getAllGeo(formData)
   console.log(res.data[0].json_build_object)
   if (res.data[0].json_build_object.features) {
     countyGeo.value = res.data[0].json_build_object
@@ -411,7 +411,7 @@ const getCountyGeo = async () => {
     var bbox = turf.bbox(countyGeo.value);
     const y_coord = (bbox[1] + bbox[3]) / 2;
     aspect.value = Math.cos(y_coord * Math.PI / 180);
-    console.log(aspect.value)
+    // console.log(aspect.value)
     registerMap('KE', countyGeo.value);
     mapOption.value = {
       title: {
@@ -597,15 +597,12 @@ const getSettlementPopulation = async () => {
 const getAllApi = async () => {
   await Promise.all([
     getUserAccessSource(),
-    getCountyGeo(),
+    // getCountyGeo(),
     getSettlementPopulation(),
     getSettlementCountByCounty(),
     getSettlementPopPyramid(),
-    //  getUserAccesstoWater(),
-    //getUserAccesstoHousing(),
-    getWeeklyUserActivity(),
+    getCountyGeo()
 
-    getMonthlySales()
   ])
   loading.value = false
 }

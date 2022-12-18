@@ -14,16 +14,5 @@ export const getCountyListApi = ({ params }: AxiosConfig) => {
     list: CountyType[]
   }>({ url: prod + '/api/v1/data/all', params })
 }
-
-export const xgetCountyGeoAll = ({ data }: AxiosConfig) => {
-  return request.post<{
-    total: number
-    list: CountyType[]
-  }>({ url: prod + '/api/v1/data/all/geo', data })
-}
-
-
-export const getCountyGeoAll = (data: any): Promise<IResponse<any>> => {
-  console.log('getGeo....', data)
-  return request.post({ url: prod + '/api/v1/data/all/geo', data })
-}
+ 
+ 
