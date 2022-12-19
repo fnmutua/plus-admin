@@ -67,13 +67,13 @@ module.exports = function (app) {
   app.post('/api/v1/user/all',  [authJwt.verifyToken],controller.modelAllUsers)
 
   // count records with a filter
-  app.post('/api/v1/data/count/filter',   controller.modelCountFilter)
+  app.post('/api/v1/data/count/filter',[authJwt.verifyToken],   controller.modelCountFilter)
 
   // sum a feild
   app.post('/api/v1/data/sum',  [authJwt.verifyToken],controller.modelSumAll)
 
   // sum filtreed
-  app.post('/api/v1/data/sum/filter',   controller.modelSumFiltered)
+  app.post('/api/v1/data/sum/filter', [authJwt.verifyToken],  controller.modelSumFiltered)
 
   // sum filtreed
   app.post('/api/v1/upload', [authJwt.verifyToken], controller.modelUpload)

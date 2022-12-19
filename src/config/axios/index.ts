@@ -2,27 +2,34 @@ import { service } from './service'
 
 import { config } from './config'
 
-import { useAppStoreWithOut } from '@/store/modules/app'
+import { useAppStoreWithOut,useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { reactive, ref, unref, watch } from 'vue'
 
 const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
+const appStore = useAppStore()
 const userToken = wsCache.get(appStore.getUserInfo)
 const token =ref(null)
 
-if(userToken){
-  token.value= userToken.data
-} 
-console.log("userToken token--->",wsCache.get(appStore.getUserInfo) )
 
-  
 
 const { default_headers } = config
 
 const request = (option: any) => {
   const { url, method, params, data, headersType, responseType } = option
-  console.log("Request",wsCache.get(appStore.getUserInfo), '|',option.url  )
+ 
+  //console.log("userToken token--->",(wsCache.storage.userInfo) )
+  // get local storage variable for the logged in user, else pass empty token
+  if (wsCache.storage.userInfo) {
+    const loggedInUser = JSON.parse(wsCache.storage.userInfo);
+    console.log("userToken token--->",JSON.parse(loggedInUser.v).data)
+  
+    token.value = JSON.parse(loggedInUser.v).data
+      
+  } else {
+    token.value =null 
+
+  }
 
 
 
