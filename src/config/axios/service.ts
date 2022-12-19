@@ -26,6 +26,7 @@ service.interceptors.request.use(
       config.method === 'post' &&
       (config.headers as any)['Content-Type'] === 'application/x-www-form-urlencoded'
     ) {
+      console.log('config.headers-->',config.headers)
       config.data = qs.stringify(config.data)
     }
     // get参数编码
