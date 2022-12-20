@@ -625,7 +625,7 @@ const activeName = ref('chart')
 <template>
   <PanelGroup />
 
-  <el-tabs v-model="activeName" class="demo-tabs">
+  <el-tabs v-loading="loading" v-model="activeName" class="demo-tabs">
     <el-tab-pane label="Chart" name="chart">
 
 
