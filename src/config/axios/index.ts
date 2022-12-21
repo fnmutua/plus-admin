@@ -22,7 +22,7 @@ const request = (option: any) => {
   // get local storage variable for the logged in user, else pass empty token
   if (wsCache.storage.userInfo) {
     const loggedInUser = JSON.parse(wsCache.storage.userInfo);
-    console.log("userToken token--->",JSON.parse(loggedInUser.v).data)
+   // console.log("userToken token--->",JSON.parse(loggedInUser.v).data)
   
     token.value = JSON.parse(loggedInUser.v).data
       

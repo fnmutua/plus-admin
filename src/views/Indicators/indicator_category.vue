@@ -6,21 +6,17 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
-import { ElMessage } from 'element-plus'
+
 import {
-  Position,
-  TopRight,
-  User,
   Plus,
   Edit,
   Delete,
   Download,
-  Filter,
-  MessageBox
+  Filter
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, FormRules, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -99,7 +95,10 @@ const columns: TableColumn[] = [
     label: t('Name')
   },
 
-
+  {
+    field: 'id',
+    label: t('ReferenceId')
+  },
   {
     field: 'indicator.level',
     label: t('Level')

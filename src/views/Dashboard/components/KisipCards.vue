@@ -7,6 +7,7 @@ import { ref, reactive } from 'vue'
 import { getCountApi } from '@/api/dashboard/analysis'
 import type { AnalysisTotalTypes } from '@/api/dashboard/analysis/types'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
+import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
 const { t } = useI18n()
 
@@ -63,9 +64,41 @@ const getPopulationSummary = async () => {
   })
 }
 
+
+const getImprovedRoads = async () => {
+  //  this.countQuerry.model = 'settlement'
+  const countQuerry = {}
+  countQuerry.filterField = 'indicator_category_id'
+  countQuerry.criteria = 36
+  countQuerry.model = 'indicator_category_report'
+  countQuerry.sumField = 'amount'
+  await getSumFilter(countQuerry).then((response) => {
+
+    totalState.roadsKm = parseInt(response.data) / 1000
+    console.log('The getImprovedRoads', totalState.roadsKm)
+  })
+}
+
+
+const getWaterConnections = async () => {
+  //  this.countQuerry.model = 'settlement'
+  const countQuerry = {}
+  countQuerry.filterField = 'indicator_category_id'
+  countQuerry.criteria = 14  // water connection
+  countQuerry.model = 'indicator_category_report'
+  countQuerry.sumField = 'amount'
+  await getSumFilter(countQuerry).then((response) => {
+
+    totalState.waterConnections = parseInt(response.data)
+    console.log('The waterConnections', totalState.waterConnections)
+  })
+}
+
 getCount()
 getSettlementSummary()
 getPopulationSummary()
+getImprovedRoads()
+getWaterConnections()
 </script>
 
 <template>
@@ -124,15 +157,16 @@ getPopulationSummary()
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
-                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--money p-16px inline-block rounded-6px`">
-                  <font-awesome-icon size="4x" icon="fa-solid fa-map" />
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--water p-16px inline-block rounded-6px`">
+                  <font-awesome-icon size="4x" icon="fa-solid fa-glass-water-droplet" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                    t('Participating Counties ')
+                    t('New household water connections resulting from the project')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="5" :duration="2600" />
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.waterConnections"
+                  :duration="2600" />
               </div>
             </div>
           </template>
@@ -146,21 +180,25 @@ getPopulationSummary()
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
-                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--shopping p-16px inline-block rounded-6px`">
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--road p-16px inline-block rounded-6px`">
                   <font-awesome-icon size="4x" icon="fa-solid fa-road" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                    t('Rehabilitated Roads')
+                    t('Rehabilitated Roads (Km)')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="5344" :duration="2600" />
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.roadsKm"
+                  :duration="2600" />
               </div>
             </div>
           </template>
         </ElSkeleton>
       </ElCard>
     </ElCol>
+
+
+
   </ElRow>
 </template>
 
@@ -183,6 +221,14 @@ getPopulationSummary()
 
     &--shopping {
       color: #34bfa3;
+    }
+
+    &--road {
+      color: #040404;
+    }
+
+    &--water {
+      color: #110bba;
     }
 
     &:hover {

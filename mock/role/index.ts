@@ -14,7 +14,7 @@ const adminList = [
     redirect: '/dashboard/national',
     name: 'Dashboard',
     meta: {
-      title: 'Dashboard',
+      title: 'Summary',
       icon: 'ant-design:dashboard-filled',
       alwaysShow: true
     },
@@ -24,7 +24,7 @@ const adminList = [
         component: 'views/Dashboard/National',
         name: 'National',
         meta: {
-          title: 'Overview',
+          title: 'General Overview',
           noCache: true
         }
       },
@@ -33,7 +33,7 @@ const adminList = [
         component: 'views/Dashboard/CurrentSlumStatus',
         name: 'Status',
         meta: {
-          title: 'Socio-Economic',
+          title: 'Social Status',
           noCache: true
         }
       },

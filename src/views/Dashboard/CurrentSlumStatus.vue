@@ -69,6 +69,10 @@ const getAverageIncome = async () => {
   formData.summaryField = 'income_level'
   formData.summaryFunction = 'count'
   formData.groupField = ['income_level']
+
+
+
+
   const income_levels = await getSummarybyField(formData)
   // console.log('income_levels---->', income_levels)
 
@@ -1834,7 +1838,7 @@ const activeName = ref('summary')
 
 <template>
   <Income />
-  <el-tabs v-model="activeName" class="demo-tabs">
+  <el-tabs v-loading="loading" v-model="activeName" class="demo-tabs">
     <el-tab-pane label="Summary" name="summary">
       <ElRow :gutter="20" justify="space-between">
         <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
