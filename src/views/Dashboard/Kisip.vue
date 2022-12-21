@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElCollapse, ElCollapseItem, ElDivider, ElTabs, ElTabPane, ElProgress, ElSkeleton
+  ElRow, ElCol, ElAvatar, ElCard, ElCollapse, ElCollapseItem, ElDivider, ElTabs, ElTabPane, ElProgress, ElSkeleton
 } from 'element-plus'
 
 import { pieOptions, barOptions, lineOptions } from './echarts-data'
@@ -22,7 +22,18 @@ import { use } from "echarts/core";
 import { GaugeChart } from "echarts/charts";
 import PanelGroup from './components/KisipCards.vue'
 import { getSettlementListByCounty } from '@/api/settlements'
-
+import { value } from 'dom7'
+import {
+  Position,
+  TopRight,
+  User,
+  Plus,
+  Edit,
+  Delete,
+  Download,
+  Filter,
+  MessageBox
+} from '@element-plus/icons-vue'
 
 use([
   GaugeChart
@@ -1027,8 +1038,7 @@ const getBeneficiariesByCounty = async () => {
   indirect.assoc_models = ['households', 'settlement']
   indirect.groupFields = ['household.settlement.name', 'household.gender']
 
-  let IdirectSubCategories = []
-  var IndirectcData = []
+
 
   /// Direct beneficiaries 
   const indirectResults = await getSummarybyFieldFromMultipleIncludes(indirect)
@@ -1036,13 +1046,429 @@ const getBeneficiariesByCounty = async () => {
 
   console.log('Indirect', indirectResults)
 
+}
+
+// --------------Kilometers constrcuted under KISIP I --------------------------------
+const sumOfGravelRoadsConstructed = ref()
+const TotalRoadsConstructed = ref()
+const FootPathsConstructed = ref()
+const HighMastsConstructed = ref()
 
 
+
+
+const getRoadsConstructed = async () => {
+  const formData = {}
+  formData.model = 'indicator_category_report'
+  formData.summaryField = 'amount'
+  formData.summaryFunction = 'sum'
+  // Asccoiated models 
+  //formData.assoc_models = ['settlement', 'households']
+  //formData.groupFields = ['settlement.name', 'settlement.household.gender']
+
+  formData.assoc_models = ['county']
+  formData.groupFields = ['county.name']
+  formData.filterField = 'indicator_category_id'
+  formData.filterValue = 36
+  let RdDataTarmac = []
+
+
+  /// Gravel Roads
+  await getSummarybyFieldFromMultipleIncludes(formData)
+    .then(response => {
+      var results = response.Total
+      console.log('Sum of Tarmac roads constructed per county', results)
+      results.forEach(function (item) {
+        var rdData = {}
+        if (parseInt(item.sum) > 0) {
+          //      cData.push(parseInt(item.sum) / 1000)
+          //      subCategories.push(item.name)
+          rdData.county = item.name
+          rdData.Tarmac = item.sum / 1000
+          RdDataTarmac.push(rdData)
+        }
+      });
+
+
+    });
+
+
+  /// Gravel Roads
+  formData.filterValue = 37 // 37 - Gravel 
+  const RdDataGravel = []
+  await getSummarybyFieldFromMultipleIncludes(formData)
+    .then(response => {
+      var rdData = {}
+      var results = response.Total
+      console.log('Sum of Gravel roads constructed per county', results)
+      results.forEach(function (item) {
+        if (parseInt(item.sum) > 0) {
+          rdData.county = item.name
+          rdData.Gravel = item.sum / 1000
+          RdDataGravel.push(rdData)
+        }
+      });
+
+
+    });
+
+
+
+  const mergeById = (a1, a2) =>
+    a1.map(itm => ({
+      ...a2.find((item) => (item.county === itm.county) && item),
+      ...itm
+    }));
+
+  TotalRoadsConstructed.value = mergeById(RdDataTarmac, RdDataGravel)
+  console.log(TotalRoadsConstructed.value);
+
+
+
+  sumOfGravelRoadsConstructed.value = {
+    title: {
+      text: 'Roads improved under the KISIP project',
+      subtext: 'National Slum Mapping, 2023',
+      left: 'center',
+      textStyle: {
+        fontSize: 14
+      },
+      subtextStyle: {
+        fontSize: 12
+      }
+    },
+    toolbox: {
+      show: true,
+      feature: {
+        mark: { show: true },
+        dataView: { show: true, readOnly: true },
+        restore: { show: true },
+        saveAsImage: { show: true, pixelRatio: 4 }
+      }
+    },
+
+    legend: {
+      // Try 'horizontal'
+      orient: 'horizontal',
+      bottom: 20,
+
+    },
+    tooltip: {},
+    dataset: {
+      dimensions: ['county', 'Tarmac', 'Gravel',],
+      source: TotalRoadsConstructed,
+    },
+    xAxis: { type: 'category' },
+    yAxis: {
+      axisLabel: {
+        formatter: '{value} Km'
+      },
+      axisPointer: {
+        snap: true
+      }
+    },
+    // Declare several bar series, each will be mapped
+    // to a column of dataset.source by default.
+    series: [{ type: 'bar' }, { type: 'bar' }]
+  };
+
+
+
+  /// Footpaths
+  formData.filterValue = 16 // footpaths
+  const footPaths = []
+  await getSummarybyFieldFromMultipleIncludes(formData)
+    .then(response => {
+
+      var results = response.Total
+      console.log('Sum of footPaths Constructed per county', results)
+      results.forEach(function (item) {
+        var rdData = {}
+        if (parseInt(item.sum) > 0) {
+          rdData.county = item.name
+          rdData.Footpaths = item.sum / 1000
+          footPaths.push(rdData)
+        }
+      });
+
+
+    });
+
+  console.log(footPaths)
+
+  FootPathsConstructed.value = {
+    title: {
+      text: 'Footpaths constructed under the KISIP project',
+      subtext: 'National Slum Mapping, 2023',
+      left: 'center',
+      textStyle: {
+        fontSize: 14
+      },
+      subtextStyle: {
+        fontSize: 12
+      }
+    },
+    toolbox: {
+      show: true,
+      feature: {
+        mark: { show: true },
+        dataView: { show: true, readOnly: true },
+        restore: { show: true },
+        saveAsImage: { show: true, pixelRatio: 4 }
+      }
+    },
+
+    legend: {
+      // Try 'horizontal'
+      orient: 'horizontal',
+      bottom: 20,
+
+    },
+    tooltip: {},
+    dataset: {
+      dimensions: ['county', 'Footpaths',],
+      source: footPaths,
+    },
+    xAxis: { type: 'category' },
+    yAxis: {
+      axisLabel: {
+        formatter: '{value} Km'
+      },
+      axisPointer: {
+        snap: true
+      }
+    },
+    // Declare several bar series, each will be mapped
+    // to a column of dataset.source by default.
+    series: [{ type: 'bar' }]
+  };
+
+
+
+  /// Footpaths
+  formData.filterValue = 8 // footpaths
+  const highmasts = []
+  await getSummarybyFieldFromMultipleIncludes(formData)
+    .then(response => {
+
+      var results = response.Total
+      console.log('Sum of footPaths Constructed per county', results)
+      results.forEach(function (item) {
+        var rdData = {}
+        if (parseInt(item.sum) > 0) {
+          rdData.county = item.name
+          rdData.Highmasts = item.sum
+          highmasts.push(rdData)
+        }
+      });
+
+
+    });
+
+  console.log(highmasts)
+
+  HighMastsConstructed.value = {
+    title: {
+      text: 'Highmast Security Lights constructed ',
+      subtext: 'National Slum Mapping, 2023',
+      left: 'center',
+      textStyle: {
+        fontSize: 14
+      },
+      subtextStyle: {
+        fontSize: 12
+      }
+    },
+    toolbox: {
+      show: true,
+      feature: {
+        mark: { show: true },
+        dataView: { show: true, readOnly: true },
+        restore: { show: true },
+        saveAsImage: { show: true, pixelRatio: 4 }
+      }
+    },
+
+    legend: {
+      // Try 'horizontal'
+      orient: 'horizontal',
+      bottom: 20,
+
+    },
+    tooltip: {},
+    dataset: {
+      dimensions: ['county', 'Highmasts',],
+      source: highmasts,
+    },
+    xAxis: { type: 'category' },
+    yAxis: {
+      axisLabel: {
+        formatter: '{value}'
+      },
+      axisPointer: {
+        snap: true
+      }
+    },
+    // Declare several bar series, each will be mapped
+    // to a column of dataset.source by default.
+    series: [{ type: 'bar' }]
+  };
 
 
 
 
 }
+
+
+// --------------DPW Beneficiaries KISIP II --------------------------------
+const DPWBeneficiariesv2 = ref()
+
+const getInclusionBeneficiaries = async () => {
+  const formData = {}
+  formData.model = 'indicator_category_report'
+  formData.summaryField = 'amount'
+  formData.summaryFunction = 'sum'
+
+  formData.assoc_models = ['settlement']
+  formData.groupFields = ['settlement.name']
+  formData.filterField = 'indicator_category_id'
+  formData.filterValue = 26
+
+  let subCategories = []
+  let maleSeries = []
+
+  /// Gravel Roads
+  await getSummarybyFieldFromMultipleIncludes(formData)
+    .then(response => {
+      var results = response.Total
+      console.log('Inclusion beneficiaries county', results)
+      results.forEach(function (item) {
+        if (parseInt(item.sum) > 0) {
+          if (subCategories.indexOf(item.name) === -1) subCategories.push(item.name);
+          maleSeries.push(parseInt(item.sum))
+        }
+      });
+
+    });
+
+  /// Female
+  formData.filterValue = 33
+  let femaleSeries = []
+  await getSummarybyFieldFromMultipleIncludes(formData)
+    .then(response => {
+      var results = response.Total
+      console.log('Sum of Gravel roads constructed per county', results)
+      results.forEach(function (item) {
+        if (parseInt(item.sum) > 0) {
+          femaleSeries.push(parseInt(item.sum))
+
+        }
+      });
+
+
+    });
+
+  DPWBeneficiariesv2.value = {
+    title: {
+      text: 'DPW: No. of people engaged and trained',
+      subtext: 'National Slum Mapping, 2023',
+      left: 'center',
+      textStyle: {
+        fontSize: 14,
+        overflow: "truncate",
+        ellipsis: '.....',
+        width: 350
+      },
+      subtextStyle: {
+        fontSize: 12
+      }
+    },
+
+
+
+    tooltip: {
+      trigger: 'axis',
+
+      axisPointer: {
+        // Use axis to trigger tooltip
+        type: 'line' // 'shadow' as default; can also be 'line' or 'shadow'
+      }
+    },
+    toolbox: {
+      show: true,
+      feature: {
+        mark: { show: true },
+        dataView: { show: true, readOnly: true },
+        restore: { show: true },
+        saveAsImage: { show: true, pixelRatio: 4 }
+      }
+    },
+    legend: {
+      orient: 'horizontal',
+      type: 'scroll',
+      left: 'left',
+      itemWidth: 20,
+      itemHeight: 20,
+      data: [
+        {
+          name: 'Male',
+          icon: maleIcon
+        },
+        {
+          name: 'Female',
+          icon: femaleIcon
+        }
+      ]
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      data: subCategories
+
+    },
+    yAxis: {
+      type: 'value'
+
+    },
+    series: [
+      {
+        name: 'Male',
+        type: 'bar',
+        stack: 'total',
+        label: {
+          show: true
+        },
+        emphasis: {
+          focus: 'series'
+        },
+        color: colorPalette[1],
+        data: maleSeries
+      },
+      {
+        name: 'Female',
+        type: 'bar',
+        stack: 'total',
+        color: colorPalette[0],
+
+        label: {
+          show: true
+        },
+        emphasis: {
+          focus: 'series'
+        },
+        data: femaleSeries
+      },
+
+    ]
+  };
+
+}
+
+
 
 const getAllApi = async () => {
   await Promise.all([
@@ -1051,7 +1477,9 @@ const getAllApi = async () => {
     getKisipTenureSettlementsCountByCounty(),
     getKisipInfSettlementsCountByCounty(),
     getKisipInclusionSettlementsCountByCounty(),
-    getBeneficiariesByCounty()
+    getBeneficiariesByCounty(),
+    getRoadsConstructed(),
+    getInclusionBeneficiaries()
 
   ])
   loading.value = false
@@ -1074,7 +1502,50 @@ const activeName = ref('summary')
 
 <template>
   <PanelGroup />
-  <el-tabs v-model="activeName" class="demo-tabs">
+  <!--   <el-row :gutter="12">
+    <el-col :span="6">
+      <el-card shadow="always">
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <div class="fa-3x">
+              <span class="fa-layers fa-lg">
+                <font-awesome-icon icon="fa-solid fa-road" />
+                <span class="fa-layers-counter" style="background:yellowgreen">1,419</span>
+              </span>
+            </div>
+          </el-col>
+          <el-col :span="12">
+            <span align:center>
+              Roads improved (Km)
+            </span>
+          </el-col>
+        </el-row>
+      </el-card>
+    </el-col>
+
+    <el-col :span="6">
+      <el-card shadow="always">
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <div class="fa-3x">
+              <el-avatar shape="circle" :size="58" fit="fill" :icon="Download" />
+            </div>
+          </el-col>
+          <el-col :span="12">
+            <span align:center>
+              Roads improved (Km)
+            </span>
+          </el-col>
+        </el-row>
+      </el-card> </el-col>
+    <el-col :span="6">
+      <el-card shadow="always"> Never </el-card>
+    </el-col>
+    <el-col :span="6">
+      <el-card shadow="always"> Never </el-card>
+    </el-col>
+  </el-row> -->
+  <el-tabs v-loading="loading" v-model="activeName" class="demo-tabs">
     <el-tab-pane label="Summary" name="summary">
       <ElRow :gutter="20" justify="space-between">
         <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
@@ -1136,7 +1607,8 @@ const activeName = ref('summary')
           <ElCard shadow="hover" class="mb-20px">
             <ElSkeleton :loading="loading" animated>
               <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-              <apexchart height="350" :options="healthStackchartOptions" :series="healthStackchartSeries" />
+              <Echart :options="sumOfGravelRoadsConstructed" :height="350" />
+
             </ElSkeleton>
           </ElCard>
         </ElCol>
@@ -1149,6 +1621,28 @@ const activeName = ref('summary')
           </ElCard>
         </ElCol>
       </ElRow>
+
+      <ElRow class="mt-10px" :gutter="10" justify="space-between">
+        <ElCol :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
+          <ElCard shadow="hover" class="mb-20px">
+            <ElSkeleton :loading="loading" animated>
+              <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
+              <Echart :options="FootPathsConstructed" :height="350" />
+
+            </ElSkeleton>
+          </ElCard>
+        </ElCol>
+        <ElCol :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
+          <ElCard shadow="hover" class="mb-20px">
+            <ElSkeleton :loading="loading" animated>
+              <!-- <Echart :options="SlumsPerCountyChartData" :height="400" /> -->
+              <Echart :options="HighMastsConstructed" :height="350" />
+            </ElSkeleton>
+          </ElCard>
+        </ElCol>
+      </ElRow>
+
+
     </el-tab-pane>
 
     <el-tab-pane label="Inclusion" name="inclusion">
@@ -1157,7 +1651,7 @@ const activeName = ref('summary')
           <ElCard shadow="hover" class="mb-20px">
             <ElSkeleton :loading="loading" animated>
               <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
-              <apexchart height="350" :options="healthStackchartOptions" :series="healthStackchartSeries" />
+              <Echart :options="DPWBeneficiariesv2" :height="350" />
             </ElSkeleton>
           </ElCard>
         </ElCol>

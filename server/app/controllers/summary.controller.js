@@ -219,8 +219,14 @@ exports.sumModelAssociatedMultipleModels = (req, res) => {
 
   
  
-   
- var nestedModels = { model: db.models[req.body.assoc_models[0]], attributes: [],include: [{ model: db.models[req.body.assoc_models[1]], attributes: [] }] }
+  if (req.body.assoc_models.length >1) {
+    var nestedModels = { model: db.models[req.body.assoc_models[0]], attributes: [],include: [{ model: db.models[req.body.assoc_models[1]], attributes: [] }] }
+ 
+  } else {
+    var nestedModels = { model: db.models[req.body.assoc_models[0]], attributes: []   } 
+ 
+
+ }
 
 
   qry.include=nestedModels

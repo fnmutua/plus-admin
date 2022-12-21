@@ -42,12 +42,13 @@ import { library } from '@fortawesome/fontawesome-svg-core'
 
 /* import font awesome icon component */
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { FontAwesomeLayers, FontAwesomeLayersText } from '@fortawesome/vue-fontawesome'
 
 /* import specific icons */
-import { faUserSecret,faHouse, faCity,faPeopleRoof,faPeopleGroup,faMoneyCheckDollar,faDollarSign, faHouseLock, faFilterCircleDollar, faRoad, faHandsHoldingChild, faFileLines, faCalendarDays, faMap, faSackDollar} from '@fortawesome/free-solid-svg-icons'
+import {faTimes, faGlassWaterDroplet,  faCertificate, faRoadCircleCheck, faCircle, faCheck, faRoadBridge, faUserSecret,faHouse, faCity,faPeopleRoof,faPeopleGroup,faMoneyCheckDollar,faDollarSign, faHouseLock, faFilterCircleDollar, faRoad, faHandsHoldingChild, faFileLines, faCalendarDays, faMap, faSackDollar} from '@fortawesome/free-solid-svg-icons'
 
 /* add icons to the library */
-library.add(faUserSecret,faCity,faPeopleGroup,faPeopleRoof,faMoneyCheckDollar,faMap,faFilterCircleDollar,faHouseLock, faDollarSign,faHandsHoldingChild,faFileLines,faRoad,faHouse,faSackDollar,faCalendarDays)
+library.add(faTimes,faGlassWaterDroplet,faCertificate, faRoadCircleCheck, faCircle, faCheck,faRoadBridge, faUserSecret,faCity,faPeopleGroup,faPeopleRoof,faMoneyCheckDollar,faMap,faFilterCircleDollar,faHouseLock, faDollarSign,faHandsHoldingChild,faFileLines,faRoad,faHouse,faSackDollar,faCalendarDays)
 
 import JsonCSV from 'vue-json-csv'
 
@@ -69,8 +70,13 @@ const setupAll = async () => {
   setupPermission(app)
 
   app.component('font-awesome-icon', FontAwesomeIcon)
+  app.component('fa-layers-text', FontAwesomeLayersText)
+  app.component('font-awesome-layers', FontAwesomeLayers)
   app.use(VueApexCharts);
   app.use( JsonCSV)
+
+  
+
 
   app.mount('#app')
 }
