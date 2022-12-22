@@ -97,6 +97,13 @@ export const updateOneRecord = (data: SettlementType): Promise<IResponse<Settlem
 }
 
 
+export const uploadDocuments = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  // console.log('....', data)
+  return request.post({ url: prod + '/api/v1/upload/documentation', data })
+}
 
 
-
+export const deleteDocument = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  // console.log('....', data)
+  return request.post({ url: prod + '/api/v1/upload/delete', data })
+}

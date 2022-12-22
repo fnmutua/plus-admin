@@ -8,8 +8,11 @@ var corsOptions = {
 const path = require('path')
 const fileUpload = require('express-fileupload')
 
+var fs = require('fs')
 
-const envt = 'PROD'   // PROD
+
+
+const envt = 'DEV'   // PROD
  if (envt==='DEV') {
 // Switch off for prodcution 
 console.log("DEV: Swithcing on dotenv")
@@ -51,48 +54,10 @@ app.get('/', (req, res) => {
 // For the puposes of uolaoding documents to the platform
 
 app.use(express.static('public')) // to access the files in public folder
-// file upload api
-app.post('/api/v1/uploadx', (req, res) => {
-  if (!req.files) {
-    return res.status(500).send({ msg: 'file is not found' })
-  }
-  // accessing the file
-  const myFiles = req.files.file
 
-  console.log('req.files', myFiles.length)
 
-  if (myFiles.length > 0) {
-    for (let i = 0; i < myFiles.length; i++) {
-      //  mv() method places the file inside public directory
-      console.log('Myfiles', i, myFiles[i].name)
-      myFiles[i].mv(`${__dirname}/public/${myFiles[i].name}`, function(err) {
-        if (err) {
-          console.log(err)
-          return res.status(500).send({ msg: 'Error occured' })
-        }
-      })
-    }
-    return res.status(200).send({
-      message: myFiles.length + ' Files Uploaded successfully',
-      code: 20000
-    })
-  }
-
-  // incase of one file only
-  else {
-    myFiles.mv(`${__dirname}/public/${myFiles.name}`, function(err) {
-      if (err) {
-        console.log(err)
-        return res.status(500).send({ msg: 'Error occured' })
-      }
-    })
-
-    return res.status(200).send({
-      message: 'One file Uploaded successfully',
-      code: 20000
-    })
-  }
-})
+  
+    //-------------------------------.
 
 // set port, listen for requests
 const PORT = process.env.PORT || 80

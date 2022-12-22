@@ -14,7 +14,7 @@ const adminList = [
     redirect: '/dashboard/national',
     name: 'Dashboard',
     meta: {
-      title: 'Summary',
+      title: 'Dashboards',
       icon: 'ant-design:dashboard-filled',
       alwaysShow: true
     },
@@ -24,7 +24,7 @@ const adminList = [
         component: 'views/Dashboard/National',
         name: 'National',
         meta: {
-          title: 'General Overview',
+          title: 'Overview',
           noCache: true
         }
       },
@@ -33,7 +33,7 @@ const adminList = [
         component: 'views/Dashboard/CurrentSlumStatus',
         name: 'Status',
         meta: {
-          title: 'Social Status',
+          title: 'Status',
           noCache: true
         }
       },
@@ -53,7 +53,7 @@ const adminList = [
         component: 'views/Dashboard/Kisip',
         name: 'Kisip',
         meta: {
-          title: 'Kisip',
+          title: 'KISIP',
           noCache: true
         }
       },
@@ -325,6 +325,7 @@ const adminList = [
           title: 'uploadFiles'
         }
       },
+      
   
       {
         path: 'doc/:id',

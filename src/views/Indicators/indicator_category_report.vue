@@ -5,37 +5,42 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, MessageParamsWithType } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, FormInstance } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
-  Position,
-  TopRight,
-  User,
   Plus,
   Edit,
-  Delete,
   Download,
   Filter,
+  Delete,
   UploadFilled,
-  MessageBox
+  InfoFilled
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
+import { ref, reactive, h } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn,
-  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, ElCascader, FormRules, ElPopconfirm
+  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, FormRules, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import readXlsxFile from 'read-excel-file'
 import { getModelSpecs } from '@/api/fields'
 import { BatchImportUpsert } from '@/api/settlements'
+import { UserType } from '@/api/register/types'
+import { Icon } from '@iconify/vue';
+
+
+
+
+
+
 
 
 const { wsCache } = useCache()
@@ -98,12 +103,30 @@ const nested_models = ['indicator_category', 'indicator'] // The mother, then fo
 
 //// ------------------parameters -----------------------////
 
+const fileUploadList = ref<UploadUserFile[]>([])
+
+
 const fieldSet = ref([])
 const show = ref(false)
 
 
 const { t } = useI18n()
+const formatter = (row) => {
+  if (row.documentation) {
 
+
+    return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, {
+      icon: "ic:outline-download-for-offline", height: '36'
+    }))
+
+    // return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, { icon: "material-symbols:cloud-download", height: '36' }), 'Download ')
+
+
+  } else {
+    return
+  }
+
+}
 const columns: TableColumn[] = [
   {
     field: 'index',
@@ -135,6 +158,12 @@ const columns: TableColumn[] = [
   {
     field: 'date',
     label: t('Date')
+  },
+
+  {
+    field: 'documentation',
+    label: t('Documents'),
+    formatter: formatter
   },
   {
     field: 'action',
@@ -512,7 +541,14 @@ const DeleteIndicator = (data: TableSlotDefault) => {
   let formData = {}
   formData.id = data.row.id
   formData.model = 'indicator_category_report'
+  formData.filename = data.row.documentation
+
+
   DeleteRecord(formData)
+
+  deleteDocument(formData)
+
+
   console.log(tableDataList.value)
 
   // remove the deleted object from array list 
@@ -568,6 +604,7 @@ const ruleForm = reactive({
   period: getQuarter,
   date: new Date(),
   amount: '',
+  files: ''
 })
 
 const rules = reactive<FormRules>({
@@ -592,12 +629,38 @@ const ImportReports = () => {
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = 'indicator_category_report'
       ruleForm.period = getQuarter()
       ruleForm.code = uuid.v4()
-      const res = CreateRecord(ruleForm)
+
+
+      await CreateRecord(ruleForm)   // first save the form on DB
+
+
+      // uploading the documents 
+      const fileTypes = []
+      const formData = new FormData()
+      for (var i = 0; i < fileUploadList.value.length; i++) {
+        console.log('------>file', fileUploadList.value[i])
+        var file = fileUploadList.value[i].name.split('.').pop() // get file extension
+        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+        fileTypes.push('documentation')
+        // formData.append('file', fileList.value[i])
+        // formData.file = fileList.value[i]
+        formData.append('file', fileUploadList.value[i].raw)
+      }
+
+      formData.append('report_code', ruleForm.code)
+      formData.append('DocTypes', fileTypes)
+
+      // formData.append('DocTypes', fileTypes)
+
+      console.log(formData)
+      await uploadDocuments(formData)
+
+
       AddDialogVisible.value = false
       handleClose()
 
@@ -892,7 +955,7 @@ getSettlement()
 </script>
 
 <template>
-  <ContentWrap :title="t('Indicator Configurations')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Monitoring and Evaluation Reports')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
@@ -942,10 +1005,13 @@ getSettlement()
           <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
             title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
             <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
+              <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
             </template>
           </el-popconfirm>
         </el-tooltip>
+
+
+
 
       </template>
     </Table>
@@ -975,6 +1041,18 @@ getSettlement()
       <el-form-item label="Quantity">
         <el-input-number v-model="ruleForm.amount" />
       </el-form-item>
+      <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
+          :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
+          :on-exceed="handleExceed" :auto-upload="false">
+          <el-button type="primary">Click to upload</el-button>
+          <template #tip>
+            <div class="el-upload__tip">
+              pdf/xlsx/csv/jpg/png files with a size less than 20mb.
+            </div>
+          </template>
+        </el-upload></el-form-item>
+
+
     </el-form>
     <template #footer>
 
