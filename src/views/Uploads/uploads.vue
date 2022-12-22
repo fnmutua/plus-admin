@@ -9,6 +9,7 @@ import {
   ElSelect,
   MessageParamsWithType,
   ElLink,
+  ElPopconfirm,
   ElOptionGroup,
   ElOption
 } from 'element-plus'
@@ -18,6 +19,7 @@ import {
   TopRight,
   User,
   Download,
+  Delete,
   Filter,
   UploadFilled,
   CircleCloseFilled,
@@ -28,6 +30,7 @@ import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
+import { CreateRecord, DeleteRecord, updateOneRecord, uploadFiles, deleteDocument, uploadDocuments } from '@/api/settlements'
 
 interface Params {
   pageIndex?: number
@@ -304,6 +307,28 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
+const DeleteUpload = (data: TableSlotDefault) => {
+  console.log('----->', data.row.id)
+  let formData = {}
+  formData.id = data.row.id
+  formData.model = model
+  formData.filename = data.row.name
+
+
+  DeleteRecord(formData)
+  deleteDocument(formData)
+
+
+  console.log(tableDataList.value)
+
+  // remove the deleted object from array list 
+  let index = tableDataList.value.indexOf(data.row);
+  if (index !== -1) {
+    tableDataList.value.splice(index, 1);
+  }
+
+}
+
 getCountyNames()
 getSettlementsOptions()
 getInterventionsAll()
@@ -399,46 +424,20 @@ const UploadDocuments = (data: TableSlotDefault) => {
 </script>
 
 <template>
-  <ContentWrap
-    :title="t('Slums and Informal Settlements')"
-    :message="t('Use the filters to subset')"
-  >
+  <ContentWrap :title="t('Slums and Informal Settlements')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select
-        v-model="value2"
-        :onChange="handleSelectType"
-        :onClear="handleClear"
-        placeholder="Filter by Type"
-      >
+      <el-select v-model="value2" :onChange="handleSelectType" :onClear="handleClear" placeholder="Filter by Type">
         <el-option-group v-for="group in uploadOptions" :key="group.label" :label="group.label">
-          <el-option
-            v-for="item in group.options"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
+          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
         </el-option-group>
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select
-        v-model="value3"
-        :onChange="handleSelectSettlement"
-        :onClear="handleClear"
-        multiple
-        clearable
-        filterable
-        collapse-tags
-        placeholder="Filter by Settlement"
-      >
-        <el-option
-          v-for="item in settlementOptions"
-          :key="item.value"
-          :label="item.label"
-          :value="item.value"
-        />
+      <el-select v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable
+        filterable collapse-tags placeholder="Filter by Settlement">
+        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
@@ -449,36 +448,28 @@ const UploadDocuments = (data: TableSlotDefault) => {
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table
-      :columns="columns"
-      :data="tableDataList"
-      :loading="loading"
-      :selection="true"
-      :pageSize="pageSize"
-      :currentPage="currentPage"
-    >
+    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+      :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="View Profile" placement="top">
-          <el-button
-            type="primary"
-            :icon="Download"
-            @click="DownloadFile(data as TableSlotDefault)"
-            circle
-          />
+          <el-button type="primary" :icon="Download" @click="DownloadFile(data as TableSlotDefault)" circle />
         </el-tooltip>
+
+        <el-tooltip content="Delete" placement="top">
+          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+            title="Are you sure to delete this indicator?" @confirm="DeleteUpload(data as TableSlotDefault)">
+            <template #reference>
+              <el-button type="danger" :icon="Delete" circle />
+            </template>
+          </el-popconfirm>
+        </el-tooltip>
+
+
       </template>
     </Table>
-    <ElPagination
-      layout="sizes, prev, pager, next, total"
-      v-model:currentPage="currentPage"
-      v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 1000]"
-      :total="total"
-      :background="true"
-      @size-change="onPageSizeChange"
-      @current-change="onPageChange"
-      class="mt-4"
-    />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
     <el-dialog v-model="uploadDialog" :show-close="false">
       <template #header="{ close, titleId, titleClass }">

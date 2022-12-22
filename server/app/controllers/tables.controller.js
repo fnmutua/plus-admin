@@ -7,7 +7,7 @@ var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
 const nodemailer = require('nodemailer')
 const { authJwt } = require("../middleware");
-
+var fs = require('fs');
 const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   host: config.HOST,
   port: config.PORT,
@@ -1034,4 +1034,109 @@ exports.modelUpload = (req, res) => {
         console.log('Error during Post: ' + error)
       })
   }
+}
+
+exports.ReportDocumentationUpload = (req, res) => {
+  console.log(req.files)
+  if (!req.files) {
+    return res.status(500).send({ msg: 'file is not found' })
+  }
+  console.log('In upload express.....', req.body.DocTypes)
+  // accessing the file
+  var arr = req.body.DocTypes
+  let ftypes = arr.split(',')
+
+  const myFiles = req.files.file
+  const report_code = req.body.report_code
+
+  console.log('myFiles', myFiles.length)
+
+  // Run for more than one document
+
+  if (myFiles.length > 0) {
+    var objs = []
+
+    for (let i = 0; i < myFiles.length; i++) {
+      //  mv() method places the file inside public directory
+      console.log('Myfiles', i, myFiles[i].name)
+      var fname = report_code + '_' + myFiles[i].name.replace(/\s/g, '_')
+      var doctype = ftypes[i]
+      console.log(ftypes[i])
+ 
+      var thisFile = {
+        type: doctype,
+        name: fname,
+        file_path: `./public/${fname}`,
+        report_code: req.body.report_code,
+        group: 'M&E Documentation'
+      }
+      objs.push(thisFile)
+    }
+
+    console.log('Multiple Files:', objs)
+
+    res.status(500).send('Multiple uploads  coming soon')
+
+  } else {
+    // Sin
+    var objs = []
+    var fname = report_code + '_' + myFiles.name.replace(/\s/g, '_')
+    var doctype = ftypes
+    console.log('ftypes:', ftypes[0])
+
+      var thisFile = {
+      type: ftypes[0],
+      name: fname,
+      file_path: `./public/${fname}`,
+      report_code: req.body.report_code,
+      group: 'M&E Documentation'
+    }
+    objs.push(thisFile)
+
+    console.log('Thisfile', thisFile)
+
+    db.models.indicator_category_report.update(
+      { documentation: thisFile.name},
+      { where: { code: thisFile.report_code } }
+    )
+      .then(function () {
+        // var fname = settlement_name+"_"+myFiles.name
+        myFiles.mv(`./public/${fname}`)
+
+        // return models.DiscoverySource.findAll();
+        res.status(200).send({
+          message: 'One File Saved succesfully',
+          code: '0000'
+        })
+      })
+      .catch(err =>
+        res.status(500).send(error)
+      )
+
+
+    // db.models.settlement_uploads
+    //   .bulkCreate(objs)
+    //   .then(function () {
+    //     // var fname = settlement_name+"_"+myFiles.name
+    //     myFiles.mv(`./public/${fname}`)
+
+    //     // return models.DiscoverySource.findAll();
+    //     res.status(200).send({
+    //       message: 'One File Saved succesfully',
+    //       code: '0000'
+    //     })
+    //   })
+    //   .catch(function (error) {
+    //     res.send(error.errors[0])
+    //     console.log('Error during Post: ' + error)
+    //   })
+  }
+}
+
+exports.RemoveDocument = (req, res) => {
+ 
+  console.log("Removing files:", req.body.filename )
+
+var filePath = './public/'+ req.body.filename; 
+fs.unlinkSync(filePath);
 }

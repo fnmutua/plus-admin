@@ -27,7 +27,14 @@ module.exports = function (sequelize, DataTypes) {
       amount: {
         type: DataTypes.DECIMAL,
         allowNull: false
-      },  	
+      },  
+      
+      documentation: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },  
+      
+
       code: {
         type: DataTypes.STRING,
         allowNull: false,

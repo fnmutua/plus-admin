@@ -78,6 +78,9 @@ module.exports = function (app) {
   // sum filtreed
   app.post('/api/v1/upload', [authJwt.verifyToken], controller.modelUpload)
 
+  app.post('/api/v1/upload/documentation', [authJwt.verifyToken], controller.ReportDocumentationUpload)
+  app.post('/api/v1/upload/delete', [authJwt.verifyToken], controller.RemoveDocument)
+
   // get parent IDS
   app.post('/api/v1/data/parentids',  [authJwt.verifyToken],controller.modelGetParentIDS)
 
