@@ -12,7 +12,7 @@ var fs = require('fs')
 
 
 
-const envt = 'DEV'   // PROD
+const envt = 'PROD'   // PROD
  if (envt==='DEV') {
 // Switch off for prodcution 
 console.log("DEV: Swithcing on dotenv")
