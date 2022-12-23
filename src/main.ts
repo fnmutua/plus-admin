@@ -35,7 +35,7 @@ import App from './App.vue'
 import './permission'
 import VueApexCharts from "vue3-apexcharts";
 
-
+import JsonExcel from "vue-json-excel3";
 
 /* import the fontawesome core */
 import { library } from '@fortawesome/fontawesome-svg-core'
@@ -75,7 +75,8 @@ const setupAll = async () => {
   app.use(VueApexCharts);
   app.use( JsonCSV)
 
-  
+  // Excel dowload 
+  app.component("downloadExcel", JsonExcel);
 
 
   app.mount('#app')
