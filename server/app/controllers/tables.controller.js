@@ -397,6 +397,8 @@ exports.modelEditOneRecord = (req, res) => {
   var reg_model = req.body.model
   // get this one  record and update it by replacing the whole docuemnt
   db.models[reg_model].findAll({ where: { id: req.body.id } }).then((result) => {
+
+    console.log("Edit", result)
     if (result) {
       // Result is array because we have used findAll. We can use findOne as well if you want one row and update that.
       result[0].set(req.body)

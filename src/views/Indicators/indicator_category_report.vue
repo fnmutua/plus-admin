@@ -524,13 +524,19 @@ const editIndicator = (data: TableSlotDefault) => {
   console.log(data)
   ruleForm.id = data.row.id
   ruleForm.county_id = data.row.county_id
-  ruleForm.settlement_id = data.row.county_id
+  ruleForm.settlement_id = data.row.settlement_id
   ruleForm.date = data.row.date
   ruleForm.amount = data.row.amount
   ruleForm.indicator_category_id = data.row.indicator_category_id
+  ruleForm.location = [data.row.county_id]
+  if (data.row.settlement_id) {
+    ruleForm.location.push(data.row.settlement_id)
+  }
+  ruleForm.code = data.row.code
 
   formHeader.value = 'Edit Report'
 
+  console.log(' ruleForm.location', ruleForm.location)
 
   AddDialogVisible.value = true
 }
@@ -570,7 +576,7 @@ const handleClose = () => {
   ruleForm.indicator_category_id = null
   ruleForm.date = null
   ruleForm.amount = null
-
+  ruleForm.location = []
 
   formHeader.value = 'Add Report'
   AddDialogVisible.value = false
@@ -599,12 +605,14 @@ function getQuarter(date = new Date()) {
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   indicator_category_id: '',
+  location: [],
   county_id: '',
   settlement_id: null,
   period: getQuarter,
   date: new Date(),
   amount: '',
-  files: ''
+  files: '',
+  code: ''
 })
 
 const rules = reactive<FormRules>({
@@ -673,13 +681,39 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
-      ruleForm.model = 'indicator_category'
-
-      updateOneRecord(ruleForm).then(() => { })
+      ruleForm.model = 'indicator_category_report'
+      console.log(ruleForm.value)
+      await updateOneRecord(ruleForm).then(() => { })
 
       // dialogFormVisible.value = false
+
+
+
+      // uploading the documents 
+      if (fileUploadList.value.length > 0) {
+        const fileTypes = []
+        const formData = new FormData()
+        for (var i = 0; i < fileUploadList.value.length; i++) {
+          console.log('------>file', fileUploadList.value[i])
+
+          fileTypes.push('documentation')
+
+          formData.append('file', fileUploadList.value[i].raw)
+        }
+
+        formData.append('report_code', ruleForm.code)
+        formData.append('DocTypes', fileTypes)
+
+        // formData.append('DocTypes', fileTypes)
+
+        console.log(formData)
+        await uploadDocuments(formData)
+
+        AddDialogVisible.value = false
+
+      }
 
 
     } else {
@@ -1032,8 +1066,8 @@ getSettlement()
 
 
       <el-form-item label="Location">
-        <el-cascader :options="cascadeOptions" @change="getCascadeSelectedValues" :props="props1" filterable clearable
-          placeholder="Select Location of Monitoring" />
+        <el-cascader v-model="ruleForm.location" :options="cascadeOptions" @change="getCascadeSelectedValues"
+          :props="props1" filterable clearable placeholder="Select Location of Monitoring" />
       </el-form-item>
       <el-form-item label="Date">
         <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />

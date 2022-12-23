@@ -218,12 +218,11 @@ const mapHeight = '450px'
       <el-col :span="14">
         <el-card class="box-card">
           <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
-            mapStyle="mapbox://styles/agspatial/ckd30gjyt3h8l1io35ve1fso4">
+            mapStyle="mapbox://styles/agspatial/clamkcjwx000b14mmgzyx86vv">
             <mapbox-geocoder-control :countries="countries" />
             <mapbox-geolocate-control />
             <mapbox-draw-control @create="addPolygon" />
             <mapbox-navigation-control position="bottom-right" />
-            />
           </mapbox-map>
         </el-card>
       </el-col>

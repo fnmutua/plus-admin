@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PanelGroup from './components/PanelGroup.vue'
 
-import { ElRow, ElCol, ElCard, ElSkeleton, ElTabs, ElTabPane } from 'element-plus'
+import { ElRow, ElCol, ElCard, ElSkeleton, ElTabs, ElTabPane, ElTable, ElTableColumn } from 'element-plus'
 import { Echart } from '@/components/Echart'
 import {
   pieOptions,
@@ -286,6 +286,7 @@ const getSettlementPopPyramid = async () => {
 
 
 const countofSlumsByCountyOptions = ref()
+const settlementsPerCountTable = ref()
 const getSettlementCountByCounty = async () => {
   const formData = {}
   formData.model = 'settlement'
@@ -317,7 +318,9 @@ const getSettlementCountByCounty = async () => {
         var cntySlums = {}
         cntySlums.name = item.name
         cntySlums.value = parseInt(item.count)
+        cntySlums.NoSlums = parseInt(item.count)
         settlementsPercounty.value.push(cntySlums)
+
       });
 
       console.log("settlements by county - II", settlementsPercounty.value)
@@ -620,6 +623,8 @@ getAllApi()
 const activeName = ref('chart')
 
 
+
+
 </script>
 
 <template>
@@ -627,8 +632,6 @@ const activeName = ref('chart')
 
   <el-tabs v-loading="loading" v-model="activeName" class="demo-tabs">
     <el-tab-pane label="Chart" name="chart">
-
-
       <ElRow :gutter="20" justify="space-between">
         <ElCol :xl="8" :lg="12" :md="24" :sm="24" :xs="24">
           <ElCard shadow="hover" class="mb-20px">
@@ -637,7 +640,6 @@ const activeName = ref('chart')
             </ElSkeleton>
           </ElCard>
         </ElCol>
-
         <ElCol :xl="8" :lg="12" :md="24" :sm="24" :xs="24">
           <ElCard shadow="hover" class="mb-20px">
             <ElSkeleton :loading="loading" animated>
@@ -647,7 +649,6 @@ const activeName = ref('chart')
             </ElSkeleton>
           </ElCard>
         </ElCol>
-
       </ElRow>
 
 
@@ -673,6 +674,35 @@ const activeName = ref('chart')
           </ElCard>
         </ElCol>
       </ElRow>
+    </el-tab-pane>
+    <el-tab-pane label="Table" name="table">
+      <ElRow :gutter="20" justify="space-between">
+        <ElCol :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+          <ElCard shadow="hover" class="mb-20px">
+            <template #header>
+              <div class="card-header">
+                <span>Number of informal Settlements within Counties of Kenya</span>
+                <download-excel :data="settlementsPercounty" worksheet="SettlementsPerCounty"
+                  name="SettlementsPerCounty.xls">
+                  <font-awesome-icon size="2x" color='red' icon="fa-solid fa-download" />
+                </download-excel>
+              </div>
+            </template>
+
+            <ElSkeleton :loading="loading" animated>
+
+              <el-table height="350" stripe border show-summary :data="settlementsPercounty"
+                :default-sort="{ prop: 'NoSlums', order: 'descending' }" style="width: 100%">
+                <el-table-column prop="name" label="Name" sortable />
+                <el-table-column prop="NoSlums" label="Number of Informal Settlements" sortable />
+
+              </el-table>
+            </ElSkeleton>
+          </ElCard>
+        </ElCol>
+
+      </ElRow>
+
 
     </el-tab-pane>
   </el-tabs>
@@ -684,8 +714,27 @@ const activeName = ref('chart')
 <style>
 .demo-tabs>.el-tabs__content {
   padding: 1px;
-  color: #6b778c;
-  font-size: 32px;
+  color: hsl(218, 58%, 45%);
+  font-size: 16px;
   font-weight: 600;
 }
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.text {
+  font-size: 12px;
+}
+
+.item {
+  margin-bottom: 18px;
+}
+
+.box-card {
+  width: 480px;
+}
 </style>
+ 
