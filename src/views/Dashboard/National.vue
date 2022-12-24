@@ -598,8 +598,9 @@ const getSettlementPopulation = async () => {
 
 
 const getAllApi = async () => {
-  await Promise.all([
-    getUserAccessSource(),
+  //await Promise.all([
+  Promise.all([
+    //  getUserAccessSource(),
     // getCountyGeo(),
     getSettlementPopulation(),
     getSettlementCountByCounty(),
@@ -609,6 +610,8 @@ const getAllApi = async () => {
   ])
   loading.value = false
 }
+
+
 
 getAllApi()
 
