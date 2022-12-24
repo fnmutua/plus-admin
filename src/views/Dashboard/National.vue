@@ -598,9 +598,8 @@ const getSettlementPopulation = async () => {
 
 
 const getAllApi = async () => {
-  //await Promise.all([
-  Promise.all([
-    //  getUserAccessSource(),
+  await Promise.all([
+    // getUserAccessSource(),
     // getCountyGeo(),
     getSettlementPopulation(),
     getSettlementCountByCounty(),
@@ -610,8 +609,6 @@ const getAllApi = async () => {
   ])
   loading.value = false
 }
-
-
 
 getAllApi()
 
@@ -633,7 +630,8 @@ const activeName = ref('chart')
 <template>
   <PanelGroup />
 
-  <el-tabs v-loading="loading" v-model="activeName" class="demo-tabs">
+  <el-tabs v-loading="loading" element-loading-text="Generating maps, charts and tables......." v-model="activeName"
+    class="demo-tabs">
     <el-tab-pane label="Chart" name="chart">
       <ElRow :gutter="20" justify="space-between">
         <ElCol :xl="8" :lg="12" :md="24" :sm="24" :xs="24">
