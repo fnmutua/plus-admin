@@ -1545,7 +1545,8 @@ const activeName = ref('summary')
       <el-card shadow="always"> Never </el-card>
     </el-col>
   </el-row> -->
-  <el-tabs v-loading="loading" v-model="activeName" class="demo-tabs">
+  <el-tabs v-loading="loading" element-loading-text="Generating maps, charts and tables......." v-model="activeName"
+    class="demo-tabs">
     <el-tab-pane label="Summary" name="summary">
       <ElRow :gutter="20" justify="space-between">
         <ElCol :xl="12" :lg="8" :md="24" :sm="24" :xs="24">
