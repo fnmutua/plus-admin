@@ -604,12 +604,12 @@ const getAllApi = async () => {
     getSettlementPopulation(),
     getSettlementCountByCounty(),
     getSettlementPopPyramid(),
-    getCountyGeo()
+
 
   ])
   loading.value = false
 }
-
+getCountyGeo()
 getAllApi()
 
 
