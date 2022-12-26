@@ -7,6 +7,8 @@ import { ref, reactive } from 'vue'
 import { getCountApi } from '@/api/dashboard/analysis'
 import type { AnalysisTotalTypes } from '@/api/dashboard/analysis/types'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
+import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { Icon } from '@iconify/vue';
 
 const { t } = useI18n()
 
@@ -25,12 +27,14 @@ let totalState = reactive<AnalysisTotalTypes>({
   NoSettlements: 0,
   NoSlums: 0,
   NoSlumResidents: 0,
-  NoSlumBeneficiaries: 0
+  NoSlumBeneficiaries: 0,
+  InfSettlementsCount: 0,
+  TenureSettlementsCount: 0
 })
 
 const getCount = async () => {
   const res = await getCountApi()
-    .catch(() => {})
+    .catch(() => { })
     .finally(() => {
       loading.value = false
     })
@@ -63,9 +67,58 @@ const getPopulationSummary = async () => {
   })
 }
 
+const getKisipTenureSettlementsCountByCounty = async () => {
+  const formData = {}
+  formData.model = 'intervention'
+  formData.summaryField = 'settlement_id'
+  formData.summaryFunction = 'count'
+
+  // filter by field 
+  formData.filterField = 'intervention_type_id'
+  formData.filterValue = 1
+
+  formData.assoc_models = ['settlement', 'county']
+
+  await getSummarybyFieldFromMultipleIncludes(formData)
+    .then(response => {
+      var results = response.Total
+      console.log('Tenure settlements interventions by county', results)
+
+      totalState.TenureSettlementsCount = response.Total[0].count
+
+    });
+
+}
+const getKisipInfSettlementsCountByCounty = async () => {
+  const formData = {}
+  formData.model = 'intervention'
+  formData.summaryField = 'settlement_id'
+  formData.summaryFunction = 'count'
+
+  // filter by field 
+  formData.filterField = 'intervention_type_id'
+  formData.filterValue = 2
+
+  formData.assoc_models = ['settlement', 'county']
+
+  await getSummarybyFieldFromMultipleIncludes(formData)
+    .then(response => {
+      var results = response.Total
+      console.log('Infrastructure settlements interventions by county', results)
+
+      totalState.InfSettlementsCount = response.Total[0].count
+
+    });
+
+}
+
+
+
 getCount()
 getSettlementSummary()
 getPopulationSummary()
+getKisipTenureSettlementsCountByCounty()
+getKisipInfSettlementsCountByCounty()
 </script>
 
 <template>
@@ -76,22 +129,16 @@ getPopulationSummary()
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
-                <div
-                  :class="`${prefixCls}__item--icon ${prefixCls}__item--peoples p-16px inline-block rounded-6px`"
-                >
-                  <font-awesome-icon size="4x" icon="fa-solid fa-city" />
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--peoples p-16px inline-block rounded-6px`">
+                  <Icon icon="fluent-mdl2:city-next" width="60" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Number of Slums')
+                    t('Number of Slums')
                 }}</div>
-                <CountTo
-                  class="text-20px font-700 text-right"
-                  :start-val="0"
-                  :end-val="totalState.NoSettlements"
-                  :duration="2600"
-                />
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSettlements"
+                  :duration="2600" />
               </div>
             </div>
           </template>
@@ -105,22 +152,16 @@ getPopulationSummary()
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
-                <div
-                  :class="`${prefixCls}__item--icon ${prefixCls}__item--message p-16px inline-block rounded-6px`"
-                >
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--message p-16px inline-block rounded-6px`">
                   <font-awesome-icon size="4x" icon="fa-solid fa-people-group" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Resident Population')
+                    t('Resident Population')
                 }}</div>
-                <CountTo
-                  class="text-20px font-700 text-right"
-                  :start-val="0"
-                  :end-val="totalState.NoSlumResidents"
-                  :duration="2600"
-                />
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSlumResidents"
+                  :duration="2600" />
               </div>
             </div>
           </template>
@@ -134,22 +175,16 @@ getPopulationSummary()
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
-                <div
-                  :class="`${prefixCls}__item--icon ${prefixCls}__item--money p-16px inline-block rounded-6px`"
-                >
-                  <font-awesome-icon size="4x" icon="fa-solid fa-people-roof" />
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--money p-16px inline-block rounded-6px`">
+                  <Icon icon="icon-park-solid:map-road-two" width="60" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Average Household Size	')
+                    t('Settlements Supported with Improved Infrastructure ')
                 }}</div>
-                <CountTo
-                  class="text-20px font-700 text-right"
-                  :start-val="0"
-                  :end-val="5"
-                  :duration="2600"
-                />
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.InfSettlementsCount"
+                  :duration="2600" />
               </div>
             </div>
           </template>
@@ -163,22 +198,16 @@ getPopulationSummary()
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
-                <div
-                  :class="`${prefixCls}__item--icon ${prefixCls}__item--shopping p-16px inline-block rounded-6px`"
-                >
-                  <font-awesome-icon size="4x" icon="fa-solid fa-money-check-dollar" />
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--shopping p-16px inline-block rounded-6px`">
+                  <Icon icon="tabler:certificate" height='60' />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Average Monthly Income')
+                    t('Settlements Undergoing Tenure Regularization')
                 }}</div>
-                <CountTo
-                  class="text-20px font-700 text-right"
-                  :start-val="0"
-                  :end-val="5344"
-                  :duration="2600"
-                />
+                <CountTo class="text-20px font-700 text-right" :start-val="0"
+                  :end-val="totalState.TenureSettlementsCount" :duration="2600" />
               </div>
             </div>
           </template>
@@ -213,18 +242,23 @@ getPopulationSummary()
       :deep(.@{namespace}-icon) {
         color: #fff !important;
       }
+
       .@{prefix-cls}__item--icon {
         transition: all 0.38s ease-out;
       }
+
       .@{prefix-cls}__item--peoples {
         background: #40c9c6;
       }
+
       .@{prefix-cls}__item--message {
         background: #36a3f7;
       }
+
       .@{prefix-cls}__item--money {
         background: #f4516c;
       }
+
       .@{prefix-cls}__item--shopping {
         background: #34bfa3;
       }
