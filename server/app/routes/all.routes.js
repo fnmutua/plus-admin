@@ -64,7 +64,7 @@ module.exports = function (app) {
 
   // Gets all users
 
-  app.post('/api/v1/user/all',  [authJwt.verifyToken],controller.modelAllUsers)
+  //app.post('/api/v1/user/all',  [authJwt.verifyToken],controller.modelAllUsers) // retrired 
 
   // count records with a filter
   app.post('/api/v1/data/count/filter',[authJwt.verifyToken],   controller.modelCountFilter)

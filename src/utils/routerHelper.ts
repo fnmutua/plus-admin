@@ -52,6 +52,7 @@ export const generateRoutesFn1 = (
     if (meta.hidden && !meta.canTo) {
       continue
     }
+   // console.log('This route -->',route)
 
     let data: Nullable<AppRouteRecordRaw> = null
 

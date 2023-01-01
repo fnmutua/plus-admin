@@ -4,7 +4,7 @@ const db = require("../models");
 const User = db.user;
 
 verifyToken = (req, res, next) => {
-  console.log("headers----->", req.headers)
+ // console.log("headers----->", req.headers)
   let token = req.headers["x-access-token"];
   if (!token) {
     return res.status(403).send({
@@ -24,26 +24,32 @@ verifyToken = (req, res, next) => {
       }
     })
      // Fetch the user by id 
-     User.findByPk(decoded.id).then(function(user){
+ //    User.findByPk(decoded.id).then(function(user){
       // Do something with the user
-      req.userid = decoded.id;
-      req.thisUser = user;
-      next();
-     // console.log("----xd-----", user)
+      User.findByPk(decoded.id).then(user => {
 
-      // res.status(200).send({
-      //   code: 20000,
-      //   data: user,
-      //   thisUser: req.thisUser,
-      //   userid: req.userid
-      // })
-    //  return res.send(200);
+       user.getRoles().then(roles => {
+         req.userid = decoded.id;
+         req.thisUser = user;
+         //req.roles = roles;
+         //var chests = roles[].toJSON(); //same as chestsSeq.get({});
+         console.log('roles>>', roles[0])
+         let userRoles = []
+         for (let i = 0; i < roles.length; i++) {
+            userRoles.push(roles[i].id)
+         }
+         console.log(userRoles)
+         req.roles = userRoles;
+         next();
+       })
+ 
 
-  });
+     });
+    
+    
 
   });
 };
-
 
 
 isAdmin = (req, res, next) => {
@@ -62,6 +68,7 @@ isAdmin = (req, res, next) => {
     });
   });
 };
+
 isModerator = (req, res, next) => {
   User.findByPk(req.userid).then(user => {
     user.getRoles().then(roles => {
@@ -77,6 +84,7 @@ isModerator = (req, res, next) => {
     });
   });
 };
+
 isModeratorOrAdmin = (req, res, next) => {
   User.findByPk(req.userId).then(user => {
     user.getRoles().then(roles => {
@@ -96,10 +104,70 @@ isModeratorOrAdmin = (req, res, next) => {
     });
   });
 };
+
+isStaffOrAdmin = (req, res, next) => {
+ // console.log("Requrest,",req.userid)
+  User.findByPk(req.userid).then(user => {
+  //  console.log(user)
+    user.getRoles({raw:true}).then(roles => {
+      for (let i = 0; i < roles.length; i++) {
+          console.log(roles[i].name)
+        if (roles[i].name === "kisip_staff") {
+          next();
+          return;
+        }
+        if (roles[i].name === "admin") {
+          next();
+          return;
+        }
+      }
+      res.status(403).send({
+        message: "You require a Staff or Admin Role to perform this function"
+      });
+    });
+  });
+};
+
+
+isAdminOrCountyAdmin = (req, res, next) => {
+  // console.log("Requrest,",req.userid)
+   User.findByPk(req.userid).then(user => {
+   //  console.log(user)
+     user.getRoles().then(roles => {
+       for (let i = 0; i < roles.length; i++) {
+           console.log(roles[i].name)
+         if (roles[i].name === "county_admin") {
+           next();
+           return;
+         }
+         if (roles[i].name === "sud_staff") {
+          next();
+          return;
+         }  
+             
+         if (roles[i].name === "kisip_staff") {
+          next();
+          return;
+        }
+         if (roles[i].name === "admin") {
+           next();
+           return;
+         }
+       }
+       res.status(403).send({
+         message: "You require a Staff or Admin Role to perform this function"
+       });
+     });
+   });
+ };
+ 
 const authJwt = {
   verifyToken: verifyToken,
   isAdmin: isAdmin,
   isModerator: isModerator,
-  isModeratorOrAdmin: isModeratorOrAdmin
+  isModeratorOrAdmin: isModeratorOrAdmin,
+  isStaffOrAdmin: isStaffOrAdmin,
+  isAdminOrCountyAdmin:isAdminOrCountyAdmin
+
 };
 module.exports = authJwt;

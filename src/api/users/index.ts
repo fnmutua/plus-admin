@@ -23,6 +23,11 @@ export const getUserListApi = (data: UserType): Promise<IResponse<UserType>> => 
 }
 
 
+export const getCountyStaff = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/user/county', data })
+}
+
 
 
 export const activateUserApi = (data: UserType, params): Promise<IResponse<UserType>> => {

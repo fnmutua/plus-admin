@@ -4,7 +4,7 @@ import { Form } from '@/components/Form'
 import { useI18n } from '@/hooks/web/useI18n'
 import { ElButton, ElCheckbox, ElLink, ElDialog, ElForm, ElFormItem, ElInput } from 'element-plus'
 import { useForm } from '@/hooks/web/useForm'
-import { loginApi, getTestRoleApi, getAdminRoleApi } from '@/api/login'
+import { loginApi, getTestRoleApi, getOtherRoutesApi, getAdminRoleApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStore } from '@/store/modules/app'
 import { usePermissionStore } from '@/store/modules/permission'
@@ -120,7 +120,7 @@ const signIn = async () => {
       try {
         const res = await loginApi(formData)
         console.log('After Login', res)
-        const selUserDetails = (({ name, roles, data }) => ({ name, roles, data }))(res);
+        const selUserDetails = (({ id, name, roles, data, county_id }) => ({ id, name, roles, data, county_id }))(res);
         if (selUserDetails) {
           wsCache.set(appStore.getUserInfo, selUserDetails)
           // 是否使用动态路由
@@ -159,39 +159,90 @@ const getRole = async (authenitcatedUser) => {
   console.log('authenitcatedUser', authenitcatedUser)
 
   // use the user details to set paths to see 
-  if (authenitcatedUser.roles.includes("admin") || authenitcatedUser.roles.includes("kisip_staff")) {
+  if (authenitcatedUser.roles.includes("admin")) {
     formData.role = 'admin'
-  } else if (authenitcatedUser.roles.includes("county_admin")) {
-    formData.role = 'admin'
-  } else {
-    formData.role = 'test'
+  } else if (authenitcatedUser.roles.includes("sud_staff") || (authenitcatedUser.roles.includes("kisip_staff")) || (authenitcatedUser.roles.includes("national_monitoring"))) {
+    formData.role = 'staff'
+  }
+  else if (authenitcatedUser.roles.includes("county_admin")) {
+    formData.role = 'county_admin'
+  }
+
+  else if (authenitcatedUser.roles.includes("county_staff") || (authenitcatedUser.roles.includes("county_mon")) || (authenitcatedUser.roles.includes("settlement_sec"))) {
+    formData.role = 'county_user'
+  }
+  else {
+    formData.role = 'others'
 
   }
 
 
 
   const params = {
-    // roleName: formData.username
     roleName: formData.role
   }
-  // admin - 模拟后端过滤菜单
-  // test - 模拟前端过滤菜单
+
   formData.permissions = ['*.*.*']
 
   // const color = d.y >= 70 ? "green" : (d.y < 50 ? "red" : "yellow");
+  let res;
+  switch (formData.role) {
+    case 'admin':
+      res = await getAdminRoleApi(params)
+      break;
+    case 'staff':
+      res = await getOtherRoutesApi(params)
+      break;
+    case 'county_admin':
+      res = await getOtherRoutesApi(params)
+      break;
+    case 'county_user':
+      res = await getAdminRoleApi(params)
+      break;
+    case 'others':
+      res = await getTestRoleApi(params)
+      break;
+  }
 
 
-  const res = formData.role === 'admin' ? await getAdminRoleApi(params) : await getTestRoleApi(params)
+  // const res = formData.role === 'admin' ? await getAdminRoleApi(params) : await getTestRoleApi(params)
   if (res) {
+
+    console.log('revised Res', res)
     const { wsCache } = useCache()
     const routers = res.data || []
     wsCache.set('roleRouters', routers)
     console.log("  formData.role >>", formData.role)
 
 
-    formData.role === 'admin'
-      ? await permissionStore.generateRoutes('admin', routers).catch(() => { })
-      : await permissionStore.generateRoutes('test', routers).catch(() => { })
+    //  formData.role === 'admin'
+    //   ? await permissionStore.generateRoutes('admin', routers).catch(() => { })
+    //   : await permissionStore.generateRoutes('county_admin', routers).catch(() => { })
+
+
+    if (formData.role === 'admin') {
+      await permissionStore.generateRoutes('admin', routers).catch(() => { })
+    } else if (formData.role === 'county_admin') {
+      await permissionStore.generateRoutes('county_admin', routers).catch(() => { })
+      console.log('0003')
+    }
+    else if (formData.role === 'staff') {
+      await permissionStore.generateRoutes('staff', routers).catch(() => { })
+      console.log('0003')
+    }
+    else if (formData.role === 'county_user') {
+      await permissionStore.generateRoutes('county_user', routers).catch(() => { })
+      console.log('0004--county_users')
+    }
+
+    else {
+      await permissionStore.generateRoutes('public', routers).catch(() => { })
+
+    }
+
+
+
+
 
     permissionStore.getAddRouters.forEach((route) => {
       addRoute(route as RouteRecordRaw) // 动态添加可访问路由表

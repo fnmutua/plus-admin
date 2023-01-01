@@ -10,8 +10,19 @@ module.exports = function(app) {
     next();
   });
   
-  app.post("/api/v1/all", controller.allAccess);
-  
+    //app.post('/api/v1/user/all',  [authJwt.verifyToken],controller.modelAllUsers) // retrired 
+
+
+  app.post("/api/v1/user/all", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelAllUsers);
+  app.post("/api/v1/user/county", [authJwt.verifyToken, authJwt.isAdminOrCountyAdmin],controller.modelCountyUsers);
+
+
+
+
+
+
+
+
   app.get(
     "/api/v1/user",
     [authJwt.verifyToken],

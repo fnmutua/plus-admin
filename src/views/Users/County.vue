@@ -12,7 +12,6 @@ import {
   TopRight,
   Edit,
   User,
-  RefreshLeft,
   Plus,
   Download,
   Filter,
@@ -23,7 +22,9 @@ import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider, ELRow } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
-import { activateUserApi,updateUserApi,resetUserPassword } from '@/api/users'
+import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
 
 import {
   searchByKeyWord
@@ -33,6 +34,13 @@ interface Params {
   pageIndex?: number
   xpageSize?: number
 }
+
+
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const currentUser = wsCache.get(appStore.getUserInfo)
+
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -67,14 +75,15 @@ const formLabelWidth = '140px'
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = []
-var filterValues = []
+var filters = ['county_id']
+console.log(currentUser)
+var filterValues = [currentUser.county_id]
 var tblData = []
 
 const associated_multiple_models = ['county']
 
 const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
-const nested_filter = [ 'id', [1,5,6,7]] //   column and value of the grandchild. In this case roles. 5=county Admin 
+const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
 
 
 const model = 'users'
@@ -83,7 +92,7 @@ const searchString = ref()
 
 //// ------------------parameters -----------------------////
 const form = reactive({
-  id:'',
+  id: '',
   name: '',
   email: '',
   phone: '',
@@ -339,6 +348,7 @@ const getFilteredBySearchData = async (searchString) => {
   formData.filterValues = filterValues
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
+  formData.nested_filter = nested_filter
 
   //-------------------------
   console.log(formData)
@@ -372,13 +382,15 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.nested_models = nested_models
   formData.nested_filter = nested_filter
 
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
+  //-------------------------
+  console.log('gettign getCountyStaff users --->', formData)
+  const res = await getCountyStaff(formData)
+
+  console.log('After getting all users', res)
   tableDataList.value = res.data
-  total.value = res.total
+  total.value = res.data.length   // instead of usign the erronues total reurned due to left/right joins
+
   loading.value = false
 
   tblData = [] // reset the table data
@@ -441,15 +453,11 @@ const EditUser = (data: TableSlotDefault) => {
   dialogFormVisible.value = true
 }
 
-const ResetPassword = (data: TableSlotDefault) => {
-  console.log(data)
-  
-  resetUserPassword(data.row)
-}
-
 
 const updateUser = () => {
+
   updateUserApi(form).then(() => { })
+
   dialogFormVisible.value = false
 }
 
@@ -488,24 +496,17 @@ const updateUser = () => {
     <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
-        <el-row  :gutter="43">
+        <el-row class="mt-4">
           <el-tooltip content="Activate/Deactivate User" placement="top">
 
             <el-switch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)" />
           </el-tooltip>
 
-          <el-tooltip content="Edit Profile" placement="top">
+          <el-tooltip content="View Profile" placement="top">
             <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(data as TableSlotDefault)" circle />
-          </el-tooltip>
-
-          <el-tooltip content="Reset Password" placement="top">
-            <ElButton type="primary" :icon="RefreshLeft" size="small" @click="ResetPassword(data as TableSlotDefault)" circle />
           </el-tooltip>
         </el-row>
 
-
-
-        
       </template>
     </Table>
     <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
