@@ -47,17 +47,50 @@ router.beforeEach(async (to, from, next) => {
       // 开发者可根据实际情况进行修改
       const roleRouters = wsCache.get('roleRouters') || []
       const userInfo = wsCache.get(appStore.getUserInfo)
+      console.log('0002')
 
 
       // 是否使用动态路由
-      if (appStore.getDynamicRouter) {
-        console.log('userInfo----roles', userInfo)
-        userInfo.role === 'admin'
-          ? await permissionStore.generateRoutes('admin', roleRouters as AppCustomRouteRecordRaw[])
-          : await permissionStore.generateRoutes('test', roleRouters as string[])
-      } else {
-        await permissionStore.generateRoutes('none')
+      // if (appStore.getDynamicRouter) {
+      //   console.log('userInfo----roles', userInfo)
+
+      //   userInfo.role === 'admin'
+      //     ? await permissionStore.generateRoutes('admin', roleRouters as AppCustomRouteRecordRaw[])
+      //     : await permissionStore.generateRoutes('county_admin', roleRouters as string[])
+      // } else {
+      //   await permissionStore.generateRoutes('public')
+      // }
+
+
+      if (userInfo.roles.includes("admin"))
+      {
+     //   await permissionStore.generateRoutes('admin', roleRouters as AppCustomRouteRecordRaw[])
+        await permissionStore.generateRoutes('admin')
+
+       }
+      else if (userInfo.roles.includes("county_admin"))
+      {
+        await permissionStore.generateRoutes('county_admin')
       }
+        
+      else if (userInfo.roles.includes("county_staff") ||userInfo.roles.includes("county_mon") )
+      
+      {
+        await permissionStore.generateRoutes('county_user')
+      }    
+   //   else if (userInfo.roles.includes("county_staff") || userInfo.roles.includes("county_mon"))
+      
+      else if (userInfo.roles.includes("sud_staff") || (userInfo.roles.includes("kisip_staff")) || (userInfo.roles.includes("national_monitoring"))) 
+      {
+        await permissionStore.generateRoutes('staff')
+      }    
+        
+      else {
+        await permissionStore.generateRoutes('public')
+      }
+
+
+
 
       permissionStore.getAddRouters.forEach((route) => {
         router.addRoute(route as unknown as RouteRecordRaw) // 动态添加可访问路由表

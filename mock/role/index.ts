@@ -66,7 +66,7 @@ const adminList = [
     name: 'Interventions',
     meta: {
       title: 'Interventions',
-      icon: 'carbon:skill-level-advanced',
+      icon: 'mdi:office-building-marker-outline',
       hidden: false
     },
     children: [
@@ -76,7 +76,9 @@ const adminList = [
         component: '#',
         redirect: '/interventions/sett/settlements',
         meta: {
-          title: 'Tenure'
+          title: 'Tenure',
+          icon: 'mingcute:certificate-fill',
+
         },
         children: [
           {
@@ -84,34 +86,20 @@ const adminList = [
             name: 'InterventionTenureSettlements',
             component:'views/Intervention/Tenure/Settlements',
             meta: {
-              title: 'Settlements'
+              title: 'Settlements',
+              icon:'fluent:globe-location-24-filled'
             }
           },
           {
             path: 'ben',
-            name: 'InterventiontenureHouseholds',
+            name: 'InterventionTenureBeneficiary',
             component:'views/Intervention/Tenure/TenureBeneficiary',
             meta: {
-              title: 'Beneficiaries'
+              title: 'Beneficiaries',
+              icon:'bi:people-fill'
+
             },
-            children: [
-              {
-                path: 'all',
-                name: 'InterventionTenureBeneficiary',
-                component:'views/Intervention/Tenure/TenureBeneficiary',
-                meta: {
-                  title: 'Secure Tenure'
-                }
-              },
-              {
-                path: 'owners',
-                name: 'InterventionTenureOwners',
-                component:'views/Intervention/Tenure/Owners',
-                meta: {
-                  title: 'Parcels'
-                }
-              }
-            ]
+       
           }
         ]
       },
@@ -121,7 +109,9 @@ const adminList = [
         component: '#',
         redirect: '/interventions/inf/settlements',
         meta: {
-          title: 'Infrastructure'
+          title: 'Infrastructure',
+          icon:'icon-park-outline:road-one'
+
         },
         children: [
           {
@@ -129,44 +119,21 @@ const adminList = [
             name: 'InterventionINFSettlements',
             component:'views/Intervention/Infrastructure/Settlements',
             meta: {
-              title: 'Settlements'
+              title: 'Settlements',
+              icon:'fluent:globe-location-24-filled'
+
             }
           },
-  
           {
-            path: 'ben',
-            name: 'InterventionINFHouseholds',
-            component:'views/Intervention/Infrastructure/InfBeneficiary',
+            path: 'projects',
+            name: 'infrastructureProjects',
+            component:'views/Intervention/Infrastructure/Settlements',
             meta: {
-              title: 'Beneficiaries'
-            },
-            children: [
-              {
-                path: 'infrastructure',
-                name: 'InterventionINFbeneficiary',
-                component:'views/Intervention/Infrastructure/InfBeneficiary',
-                meta: {
-                  title: 'Infrastructure'
-                }
-              },
-              {
-                path: 'water',
-                name: 'InterventionINFWater',
-                component:'views/Intervention/Infrastructure/WaterBeneficiary',
-                meta: {
-                  title: 'Water'
-                }
-              },
-              {
-                path: 'sewer',
-                name: 'InterventionINFSewer',
-                component:'views/Intervention/Infrastructure/Sewerbenf',
-                meta: {
-                  title: 'Sewer'
-                }
-              }
-            ]
-          }
+              title: 'Projects',
+              icon:'emojione-monotone:construction'
+            }
+          },
+          
         ]
       },
       {
@@ -175,7 +142,9 @@ const adminList = [
         component: '#',
         redirect: '/interventions/inclusion/settlements',
         meta: {
-          title: 'Inclusion'
+          title: 'Inclusion',
+          icon:'icon-park-solid:protection'
+
         },
         children: [
           {
@@ -183,7 +152,9 @@ const adminList = [
             name: 'InterventionInclusionSettlements',
             component:'views/Intervention/Inclusion/Settlements',
             meta: {
-              title: 'Settlements'
+              title: 'Settlements',
+              icon:'fluent:globe-location-24-filled'
+
             }
           },
           {
@@ -191,42 +162,10 @@ const adminList = [
             name: 'InterventionInclusionPaps',
             component:'views/Intervention/Inclusion/SafetyNets',
             meta: {
-              title: 'Beneficiaries'
+              title: 'Beneficiaries',
+              icon:'bi:people-fill'
             },
-            children: [
-              {
-                path: 'safetynets',
-                name: 'InterventionInclusionBeneficiariesSafetyNets',
-                component:'views/Intervention/Inclusion/SafetyNets',
-                meta: {
-                  title: 'Safety Nets'
-                }
-              },
-              {
-                path: 'training',
-                name: 'InterventionInclusionTraining',
-                component:'views/Intervention/Inclusion/Training',
-                meta: {
-                  title: 'Training'
-                }
-              },
-              {
-                path: 'emp',
-                name: 'InterventionInclusionEmployment',
-                component:'views/Intervention/Inclusion/Employment',
-                meta: {
-                  title: 'Employment'
-                }
-              },
-              {
-                path: 'cdp',
-                name: 'InterventionInclusionCDP',
-                component:'views/Intervention/Inclusion/CDP',
-                meta: {
-                  title: 'CDP'
-                }
-              }
-            ]
+        
           }
         ]
       },
@@ -235,7 +174,9 @@ const adminList = [
         name: 'kensup',
         component:'views/Level/Menu2',
         meta: {
-          title: 'KENSUP'
+          title: 'KENSUP',
+          icon:'mdi:house-city'
+
         }
       }
     ]
@@ -248,7 +189,7 @@ const adminList = [
     name: 'Settlements',
     meta: {
       title: 'Settlements',
-      icon: 'eos-icons:role-binding',
+      icon: 'mdi:map-legend',
       alwaysShow: false
     },
     children: [
@@ -257,20 +198,31 @@ const adminList = [
         component: 'views/Settlement/Sett',
         name: 'List',
         meta: {
-          title: 'List'
+          title: 'List',
+          icon:'material-symbols:format-list-bulleted-rounded'
         }
       },
       {
         path: ':id',
         component: 'views/Settlement/SettlementDetails',
         name: 'SettlementDetails',
-        meta: { hidden: true, title: 'Settlement Details', icon: 'example', noCache: true }
+        meta: {
+          hidden: true,
+          title: 'Settlement Details',
+          icon:'ion:document-attach',
+          noCache: true
+        }
       },
       {
         path: 'add',
         component: 'views/Settlement/Add',
         name: 'AddSettlement',
-        meta: { hidden: false, title: 'Add', noCache: true }
+        meta: {
+          hidden: false,
+          title: 'Add',
+          icon:'material-symbols:add-location-rounded',
+          noCache: true
+        }
       },
       {
         path: 'parcel',
@@ -307,10 +259,11 @@ const adminList = [
         path: 'uploads',
         component: 'views/Uploads/uploads',
         name: 'Uploads',
-  
         meta: {
           hidden: false,
           props: true,
+          icon:'ion:document-attach',
+
           title: 'Documents'
         }
       },
@@ -376,7 +329,7 @@ const adminList = [
         component: 'views/Facilities/Health/Health',
         name: 'Health',
         meta: {
-          icon: 'ci-home-plus',
+          icon: 'uis:hospital-symbol',
           title: 'Health'
         }
       },
@@ -413,7 +366,7 @@ const adminList = [
         component: 'views/Facilities/Education/Education',
         name: 'Education',
         meta: {
-          icon: 'ci-building',
+          icon: 'material-symbols:school-rounded',
           title: 'Education'
         }
       },
@@ -452,7 +405,7 @@ const adminList = [
         component: 'views/Facilities/Roads/Roads',
         name: 'Road',
         meta: {
-          icon: 'ant-design:node-index-outlined',
+          icon: 'icon-park-solid:map-road-two',
           title: 'Roads'
         }
       },
@@ -491,7 +444,7 @@ const adminList = [
     component: 'views/Facilities/Roads/Assets',
     name: 'RoadAsset',
     meta: {
-      icon: 'ant-design:node-index-outlined',
+      icon: 'game-icons:arch-bridge',
       title: 'Road Structures'
     }
   },
@@ -510,7 +463,7 @@ const adminList = [
         component: 'views/Facilities/Water/Water',
         name: 'Water',
         meta: {
-          icon: 'ant-design:bg-colors-outlined',
+          icon: 'ic:sharp-water-drop',
           title: 'Water Points'
         }
       },
@@ -551,7 +504,7 @@ const adminList = [
               component: 'views/Facilities/Sewer/Sewer',
               name: 'Sewer',
               meta: {
-                icon: 'ant-design:node-index-outlined',
+                icon:'ph:toilet-fill',
                 title: 'Sewer'
               }
             },
@@ -593,7 +546,7 @@ const adminList = [
     component: 'views/Facilities/Other/Other',
     name: 'OtherFacility',
     meta: {
-      icon: 'ant-design:node-index-outlined',
+      icon:'zondicons:location-park',
       title: 'Others'
     }
   }, 
@@ -614,7 +567,7 @@ const adminList = [
     name: 'Data',
     meta: {
       title: 'Import Data',
-      icon: 'ant-design:shop-outlined',
+      icon: 'mdi:database-plus',
       alwaysShow: false
     },
     children: [
@@ -624,6 +577,7 @@ const adminList = [
         name: 'ImportData',
         meta: {
           title: 'List',
+          icon: 'bi:filetype-xlsx',
           hidden: true
 
         }
@@ -633,7 +587,9 @@ const adminList = [
         component: 'views/ImportData/excel',
         name: 'ImportHH',
         meta: {
-          title: 'Excel'
+          title: 'Excel',
+          icon: 'bi:filetype-xlsx',
+
         }
       },
       {
@@ -641,7 +597,9 @@ const adminList = [
         component: 'views/ImportData/geo',
         name: 'Importgeo',
         meta: {
-          title: 'Geojson'
+          title: 'Geojson',
+          icon: 'gis:geojson-file',
+
         }
       }
     ]
@@ -653,17 +611,26 @@ const adminList = [
     name: 'MonitoringEvaluation',
     meta: {
       title: 'M&E',
-      icon: 'ant-design:shop-outlined',
+      icon: 'uis:graph-bar',
       alwaysShow: false
     },
     children: [
- 
+      {
+        path: 'reports',
+        component: 'views/Indicators/indicator_category_report',
+        name: 'Reports',
+        meta: {
+          title: 'Reports',
+          icon:'mdi:file-document-plus',
+        }
+      },
       {
         path: 'config',
         component: 'views/Indicators/indicator_category',
         name: 'IndicatorCategory',
         meta: {
           title: 'Configurations',
+          icon:'material-symbols:settings',
           hidden: false
 
         }
@@ -674,78 +641,62 @@ const adminList = [
         name: 'Indicators',
         meta: {
           title: 'Indicators',
-          hidden: false
+          hidden: false,
+          icon:'cil:gauge'
 
         }
       },
-      {
-        path: 'reports',
-        component: 'views/Indicators/indicator_category_report',
-        name: 'Reports',
-        meta: {
-          title: 'Reports'
-        }
-      },
+  
       {
         path: 'category',
         component: 'views/Indicators/category',
         name: 'Category',
         meta: {
-          title: 'Category'
+          title: 'Category',
+          icon: 'vaadin:options',
+          hidden:true
         }
       } 
     ]
   },
 
-
-
   {
     path: '/users',
-    redirect: '/users/user',
     component: '#',
-    name: 'Users',
+    redirect: '/mne/indicator',
+    name: 'systemUsers',
     meta: {
       title: 'Users',
-      icon: 'eos-icons:role-binding',
- 
-       alwaysShow: true
+      icon: 'wpf:usershield',
+      alwaysShow: true
     },
     children: [
-      {
-        path: 'user',
-        component: 'views/Users/User',
-        name: 'User',
+       {
+        path: 'all',
+        component:'views/Users/User',
+        name: 'staff',
         meta: {
-          title: 'All'
+          title: 'All',
+          hidden: false,
+          icon: 'fa6-solid:users-rectangle',
+
         }
       },
       {
         path: 'county',
         component:'views/Users/County',
-        name: 'CountyAdmin',
+        name: 'CountyStaff',
         meta: {
-          title: 'County'
+          title: 'County',
+          hidden: false,
+          icon:'gis:map-users'
+
         }
-      },
-      {
-        path: 'partner',
-        component:'views/Users/User',
-        name: 'Partner',
-        meta: {
-          title: 'Partner'
-        }
-      },
- 
-      {
-        path: 'public',
-        component:'views/Users/User',
-        name: 'Public',
-        meta: {
-          title: 'Public'
-        }
-      }
+      }, 
+    
     ]
-  },
+  }
+
 ]
  
 const testList: string[] = [
@@ -1008,9 +959,9 @@ const  publicList  = [
     ]
   },
 ]
+
 export default [
-  // 列表接口
-  {
+   {
     url: '/role/list',
     method: 'get',
     timeout,

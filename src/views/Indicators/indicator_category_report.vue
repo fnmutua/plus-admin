@@ -93,8 +93,8 @@ const cascadeOptions = ref([])
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = []
-var filterValues = []
+var filters = ['userId']
+var filterValues = [1]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
@@ -612,6 +612,7 @@ const ruleForm = reactive({
   date: new Date(),
   amount: '',
   files: '',
+  userId: '',
   code: ''
 })
 
@@ -642,8 +643,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.model = 'indicator_category_report'
       ruleForm.period = getQuarter()
       ruleForm.code = uuid.v4()
-
-
+      ruleForm.userId = userInfo.id
       await CreateRecord(ruleForm)   // first save the form on DB
 
 
@@ -684,6 +684,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
   await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = 'indicator_category_report'
+      ruleForm.userId = userInfo.id
       console.log(ruleForm.value)
       await updateOneRecord(ruleForm).then(() => { })
 
