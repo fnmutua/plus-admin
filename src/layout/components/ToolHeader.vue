@@ -8,6 +8,7 @@ import { Screenfull } from '@/components/Screenfull'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
+import { NotificationBadge } from '@/components/NotificationBadge'
 
 const { getPrefixCls, variables } = useDesign()
 
@@ -60,6 +61,7 @@ export default defineComponent({
           {size.value ? (
             <SizeDropdown class="hover-tigger" color="var(--top-header-text-color)"></SizeDropdown>
           ) : undefined}
+          <NotificationBadge class="hover-tigger"></NotificationBadge>
 
           <UserInfo class="hover-tigger"></UserInfo>
         </div>

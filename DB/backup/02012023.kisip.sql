@@ -811,7 +811,9 @@ CREATE TABLE public.indicator_category_report (
     period character varying(255),
     date timestamp with time zone NOT NULL,
     amount numeric NOT NULL,
-    code character varying(255) NOT NULL
+    code character varying(255) NOT NULL,
+    documentation character varying,
+    "userId" integer
 );
 
 
@@ -6192,7 +6194,6 @@ COPY public.indicator (id, name, type, unit, level, code) FROM stdin;
 6	Registered grievances resolved with three months of registration	Number	Grievance	Settlement	ind_006
 7	Counties where 4% or more of O&M annual budget is utilized on informal settlements	Number	County	County	ind_007
 8	Survey plans completed and approved under the project	Number	Plan	Settlement	ind_008
-9	Titles issued	Number	Title	Settlement	ind_009
 10	Women linked to social safety net programs through the project	Number	Person	Settlement	ind_010
 12	Proportion of titles granted under the project with women recognized as an owner or co-owner	Percent	Person	Settlement	ind_012
 13	County strategies prepared	Number	County	County	ind_013
@@ -6213,6 +6214,7 @@ COPY public.indicator (id, name, type, unit, level, code) FROM stdin;
 29	People engaged and trained on DPW	Number	Person	Settlement	ind_029
 30	People engaged and trained on LICW	Number	Person	Settlement	ind_030
 15	Roads improved under the project	Number	M	Settlement	ind_015
+9	Titles issued	Number	Title	Settlement	ind_009
 1	People benefitting from enhanced security of tenure under the project	Number	Person	Settlement	ind_001
 2	Counties where next generation of County Integrated Development Plans (CIDPs) include slum upgrading strategies developedunder the project	Number	County	County	ind_002
 3	People provided with improved urban living conditions under the project	Number	Person	Settlement	ind_003
@@ -6296,65 +6298,67 @@ COPY public.indicator_category (id, indicator_id, indicator_name, category_id, c
 -- Data for Name: indicator_category_report; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.indicator_category_report (id, indicator_category_id, county_id, settlement_id, period, date, amount, code) FROM stdin;
-248	12	32	\N	3	2017-07-01 03:00:00+03	120	dfc40445-3152-4a99-bbea-69510510fe3a
-249	12	47	\N	3	2017-07-01 03:00:00+03	1950	8e0ffdc0-59b9-4a5b-87c2-67bc17351308
-250	11	27	\N	3	2017-07-01 03:00:00+03	4200	daec708d-0617-436c-969f-e3ae8cd0324f
-251	11	16	\N	3	2017-07-02 03:00:00+03	6079	e3c81874-2940-4cff-b437-197e65090bb9
-252	11	47	\N	3	2017-07-03 03:00:00+03	5400	babb105d-7c78-4bcb-9766-8712ba0868b3
-253	11	32	\N	3	2017-07-04 03:00:00+03	0	3af64a55-eee5-4ac4-898a-40383c0c97a8
-254	11	32	\N	3	2017-07-05 03:00:00+03	2700	061c19bc-1423-4aa6-a5fe-175d4649f0d0
-255	11	47	\N	3	2017-07-06 03:00:00+03	29701	0fd133d3-e950-4ef9-b558-723ebfb9be6b
-256	11	27	\N	3	2017-07-07 03:00:00+03	2050	966ea3f0-bd81-48bf-95ae-64c9ea638163
-535	26	47	103	4	2022-12-21 00:00:00+03	47	7e382721-1888-40d5-9fb9-e79604b197e5
-537	26	47	2	4	2022-12-21 15:36:38.488+03	42	b193f010-5adc-4a7f-994f-154d5c2b2fd3
-538	33	47	2	4	2022-12-21 15:38:31.68+03	61	44ca0eb8-7a72-46ed-9d2d-bc1c138bfd1d
-539	33	47	103	4	2022-12-21 00:00:00+03	66	ca5352d0-7e3b-4551-8408-6876fbefb75d
-540	26	47	102	4	2022-12-21 15:44:41.094+03	40	10348c55-0d98-430c-86a0-8deb1d22cbc1
-541	33	47	102	4	2022-12-21 15:46:30.72+03	104	efd0c745-8977-4d2a-aa99-c06cfe12b072
-391	36	27	\N	3	2017-07-01 03:00:00+03	12353	acfbdc51-32d3-4c28-a374-cba3b35c04ba
-219	36	16	\N	3	2017-07-01 03:00:00+03	1987	9c49eec4-ac5d-41a9-a1eb-ba5df98cdbba
-220	36	1	\N	3	2017-07-01 03:00:00+03	3808	b830f88f-80d4-482a-b63e-109faaf1b93e
-221	36	47	\N	3	2017-07-01 03:00:00+03	8150	0431d7a0-e7bd-48e2-8947-effd17281fc6
-222	36	32	\N	3	2017-07-01 03:00:00+03	7514	1f6c86e5-f5e3-4840-99be-8e93606fc54e
-223	37	32	\N	3	2017-07-01 03:00:00+03	9601	861a091b-43ff-4011-b114-99cd49a359a9
-397	36	32	\N	3	2017-07-01 03:00:00+03	0	c32f2adb-0300-4d5b-9884-dd6699a4e7ad
-224	36	42	\N	3	2017-07-01 03:00:00+03	0	de270748-0faa-4ac1-b86d-c811c54417e7
-225	36	35	\N	3	2017-07-01 03:00:00+03	0	e635e870-5846-470f-8b98-771c1271e837
-231	14	1	\N	3	2017-07-01 03:00:00+03	4074	dda205b4-e0e9-4e00-aa5c-985f10342368
-232	14	47	\N	3	2017-07-01 03:00:00+03	275	04328281-0c90-4c57-a518-6ea278f73a9f
-408	14	32	\N	3	2017-07-01 03:00:00+03	371	55bdbb98-f53d-440b-9ddb-86821fc34736
-233	14	3	\N	3	2017-07-01 03:00:00+03	11	b65e7864-aed0-4c18-85ee-64903208cd6b
-234	14	27	\N	3	2017-07-01 03:00:00+03	10	970c6650-91a6-4896-953e-9df11d97b4a5
-235	15	32	\N	3	2017-07-01 03:00:00+03	10	4462da71-74bb-4734-813b-9ef61715020b
-236	15	3	\N	3	2017-07-01 03:00:00+03	0	a6ad1739-6d8c-4c33-95fc-6592be269121
-237	8	27	\N	3	2017-07-01 03:00:00+03	8	9b819006-286f-4944-a86e-91c7708a6d91
-238	8	16	\N	3	2017-07-01 03:00:00+03	4	21c2a83b-f187-483e-b7d5-d9e1de233f8a
-239	8	1	\N	3	2017-07-01 03:00:00+03	7	a57da21e-c031-4b93-ab32-b98697f98d74
-240	8	47	\N	3	2017-07-01 03:00:00+03	9	2b2be541-42df-42d9-95e6-7c33fc3560cf
-241	8	32	\N	3	2017-07-01 03:00:00+03	17	3941b392-b6d1-49db-bba1-eeb957243aca
-242	8	32	\N	3	2017-07-01 03:00:00+03	6	9dc06cf6-d609-4057-bee8-b16f5bd7eb85
-243	8	42	\N	3	2017-07-01 03:00:00+03	0	43cf6b24-3807-4c35-bfc8-51a185f86e7a
-244	8	35	\N	3	2017-07-01 03:00:00+03	0	36dfb8eb-06ef-4ba4-ba0f-469bd87e19f7
-245	8	15	\N	3	2017-07-01 03:00:00+03	0	b1dc2fb2-a35b-4fa1-a77f-da144263f048
-422	8	3	\N	3	2017-07-01 03:00:00+03	0	f8f8a06a-1a0d-421e-a35b-e2aa14ccd91a
-246	8	27	\N	3	2017-07-01 03:00:00+03	0	828779dd-c30d-499c-afe5-ffea466ccf3d
-257	10	27	\N	3	2017-07-01 03:00:00+03	17100	1c87acb3-2e51-4d92-8bde-ea7ec6f24f6a
-258	10	16	\N	3	2017-07-02 03:00:00+03	4100	a2d51cbd-826f-4b91-addc-7ff779fc9bba
-259	10	1	\N	3	2017-07-03 03:00:00+03	3690	9dd0030e-cf92-4d96-bd2f-5450f14f2b5e
-260	10	47	\N	3	2017-07-04 03:00:00+03	11410	823424e7-775b-4082-8739-7fbddf1d7b2e
-261	10	32	\N	3	2017-07-05 03:00:00+03	10680	0a15123d-77af-4e96-8404-e0a3c656bf37
-590	16	27	\N	3	2017-07-01 03:00:00+03	10500	e305bf25-d714-430b-998b-b123682e5394
-591	16	16	\N	3	2017-07-02 03:00:00+03	139	ab2d8207-f31a-4cb4-91fc-3ae6a66f3ba0
-592	16	1	\N	3	2017-07-03 03:00:00+03	14290	e822043d-e6c9-4427-bdaf-6e21eb501030
-593	16	47	\N	3	2017-07-04 03:00:00+03	16634	3af22a08-8e6e-4af8-b67e-753f7de4863c
-226	36	14	\N	3	2017-07-01 03:00:00+03	0	e08a2cbf-eb38-4ca9-a87e-e5f5aaf03caa
-227	36	15	\N	3	2017-07-01 03:00:00+03	0	5330a0ff-41b4-4466-8bbd-eda48ef99002
-228	36	3	\N	3	2017-07-01 03:00:00+03	0	66af7245-9fbd-4afa-8b1d-8c9b3e125c59
-403	36	27	\N	3	2017-07-01 03:00:00+03	0	98aca120-d654-43af-992d-479c703da7f9
-229	14	16	\N	3	2017-07-01 03:00:00+03	90	9be8f1bc-1542-40f8-8c3f-6b2328fe87b3
-230	14	1	\N	3	2017-07-01 03:00:00+03	521	5d87c498-fc5b-419a-bed6-215c541c82b4
-247	12	47	\N	3	2017-07-01 03:00:00+03	275	b62f505f-1e2c-4a0b-9e8d-d40ee42e04ee
+COPY public.indicator_category_report (id, indicator_category_id, county_id, settlement_id, period, date, amount, code, documentation, "userId") FROM stdin;
+606	1	16	\N	4	2022-12-26 08:51:41.801+03	9999	81f7aa33-17b7-4dea-b8b1-6688d2f2942a	81f7aa33-17b7-4dea-b8b1-6688d2f2942a_users.csv	1
+252	11	47	\N	3	2017-07-03 03:00:00+03	5400	babb105d-7c78-4bcb-9766-8712ba0868b3	\N	1
+253	11	32	\N	3	2017-07-04 03:00:00+03	0	3af64a55-eee5-4ac4-898a-40383c0c97a8	\N	1
+254	11	32	\N	3	2017-07-05 03:00:00+03	2700	061c19bc-1423-4aa6-a5fe-175d4649f0d0	\N	1
+255	11	47	\N	3	2017-07-06 03:00:00+03	29701	0fd133d3-e950-4ef9-b558-723ebfb9be6b	\N	1
+256	11	27	\N	3	2017-07-07 03:00:00+03	2050	966ea3f0-bd81-48bf-95ae-64c9ea638163	\N	1
+535	26	47	103	4	2022-12-21 00:00:00+03	47	7e382721-1888-40d5-9fb9-e79604b197e5	\N	1
+537	26	47	2	4	2022-12-21 15:36:38.488+03	42	b193f010-5adc-4a7f-994f-154d5c2b2fd3	\N	1
+538	33	47	2	4	2022-12-21 15:38:31.68+03	61	44ca0eb8-7a72-46ed-9d2d-bc1c138bfd1d	\N	1
+539	33	47	103	4	2022-12-21 00:00:00+03	66	ca5352d0-7e3b-4551-8408-6876fbefb75d	\N	1
+540	26	47	102	4	2022-12-21 15:44:41.094+03	40	10348c55-0d98-430c-86a0-8deb1d22cbc1	\N	1
+541	33	47	102	4	2022-12-21 15:46:30.72+03	104	efd0c745-8977-4d2a-aa99-c06cfe12b072	\N	1
+391	36	27	\N	3	2017-07-01 03:00:00+03	12353	acfbdc51-32d3-4c28-a374-cba3b35c04ba	\N	1
+219	36	16	\N	3	2017-07-01 03:00:00+03	1987	9c49eec4-ac5d-41a9-a1eb-ba5df98cdbba	\N	1
+220	36	1	\N	3	2017-07-01 03:00:00+03	3808	b830f88f-80d4-482a-b63e-109faaf1b93e	\N	1
+221	36	47	\N	3	2017-07-01 03:00:00+03	8150	0431d7a0-e7bd-48e2-8947-effd17281fc6	\N	1
+222	36	32	\N	3	2017-07-01 03:00:00+03	7514	1f6c86e5-f5e3-4840-99be-8e93606fc54e	\N	1
+223	37	32	\N	3	2017-07-01 03:00:00+03	9601	861a091b-43ff-4011-b114-99cd49a359a9	\N	1
+397	36	32	\N	3	2017-07-01 03:00:00+03	0	c32f2adb-0300-4d5b-9884-dd6699a4e7ad	\N	1
+224	36	42	\N	3	2017-07-01 03:00:00+03	0	de270748-0faa-4ac1-b86d-c811c54417e7	\N	1
+225	36	35	\N	3	2017-07-01 03:00:00+03	0	e635e870-5846-470f-8b98-771c1271e837	\N	1
+231	14	1	\N	3	2017-07-01 03:00:00+03	4074	dda205b4-e0e9-4e00-aa5c-985f10342368	\N	1
+232	14	47	\N	3	2017-07-01 03:00:00+03	275	04328281-0c90-4c57-a518-6ea278f73a9f	\N	1
+408	14	32	\N	3	2017-07-01 03:00:00+03	371	55bdbb98-f53d-440b-9ddb-86821fc34736	\N	1
+233	14	3	\N	3	2017-07-01 03:00:00+03	11	b65e7864-aed0-4c18-85ee-64903208cd6b	\N	1
+234	14	27	\N	3	2017-07-01 03:00:00+03	10	970c6650-91a6-4896-953e-9df11d97b4a5	\N	1
+235	15	32	\N	3	2017-07-01 03:00:00+03	10	4462da71-74bb-4734-813b-9ef61715020b	\N	1
+236	15	3	\N	3	2017-07-01 03:00:00+03	0	a6ad1739-6d8c-4c33-95fc-6592be269121	\N	1
+237	8	27	\N	3	2017-07-01 03:00:00+03	8	9b819006-286f-4944-a86e-91c7708a6d91	\N	1
+238	8	16	\N	3	2017-07-01 03:00:00+03	4	21c2a83b-f187-483e-b7d5-d9e1de233f8a	\N	1
+239	8	1	\N	3	2017-07-01 03:00:00+03	7	a57da21e-c031-4b93-ab32-b98697f98d74	\N	1
+240	8	47	\N	3	2017-07-01 03:00:00+03	9	2b2be541-42df-42d9-95e6-7c33fc3560cf	\N	1
+241	8	32	\N	3	2017-07-01 03:00:00+03	17	3941b392-b6d1-49db-bba1-eeb957243aca	\N	1
+242	8	32	\N	3	2017-07-01 03:00:00+03	6	9dc06cf6-d609-4057-bee8-b16f5bd7eb85	\N	1
+243	8	42	\N	3	2017-07-01 03:00:00+03	0	43cf6b24-3807-4c35-bfc8-51a185f86e7a	\N	1
+244	8	35	\N	3	2017-07-01 03:00:00+03	0	36dfb8eb-06ef-4ba4-ba0f-469bd87e19f7	\N	1
+245	8	15	\N	3	2017-07-01 03:00:00+03	0	b1dc2fb2-a35b-4fa1-a77f-da144263f048	\N	1
+422	8	3	\N	3	2017-07-01 03:00:00+03	0	f8f8a06a-1a0d-421e-a35b-e2aa14ccd91a	\N	1
+246	8	27	\N	3	2017-07-01 03:00:00+03	0	828779dd-c30d-499c-afe5-ffea466ccf3d	\N	1
+257	10	27	\N	3	2017-07-01 03:00:00+03	17100	1c87acb3-2e51-4d92-8bde-ea7ec6f24f6a	\N	1
+258	10	16	\N	3	2017-07-02 03:00:00+03	4100	a2d51cbd-826f-4b91-addc-7ff779fc9bba	\N	1
+259	10	1	\N	3	2017-07-03 03:00:00+03	3690	9dd0030e-cf92-4d96-bd2f-5450f14f2b5e	\N	1
+260	10	47	\N	3	2017-07-04 03:00:00+03	11410	823424e7-775b-4082-8739-7fbddf1d7b2e	\N	1
+261	10	32	\N	3	2017-07-05 03:00:00+03	10680	0a15123d-77af-4e96-8404-e0a3c656bf37	\N	1
+590	16	27	\N	3	2017-07-01 03:00:00+03	10500	e305bf25-d714-430b-998b-b123682e5394	\N	1
+591	16	16	\N	3	2017-07-02 03:00:00+03	139	ab2d8207-f31a-4cb4-91fc-3ae6a66f3ba0	\N	1
+592	16	1	\N	3	2017-07-03 03:00:00+03	14290	e822043d-e6c9-4427-bdaf-6e21eb501030	\N	1
+593	16	47	\N	3	2017-07-04 03:00:00+03	16634	3af22a08-8e6e-4af8-b67e-753f7de4863c	\N	1
+598	3	6	233	4	2022-12-22 12:51:58.759+03	3	03ae3987-a0d9-4e52-a121-d8767f163d0f	\N	1
+603	1	20	\N	4	2022-12-23 16:23:42.767+03	36	83718d6a-aac7-4447-bcaf-c717be72a18a	83718d6a-aac7-4447-bcaf-c717be72a18a_AccountStatement22139327_23DEC2022_8151314.pdf	1
+249	12	47	\N	3	2017-07-01 03:00:00+03	1950	8e0ffdc0-59b9-4a5b-87c2-67bc17351308	\N	1
+250	11	27	\N	3	2017-07-01 03:00:00+03	4200	daec708d-0617-436c-969f-e3ae8cd0324f	\N	1
+226	36	14	\N	3	2017-07-01 03:00:00+03	0	e08a2cbf-eb38-4ca9-a87e-e5f5aaf03caa	\N	1
+227	36	15	\N	3	2017-07-01 03:00:00+03	0	5330a0ff-41b4-4466-8bbd-eda48ef99002	\N	1
+228	36	3	\N	3	2017-07-01 03:00:00+03	0	66af7245-9fbd-4afa-8b1d-8c9b3e125c59	\N	1
+403	36	27	\N	3	2017-07-01 03:00:00+03	0	98aca120-d654-43af-992d-479c703da7f9	\N	1
+229	14	16	\N	3	2017-07-01 03:00:00+03	90	9be8f1bc-1542-40f8-8c3f-6b2328fe87b3	\N	1
+230	14	1	\N	3	2017-07-01 03:00:00+03	521	5d87c498-fc5b-419a-bed6-215c541c82b4	\N	1
+247	12	47	\N	3	2017-07-01 03:00:00+03	275	b62f505f-1e2c-4a0b-9e8d-d40ee42e04ee	\N	1
+251	11	16	\N	3	2017-07-02 03:00:00+03	4545454	e3c81874-2940-4cff-b437-197e65090bb9	e3c81874-2940-4cff-b437-197e65090bb9_akoth-PAU-Mutua.docx	1
 \.
 
 
@@ -6973,6 +6977,7 @@ COPY public.roles (id, name, description, isactive) FROM stdin;
 2	moderator	To be removed	t
 3	editor	To be removed	t
 4	user	A normal user. Cannot edit anything	t
+16	national_monitoring	National Monitoring and Evaluation	t
 \.
 
 
@@ -7261,13 +7266,6 @@ COPY public.settlement_type (id, type) FROM stdin;
 --
 
 COPY public.settlement_uploads (id, name, type, file_path, settlement_id, "group") FROM stdin;
-1	2_kenya_county_map.pdf	socio_economic	./public/2_kenya_county_map.pdf	2	Report
-2	2_KENYAN_LOGO.png	socio_economic	./public/2_KENYAN_LOGO.png	2	Report
-3	2_comments_FM.docx	socio_economic	./public/2_comments_FM.docx	2	Report
-4	160_0_Lot_1_Project_Completion_Report_V02_26-06-2020.docx	survey_plan	./public/160_0_Lot_1_Project_Completion_Report_V02_26-06-2020.docx	160	Map
-6	1_Activities.docx	socio_economic	./public/1_Activities.docx	1	Report
-7	1_socio_economic_report_2019.pdf	socio_economic	./public/1_socio_economic_report_2019.pdf	1	Report
-9	1_lpdp.jpg	ldpdp	./public/1_lpdp.jpg	1	Development Plan
 \.
 
 
@@ -7335,24 +7333,9 @@ COPY public.telcom (id, name, facility_type, settlement_id, owner, geom) FROM st
 
 COPY public.user_roles (roleid, userid) FROM stdin;
 1	1
-9	1
-10	1
-11	1
-12	1
-14	2
-7	3
-5	1
-6	1
-7	1
-8	1
-13	1
-14	1
-15	1
-5	4
-6	4
 7	4
-11	4
-1	4
+6	3
+9	2
 \.
 
 
@@ -7361,10 +7344,10 @@ COPY public.user_roles (roleid, userid) FROM stdin;
 --
 
 COPY public.users (id, username, name, email, county_id, password, isactive, phone, "resetPasswordToken", "resetPasswordExpires", avatar) FROM stdin;
-1	felix.mutua@gmail.com	Felix Mutua	felix.mutua@gmail.com	1	$2a$08$qRAT9wUQw2aVcrBx7Y9toeKb9hIDVlOuRZfQ36MuFFaOWyfK7AZRy	t	254721770339	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNjY5MTEzNjc4LCJleHAiOjE2NjkyMDAwNzh9.39iTymTWngRJYOzryXmGIF8y17EFmpdHI4IBXDDlPkE	2022-11-23 13:41:18.047+03	\N
-2	jane@gmail.com	Jane	jane@gmail.com	8	$2a$08$6G8VibAju4O0D6daiQLz3uP7.opWQvOz0R6tKMOV6NFBauzX1jSj.	t	\N	true	2022-11-03 19:04:08.986+03	\N
-4	christinesabwa1@gmail.com	Christine Sabwa	christinesabwa1@gmail.com	47	$2a$08$x4gWTOr0pHvKZh8IYZ65fOB8vgMCYWSRcSOx0lXYcEEn9KpkTO.Yq	t	\N	true	\N	\N
-3	JohnDoe@gmail.com	John  Doe	JohnDoe@gmail.com	3	$2a$08$JwaF1OG0veAhS2G5UIJXPeUBeFD2PffI9QVATj72ulgPOIIJSxYiq	t	\N	true	2022-12-04 07:21:21.768+03	\N
+2	jane@gmail.com	Jane	jane@gmail.com	47	$2a$08$6G8VibAju4O0D6daiQLz3uP7.opWQvOz0R6tKMOV6NFBauzX1jSj.	t	\N	true	2022-11-03 19:04:08.986+03	\N
+4	christinesabwa1@gmail.com	Christine Sabwa	christinesabwa1@gmail.com	33	$2a$08$x4gWTOr0pHvKZh8IYZ65fOB8vgMCYWSRcSOx0lXYcEEn9KpkTO.Yq	t	\N	true	\N	\N
+1	felix.mutua@gmail.com	Felix Mutua	felix.mutua@gmail.com	47	$2a$08$qRAT9wUQw2aVcrBx7Y9toeKb9hIDVlOuRZfQ36MuFFaOWyfK7AZRy	t	254721770339	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNjY5MTEzNjc4LCJleHAiOjE2NjkyMDAwNzh9.39iTymTWngRJYOzryXmGIF8y17EFmpdHI4IBXDDlPkE	2022-11-23 13:41:18.047+03	\N
+3	JohnDoe@gmail.com	John  Doe	JohnDoe@gmail.com	47	$2a$08$JwaF1OG0veAhS2G5UIJXPeUBeFD2PffI9QVATj72ulgPOIIJSxYiq	t	\N	true	2022-12-04 07:21:21.768+03	\N
 \.
 
 
@@ -7739,7 +7722,7 @@ SELECT pg_catalog.setval('public.indicator_category_id_seq', 37, true);
 -- Name: indicator_category_report_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.indicator_category_report_id_seq', 593, true);
+SELECT pg_catalog.setval('public.indicator_category_report_id_seq', 606, true);
 
 
 --
@@ -7886,7 +7869,7 @@ SELECT pg_catalog.setval('public.settlement_type_id_seq', 1, false);
 -- Name: settlement_uploads_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.settlement_uploads_id_seq', 9, true);
+SELECT pg_catalog.setval('public.settlement_uploads_id_seq', 15, true);
 
 
 --
