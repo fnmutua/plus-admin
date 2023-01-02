@@ -3478,14 +3478,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       }
 
-
-
-
-
-
-
-
-
     ]
   },
   {
@@ -3852,16 +3844,26 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     },
     children: [
       {
+        path: 'new',
+      //  component: 'views/Indicators/indicator_category_report',
+        component: () => import('@/views/Indicators/indicator_category_report_new.vue'),
+        name: 'NewReports',
+        meta: {
+          title: 'New Reports',
+          icon:'carbon:result-new',
+        }
+      },
+      {
         path: 'reports',
       //  component: 'views/Indicators/indicator_category_report',
         component: () => import('@/views/Indicators/indicator_category_report.vue'),
-
         name: 'Reports',
         meta: {
           title: 'M&E Reports',
           icon:'mdi:file-document-plus',
         }
       },
+   
       {
         path: 'config',
      //   component: 'views/Indicators/indicator_category',

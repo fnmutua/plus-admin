@@ -30,10 +30,26 @@ exports.SimpleSumModelByColumn= (req, res) => {
  
   console.log('Summarizing:', reg_model, ' by ', summaryField)
   
+  var queryFields = {}
+
+  // here filter if the value to filter in that column is provided 
+  if (req.body.summaryFieldValue) {
+    queryFields[req.body.summaryField] =req.body.summaryFieldValue
     var qry = {
       attributes: [[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
       raw: true
     }
+    qry.where = queryFields
+
+
+  } else {
+    var qry = {
+      attributes: [[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+      raw: true
+    }
+
+  }
+
     db.models[reg_model]
     .findAll(qry)
     .then((result) => {

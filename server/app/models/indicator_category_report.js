@@ -37,8 +37,17 @@ module.exports = function (sequelize, DataTypes) {
       userId: {
         type: DataTypes.INTEGER,
         allowNull: true
-      },  
-
+      }, 
+      
+      status: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: "New",   // Approved, Rejected 
+      },
+      reject_msg: {
+        type: DataTypes.STRING,
+        allowNull: true
+      }, 
       code: {
         type: DataTypes.STRING,
         allowNull: false,

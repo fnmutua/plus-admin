@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ElDropdown, ElDropdownMenu, ElDropdownItem, ElMessageBox } from 'element-plus'
+import { ElDropdown, ElDropdownMenu, ElDropdownItem, ElMessageBox, ElBadge, ElButton } from 'element-plus'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useCache } from '@/hooks/web/useCache'
 import { resetRouter } from '@/router'
@@ -8,7 +8,8 @@ import { loginOutApi } from '@/api/login'
 import { useDesign } from '@/hooks/web/useDesign'
 import { useTagsViewStore } from '@/store/modules/tagsView'
 import { useAppStoreWithOut } from '@/store/modules/app'
- 
+import { Share } from '@element-plus/icons-vue'
+import { Icon } from '@iconify/vue';
 
 
 
@@ -27,11 +28,10 @@ const { wsCache } = useCache()
 const { replace } = useRouter()
 
 
- 
+
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-console.log("----user----",userInfo)
 
 
 
@@ -42,7 +42,7 @@ const loginOut = () => {
     type: 'warning'
   })
     .then(async () => {
-      const res = await loginOutApi().catch(() => {})
+      const res = await loginOutApi().catch(() => { })
       if (res) {
         wsCache.clear()
         tagsViewStore.delAllViews()
@@ -50,7 +50,7 @@ const loginOut = () => {
         replace('/login')
       }
     })
-    .catch(() => {})
+    .catch(() => { })
 }
 
 const toDocument = () => {
@@ -61,12 +61,11 @@ const toDocument = () => {
 <template>
   <ElDropdown :class="prefixCls" trigger="click">
     <div class="flex items-center">
-      <img
-        src="@/assets/imgs/user.png"
-        alt=""
-        class="w-[calc(var(--logo-height)-25px)] rounded-[50%]"
-      />
-      <span class="<lg:hidden text-14px pl-[5px] text-[var(--top-header-text-color)]">{{userInfo.name}}</span>
+
+
+      <img src="@/assets/imgs/user.png" alt="" class="w-[calc(var(--logo-height)-25px)] rounded-[50%]" />
+
+      <span class="<lg:hidden text-14px pl-[5px] text-[var(--top-header-text-color)]">{{ userInfo.name }}</span>
     </div>
     <template #dropdown>
       <ElDropdownMenu>
