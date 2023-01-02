@@ -1570,7 +1570,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
       {
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
-        component: () => import('@/views/Facilities/Roads/RoadDetails.vue'),
+       component: () => import('@/views/Facilities/Roads/RoadFacilityDetails.vue'),
 
         name: 'RoadsDetails',
         meta: {
@@ -2210,7 +2210,7 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
       {
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
-        component: () => import('@/views/Facilities/Roads/RoadDetails.vue'),
+       component: () => import('@/views/Facilities/Roads/RoadFacilityDetails.vue'),
 
         name: 'RoadsDetails',
         meta: {
@@ -2900,7 +2900,7 @@ export const staffRoutes: AppRouteRecordRaw[] = [
       {
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
-        component: () => import('@/views/Facilities/Roads/RoadDetails.vue'),
+       component: () => import('@/views/Facilities/Roads/RoadFacilityDetails.vue'),
 
         name: 'RoadsDetails',
         meta: {
@@ -3640,7 +3640,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       {
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
-        component: () => import('@/views/Facilities/Roads/RoadDetails.vue'),
+       component: () => import('@/views/Facilities/Roads/RoadFacilityDetails.vue'),
 
         name: 'RoadsDetails',
         meta: {
@@ -4430,7 +4430,7 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
       {
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
-        component: () => import('@/views/Facilities/Roads/RoadDetails.vue'),
+       component: () => import('@/views/Facilities/Roads/RoadFacilityDetails.vue'),
 
         name: 'RoadsDetails',
         meta: {
