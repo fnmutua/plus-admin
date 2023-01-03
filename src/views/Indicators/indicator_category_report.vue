@@ -159,6 +159,10 @@ const columns: TableColumn[] = [
     field: 'date',
     label: t('Date')
   },
+  {
+    field: 'status',
+    label: t('Status')
+  },
 
   {
     field: 'documentation',

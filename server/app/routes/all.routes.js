@@ -26,7 +26,13 @@ module.exports = function (app) {
   app.get('/api/v1/data/paginated',  [authJwt.verifyToken],controller.modelPaginatedData)
 
   // Gets the  data filtereed by column
-  app.post('/api/v1/data/column/paginated',  [authJwt.verifyToken],controller.modelPaginatedDatafilterByColumn)
+  app.post('/api/v1/data/column/paginated', [authJwt.verifyToken], controller.modelPaginatedDatafilterByColumn)
+  
+  //*************special controller for Housheolds only!****************************
+ // app.post('/api/v1/hh/column/paginated',  [authJwt.verifyToken], controller.modelPaginatedDatafilterByColumn)
+  app.post('/api/v1/hh/column/paginated', [authJwt.verifyToken, authJwt.isAdmin],controller.modelPaginatedDatafilterByColumn);
+  //******************************************
+
 
   // Gets the  All dataes
   app.post('/api/v1/data/all/geo',  controller.modelAllGeo)

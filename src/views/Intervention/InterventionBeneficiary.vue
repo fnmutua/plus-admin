@@ -36,8 +36,13 @@ const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
-const interVentionTypeOtions = ref([])
-const interVentionClusterOtions = ref([])
+var value4 = ref([])
+var value5 = ref([])
+
+const interVentionTypeOptions = ref([])
+const benefitTypeOptions = ref([])
+const houseHoldOptions = ref([])
+const interventionsOptions = ref([])
 
 
 
@@ -59,14 +64,14 @@ const formheader = ref('Add Intervention')
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = ['intervention_type_id']
-var intervenComponent = [1] // Fiters tenure=1, inf=2, socio=3, caapcity=4
-var filterValues = [intervenComponent]
+var filters = []
+var intervenComponent = [] // Fiters tenure=1, inf=2, socio=3, caapcity=4
+var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['settlement', 'intervention_type']
+const associated_multiple_models = ['households', 'settlement', 'benefit_type', 'intervention']
 
-const model = 'intervention'
+const model = 'beneficiary'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
@@ -79,17 +84,21 @@ const columns: TableColumn[] = [
   },
 
   {
-    field: 'settlement.name',
+    field: 'household.name',
     label: t('Name')
   },
 
   {
-    field: 'settlement.area',
-    label: t('Area(Ha.)')
+    field: 'household.national_id',
+    label: t('National ID')
   },
   {
-    field: 'intervention_type.type',
-    label: t('Type')
+    field: 'settlement.name',
+    label: t('Settlement')
+  },
+  {
+    field: 'benefit_type.type',
+    label: t('Benefit')
   },
   {
     field: 'action',
@@ -102,16 +111,19 @@ const handleClear = async () => {
   console.log('cleared....')
 
   // clear all the fileters -------
-  filterValues = [intervenComponent]
-  filters = ['intervention_type_id']
+  filterValues = []
+  filters = []
   value1.value = ''
   value2.value = ''
   value3.value = ''
+  value4.value = ''
+  value5.value = ''
+
   pSize.value = 5
   currentPage.value = 1
   tblData = []
   //----run the get data--------
-  getInterventionsAll()
+  getAllBeneficiaries()
 }
 
 const handleSelectPhase = async (phase: any) => {
@@ -142,7 +154,7 @@ const handleSelectPhase = async (phase: any) => {
   getFilteredData(filters, filterValues)
 }
 const filterByType = async (phase: any) => {
-  var selectOption = 'intervention_type_id'
+  var selectOption = 'intervention_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -197,6 +209,8 @@ const handleSelectSettlement = async (settlement: any) => {
   getFilteredData(filters, filterValues)
 }
 
+
+
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
@@ -208,7 +222,7 @@ const onPageSizeChange = async (size: any) => {
   getFilteredData(filters, filterValues)
 }
 
-const getInterventionsAll = async () => {
+const getAllBeneficiaries = async () => {
   getFilteredData(filters, filterValues)
 }
 
@@ -301,19 +315,19 @@ const getInterventionTypes = async () => {
       countyOpt.value = arrayItem.id
       countyOpt.label = arrayItem.type + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
-      interVentionTypeOtions.value.push(countyOpt)
+      interVentionTypeOptions.value.push(countyOpt)
     })
   })
 }
 
-const getInterventionClusters = async () => {
+const getBeneficiaryType = async () => {
   const res = await getCountyListApi({
     params: {
       pageIndex: 1,
       limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'clusters',
-      searchField: 'description',
+      model: 'benefit_type',
+      searchField: 'type',
       searchKeyword: '',
       sort: 'ASC'
     }
@@ -325,14 +339,85 @@ const getInterventionClusters = async () => {
     loading.value = false
 
     ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.contract + '(' + arrayItem.id + ')'
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.type + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
-      interVentionClusterOtions.value.push(countyOpt)
+      benefitTypeOptions.value.push(opt)
     })
   })
 }
+const getHouseholds = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'households',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.name + '| ' + arrayItem.gender + ' | ' + arrayItem.national_id
+      //  console.log(countyOpt)
+      houseHoldOptions.value.push(opt)
+    })
+  })
+}
+
+const getInterventions = async () => {
+  const formData = {}
+
+  formData.model = 'intervention'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+
+  // - multiple filters -------------------------------------
+
+  formData.associated_multiple_models = ['settlement', 'clusters']
+
+  //-------------------------
+  //console.log(formData)
+  console.log('before Intervention Options')
+
+  //const rxes = await getSettlementListByCounty(formData)
+  //console.log('Inside Intervention Options', rxes)
+
+  const res = await getSettlementListByCounty(formData).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.settlement_id = arrayItem.settlement.id
+
+      opt.label = arrayItem.settlement.name + ' | ' + arrayItem.cluster.contract + ' | ' + arrayItem.id
+      //  console.log(countyOpt)
+      interventionsOptions.value.push(opt)
+    })
+  })
+}
+
+
+
+
 const getSettlementsOptions = async () => {
   const res = await getCountyListApi({
     params: {
@@ -372,12 +457,18 @@ const handleDownload = () => {
   const exportType = exportFromJSON.types.csv
   if (data) exportFromJSON({ data, fileName, exportType })
 }
-getInterventionClusters()
+
+
+
+
+getBeneficiaryType()
+getHouseholds()
+
 getInterventionTypes()
 getSettlementsOptions()
-getInterventionsAll()
-
-console.log('Options---->', interVentionTypeOtions)
+getAllBeneficiaries()
+getInterventions()
+console.log('Options---->', interVentionTypeOptions)
 const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
 
@@ -388,38 +479,18 @@ const viewProfile = (data: TableSlotDefault) => {
   })
 }
 
-const viewHHs = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
-  push({
-    path: '/settlement/hh/:id',
-    name: 'Households',
-    params: { id: data.row.id }
-  })
-}
 
-const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row)
-  if (data.row.settlement.geom) {
-    push({
-      path: '/settlement/map/:id',
-      name: 'SettlementMap',
-      params: { id: data.row.id }
-    })
-  } else {
-    var msg = 'This Settlement does not have the boundary defined in the database!'
-    open(msg)
-  }
-}
+
 
 //*****************************Create**************************** */
 
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-  intervention_type_id: '',
+  hh_id: '',
   intervention_phase: '',
-  year: null,
+  intervention_id: null,
   settlement_id: null,
-  cluster_id: null,
+  benefit_type_id: null,
   code: ''
 })
 
@@ -445,7 +516,7 @@ const saveForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
     if (valid) {
-      ruleForm.model = 'intervention'
+      ruleForm.model = 'beneficiary'
       ruleForm.code = uuid.v4()
       console.log(ruleForm.value)
       await CreateRecord(ruleForm).then(() => { })
@@ -458,11 +529,11 @@ const saveForm = async (formEl: FormInstance | undefined) => {
 
 
 
-const DeleteIntervention = (data: TableSlotDefault) => {
+const DeleteBeneficiary = (data: TableSlotDefault) => {
   console.log('----->', data.row.id)
   let formData = {}
   formData.id = data.row.id
-  formData.model = 'intervention'
+  formData.model = 'beneficiary'
 
   DeleteRecord(formData)
 
@@ -476,24 +547,24 @@ const DeleteIntervention = (data: TableSlotDefault) => {
 
 }
 
-const editIntervention = (data: TableSlotDefault) => {
+const editBeneficiary = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
   // showEditSaveButton.value = true
   console.log(data)
   ruleForm.id = data.row.id
   ruleForm.intervention_phase = data.row.intervention_phase
   ruleForm.settlement_id = data.row.settlement_id
-  ruleForm.year = data.row.date
-  ruleForm.intervention_type_id = data.row.intervention_type_id
-  ruleForm.cluster_id = data.row.cluster_id
-  ruleForm.year = data.row.year
+  ruleForm.hh_id = data.row.hh_id
+  ruleForm.intervention_id = data.row.intervention_id
+  ruleForm.benefit_type_id = data.row.benefit_type_id
   ruleForm.code = data.row.code
+
 
   // formHeader.value = 'Edit Report'
   showEditSaveButton.value = true
   showAddSaveButton.value = false
   AddDialogVisible.value = true
-  formheader.value = 'Edit Intervention'
+  formheader.value = 'Edit Beneficiary'
 
 }
 
@@ -501,7 +572,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
     if (valid) {
-      ruleForm.model = 'intervention'
+      ruleForm.model = 'beneficiary'
       await updateOneRecord(ruleForm).then(() => { })
 
     } else {
@@ -515,43 +586,59 @@ const handleClose = () => {
   console.log("Closing the dialoig")
   showAddSaveButton.value = true
   showEditSaveButton.value = false
+
   ruleForm.settlement_id = null
   ruleForm.intervention_phase = null
-  ruleForm.intervention_type_id = null
-  ruleForm.year = null
-  ruleForm.cluster_id = null
+  ruleForm.intervention_id = null
+  ruleForm.hh_id = null
+  ruleForm.benefit_type_id = null
 
 
-  formheader.value = 'Add Intervention'
+
+  formheader.value = 'Add Beneficiary'
   AddDialogVisible.value = false
 
 }
+
+const onchangeIntervention = async (intervention: any) => {
+  console.log('Selected Intervention', intervention)
+
+  let filterObj = interventionsOptions.value.filter((item) => item.value === intervention);
+
+  console.log('Selected filterObj', filterObj[0].settlement_id)
+  ruleForm.settlement_id = filterObj[0].settlement_id
+  console.log('Selected filterObj', ruleForm)
+
+
+}
+
 </script>
 
 <template>
-  <ContentWrap :title="t('Tenure Regularization Settlements')"
-    :message="t('The list of tenure regularization settlements. Use the filters to subset')">
+  <ContentWrap :title="t('Beneficiaries')"
+    :message="t('The list of  intervention beneficiaries. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
-    <div style="display: inline-block; margin-left: 20px">
+    <div style="display: inline-block; margin-left: 10px">
+      <el-select v-model="value5" :onChange="filterByType" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="By Beneficiary">
+        <el-option v-for="item in houseHoldOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+    </div>
+
+    <div style="display: inline-block; margin-left: 10px">
+      <el-select v-model="value4" :onChange="filterByType" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="By Intervention">
+        <el-option v-for="item in interventionsOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+    </div>
+
+    <div style="display: inline-block; margin-left: 10px">
       <el-select v-model="value2" :onChange="handleSelectPhase" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="By KISIP Phase">
         <el-option v-for="item in PhaseOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="By Settlement Name">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value4" :onChange="filterByType" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="By Intervention Type">
-        <el-option v-for="item in interVentionTypeOtions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
-
 
 
     <div style="display: inline-block; margin-left: 20px">
@@ -576,21 +663,14 @@ const handleClose = () => {
           <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
         </el-tooltip>
 
-        <el-tooltip content="View Households" placement="top">
-          <el-button v-show="showAdminButtons" type="success" :icon="User" @click="viewHHs(data as TableSlotDefault)"
-            circle />
-        </el-tooltip>
-        <el-tooltip content="View on Map" placement="top">
-          <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
-        </el-tooltip>
         <el-tooltip content="Edit" placement="top">
           <el-button v-show="showAdminButtons" type="success" :icon="Edit"
-            @click="editIntervention(data as TableSlotDefault)" circle />
+            @click="editBeneficiary(data as TableSlotDefault)" circle />
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
           <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this record?" @confirm="DeleteIntervention(data as TableSlotDefault)">
+            title="Are you sure to delete this record?" @confirm="DeleteBeneficiary(data as TableSlotDefault)">
             <template #reference>
               <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
             </template>
@@ -610,19 +690,24 @@ const handleClose = () => {
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="30%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
-      <el-form-item label="Cluster">
-        <el-select filterable v-model="ruleForm.cluster_id" placeholder="Select Cluster">
-          <el-option v-for="item in interVentionClusterOtions" :key="item.value" :label="item.label"
-            :value="item.value" />
+      <el-form-item label="Benefit">
+        <el-select filterable v-model="ruleForm.benefit_type_id" placeholder="Select Benefit">
+          <el-option v-for="item in benefitTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
 
-      <el-form-item label="Settlement">
-        <el-select filterable v-model="ruleForm.settlement_id" placeholder="Select Settlement">
-          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+      <el-form-item label="Beneficiary">
+        <el-select filterable v-model="ruleForm.hh_id" placeholder="Select Beneficiary">
+          <el-option v-for="item in houseHoldOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
 
+      <el-form-item label="Intervention">
+        <el-select filterable v-model="ruleForm.intervention_id" :onChange="onchangeIntervention"
+          placeholder="Select Settlement">
+          <el-option v-for="item in interventionsOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
 
 
       <el-form-item label="Phase">
@@ -632,15 +717,7 @@ const handleClose = () => {
       </el-form-item>
 
 
-      <el-form-item label="Type">
-        <el-select filterable v-model="ruleForm.intervention_type_id" placeholder="Select intervention Type">
-          <el-option v-for="item in interVentionTypeOtions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
 
-      <el-form-item label="Year">
-        <el-input-number v-model="ruleForm.year" />
-      </el-form-item>
 
     </el-form>
     <template #footer>

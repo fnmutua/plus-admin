@@ -33,7 +33,7 @@ verifyToken = (req, res, next) => {
          req.thisUser = user;
          //req.roles = roles;
          //var chests = roles[].toJSON(); //same as chestsSeq.get({});
-         console.log('roles>>', roles[0])
+     //    console.log('roles>>', roles[0])
          let userRoles = []
          for (let i = 0; i < roles.length; i++) {
             userRoles.push(roles[i].id)
@@ -62,7 +62,7 @@ isAdmin = (req, res, next) => {
         }
       }
       res.status(403).send({
-        message: "Require Admin Role!"
+        message: "This resource requires an Admin Role!"
       });
       return;
     });

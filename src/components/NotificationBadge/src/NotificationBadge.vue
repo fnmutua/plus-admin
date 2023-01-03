@@ -11,6 +11,14 @@ import { CaretBottom } from '@element-plus/icons-vue'
 import { getSummarybyField, getSummarybyFieldSimple, getSummarybyFieldNested } from '@/api/summary'
 import { ref, reactive, h } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
+
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
 
 const { getPrefixCls } = useDesign()
 const { push } = useRouter()
@@ -29,12 +37,18 @@ const handleCommand = (command: string | number | object) => {
       path: '/mne/new',
       name: 'NewReports'
     })
+  } else if (command == 'Accounts') {
+    push({
+      path: '/users/new',
+      name: 'NewAccounts'
+    })
+
   }
 
 }
 
 const newReports = ref()
-
+const activeDot = ref(false)
 const getNewReports = async () => {
   const formData = {}
   formData.model = 'indicator_category_report'
@@ -48,11 +62,47 @@ const getNewReports = async () => {
       var results = response.Total
       console.log('Count New Reports..........', results[0].count)
       newReports.value = results[0].count
+      if (results[0].count > 0) {
+        activeDot.value = true
+      }
     });
 
 
 }
+
+const newAccounts = ref()
+const getNewAccounts = async () => {
+  const formData = {}
+  formData.model = 'users'
+  formData.summaryFunction = 'count'
+  formData.summaryField = 'isactive'
+  formData.summaryFieldValue = 'false'
+
+  // Directbeneficisaries 
+  await getSummarybyFieldSimple(formData)
+    .then(response => {
+      var results = response.Total
+      console.log('Count New newAccounts..........', results[0].count)
+      newAccounts.value = results[0].count
+      if (results[0].count > 0) {
+        activeDot.value = true
+      }
+    });
+
+}
+const showBadge = ref(false)
+console.log("userInfo-------x---------", userInfo)
+if (userInfo.roles.includes("admin") || (userInfo.roles.includes("sud_staff")) || (userInfo.roles.includes("kisip_staff")) || (userInfo.roles.includes("national_monitoring"))) {
+  showBadge.value = true
+} else {
+  showBadge.value = false
+
+}
+
+
 getNewReports()
+getNewAccounts()
+
 
 
 </script>
@@ -60,7 +110,7 @@ getNewReports()
 <template>
   <div :class="prefixCls">
 
-    <el-badge is-dot>
+    <el-badge v-show="showBadge" :is-dot="activeDot">
       <el-dropdown trigger="click" @command="handleCommand">
         <span class="el-dropdown-link">
           <Icon icon="material-symbols:circle-notifications-rounded" color="white" :size="18" />
@@ -74,7 +124,7 @@ getNewReports()
             </el-dropdown-item>
             <el-dropdown-item command="Accounts" class="clearfix">
               New Accounts
-              <el-badge class="mark" :value="3" />
+              <el-badge class="mark" :value="newAccounts" />
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
