@@ -210,9 +210,9 @@ const getKisipTenureSettlementsCountByCounty = async () => {
       orient: "vertical",
       y: "bottom",
       x: "right",
-      data: ["Beneficiaries"],
+      data: ["Settlements"],
       textStyle: {
-        color: "#fff"
+        color: "#4c2416"
       }
     },
     geo: {
@@ -235,7 +235,7 @@ const getKisipTenureSettlementsCountByCounty = async () => {
     series: [
 
       {
-        name: "Beneficiaries",
+        name: "Settlements",
         type: "effectScatter",
         coordinateSystem: "geo",
         data: tenureSettlementsPoints.value.sort((a, b) => b.value - a.value).slice(0, 6),
@@ -405,9 +405,9 @@ const getKisipInfSettlementsCountByCounty = async () => {
       orient: "vertical",
       y: "bottom",
       x: "right",
-      data: ["Beneficiaries"],
+      data: ["Settlements"],
       textStyle: {
-        color: "#fff"
+        color: "#4c2416"
       }
     },
     geo: {
@@ -430,7 +430,7 @@ const getKisipInfSettlementsCountByCounty = async () => {
     series: [
 
       {
-        name: "Beneficiaries",
+        name: "Settlements",
         type: "effectScatter",
         coordinateSystem: "geo",
         data: InfrastructureSettlementsMapPoitns.value.sort((a, b) => b.value - a.value).slice(0, 6),
@@ -602,9 +602,9 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
       orient: "vertical",
       y: "bottom",
       x: "right",
-      data: ["Beneficiaries"],
+      data: ["Settlements"],
       textStyle: {
-        color: "#fff"
+        color: "#4c2416"
       }
     },
     geo: {
@@ -627,7 +627,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
     series: [
 
       {
-        name: "Beneficiaries",
+        name: "Settlements",
         type: "effectScatter",
         coordinateSystem: "geo",
         data: InclusionSettlementsMapPoints.value.sort((a, b) => b.value - a.value).slice(0, 6),

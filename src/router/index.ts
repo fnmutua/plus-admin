@@ -498,7 +498,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
     meta: {
       hidden: true,
       title: t('Facilities'),
-      icon: 'ant-design:shop-outlined',
+      icon:'ic:outline-local-convenience-store',
       alwaysShow: false
     },
     children: [
@@ -1107,6 +1107,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Overview'),
           noCache: true,
+          icon:'ic:round-bubble-chart',
           affix: true
         }
       },
@@ -1117,7 +1118,9 @@ export const publicRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Status'),
           noCache: true,
-          affix: true
+          affix: true,
+          icon:'pajamas:status',
+
         }
       },
       {
@@ -1126,12 +1129,14 @@ export const publicRoutes: AppRouteRecordRaw[] = [
         name: 'Kisip',
         meta: {
           title: t('Kisip'),
-          noCache: true
+          noCache: true,
+          icon:'tabler:layout-dashboard',
+
         }
       }
     ]
   },
-  {
+   {
     path: '/interventions',
     component: Layout,
     redirect: '/interventions/tenure/settlements',
@@ -1426,7 +1431,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
     meta: {
       hidden: false,
       title: 'Facilities',
-      icon: 'ant-design:shop-outlined',
+      icon:'ic:outline-local-convenience-store',
       alwaysShow: false
     },
     children: [
@@ -1747,6 +1752,7 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Overview'),
           noCache: true,
+          icon:'ic:round-bubble-chart',
           affix: true
         }
       },
@@ -1757,7 +1763,9 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Status'),
           noCache: true,
-          affix: true
+          affix: true,
+          icon:'pajamas:status',
+
         }
       },
       {
@@ -1766,11 +1774,14 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
         name: 'Kisip',
         meta: {
           title: t('Kisip'),
-          noCache: true
+          noCache: true,
+          icon:'tabler:layout-dashboard',
+
         }
       }
     ]
   },
+ 
   {
     path: '/interventions',
     component: Layout,
@@ -1783,117 +1794,17 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
     },
     children: [
       {
-        path: 'tenure',
-        name: 'tenureInterventions',
-        component: Layout,
-        redirect: '/interventions/sett/settlements',
+        path: 'settlements',
+        name: 'InterventionTenureSettlements',
+      //  component: 'views/Intervention/Tenure/Settlements',
+        component: () => import('@/views/Intervention/Tenure/Settlements.vue'),
+
         meta: {
-          title: 'Tenure',
-          icon: 'mingcute:certificate-fill',
-
-        },
-        children: [
-          {
-            path: 'settlements',
-            name: 'InterventionTenureSettlements',
-          //  component: 'views/Intervention/Tenure/Settlements',
-            component: () => import('@/views/Intervention/Tenure/Settlements.vue'),
-
-            meta: {
-              title: 'Settlements',
-              icon:'fluent:globe-location-24-filled'
-            }
-          },
-          {
-            path: 'ben',
-            name: 'InterventionTenureBeneficiary',
-          //  component: 'views/Intervention/Tenure/TenureBeneficiary',
-            component: () => import('@/views/Intervention/Tenure/TenureBeneficiary.vue'),
-
-            meta: {
-              title: 'Beneficiaries',
-              icon:'bi:people-fill'
-
-            },
-       
-          }
-        ]
+          title: 'Settlements',
+          icon:'fluent:globe-location-24-filled'
+        }
       },
-      {
-        path: 'inf',
-        name: 'InfrastructureInterventions',
-        component: Layout,
-        redirect: '/interventions/inf/settlements',
-        meta: {
-          title: 'Infrastructure',
-          icon:'icon-park-outline:road-one'
-
-        },
-        children: [
-          {
-            path: 'settlements',
-            name: 'InterventionINFSettlements',
-       //     component: 'views/Intervention/Infrastructure/Settlements',
-            component: () => import('@/views/Intervention/Infrastructure/Settlements.vue'),
-
-            meta: {
-              title: 'Settlements',
-              icon:'fluent:globe-location-24-filled'
-
-            }
-          },
-          {
-            path: 'projects',
-            name: 'infrastructureProjects',
-        //    component: 'views/Intervention/Infrastructure/Settlements',
-            component: () => import('@/views/Intervention/Infrastructure/Settlements.vue'),
-
-            meta: {
-              title: 'Projects',
-              icon:'emojione-monotone:construction'
-            }
-          },
-          
-        ]
-      },
-      {
-        path: 'inclusion',
-        name: 'InclusionInterventions',
-        component: Layout,
-        redirect: '/interventions/inclusion/settlements',
-        meta: {
-          title: 'Inclusion',
-          icon:'icon-park-solid:protection'
-
-        },
-        children: [
-          {
-            path: 'settlements',
-            name: 'InterventionInclusionSettlements',
-           // component: 'views/Intervention/Inclusion/Settlements',
-            component: () => import('@/views/Intervention/Inclusion/Settlements.vue'),
-
-            meta: {
-              title: 'Settlements',
-              icon:'fluent:globe-location-24-filled'
-
-            }
-          },
-          {
-            path: 'ben',
-            name: 'InterventionInclusionPaps',
-          //  component: 'views/Intervention/Inclusion/SafetyNets',
-            component: () => import('@/views/Intervention/Inclusion/SafetyNets.vue'),
-
-            meta: {
-              title: 'Beneficiaries',
-              icon:'bi:people-fill'
-            },
-        
-          }
-        ]
-      },
-      {
+   {
         path: 'kensup',
         name: 'kensup',
       //  component: 'views/Level/Menu2',
@@ -2066,7 +1977,7 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
     meta: {
       hidden: false,
       title: 'Facilities',
-      icon: 'ant-design:shop-outlined',
+      icon:'ic:outline-local-convenience-store',
       alwaysShow: false
     },
     children: [
@@ -2437,6 +2348,7 @@ export const staffRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Overview'),
           noCache: true,
+          icon:'ic:round-bubble-chart',
           affix: true
         }
       },
@@ -2447,7 +2359,9 @@ export const staffRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Status'),
           noCache: true,
-          affix: true
+          affix: true,
+          icon:'pajamas:status',
+
         }
       },
       {
@@ -2456,7 +2370,9 @@ export const staffRoutes: AppRouteRecordRaw[] = [
         name: 'Kisip',
         meta: {
           title: t('Kisip'),
-          noCache: true
+          noCache: true,
+          icon:'tabler:layout-dashboard',
+
         }
       }
     ]
@@ -2756,7 +2672,7 @@ export const staffRoutes: AppRouteRecordRaw[] = [
     meta: {
       hidden: false,
       title: 'Facilities',
-      icon: 'ant-design:shop-outlined',
+      icon:'ic:outline-local-convenience-store',
       alwaysShow: false
     },
     children: [
@@ -3177,6 +3093,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Overview'),
           noCache: true,
+          icon:'ic:round-bubble-chart',
           affix: true
         }
       },
@@ -3187,7 +3104,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Status'),
           noCache: true,
-          affix: true
+          affix: true,
+          icon:'pajamas:status',
+
         }
       },
       {
@@ -3196,7 +3115,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'Kisip',
         meta: {
           title: t('Kisip'),
-          noCache: true
+          noCache: true,
+          icon:'tabler:layout-dashboard',
+
         }
       }
     ]
@@ -3213,116 +3134,51 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     },
     children: [
       {
-        path: 'tenure',
-        name: 'tenureInterventions',
+        path: 'kisip',
+        name: 'kisipInterventions',
         component: Layout,
-        redirect: '/interventions/sett/settlements',
+        redirect: '/interventions/kisip/settlements',
         meta: {
-          title: 'Tenure',
+          title: 'KISIP',
           icon: 'mingcute:certificate-fill',
 
         },
         children: [
           {
             path: 'settlements',
-            name: 'InterventionTenureSettlements',
+            name: 'kisipInterventionSettlements',
           //  component: 'views/Intervention/Tenure/Settlements',
-            component: () => import('@/views/Intervention/Tenure/Settlements.vue'),
-
+            component: () => import('@/views/Intervention/Settlements.vue'),
             meta: {
               title: 'Settlements',
-              icon:'fluent:globe-location-24-filled'
+              icon:'mdi:map-legend'
             }
           },
           {
-            path: 'ben',
-            name: 'InterventionTenureBeneficiary',
-          //  component: 'views/Intervention/Tenure/TenureBeneficiary',
-            component: () => import('@/views/Intervention/Tenure/TenureBeneficiary.vue'),
+            path: 'projects',
+            name: 'InterventionProjects',
+            component: () => import('@/views/Intervention/InterventionBeneficiary.vue'),
+            meta: {
+              title: 'Projects',
+              icon:'fluent-emoji-high-contrast:construction'
+            },
+       
+          },
 
+          {
+            path: 'beneficiary',
+            name: 'InterventionBeneficiary',
+            component: () => import('@/views/Intervention/InterventionBeneficiary.vue'),
             meta: {
               title: 'Beneficiaries',
               icon:'bi:people-fill'
-
             },
        
           }
         ]
       },
-      {
-        path: 'inf',
-        name: 'InfrastructureInterventions',
-        component: Layout,
-        redirect: '/interventions/inf/settlements',
-        meta: {
-          title: 'Infrastructure',
-          icon:'icon-park-outline:road-one'
-
-        },
-        children: [
-          {
-            path: 'settlements',
-            name: 'InterventionINFSettlements',
-       //     component: 'views/Intervention/Infrastructure/Settlements',
-            component: () => import('@/views/Intervention/Infrastructure/Settlements.vue'),
-
-            meta: {
-              title: 'Settlements',
-              icon:'fluent:globe-location-24-filled'
-
-            }
-          },
-          {
-            path: 'projects',
-            name: 'infrastructureProjects',
-        //    component: 'views/Intervention/Infrastructure/Settlements',
-            component: () => import('@/views/Intervention/Infrastructure/Settlements.vue'),
-
-            meta: {
-              title: 'Projects',
-              icon:'emojione-monotone:construction'
-            }
-          },
-          
-        ]
-      },
-      {
-        path: 'inclusion',
-        name: 'InclusionInterventions',
-        component: Layout,
-        redirect: '/interventions/inclusion/settlements',
-        meta: {
-          title: 'Inclusion',
-          icon:'icon-park-solid:protection'
-
-        },
-        children: [
-          {
-            path: 'settlements',
-            name: 'InterventionInclusionSettlements',
-           // component: 'views/Intervention/Inclusion/Settlements',
-            component: () => import('@/views/Intervention/Inclusion/Settlements.vue'),
-
-            meta: {
-              title: 'Settlements',
-              icon:'fluent:globe-location-24-filled'
-
-            }
-          },
-          {
-            path: 'ben',
-            name: 'InterventionInclusionPaps',
-          //  component: 'views/Intervention/Inclusion/SafetyNets',
-            component: () => import('@/views/Intervention/Inclusion/SafetyNets.vue'),
-
-            meta: {
-              title: 'Beneficiaries',
-              icon:'bi:people-fill'
-            },
-        
-          }
-        ]
-      },
+   
+      
       {
         path: 'kensup',
         name: 'kensup',
@@ -3488,7 +3344,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       hidden: false,
       title: 'Facilities',
-      icon: 'ant-design:shop-outlined',
+      icon:'ic:outline-local-convenience-store',
       alwaysShow: false
     },
     children: [
@@ -3851,6 +3707,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'New Reports',
           icon:'carbon:result-new',
+          
         }
       },
       {
@@ -3922,12 +3779,23 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         path: 'all',
        // component: 'views/Users/User',
         component: () => import('@/views/Users/User.vue'),
-
         name: 'staff',
         meta: {
           title: 'All',
           hidden: false,
           icon: 'fa6-solid:users-rectangle',
+
+        }
+      },
+      {
+        path: 'new',
+       // component: 'views/Users/User',
+        component: () => import('@/views/Users/NewAccounts.vue'),
+        name: 'NewAccounts',
+        meta: {
+          title: 'New',
+          hidden: false,
+          icon:'grommet-icons:user-new',
 
         }
       },
@@ -3969,6 +3837,7 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Overview'),
           noCache: true,
+          icon:'ic:round-bubble-chart',
           affix: true
         }
       },
@@ -3979,7 +3848,9 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Status'),
           noCache: true,
-          affix: true
+          affix: true,
+          icon:'pajamas:status',
+
         }
       },
       {
@@ -3988,12 +3859,14 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
         name: 'Kisip',
         meta: {
           title: t('Kisip'),
-          noCache: true
+          noCache: true,
+          icon:'tabler:layout-dashboard',
+
         }
       }
     ]
   },
-  {
+   {
     path: '/interventions',
     component: Layout,
     redirect: '/interventions/tenure/settlements',
@@ -4288,7 +4161,7 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
     meta: {
       hidden: false,
       title: 'Facilities',
-      icon: 'ant-design:shop-outlined',
+      icon:'ic:outline-local-convenience-store',
       alwaysShow: false
     },
     children: [

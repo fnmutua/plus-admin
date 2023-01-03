@@ -3,7 +3,7 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import {
-  getSettlementListByCounty,
+  getHHsByCounty,
   searchByKeyWord,
   getOneSettlement,
   BatchImport
@@ -59,7 +59,7 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
-const settlement = ref()
+const settlement = ref('')
 const searchString = ref()
 let tableDataList = ref<UserType[]>([])
 const visible = ref(false)
@@ -189,17 +189,17 @@ const destructure = (obj) => {
 }
 
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
-   for(let key in obj){
-    if (key!='geom') {
+  for (let key in obj) {
+    if (key != 'geom') {
 
-      if(typeof obj[key] !== 'object'){
-         res[extraKey + key] = obj[key];
-      }else{
-         flattenJSON(obj[key], res, `${extraKey}${key}.`);
+      if (typeof obj[key] !== 'object') {
+        res[extraKey + key] = obj[key];
+      } else {
+        flattenJSON(obj[key], res, `${extraKey}${key}.`);
       };
-   };
+    };
   }
-   return res;
+  return res;
 };
 
 
@@ -223,31 +223,43 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   //-------------------------
   //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
-  loading.value = false
+  // const res = await getHHsByCounty(formData)
 
   tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
-    console.log('arrayItem ----->', arrayItem)
-    delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
-    delete arrayItem['photo'] //  remove the geometry column
+  console.log("gettign HHS.........")
+  await getHHsByCounty(formData)
+    .then((response) => {
+      console.log('Received HHS:', response)
+      tableDataList.value = response.data
+      total.value = response.total
+      response.data.forEach(function (arrayItem) {
+        console.log('arrayItem ----->', arrayItem)
+        delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
+        delete arrayItem['photo'] //  remove the geometry column
+        var dd = flattenJSON(arrayItem)
+        tblData.push(dd)
+        //  generate the filter options
+        var opt = {}
+        opt.value = arrayItem.id
+        opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+        //  console.log(countyOpt)
+        householdOptions.value.push(opt)
+        loading.value = false
+      });
+    })
+    .catch(function (error) {
+      console.log('error', error.response.data.message);
+      open(error.response.data.message)
+      ElMessage.error('Upload Cancelled...')
 
-    var dd = flattenJSON(arrayItem)
-    tblData.push(dd)
-    //  generate the filter options
-    var opt = {}
-    opt.value = arrayItem.id
-    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
-    //  console.log(countyOpt)
-    householdOptions.value.push(opt)
-  })
+      loading.value = false
+    })
 
-  console.log('TBL-4f', tblData)
+
+
+
+
 }
 const getFilteredBySearchData = async (searchString) => {
   const formData = {}
@@ -375,23 +387,12 @@ console.log('CSV---->', csv)
 </script>
 
 <template>
-  <ContentWrap
-    :title="toTitleCase(settlement.name + ' Households')"
-    :message="t('Use the filters to subset')"
-  >
+  <ContentWrap :title="toTitleCase(settlement.name + ' Households')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select
-        v-model="value3"
-        multiple
-        clearable
-        filterable
-        remote
-        :remote-method="handleSelectHousehold"
-        reserve-keyword
-        placeholder="Search by Household Name"
-      />
+      <el-select v-model="value3" multiple clearable filterable remote :remote-method="handleSelectHousehold"
+        reserve-keyword placeholder="Search by Household Name" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleDownload" type="primary" :icon="Download" />
@@ -408,72 +409,42 @@ console.log('CSV---->', csv)
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table
-      :columns="columns"
-      :data="tableDataList"
-      :loading="loading"
-      :selection="true"
-      :pageSize="pageSize"
-      :currentPage="currentPage"
-    >
+    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+      :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="View Profile" placement="top">
-          <el-button
-            type="primary"
-            :icon="TopRight"
-            @click="viewProfile(data as TableSlotDefault)"
-            circle
-          />
+          <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
         </el-tooltip>
 
         <el-tooltip content="View Households" placement="top">
-          <el-button
-            type="success"
-            :icon="User"
-            @click="viewHHs(data as TableSlotDefault)"
-            circle
-          />
+          <el-button type="success" :icon="User" @click="viewHHs(data as TableSlotDefault)" circle />
         </el-tooltip>
         <el-tooltip content="View on Map" placement="top">
-          <el-button
-            type="warning"
-            :icon="Position"
-            @click="viewOnMap(data as TableSlotDefault)"
-            circle
-          />
+          <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
         </el-tooltip>
       </template>
     </Table>
-    <ElPagination
-      layout="sizes, prev, pager, next, total"
-      v-model:currentPage="currentPage"
-      v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 1000]"
-      :total="total"
-      :background="true"
-      @size-change="onPageSizeChange"
-      @current-change="onPageChange"
-      class="mt-4"
-    />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
     <el-dialog v-model="visible" :show-close="false">
       <template #header="{ close, titleId, titleClass }">
         <div class="my-header">
           <h4 :id="titleId" :class="titleClass">Upload Households</h4>
           <el-button type="danger" @click="close">
-            <el-icon class="el-icon--left"><CircleCloseFilled /></el-icon>
+            <el-icon class="el-icon--left">
+              <CircleCloseFilled />
+            </el-icon>
             Close
           </el-button>
         </div>
       </template>
 
-      <vue-csv-import
-        v-model="csv"
-        :fields="{
-          name: { required: true, label: 'Name' },
-          national_id: { required: true, label: 'National ID' }
-        }"
-      >
+      <vue-csv-import v-model="csv" :fields="{
+  name: { required: true, label: 'Name' },
+  national_id: { required: true, label: 'National ID' }
+}">
         <vue-csv-toggle-headers />
         <vue-csv-errors />
         <vue-csv-input />

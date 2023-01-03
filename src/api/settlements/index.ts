@@ -18,6 +18,15 @@ export const getSettlementListByCounty = (
   return request.post({ url: prod + '/api/v1/data/column/paginated', data })
 }
 
+
+export const getHHsByCounty = (
+  data: SettlementType
+): Promise<IResponse<SettlementType>> => {
+//  console.log('special housheolds....', data)
+  return request.post({ url: prod + '/api/v1/hh/column/paginated', data })
+}
+
+
 export const getfilteredGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
 //  console.log('getGeo....', data)
   return request.post({ url: prod + '/api/v1/data/subset/geo', data })

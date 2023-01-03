@@ -138,6 +138,8 @@ db.models.intervention.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
 })
 
+
+
 db.models.intervention.belongsTo(db.models.clusters, {
   foreignKey: 'cluster_id'
 })
@@ -154,6 +156,8 @@ db.models.beneficiary.belongsTo(db.models.intervention, {
   foreignKey: 'intervention_id'
 })
 
+
+
 db.models.beneficiary.belongsTo(db.models.benefit_type, {
   foreignKey: 'benefit_type_id'
 })
@@ -161,6 +165,10 @@ db.models.beneficiary.belongsTo(db.models.benefit_type, {
 db.models.beneficiary.belongsTo(db.models.households, {
   foreignKey: 'hh_id'
 })
+
+
+
+
 
 db.models.settlement_status.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
