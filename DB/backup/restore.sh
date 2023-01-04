@@ -60,7 +60,7 @@ echo
 
 
  
-  psql -f 02012023.kisip.sql  kisip
+  psql -f 04012023.kisip.sql  kisip
 
  
 

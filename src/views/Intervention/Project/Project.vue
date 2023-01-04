@@ -5,7 +5,7 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSelect, FormInstance, MessageParamsWithType, ElDialog, ElInputNumber, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm
+  ElButton, ElSelect, FormInstance, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter } from '@element-plus/icons-vue'
@@ -21,6 +21,23 @@ import { useCache } from '@/hooks/web/useCache'
 import { uuid } from 'vue-uuid'
 
 import xlsx from "json-as-xlsx"
+import { getAllGeo } from '@/api/settlements'
+
+////////////*************Map Imports***************////////
+
+import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
+import * as turf from '@turf/turf'
+
+
+import mapboxgl from "mapbox-gl";
+import 'mapbox-gl/dist/mapbox-gl.css'
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+mapboxgl.accessToken = MapBoxToken;
+
+
+
+
 
 
 
@@ -73,10 +90,17 @@ var intervenComponent = [] // Fiters tenure=1, inf=2, socio=3, caapcity=4
 var filterValues = []
 var tblData = ref([])
 const associated_Model = ''
-const associated_multiple_models = ['households', 'settlement', 'benefit_type', 'intervention']
+const associated_multiple_models = ['settlement']
 
-const model = 'beneficiary'
+const model = 'project'
 //// ------------------parameters -----------------------////
+
+const facilityGeo = ref([])
+const facilityGeoPoints = ref([])
+const facilityGeoLines = ref([])
+const facilityGeoPolygons = ref([])
+const geoLoaded = ref(false)
+
 
 const { t } = useI18n()
 
@@ -88,22 +112,19 @@ const columns: TableColumn[] = [
   },
 
   {
-    field: 'household.name',
-    label: t('Name')
+    field: 'title',
+    label: t('Title')
   },
 
   {
-    field: 'household.national_id',
-    label: t('National ID')
+    field: 'programme',
+    label: t('Programme')
   },
   {
     field: 'settlement.name',
     label: t('Settlement')
   },
-  {
-    field: 'benefit_type.type',
-    label: t('Benefit')
-  },
+
   {
     field: 'action',
     width: "300",
@@ -452,18 +473,261 @@ const getSettlementsOptions = async () => {
   })
 }
 
-const open = (msg: MessageParamsWithType) => {
-  ElMessage.error(msg)
+
+const loadMap = () => {
+  var nmap = new mapboxgl.Map({
+    container: "mapContainer",
+    style: "mapbox://styles/mapbox/streets-v11",
+    center: [37.137343, 1.137451], // starting position
+    zoom: 6,
+
+  })
+
+  console.log("resizing....")
+
+  const nav = new mapboxgl.NavigationControl();
+  nmap.addControl(nav, "top-right");
+  nmap.on('load', () => {
+    nmap.addSource('lines', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: turf.featureCollection(facilityGeoLines.value),
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+    nmap.addSource('points', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: turf.featureCollection(facilityGeoPoints.value),
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+
+    nmap.addSource('polygons', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: turf.featureCollection(facilityGeoPolygons.value),
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+
+    nmap.addLayer({
+      'id': 'points-layer',
+      "type": "circle",
+      'source': 'points',
+      'paint': {
+        "circle-color": "red"
+      }
+    });
+
+    nmap.addLayer({
+      'id': 'lines',
+      'type': 'line',
+      'source': 'lines',
+      'paint': {
+        'line-width': 3,
+        // Use a get expression (https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-get)
+        // to set the line-color to a feature property value.
+        'line-color': 'red'
+      }
+    });
+
+
+
+
+    nmap.addLayer({
+      'id': 'polygons-layer',
+      "type": "fill",
+      'source': 'polygons',
+      'paint': {
+        'fill-color': '#0080ff', // blue color fill
+        'fill-opacity': 0.2
+      }
+
+    });
+    // Add a black outline around the polygon.
+    // nmap.addLayer({
+    //   'id': 'outline',
+    //   'type': 'line',
+    //   'source': 'polygons',
+    //   'layout': {},
+    //   'paint': {
+    //     'line-color': '#000',
+    //     'line-width': 1
+    //   }
+    // });
+
+    nmap.resize()
+
+
+    var bounds = turf.bbox((facilityGeo.value));
+    nmap.fitBounds(bounds, { padding: 20 });
+
+
+
+    nmap.on('click', 'points-layer', (e) => {
+      console.log("Onclikc..........")
+      // Copy coordinates array.
+      const coordinates = e.features[0].geometry.coordinates.slice();
+      const description = e.features[0].properties.asset_type;
+      const condition = e.features[0].properties.asset_condition;
+
+      // Ensure that if the map is zoomed out such that multiple
+      // copies of the feature are visible, the popup appears
+      // over the copy being pointed to.
+      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      }
+      new mapboxgl.Popup({ offset: [0, -15] })
+        .setLngLat(coordinates)
+        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap);
+
+    });
+
+
+    // Change the cursor to a pointer when the mouse is over the places layer.
+    nmap.on('mouseenter', 'points-layer', () => {
+      nmap.getCanvas().style.cursor = 'pointer';
+    });
+
+    // Change it back to a pointer when it leaves.
+    nmap.on('mouseleave', 'points-layer', () => {
+      nmap.getCanvas().style.cursor = '';
+    });
+
+
+
+    nmap.on('click', 'lines-layer', (e) => {
+      console.log("click line..........")
+      // Copy coordinates array.
+      const coordinates = e.features[0].geometry.coordinates.slice();
+      const description = e.features[0].properties.asset_type;
+      const condition = e.features[0].properties.asset_condition;
+
+      // Ensure that if the map is zoomed out such that multiple
+      // copies of the feature are visible, the popup appears
+      // over the copy being pointed to.
+      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      }
+      new mapboxgl.Popup({ offset: [0, -15] })
+        .setLngLat(coordinates)
+        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap);
+
+
+    });
+
+
+    nmap.on('click', 'polygons-layer', (e) => {
+      console.log("click line..........")
+      // Copy coordinates array.
+      const coordinates = e.features[0].geometry.coordinates.slice();
+      const description = e.features[0].properties.title;
+      const condition = e.features[0].properties.programme;
+
+      // Ensure that if the map is zoomed out such that multiple
+      // copies of the feature are visible, the popup appears
+      // over the copy being pointed to.
+      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      }
+      new mapboxgl.Popup({ offset: [0, -15] })
+        .setLngLat(coordinates)
+        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap);
+
+
+    });
+
+
+    // Change the cursor to a pointer when the mouse is over the places layer.
+    nmap.on('mouseenter', 'lines-layer', () => {
+      nmap.getCanvas().style.cursor = 'pointer';
+    });
+
+    // Change it back to a pointer when it leaves.
+    nmap.on('mouseleave', 'lines-layer', () => {
+      nmap.getCanvas().style.cursor = '';
+    });
+
+
+
+
+
+
+  });
+
+
 }
 
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'data.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data.value) exportFromJSON({ data, fileName, exportType })
+
+const onMap = async (obj) => {
+  console.log("Loading map.............", obj.props.label)
+  if (obj.props.label == "Map") {
+    loadMap()
+    //console.log(map.value)
+    //maxBounds.value = turf.bbox(facilityGeo.value);
+  }
+
 }
 
+const getGeo = async () => {
+
+  const formData = {}
+  formData.model = model
+
+
+  console.log(formData)
+  const res = await getAllGeo(formData)
+
+
+
+  if (res.data[0].json_build_object) {
+
+    var points = []
+    var lines = []
+    var polygons = []
+    facilityGeo.value = res.data[0].json_build_object
+    console.log('Geo Returns---', res.data[0].json_build_object.features)
+    console.log("Facility Geo", facilityGeo)
+
+    for (let i = 0; i < res.data[0].json_build_object.features.length; i++) {
+      console.log("Geo Type -------->", res.data[0].json_build_object.features[i].geometry.type)
+
+      if (res.data[0].json_build_object.features[i].geometry.type === "Point") {
+
+        points.push(res.data[0].json_build_object.features[i])
+      } else if (res.data[0].json_build_object.features[i].geometry.type === "LineString" || res.data[0].json_build_object.features[i].geometry.type === "MultiLineString") {
+
+        lines.push(res.data[0].json_build_object.features[i])
+
+      } else {
+        polygons.push(res.data[0].json_build_object.features[i])
+
+      }
+
+    }
+
+    console.log(points)
+
+    facilityGeoPoints.value = points
+    facilityGeoLines.value = lines
+    facilityGeoPolygons.value = polygons
+
+    console.log('Lines--->', facilityGeoLines.value)
+
+
+    //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
+    geoLoaded.value = true
+
+
+  }
+
+
+
+}
 
 
 
@@ -474,6 +738,9 @@ getInterventionTypes()
 getSettlementsOptions()
 getAllBeneficiaries()
 getInterventions()
+getGeo()
+
+
 console.log('Options---->', interVentionTypeOptions)
 const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
@@ -522,7 +789,7 @@ const saveForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
     if (valid) {
-      ruleForm.model = 'beneficiary'
+      ruleForm.model = model
       ruleForm.code = uuid.v4()
       console.log(ruleForm.value)
       await CreateRecord(ruleForm).then(() => { })
@@ -539,7 +806,7 @@ const DeleteBeneficiary = (data: TableSlotDefault) => {
   console.log('----->', data.row.id)
   let formData = {}
   formData.id = data.row.id
-  formData.model = 'beneficiary'
+  formData.model = model
 
   DeleteRecord(formData)
 
@@ -672,12 +939,21 @@ const DownloadXlsx = async () => {
 
 }
 
+const activeName = ref('list')
+const AddProject = () => {
+
+  console.log("Adding Projects")
+  push({
+    path: '/interventions/kisip/add',
+    name: 'AddInterventionProjects'
+  })
+}
 
 
 </script>
 
 <template>
-  <ContentWrap :title="t('Beneficiaries')"
+  <ContentWrap :title="t('Projects')"
     :message="t('The list of  intervention beneficiaries. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
@@ -708,8 +984,8 @@ const DownloadXlsx = async () => {
     </div>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Beneficiary" placement="top">
-        <el-button :onClick="AddIntervention" type="primary" :icon="Plus" />
+      <el-tooltip content="Add Project" placement="top">
+        <el-button :onClick="AddProject" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
 
@@ -720,84 +996,54 @@ const DownloadXlsx = async () => {
     </div>
 
 
-
-
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="View Profile" placement="top">
-          <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
-        </el-tooltip>
+    <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
+      <el-tab-pane label="List" name="list">
 
-        <el-tooltip content="Edit" placement="top">
-          <el-button v-show="showAdminButtons" type="success" :icon="Edit"
-            @click="editBeneficiary(data as TableSlotDefault)" circle />
-        </el-tooltip>
+        <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+          :currentPage="currentPage">
+          <template #action="data">
+            <el-tooltip content="View Profile" placement="top">
+              <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
+            </el-tooltip>
 
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this record?" @confirm="DeleteBeneficiary(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
+            <el-tooltip content="Edit" placement="top">
+              <el-button v-show="showAdminButtons" type="success" :icon="Edit"
+                @click="editBeneficiary(data as TableSlotDefault)" circle />
+            </el-tooltip>
+
+            <el-tooltip content="Delete" placement="top">
+              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                title="Are you sure to delete this record?" @confirm="DeleteBeneficiary(data as TableSlotDefault)">
+                <template #reference>
+                  <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                </template>
+              </el-popconfirm>
+            </el-tooltip>
 
 
-      </template>
-    </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+          </template>
+        </Table>
+        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      </el-tab-pane>
+
+      <el-tab-pane label="Map" name="Map">
+        <div id="mapContainer" class="basemap"></div>
+      </el-tab-pane>
+    </el-tabs>
+
+
   </ContentWrap>
 
 
-
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="30%" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-
-      <el-form-item label="Benefit">
-        <el-select filterable v-model="ruleForm.benefit_type_id" placeholder="Select Benefit">
-          <el-option v-for="item in benefitTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-
-      <el-form-item label="Beneficiary">
-        <el-select filterable v-model="ruleForm.hh_id" placeholder="Select Beneficiary">
-          <el-option v-for="item in houseHoldOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-
-      <el-form-item label="Intervention">
-        <el-select filterable v-model="ruleForm.intervention_id" :onChange="onchangeIntervention"
-          placeholder="Select Settlement">
-          <el-option v-for="item in interventionsOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-
-
-      <el-form-item label="Phase">
-        <el-select filterable v-model="ruleForm.intervention_phase" placeholder="Select intervention Phase">
-          <el-option v-for="item in PhaseOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-
-
-
-
-    </el-form>
-    <template #footer>
-
-      <span class="dialog-footer">
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <el-button v-if="showAddSaveButton" type="primary" @click="saveForm(ruleFormRef)">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-
-      </span>
-    </template>
-  </el-dialog>
-
-
 </template>
+ 
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 400px;
+}
+</style>

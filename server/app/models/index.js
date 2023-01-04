@@ -306,7 +306,14 @@ db.models.users.hasMany(db.models.indicator_category_report, {
   foreignKey: 'userId'
 })
 
+// Proejct   - settleemnt
+db.models.project.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
 
+db.models.settlement.hasMany(db.models.project, {
+  foreignKey: 'settlement_id'
+})
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db
