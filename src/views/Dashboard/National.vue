@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PanelGroup from './components/PanelGroup.vue'
 
-import { ElRow, ElCol, ElCard, ElSkeleton, ElTabs, ElTabPane, ElTable, ElTableColumn } from 'element-plus'
+import { ElRow, ElCol, ElCard, ElSkeleton, ElTabs, ElTabPane, ElTable, ElButton, ElTableColumn } from 'element-plus'
 import { Echart } from '@/components/Echart'
 import {
   pieOptions,
@@ -22,10 +22,12 @@ import { getSummarybyField, getSummarybyFieldSimple, getSummarybyFieldNested } f
 import * as turf from '@turf/turf'
 import { getSummarybyFieldFromInclude, } from '@/api/summary'
 import { getAllGeo } from '@/api/settlements'
+import xlsx from "json-as-xlsx"
+import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter } from '@element-plus/icons-vue'
+
 
 const { t } = useI18n()
 const countyGeo = ref([])
-const settlementGeo = ref([])
 const loading = ref(true)
 
 const settlementsPercounty = ref([])
@@ -33,81 +35,7 @@ const settlementsPercountyMax = ref()
 const settlementsPercountyMin = ref()
 const aspect = ref()
 
-const pieOptionsData = reactive<EChartsOption>(pieOptions) as EChartsOption
-// 用户来源
-const getUserAccessSource = async () => {
-  const res = await getUserAccessSourceApi().catch(() => { })
-  if (res) {
-    set(
-      pieOptionsData,
-      'legend.data',
-      res.data.map((v) => t(v.name))
-    )
-    pieOptionsData!.series![0].data = res.data.map((v) => {
-      return {
-        name: t(v.name),
-        value: v.value
-      }
-    })
-  }
-}
 
-
-
-
-const barOptionsData = reactive<EChartsOption>(barOptions) as EChartsOption
-
-// 周活跃量
-const getWeeklyUserActivity = async () => {
-  const res = await getWeeklyUserActivityApi().catch(() => { })
-  if (res) {
-    set(
-      barOptionsData,
-      'xAxis.data',
-      res.data.map((v) => t(v.name))
-    )
-    set(barOptionsData, 'series', [
-      {
-        name: t('analysis.activeQuantity'),
-        data: res.data.map((v) => v.value),
-        type: 'bar'
-      }
-    ])
-  }
-}
-
-const lineOptionsData = reactive<EChartsOption>(lineOptions) as EChartsOption
-
-// 每月销售总额
-const getMonthlySales = async () => {
-  const res = await getMonthlySalesApi().catch(() => { })
-  if (res) {
-    set(
-      lineOptionsData,
-      'xAxis.data',
-      res.data.map((v) => t(v.name))
-    )
-    set(lineOptionsData, 'series', [
-      {
-        name: t('analysis.estimate'),
-        smooth: true,
-        type: 'line',
-        data: res.data.map((v) => v.estimate),
-        animationDuration: 2800,
-        animationEasing: 'cubicInOut'
-      },
-      {
-        name: t('analysis.actual'),
-        smooth: true,
-        type: 'line',
-        itemStyle: {},
-        data: res.data.map((v) => v.actual),
-        animationDuration: 2800,
-        animationEasing: 'quadraticOut'
-      }
-    ])
-  }
-}
 
 let mArray = ref([])
 let fArray = ref([])
@@ -624,6 +552,50 @@ const activeName = ref('chart')
 
 
 
+const DownloadXlsx = async () => {
+  console.log(settlementsPercounty.value)
+
+  // change here !
+  let fields = [
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Name", value: "name" }, // Top level data
+    { label: "Number of Informal Settlements", value: "count" }, // Custom format
+
+  ]
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  // loop through the table data and sort the data 
+  // change here !
+  for (let i = 0; i < settlementsPercounty.value.length; i++) {
+    let thisRecord = {}
+    thisRecord.index = i + 1
+    thisRecord.name = settlementsPercounty.value[i].name
+    thisRecord.count = settlementsPercounty.value[i].NoSlums
+
+
+    dataHolder.push(thisRecord)
+  }
+  dataObj.content = dataHolder
+
+
+
+
+  let settings = {
+    fileName: 'InformalSettlements', // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
+
 
 </script>
 
@@ -683,10 +655,13 @@ const activeName = ref('chart')
             <template #header>
               <div class="card-header">
                 <span>Number of informal Settlements within Counties of Kenya</span>
-                <download-excel :data="settlementsPercounty" worksheet="SettlementsPerCounty"
+                <div style="display: inline-block; margin-left: 20px">
+                  <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+                </div>
+                <!--  <download-excel :data="settlementsPercounty" worksheet="SettlementsPerCounty"
                   name="SettlementsPerCounty.xls">
                   <font-awesome-icon size="2x" color='red' icon="fa-solid fa-download" />
-                </download-excel>
+                </download-excel> -->
               </div>
             </template>
 

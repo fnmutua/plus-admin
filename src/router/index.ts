@@ -3155,12 +3155,23 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             }
           },
           {
-            path: 'projects',
+            path: 'project',
             name: 'InterventionProjects',
-            component: () => import('@/views/Intervention/InterventionBeneficiary.vue'),
+            component: () => import('@/views/Intervention/Project/Project.vue'),
             meta: {
               title: 'Projects',
               icon:'fluent-emoji-high-contrast:construction'
+            },
+       
+          },
+          {
+            path: 'add',
+            name: 'AddInterventionProjects',
+            component: () => import('@/views/Intervention/Project/AddProject.vue'),
+            meta: {
+              title: 'Add Project',
+              hidden:true,
+              icon:'material-symbols:add-circle-rounded'
             },
        
           },

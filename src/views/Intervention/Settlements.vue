@@ -19,6 +19,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocu
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { uuid } from 'vue-uuid'
+import xlsx from "json-as-xlsx"
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -50,7 +51,6 @@ const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
-const downloadLoading = ref(false)
 const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
 const formheader = ref('Add Intervention')
@@ -365,13 +365,7 @@ const open = (msg: MessageParamsWithType) => {
   ElMessage.error(msg)
 }
 
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'data.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
+
 getInterventionClusters()
 getInterventionTypes()
 getSettlementsOptions()
@@ -526,10 +520,62 @@ const handleClose = () => {
   AddDialogVisible.value = false
 
 }
+
+
+
+const DownloadXlsx = async () => {
+  console.log(tableDataList.value)
+
+  // change here !
+  let fields = [
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Name", value: "name" }, // Top level data
+    { label: "Population", value: "population" }, // Custom format
+    { label: "Area (HA)", value: "area" }, // Run functions
+    { label: "Programme", value: "intervention_type" }, // Run functions
+  ]
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  // loop through the table data and sort the data 
+  // change here !
+  for (let i = 0; i < tableDataList.value.length; i++) {
+    let thisRecord = {}
+    tableDataList.value[i]
+    thisRecord.name = tableDataList.value[i].settlement.name
+    thisRecord.index = i + 1
+    thisRecord.population = tableDataList.value[i].settlement.population
+    thisRecord.area = tableDataList.value[i].settlement.area
+    thisRecord.intervention_type = tableDataList.value[i].intervention_type.type
+
+    dataHolder.push(thisRecord)
+  }
+  dataObj.content = dataHolder
+
+
+
+
+  let settings = {
+    fileName: model, // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
+
+
+
 </script>
 
 <template>
-  <ContentWrap :title="t('Tenure Regularization Settlements')"
+  <ContentWrap :title="t('KISIP Settlements')"
     :message="t('The list of tenure regularization settlements. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
@@ -555,7 +601,7 @@ const handleClose = () => {
 
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
