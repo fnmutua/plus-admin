@@ -366,6 +366,7 @@ const open = (msg: MessageParamsWithType) => {
 }
 
 
+
 getInterventionClusters()
 getInterventionTypes()
 getSettlementsOptions()

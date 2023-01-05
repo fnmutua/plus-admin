@@ -5,12 +5,12 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSelect, FormInstance, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm
+  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
+import { ref, reactive, h } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -22,11 +22,15 @@ import { uuid } from 'vue-uuid'
 
 import xlsx from "json-as-xlsx"
 import { getAllGeo } from '@/api/settlements'
+import {
+  searchByKeyWord
+} from '@/api/settlements'
 
 ////////////*************Map Imports***************////////
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
+import { Icon } from '@iconify/vue';
 
 
 import mapboxgl from "mapbox-gl";
@@ -40,6 +44,7 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 
+const searchString = ref()
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -79,30 +84,49 @@ const total = ref(0)
 const downloadLoading = ref(false)
 const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
-const formheader = ref('Add Intervention')
+const formheader = ref('Edit Project')
 
 
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
+
+
 var filters = []
-var intervenComponent = [] // Fiters tenure=1, inf=2, socio=3, caapcity=4
 var filterValues = []
-var tblData = ref([])
+var tblData = []
+
 const associated_Model = ''
-const associated_multiple_models = ['settlement']
+const associated_multiple_models = ['settlement', 'programme']
 
 const model = 'project'
 //// ------------------parameters -----------------------////
 
 const facilityGeo = ref([])
-const facilityGeoPoints = ref([])
+const facilityGeoPoints = ref()
 const facilityGeoLines = ref([])
 const facilityGeoPolygons = ref([])
 const geoLoaded = ref(false)
 
 
 const { t } = useI18n()
+
+const formatter = (row) => {
+  if (row.documentation) {
+
+
+    return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, {
+      icon: "ic:outline-download-for-offline", height: '36'
+    }))
+
+    // return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, { icon: "material-symbols:cloud-download", height: '36' }), 'Download ')
+
+
+  } else {
+    return
+  }
+
+}
 
 const columns: TableColumn[] = [
   {
@@ -117,14 +141,18 @@ const columns: TableColumn[] = [
   },
 
   {
-    field: 'programme',
+    field: 'programme.title',
     label: t('Programme')
   },
   {
     field: 'settlement.name',
     label: t('Settlement')
   },
-
+  {
+    field: 'documentation',
+    label: t('Documents'),
+    formatter: formatter
+  },
   {
     field: 'action',
     width: "300",
@@ -178,8 +206,8 @@ const handleSelectPhase = async (phase: any) => {
 
   getFilteredData(filters, filterValues)
 }
-const filterByType = async (phase: any) => {
-  var selectOption = 'intervention_id'
+const filterByType = async (title: any) => {
+  var selectOption = 'settlement_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -192,12 +220,12 @@ const filterByType = async (phase: any) => {
     filterValues.splice(index, 1)
   }
 
-  if (!filterValues.includes(phase) && phase.length > 0) {
-    filterValues.splice(index, 0, phase) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  if (!filterValues.includes(title) && title.length > 0) {
+    filterValues.splice(index, 0, title) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
   }
 
   // expunge the filter if the filter values are null
-  if (phase.length === 0) {
+  if (title.length === 0) {
     filters.splice(index, 1)
   }
 
@@ -206,33 +234,6 @@ const filterByType = async (phase: any) => {
   getFilteredData(filters, filterValues)
 }
 
-const filterByBeneficiary = async (settlement: any) => {
-  var selectOption = 'hh_id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('settlement : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(settlement) && settlement.length > 0) {
-    filterValues.splice(index, 0, settlement) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (settlement.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
-}
 
 
 
@@ -308,16 +309,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('TBL-4f', tblData)
 }
 
-const PhaseOptions = [
-  {
-    label: 'KISIP I',
-    value: 1
-  },
-  {
-    label: 'KISIP II',
-    value: 2
-  }
-]
+
 
 const getInterventionTypes = async () => {
   const res = await getCountyListApi({
@@ -474,6 +466,23 @@ const getSettlementsOptions = async () => {
 }
 
 
+
+const viewOnMap = (data: TableSlotDefault) => {
+  console.log('On map.....', data.row)
+  if (data.row.geom) {
+    push({
+      path: '/interventions/kisip/map/:id',
+      name: 'ProjectMap',
+      params: { id: data.row.id }
+    })
+  } else {
+    var msg = 'This Project does not have the location defined in the database!'
+    open(msg)
+  }
+}
+
+
+
 const loadMap = () => {
   var nmap = new mapboxgl.Map({
     container: "mapContainer",
@@ -516,7 +525,7 @@ const loadMap = () => {
       "type": "circle",
       'source': 'points',
       'paint': {
-        "circle-color": "red"
+        "circle-color": 'green'
       }
     });
 
@@ -710,13 +719,13 @@ const getGeo = async () => {
 
     }
 
-    console.log(points)
+    console.log('Points ---x-------', points)
 
     facilityGeoPoints.value = points
     facilityGeoLines.value = lines
     facilityGeoPolygons.value = polygons
 
-    console.log('Lines--->', facilityGeoLines.value)
+    console.log('Lines--->', facilityGeoPoints.value)
 
 
     //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
@@ -729,7 +738,73 @@ const getGeo = async () => {
 
 }
 
+const getFilteredBySearchData = async (searchString) => {
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
 
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = searchString
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = filters
+  formData.filterValues = filterValues
+  formData.associated_multiple_models = associated_multiple_models
+
+  //-------------------------
+  console.log(formData)
+  const res = await searchByKeyWord(formData)
+
+  console.log('After -----x ------Querry', res)
+  tableDataList.value = res.data
+  total.value = res.total
+  loading.value = false
+
+  tblData.value = [] // reset the table data
+
+}
+
+const searchByName = async (filterString: any) => {
+  searchString.value = filterString
+
+  getFilteredBySearchData(searchString.value)
+}
+
+
+const programmeOptions = ref([])
+const getProgrammeOptions = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'programme',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var countyOpt = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      programmeOptions.value.push(countyOpt)
+    })
+  })
+}
 
 getBeneficiaryType()
 getHouseholds()
@@ -738,6 +813,7 @@ getInterventionTypes()
 getSettlementsOptions()
 getAllBeneficiaries()
 getInterventions()
+getProgrammeOptions()
 getGeo()
 
 
@@ -757,47 +833,24 @@ const viewProfile = (data: TableSlotDefault) => {
 
 //*****************************Create**************************** */
 
+///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-  hh_id: '',
-  intervention_phase: '',
-  intervention_id: null,
-  settlement_id: null,
-  benefit_type_id: null,
+  settlement_id: '',
+  title: '',
+  type: '',
+  programme_id: '',
+  status: '',
+  period: null,
+  cost: 0,
+  male_beneficiaries: 0,
+  female_beneficiaries: 0,
+  geom: '',
+  id: '',
   code: ''
 })
 
-const rules = reactive<FormRules>({
-  indicator_id: [
-    { required: true, message: 'Please provide indicator name', trigger: 'blur' },
-    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
-  ],
-  category_id: [
-    { required: true, message: 'Indicator category is required', trigger: 'blur' }],
-  frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
 
-})
-const AddDialogVisible = ref(false)
-const showSubmitBtn = ref(false)
-
-const AddIntervention = () => {
-  AddDialogVisible.value = true
-  showSubmitBtn.value = true
-}
-
-const saveForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate(async (valid, fields) => {
-    if (valid) {
-      ruleForm.model = model
-      ruleForm.code = uuid.v4()
-      console.log(ruleForm.value)
-      await CreateRecord(ruleForm).then(() => { })
-    } else {
-      console.log('error submit!', fields)
-    }
-  })
-}
 
 
 
@@ -820,32 +873,12 @@ const DeleteBeneficiary = (data: TableSlotDefault) => {
 
 }
 
-const editBeneficiary = (data: TableSlotDefault) => {
-  showSubmitBtn.value = false
-  // showEditSaveButton.value = true
-  console.log(data)
-  ruleForm.id = data.row.id
-  ruleForm.intervention_phase = data.row.intervention_phase
-  ruleForm.settlement_id = data.row.settlement_id
-  ruleForm.hh_id = data.row.hh_id
-  ruleForm.intervention_id = data.row.intervention_id
-  ruleForm.benefit_type_id = data.row.benefit_type_id
-  ruleForm.code = data.row.code
-
-
-  // formHeader.value = 'Edit Report'
-  showEditSaveButton.value = true
-  showAddSaveButton.value = false
-  AddDialogVisible.value = true
-  formheader.value = 'Edit Beneficiary'
-
-}
 
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
     if (valid) {
-      ruleForm.model = 'beneficiary'
+      ruleForm.model = model
       await updateOneRecord(ruleForm).then(() => { })
 
     } else {
@@ -873,17 +906,7 @@ const handleClose = () => {
 
 }
 
-const onchangeIntervention = async (intervention: any) => {
-  console.log('Selected Intervention', intervention)
 
-  let filterObj = interventionsOptions.value.filter((item) => item.value === intervention);
-
-  console.log('Selected filterObj', filterObj[0].settlement_id)
-  ruleForm.settlement_id = filterObj[0].settlement_id
-  console.log('Selected filterObj', ruleForm)
-
-
-}
 
 
 
@@ -949,6 +972,59 @@ const AddProject = () => {
   })
 }
 
+const AddDialogVisible = ref(false)
+const formHeader = ref('Edit Project')
+
+const editIndicator = (data: TableSlotDefault) => {
+
+  showEditSaveButton.value = true
+
+  console.log(data)
+  ruleForm.id = data.row.id
+  ruleForm.title = data.row.title
+  ruleForm.programme_id = data.row.programme_id
+  ruleForm.status = data.row.status
+  ruleForm.period = data.row.period
+  ruleForm.male_beneficiaries = data.row.male_beneficiaries
+  ruleForm.female_beneficiaries = data.row.female_beneficiaries
+  ruleForm.cost = data.row.cost
+  ruleForm.settlement_id = data.row.settlement_id
+  ruleForm.code = data.row.code
+  ruleForm.geom = data.row.geom
+
+
+
+  AddDialogVisible.value = true
+}
+
+
+const programme_options = [
+  {
+    value: 'kisip_11',
+    label: 'KISIP Component 1.1 (Tenure)',
+  },
+  {
+    value: 'kisip_12',
+    label: 'KISIP Component 1.2 (Infrastructure)',
+  },
+  {
+    value: 'kisip_2',
+    label: 'KISIP Component 2 (Social Inclusion)',
+  },
+  {
+    value: 'kisip_3',
+    label: 'KISIP Component 3 (Capacity Building)',
+  },
+  {
+    value: 'kisip_4',
+    label: 'KISIP Component 4 (Programme Management)',
+  },
+  {
+    value: 'kensup',
+    label: 'KENSUP',
+  },
+]
+
 
 </script>
 
@@ -957,27 +1033,18 @@ const AddProject = () => {
     :message="t('The list of  intervention beneficiaries. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
-    <div style="display: inline-block; margin-left: 10px">
-      <el-select v-model="value5" :onChange="filterByBeneficiary" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="By Beneficiary">
-        <el-option v-for="item in houseHoldOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
 
     <div style="display: inline-block; margin-left: 10px">
       <el-select v-model="value4" :onChange="filterByType" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="By Intervention">
-        <el-option v-for="item in interventionsOptions" :key="item.value" :label="item.label" :value="item.value" />
+        collapse-tags placeholder="By Settlement">
+        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
 
-    <div style="display: inline-block; margin-left: 10px">
-      <el-select v-model="value2" :onChange="handleSelectPhase" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="By KISIP Phase">
-        <el-option v-for="item in PhaseOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+    <div style="display: inline-block; margin-left: 20px">
+      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+        placeholder="Search by Name" />
     </div>
-
 
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
@@ -1007,10 +1074,12 @@ const AddProject = () => {
             <el-tooltip content="View Profile" placement="top">
               <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
             </el-tooltip>
+            <el-tooltip content="View on Map" placement="top">
+              <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
+            </el-tooltip>
 
             <el-tooltip content="Edit" placement="top">
-              <el-button v-show="showAdminButtons" type="success" :icon="Edit"
-                @click="editBeneficiary(data as TableSlotDefault)" circle />
+              <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
             </el-tooltip>
 
             <el-tooltip content="Delete" placement="top">
@@ -1036,6 +1105,56 @@ const AddProject = () => {
     </el-tabs>
 
 
+
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="30%" draggable>
+      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+
+        <el-form-item label="Settlement" prop="settlement_id">
+          <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement">
+            <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+
+        <el-form-item label="Title">
+          <el-input v-model="ruleForm.title" />
+        </el-form-item>
+
+        <el-form-item label="Beneficiaries (M)">
+          <el-input-number v-model="ruleForm.male_beneficiaries" />
+        </el-form-item>
+        <el-form-item label="Beneficiaries (F)">
+          <el-input-number v-model="ruleForm.female_beneficiaries" />
+        </el-form-item>
+
+        <el-form-item label="Cost">
+          <el-input-number v-model="ruleForm.cost" />
+        </el-form-item>
+
+        <el-form-item label="Period" prop="period">
+          <el-date-picker v-model="ruleForm.period" type="monthrange" range-separator="To"
+            start-placeholder="Start date" end-placeholder="End date" />
+        </el-form-item>
+
+        <el-form-item label="Programme" prop="programme">
+          <el-select v-model="ruleForm.programme_id" filterable placeholder="Select">
+            <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+
+
+
+      </el-form>
+      <template #footer>
+
+        <span class="dialog-footer">
+          <el-button @click="AddDialogVisible = false">Cancel</el-button>
+          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+
+        </span>
+      </template>
+    </el-dialog>
   </ContentWrap>
 
 

@@ -810,7 +810,7 @@ exports.modelPaginatedDatafilterBykeyWord = (req, res) => {
     var qry = {}
   }
 
-  console.log('The xQuerry----->', qry)
+ 
 
   qry.limit = req.body.limit
   qry.offset = (req.body.page - 1) * req.body.limit
@@ -824,17 +824,31 @@ exports.modelPaginatedDatafilterBykeyWord = (req, res) => {
       }
       console.log('Final-Condition------------>', queryCondition)
 
-      var searchCond = { [field]: { [op.iLike]: '%' + searchKeyword + '%' } }
-      const mergedObject = {
-        ...queryCondition,
-        ...searchCond
-      }
-
-      console.log('--------------search Condition-----------', mergedObject)
-
-      qry.where = searchCond
     }
   }
+
+
+  if (req.body.searchField) {
+
+    var searchCond = { [field]: { [op.iLike]: '%' + searchKeyword + '%' } }
+    const mergedObject = {
+      ...queryCondition,
+      ...searchCond
+    }
+  
+    console.log('--------------search Condition-----------', mergedObject)
+  
+    qry.where = searchCond
+  } else {
+
+    qry.where = queryCondition
+  }
+
+ 
+
+
+
+  console.log('The xQuerry----->', qry)
 
   db.models[reg_model].findAndCountAll(qry).then((list) => {
     res.status(200).send({
@@ -1040,6 +1054,7 @@ exports.modelUpload = (req, res) => {
 
 exports.ReportDocumentationUpload = (req, res) => {
   console.log(req.files)
+
   if (!req.files) {
     return res.status(500).send({ msg: 'file is not found' })
   }
@@ -1091,13 +1106,16 @@ exports.ReportDocumentationUpload = (req, res) => {
       name: fname,
       file_path: `./public/${fname}`,
       report_code: req.body.report_code,
-      group: 'M&E Documentation'
+      group:  req.body.grp
     }
     objs.push(thisFile)
 
-    console.log('Thisfile', thisFile)
+    console.log('Thisfile', thisFile, req.body.model)
 
-    db.models.indicator_category_report.update(
+    var reg_model = req.body.model
+ 
+    //db.models[reg_model].findAll
+    db.models[reg_model].update(
       { documentation: thisFile.name},
       { where: { code: thisFile.report_code } }
     )
@@ -1112,7 +1130,7 @@ exports.ReportDocumentationUpload = (req, res) => {
         })
       })
       .catch(err =>
-        res.status(500).send(error)
+        res.status(500).send(err)
       )
 
 

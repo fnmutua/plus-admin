@@ -18,8 +18,8 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
 
-    programme: {
-      type: DataTypes.STRING,
+    programme_id: {
+      type: DataTypes.INTEGER,
       allowNull: false
     },
 
@@ -28,7 +28,13 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
   
-
+    documentation: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+  
+ 
+    
     period: {
       type: DataTypes.RANGE(DataTypes.DATEONLY),
       allowNull: false
@@ -52,6 +58,13 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.GEOMETRY('Geometry', 4326),
       allowNull: true
     },
+
+    code: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+
+
   }, {
     sequelize,
     tableName: 'project',
