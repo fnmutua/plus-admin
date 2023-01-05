@@ -2326,7 +2326,8 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
       }, 
     
     ]
-  }
+  },
+
 ]
 
 export const staffRoutes: AppRouteRecordRaw[] = [
@@ -3175,7 +3176,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             },
        
           },
-
+          {
+            path: 'map/:id',
+          //  component: 'views/Map/SettlementParcelMap',
+            component: () => import('@/views/Intervention/Project/Map.vue'),
+            name: 'ProjectMap',  
+            meta: {
+              hidden: true,
+              props: true,
+              title: 'Map'
+            }
+          },
           {
             path: 'beneficiary',
             name: 'InterventionBeneficiary',
@@ -3824,6 +3835,54 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       }, 
     
+    ]
+  },
+  {
+    path: '/settings',
+    component: Layout,
+    redirect: '/dashbaord',
+    name: 'Settings',
+    meta: {
+      title: 'Settings',
+      icon: 'material-symbols:settings',
+      alwaysShow: true
+    },
+    children: [
+       {
+        path: 'clusters',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Users/County.vue'),
+        name: 'Clusters',
+        meta: {
+          title: 'Clusters',
+          hidden: false,
+          icon:'clarity:heat-map-line'
+        }
+      },
+      {
+        path: 'category',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/settings/Category.vue'),
+        name: 'SettingsCategory',
+        meta: {
+          title: 'Category',
+          hidden: false,
+          icon:'material-symbols:settings'
+
+        }
+      }, 
+      {
+        path: 'programmes',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/settings/Programmes.vue'),
+        name: 'Programmes',
+        meta: {
+          title: 'Programmes',
+          hidden: false,
+          icon:'material-symbols:settings'
+
+        }
+      }, 
     ]
   }
 ]

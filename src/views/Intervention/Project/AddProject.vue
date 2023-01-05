@@ -22,6 +22,7 @@ import {
   FormRules,
   ElSteps,
   ElStep,
+  ElButtonGroup,
   ElSwitch
 } from 'element-plus'
 
@@ -33,12 +34,12 @@ import {
   MapboxNavigationControl,
 
 } from 'vue-mapbox-ts'
-import { DocumentAdd, Edit, Picture, Location, Upload } from '@element-plus/icons-vue'
+import { DocumentAdd, Edit, Picture, Location, Upload, ArrowRight, Promotion, RefreshLeft } from '@element-plus/icons-vue'
 
 
 import { getCountyListApi } from '@/api/counties'
 
-import { CreateRecord } from '@/api/settlements'
+import { CreateRecord, deleteDocument, uploadDocuments } from '@/api/settlements'
 
 import type { FormInstance } from 'element-plus'
 import { uuid } from 'vue-uuid'
@@ -52,6 +53,7 @@ import type { UploadInstance } from 'element-plus'
 const uploadRef = ref<UploadInstance>()
 
 
+const fileList = ref([])
 
 const model = 'project'
 const parentOptions = ref([])
@@ -82,10 +84,43 @@ const ruleForm = reactive({
   male_beneficiaries: 0,
   female_beneficiaries: 0,
   geom: '',
+  code: ''
 })
 
 
 
+const fileUploadList = ref<UploadUserFile[]>([])
+
+
+
+const programmeOptions = ref([])
+const getProgrammeOptions = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'programme',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var countyOpt = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      programmeOptions.value.push(countyOpt)
+    })
+  })
+}
 
 //id","name","county_id","settlement_type","geom","area","population","code","description"
 const getParentNames = async () => {
@@ -116,6 +151,11 @@ const getParentNames = async () => {
   })
 }
 getParentNames()
+getProgrammeOptions()
+
+
+
+
 console.log('--> parent options', parentOptions.value)
 const coordinates = ref([])
 const geoJson = ref({})
@@ -312,32 +352,6 @@ const cascadeOptions = [
 
 
 
-const programme_options = [
-  {
-    value: 'kisip_11',
-    label: 'KISIP Component 1.1 (Tenure)',
-  },
-  {
-    value: 'kisip_12',
-    label: 'KISIP Component 1.2 (Infrastructure)',
-  },
-  {
-    value: 'kisip_2',
-    label: 'KISIP Component 2 (Social Inclusion)',
-  },
-  {
-    value: 'kisip_3',
-    label: 'KISIP Component 3 (Capacity Building)',
-  },
-  {
-    value: 'kisip_4',
-    label: 'KISIP Component 4 (Programme Management)',
-  },
-  {
-    value: 'kensup',
-    label: 'KENSUP',
-  },
-]
 
 const status_options = [
   {
@@ -356,6 +370,17 @@ const status_options = [
 ]
 
 
+
+
+// uploading the documents 
+
+
+const handleUploadDocuments: UploadProps['onChange'] = async (uploadFile, uploadFiles) => {
+
+
+
+  console.log(fileList)
+}
 
 
 
@@ -448,14 +473,36 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
   console.log("submit................", formEl)
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
       ruleForm.geom = geoJson.value
 
       console.log("Shp----->", geoJson.value)
-      const res = CreateRecord(ruleForm)
+      await CreateRecord(ruleForm)
+
+
+
+      const fileTypes = []
+      const filesFormData = new FormData()
+      for (var i = 0; i < fileList.value.length; i++) {
+        console.log('------>file', fileList.value[i])
+        fileTypes.push('documentation')
+
+        filesFormData.append('file', fileList.value[i].raw)
+      }
+
+      filesFormData.append('report_code', ruleForm.code)
+      filesFormData.append('model', model)
+      filesFormData.append('grp', 'Projects Documents')
+
+      filesFormData.append('DocTypes', fileTypes)
+
+
+      console.log(filesFormData)
+      // await uploadDocuments(formData)
+      await uploadDocuments(filesFormData)
 
     } else {
       console.log('error submit!', fields)
@@ -552,14 +599,6 @@ const next = () => {
 }
 
 
-const fileList = ref<UploadUserFile[]>([])
-
-
-
-const handleUploadDocuments: UploadProps['onChange'] = (uploadFile, uploadFiles) => {
-  fileList.value = fileList.value.slice(-3)
-}
-
 const handleUploadGeo = async (uploadFile) => {
   console.log('Upload>>>', uploadFile)
   //  uploadRef.value!.submit()
@@ -628,8 +667,8 @@ const geoSource = ref(false)
 
 
               <el-form-item label="Programme" prop="programme">
-                <el-select v-model="ruleForm.programme" filterable placeholder="Select">
-                  <el-option v-for="item in programme_options" :key="item.value" :label="item.label"
+                <el-select v-model="ruleForm.programme_id" filterable placeholder="Select">
+                  <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label"
                     :value="item.value" />
                 </el-select>
               </el-form-item>
@@ -696,9 +735,9 @@ const geoSource = ref(false)
 
 
 
-            <el-upload v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo"
+            <el-upload v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" :auto-upload="false"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :on-change="handleUploadDocuments">
-              <el-button type="primary">Click to upload</el-button>
+              <el-button type="primary">Click to upload documentation</el-button>
               <template #tip>
                 <div class="el-upload__tip">
                   pdf/xlsx/jpg/png files with a size less than 500kb
@@ -709,23 +748,14 @@ const geoSource = ref(false)
 
           </el-form>
 
-
-          <el-button style="margin-top: 12px" @click="next">Next step</el-button>
-
-          <el-button v-if="showUploadDocuments" style="margin-top: 12px" @click="submitForm(ruleFormRef)"
-            type="success">Save<el-icon class="el-icon--right">
-              <CircleCheckFilled />
-            </el-icon>
-          </el-button>
-          <el-button v-if="showUploadDocuments" style="margin-top: 12px" @click="resetForm(ruleFormRef)"
-            type="warning">Reset<el-icon class="el-icon--right">
-              <RefreshLeft />
-            </el-icon>
-          </el-button>
-
-
-
-
+          <el-divider />
+          <el-button-group>
+            <el-button type="primary" :icon="ArrowRight" @click="next">Next Step</el-button>
+            <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="success"
+              :icon="Promotion">Submit</el-button>
+            <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
+              :icon="RefreshLeft">Reset</el-button>
+          </el-button-group>
 
 
 

@@ -315,5 +315,16 @@ db.models.settlement.hasMany(db.models.project, {
   foreignKey: 'settlement_id'
 })
 
+db.models.project.belongsTo(db.models.programme, {
+  foreignKey: 'programme_id'
+})
+
+db.models.programme.hasMany(db.models.project, {
+  foreignKey: 'programme_id'
+})
+
+
+
+
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

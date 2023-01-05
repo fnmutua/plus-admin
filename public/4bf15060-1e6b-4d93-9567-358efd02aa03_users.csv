@@ -1,0 +1,6 @@
+"id","username","name","email","county_id","password","isactive","phone","resetPasswordToken","resetPasswordExpires","avatar"
+1,"felix.mutua@gmail.com","Felix Mutua","felix.mutua@gmail.com",1,"$2a$08$qRAT9wUQw2aVcrBx7Y9toeKb9hIDVlOuRZfQ36MuFFaOWyfK7AZRy",True,254721770339,"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNjY5MTEzNjc4LCJleHAiOjE2NjkyMDAwNzh9.39iTymTWngRJYOzryXmGIF8y17EFmpdHI4IBXDDlPkE","2022-11-23 10:41:18.047+00",NULL
+2,"jane@gmail.com","Jane","jane@gmail.com",8,"$2a$08$6G8VibAju4O0D6daiQLz3uP7.opWQvOz0R6tKMOV6NFBauzX1jSj.",True,NULL,"true","2022-11-03 16:04:08.986+00",NULL
+3,"JohnDoe@gmail.com","John  Doe","JohnDoe@gmail.com",3,"$2a$08$JwaF1OG0veAhS2G5UIJXPeUBeFD2PffI9QVATj72ulgPOIIJSxYiq",True,NULL,"true","2022-12-04 04:21:21.768+00",NULL
+4,"felix.mutuax@gmail.com","John","felix.mutuax@gmail.com",4,"$2a$08$p0A6nUVk4Zk.exOeqjJRN.BTyQla4tJKPnGkWAETBGFJv.ApsZlNO",False,NULL,"true","2022-12-14 18:26:46.49+00",NULL
+5,"christinesabwa1@gmail.com","Christine Sabwa","christinesabwa1@gmail.com",1,"$2a$08$x4gWTOr0pHvKZh8IYZ65fOB8vgMCYWSRcSOx0lXYcEEn9KpkTO.Yq",True,NULL,"true","2022-12-14 18:29:29.224+00",NULL

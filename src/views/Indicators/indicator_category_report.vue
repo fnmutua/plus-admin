@@ -666,6 +666,8 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
       formData.append('report_code', ruleForm.code)
       formData.append('DocTypes', fileTypes)
+      formData.append('model', model)
+      formData.append('grp', 'M&E Documentation')
 
       // formData.append('DocTypes', fileTypes)
 
