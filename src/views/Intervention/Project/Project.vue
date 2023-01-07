@@ -5,7 +5,7 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm
+  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElTableColumn
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter } from '@element-plus/icons-vue'
@@ -97,7 +97,7 @@ var filterValues = []
 var tblData = []
 
 const associated_Model = ''
-const associated_multiple_models = ['settlement', 'programme']
+const associated_multiple_models = ['settlement', 'programme', 'document']
 
 const model = 'project'
 //// ------------------parameters -----------------------////
@@ -997,34 +997,40 @@ const editIndicator = (data: TableSlotDefault) => {
   AddDialogVisible.value = true
 }
 
+const removeDocument = (data: TableSlotDefault) => {
+  console.log('----->', data)
+  let formData = {}
+  formData.id = data.id
+  formData.model = model
+  formData.filesToDelete = [data.name]
+  deleteDocument(formData)
+}
 
-const programme_options = [
-  {
-    value: 'kisip_11',
-    label: 'KISIP Component 1.1 (Tenure)',
-  },
-  {
-    value: 'kisip_12',
-    label: 'KISIP Component 1.2 (Infrastructure)',
-  },
-  {
-    value: 'kisip_2',
-    label: 'KISIP Component 2 (Social Inclusion)',
-  },
-  {
-    value: 'kisip_3',
-    label: 'KISIP Component 3 (Capacity Building)',
-  },
-  {
-    value: 'kisip_4',
-    label: 'KISIP Component 4 (Programme Management)',
-  },
-  {
-    value: 'kensup',
-    label: 'KENSUP',
-  },
-]
 
+const DeleteProject = (data: TableSlotDefault) => {
+  console.log('----->', data)
+  let formData = {}
+  formData.id = data.id
+  formData.model = model
+
+  DeleteRecord(formData)
+
+  console.log(tableDataList.value)
+
+
+  // Delete docuemnts only if there's any docuemnt to delete 
+  if (data.documents.length > 0) {
+    formData.filesToDelete = data.documents
+    deleteDocument(formData)
+
+  }
+  // remove the deleted object from array list 
+  let index = tableDataList.value.indexOf(data.row);
+  if (index !== -1) {
+    tableDataList.value.splice(index, 1);
+  }
+
+}
 
 </script>
 
@@ -1068,7 +1074,7 @@ const programme_options = [
     <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
       <el-tab-pane label="List" name="list">
 
-        <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+        <!-- <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
           :currentPage="currentPage">
           <template #action="data">
             <el-tooltip content="View Profile" placement="top">
@@ -1093,7 +1099,64 @@ const programme_options = [
 
 
           </template>
-        </Table>
+        </Table> -->
+
+
+        <el-table :data="tableDataList" style="width: 100%">
+          <el-table-column type="expand">
+            <template #default="props">
+              <div m="4">
+                <h3>Documents</h3>
+                <el-table :data="props.row.documents">
+                  <el-table-column label="Name" prop="name" />
+                  <el-table-column label="Type" prop="category" />
+                  <el-table-column label="Link" prop="location" />
+
+                  <el-table-column label="Operations">
+                    <template #default="scope">
+                      <el-link :href="props.row.documents[scope.$index].name" download>
+                        <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
+                      </el-link>
+                      <el-tooltip content="Delete" placement="top">
+                        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                          icon-color="#626AEF" title="Are you sure to delete this document?"
+                          @confirm="removeDocument(scope.row)">
+                          <template #reference>
+                            <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                          </template>
+                        </el-popconfirm>
+                      </el-tooltip>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Title" width="400" prop="title" />
+          <el-table-column label="Settlement" prop="settlement.name" />
+          <el-table-column label="Programme" prop="programme.title" />
+
+
+          <el-table-column fixed="right" label="Operations" width="120">
+            <template #default="scope">
+
+              <el-tooltip content="Edit" placement="top">
+                <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+              </el-tooltip>
+
+              <el-tooltip content="Delete" placement="top">
+                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">
+                  <template #reference>
+                    <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                  </template>
+                </el-popconfirm>
+              </el-tooltip>
+            </template>
+          </el-table-column>
+
+        </el-table>
+
         <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />

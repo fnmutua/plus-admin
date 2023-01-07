@@ -37,7 +37,7 @@ import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
 
 
-
+import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
 
 
 
@@ -98,7 +98,7 @@ var filterValues = [1]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['settlement', 'county']
+const associated_multiple_models = ['settlement', 'county', 'document']
 const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -112,21 +112,18 @@ const show = ref(false)
 
 const { t } = useI18n()
 const formatter = (row) => {
-  if (row.documentation) {
-
-
-    return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, {
+  console.log('row', row)
+  if (row.document.name) {
+    return h(ElLink, { href: row.document.name, download: row.document.name, type: 'danger' }, h(Icon, {
       icon: "ic:outline-download-for-offline", height: '36'
     }))
-
-    // return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, { icon: "material-symbols:cloud-download", height: '36' }), 'Download ')
-
-
   } else {
     return
   }
 
 }
+
+
 const columns: TableColumn[] = [
   {
     field: 'index',
@@ -163,7 +160,12 @@ const columns: TableColumn[] = [
     field: 'status',
     label: t('Status')
   },
-
+  {
+    field: '',
+    width: "250",
+    label: t('Documentation'),
+    type: 'expand'
+  },
   {
     field: 'documentation',
     label: t('Documents'),
@@ -546,29 +548,54 @@ const editIndicator = (data: TableSlotDefault) => {
 }
 
 
-const DeleteIndicator = (data: TableSlotDefault) => {
-  console.log('----->', data.row.id)
+
+const DeleteReport = (data: TableSlotDefault) => {
+  console.log('----->', data)
   let formData = {}
-  formData.id = data.row.id
+  formData.id = data.id
   formData.model = 'indicator_category_report'
-  formData.filename = data.row.documentation
 
 
   DeleteRecord(formData)
+  console.log("Docs to de;ete", data.documents.length)
 
-  deleteDocument(formData)
+  // Delete docuemnts only if there's any docuemnt to delete 
+  if (data.documents.length > 0) {
+    formData.filesToDelete = data.documents
+    deleteDocument(formData)
+
+    // remove the deleted object from array list 
+    let index = tableDataList.value.documents.indexOf(data);
+    if (index !== -1) {
+      tableDataList.value.documents.value.splice(index, 1);
+    }
+  }
 
 
   console.log(tableDataList.value)
 
   // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
+  let index = tableDataList.value.indexOf(data);
   if (index !== -1) {
     tableDataList.value.splice(index, 1);
   }
 
 }
 
+const removeDocument = (data: TableSlotDefault) => {
+  console.log('----->', data)
+  let formData = {}
+  formData.id = data.id
+  formData.model = 'indicator_category_report'
+  formData.filesToDelete = [data.name]
+
+
+
+  deleteDocument(formData)
+
+
+
+}
 
 const handleClose = () => {
 
@@ -648,26 +675,32 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.period = getQuarter()
       ruleForm.code = uuid.v4()
       ruleForm.userId = userInfo.id
-      await CreateRecord(ruleForm)   // first save the form on DB
-
+      const report = await CreateRecord(ruleForm)   // first save the form on DB
+      console.log("Report", report.data.id)
 
       // uploading the documents 
       const fileTypes = []
       const formData = new FormData()
+      let files = []
       for (var i = 0; i < fileUploadList.value.length; i++) {
         console.log('------>file', fileUploadList.value[i])
-        var file = fileUploadList.value[i].name.split('.').pop() // get file extension
+        var format = fileUploadList.value[i].name.split('.').pop() // get file extension
         //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-        fileTypes.push('documentation')
+        fileTypes.push(format)
         // formData.append('file', fileList.value[i])
         // formData.file = fileList.value[i]
         formData.append('file', fileUploadList.value[i].raw)
+        formData.append('DocType', format)
+
       }
 
-      formData.append('report_code', ruleForm.code)
-      formData.append('DocTypes', fileTypes)
+
+      formData.append('parent_code', report.data.id)
       formData.append('model', model)
       formData.append('grp', 'M&E Documentation')
+      formData.append('code', uuid.v4())
+      formData.append('column', 'report_id')
+
 
       // formData.append('DocTypes', fileTypes)
 
@@ -712,6 +745,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
         formData.append('report_code', ruleForm.code)
         formData.append('DocTypes', fileTypes)
+        formData.append('code', fileTypes)
 
         // formData.append('DocTypes', fileTypes)
 
@@ -1035,27 +1069,65 @@ getSettlement()
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
-        </el-tooltip>
 
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
+    <el-table :data="tableDataList" style="width: 100%">
+      <el-table-column type="expand">
+        <template #default="props">
+          <div m="4">
+            <h3>Documents</h3>
+            <el-table :data="props.row.documents">
+              <el-table-column label="Name" prop="name" />
+              <el-table-column label="Type" prop="category" />
+              <el-table-column label="Link" prop="location" />
+
+              <el-table-column label="Operations">
+                <template #default="scope">
+                  <el-link :href="props.row.documents[scope.$index].name" download>
+                    <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
+                  </el-link>
+                  <el-tooltip content="Delete" placement="top">
+                    <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                      icon-color="#626AEF" title="Are you sure to delete this document?"
+                      @confirm="removeDocument(scope.row)">
+                      <template #reference>
+                        <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                      </template>
+                    </el-popconfirm>
+                  </el-tooltip>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" />
+      <el-table-column label="Settlement" prop="settlement.name" />
+      <el-table-column label="County" prop="county.name" />
+      <el-table-column label="Unit" prop="indicator_category.indicator.unit" />
+      <el-table-column label="Amount" prop="amount" />
+      <el-table-column label="Status" prop="status" />
+
+      <el-table-column fixed="right" label="Operations" width="120">
+        <template #default="scope">
+
+          <el-tooltip content="Edit" placement="top">
+            <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+          </el-tooltip>
+
+          <el-tooltip content="Delete" placement="top">
+            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
+              <template #reference>
+                <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+              </template>
+            </el-popconfirm>
+          </el-tooltip>
+        </template>
+      </el-table-column>
+
+    </el-table>
 
 
-
-
-      </template>
-    </Table>
     <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
@@ -1141,4 +1213,3 @@ getSettlement()
 
 
 </template>
- 

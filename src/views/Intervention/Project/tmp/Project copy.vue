@@ -1,43 +1,36 @@
-<!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
-import { ElMessage } from 'element-plus'
 import {
-  Position,
-  TopRight,
-  User,
-  Plus,
-  Download,
-  Filter,
-  MessageBox
-} from '@element-plus/icons-vue'
+  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm
+} from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter } from '@element-plus/icons-vue'
 
-import { ref, reactive, nextTick } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElTabPane, ElTabs, ElDivider } from 'element-plus'
+import { ref, reactive, h } from 'vue'
+import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments } from '@/api/settlements'
+
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { uuid } from 'vue-uuid'
 
-
-
-
+import xlsx from "json-as-xlsx"
 import { getAllGeo } from '@/api/settlements'
+import {
+  searchByKeyWord
+} from '@/api/settlements'
 
-import { StarFilled } from '@element-plus/icons-vue'
-//import { MapboxMap, MapboxNavigationControl, MapboxMarker, MapboxGeolocateControl, MapboxGeocoder } from '@studiometa/vue-mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-
-
+////////////*************Map Imports***************////////
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
+import { Icon } from '@iconify/vue';
 
 
 import mapboxgl from "mapbox-gl";
@@ -49,26 +42,38 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 
+
+
+const searchString = ref()
+
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-console.log("userInfo--->", userInfo)
 
+// Hide buttons if not admin 
+const showAdminButtons = ref(false)
 
-const geoLoaded = ref(false)
-
-
-
+if (userInfo.roles.includes("admin")) {
+  showAdminButtons.value = true
+}
 
 const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
-const countiesOptions = ref([])
+var value4 = ref([])
+var value5 = ref([])
+
+const interVentionTypeOptions = ref([])
+const benefitTypeOptions = ref([])
+const houseHoldOptions = ref([])
+const interventionsOptions = ref([])
+
+
+
+
 const settlementOptions = ref([])
-const settlements = ref([])
-const filteredSettlements = ref([])
 const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
@@ -77,53 +82,51 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
-const showAdminButtons = ref(false)
-
-
-
-
-
-// flag for admin buttons
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
-  showAdminButtons.value = true
-}
-
-
-console.log("Show Buttons -->", showAdminButtons)
-
+const showEditSaveButton = ref(false)
+const showAddSaveButton = ref(true)
+const formheader = ref('Edit Project')
 
 
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
+
+
 var filters = []
 var filterValues = []
 var tblData = []
+
 const associated_Model = ''
-const associated_multiple_models = ['settlement']
+const associated_multiple_models = ['settlement', 'programme']
+
 const model = 'project'
-const model_parent_key = 'settlement_id'
 //// ------------------parameters -----------------------////
 
-
-
 const facilityGeo = ref([])
-const facilityGeoPoints = ref([])
+const facilityGeoPoints = ref()
 const facilityGeoLines = ref([])
 const facilityGeoPolygons = ref([])
-
-
-//// ------------------Map -----------------------////
-
-function toTitleCase(str) {
-  return str.replace(/\w\S*/g, function (txt) {
-    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
-  })
-}
-
+const geoLoaded = ref(false)
 
 
 const { t } = useI18n()
+
+const formatter = (row) => {
+  if (row.documentation) {
+
+
+    return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, {
+      icon: "ic:outline-download-for-offline", height: '36'
+    }))
+
+    // return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, { icon: "material-symbols:cloud-download", height: '36' }), 'Download ')
+
+
+  } else {
+    return
+  }
+
+}
 
 const columns: TableColumn[] = [
   {
@@ -131,24 +134,31 @@ const columns: TableColumn[] = [
     label: t('userDemo.index'),
     type: 'index'
   },
+
   {
     field: 'title',
     label: t('Title')
   },
+
   {
-    field: 'type',
-    label: t('Type')
-  },
-  {
-    field: 'programme',
+    field: 'programme.title',
     label: t('Programme')
   },
-
   {
-    field: 'settlement',
+    field: 'settlement.name',
     label: t('Settlement')
   },
-
+  {
+    field: 'documentation',
+    label: t('Documents'),
+    formatter: formatter
+  },
+  {
+    field: 'action',
+    width: "300",
+    fixed: "right",
+    label: 'Operations'
+  }
 ]
 const handleClear = async () => {
   console.log('cleared....')
@@ -159,20 +169,23 @@ const handleClear = async () => {
   value1.value = ''
   value2.value = ''
   value3.value = ''
+  value4.value = ''
+  value5.value = ''
+
   pSize.value = 5
   currentPage.value = 1
-  tblData = []
+  tblData.value = []
   //----run the get data--------
-  getInterventionsAll()
+  getAllBeneficiaries()
 }
 
-const handleSelectParent = async (parent_id: any) => {
-  var selectOption = model_parent_key
+const handleSelectPhase = async (phase: any) => {
+  var selectOption = 'intervention_phase'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
   var index = filters.indexOf(selectOption) // 1
-  console.log('county : index--->', index)
+  console.log('intervention_phase : index--->', index)
 
   // clear previously selected
   if (filterValues[index]) {
@@ -180,33 +193,26 @@ const handleSelectParent = async (parent_id: any) => {
     filterValues.splice(index, 1)
   }
 
-  if (!filterValues.includes(parent_id) && parent_id.length > 0) {
-    filterValues.splice(index, 0, parent_id) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  if (!filterValues.includes(phase) && phase.length > 0) {
+    filterValues.splice(index, 0, phase) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
   }
 
   // expunge the filter if the filter values are null
-  if (parent_id.length === 0) {
+  if (phase.length === 0) {
     filters.splice(index, 1)
   }
 
   console.log('FilterValues:', filterValues)
-  // here we filter the list of settlements based on the selected county
-  filteredSettlements.value = settlements.value.filter(
-    (settlement) => settlement.parent_id == parent_id
-  )
-  console.log('filyterested settlements------>', filteredSettlements)
-  makeSettlementOptions(filteredSettlements)
 
   getFilteredData(filters, filterValues)
 }
-
-const handleSelectByName = async (settlement: any) => {
-  var selectOption = 'id'
+const filterByType = async (title: any) => {
+  var selectOption = 'settlement_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
   var index = filters.indexOf(selectOption) // 1
-  console.log('settlement : index--->', index)
+  console.log('intervention_type_id : index--->', index)
 
   // clear previously selected
   if (filterValues[index]) {
@@ -214,12 +220,12 @@ const handleSelectByName = async (settlement: any) => {
     filterValues.splice(index, 1)
   }
 
-  if (!filterValues.includes(settlement) && settlement.length > 0) {
-    filterValues.splice(index, 0, settlement) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  if (!filterValues.includes(title) && title.length > 0) {
+    filterValues.splice(index, 0, title) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
   }
 
   // expunge the filter if the filter values are null
-  if (settlement.length === 0) {
+  if (title.length === 0) {
     filters.splice(index, 1)
   }
 
@@ -227,9 +233,12 @@ const handleSelectByName = async (settlement: any) => {
 
   getFilteredData(filters, filterValues)
 }
+
+
+
 
 const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected   ', selCounties)
+  console.log('on change change: selected counties ', selCounties)
   page.value = selPage
   getFilteredData(filters, filterValues)
 }
@@ -239,25 +248,25 @@ const onPageSizeChange = async (size: any) => {
   getFilteredData(filters, filterValues)
 }
 
-const getInterventionsAll = async () => {
+const getAllBeneficiaries = async () => {
   getFilteredData(filters, filterValues)
 }
 
-const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
+const destructure = (obj) => {
+  // console.log('deconstructing......')
+  const simpleObj = {}
   for (let key in obj) {
-    if (key != 'geom') {
-
-      if (typeof obj[key] !== 'object') {
-        res[extraKey + key] = obj[key];
-      } else {
-        flattenJSON(obj[key], res, `${extraKey}${key}.`);
-      };
-    };
+    const value = obj[key]
+    const type = typeof value
+    if (['string', 'boolean'].includes(type) || (type === 'number' && !isNaN(value))) {
+      simpleObj[key] = value
+    } else if (type === 'object') {
+      Object.assign(simpleObj, destructure(value))
+    }
   }
-  return res;
-};
 
-
+  return simpleObj
+}
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -280,31 +289,161 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
+  console.log('After Querry - associated_multiple_models', res)
   tableDataList.value = res.data
   total.value = res.total
 
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
+  tblData.value = [] // reset the table data
+  console.log('TBL-b4-', tblData)
   res.data.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
+    console.log(arrayItem)
+    //delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
-    var dd = flattenJSON(arrayItem)
+    var dd = destructure(arrayItem)
+    delete dd['0']
+    delete dd['1']
 
-    tblData.push(dd)
+    tblData.value.push(dd)
   })
 
   console.log('TBL-4f', tblData)
 }
 
-const getParentNames = async () => {
+
+
+const getInterventionTypes = async () => {
   const res = await getCountyListApi({
     params: {
       pageIndex: 1,
       limit: 100,
       curUser: 1, // Id for logged in user
-      model: associated_multiple_models[0],
+      model: 'intervention_type',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var countyOpt = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.type + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      interVentionTypeOptions.value.push(countyOpt)
+    })
+  })
+}
+
+const getBeneficiaryType = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'benefit_type',
+      searchField: 'type',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.type + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      benefitTypeOptions.value.push(opt)
+    })
+  })
+}
+const getHouseholds = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'households',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.name + '| ' + arrayItem.gender + ' | ' + arrayItem.national_id
+      //  console.log(countyOpt)
+      houseHoldOptions.value.push(opt)
+    })
+  })
+}
+
+const getInterventions = async () => {
+  const formData = {}
+
+  formData.model = 'intervention'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+
+  // - multiple filters -------------------------------------
+
+  formData.associated_multiple_models = ['settlement', 'clusters']
+
+  //-------------------------
+  //console.log(formData)
+  console.log('before Intervention Options')
+
+  //const rxes = await getSettlementListByCounty(formData)
+  //console.log('Inside Intervention Options', rxes)
+
+  const res = await getSettlementListByCounty(formData).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.settlement_id = arrayItem.settlement.id
+
+      opt.label = arrayItem.settlement.name + ' | ' + arrayItem.cluster.contract + ' | ' + arrayItem.id
+      //  console.log(countyOpt)
+      interventionsOptions.value.push(opt)
+    })
+  })
+}
+
+
+
+
+const getSettlementsOptions = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'settlement',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
@@ -321,56 +460,28 @@ const getParentNames = async () => {
       countyOpt.value = arrayItem.id
       countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
-      countiesOptions.value.push(countyOpt)
+      settlementOptions.value.push(countyOpt)
     })
   })
 }
 
-const getModelOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: model,
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
 
-    loading.value = false
-    // pass result to the makeoptions
 
-    settlements.value = ret
-    makeSettlementOptions(settlements)
-  })
+const viewOnMap = (data: TableSlotDefault) => {
+  console.log('On map.....', data.row)
+  if (data.row.geom) {
+    push({
+      path: '/interventions/kisip/map/:id',
+      name: 'ProjectMap',
+      params: { id: data.row.id }
+    })
+  } else {
+    var msg = 'This Project does not have the location defined in the database!'
+    open(msg)
+  }
 }
 
 
-
-const makeSettlementOptions = (list) => {
-  console.log('making the options..............', list)
-  settlementOptions.value = []
-  list.value.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-    //  console.log(countyOpt)
-    settlementOptions.value.push(countyOpt)
-  })
-}
-
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'road_assets.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
 
 const loadMap = () => {
   var nmap = new mapboxgl.Map({
@@ -410,23 +521,28 @@ const loadMap = () => {
 
 
     nmap.addLayer({
-      'id': 'lines-layer',
-      "type": "line",
-      'source': 'lines',
-      'paint': {
-        "line-color": "red"
-      }
-    });
-
-
-    nmap.addLayer({
       'id': 'points-layer',
       "type": "circle",
       'source': 'points',
       'paint': {
-        "circle-color": "red"
+        "circle-color": 'green'
       }
     });
+
+    nmap.addLayer({
+      'id': 'lines',
+      'type': 'line',
+      'source': 'lines',
+      'paint': {
+        'line-width': 3,
+        // Use a get expression (https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-get)
+        // to set the line-color to a feature property value.
+        'line-color': 'red'
+      }
+    });
+
+
+
 
     nmap.addLayer({
       'id': 'polygons-layer',
@@ -439,16 +555,16 @@ const loadMap = () => {
 
     });
     // Add a black outline around the polygon.
-    nmap.addLayer({
-      'id': 'outline',
-      'type': 'line',
-      'source': 'polygons',
-      'layout': {},
-      'paint': {
-        'line-color': '#000',
-        'line-width': 1
-      }
-    });
+    // nmap.addLayer({
+    //   'id': 'outline',
+    //   'type': 'line',
+    //   'source': 'polygons',
+    //   'layout': {},
+    //   'paint': {
+    //     'line-color': '#000',
+    //     'line-width': 1
+    //   }
+    // });
 
     nmap.resize()
 
@@ -557,7 +673,7 @@ const loadMap = () => {
 
 
 const onMap = async (obj) => {
-  console.log(obj.props.label)
+  console.log("Loading map.............", obj.props.label)
   if (obj.props.label == "Map") {
     loadMap()
     //console.log(map.value)
@@ -583,15 +699,16 @@ const getGeo = async () => {
     var lines = []
     var polygons = []
     facilityGeo.value = res.data[0].json_build_object
-    console.log('Geo Returns---', res.data[0].json_build_object.features[0].geometry.coordinates)
+    console.log('Geo Returns---', res.data[0].json_build_object.features)
     console.log("Facility Geo", facilityGeo)
 
     for (let i = 0; i < res.data[0].json_build_object.features.length; i++) {
+      console.log("Geo Type -------->", res.data[0].json_build_object.features[i].geometry.type)
 
       if (res.data[0].json_build_object.features[i].geometry.type === "Point") {
 
         points.push(res.data[0].json_build_object.features[i])
-      } else if (res.data[0].json_build_object.features[i].geometry.type === "LineString") {
+      } else if (res.data[0].json_build_object.features[i].geometry.type === "LineString" || res.data[0].json_build_object.features[i].geometry.type === "MultiLineString") {
 
         lines.push(res.data[0].json_build_object.features[i])
 
@@ -602,13 +719,13 @@ const getGeo = async () => {
 
     }
 
-    console.log(points)
-    console.log(lines)
+    console.log('Points ---x-------', points)
+
     facilityGeoPoints.value = points
     facilityGeoLines.value = lines
     facilityGeoPolygons.value = polygons
 
-
+    console.log('Lines--->', facilityGeoPoints.value)
 
 
     //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
@@ -621,73 +738,357 @@ const getGeo = async () => {
 
 }
 
+const getFilteredBySearchData = async (searchString) => {
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
 
-getParentNames()
-getModelOptions()
-getInterventionsAll()
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = searchString
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = filters
+  formData.filterValues = filterValues
+  formData.associated_multiple_models = associated_multiple_models
+
+  //-------------------------
+  console.log(formData)
+  const res = await searchByKeyWord(formData)
+
+  console.log('After -----x ------Querry', res)
+  tableDataList.value = res.data
+  total.value = res.total
+  loading.value = false
+
+  tblData.value = [] // reset the table data
+
+}
+
+const searchByName = async (filterString: any) => {
+  searchString.value = filterString
+
+  getFilteredBySearchData(searchString.value)
+}
+
+
+const programmeOptions = ref([])
+const getProgrammeOptions = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'programme',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var countyOpt = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      programmeOptions.value.push(countyOpt)
+    })
+  })
+}
+
+getBeneficiaryType()
+getHouseholds()
+
+getInterventionTypes()
+getSettlementsOptions()
+getAllBeneficiaries()
+getInterventions()
+getProgrammeOptions()
 getGeo()
-console.log('Options---->', countiesOptions)
 
 
-
-
-const AddProject = () => {
-
-  console.log("Adding Projects")
-  // push({
-  //   path: '/kisip/addProject',
-  //   name: 'AddInterventionProjects'
-  // })
+console.log('Options---->', interVentionTypeOptions)
+const viewProfile = (data: TableSlotDefault) => {
+  console.log('On Click.....', data.row.id)
 
   push({
-    path: '/settlement/add',
-    name: 'AddSettlement'
+    path: '/settlement/:id',
+    name: 'SettlementDetails',
+    params: { data: data.row.id, id: data.row.id }
   })
 }
 
 
 
+
+//*****************************Create**************************** */
+
+///----------------------------------------------------------------------------------
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  settlement_id: '',
+  title: '',
+  type: '',
+  programme_id: '',
+  status: '',
+  period: null,
+  cost: 0,
+  male_beneficiaries: 0,
+  female_beneficiaries: 0,
+  geom: '',
+  id: '',
+  code: ''
+})
+
+
+
+
+
+
+const DeleteBeneficiary = (data: TableSlotDefault) => {
+  console.log('----->', data.row.id)
+  let formData = {}
+  formData.id = data.row.id
+  formData.model = model
+
+  DeleteRecord(formData)
+
+  console.log(tableDataList.value)
+
+  // remove the deleted object from array list 
+  let index = tableDataList.value.indexOf(data.row);
+  if (index !== -1) {
+    tableDataList.value.splice(index, 1);
+  }
+
+}
+
+
+const editForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate(async (valid, fields) => {
+    if (valid) {
+      ruleForm.model = model
+      await updateOneRecord(ruleForm).then(() => { })
+
+    } else {
+      console.log('error in editiinh!', fields)
+    }
+  })
+}
+
+const handleClose = () => {
+
+  console.log("Closing the dialoig")
+  showAddSaveButton.value = true
+  showEditSaveButton.value = false
+
+  ruleForm.settlement_id = null
+  ruleForm.intervention_phase = null
+  ruleForm.intervention_id = null
+  ruleForm.hh_id = null
+  ruleForm.benefit_type_id = null
+
+
+
+  formheader.value = 'Add Beneficiary'
+  AddDialogVisible.value = false
+
+}
+
+
+
+
+
+const DownloadXlsx = async () => {
+  console.log(tableDataList.value)
+
+  // change here !
+  let fields = [
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Name", value: "name" }, // Top level data
+    { label: "Gender", value: "gender" }, // Custom format
+    { label: "Age", value: "age_plot_owner" }, // Run functions
+    { label: "Ownership", value: "ownership_status" }, // Run functions
+    { label: "Length of Stay", value: "length_stay" }, // Run functions
+    { label: "Settlement", value: "settlement" }, // Run functions
+    { label: "Programme", value: "benefit_type" }, // Run functions
+  ]
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  // loop through the table data and sort the data 
+  // change here !
+  for (let i = 0; i < tableDataList.value.length; i++) {
+    let thisRecord = {}
+    tableDataList.value[i]
+    thisRecord.name = tableDataList.value[i].household.name
+    thisRecord.index = i + 1
+    thisRecord.gender = tableDataList.value[i].household.gender
+    thisRecord.age_plot_owner = tableDataList.value[i].household.age_plot_owner
+    thisRecord.ownership_status = tableDataList.value[i].household.ownership_status
+    thisRecord.length_stay = tableDataList.value[i].household.length_stay
+    thisRecord.settlement = tableDataList.value[i].settlement.name
+    thisRecord.benefit_type = tableDataList.value[i].benefit_type.type
+    dataHolder.push(thisRecord)
+  }
+  dataObj.content = dataHolder
+
+
+
+
+  let settings = {
+    fileName: model, // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
+
+const activeName = ref('list')
+const AddProject = () => {
+
+  console.log("Adding Projects")
+  push({
+    path: '/interventions/kisip/add',
+    name: 'AddInterventionProjects'
+  })
+}
+
+const AddDialogVisible = ref(false)
+const formHeader = ref('Edit Project')
+
+const editIndicator = (data: TableSlotDefault) => {
+
+  showEditSaveButton.value = true
+
+  console.log(data)
+  ruleForm.id = data.row.id
+  ruleForm.title = data.row.title
+  ruleForm.programme_id = data.row.programme_id
+  ruleForm.status = data.row.status
+  ruleForm.period = data.row.period
+  ruleForm.male_beneficiaries = data.row.male_beneficiaries
+  ruleForm.female_beneficiaries = data.row.female_beneficiaries
+  ruleForm.cost = data.row.cost
+  ruleForm.settlement_id = data.row.settlement_id
+  ruleForm.code = data.row.code
+  ruleForm.geom = data.row.geom
+
+
+
+  AddDialogVisible.value = true
+}
+
+
+const programme_options = [
+  {
+    value: 'kisip_11',
+    label: 'KISIP Component 1.1 (Tenure)',
+  },
+  {
+    value: 'kisip_12',
+    label: 'KISIP Component 1.2 (Infrastructure)',
+  },
+  {
+    value: 'kisip_2',
+    label: 'KISIP Component 2 (Social Inclusion)',
+  },
+  {
+    value: 'kisip_3',
+    label: 'KISIP Component 3 (Capacity Building)',
+  },
+  {
+    value: 'kisip_4',
+    label: 'KISIP Component 4 (Programme Management)',
+  },
+  {
+    value: 'kensup',
+    label: 'KENSUP',
+  },
+]
+
+
 </script>
 
 <template>
+  <ContentWrap :title="t('Projects')"
+    :message="t('The list of  intervention beneficiaries. Use the filters to subset')">
+    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
-  <ContentWrap :title="toTitleCase(model.replace('_', ' '))"
-    :message="t('Use the filters on the list of view the Map ')">
 
-    <el-tabs @tab-click="onMap" type="border-card">
-      <el-tab-pane label="List">
-        <el-divider border-style="dashed" content-position="left">Filters</el-divider>
-        <div style="display: inline-block; margin-left: 20px">
-          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable
-            filterable collapse-tags placeholder="Filter by">
-            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </div>
-        <div style="display: inline-block; margin-left: 20px">
-          <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable
-            filterable collapse-tags placeholder="Filter by  Name">
-            <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </div>
-        <div style="display: inline-block; margin-left: 20px">
-          <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-        </div>
-        <div style="display: inline-block; margin-left: 20px">
-          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-        </div>
-        <div style="display: inline-block; margin-left: 20px">
-          <el-tooltip content="Add Project" placement="top">
-            <el-button :onClick="AddProject" type="primary" :icon="Plus" />
-          </el-tooltip>
-        </div>
+    <div style="display: inline-block; margin-left: 10px">
+      <el-select v-model="value4" :onChange="filterByType" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="By Settlement">
+        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+    </div>
 
-        <el-divider border-style="dashed" content-position="left">Results</el-divider>
+    <div style="display: inline-block; margin-left: 20px">
+      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+        placeholder="Search by Name" />
+    </div>
+
+    <div style="display: inline-block; margin-left: 20px">
+      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+    </div>
+
+    <div style="display: inline-block; margin-left: 20px">
+      <el-tooltip content="Add Project" placement="top">
+        <el-button :onClick="AddProject" type="primary" :icon="Plus" />
+      </el-tooltip>
+    </div>
+
+    <div style="display: inline-block; margin-left: 20px">
+      <el-tooltip content="Download" placement="top">
+        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+      </el-tooltip>
+    </div>
+
+
+    <el-divider border-style="dashed" content-position="left">Results</el-divider>
+
+    <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
+      <el-tab-pane label="List" name="list">
 
         <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
           :currentPage="currentPage">
           <template #action="data">
             <el-tooltip content="View Profile" placement="top">
               <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
+            </el-tooltip>
+            <el-tooltip content="View on Map" placement="top">
+              <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
+            </el-tooltip>
+
+            <el-tooltip content="Edit" placement="top">
+              <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+            </el-tooltip>
+
+            <el-tooltip content="Delete" placement="top">
+              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                title="Are you sure to delete this record?" @confirm="DeleteBeneficiary(data as TableSlotDefault)">
+                <template #reference>
+                  <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                </template>
+              </el-popconfirm>
             </el-tooltip>
 
 
@@ -698,23 +1099,70 @@ const AddProject = () => {
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
 
-
-      <el-tab-pane label="Map">
-        <el-card class="box-card" />
-
+      <el-tab-pane label="Map" name="Map">
         <div id="mapContainer" class="basemap"></div>
-
       </el-tab-pane>
-
     </el-tabs>
 
 
+
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="30%" draggable>
+      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+
+        <el-form-item label="Settlement" prop="settlement_id">
+          <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement">
+            <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+
+        <el-form-item label="Title">
+          <el-input v-model="ruleForm.title" />
+        </el-form-item>
+
+        <el-form-item label="Beneficiaries (M)">
+          <el-input-number v-model="ruleForm.male_beneficiaries" />
+        </el-form-item>
+        <el-form-item label="Beneficiaries (F)">
+          <el-input-number v-model="ruleForm.female_beneficiaries" />
+        </el-form-item>
+
+        <el-form-item label="Cost">
+          <el-input-number v-model="ruleForm.cost" />
+        </el-form-item>
+
+        <el-form-item label="Period" prop="period">
+          <el-date-picker v-model="ruleForm.period" type="monthrange" range-separator="To"
+            start-placeholder="Start date" end-placeholder="End date" />
+        </el-form-item>
+
+        <el-form-item label="Programme" prop="programme">
+          <el-select v-model="ruleForm.programme_id" filterable placeholder="Select">
+            <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+
+
+
+      </el-form>
+      <template #footer>
+
+        <span class="dialog-footer">
+          <el-button @click="AddDialogVisible = false">Cancel</el-button>
+          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+
+        </span>
+      </template>
+    </el-dialog>
   </ContentWrap>
+
+
 </template>
  
 <style scoped>
 .basemap {
   width: 100%;
-  height: 450px;
+  height: 400px;
 }
 </style>
