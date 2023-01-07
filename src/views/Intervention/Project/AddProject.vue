@@ -480,7 +480,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.geom = geoJson.value
 
       console.log("Shp----->", geoJson.value)
-      await CreateRecord(ruleForm)
+      const report = await CreateRecord(ruleForm)
 
 
 
@@ -488,21 +488,28 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       const filesFormData = new FormData()
       for (var i = 0; i < fileList.value.length; i++) {
         console.log('------>file', fileList.value[i])
-        fileTypes.push('documentation')
+        var format = fileList.value[i].name.split('.').pop() // get file extension
+        fileTypes.push(format)
 
         filesFormData.append('file', fileList.value[i].raw)
+        filesFormData.append('DocType', format)
+
       }
 
-      filesFormData.append('report_code', ruleForm.code)
+
+      filesFormData.append('parent_code', report.data.id)
       filesFormData.append('model', model)
-      filesFormData.append('grp', 'Projects Documents')
+      filesFormData.append('grp', 'Project Documentation')
+      filesFormData.append('code', uuid.v4())
+      filesFormData.append('column', 'project_id')
 
-      filesFormData.append('DocTypes', fileTypes)
 
 
-      console.log(filesFormData)
+      console.log('Upload starting ')
       // await uploadDocuments(formData)
       await uploadDocuments(filesFormData)
+
+      console.log('uploading complete')
 
     } else {
       console.log('error submit!', fields)
@@ -545,27 +552,9 @@ const uploadPolygon = (poly: any) => {
   // ruleForm.geom = poly
 }
 
-const xuploadPolygon = (poly: any) => {
-
-  console.log('Created Shape', poly.features)
-  coordinates.value = []
-
-  for (let i = 0; i < poly.features.length; i++) {
-    if (poly.features[i].geometry.type == 'Point' || poly.features[i].geometry.type == 'LineString') {
-      coordinates.value.push(poly.features[i].geometry.coordinates)
-    }
-    else {
-      coordinates.value.push(poly.features[i].geometry.coordinates[0])
-    }
-
-  }
-  geoJson.value.type = poly.features[0].geometry.type
-  geoJson.value.coordinates = coordinates.value
 
 
-}
-
-const title = 'Add/Create KISIP Project'
+const title = 'Add/Create  Project'
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 
@@ -735,8 +724,9 @@ const geoSource = ref(false)
 
 
 
-            <el-upload v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" :auto-upload="false"
-              action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :on-change="handleUploadDocuments">
+            <el-upload v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" multiple
+              :auto-upload="false" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+              :on-change="handleUploadDocuments">
               <el-button type="primary">Click to upload documentation</el-button>
               <template #tip>
                 <div class="el-upload__tip">
@@ -776,5 +766,4 @@ const geoSource = ref(false)
     </el-row>
   </ContentWrap>
 </template>
- 
- 
+

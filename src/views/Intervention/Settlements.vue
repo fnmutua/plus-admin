@@ -72,6 +72,7 @@ const model = 'intervention'
 const { t } = useI18n()
 
 const columns: TableColumn[] = [
+
   {
     field: 'index',
     label: t('userDemo.index'),
@@ -91,9 +92,10 @@ const columns: TableColumn[] = [
     field: 'intervention_type.type',
     label: t('Type')
   },
+
   {
     field: 'action',
-    width: "300",
+    width: "250",
     fixed: "right",
     label: 'Operations'
   }

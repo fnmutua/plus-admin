@@ -5,6 +5,9 @@ const Sequelize = require('sequelize')
  const op = Sequelize.Op
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
+const crypto = require('crypto');
+
+
 const nodemailer = require('nodemailer')
 const { authJwt } = require("../middleware");
 var fs = require('fs');
@@ -1052,7 +1055,7 @@ exports.modelUpload = (req, res) => {
   }
 }
 
-exports.ReportDocumentationUpload = (req, res) => {
+exports.xReportDocumentationUpload = (req, res) => {
   console.log(req.files)
 
   if (!req.files) {
@@ -1152,11 +1155,156 @@ exports.ReportDocumentationUpload = (req, res) => {
     //   })
   }
 }
+exports.ReportDocumentationUpload = async (req, res) => {
+  console.log(req.files)
+  var column = req.body.column
 
-exports.RemoveDocument = (req, res) => {
+  if (!req.files) {
+    return res.status(500).send({ msg: 'file is not found' })
+  }
+  console.log('In upload single.....', req.files.file)
+  console.log('In upload  multiple express.....', req.files.file.length)
+
+  if (Array.isArray(req.files.file)) {
+
+    var myFiles = req.files.file
+
+  } else {
+    var myFiles = [req.files.file]
+
+
+  }
+  // accessing the file
+  var arr = req.body.DocType
+  //let ftypes = arr.split(',')
+
+  const parent_code = req.body.parent_code
+
+  console.log('myFiles', myFiles.length)
+
+  // Run for more than one document
+
+    
+        var errors = []
+
+    for (let i = 0; i < myFiles.length; i++) {
+        // Sin
  
-  console.log("Removing files:", req.body.filename )
+      let fname = parent_code + '_' + myFiles[i].name.replace(/\s/g, '_')
+      let location= `./public/${fname}`
+         var thisFile = {
+              type: req.body.DocType[i],
+              name: fname,
+              file_path: `./public/${fname}`,
+              group:  req.body.grp
+            }
+        console.log('Thisfile', thisFile, req.body.model)
+        var reg_model = 'document'   
+        var obj = {}
+        obj.name = fname
+        obj.category= req.body.grp
+        obj.format=req.body.DocType[i]
+        obj.location= `./public/${fname}`
+        obj[column]=req.body.parent_code
+        obj.code=crypto.randomUUID()
 
-var filePath = './public/'+ req.body.filename; 
-fs.unlinkSync(filePath);
+        console.log("kinsert Object",obj )
+      // insert
+      await db.models[reg_model].create(obj)
+        .then(function (item) {
+          console.log("Movig to public...",location)
+          myFiles[i].mv(location)
+        
+      })
+      .catch(function (err) {
+        // handle error;
+        console.log('error0---------->', err)
+        errors.push(err)
+
+        if (err.name == 'SequelizeUniqueConstraintError') {
+          var message = 'One or more table constraints are violated. Check your id columns'
+        } else {
+          var message = 'The uploaded file does not match the required fields'
+        }
+        return res.status(500).send({ message: message })
+      })
+  }
+  if (errors.length === 0) {
+    res.status(200).send({
+      message: 'Upload Successful',
+      code: '0000'
+    })
+  
+
+  } else {
+
+    res.status(500).send({
+      message: 'Upload failed. There are '+errors.length  + ' errors',
+      code: '0000'
+    })
+  }
+
+
+  
+}
+exports.RemoveDocument = (req, res) => {
+  var reg_model = 'document'  
+  let errors =[]
+  console.log("Removing files:", req.body.filesToDelete )
+ 
+  for (let i = 0; i < req.body.filesToDelete.length; i++) {
+
+    if (typeof(req.body.filesToDelete[i]) == 'object') { 
+
+      var filePath = './public/' + req.body.filesToDelete[i].name;
+      fs.unlinkSync(filePath);
+    
+      db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i].name } })
+        .then((result) => {
+       console.log('succeed')
+      }) 
+      .catch(function (err) {
+        // handle error;
+        console.log('error0---------->', err)
+        errors.push(err)
+  
+      })
+    } else {
+
+      var filePath = './public/' + req.body.filesToDelete[i];
+      fs.unlinkSync(filePath);
+    
+      db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i] } })
+        .then((result) => {
+       console.log('succeed')
+      }) 
+      .catch(function (err) {
+        // handle error;
+        console.log('error0---------->', err)
+        errors.push(err)
+  
+      })
+
+    }
+
+
+
+
+
+    if (errors.length ===0) {
+      res.status(200).send({
+        message: 'Delete Successful',
+        code: '0000'
+      })
+    } else {
+      res.status(500).send({
+        message: 'Delete Failed',
+        code: '0000'
+      })
+    }
+  
+    }
+
+
+
 }

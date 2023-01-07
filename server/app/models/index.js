@@ -324,6 +324,44 @@ db.models.programme.hasMany(db.models.project, {
 })
 
 
+// Docuemntation  - indicator_category_report
+db.models.document.belongsTo(db.models.indicator_category_report, {
+  foreignKey: 'report_id',
+})
+
+db.models.indicator_category_report.hasMany(db.models.document, {
+  foreignKey: 'report_id'
+})
+
+db.models.document.belongsTo(db.models.project, {
+  foreignKey: 'project_id',
+})
+
+db.models.project.hasMany(db.models.document, {
+  foreignKey: 'project_id'
+})
+
+
+// db.models.document.belongsTo(db.models.indicator_category_report, {
+//   foreignKey: 'parent_code',
+//   targetKey:'code'
+// })
+
+// db.models.indicator_category_report.hasMany(db.models.document, {
+//   foreignKey: 'parent_code'
+// })
+
+
+// db.models.document.belongsTo(db.models.project, {
+//   foreignKey: 'project_code',
+// })
+
+// db.models.project.hasMany(db.models.document, {
+//   foreignKey: 'project_code'
+// })
+
+ 
+
 
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
