@@ -6,7 +6,7 @@ import { useForm } from '@/hooks/web/useForm'
 import { ElButton, ElInput, FormRules } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { UserType } from '@/api/register/types'
-import { registerApi } from '@/api/register'
+import { registerApi, getCountyAuth } from '@/api/register'
 import { getCountyListApi } from '@/api/counties'
 import { CountyType } from '@/api/counties/types'
 
@@ -24,18 +24,13 @@ const countiesOptions = []
 let tableDataList = ref<CountyType[]>([])
 
 const getTableList = async (params?: Params) => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 5,
-      curUser: 1, // Id for logged in user
-      model: 'county',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response) => {
-    console.log('Received response:', response)
+
+  const formData = {}
+  formData.model = 'county'
+
+
+  const res = await getCountyAuth({}).then((response) => {
+    console.log('List of counties:', response)
     //tableDataList.value = response.data
     var cnty = response.data
 
@@ -50,6 +45,7 @@ const getTableList = async (params?: Params) => {
     })
   })
 }
+
 getTableList()
 console.log('tableDataList:', countiesOptions)
 
@@ -150,7 +146,7 @@ const schema = reactive<FormSchema[]>([
       span: 24
     },
     componentProps: {
-      multiple:true,
+      multiple: false,
       options: RoleOptions,
       style: {
         width: '100%'
@@ -215,7 +211,7 @@ const loginRegister = async () => {
         console.log('ValidForm', formData)
         formData.email = formData.username.trim()
         formData.username = formData.username.trim()
-       // formData.role = [formData.role]   // convert the user roles to an array
+        // formData.role = [formData.role]   // convert the user roles to an array
 
         const res = await registerApi(formData)
         console.log('After Registre', res)
@@ -228,15 +224,8 @@ const loginRegister = async () => {
 </script>
 
 <template>
-  <Form
-    :schema="schema"
-    :rules="rules"
-    label-position="side"
-    hide-required-asterisk
-    size="large"
-    class="dark:(border-1 border-[var(--el-border-color)] border-solid)"
-    @register="register"
-  >
+  <Form :schema="schema" :rules="rules" label-position="side" hide-required-asterisk size="large"
+    class="dark:(border-1 border-[var(--el-border-color)] border-solid)" @register="register">
     <template #title>
       <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.register') }}</h2>
     </template>

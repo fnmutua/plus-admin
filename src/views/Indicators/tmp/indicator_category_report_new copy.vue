@@ -12,7 +12,6 @@ import {
   Edit,
   Download,
   Filter,
-  View,
   Delete,
   UploadFilled,
   InfoFilled
@@ -107,7 +106,7 @@ var filterValues = ['New']  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['settlement', 'county', 'document']
+const associated_multiple_models = ['settlement', 'county']
 const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -1076,7 +1075,7 @@ getSettlement()
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <!--     <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="Edit" placement="top">
@@ -1091,73 +1090,35 @@ getSettlement()
             </template>
           </el-popconfirm>
         </el-tooltip>
+
+
+
+
       </template>
-    </Table> -->
-
-    <el-table :data="tableDataList" style="width: 100%">
-      <el-table-column type="expand">
-        <template #default="props">
-          <div m="4">
-            <h3>Documents</h3>
-            <el-table :data="props.row.documents" class="mb-4">
-              <el-table-column label="Name" prop="name" />
-              <el-table-column label="Type" prop="category" />
-              <el-table-column label="Link" prop="location" />
-              <el-table-column label="Operations">
-                <template #default="scope">
-                  <el-link :href="props.row.documents[scope.$index].name" download>
-                    <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
-                  </el-link>
-
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" />
-      <el-table-column label="Settlement" prop="settlement.name" />
-      <el-table-column label="County" prop="county.name" />
-      <el-table-column label="Unit" prop="indicator_category.indicator.unit" />
-      <el-table-column label="Amount" prop="amount" />
-      <el-table-column label="Status" prop="status" />
-
-      <el-table-column fixed="right" label="Operations" width="120">
-        <template #default="scope">
-
-          <el-tooltip content="Review" placement="top">
-            <el-button type="primary" :icon="View" @click="editIndicator(scope as TableSlotDefault)" circle />
-          </el-tooltip>
-
-          <el-tooltip content="Delete" placement="top">
-            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-              title="Are you sure to delete this report?" @confirm="DeleteIndicator(scope as TableSlotDefault)">
-              <template #reference>
-                <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-              </template>
-            </el-popconfirm>
-          </el-tooltip>
-        </template>
-      </el-table-column>
-
-    </el-table>
-
+    </Table>
     <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
   <el-dialog v-model="ReviewDialog" @close="handleClose" :title="formHeader" width="30%" draggable>
+
     <el-descriptions title="" direction="vertical" :column="4" size="small" border>
       <el-descriptions-item label="Location">{{ report.county }}</el-descriptions-item>
       <el-descriptions-item label="Indicator" :span="2">{{ report.indicator }}</el-descriptions-item>
       <el-descriptions-item label="Amount">{{ report.amount }}</el-descriptions-item>
+
       <el-descriptions-item label="Date"> {{ report.date }} </el-descriptions-item>
+
     </el-descriptions>
+
+
     <template #footer>
       <span class="dialog-footer">
         <el-button type="success" @click="approve">Approve</el-button>
         <el-button type="danger" @click="reject">Reject</el-button>
+
+
       </span>
     </template>
   </el-dialog>
@@ -1214,3 +1175,4 @@ getSettlement()
 
 
 </template>
+ 

@@ -5,10 +5,10 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElTableColumn
+  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter } from '@element-plus/icons-vue'
+import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
 
 import { ref, reactive, h } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
@@ -35,6 +35,7 @@ import { Icon } from '@iconify/vue';
 
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
+import { UserType } from '@/api/register/types'
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 mapboxgl.accessToken = MapBoxToken;
@@ -64,6 +65,9 @@ const value2 = ref([])
 var value3 = ref([])
 var value4 = ref([])
 var value5 = ref([])
+
+const morefileList = ref<UploadUserFile[]>([])
+
 
 const interVentionTypeOptions = ref([])
 const benefitTypeOptions = ref([])
@@ -101,6 +105,7 @@ const associated_multiple_models = ['settlement', 'programme', 'document']
 
 const model = 'project'
 //// ------------------parameters -----------------------////
+const fileUploadList = ref<UploadUserFile[]>([])
 
 const facilityGeo = ref([])
 const facilityGeoPoints = ref()
@@ -235,6 +240,51 @@ const filterByType = async (title: any) => {
 }
 
 
+
+const currentRow = ref()
+const addMoreDocuments = ref()
+const addMoreDocs = (data: TableSlotDefault) => {
+
+  currentRow.value = data
+
+  addMoreDocuments.value = true
+
+  console.log('currentRow', currentRow.value)
+
+}
+
+const submitMoreDocuments = async () => {
+  console.log('More files.....', morefileList)
+
+  // uploading the documents 
+  const fileTypes = []
+  const formData = new FormData()
+  let files = []
+  for (var i = 0; i < morefileList.value.length; i++) {
+    console.log('------>file', morefileList.value[i])
+    var format = morefileList.value[i].name.split('.').pop() // get file extension
+    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+    fileTypes.push(format)
+    // formData.append('file', fileList.value[i])
+    // formData.file = fileList.value[i]
+    formData.append('file', morefileList.value[i].raw)
+    formData.append('DocType', format)
+
+  }
+
+
+  formData.append('parent_code', currentRow.value.id)
+  formData.append('model', model)
+  formData.append('grp', 'Project Documentation')
+  formData.append('code', uuid.v4())
+  formData.append('column', 'project_id')  //Column to save ID 
+
+
+
+  console.log(formData)
+  await uploadDocuments(formData)
+
+}
 
 
 const onPageChange = async (selPage: any) => {
@@ -881,6 +931,43 @@ const editForm = async (formEl: FormInstance | undefined) => {
       ruleForm.model = model
       await updateOneRecord(ruleForm).then(() => { })
 
+
+      const fileTypes = []
+      const updateformData = new FormData()
+
+      for (var i = 0; i < fileUploadList.value.length; i++) {
+        console.log('------>file', fileUploadList.value[i])
+        var format = fileUploadList.value[i].name.split('.').pop() // get file extension
+        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+        fileTypes.push(format)
+        // formData.append('file', fileList.value[i])
+        // formData.file = fileList.value[i]
+        updateformData.append('file', fileUploadList.value[i].raw)
+        updateformData.append('DocType', format)
+
+      }
+
+
+      updateformData.append('parent_code', ruleForm.id)
+      updateformData.append('model', model)
+      updateformData.append('grp', 'Project Documentation')
+      updateformData.append('code', uuid.v4())
+      updateformData.append('column', 'project_id')
+
+
+      // formData.append('DocTypes', fileTypes)
+
+      console.log(updateformData)
+      await uploadDocuments(updateformData)
+
+
+
+
+
+
+
+
+
     } else {
       console.log('error in editiinh!', fields)
     }
@@ -975,7 +1062,7 @@ const AddProject = () => {
 const AddDialogVisible = ref(false)
 const formHeader = ref('Edit Project')
 
-const editIndicator = (data: TableSlotDefault) => {
+const editProject = (data: TableSlotDefault) => {
 
   showEditSaveButton.value = true
 
@@ -991,6 +1078,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.settlement_id = data.row.settlement_id
   ruleForm.code = data.row.code
   ruleForm.geom = data.row.geom
+  fileUploadList.value = data.row.documents
 
 
 
@@ -1030,6 +1118,14 @@ const DeleteProject = (data: TableSlotDefault) => {
     tableDataList.value.splice(index, 1);
   }
 
+}
+
+const tableRowClassName = (data) => {
+  console.log('Row Styling --------->', data.row)
+  if (data.row.documents.length > 0) {
+    return 'warning-row'
+  }
+  return ''
 }
 
 </script>
@@ -1085,7 +1181,7 @@ const DeleteProject = (data: TableSlotDefault) => {
             </el-tooltip>
 
             <el-tooltip content="Edit" placement="top">
-              <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+              <el-button type="success" :icon="Edit" @click="editProject(data as TableSlotDefault)" circle />
             </el-tooltip>
 
             <el-tooltip content="Delete" placement="top">
@@ -1102,7 +1198,7 @@ const DeleteProject = (data: TableSlotDefault) => {
         </Table> -->
 
 
-        <el-table :data="tableDataList" style="width: 100%">
+        <el-table :data="tableDataList" style="width: 100%" :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1110,9 +1206,8 @@ const DeleteProject = (data: TableSlotDefault) => {
                 <el-table :data="props.row.documents">
                   <el-table-column label="Name" prop="name" />
                   <el-table-column label="Type" prop="category" />
-                  <el-table-column label="Link" prop="location" />
 
-                  <el-table-column label="Operations">
+                  <el-table-column label="Actions">
                     <template #default="scope">
                       <el-link :href="props.row.documents[scope.$index].name" download>
                         <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
@@ -1129,6 +1224,8 @@ const DeleteProject = (data: TableSlotDefault) => {
                     </template>
                   </el-table-column>
                 </el-table>
+                <el-button @click="addMoreDocs(props.row)" type="info" round>Add More Documents</el-button>
+
               </div>
             </template>
           </el-table-column>
@@ -1141,7 +1238,7 @@ const DeleteProject = (data: TableSlotDefault) => {
             <template #default="scope">
 
               <el-tooltip content="Edit" placement="top">
-                <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+                <el-button type="success" :icon="Edit" @click="editProject(scope as TableSlotDefault)" circle />
               </el-tooltip>
 
               <el-tooltip content="Delete" placement="top">
@@ -1205,12 +1302,17 @@ const DeleteProject = (data: TableSlotDefault) => {
           </el-select>
         </el-form-item>
 
-
-
-
+        <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
+            :limit="3" :auto-upload="false">
+            <el-button type="primary">Click to upload</el-button>
+            <template #tip>
+              <div class="el-upload__tip">
+                pdf/xlsx/csv/jpg/png files with a size less than 20mb.
+              </div>
+            </template>
+          </el-upload></el-form-item>
       </el-form>
       <template #footer>
-
         <span class="dialog-footer">
           <el-button @click="AddDialogVisible = false">Cancel</el-button>
           <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
@@ -1218,6 +1320,21 @@ const DeleteProject = (data: TableSlotDefault) => {
         </span>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
+      <el-upload v-model:file-list="morefileList" class="upload-demo"
+        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="3" :auto-upload="false">
+        <el-button type="primary">Click to upload</el-button>
+        <template #tip>
+          <div class="el-upload__tip">
+            jpg/png files with a size less than 500KB.
+          </div>
+        </template>
+      </el-upload>
+      <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
+
+    </el-dialog>
+
   </ContentWrap>
 
 
@@ -1227,5 +1344,15 @@ const DeleteProject = (data: TableSlotDefault) => {
 .basemap {
   width: 100%;
   height: 400px;
+}
+</style>
+
+<style>
+.el-table .warning-row {
+  --el-table-tr-bg-color: var(--el-color-warning-light-9);
+}
+
+.el-table .success-row {
+  --el-table-tr-bg-color: var(--el-color-success-light-9);
 }
 </style>
