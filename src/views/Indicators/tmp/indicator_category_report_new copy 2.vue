@@ -12,7 +12,6 @@ import {
   Edit,
   Download,
   Filter,
-  View,
   Delete,
   UploadFilled,
   InfoFilled
@@ -22,7 +21,7 @@ import { ref, reactive, h } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn,
-  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, FormRules, ElPopconfirm
+  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, FormRules, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -38,7 +37,7 @@ import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
 
 
-
+import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
 
 
 
@@ -83,25 +82,18 @@ if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) 
   showAdminButtons.value = true
 }
 
-const ReviewDialog = ref(false)
-const RejectDialog = ref(false)
-const rejectReason = ref('')
-
+const AddDialogVisible = ref(false)
 const ImportDialogVisible = ref(false)
 const formHeader = ref('Add Report')
 const showSubmitBtn = ref(false)
 const showProcessBtn = ref(true)
+const addMoreDocuments = ref(false)
 
 const showEditSaveButton = ref(false)
 const cascadeOptions = ref([])
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-
-const currentUser = wsCache.get(appStore.getUserInfo)
-
-
-
 var filters = ['status']
 var filterValues = ['New']  // remember to change here!
 var tblData = []
@@ -111,21 +103,6 @@ const associated_multiple_models = ['settlement', 'county', 'document']
 const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
-const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
-  indicator_category_id: '',
-  location: [],
-  county_id: '',
-  settlement_id: null,
-  period: getQuarter,
-  date: new Date(),
-  amount: '',
-  files: '',
-  userId: '',
-  status: '',
-  reject_msg: '',
-  code: ''
-})
 
 const fileUploadList = ref<UploadUserFile[]>([])
 
@@ -136,21 +113,18 @@ const show = ref(false)
 
 const { t } = useI18n()
 const formatter = (row) => {
-  if (row.documentation) {
-
-
-    return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, {
+  console.log('row', row)
+  if (row.document.name) {
+    return h(ElLink, { href: row.document.name, download: row.document.name, type: 'danger' }, h(Icon, {
       icon: "ic:outline-download-for-offline", height: '36'
     }))
-
-    // return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, { icon: "material-symbols:cloud-download", height: '36' }), 'Download ')
-
-
   } else {
     return
   }
 
 }
+
+
 const columns: TableColumn[] = [
   {
     field: 'index',
@@ -183,7 +157,16 @@ const columns: TableColumn[] = [
     field: 'date',
     label: t('Date')
   },
-
+  {
+    field: 'status',
+    label: t('Status')
+  },
+  {
+    field: '',
+    width: "250",
+    label: t('Documentation'),
+    type: 'expand'
+  },
   {
     field: 'documentation',
     label: t('Documents'),
@@ -519,7 +502,6 @@ const handleDownload = () => {
 }
 
 
-
 const mergeCountyAndSettlementOptions = () => {
 
 
@@ -543,67 +525,93 @@ const props1 = {
   checkStrictly: true,
 }
 
-const report = ref(
-  {}
-)
-const editIndicator = (data: TableSlotDefault) => {
+const editReport = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
+
   showEditSaveButton.value = true
   console.log(data)
-
-  ruleForm.id = data.row.id
-  ruleForm.county_id = data.row.county_id
-  ruleForm.settlement_id = data.row.settlement_id
-  ruleForm.date = data.row.date
-  ruleForm.amount = data.row.amount
-  ruleForm.indicator_category_id = data.row.indicator_category_id
-  ruleForm.location = [data.row.county_id]
-  if (data.row.settlement_id) {
-    ruleForm.location.push(data.row.settlement_id)
+  ruleForm.id = data.id
+  ruleForm.county_id = data.county_id
+  ruleForm.settlement_id = data.settlement_id
+  ruleForm.date = data.date
+  ruleForm.amount = data.amount
+  ruleForm.indicator_category_id = data.indicator_category_id
+  ruleForm.location = [data.county_id]
+  if (data.settlement_id) {
+    ruleForm.location.push(data.settlement_id)
   }
-  ruleForm.code = data.row.code
+  ruleForm.code = data.code
 
-  formHeader.value = 'Review Report'
-
-  // make the descriptions dataset 
-  report.value.county = data.row.county.name
-  report.value.indicator = data.row.indicator_category.indicator_name
-  report.value.status = data.row.status
-  report.value.date = data.row.date
-  report.value.amount = data.row.amount
-
-
+  formHeader.value = 'Edit Report'
+  fileUploadList.value = data.documents
 
   console.log(' ruleForm.location', ruleForm.location)
 
-  ReviewDialog.value = true
+  AddDialogVisible.value = true
 }
 
 
-const DeleteIndicator = (data: TableSlotDefault) => {
-  console.log('----->', data.row.id)
+
+const DeleteReport = (data: TableSlotDefault) => {
+  console.log('----->', data)
   let formData = {}
-  formData.id = data.row.id
+  formData.id = data.id
   formData.model = 'indicator_category_report'
-  formData.filename = data.row.documentation
 
 
   DeleteRecord(formData)
+  console.log("Docs to de;ete", data.documents.length)
 
-  deleteDocument(formData)
+  // Delete docuemnts only if there's any docuemnt to delete 
+  if (data.documents.length > 0) {
+    formData.filesToDelete = data.documents
+    deleteDocument(formData)
+
+    // remove the deleted object from array list 
+    let index = tableDataList.value.documents.indexOf(data);
+    if (index !== -1) {
+      tableDataList.value.documents.value.splice(index, 1);
+    }
+  }
 
 
   console.log(tableDataList.value)
 
   // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
+  let index = tableDataList.value.indexOf(data);
   if (index !== -1) {
     tableDataList.value.splice(index, 1);
   }
 
 }
 
+const removeDocument = (data: TableSlotDefault) => {
+  console.log('----->', data)
+  let formData = {}
+  formData.id = data.id
+  formData.model = 'indicator_category_report'
+  formData.filesToDelete = [data.name]
 
+
+
+  deleteDocument(formData)
+
+
+
+}
+
+const currentRow = ref()
+const addMoreDocs = (data: TableSlotDefault) => {
+
+  currentRow.value = data
+
+  addMoreDocuments.value = true
+
+  console.log('currentRow', currentRow.value)
+
+
+
+}
 const handleClose = () => {
 
   console.log("Closing the dialoig")
@@ -617,11 +625,43 @@ const handleClose = () => {
   ruleForm.location = []
 
   formHeader.value = 'Add Report'
-  ReviewDialog.value = false
+  AddDialogVisible.value = false
 
 }
 
 
+const submitMoreDocuments = async () => {
+  console.log('More files.....', morefileList)
+
+  // uploading the documents 
+  const fileTypes = []
+  const formData = new FormData()
+  let files = []
+  for (var i = 0; i < morefileList.value.length; i++) {
+    console.log('------>file', morefileList.value[i])
+    var format = morefileList.value[i].name.split('.').pop() // get file extension
+    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+    fileTypes.push(format)
+    // formData.append('file', fileList.value[i])
+    // formData.file = fileList.value[i]
+    formData.append('file', morefileList.value[i].raw)
+    formData.append('DocType', format)
+
+  }
+
+
+  formData.append('parent_code', currentRow.value.id)
+  formData.append('model', model)
+  formData.append('grp', 'M&E Documentation')
+  formData.append('code', uuid.v4())
+  formData.append('column', 'report_id')  //Column to save ID 
+
+
+
+  console.log(formData)
+  await uploadDocuments(formData)
+
+}
 
 
 const changeIndicator = async (indicator: any) => {
@@ -636,10 +676,25 @@ const changeIndicator = async (indicator: any) => {
 
 }
 
+
+
 function getQuarter(date = new Date()) {
   return Math.floor(date.getMonth() / 3 + 1);
 }
 
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  indicator_category_id: '',
+  location: [],
+  county_id: '',
+  settlement_id: null,
+  period: getQuarter,
+  date: new Date(),
+  amount: '',
+  files: '',
+  userId: '',
+  code: ''
+})
 
 const rules = reactive<FormRules>({
   indicator_id: [
@@ -653,7 +708,7 @@ const rules = reactive<FormRules>({
 })
 
 const AddReport = () => {
-  ReviewDialog.value = true
+  AddDialogVisible.value = true
   showSubmitBtn.value = true
 }
 
@@ -669,24 +724,32 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.period = getQuarter()
       ruleForm.code = uuid.v4()
       ruleForm.userId = userInfo.id
-      await CreateRecord(ruleForm)   // first save the form on DB
-
+      const report = await CreateRecord(ruleForm)   // first save the form on DB
+      console.log("Report", report.data.id)
 
       // uploading the documents 
       const fileTypes = []
       const formData = new FormData()
+      let files = []
       for (var i = 0; i < fileUploadList.value.length; i++) {
         console.log('------>file', fileUploadList.value[i])
-        var file = fileUploadList.value[i].name.split('.').pop() // get file extension
+        var format = fileUploadList.value[i].name.split('.').pop() // get file extension
         //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-        fileTypes.push('documentation')
+        fileTypes.push(format)
         // formData.append('file', fileList.value[i])
         // formData.file = fileList.value[i]
         formData.append('file', fileUploadList.value[i].raw)
+        formData.append('DocType', format)
+
       }
 
-      formData.append('report_code', ruleForm.code)
-      formData.append('DocTypes', fileTypes)
+
+      formData.append('parent_code', report.data.id)
+      formData.append('model', model)
+      formData.append('grp', 'M&E Documentation')
+      formData.append('code', uuid.v4())
+      formData.append('column', 'report_id')
+
 
       // formData.append('DocTypes', fileTypes)
 
@@ -694,7 +757,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       await uploadDocuments(formData)
 
 
-      ReviewDialog.value = false
+      AddDialogVisible.value = false
       handleClose()
 
     } else {
@@ -715,31 +778,34 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
       // dialogFormVisible.value = false
 
+      const fileTypes = []
+      const updateformData = new FormData()
 
-
-      // uploading the documents 
-      if (fileUploadList.value.length > 0) {
-        const fileTypes = []
-        const formData = new FormData()
-        for (var i = 0; i < fileUploadList.value.length; i++) {
-          console.log('------>file', fileUploadList.value[i])
-
-          fileTypes.push('documentation')
-
-          formData.append('file', fileUploadList.value[i].raw)
-        }
-
-        formData.append('report_code', ruleForm.code)
-        formData.append('DocTypes', fileTypes)
-
-        // formData.append('DocTypes', fileTypes)
-
-        console.log(formData)
-        await uploadDocuments(formData)
-
-        ReviewDialog.value = false
+      for (var i = 0; i < fileUploadList.value.length; i++) {
+        console.log('------>file', fileUploadList.value[i])
+        var format = fileUploadList.value[i].name.split('.').pop() // get file extension
+        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+        fileTypes.push(format)
+        // formData.append('file', fileList.value[i])
+        // formData.file = fileList.value[i]
+        updateformData.append('file', fileUploadList.value[i].raw)
+        updateformData.append('DocType', format)
 
       }
+
+
+      updateformData.append('parent_code', ruleForm.id)
+      updateformData.append('model', model)
+      updateformData.append('grp', 'M&E Documentation')
+      updateformData.append('code', uuid.v4())
+      updateformData.append('column', 'report_id')
+
+
+      // formData.append('DocTypes', fileTypes)
+
+      console.log(updateformData)
+      await uploadDocuments(updateformData)
+
 
 
     } else {
@@ -832,6 +898,7 @@ const getParentOptions = async (parent, parentSNo) => {
 }
 
 const fileList = ref<UploadUserFile[]>([])
+const morefileList = ref<UploadUserFile[]>([])
 
 const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
   console.log(file, uploadFiles)
@@ -1002,38 +1069,6 @@ const submitFiles = async () => {
 
   }
 }
-const approve = async () => {
-  console.log("Appprove")
-  ruleForm.status = 'Approved'
-  console.log(ruleForm)
-  ruleForm.model = 'indicator_category_report'
-  ruleForm.userId = userInfo.id
-  console.log(ruleForm)
-  await updateOneRecord(ruleForm).then(() => { })
-  ReviewDialog.value = false
-  getFilteredData(filters, filterValues)
-}
-
-const reject = async () => {
-  RejectDialog.value = true
-}
-const confirmReject = async () => {
-  console.log('Reject Msg', rejectReason.value)
-  ruleForm.status = 'Rejected'
-  ruleForm.reject_msg = rejectReason.value
-  console.log(ruleForm)
-  ruleForm.model = 'indicator_category_report'
-  ruleForm.userId = userInfo.id
-  console.log(ruleForm)
-  await updateOneRecord(ruleForm).then(() => { })
-  RejectDialog.value = false
-  ReviewDialog.value = false
-
-  getFilteredData(filters, filterValues)
-
-}
-
-
 
 getModeldefinition(model)
 
@@ -1044,10 +1079,15 @@ getInterventionsAll()
 
 getSettlement()
 
+
+
+
+
+
 </script>
 
 <template>
-  <ContentWrap :title="t('New Monitoring and Evaluation Reports')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Monitoring and Evaluation Reports')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
@@ -1070,29 +1110,22 @@ getSettlement()
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
+    <div style="display: inline-block; margin-left: 20px">
+      <el-tooltip content="Add Report " placement="top">
+        <el-button :onClick="AddReport" type="primary" :icon="Plus" />
+      </el-tooltip>
+    </div>
 
+    <div style="display: inline-block; margin-left: 20px">
+      <el-tooltip content="Import" placement="top">
+        <el-button :onClick="ImportReports" type="primary" :icon="UploadFilled" />
+      </el-tooltip>
+    </div>
 
 
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <!--     <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
-        </el-tooltip>
-
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
-      </template>
-    </Table> -->
 
     <el-table :data="tableDataList" style="width: 100%">
       <el-table-column type="expand">
@@ -1103,15 +1136,26 @@ getSettlement()
               <el-table-column label="Name" prop="name" />
               <el-table-column label="Type" prop="category" />
               <el-table-column label="Link" prop="location" />
+
               <el-table-column label="Operations">
                 <template #default="scope">
                   <el-link :href="props.row.documents[scope.$index].name" download>
                     <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
                   </el-link>
-
+                  <el-tooltip content="Delete" placement="top">
+                    <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                      icon-color="#626AEF" title="Are you sure to delete this document?"
+                      @confirm="removeDocument(scope.row)">
+                      <template #reference>
+                        <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                      </template>
+                    </el-popconfirm>
+                  </el-tooltip>
                 </template>
               </el-table-column>
             </el-table>
+            <el-button @click="addMoreDocs(props.row)" type="info" round>Add More Documents</el-button>
+
           </div>
         </template>
       </el-table-column>
@@ -1125,13 +1169,13 @@ getSettlement()
       <el-table-column fixed="right" label="Operations" width="120">
         <template #default="scope">
 
-          <el-tooltip content="Review" placement="top">
-            <el-button type="primary" :icon="View" @click="editIndicator(scope as TableSlotDefault)" circle />
+          <el-tooltip content="Edit" placement="top">
+            <el-button type="success" :icon="Edit" @click="editReport(scope.row as TableSlotDefault)" circle />
           </el-tooltip>
 
           <el-tooltip content="Delete" placement="top">
             <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-              title="Are you sure to delete this report?" @confirm="DeleteIndicator(scope as TableSlotDefault)">
+              title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
               <template #reference>
                 <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
               </template>
@@ -1142,41 +1186,55 @@ getSettlement()
 
     </el-table>
 
+
     <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
-  <el-dialog v-model="ReviewDialog" @close="handleClose" :title="formHeader" width="30%" draggable>
-    <el-descriptions title="" direction="vertical" :column="4" size="small" border>
-      <el-descriptions-item label="Location">{{ report.county }}</el-descriptions-item>
-      <el-descriptions-item label="Indicator" :span="2">{{ report.indicator }}</el-descriptions-item>
-      <el-descriptions-item label="Amount">{{ report.amount }}</el-descriptions-item>
-      <el-descriptions-item label="Date"> {{ report.date }} </el-descriptions-item>
-    </el-descriptions>
+  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+
+      <el-form-item label="Indicator">
+        <el-select filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
+          placeholder="Select Indicator">
+          <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+
+      <el-form-item label="Location">
+        <el-cascader v-model="ruleForm.location" :options="cascadeOptions" @change="getCascadeSelectedValues"
+          :props="props1" filterable clearable placeholder="Select Location of Monitoring" />
+      </el-form-item>
+      <el-form-item label="Date">
+        <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />
+      </el-form-item>
+      <el-form-item label="Quantity">
+        <el-input-number v-model="ruleForm.amount" />
+      </el-form-item>
+      <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
+          :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
+          :on-exceed="handleExceed" :auto-upload="false">
+          <el-button type="primary">Click to upload</el-button>
+          <template #tip>
+            <div class="el-upload__tip">
+              pdf/xlsx/csv/jpg/png files with a size less than 20mb.
+            </div>
+          </template>
+        </el-upload></el-form-item>
+
+
+    </el-form>
     <template #footer>
+
       <span class="dialog-footer">
-        <el-button type="success" @click="approve">Approve</el-button>
-        <el-button type="danger" @click="reject">Reject</el-button>
+        <el-button @click="AddDialogVisible = false">Cancel</el-button>
+        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
       </span>
     </template>
   </el-dialog>
-
-  <el-dialog v-model="RejectDialog" title="Reason for rejection" width="20%">
-    <el-input v-model="rejectReason" placeholder="" />
-    <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="RejectDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="confirmReject">
-          Confirm
-        </el-button>
-      </span>
-    </template>
-  </el-dialog>
-
-
-
-
 
   <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" width="50%" draggable>
     <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
@@ -1212,5 +1270,18 @@ getSettlement()
   </el-dialog>
 
 
+  <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
+    <el-upload v-model:file-list="morefileList" class="upload-demo"
+      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
+      :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false" :on-exceed="handleExceed">
+      <el-button type="primary">Click to upload</el-button>
+      <template #tip>
+        <div class="el-upload__tip">
+          jpg/png files with a size less than 500KB.
+        </div>
+      </template>
+    </el-upload>
+    <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
 
+  </el-dialog>
 </template>

@@ -87,6 +87,7 @@ const ImportDialogVisible = ref(false)
 const formHeader = ref('Add Report')
 const showSubmitBtn = ref(false)
 const showProcessBtn = ref(true)
+const addMoreDocuments = ref(false)
 
 const showEditSaveButton = ref(false)
 const cascadeOptions = ref([])
@@ -524,23 +525,25 @@ const props1 = {
   checkStrictly: true,
 }
 
-const editIndicator = (data: TableSlotDefault) => {
+const editReport = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
+
   showEditSaveButton.value = true
   console.log(data)
-  ruleForm.id = data.row.id
-  ruleForm.county_id = data.row.county_id
-  ruleForm.settlement_id = data.row.settlement_id
-  ruleForm.date = data.row.date
-  ruleForm.amount = data.row.amount
-  ruleForm.indicator_category_id = data.row.indicator_category_id
-  ruleForm.location = [data.row.county_id]
-  if (data.row.settlement_id) {
-    ruleForm.location.push(data.row.settlement_id)
+  ruleForm.id = data.id
+  ruleForm.county_id = data.county_id
+  ruleForm.settlement_id = data.settlement_id
+  ruleForm.date = data.date
+  ruleForm.amount = data.amount
+  ruleForm.indicator_category_id = data.indicator_category_id
+  ruleForm.location = [data.county_id]
+  if (data.settlement_id) {
+    ruleForm.location.push(data.settlement_id)
   }
-  ruleForm.code = data.row.code
+  ruleForm.code = data.code
 
   formHeader.value = 'Edit Report'
+  fileUploadList.value = data.documents
 
   console.log(' ruleForm.location', ruleForm.location)
 
@@ -597,6 +600,16 @@ const removeDocument = (data: TableSlotDefault) => {
 
 }
 
+const currentRow = ref()
+const addMoreDocs = (data: TableSlotDefault) => {
+
+  currentRow.value = data
+
+  addMoreDocuments.value = true
+
+  console.log('currentRow', currentRow.value)
+
+}
 const handleClose = () => {
 
   console.log("Closing the dialoig")
@@ -615,6 +628,38 @@ const handleClose = () => {
 }
 
 
+const submitMoreDocuments = async () => {
+  console.log('More files.....', morefileList)
+
+  // uploading the documents 
+  const fileTypes = []
+  const formData = new FormData()
+  let files = []
+  for (var i = 0; i < morefileList.value.length; i++) {
+    console.log('------>file', morefileList.value[i])
+    var format = morefileList.value[i].name.split('.').pop() // get file extension
+    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+    fileTypes.push(format)
+    // formData.append('file', fileList.value[i])
+    // formData.file = fileList.value[i]
+    formData.append('file', morefileList.value[i].raw)
+    formData.append('DocType', format)
+
+  }
+
+
+  formData.append('parent_code', currentRow.value.id)
+  formData.append('model', model)
+  formData.append('grp', 'M&E Documentation')
+  formData.append('code', uuid.v4())
+  formData.append('column', 'report_id')  //Column to save ID 
+
+
+
+  console.log(formData)
+  await uploadDocuments(formData)
+
+}
 
 
 const changeIndicator = async (indicator: any) => {
@@ -628,6 +673,8 @@ const changeIndicator = async (indicator: any) => {
   //ruleForm.indicator_category_title = filtredOptions[0].category_title
 
 }
+
+
 
 function getQuarter(date = new Date()) {
   return Math.floor(date.getMonth() / 3 + 1);
@@ -729,32 +776,34 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
       // dialogFormVisible.value = false
 
+      const fileTypes = []
+      const updateformData = new FormData()
 
-
-      // uploading the documents 
-      if (fileUploadList.value.length > 0) {
-        const fileTypes = []
-        const formData = new FormData()
-        for (var i = 0; i < fileUploadList.value.length; i++) {
-          console.log('------>file', fileUploadList.value[i])
-
-          fileTypes.push('documentation')
-
-          formData.append('file', fileUploadList.value[i].raw)
-        }
-
-        formData.append('report_code', ruleForm.code)
-        formData.append('DocTypes', fileTypes)
-        formData.append('code', fileTypes)
-
-        // formData.append('DocTypes', fileTypes)
-
-        console.log(formData)
-        await uploadDocuments(formData)
-
-        AddDialogVisible.value = false
+      for (var i = 0; i < fileUploadList.value.length; i++) {
+        console.log('------>file', fileUploadList.value[i])
+        var format = fileUploadList.value[i].name.split('.').pop() // get file extension
+        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+        fileTypes.push(format)
+        // formData.append('file', fileList.value[i])
+        // formData.file = fileList.value[i]
+        updateformData.append('file', fileUploadList.value[i].raw)
+        updateformData.append('DocType', format)
 
       }
+
+
+      updateformData.append('parent_code', ruleForm.id)
+      updateformData.append('model', model)
+      updateformData.append('grp', 'M&E Documentation')
+      updateformData.append('code', uuid.v4())
+      updateformData.append('column', 'report_id')
+
+
+      // formData.append('DocTypes', fileTypes)
+
+      console.log(updateformData)
+      await uploadDocuments(updateformData)
+
 
 
     } else {
@@ -847,6 +896,7 @@ const getParentOptions = async (parent, parentSNo) => {
 }
 
 const fileList = ref<UploadUserFile[]>([])
+const morefileList = ref<UploadUserFile[]>([])
 
 const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
   console.log(file, uploadFiles)
@@ -1027,6 +1077,18 @@ getInterventionsAll()
 
 getSettlement()
 
+
+const tableRowClassName = (data) => {
+  console.log('Row Styling --------->', data.row)
+  if (data.row.status === 'Rejected') {
+    return 'danger-row'
+  }
+  return ''
+}
+
+
+
+
 </script>
 
 <template>
@@ -1070,12 +1132,12 @@ getSettlement()
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
 
-    <el-table :data="tableDataList" style="width: 100%">
+    <el-table :data="tableDataList" style="width: 100%" :row-class-name="tableRowClassName">
       <el-table-column type="expand">
         <template #default="props">
           <div m="4">
             <h3>Documents</h3>
-            <el-table :data="props.row.documents">
+            <el-table :data="props.row.documents" class="mb-4">
               <el-table-column label="Name" prop="name" />
               <el-table-column label="Type" prop="category" />
               <el-table-column label="Link" prop="location" />
@@ -1097,6 +1159,8 @@ getSettlement()
                 </template>
               </el-table-column>
             </el-table>
+            <el-button @click="addMoreDocs(props.row)" type="info" round>Add More Documents</el-button>
+
           </div>
         </template>
       </el-table-column>
@@ -1111,7 +1175,7 @@ getSettlement()
         <template #default="scope">
 
           <el-tooltip content="Edit" placement="top">
-            <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+            <el-button type="success" :icon="Edit" @click="editReport(scope.row as TableSlotDefault)" circle />
           </el-tooltip>
 
           <el-tooltip content="Delete" placement="top">
@@ -1211,5 +1275,28 @@ getSettlement()
   </el-dialog>
 
 
+  <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
+    <el-upload v-model:file-list="morefileList" class="upload-demo"
+      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
+      :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false" :on-exceed="handleExceed">
+      <el-button type="primary">Click to upload</el-button>
+      <template #tip>
+        <div class="el-upload__tip">
+          jpg/png files with a size less than 500KB.
+        </div>
+      </template>
+    </el-upload>
+    <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
 
+  </el-dialog>
 </template>
+
+<style>
+.el-table .danger-row {
+  --el-table-tr-bg-color: var(--el-color-danger-light-9);
+}
+
+.el-table .success-row {
+  --el-table-tr-bg-color: var(--el-color-success-light-9);
+}
+</style>

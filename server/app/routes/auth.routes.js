@@ -19,4 +19,6 @@ module.exports = function (app) {
   app.post('/api/auth/signin', controller.signin)
   app.post('/api/auth/reset', controller.reset)
   app.post('/api/auth/set', controller.updatePassword)
+  app.post('/api/auth/county', controller.countyController)
+
 }
