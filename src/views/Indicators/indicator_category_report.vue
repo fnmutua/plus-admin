@@ -1244,7 +1244,7 @@ const tableRowClassName = (data) => {
   <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" width="50%" draggable>
     <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
-      :limit="1" :on-exceed="handleExceed" :auto-upload="false">
+      :limit="5" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>
     </el-upload>
 
@@ -1278,7 +1278,7 @@ const tableRowClassName = (data) => {
   <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
     <el-upload v-model:file-list="morefileList" class="upload-demo"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
-      :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false" :on-exceed="handleExceed">
+      :on-remove="handleRemove" :before-remove="beforeRemove" :limit="5" :auto-upload="false" :on-exceed="handleExceed">
       <el-button type="primary">Click to upload</el-button>
       <template #tip>
         <div class="el-upload__tip">
