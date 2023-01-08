@@ -27,7 +27,7 @@ import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter } from '
 
 
 const { t } = useI18n()
-const countyGeo = ref([])
+const countyGeo = ref()
 const loading = ref(true)
 
 const settlementsPercounty = ref([])
@@ -334,10 +334,11 @@ const getCountyGeo = async () => {
   const formData = {}
   formData.model = 'county'
   const res = await getAllGeo(formData)
-  console.log(res.data[0].json_build_object)
+  console.log('geo-national', res.data[0].json_build_object)
+
   if (res.data[0].json_build_object.features) {
     countyGeo.value = res.data[0].json_build_object
-    console.log("County-geo", countyGeo.value)
+    console.log("County-geo-v2", countyGeo.value)
 
     var bbox = turf.bbox(countyGeo.value);
     const y_coord = (bbox[1] + bbox[3]) / 2;
@@ -659,9 +660,9 @@ const DownloadXlsx = async () => {
                   <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
                 </div>
                 <!--  <download-excel :data="settlementsPercounty" worksheet="SettlementsPerCounty"
-                  name="SettlementsPerCounty.xls">
-                  <font-awesome-icon size="2x" color='red' icon="fa-solid fa-download" />
-                </download-excel> -->
+                 name="SettlementsPerCounty.xls">
+                 <font-awesome-icon size="2x" color='red' icon="fa-solid fa-download" />
+               </download-excel> -->
               </div>
             </template>
 
@@ -713,4 +714,3 @@ const DownloadXlsx = async () => {
   width: 480px;
 }
 </style>
- 

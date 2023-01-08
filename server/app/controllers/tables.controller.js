@@ -295,10 +295,18 @@ exports.modelCreateOneRecord = (req, res) => {
 
 exports.modelAllGeo = async (req, res) => {
   var reg_model = req.body.model
-  var qry2 =
+  var xqry2 =
     " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +
     reg_model +
     ' AS t where geom is not null'
+  
+  	
+	var qry2 =
+  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
+  reg_model + ' where geom is not null ) as f ) as fc'
+  
+  
+  
   const result_geo = await sequelize.query(qry2, {
     model: db.models[reg_model],
     mapToModel: false // pass true here if you have any mapped fields
@@ -314,11 +322,25 @@ exports.modelOneGeo = async (req, res) => {
   var reg_model = req.body.model
   var id = req.body.id
   var msg = ''
-  var qry2 =
+  var xqry2 =
     " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +
     reg_model +
     ' AS t where geom is not null and id=' +
     id
+  
+  
+  
+  	var xxqry2 =
+  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry  from  " +
+  reg_model +    ' where geom is not null and id= '+ id +' ) as f ) as fc'
+  
+  var qry2 =
+  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
+  reg_model  + ' where geom is not null and id= '+ id +' ) as f ) as fc'
+  
+  
+
+  
   const result_geo = await sequelize.query(qry2, {
     model: db.models[reg_model],
     mapToModel: false // pass true here if you have any mapped fields
@@ -348,7 +370,7 @@ exports.modelSelectGeo = async (req, res) => {
   } else {
     var arr = [req.body.id] //req.body // [80,64] }
   }
-  var qry2 =
+  var xqry2 =
     " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +
     reg_model +
     ' AS t where geom is not null and ' +
@@ -357,6 +379,18 @@ exports.modelSelectGeo = async (req, res) => {
     arr +
     ')'
   console.log('QRY', qry2)
+
+
+  var qdry2 =
+  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry  from  " +
+  reg_model +    ' where geom is not null '+ columnFilterField +  ' IN (' +  arr + ')' + ' ) as f ) as fc'
+  
+
+  var qry2 =
+  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
+  reg_model  + ' where geom is not null and   '+ columnFilterField +  ' IN (' +  arr + ')' + ' ) as f ) as fc'
+  
+  
 
   const result_geo = await sequelize.query(qry2, {
     model: db.models[reg_model],

@@ -1323,7 +1323,7 @@ const tableRowClassName = (data) => {
 
     <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
       <el-upload v-model:file-list="morefileList" class="upload-demo"
-        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="3" :auto-upload="false">
+        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>
           <div class="el-upload__tip">

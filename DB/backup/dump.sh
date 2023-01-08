@@ -58,8 +58,8 @@ now="$(date +'%d%m%Y')"
 
 echo $now.kisip.sql
 pg_dump kisip >  $now.kisip.sql
-
-
+pg_dump -Ft kisip >  $now.kisip.sql.tar
+ 
 
 echo
 echo "---------------------------------------------------------------------------------"
