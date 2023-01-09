@@ -443,40 +443,40 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           title: t('Map')
         }
       },
-      {
-        path: 'uploads',
-        component: () => import('@/views/Uploads/uploads.vue'),
-        name: 'Uploads',
+      // {
+      //   path: 'uploads',
+      //   component: () => import('@/views/Uploads/uploads.vue'),
+      //   name: 'Uploads',
 
-        meta: {
-          hidden: false,
-          props: true,
-          title: t('Documents')
-        }
-      },
-      {
-        path: 'upload/file',
-        component: () => import('@/views/Uploads/uploadFiles.vue'),
-        name: 'uploadFiles',
+      //   meta: {
+      //     hidden: false,
+      //     props: true,
+      //     title: t('Documents')
+      //   }
+      // },
+      // {
+      //   path: 'upload/file',
+      //   component: () => import('@/views/Uploads/uploadFiles.vue'),
+      //   name: 'uploadFiles',
 
-        meta: {
-          hidden: true,
-          props: true,
-          title: t('uploadFiles')
-        }
-      },
+      //   meta: {
+      //     hidden: true,
+      //     props: true,
+      //     title: t('uploadFiles')
+      //   }
+      // },
 
-      {
-        path: 'doc/:id',
-        component: () => import('@/views/Settlement/SettlementDocs.vue'),
-        name: 'SettlementDocs',
+      // {
+      //   path: 'doc/:id',
+      //   component: () => import('@/views/Settlement/SettlementDocs.vue'),
+      //   name: 'SettlementDocs',
 
-        meta: {
-          hidden: true,
-          props: true,
-          title: t('Documents')
-        }
-      },
+      //   meta: {
+      //     hidden: true,
+      //     props: true,
+      //     title: t('Documents')
+      //   }
+      // },
 
       {
         path: 'map',
@@ -3124,6 +3124,150 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/settlement',
+    component: Layout,
+    redirect: '/settlement/list',
+    name: 'Settlements',
+    meta: {
+      title: t('Settlements'),
+      icon: 'mdi:map-legend',
+      alwaysShow: true
+    },
+    children: [
+
+      {
+        path: 'list',
+        component: () => import('@/views/Settlement/Sett.vue'),
+        name: 'List',
+        meta: {
+          title: 'List',
+          icon:'material-symbols:format-list-bulleted-rounded'
+        }
+      },
+   
+      {
+        path: ':id',
+      //  component: 'views/Settlement/SettlementDetails',
+        component: () => import('@/views/Settlement/SettlementDetails.vue'),
+
+        name: 'SettlementDetails',
+        meta: {
+          hidden: true,
+          title: 'Settlement Details',
+          icon:'ion:document-attach',
+          noCache: true
+        }
+      },
+      {
+        path: 'add',
+       // component: 'views/Settlement/Add',
+        component: () => import('@/views/Settlement/AddSettlement.vue'),
+
+        name: 'AddSettlement',
+        meta: {
+          hidden: false,
+          title: 'Add',
+          icon:'material-symbols:add-location-rounded',
+          noCache: true
+        }
+      },
+      {
+        path: 'parcel',
+       // component: 'views/Parcel/index',
+        component: () => import('@/views/Parcel/index.vue'),
+
+        name: 'Parcel',
+        meta: { hidden: true,
+          title: 'Parcel',
+          icon:'carbon:choropleth-map',
+        }
+      },
+      {
+        path: 'hh/:id',
+      //  component: 'views/Household/index',
+        component: () => import('@/views/Household/index.vue'),
+
+        name: 'Households',
+        props: {
+          name: String
+        },
+        meta: {
+          hidden: true,
+          title: 'Households'
+        }
+      },
+      {
+        path: 'map/:id',
+      //  component: 'views/Map/SettlementParcelMap',
+        component: () => import('@/views/Map/SettlementParcelMap.vue'),
+
+        name: 'SettlementMap',
+  
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Map'
+        }
+      },
+      // {
+      //   path: 'uploads',
+      //  // component: 'views/Uploads/uploads',
+      //   component: () => import('@/views/Uploads/uploads.vue'),
+
+      //   name: 'Uploads',
+      //   meta: {
+      //     hidden: false,
+      //     props: true,
+      //     icon:'ion:document-attach',
+
+      //     title: 'Documents'
+      //   }
+      // },
+/*       {
+        path: 'upload/file',
+     //   component: 'views/Uploads/uploadFiles',
+        component: () => import('@/views/Uploads/uploadFiles.vue'),
+
+        name: 'uploadFiles',
+  
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'uploadFiles'
+        }
+      },
+       */
+  
+    //   {
+    //     path: 'doc/:id',
+    //  //   component: 'views/Settlement/SettlementDocs',
+    //     component: () => import('@/views/Settlement/SettlementDocs.vue'),
+
+    //     name: 'SettlementDocs',
+  
+    //     meta: {
+    //       hidden: true,
+    //       props: true,
+    //       title: 'Documents'
+    //     }
+    //   },
+  
+      {
+        path: 'map',
+      //  component: 'views/Map/index',
+        component: () => import('@/views/Map/index.vue'),
+
+        name: 'Map',
+        meta: {
+          hidden: true,
+          title: 'Map'
+        }
+      }
+
+    ]
+  },
+ 
+  {
     path: '/interventions',
     component: Layout,
     redirect: '/interventions/tenure/settlements',
@@ -3177,6 +3321,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        
           },
           {
+            path: 'parcel',
+           // component: 'views/Parcel/index',
+            component: () => import('@/views/Intervention/Project/Parcel.vue'),
+    
+            name: 'KisipParcel',
+            meta: { hidden: false,
+              title: 'Parcels',
+              icon:'carbon:choropleth-map',
+            }
+          },
+          {
             path: 'map/:id',
           //  component: 'views/Map/SettlementParcelMap',
             component: () => import('@/views/Intervention/Project/Map.vue'),
@@ -3204,161 +3359,31 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       {
         path: 'kensup',
         name: 'kensup',
-      //  component: 'views/Level/Menu2',
-        component: () => import('@/views/Level/Menu2.vue'),
-
+        component: Layout,
+        redirect: '/interventions/kensup/proj',
         meta: {
           title: 'KENSUP',
           icon:'mdi:house-city'
 
-        }
-      }
-    ]
-  },
-  
-  {
-    path: '/settlement',
-    component: Layout,
-    redirect: '/settlement/list',
-    name: 'Settlements',
-    meta: {
-      title: t('Settlements'),
-      icon: 'mdi:map-legend',
-      alwaysShow: true
-    },
-    children: [
-
-      {
-        path: 'list',
-        component: () => import('@/views/Settlement/Sett.vue'),
-        name: 'List',
-        meta: {
-          title: 'List',
-          icon:'material-symbols:format-list-bulleted-rounded'
-        }
-      },
-   
-      {
-        path: ':id',
-      //  component: 'views/Settlement/SettlementDetails',
-        component: () => import('@/views/Settlement/SettlementDetails.vue'),
-
-        name: 'SettlementDetails',
-        meta: {
-          hidden: true,
-          title: 'Settlement Details',
-          icon:'ion:document-attach',
-          noCache: true
-        }
-      },
-      {
-        path: 'add',
-       // component: 'views/Settlement/Add',
-        component: () => import('@/views/Settlement/Add.vue'),
-
-        name: 'AddSettlement',
-        meta: {
-          hidden: false,
-          title: 'Add',
-          icon:'material-symbols:add-location-rounded',
-          noCache: true
-        }
-      },
-      {
-        path: 'parcel',
-       // component: 'views/Parcel/index',
-        component: () => import('@/views/Parcel/index.vue'),
-
-        name: 'Parcel',
-        meta: { hidden: true,
-          title: 'Parcel'
-        }
-      },
-      {
-        path: 'hh/:id',
-      //  component: 'views/Household/index',
-        component: () => import('@/views/Household/index.vue'),
-
-        name: 'Households',
-        props: {
-          name: String
         },
-        meta: {
-          hidden: true,
-          title: 'Households'
-        }
-      },
-      {
-        path: 'map/:id',
-      //  component: 'views/Map/SettlementParcelMap',
-        component: () => import('@/views/Map/SettlementParcelMap.vue'),
-
-        name: 'SettlementMap',
-  
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Map'
-        }
-      },
-      {
-        path: 'uploads',
-       // component: 'views/Uploads/uploads',
-        component: () => import('@/views/Uploads/uploads.vue'),
-
-        name: 'Uploads',
-        meta: {
-          hidden: false,
-          props: true,
-          icon:'ion:document-attach',
-
-          title: 'Documents'
-        }
-      },
-      {
-        path: 'upload/file',
-     //   component: 'views/Uploads/uploadFiles',
-        component: () => import('@/views/Uploads/uploadFiles.vue'),
-
-        name: 'uploadFiles',
-  
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'uploadFiles'
-        }
-      },
-      
-  
-      {
-        path: 'doc/:id',
-     //   component: 'views/Settlement/SettlementDocs',
-        component: () => import('@/views/Settlement/SettlementDocs.vue'),
-
-        name: 'SettlementDocs',
-  
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Documents'
-        }
-      },
-  
-      {
-        path: 'map',
-      //  component: 'views/Map/index',
-        component: () => import('@/views/Map/index.vue'),
-
-        name: 'Map',
-        meta: {
-          hidden: true,
-          title: 'Map'
-        }
+        children: [
+          {
+            path: 'proj',
+            name: 'kensupInterventionProjects',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'KENSUP',
+              icon:'mdi:house-city'
+            },
+       
+          },
+        
+        ]
       }
-
     ]
   },
-  {
+  
+ {
     path: '/facilities',
     component: Layout,
     redirect: '/facility/all',

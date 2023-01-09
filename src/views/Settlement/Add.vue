@@ -120,6 +120,10 @@ const typeOptions = [
   {
     value: '2',
     label: 'Informal Settlement'
+  },
+  {
+    value: '3',
+    label: 'Project Location'
   }
 ]
 
@@ -180,13 +184,13 @@ const mapHeight = '450px'
             <el-input v-model="ruleForm.name" />
           </el-form-item>
           <el-form-item label="County" prop="county_id">
-            <el-select v-model="ruleForm.county_id" placeholder="County">
+            <el-select v-model="ruleForm.county_id" filterable placeholder="County">
               <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
           <el-form-item label="Type" prop="settlement_type">
-            <el-select v-model="ruleForm.settlement_type" placeholder="settlement Type">
+            <el-select v-model="ruleForm.settlement_type" placeholder="Settlement/Location">
               <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>

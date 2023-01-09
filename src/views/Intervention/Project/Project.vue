@@ -14,7 +14,7 @@ import { ref, reactive, h } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -96,8 +96,10 @@ let tableDataList = ref<UserType[]>([])
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 
 
-var filters = []
-var filterValues = []
+
+var filters = ['programme_id']
+var filterValues = [[1, 2, 3, 4, 5, 7]]  // make sure the inner array is array
+
 var tblData = []
 
 const associated_Model = ''
@@ -343,11 +345,13 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   tableDataList.value = res.data
   total.value = res.total
 
+
   tblData.value = [] // reset the table data
   console.log('TBL-b4-', tblData)
+  let filteredIds = []
   res.data.forEach(function (arrayItem) {
     console.log(arrayItem)
-    //delete arrayItem[associated_Model]['geom'] //  remove the geometry column
+    filteredIds.push(arrayItem.id)
 
     var dd = destructure(arrayItem)
     delete dd['0']
@@ -355,6 +359,57 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
     tblData.value.push(dd)
   })
+
+  console.log('Now get the filtered Geo for --', filteredIds)
+
+  formData.columnFilterField = 'id'
+  formData.selectedParents = []
+  formData.filtredGeoIds = filteredIds
+  const fgeo = await getfilteredGeo(formData)
+
+  console.log('the filtred GEO --', fgeo)
+
+
+  if (fgeo.data[0].json_build_object) {
+    var points = []
+    var lines = []
+    var polygons = []
+    facilityGeo.value = fgeo.data[0].json_build_object
+    console.log('Geo Returns---', fgeo.data[0].json_build_object.features)
+    console.log("Facility Geo", facilityGeo)
+
+    for (let i = 0; i < fgeo.data[0].json_build_object.features.length; i++) {
+      console.log("Geo Type -------->", fgeo.data[0].json_build_object.features[i].geometry.type)
+
+      if (fgeo.data[0].json_build_object.features[i].geometry.type === "Point") {
+
+        points.push(fgeo.data[0].json_build_object.features[i])
+      } else if (fgeo.data[0].json_build_object.features[i].geometry.type === "LineString" || fgeo.data[0].json_build_object.features[i].geometry.type === "MultiLineString") {
+
+        lines.push(fgeo.data[0].json_build_object.features[i])
+
+      } else {
+        polygons.push(fgeo.data[0].json_build_object.features[i])
+
+      }
+
+    }
+
+    console.log('Points ---x-------', points)
+
+    facilityGeoPoints.value = points
+    facilityGeoLines.value = lines
+    facilityGeoPolygons.value = polygons
+
+    console.log('Lines--->', facilityGeoPoints.value)
+
+
+    //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
+    geoLoaded.value = true
+
+
+  }
+
 
   console.log('TBL-4f', tblData)
 }
@@ -518,7 +573,7 @@ const getSettlementsOptions = async () => {
 
 
 const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On map.....', data.row)
+  console.log('On map.....', data)
   if (data.row.geom) {
     push({
       path: '/interventions/kisip/map/:id',
@@ -744,7 +799,6 @@ const getGeo = async () => {
 
 
   if (res.data[0].json_build_object) {
-
     var points = []
     var lines = []
     var polygons = []
@@ -997,58 +1051,6 @@ const handleClose = () => {
 
 
 
-const DownloadXlsx = async () => {
-  console.log(tableDataList.value)
-
-  // change here !
-  let fields = [
-    { label: "S/No", value: "index" }, // Top level data
-    { label: "Name", value: "name" }, // Top level data
-    { label: "Gender", value: "gender" }, // Custom format
-    { label: "Age", value: "age_plot_owner" }, // Run functions
-    { label: "Ownership", value: "ownership_status" }, // Run functions
-    { label: "Length of Stay", value: "length_stay" }, // Run functions
-    { label: "Settlement", value: "settlement" }, // Run functions
-    { label: "Programme", value: "benefit_type" }, // Run functions
-  ]
-
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
-    let thisRecord = {}
-    tableDataList.value[i]
-    thisRecord.name = tableDataList.value[i].household.name
-    thisRecord.index = i + 1
-    thisRecord.gender = tableDataList.value[i].household.gender
-    thisRecord.age_plot_owner = tableDataList.value[i].household.age_plot_owner
-    thisRecord.ownership_status = tableDataList.value[i].household.ownership_status
-    thisRecord.length_stay = tableDataList.value[i].household.length_stay
-    thisRecord.settlement = tableDataList.value[i].settlement.name
-    thisRecord.benefit_type = tableDataList.value[i].benefit_type.type
-    dataHolder.push(thisRecord)
-  }
-  dataObj.content = dataHolder
-
-
-
-
-  let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
-}
-
 const activeName = ref('list')
 const AddProject = () => {
 
@@ -1128,10 +1130,66 @@ const tableRowClassName = (data) => {
   return ''
 }
 
+
+const DownloadXlsx = async () => {
+  console.log(tableDataList.value)
+
+  // change here !
+  let fields = [
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Title", value: "title" }, // Top level data
+    { label: "Settlement", value: "settlement" }, // Custom format
+    { label: "Programme", value: "programme" }, // Run functions
+    { label: "Status", value: "status" }, // Run functions
+    { label: "Beneficiaries(#Male)", value: "male_beneficiaries" }, // Run functions
+    { label: "Beneficiaries(#Female)", value: "female_beneficiaries" }, // Run functions
+    { label: "Cost", value: "cost" }, // Run functions
+  ]
+
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  // loop through the table data and sort the data 
+  // change here !
+  for (let i = 0; i < tableDataList.value.length; i++) {
+    let thisRecord = {}
+    tableDataList.value[i]
+    thisRecord.index = i + 1
+    thisRecord.title = tableDataList.value[i].title
+    thisRecord.settlement = tableDataList.value[i].settlement.name
+    thisRecord.programme = tableDataList.value[i].programme.title
+    thisRecord.female_beneficiaries = tableDataList.value[i].female_beneficiaries
+    thisRecord.male_beneficiaries = tableDataList.value[i].male_beneficiaries
+    thisRecord.cost = tableDataList.value[i].cost
+    thisRecord.status = tableDataList.value[i].status
+
+    dataHolder.push(thisRecord)
+  }
+  dataObj.content = dataHolder
+
+
+
+
+  let settings = {
+    fileName: model, // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
+
+
 </script>
 
 <template>
-  <ContentWrap :title="t('Projects')"
+  <ContentWrap :title="t('KENSUP Projects')"
     :message="t('The list of  intervention beneficiaries. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
@@ -1224,7 +1282,7 @@ const tableRowClassName = (data) => {
                     </template>
                   </el-table-column>
                 </el-table>
-                <el-button @click="addMoreDocs(props.row)" type="info" round>Add More Documents</el-button>
+                <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button>
 
               </div>
             </template>
@@ -1234,13 +1292,15 @@ const tableRowClassName = (data) => {
           <el-table-column label="Programme" prop="programme.title" />
 
 
-          <el-table-column fixed="right" label="Operations" width="120">
+          <el-table-column fixed="right" label="Operations" width="200">
             <template #default="scope">
 
               <el-tooltip content="Edit" placement="top">
                 <el-button type="success" :icon="Edit" @click="editProject(scope as TableSlotDefault)" circle />
               </el-tooltip>
-
+              <el-tooltip content="View on Map" placement="top">
+                <el-button type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)" circle />
+              </el-tooltip>
               <el-tooltip content="Delete" placement="top">
                 <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                   title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">

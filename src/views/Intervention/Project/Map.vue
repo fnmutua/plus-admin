@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-deprecated-slot-attribute -->
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
@@ -8,16 +9,19 @@ import 'leaflet/dist/leaflet.css'
 import { useRoute } from 'vue-router'
 
 
+import { ElCard, ElButton, ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
+import { Download } from '@element-plus/icons-vue'
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 mapboxgl.accessToken = MapBoxToken;
 
 
+import { ElMessage } from 'element-plus'
 
 
 const route = useRoute()
@@ -256,18 +260,49 @@ const loadMap = () => {
 
 getAll()
 
+const html2Pdf = ref('')
+const downloadMap = () => {
+  ElMessage({
+    message: 'Coming soon..',
+    type: 'warning',
+  })
+
+  console.log("Downlaod...s.")
+}
+
+
 
 console.log(model)
 </script>
-
+ 
 <template>
-  <ContentWrap :title="toTitleCase(projectTitle.replace('_', ' '))" :message="t('Project Location Map ')">
+
+
+  <el-card class="box-card">
+    <template #header>
+      <div class="card-header">
+        <span>{{ toTitleCase(projectTitle.replace('_', ' ')) }}</span>
+        <el-button type="primary" :onClick="downloadMap" class="button">Download</el-button>
+
+      </div>
+    </template>
+
+
 
     <div id="mapContainer" class="basemap"></div>
 
 
-  </ContentWrap>
-</template>
+
+
+
+  </el-card>
+
+
+
+</template>  
+
+
+
 
 <style>
 .leaflet-demo-control {
@@ -283,5 +318,21 @@ console.log(model)
 .basemap {
   width: 100%;
   height: 500px;
+}
+</style>
+
+<style>
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.text {
+  font-size: 16px;
+}
+
+.item {
+  margin-bottom: 18px;
 }
 </style>

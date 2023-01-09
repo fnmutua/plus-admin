@@ -38,6 +38,7 @@ const getAll = async () => {
   const formData = {}
   formData.model = model
   formData.id = id
+  formData.filtredGeoIds = [id]
 
   console.log(formData)
   const res = await getOneGeo(formData)
@@ -60,6 +61,7 @@ const getParcelGeo = async () => {
   formData.columnFilterField = 'settlement_id'
   formData.selectedParents = id
   formData.id = id
+  formData.filtredGeoIds = [id]
 
   console.log(formData)
   const res = await getfilteredGeo(formData)
