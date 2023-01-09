@@ -1,49 +1,34 @@
+<!-- eslint-disable vue/no-deprecated-slot-attribute -->
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
-import { getSettlementListByCounty, getfilteredGeo, getOneSettlement } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
-import { useForm } from '@/hooks/web/useForm'
-import { Form } from '@/components/Form'
-import { ref, h, reactive, onBeforeMount } from 'vue'
-import { ElSwitch, ElPagination, ELCollapse } from 'element-plus'
+import { getOneGeo, getfilteredGeo } from '@/api/settlements'
+import { ref } from 'vue'
 import 'leaflet/dist/leaflet.css'
-import { LMap, LGeoJson, LTileLayer, LControlLayers, LControlZoom } from '@vue-leaflet/vue-leaflet'
-import { featureGroup } from 'leaflet'
-import { nextTick } from 'vue'
+
 import { useRoute } from 'vue-router'
-import { setup } from 'mockjs'
-import { ElLoading } from 'element-plus'
 
+
+import { ElCard, ElButton, ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+
+import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
+import mapboxgl from "mapbox-gl";
+import 'mapbox-gl/dist/mapbox-gl.css'
+import { Download } from '@element-plus/icons-vue'
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+mapboxgl.accessToken = MapBoxToken;
 
 
-
-
-
-
-
-
+import { ElMessage } from 'element-plus'
 
 
 const route = useRoute()
 
-interface Params {
-  pageIndex?: number
-  pageSize?: number
-}
-const { register, elFormRef, methods } = useForm()
-
 ////Configurations //////////////
-const model = 'parcel'
-const assoc_model = 'settlement'
-const filterCol = 'settlement_id'
-const searchField = 'parcel_no'
+const model = 'settlement'
 ////////////
-
-const loading = ref(true)
-const total = ref(0)
 
 function toTitleCase(str) {
   return str.replace(/\w\S*/g, function (txt) {
@@ -51,137 +36,99 @@ function toTitleCase(str) {
   })
 }
 
-const parentOptions = []
-const selectedParents = []
 const filtergeo = ref([])
-const settlementgeo = ref([])
-const settlementName = ref()
-const ParcelDataLoaded = ref(false)
-const SettDataLoaded = ref(false)
 
-//const loading = ref(true)
-const map = ref()
-const geo = ref()
-const sett = ref()
-const settlement = ref()
+const projectTitle = ref('')
+
+const facilityGeoPoints = ref()
+const facilityGeoLines = ref()
+const facilityGeoPolygons = ref()
+
 const { t } = useI18n()
 
-console.log('Settlement', route)
-const xloading = ElLoading.service({
-  lock: false,
-  text: 'Loading',
-  background: 'rgba(0, 0, 0, 0.7)',
-})
 
 
-function updateStyle() {
-  console.log('Updating style....')
-
-  if (geo.value.leafletObject) {
-
-
-    const geojsonLayer = geo.value.leafletObject
-
-    // console.log(geojsonLayer)
-    if (!geojsonLayer) {
-      return
-    }
-
-    let styleFunction
-
-    styleFunction = (feature) => {
-      // add feature here to access this prop
-      // console.log(feature.properties.landuse_id)
-      return {
-        weight: 1,
-        opacity: 0.45,
-        borderWidth: 'thin',
-        borderColor: 'white',
-        color: getColor(feature.properties.landuse_id), // send it here
-        fillOpacity: 0.5
-      }
-    }
-    geo.value.leafletObject.setStyle(styleFunction)
-
-  }
-}
-
+const ParcelGeodata = ref([])
 
 const getParcels = async () => {
   const id = route.params.id
+  const filterCol = 'settlement_id'
+
   const formData = {}
-  formData.model = model
+  formData.model = 'parcel'
   formData.columnFilterField = filterCol
   formData.selectedParents = id
 
   console.log(formData)
+
+  formData.filtredGeoIds = [id]
+  var parcelsPoly = []
   await getfilteredGeo(formData)
     .then((response: { data: any }) => {
-      filtergeo.value = response.data[0].json_build_object
-      ParcelDataLoaded.value = true
-      loading.value = false
-      total.value = response.total
-      //updateStyle()
+      //   filtergeo.value = response.data[0].json_build_object
 
-      xloading.close()
+      for (let i = 0; i < response.data[0].json_build_object.features.length; i++) {
 
+        parcelsPoly.push(response.data[0].json_build_object.features[i])
 
-
-
-      setTimeout(() => {
-        // After building your geoJson layers, just add this:
-
-
-
-        if (map.value.leafletObject && ParcelDataLoaded) {
-
-
-          console.log("----Bounds", geo.value.leafletObject.getBounds())  // parecl  mapbounds
-          map.value.leafletObject.fitBounds(geo.value.leafletObject.getBounds(), { padding: [20, 20] })
-          updateStyle()
-
-        }
-
-      }, 140) // 0ms seems enough to execute resize after tab opens.
+      }
 
 
 
     })
-
+  ParcelGeodata.value = parcelsPoly
+  console.log('Parcels Acqured', ParcelGeodata.value)
 
 
 
 
 }
+const title = ref('')
+const getAll = async () => {
+  console.log('Get all Settleemnts ')
+  const id = route.params.id
+  const settData = route.params.data
+  console.log('Project ID, Data:', id, route.params)
 
-const getSettlement = async (id) => {
   const formData = {}
-  formData.model = 'settlement'
+  formData.model = model
   formData.id = id
 
   console.log(formData)
-  const res = await getOneSettlement(formData)
+  const res = await getOneGeo(formData)
 
-  settlement.value = res.data
-  settlementName.value = res.data.name
+  var points = []
+  var lines = []
+  var polygons = []
 
-  console.log('All settlements Querry', res.data)
-}
 
-const getSettlementBoundary = async (id) => {
-  const formData = {}
-  formData.model = 'settlement'
-  formData.id = id
-  formData.columnFilterField = 'id'
-  formData.selectedParents = []
-  console.log(formData)
-  const res = await getfilteredGeo(formData)
-  settlementgeo.value = res.data[0].json_build_object
-  SettDataLoaded.value = true
+  console.log('Project Geo:', res.data[0].json_build_object.features)
+  title.value = res.data[0].json_build_object.features[0].properties.name
+
+  for (let i = 0; i < res.data[0].json_build_object.features.length; i++) {
+    console.log("Geo Type -------->", res.data[0].json_build_object.features[i].geometry.type)
+    projectTitle.value = res.data[0].json_build_object.features[i].properties.title
+    filtergeo.value = res.data[0].json_build_object
+    // sort accordign to shape 
+    if (res.data[0].json_build_object.features[i].geometry.type === "Point") {
+      points.push(res.data[0].json_build_object.features[i])
+    } else if (res.data[0].json_build_object.features[i].geometry.type === "LineString" || res.data[0].json_build_object.features[i].geometry.type === "MultiLineString") {
+      lines.push(res.data[0].json_build_object.features[i])
+    } else {
+      polygons.push(res.data[0].json_build_object.features[i])
+    }
+    facilityGeoPoints.value = points
+    facilityGeoLines.value = lines
+    facilityGeoPolygons.value = polygons
+
+  }
+  await getParcels()
+  console.log("Parcels --->", ParcelGeodata)
+  console.log("Poly --->", facilityGeoPolygons)
+  loadMap()
 }
 
 function getColor(d) {
-  // console.log(d)
 
   // recieve the prop
   if (d > 7) {
@@ -216,133 +163,277 @@ function getColor(d) {
   }
 }
 
-const getParents = async (params?: Params) => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 5,
-      curUser: 1, // Id for logged in user
-      model: assoc_model,
-      searchField: searchField,
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var cnty = response.data
+const loadMap = () => {
+  var nmap = new mapboxgl.Map({
+    container: "mapContainer",
+    style: "mapbox://styles/mapbox/streets-v11",
+    center: [37.137343, 1.137451], // starting position
+    zoom: 6,
 
-    // loading.value = false
-
-    cnty.forEach(function (arrayItem) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      parentOptions.push(countyOpt)
-    })
   })
+
+  console.log("resizing....")
+
+  const nav = new mapboxgl.NavigationControl();
+  nmap.addControl(nav, "top-right");
+
+
+  nmap.on('load', () => {
+
+    nmap.addSource('points', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: turf.featureCollection(facilityGeoPoints.value),
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+    nmap.addSource('lines', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: turf.featureCollection(facilityGeoLines.value),
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+    nmap.addSource('polygons', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: turf.featureCollection(facilityGeoPolygons.value),
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+
+
+    nmap.addSource('parcels', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: turf.featureCollection(ParcelGeodata.value),
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+
+    // nmap.addLayer({
+    //   'id': 'points-layer',
+    //   "type": "circle",
+    //   'source': 'points',
+    //   'paint': {
+    //     "circle-color": 'green'
+    //   }
+    // });
+
+    // nmap.addLayer({
+    //   'id': 'lines',
+    //   'type': 'line',
+    //   'source': 'lines',
+    //   'paint': {
+    //     'line-width': 3,
+    //     // Use a get expression (https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-get)
+    //     // to set the line-color to a feature property value.
+    //     'line-color': 'red'
+    //   }
+    // });
+
+    nmap.addLayer({
+      'id': 'polygons-layer',
+      "type": "fill",
+      'source': 'polygons',
+      'paint': {
+        'fill-color': '#0080ff', // blue color fill
+        'fill-opacity': 0.2
+      }
+    });
+
+    //Add a black outline around the polygon.
+    nmap.addLayer({
+      'id': 'outline',
+      'type': 'line',
+      'source': 'polygons',
+      'layout': {},
+      'paint': {
+        'line-color': '#ffffb3',
+        'line-width': 1
+      }
+    });
+
+
+    nmap.addLayer({
+      'id': 'parcels-layer',
+      "type": "fill",
+      'source': 'parcels',
+      'paint': {
+        'fill-color': [
+          'case',
+          ['==', ['get', 'landuse_id'], 0],
+          'brown',
+          ['==', ['get', 'landuse_id'], 1],
+          'yellow',
+          ['==', ['get', 'landuse_id'], 2],
+          'orange',
+          ['==', ['get', 'landuse_id'], 3],
+          'green',
+          ['==', ['get', 'landuse_id'], 4],
+          'yellow',
+          ['==', ['get', 'landuse_id'], 5],
+          'red',
+          ['==', ['get', 'landuse_id'], 6],
+          'gray',
+          ['==', ['get', 'landuse_id'], 7],
+          'yellow',
+          'white'],
+
+        'fill-opacity': 0.5
+      }
+    });
+
+    //Add a white outline around the polygon.
+    nmap.addLayer({
+      'id': 'parcel-outline',
+      'type': 'line',
+      'source': 'parcels',
+      'layout': {},
+      'paint': {
+        'line-color': 'white',
+        'line-width': 1
+      }
+    });
+
+
+
+
+
+
+    nmap.resize()
+
+    var bounds = turf.bbox((filtergeo.value));
+    nmap.fitBounds(bounds, { padding: 20 });
+
+    nmap.on('click', 'points-layer', (e) => {
+      console.log("Onclikc..........")
+      // Copy coordinates array.
+      const coordinates = e.features[0].geometry.coordinates.slice();
+      const description = e.features[0].properties.asset_type;
+      const condition = e.features[0].properties.asset_condition;
+
+      // Ensure that if the map is zoomed out such that multiple
+      // copies of the feature are visible, the popup appears
+      // over the copy being pointed to.
+      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      }
+      new mapboxgl.Popup({ offset: [0, -15] })
+        .setLngLat(coordinates)
+        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap);
+
+    });
+    // Change the cursor to a pointer when the mouse is over the places layer.
+    nmap.on('mouseenter', 'points-layer', () => {
+      nmap.getCanvas().style.cursor = 'pointer';
+    });
+    // Change it back to a pointer when it leaves.
+    nmap.on('mouseleave', 'points-layer', () => {
+      nmap.getCanvas().style.cursor = '';
+    });
+
+
+    nmap.on('click', 'lines-layer', (e) => {
+      console.log("click line..........")
+      // Copy coordinates array.
+      const coordinates = e.features[0].geometry.coordinates.slice();
+      const description = e.features[0].properties.asset_type;
+      const condition = e.features[0].properties.asset_condition;
+      // Ensure that if the map is zoomed out such that multiple
+      // copies of the feature are visible, the popup appears
+      // over the copy being pointed to.
+      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      }
+      new mapboxgl.Popup({ offset: [0, -15] })
+        .setLngLat(coordinates)
+        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap);
+    });
+
+
+    nmap.on('click', 'polygons-layer', (e) => {
+      console.log("click line..........")
+      // Copy coordinates array.
+      const coordinates = e.features[0].geometry.coordinates.slice();
+      const description = e.features[0].properties.title;
+      const condition = e.features[0].properties.programme;
+
+      // Ensure that if the map is zoomed out such that multiple
+      // copies of the feature are visible, the popup appears
+      // over the copy being pointed to.
+      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      }
+      new mapboxgl.Popup({ offset: [0, -15] })
+        .setLngLat(coordinates)
+        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap);
+    });
+
+
+    // Cange the cursor to a pointer when the mouse is over the places layer.
+    nmap.on('mouseenter', 'lines-layer', () => {
+      nmap.getCanvas().style.cursor = 'pointer';
+    });
+
+    // Change it back to a pointer when it leaves.
+    nmap.on('mouseleave', 'lines-layer', () => {
+      nmap.getCanvas().style.cursor = '';
+    });
+
+  });
+
+
+}
+
+getAll()
+
+
+const downloadMap = () => {
+  ElMessage({
+    message: 'Coming soon..',
+    type: 'warning',
+  })
+
+  console.log("Downlaod...s.")
 }
 
 
-getSettlement(route.params.id)
-getParents()
-getParcels()
-getSettlementBoundary(route.params.id)
 
-
+console.log(model)
 </script>
-
+ 
 <template>
-  <ContentWrap :title="toTitleCase(settlementName + ' Settlement')"
-    :message="t('The Map of ' + model + 's  by ' + assoc_model + '. Use the filter to subset')">
-    <l-map ref="map" :zoom="16" :center="[-1.30853, 36.917257]" style="height: 66vh">
-      <l-tile-layer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
-        layer-type="base" min-zoom="1" max-zoom="21" useBounds="true" class="map" name="Satellite" />
-      <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" layer-type="base" min-zoom="1"
-        max-zoom="21" useBounds="true" class="map" name="OpenStreetMap" />
 
-      <l-geo-json v-if="ParcelDataLoaded" ref="geo" layer-type="overlay" name="Parcels" :geojson="filtergeo"
-        @ready="updateStyle" />
-      <l-geo-json v-if="SettDataLoaded" ref="sett" layer-type="overlay" name="Settlement" :geojson="settlementgeo" />
-      <l-control-layers position="topright" />
-      <l-control class="leaflet-bottom leaflet-left leaflet-demo-control">
-        <div class="key">KEY</div>
-        <div class="residentail">Residential</div>
 
-        <div style="
-            background: orange;
-            color: white;
-            width: 90px;
-            height: 20px;
-            opacity: 0.5;
+  <el-card class="box-card">
+    <template #header>
+      <div class="card-header">
+        <span>{{ toTitleCase(title.replace('_', ' ')) + ' Settlement'}}</span>
+        <el-button type="primary" :onClick="downloadMap" class="button">Download</el-button>
 
-            text-align: center;
-            border-radius: 0.26em;
-          ">Educational</div>
-        <div style="
-            background: purple;
-            color: white;
-            width: 90px;
-            height: 20px;
-            text-align: center;
-            opacity: 0.5;
+      </div>
+    </template>
 
-            border-radius: 0.26em;
-          ">Industrial</div>
-        <div style="
-            background: green;
-            color: white;
-            width: 90px;
-            opacity: 0.5;
 
-            height: 20px;
-            text-align: center;
-            border-radius: 0.26em;
-          ">Recreational</div>
 
-        <div style="
-            background: red;
-            color: white;
-            width: 90px;
-            height: 20px;
-            text-align: center;
-            opacity: 0.5;
+    <div id="mapContainer" class="basemap"></div>
 
-            border-radius: 0.26em;
-          ">Commerical</div>
-        <div style="
-            background: yellow;
-            color: gray;
-            width: 90px;
-            height: 20px;
-            opacity: 0.5;
 
-            text-align: center;
-            border-radius: 0.26em;
-          ">Public Use</div>
-        <div style="
-            background: blue;
-            color: white;
-            width: 90px;
-            height: 20px;
-            opacity: 0.5;
-            text-align: center;
-            border-radius: 0.26em;
-          ">Public utility</div>
-        <div style="
-            background: #ffffed;
-            color: grey;
-            opacity: 0.5;
-            width: 90px;
-            height: 20px;
-            text-align: center;
-            border-radius: 0.26em;
-          ">Agriculture</div>
-      </l-control>
-    </l-map>
-  </ContentWrap>
-</template>
+
+
+
+  </el-card>
+
+
+
+</template>  
+
+
+
 
 <style>
 .leaflet-demo-control {
@@ -351,20 +442,28 @@ getSettlementBoundary(route.params.id)
   border-radius: 0.2em;
   padding: 0.5em;
 }
+</style>
 
-.residentail {
-  background: brown;
-  color: white;
-  width: 90px;
-  opacity: 0.5;
+ 
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 500px;
+}
+</style>
 
-  height: 20px;
-  text-align: center;
-  border-radius: 0.26em;
+<style>
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.key {
-  text-align: center;
-  font-weight: bold;
+.text {
+  font-size: 16px;
+}
+
+.item {
+  margin-bottom: 18px;
 }
 </style>

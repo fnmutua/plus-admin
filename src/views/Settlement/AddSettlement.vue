@@ -57,7 +57,7 @@ const { push } = useRouter()
 
 const fileList = ref([])
 
-const model = 'project'
+const model = 'settlement'
 const parentOptions = ref([])
 const loading = ref(true)
 const tmpSel = ref([])
@@ -76,18 +76,15 @@ const hazards = ref(false)
 ///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-  settlement_id: '',
-  title: '',
-  type: '',
-  programme: '',
-  status: '',
-  period: null,
-  cost: 0,
-  male_beneficiaries: 0,
-  female_beneficiaries: 0,
-  description: '',
+  name: '',
+  county_id: '',
+  settlement_type: '',
   geom: '',
-  code: ''
+  area: '',
+  population: '',
+  code: '',
+  description: ''
+
 })
 
 
@@ -132,7 +129,7 @@ const getParentNames = async () => {
       pageIndex: 1,
       limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'settlement',
+      model: 'county',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
@@ -166,12 +163,12 @@ const polygons = ref([]) as Ref<[number, number][][]>
 
 const shp = []
 const rules = reactive<FormRules>({
-  settlement_id: [{ required: true, message: 'Please select a Settlement', trigger: 'blur' }],
-  type: [{ required: true, message: 'Type is required', trigger: 'blur' }],
-  title: [{ required: true, message: 'Title is required', trigger: 'blur' }],
-  programme: [{ required: true, message: 'Programme is required', trigger: 'blur' }],
-  period: [{ required: true, message: 'Period is required', trigger: 'blur' }],
-  status: [{ required: true, message: 'Status is required', trigger: 'blur' }],
+  name: [{ required: true, message: 'Please select a Settlement', trigger: 'blur' }],
+  county_id: [{ required: true, message: 'county_id is required', trigger: 'blur' }],
+  settlement_type: [{ required: true, message: 'settlement_type is required', trigger: 'blur' }],
+  area: [{ required: true, message: 'area is required', trigger: 'blur' }],
+  population: [{ required: true, message: 'population is required', trigger: 'blur' }],
+  description: [{ required: true, message: 'description is required', trigger: 'blur' }],
 
 
 
@@ -561,7 +558,7 @@ const uploadPolygon = (poly: any) => {
 
 
 
-const title = 'Add/Create  Project'
+const title = 'Add/Create Settlement'
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 
@@ -632,6 +629,21 @@ const AddSettlement = () => {
     name: 'AddSettlement'
   })
 }
+
+
+const typeOptions = [
+  {
+    value: '1',
+    label: 'Slum'
+  },
+  {
+    value: '2',
+    label: 'Informal Settlement'
+  },
+
+]
+
+
 </script>
 
 <template>
@@ -653,72 +665,36 @@ const AddSettlement = () => {
           <el-form label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
             status-icon>
             <el-col v-if="showForm" :span="24" :lg="24" :md="12" :sm="12" :xs="24">
-              <el-form-item label="Location" prop="settlement_id">
-                <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Location">
+
+              <el-form-item label="Name" prop="name">
+                <el-input v-model="ruleForm.name" />
+              </el-form-item>
+
+              <el-form-item label="County" prop="county_id">
+                <el-select v-model="ruleForm.county_id" filterable placeholder="Select County">
                   <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
                 <el-button type="succcess" @click="AddSettlement()" :icon="Plus" />
-
               </el-form-item>
 
-              <el-form-item label="Type" prop="type">
-                <el-cascader v-model="tmpSel" :options="cascadeOptions" :show-all-levels="false"
-                  @change="handleChange" />
-              </el-form-item>
-
-              <el-form-item label="Title" prop="title">
-                <el-input v-model="ruleForm.title" />
-              </el-form-item>
-
-
-              <el-form-item label="Programme" prop="programme">
-                <el-select v-model="ruleForm.programme_id" filterable placeholder="Select">
-                  <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label"
-                    :value="item.value" />
+              <el-form-item label="Type" prop="settlement_type">
+                <el-select v-model="ruleForm.settlement_type" placeholder="Type">
+                  <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
 
-              <el-form-item label="Period" prop="period">
-                <el-date-picker v-model="ruleForm.period" type="monthrange" range-separator="To"
-                  start-placeholder="Start date" end-placeholder="End date" />
+              <el-form-item label="Population">
+                <el-input-number v-model="ruleForm.population" />
               </el-form-item>
-              <el-row>
-                <el-form-item label="Status" prop="status">
-                  <el-select v-model="ruleForm.status" filterable placeholder="Select">
-                    <el-option v-for="item in status_options" :key="item.value" :label="item.label"
-                      :value="item.value" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="Cost (USD)" prop="cost">
-                  <el-input-number v-model="ruleForm.cost" />
-                </el-form-item>
-              </el-row>
+              <el-form-item label="Area(Ha.)">
+                <el-input-number :precision="2" v-model="ruleForm.area" />
+              </el-form-item>
+
+              <el-form-item label="Description" prop="description">
+                <el-input v-model="ruleForm.description" type="textarea" />
+              </el-form-item>
+
             </el-col>
-
-
-            <el-row v-if="showForm">
-              <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
-                <el-form-item label="Beneficiary(#M)" prop="male_beneficiaries">
-                  <el-input-number v-model="ruleForm.male_beneficiaries" />
-                </el-form-item>
-              </el-col>
-              <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
-                <el-form-item label="Beneficiary(#F)" prop="female_beneficiaries">
-                  <el-input-number v-model="ruleForm.female_beneficiaries" />
-                </el-form-item>
-              </el-col>
-
-            </el-row>
-            <el-row v-if="showForm">
-              <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
-
-                <el-form-item label="Description" prop="description">
-                  <el-input type="textarea" v-model="ruleForm.description" />
-                </el-form-item>
-              </el-col>
-
-            </el-row>
-
 
 
             <el-form-item v-if="showGeoFields" label="Location">

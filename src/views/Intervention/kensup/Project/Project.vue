@@ -5,16 +5,16 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm
+  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter } from '@element-plus/icons-vue'
+import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
 
 import { ref, reactive, h } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -35,6 +35,7 @@ import { Icon } from '@iconify/vue';
 
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
+import { UserType } from '@/api/register/types'
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 mapboxgl.accessToken = MapBoxToken;
@@ -65,6 +66,9 @@ var value3 = ref([])
 var value4 = ref([])
 var value5 = ref([])
 
+const morefileList = ref<UploadUserFile[]>([])
+
+
 const interVentionTypeOptions = ref([])
 const benefitTypeOptions = ref([])
 const houseHoldOptions = ref([])
@@ -92,15 +96,18 @@ let tableDataList = ref<UserType[]>([])
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 
 
-var filters = []
-var filterValues = []
+
+var filters = ['programme_id']
+var filterValues = [[6]]  // make sure the inner array is array
+
 var tblData = []
 
 const associated_Model = ''
-const associated_multiple_models = ['settlement', 'programme']
+const associated_multiple_models = ['settlement', 'programme', 'document']
 
 const model = 'project'
 //// ------------------parameters -----------------------////
+const fileUploadList = ref<UploadUserFile[]>([])
 
 const facilityGeo = ref([])
 const facilityGeoPoints = ref()
@@ -236,6 +243,51 @@ const filterByType = async (title: any) => {
 
 
 
+const currentRow = ref()
+const addMoreDocuments = ref()
+const addMoreDocs = (data: TableSlotDefault) => {
+
+  currentRow.value = data
+
+  addMoreDocuments.value = true
+
+  console.log('currentRow', currentRow.value)
+
+}
+
+const submitMoreDocuments = async () => {
+  console.log('More files.....', morefileList)
+
+  // uploading the documents 
+  const fileTypes = []
+  const formData = new FormData()
+  let files = []
+  for (var i = 0; i < morefileList.value.length; i++) {
+    console.log('------>file', morefileList.value[i])
+    var format = morefileList.value[i].name.split('.').pop() // get file extension
+    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+    fileTypes.push(format)
+    // formData.append('file', fileList.value[i])
+    // formData.file = fileList.value[i]
+    formData.append('file', morefileList.value[i].raw)
+    formData.append('DocType', format)
+
+  }
+
+
+  formData.append('parent_code', currentRow.value.id)
+  formData.append('model', model)
+  formData.append('grp', 'Project Documentation')
+  formData.append('code', uuid.v4())
+  formData.append('column', 'project_id')  //Column to save ID 
+
+
+
+  console.log(formData)
+  await uploadDocuments(formData)
+
+}
+
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
@@ -293,11 +345,13 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   tableDataList.value = res.data
   total.value = res.total
 
+
   tblData.value = [] // reset the table data
   console.log('TBL-b4-', tblData)
+  let filteredIds = []
   res.data.forEach(function (arrayItem) {
     console.log(arrayItem)
-    //delete arrayItem[associated_Model]['geom'] //  remove the geometry column
+    filteredIds.push(arrayItem.id)
 
     var dd = destructure(arrayItem)
     delete dd['0']
@@ -305,6 +359,57 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
     tblData.value.push(dd)
   })
+
+  console.log('Now get the filtered Geo for --', filteredIds)
+
+  formData.columnFilterField = 'id'
+  formData.selectedParents = []
+  formData.filtredGeoIds = filteredIds
+  const fgeo = await getfilteredGeo(formData)
+
+  console.log('the filtred GEO --', fgeo)
+
+
+  if (fgeo.data[0].json_build_object) {
+    var points = []
+    var lines = []
+    var polygons = []
+    facilityGeo.value = fgeo.data[0].json_build_object
+    console.log('Geo Returns---', fgeo.data[0].json_build_object.features)
+    console.log("Facility Geo", facilityGeo)
+
+    for (let i = 0; i < fgeo.data[0].json_build_object.features.length; i++) {
+      console.log("Geo Type -------->", fgeo.data[0].json_build_object.features[i].geometry.type)
+
+      if (fgeo.data[0].json_build_object.features[i].geometry.type === "Point") {
+
+        points.push(fgeo.data[0].json_build_object.features[i])
+      } else if (fgeo.data[0].json_build_object.features[i].geometry.type === "LineString" || fgeo.data[0].json_build_object.features[i].geometry.type === "MultiLineString") {
+
+        lines.push(fgeo.data[0].json_build_object.features[i])
+
+      } else {
+        polygons.push(fgeo.data[0].json_build_object.features[i])
+
+      }
+
+    }
+
+    console.log('Points ---x-------', points)
+
+    facilityGeoPoints.value = points
+    facilityGeoLines.value = lines
+    facilityGeoPolygons.value = polygons
+
+    console.log('Lines--->', facilityGeoPoints.value)
+
+
+    //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
+    geoLoaded.value = true
+
+
+  }
+
 
   console.log('TBL-4f', tblData)
 }
@@ -468,7 +573,7 @@ const getSettlementsOptions = async () => {
 
 
 const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On map.....', data.row)
+  console.log('On map.....', data)
   if (data.row.geom) {
     push({
       path: '/interventions/kisip/map/:id',
@@ -694,7 +799,6 @@ const getGeo = async () => {
 
 
   if (res.data[0].json_build_object) {
-
     var points = []
     var lines = []
     var polygons = []
@@ -881,6 +985,43 @@ const editForm = async (formEl: FormInstance | undefined) => {
       ruleForm.model = model
       await updateOneRecord(ruleForm).then(() => { })
 
+
+      const fileTypes = []
+      const updateformData = new FormData()
+
+      for (var i = 0; i < fileUploadList.value.length; i++) {
+        console.log('------>file', fileUploadList.value[i])
+        var format = fileUploadList.value[i].name.split('.').pop() // get file extension
+        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+        fileTypes.push(format)
+        // formData.append('file', fileList.value[i])
+        // formData.file = fileList.value[i]
+        updateformData.append('file', fileUploadList.value[i].raw)
+        updateformData.append('DocType', format)
+
+      }
+
+
+      updateformData.append('parent_code', ruleForm.id)
+      updateformData.append('model', model)
+      updateformData.append('grp', 'Project Documentation')
+      updateformData.append('code', uuid.v4())
+      updateformData.append('column', 'project_id')
+
+
+      // formData.append('DocTypes', fileTypes)
+
+      console.log(updateformData)
+      await uploadDocuments(updateformData)
+
+
+
+
+
+
+
+
+
     } else {
       console.log('error in editiinh!', fields)
     }
@@ -910,20 +1051,101 @@ const handleClose = () => {
 
 
 
+const activeName = ref('list')
+const AddProject = () => {
+
+  console.log("Adding Projects")
+  push({
+    path: '/interventions/kisip/add',
+    name: 'AddInterventionProjects'
+  })
+}
+
+const AddDialogVisible = ref(false)
+const formHeader = ref('Edit Project')
+
+const editProject = (data: TableSlotDefault) => {
+
+  showEditSaveButton.value = true
+
+  console.log(data)
+  ruleForm.id = data.row.id
+  ruleForm.title = data.row.title
+  ruleForm.programme_id = data.row.programme_id
+  ruleForm.status = data.row.status
+  ruleForm.period = data.row.period
+  ruleForm.male_beneficiaries = data.row.male_beneficiaries
+  ruleForm.female_beneficiaries = data.row.female_beneficiaries
+  ruleForm.cost = data.row.cost
+  ruleForm.settlement_id = data.row.settlement_id
+  ruleForm.code = data.row.code
+  ruleForm.geom = data.row.geom
+  fileUploadList.value = data.row.documents
+
+
+
+  AddDialogVisible.value = true
+}
+
+const removeDocument = (data: TableSlotDefault) => {
+  console.log('----->', data)
+  let formData = {}
+  formData.id = data.id
+  formData.model = model
+  formData.filesToDelete = [data.name]
+  deleteDocument(formData)
+}
+
+
+const DeleteProject = (data: TableSlotDefault) => {
+  console.log('----->', data)
+  let formData = {}
+  formData.id = data.id
+  formData.model = model
+
+  DeleteRecord(formData)
+
+  console.log(tableDataList.value)
+
+
+  // Delete docuemnts only if there's any docuemnt to delete 
+  if (data.documents.length > 0) {
+    formData.filesToDelete = data.documents
+    deleteDocument(formData)
+
+  }
+  // remove the deleted object from array list 
+  let index = tableDataList.value.indexOf(data.row);
+  if (index !== -1) {
+    tableDataList.value.splice(index, 1);
+  }
+
+}
+
+const tableRowClassName = (data) => {
+  console.log('Row Styling --------->', data.row)
+  if (data.row.documents.length > 0) {
+    return 'warning-row'
+  }
+  return ''
+}
+
+
 const DownloadXlsx = async () => {
   console.log(tableDataList.value)
 
   // change here !
   let fields = [
     { label: "S/No", value: "index" }, // Top level data
-    { label: "Name", value: "name" }, // Top level data
-    { label: "Gender", value: "gender" }, // Custom format
-    { label: "Age", value: "age_plot_owner" }, // Run functions
-    { label: "Ownership", value: "ownership_status" }, // Run functions
-    { label: "Length of Stay", value: "length_stay" }, // Run functions
-    { label: "Settlement", value: "settlement" }, // Run functions
-    { label: "Programme", value: "benefit_type" }, // Run functions
+    { label: "Title", value: "title" }, // Top level data
+    { label: "Settlement", value: "settlement" }, // Custom format
+    { label: "Programme", value: "programme" }, // Run functions
+    { label: "Status", value: "status" }, // Run functions
+    { label: "Beneficiaries(#Male)", value: "male_beneficiaries" }, // Run functions
+    { label: "Beneficiaries(#Female)", value: "female_beneficiaries" }, // Run functions
+    { label: "Cost", value: "cost" }, // Run functions
   ]
+
 
   // Preprae the data object 
   var dataObj = {}
@@ -936,14 +1158,15 @@ const DownloadXlsx = async () => {
   for (let i = 0; i < tableDataList.value.length; i++) {
     let thisRecord = {}
     tableDataList.value[i]
-    thisRecord.name = tableDataList.value[i].household.name
     thisRecord.index = i + 1
-    thisRecord.gender = tableDataList.value[i].household.gender
-    thisRecord.age_plot_owner = tableDataList.value[i].household.age_plot_owner
-    thisRecord.ownership_status = tableDataList.value[i].household.ownership_status
-    thisRecord.length_stay = tableDataList.value[i].household.length_stay
+    thisRecord.title = tableDataList.value[i].title
     thisRecord.settlement = tableDataList.value[i].settlement.name
-    thisRecord.benefit_type = tableDataList.value[i].benefit_type.type
+    thisRecord.programme = tableDataList.value[i].programme.title
+    thisRecord.female_beneficiaries = tableDataList.value[i].female_beneficiaries
+    thisRecord.male_beneficiaries = tableDataList.value[i].male_beneficiaries
+    thisRecord.cost = tableDataList.value[i].cost
+    thisRecord.status = tableDataList.value[i].status
+
     dataHolder.push(thisRecord)
   }
   dataObj.content = dataHolder
@@ -962,74 +1185,11 @@ const DownloadXlsx = async () => {
 
 }
 
-const activeName = ref('list')
-const AddProject = () => {
-
-  console.log("Adding Projects")
-  push({
-    path: '/interventions/kisip/add',
-    name: 'AddInterventionProjects'
-  })
-}
-
-const AddDialogVisible = ref(false)
-const formHeader = ref('Edit Project')
-
-const editIndicator = (data: TableSlotDefault) => {
-
-  showEditSaveButton.value = true
-
-  console.log(data)
-  ruleForm.id = data.row.id
-  ruleForm.title = data.row.title
-  ruleForm.programme_id = data.row.programme_id
-  ruleForm.status = data.row.status
-  ruleForm.period = data.row.period
-  ruleForm.male_beneficiaries = data.row.male_beneficiaries
-  ruleForm.female_beneficiaries = data.row.female_beneficiaries
-  ruleForm.cost = data.row.cost
-  ruleForm.settlement_id = data.row.settlement_id
-  ruleForm.code = data.row.code
-  ruleForm.geom = data.row.geom
-
-
-
-  AddDialogVisible.value = true
-}
-
-
-const programme_options = [
-  {
-    value: 'kisip_11',
-    label: 'KISIP Component 1.1 (Tenure)',
-  },
-  {
-    value: 'kisip_12',
-    label: 'KISIP Component 1.2 (Infrastructure)',
-  },
-  {
-    value: 'kisip_2',
-    label: 'KISIP Component 2 (Social Inclusion)',
-  },
-  {
-    value: 'kisip_3',
-    label: 'KISIP Component 3 (Capacity Building)',
-  },
-  {
-    value: 'kisip_4',
-    label: 'KISIP Component 4 (Programme Management)',
-  },
-  {
-    value: 'kensup',
-    label: 'KENSUP',
-  },
-]
-
 
 </script>
 
 <template>
-  <ContentWrap :title="t('Projects')"
+  <ContentWrap :title="t('KENSUP Projects')"
     :message="t('The list of  intervention beneficiaries. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
@@ -1068,7 +1228,7 @@ const programme_options = [
     <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
       <el-tab-pane label="List" name="list">
 
-        <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+        <!-- <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
           :currentPage="currentPage">
           <template #action="data">
             <el-tooltip content="View Profile" placement="top">
@@ -1079,7 +1239,7 @@ const programme_options = [
             </el-tooltip>
 
             <el-tooltip content="Edit" placement="top">
-              <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+              <el-button type="success" :icon="Edit" @click="editProject(data as TableSlotDefault)" circle />
             </el-tooltip>
 
             <el-tooltip content="Delete" placement="top">
@@ -1093,7 +1253,67 @@ const programme_options = [
 
 
           </template>
-        </Table>
+        </Table> -->
+
+
+        <el-table :data="tableDataList" style="width: 100%" :row-class-name="tableRowClassName">
+          <el-table-column type="expand">
+            <template #default="props">
+              <div m="4">
+                <h3>Documents</h3>
+                <el-table :data="props.row.documents">
+                  <el-table-column label="Name" prop="name" />
+                  <el-table-column label="Type" prop="category" />
+
+                  <el-table-column label="Actions">
+                    <template #default="scope">
+                      <el-link :href="props.row.documents[scope.$index].name" download>
+                        <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
+                      </el-link>
+                      <el-tooltip content="Delete" placement="top">
+                        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                          icon-color="#626AEF" title="Are you sure to delete this document?"
+                          @confirm="removeDocument(scope.row)">
+                          <template #reference>
+                            <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                          </template>
+                        </el-popconfirm>
+                      </el-tooltip>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button>
+
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Title" width="400" prop="title" />
+          <el-table-column label="Settlement" prop="settlement.name" />
+          <el-table-column label="Programme" prop="programme.title" />
+
+
+          <el-table-column fixed="right" label="Operations" width="200">
+            <template #default="scope">
+
+              <el-tooltip content="Edit" placement="top">
+                <el-button type="success" :icon="Edit" @click="editProject(scope as TableSlotDefault)" circle />
+              </el-tooltip>
+              <el-tooltip content="View on Map" placement="top">
+                <el-button type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)" circle />
+              </el-tooltip>
+              <el-tooltip content="Delete" placement="top">
+                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">
+                  <template #reference>
+                    <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                  </template>
+                </el-popconfirm>
+              </el-tooltip>
+            </template>
+          </el-table-column>
+
+        </el-table>
+
         <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
@@ -1142,12 +1362,17 @@ const programme_options = [
           </el-select>
         </el-form-item>
 
-
-
-
+        <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
+            :limit="3" :auto-upload="false">
+            <el-button type="primary">Click to upload</el-button>
+            <template #tip>
+              <div class="el-upload__tip">
+                pdf/xlsx/csv/jpg/png files with a size less than 20mb.
+              </div>
+            </template>
+          </el-upload></el-form-item>
       </el-form>
       <template #footer>
-
         <span class="dialog-footer">
           <el-button @click="AddDialogVisible = false">Cancel</el-button>
           <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
@@ -1155,6 +1380,21 @@ const programme_options = [
         </span>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
+      <el-upload v-model:file-list="morefileList" class="upload-demo"
+        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
+        <el-button type="primary">Click to upload</el-button>
+        <template #tip>
+          <div class="el-upload__tip">
+            jpg/png files with a size less than 500KB.
+          </div>
+        </template>
+      </el-upload>
+      <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
+
+    </el-dialog>
+
   </ContentWrap>
 
 
@@ -1164,5 +1404,15 @@ const programme_options = [
 .basemap {
   width: 100%;
   height: 400px;
+}
+</style>
+
+<style>
+.el-table .warning-row {
+  --el-table-tr-bg-color: var(--el-color-warning-light-9);
+}
+
+.el-table .success-row {
+  --el-table-tr-bg-color: var(--el-color-success-light-9);
 }
 </style>

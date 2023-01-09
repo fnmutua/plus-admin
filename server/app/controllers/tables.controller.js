@@ -7,7 +7,7 @@ var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
 const crypto = require('crypto');
 
-
+ 
 const nodemailer = require('nodemailer')
 const { authJwt } = require("../middleware");
 var fs = require('fs');
@@ -362,35 +362,29 @@ exports.modelOneGeo = async (req, res) => {
 }
 
 exports.modelSelectGeo = async (req, res) => {
+
+  console.log('Geoid arrays ----------------------------------->',  req.body)
+
+
   var reg_model = req.body.model
   var columnFilterField = req.body.columnFilterField
 
   if (req.body.selectedParents.length > 0) {
     var arr = req.body.selectedParents //req.body // [80,64] }
-  } else {
+
+  } else if (req.body.filtredGeoIds.length >0) {
+    var arr = [req.body.filtredGeoIds] //req.body // [80,64] }
+  }
+  else {
     var arr = [req.body.id] //req.body // [80,64] }
   }
-  var xqry2 =
-    " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +
-    reg_model +
-    ' AS t where geom is not null and ' +
-    columnFilterField +
-    ' IN (' +
-    arr +
-    ')'
-  console.log('QRY', qry2)
-
-
-  var qdry2 =
-  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry  from  " +
-  reg_model +    ' where geom is not null '+ columnFilterField +  ' IN (' +  arr + ')' + ' ) as f ) as fc'
-  
-
+ 
+ console.log('Geoid arrays ----------------------------------->', arr)
   var qry2 =
   " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
   reg_model  + ' where geom is not null and   '+ columnFilterField +  ' IN (' +  arr + ')' + ' ) as f ) as fc'
   
-  
+   
 
   const result_geo = await sequelize.query(qry2, {
     model: db.models[reg_model],
@@ -778,16 +772,41 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
 
 
   /// use the multpiple filters
-  var queryFields = {}
+  
+  // if (req.body.filters) {
+  //   if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
+  //     for (let i = 0; i < req.body.filters.length; i++) {
+  //       queryFields[req.body.filters[i]] = req.body.filterValues[i]
+  //     }
+  //     console.log('Final-object------------>', queryFields)
+  //     qry.where = queryFields
+  //   }
+  // }
+  var lstQuerries = []
+
+
   if (req.body.filters) {
     if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
+
       for (let i = 0; i < req.body.filters.length; i++) {
-        queryFields[req.body.filters[i]] = req.body.filterValues[i]
+        var queryFields = {}
+        //queryFields[req.body.filters[i]] = req.body.filterValues[i][j]
+        lstQuerries.push(queryFields)
+        var lstValues  = []
+        for (let j = 0; j < req.body.filterValues[i].length; j++) {
+          lstValues.push(req.body.filterValues[i][j])
+        }
+        queryFields[req.body.filters[i]] = lstValues
+        lstQuerries.push(queryFields)
+
       }
-      console.log('Final-object------------>', queryFields)
-      qry.where = queryFields
     }
+    console.log('Final-object------------>', lstQuerries)
+ 
+    qry.where = lstQuerries
   }
+  console.log('Final-object------------>', qry)
+
 
   qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only 
   db.models[reg_model].findAndCountAll(qry).then((list) => {
