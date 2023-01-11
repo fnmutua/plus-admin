@@ -2,7 +2,7 @@
 import { Form, FormExpose } from '@/components/Form'
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { reactive, unref, ref } from 'vue'
+import { reactive, unref, ref, Ref } from 'vue'
 import {
   ElButton,
   ElSelect,
@@ -34,7 +34,7 @@ import {
   MapboxNavigationControl,
 
 } from 'vue-mapbox-ts'
-import { DocumentAdd, Edit, Plus, Picture, Location, Upload, ArrowRight, Promotion, RefreshLeft } from '@element-plus/icons-vue'
+import { DocumentAdd, Edit, Plus, Picture, Location, Upload, ArrowRight, Promotion, RefreshLeft, UploadFilled } from '@element-plus/icons-vue'
 
 
 import { getCountyListApi } from '@/api/counties'
@@ -50,7 +50,14 @@ import type { UploadProps, UploadUserFile } from 'element-plus'
 import { readFile } from 'jsonfile';
 import type { UploadInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
+import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
+import { util } from 'echarts'
 
+import { isProxy, toRaw } from 'vue';
+import JSZip from 'jszip';
+//import  shapefile   from 'shapefile';
+import { open } from 'shapefile';
+import * as turf from '@turf/turf'
 
 const uploadRef = ref<UploadInstance>()
 const { push } = useRouter()
@@ -83,7 +90,8 @@ const ruleForm = reactive({
   area: '',
   population: '',
   code: '',
-  description: ''
+  description: '',
+
 
 })
 
@@ -161,7 +169,7 @@ const coordinates = ref([])
 const geoJson = ref({})
 const polygons = ref([]) as Ref<[number, number][][]>
 
-const shp = []
+
 const rules = reactive<FormRules>({
   name: [{ required: true, message: 'Please select a Settlement', trigger: 'blur' }],
   county_id: [{ required: true, message: 'county_id is required', trigger: 'blur' }],
@@ -503,9 +511,9 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
       filesFormData.append('parent_code', report.data.id)
       filesFormData.append('model', model)
-      filesFormData.append('grp', 'Project Documentation')
+      filesFormData.append('grp', 'Settlement Documentation')
       filesFormData.append('code', uuid.v4())
-      filesFormData.append('column', 'project_id')
+      filesFormData.append('column', 'settlement_id')
 
 
 
@@ -527,15 +535,18 @@ const resetForm = (formEl: FormInstance | undefined) => {
   formEl.resetFields()
 }
 
-const uploadPolygon = (poly: any) => {
-  console.log('Digitixed', poly.features)
+const uploadPolygon = (poly) => {
+
+
+  console.log('Digitixed', poly)
+
   console.log('Len', poly.features.length)
 
   //polygons.value.push(poly.features[0].geometry.coordinates[0])
   for (let i = 0; i < poly.features.length; i++) {
 
     if (poly.features[i].geometry.type == 'Point' || poly.features[i].geometry.type == 'LineString') {
-      console.log('Feature >>', i)
+
       for (let j = 0; j < poly.features[i].geometry.coordinates.length; j++) {
         console.log('j', j, poly.features[i].geometry.coordinates[j])
         polygons.value.push(poly.features[i].geometry.coordinates[j])
@@ -550,10 +561,16 @@ const uploadPolygon = (poly: any) => {
 
   console.log('OBJ-TYPE', poly.features[0].geometry.type)
 
+  var multiPoly = turf.multiPolygon(polygons);
+  console.log(multiPoly)
 
   geoJson.value.type = poly.features[0].geometry.type
+  //geoJson.value.type = 'MultiPolygon'
+  // const merge3 = polygons.value.flat(1);
+
   geoJson.value.coordinates = polygons
   // ruleForm.geom = poly
+  console.log('Len', geoJson.value)
 }
 
 
@@ -597,6 +614,7 @@ const handleUploadGeo = async (uploadFile) => {
   //  uploadRef.value!.submit()
 
   console.log("File type", uploadFile.name.split('.').pop())
+  var fileType = uploadFile.name.split('.').pop()
   var rfile = uploadFile.raw
 
   let reader = new FileReader()
@@ -604,10 +622,67 @@ const handleUploadGeo = async (uploadFile) => {
 
   //var mydata = JSON.parse(uploadFile);
 
+  if (fileType === 'geojson') {
+    reader.onload = readJson
+    reader.readAsText(rfile)
+  }
+  else {
+    readShp(rfile)
 
-  reader.onload = readJson
-  reader.readAsText(rfile)
+    // reader.readAsArrayBuffer(rfile)
+  }
 
+
+}
+
+const arrayFeatures = ref([])
+const getGeoJSON = async (file) => {
+  // read the shapefile using the FileReader API
+  const zip = new JSZip();
+  await zip.loadAsync(file);
+  const keys = Object.keys(zip.files)
+  //const shpName = keys.findIndex(element => element.includes(".shp "));
+  const shpName = keys.filter(arr => arr.match(".shp") !== null)
+  const dbf = keys.filter(arr => arr.match(".shp") !== null)
+  console.log(shpName)
+
+  const x = ref({ name: 'John' });
+  zip.file(shpName[0]).async("ArrayBuffer").then(async function (data) {
+
+    const arr = ref([])
+    open(data)
+      .then(source => source.read()
+        .then(async function log(result) {
+          if (result.done) {
+            console.log(arr.value)
+            uploadPolygon(turf.featureCollection(arr.value))
+            return
+          };
+          // console.log(result.value);
+          arr.value.push(result.value)
+          return source.read().then(log);
+        }))
+      .catch(error => console.error(error.stack));
+
+  })
+
+}
+
+const readShp = async (file) => {
+  console.log('Reading Shp file....')
+
+  // await getGeoJSON(file)
+
+  readShapefileAndConvertToGeoJSON(file)
+    .then((geojson) => {
+      //   console.log(turf.featureCollection(geojson))
+      uploadPolygon(turf.featureCollection(geojson))
+    })
+    .catch((error) => {
+      console.error(error)
+    })
+
+  //uploadPolygon(feat)
 }
 
 const readJson = (event) => {
@@ -618,8 +693,6 @@ const readJson = (event) => {
 
   uploadPolygon(json)
 }
-
-
 const geoSource = ref(false)
 
 const AddSettlement = () => {
@@ -642,6 +715,8 @@ const typeOptions = [
   },
 
 ]
+
+
 
 
 </script>

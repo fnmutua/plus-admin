@@ -342,6 +342,15 @@ db.models.project.hasMany(db.models.document, {
 })
 
 
+db.models.document.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id',
+})
+
+db.models.settlement.hasMany(db.models.document, {
+  foreignKey: 'settlement_id'
+})
+
+
 // db.models.document.belongsTo(db.models.indicator_category_report, {
 //   foreignKey: 'parent_code',
 //   targetKey:'code'

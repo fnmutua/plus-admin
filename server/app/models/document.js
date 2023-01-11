@@ -20,6 +20,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+    settlement_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
 
     category: {
       type: DataTypes.STRING,
@@ -31,7 +35,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
   
-  location: {
+   location: {
       type: DataTypes.STRING,
       allowNull: false
     },
