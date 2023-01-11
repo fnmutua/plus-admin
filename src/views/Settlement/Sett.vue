@@ -5,7 +5,9 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber, ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
+  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
+  ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
+  ElTableColumn, UploadUserFile
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
@@ -25,6 +27,11 @@ import { getAllGeo } from '@/api/settlements'
 import {
   searchByKeyWord
 } from '@/api/settlements'
+
+
+
+
+import 'element-plus/theme-chalk/display.css'
 
 ////////////*************Map Imports***************////////
 
@@ -88,7 +95,7 @@ const total = ref(0)
 const downloadLoading = ref(false)
 const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
-const formheader = ref('Edit Project')
+const formheader = ref('Edit Settlement')
 
 
 let tableDataList = ref<UserType[]>([])
@@ -103,7 +110,7 @@ var filterValues = [[1, 2]]  // make sure the inner array is array
 var tblData = []
 
 const associated_Model = ''
-const associated_multiple_models = ['county']
+const associated_multiple_models = ['county', 'document']
 
 const model = 'settlement'
 //// ------------------parameters -----------------------////
@@ -118,54 +125,7 @@ const geoLoaded = ref(false)
 
 const { t } = useI18n()
 
-const formatter = (row) => {
-  if (row.documentation) {
 
-
-    return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, {
-      icon: "ic:outline-download-for-offline", height: '36'
-    }))
-
-    // return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, { icon: "material-symbols:cloud-download", height: '36' }), 'Download ')
-
-
-  } else {
-    return
-  }
-
-}
-
-const columns: TableColumn[] = [
-  {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
-  },
-
-  {
-    field: 'name',
-    label: t('Name')
-  },
-
-  {
-    field: 'county.name',
-    label: t('County')
-  },
-  {
-    field: 'population',
-    label: t('Population')
-  },
-  {
-    field: 'area',
-    label: t('Area(HA)'),
-  },
-  {
-    field: 'action',
-    width: "300",
-    fixed: "right",
-    label: 'Operations'
-  }
-]
 const handleClear = async () => {
   console.log('cleared....')
 
@@ -185,33 +145,6 @@ const handleClear = async () => {
   getAllBeneficiaries()
 }
 
-const handleSelectPhase = async (phase: any) => {
-  var selectOption = 'intervention_phase'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('intervention_phase : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(phase) && phase.length > 0) {
-    filterValues.splice(index, 0, phase) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (phase.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
-}
 const filterByCounty = async (title: any) => {
   var selectOption = 'county_id'
   if (!filters.includes(selectOption)) {
@@ -276,9 +209,9 @@ const submitMoreDocuments = async () => {
 
   formData.append('parent_code', currentRow.value.id)
   formData.append('model', model)
-  formData.append('grp', 'Project Documentation')
+  formData.append('grp', 'Settlement Documentation')
   formData.append('code', uuid.v4())
-  formData.append('column', 'project_id')  //Column to save ID 
+  formData.append('column', 'settlement_id')  //Column to save ID 
 
 
 
@@ -937,6 +870,20 @@ const getProgrammeOptions = async () => {
   })
 }
 
+const typeOptions = [
+  {
+    value: 1,
+    label: 'Slum'
+  },
+  {
+    value: 2,
+    label: 'Informal Settlement'
+  },
+  {
+    value: 3,
+    label: 'Project Location'
+  }
+]
 const countiesOptions = ref([])
 
 const getCountyNames = async () => {
@@ -990,15 +937,12 @@ console.log('Options---->', interVentionTypeOptions)
 ///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-  settlement_id: '',
-  title: '',
-  type: '',
-  programme_id: '',
-  status: '',
-  period: null,
-  cost: 0,
-  male_beneficiaries: 0,
-  female_beneficiaries: 0,
+  name: '',
+  county_id: '',
+  settlement_type: '',
+  population: '',
+  area: '',
+  description: null,
   geom: '',
   id: '',
   code: ''
@@ -1054,9 +998,9 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
       updateformData.append('parent_code', ruleForm.id)
       updateformData.append('model', model)
-      updateformData.append('grp', 'Project Documentation')
+      updateformData.append('grp', 'Settlement Documentation')
       updateformData.append('code', uuid.v4())
-      updateformData.append('column', 'project_id')
+      updateformData.append('column', 'settlement_id')
 
 
       // formData.append('DocTypes', fileTypes)
@@ -1084,15 +1028,15 @@ const handleClose = () => {
   showAddSaveButton.value = true
   showEditSaveButton.value = false
 
-  ruleForm.settlement_id = null
-  ruleForm.intervention_phase = null
-  ruleForm.intervention_id = null
-  ruleForm.hh_id = null
-  ruleForm.benefit_type_id = null
+  ruleForm.name = null
+  ruleForm.county_id = null
+  ruleForm.population = null
+  ruleForm.area = null
+  ruleForm.description = null
 
 
 
-  formheader.value = 'Add Beneficiary'
+  formheader.value = 'Add Settlement'
   AddDialogVisible.value = false
 
 }
@@ -1112,20 +1056,18 @@ const AddSettlement = () => {
 const AddDialogVisible = ref(false)
 const formHeader = ref('Edit Project')
 
-const editProject = (data: TableSlotDefault) => {
+const editSettlement = (data: TableSlotDefault) => {
 
   showEditSaveButton.value = true
 
   console.log(data)
   ruleForm.id = data.row.id
-  ruleForm.title = data.row.title
-  ruleForm.programme_id = data.row.programme_id
-  ruleForm.status = data.row.status
-  ruleForm.period = data.row.period
-  ruleForm.male_beneficiaries = data.row.male_beneficiaries
-  ruleForm.female_beneficiaries = data.row.female_beneficiaries
-  ruleForm.cost = data.row.cost
-  ruleForm.settlement_id = data.row.settlement_id
+  ruleForm.name = data.row.name
+  ruleForm.county_id = data.row.county_id
+  ruleForm.settlement_type = data.row.settlement_type
+  ruleForm.population = data.row.population
+  ruleForm.area = data.row.area
+  ruleForm.description = data.row.description
   ruleForm.code = data.row.code
   ruleForm.geom = data.row.geom
   fileUploadList.value = data.row.documents
@@ -1231,41 +1173,56 @@ const DownloadXlsx = async () => {
 
 }
 
-
 </script>
 
 <template>
+
   <ContentWrap :title="t('Settlements')" :message="t('Use the filters to subset')">
+
+
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
+    <el-row>
+      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
 
-    <div style="display: inline-block; margin-left: 10px">
-      <el-select v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="By County">
-        <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
+        <div style="display: inline-block; margin-top: 5px">
+          <el-select size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple
+            clearable filterable collapse-tags placeholder="By County">
+            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </div>
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+        <div style="display: inline-block; margin-top: 5px">
+          <el-select size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
+            reserve-keyword placeholder="Search by Name" />
+        </div>
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+        <div style="display: inline-block; margin-top: 5px">
+          <div style="display: inline-block; margin-left: 20px">
+            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+          </div>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by Name" />
-    </div>
+          <div style="display: inline-block; margin-left: 20px">
+            <el-tooltip content="Add Project" placement="top">
+              <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
+            </el-tooltip>
+          </div>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
+          <div style="display: inline-block; margin-left: 20px">
+            <el-tooltip content="Download" placement="top">
+              <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+            </el-tooltip>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Project" placement="top">
-        <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Download" placement="top">
-        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-      </el-tooltip>
-    </div>
+
+
+
 
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
@@ -1312,11 +1269,11 @@ const DownloadXlsx = async () => {
           <el-table-column label="Area(HA)" prop="area" />
 
 
-          <el-table-column fixed="right" label="Operations" width="200">
+          <el-table-column fixed="right" label="Operations" width="150">
             <template #default="scope">
 
               <el-tooltip content="Edit" placement="top">
-                <el-button type="success" :icon="Edit" @click="editProject(scope as TableSlotDefault)" circle />
+                <el-button type="success" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)" circle />
               </el-tooltip>
               <el-tooltip content="View on Map" placement="top">
                 <el-button type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)" circle />
@@ -1349,38 +1306,39 @@ const DownloadXlsx = async () => {
     <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="30%" draggable>
       <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
-        <el-form-item label="Settlement" prop="settlement_id">
-          <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement">
-            <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-form-item label="County" prop="county_id">
+          <el-select v-model="ruleForm.county_id" filterable placeholder="Select County">
+            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
 
 
-        <el-form-item label="Title">
-          <el-input v-model="ruleForm.title" />
+
+
+        <el-form-item label="Name">
+          <el-input v-model="ruleForm.name" />
         </el-form-item>
 
-        <el-form-item label="Beneficiaries (M)">
-          <el-input-number v-model="ruleForm.male_beneficiaries" />
-        </el-form-item>
-        <el-form-item label="Beneficiaries (F)">
-          <el-input-number v-model="ruleForm.female_beneficiaries" />
-        </el-form-item>
 
-        <el-form-item label="Cost">
-          <el-input-number v-model="ruleForm.cost" />
-        </el-form-item>
 
-        <el-form-item label="Period" prop="period">
-          <el-date-picker v-model="ruleForm.period" type="monthrange" range-separator="To"
-            start-placeholder="Start date" end-placeholder="End date" />
-        </el-form-item>
-
-        <el-form-item label="Programme" prop="programme">
-          <el-select v-model="ruleForm.programme_id" filterable placeholder="Select">
-            <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-form-item label="Type" prop="settlement_type">
+          <el-select v-model="ruleForm.settlement_type" filterable placeholder="Select type">
+            <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
+
+        <el-form-item label="Population">
+          <el-input-number v-model="ruleForm.population" />
+        </el-form-item>
+        <el-form-item label="Area(ha)">
+          <el-input-number v-model="ruleForm.area" />
+        </el-form-item>
+
+        <el-form-item label="Description">
+          <el-input v-model="ruleForm.description" />
+        </el-form-item>
+
+
 
         <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
             :limit="3" :auto-upload="false">
@@ -1420,6 +1378,9 @@ const DownloadXlsx = async () => {
 
 </template>
  
+
+
+
 <style scoped>
 .basemap {
   width: 100%;
@@ -1434,5 +1395,28 @@ const DownloadXlsx = async () => {
 
 .el-table .success-row {
   --el-table-tr-bg-color: var(--el-color-success-light-9);
+}
+</style>
+
+
+
+
+
+<style>
+.el-row {
+  margin-bottom: 20px;
+}
+
+.el-row:last-child {
+  margin-bottom: 0;
+}
+
+.el-col {
+  border-radius: 4px;
+}
+
+.grid-content {
+  border-radius: 4px;
+  min-height: 36px;
 }
 </style>

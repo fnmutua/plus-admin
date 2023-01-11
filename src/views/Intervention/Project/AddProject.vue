@@ -502,15 +502,11 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         filesFormData.append('DocType', format)
 
       }
-
-
       filesFormData.append('parent_code', report.data.id)
       filesFormData.append('model', model)
       filesFormData.append('grp', 'Project Documentation')
       filesFormData.append('code', uuid.v4())
       filesFormData.append('column', 'project_id')
-
-
 
       console.log('Upload starting ')
       // await uploadDocuments(formData)
@@ -524,11 +520,6 @@ const submitForm = async (formEl: FormInstance | undefined) => {
   })
 }
 
-
-const resetForm = (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  formEl.resetFields()
-}
 
 const uploadPolygon = (poly: any) => {
   console.log('Digitixed', poly.features)

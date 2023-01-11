@@ -66,12 +66,15 @@ const getParcels = async () => {
   await getfilteredGeo(formData)
     .then((response: { data: any }) => {
       //   filtergeo.value = response.data[0].json_build_object
+      console.log(response.data[0].json_build_object.features)
+      if (response.data[0].json_build_object.features) {
+        for (let i = 0; i < response.data[0].json_build_object.features.length; i++) {
 
-      for (let i = 0; i < response.data[0].json_build_object.features.length; i++) {
+          parcelsPoly.push(response.data[0].json_build_object.features[i])
 
-        parcelsPoly.push(response.data[0].json_build_object.features[i])
-
+        }
       }
+
 
 
 
@@ -128,40 +131,6 @@ const getAll = async () => {
   loadMap()
 }
 
-function getColor(d) {
-
-  // recieve the prop
-  if (d > 7) {
-    // as many conditionals you need
-    return 'green'
-  }
-  if (d === 0) {
-    return 'brown'
-  }
-  if (d == 1) {
-    return 'purple'
-  }
-  if (d == 2) {
-    return 'orange'
-  }
-  if (d == 3) {
-    return 'green'
-  }
-  if (d == 4) {
-    return 'yellow'
-  }
-  if (d == 5) {
-    return 'red'
-  }
-
-  if (d == 6) {
-    return 'gray'
-  }
-
-  if (d == 7) {
-    return 'yellow'
-  }
-}
 
 const loadMap = () => {
   var nmap = new mapboxgl.Map({

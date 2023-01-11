@@ -35,6 +35,7 @@ export default defineConfig({
     //   // ...range(50).map((i) => `ml-${i}px`)
     // }
   },
+   
   plugins: [
     plugin(({ addComponents }) => {
       const obj = {}
@@ -72,5 +73,7 @@ export default defineConfig({
         ...obj
       })
     })
-  ]
+  ],
+
+
 })
