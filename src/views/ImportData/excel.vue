@@ -7,6 +7,9 @@ import { getParentIds, BatchImportUpsert } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { getModelSpecs } from '@/api/fields'
 
+import { postBatchHouseholds } from '@/api/households'
+
+
 import {
   ElButton,
   ElSelect,
@@ -507,11 +510,22 @@ const handleProcess = async () => {
 
 
   // ************** Send data to server ***************** //
-  await BatchImportUpsert(formData)
-    .catch((error) => {
-      console.log('Error------>', error.response.data.message)
-      ElMessage.error(error.response.data.message)
-    })
+  if (model.value == 'households') {
+    await postBatchHouseholds(formData)
+      .catch((error) => {
+        console.log('Error------>', error.response.data.message)
+        ElMessage.error(error.response.data.message)
+      })
+
+  } else {
+
+    await BatchImportUpsert(formData)
+      .catch((error) => {
+        console.log('Error------>', error.response.data.message)
+        ElMessage.error(error.response.data.message)
+      })
+
+  }
 
 
 

@@ -9,20 +9,32 @@ import 'leaflet/dist/leaflet.css'
 import { useRoute } from 'vue-router'
 
 
-import { ElCard, ElButton, ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { ElCard, ElButton, ElCheckboxGroup, ElCheckbox, ElCheckboxButton, ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { Download } from '@element-plus/icons-vue'
+
+
+import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
+import "mapbox-layer-switcher/styles.css";
+
+
+import writeShapefile from '@/utils/writeShapefile'
+import * as download from 'downloadjs'
+import { ElMessage } from 'element-plus'
+
+
+
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 mapboxgl.accessToken = MapBoxToken;
 
 
-import { ElMessage } from 'element-plus'
 
+const title = ref('')
 
 const route = useRoute()
 
@@ -86,11 +98,10 @@ const getParcels = async () => {
 
 
 }
-const title = ref('')
+
 const getAll = async () => {
   console.log('Get all Settleemnts ')
   const id = route.params.id
-  const settData = route.params.data
   console.log('Project ID, Data:', id, route.params)
 
   const formData = {}
@@ -131,9 +142,10 @@ const getAll = async () => {
   loadMap()
 }
 
+const nmap = ref()
 
 const loadMap = () => {
-  var nmap = new mapboxgl.Map({
+  nmap.value = new mapboxgl.Map({
     container: "mapContainer",
     style: "mapbox://styles/mapbox/streets-v11",
     center: [37.137343, 1.137451], // starting position
@@ -144,26 +156,13 @@ const loadMap = () => {
   console.log("resizing....")
 
   const nav = new mapboxgl.NavigationControl();
-  nmap.addControl(nav, "top-right");
+  nmap.value.addControl(nav, "top-right");
 
 
-  nmap.on('load', () => {
+  nmap.value.on('load', () => {
 
-    nmap.addSource('points', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(facilityGeoPoints.value),
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
 
-    nmap.addSource('lines', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(facilityGeoLines.value),
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
-
-    nmap.addSource('polygons', {
+    nmap.value.addSource('polygons', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
       data: turf.featureCollection(facilityGeoPolygons.value),
@@ -172,7 +171,7 @@ const loadMap = () => {
 
 
 
-    nmap.addSource('parcels', {
+    nmap.value.addSource('parcels', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
       data: turf.featureCollection(ParcelGeodata.value),
@@ -180,29 +179,10 @@ const loadMap = () => {
     });
 
 
-    // nmap.addLayer({
-    //   'id': 'points-layer',
-    //   "type": "circle",
-    //   'source': 'points',
-    //   'paint': {
-    //     "circle-color": 'green'
-    //   }
-    // });
 
-    // nmap.addLayer({
-    //   'id': 'lines',
-    //   'type': 'line',
-    //   'source': 'lines',
-    //   'paint': {
-    //     'line-width': 3,
-    //     // Use a get expression (https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-get)
-    //     // to set the line-color to a feature property value.
-    //     'line-color': 'red'
-    //   }
-    // });
 
-    nmap.addLayer({
-      'id': 'polygons-layer',
+    nmap.value.addLayer({
+      'id': 'Boundary',
       "type": "fill",
       'source': 'polygons',
       'paint': {
@@ -211,21 +191,10 @@ const loadMap = () => {
       }
     });
 
-    //Add a black outline around the polygon.
-    nmap.addLayer({
-      'id': 'outline',
-      'type': 'line',
-      'source': 'polygons',
-      'layout': {},
-      'paint': {
-        'line-color': '#ffffb3',
-        'line-width': 1
-      }
-    });
 
 
-    nmap.addLayer({
-      'id': 'parcels-layer',
+    nmap.value.addLayer({
+      'id': 'Parcels',
       "type": "fill",
       'source': 'parcels',
       'paint': {
@@ -253,105 +222,66 @@ const loadMap = () => {
       }
     });
 
-    //Add a white outline around the polygon.
-    nmap.addLayer({
-      'id': 'parcel-outline',
-      'type': 'line',
-      'source': 'parcels',
-      'layout': {},
-      'paint': {
-        'line-color': 'white',
-        'line-width': 1
-      }
-    });
 
 
+    const layers: MapboxLayerDefinition[] = [
+      {
+        id: "Boundary",
+        title: "Boundary",
+        visibility: 'visible',
+        type: 'base'
+      },
+      {
+        id: "Parcels",
+        title: "Parcels",
+        visibility: 'visible',
+        type: 'base'
+      },
+
+    ];
+
+    nmap.value.addControl(new MapboxLayerSwitcherControl(layers));
 
 
-
-
-    nmap.resize()
+    nmap.value.resize()
 
     var bounds = turf.bbox((filtergeo.value));
-    nmap.fitBounds(bounds, { padding: 20 });
+    nmap.value.fitBounds(bounds, { padding: 20 });
 
-    nmap.on('click', 'points-layer', (e) => {
-      console.log("Onclikc..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.asset_type;
-      const condition = e.features[0].properties.asset_condition;
 
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-    });
     // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'points-layer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
+    nmap.value.on('mouseenter', 'points-layer', () => {
+      nmap.value.getCanvas().style.cursor = 'pointer';
     });
     // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'points-layer', () => {
-      nmap.getCanvas().style.cursor = '';
+    nmap.value.on('mouseleave', 'points-layer', () => {
+      nmap.value.getCanvas().style.cursor = '';
     });
 
 
-    nmap.on('click', 'lines-layer', (e) => {
+    nmap.value.on('click', 'Parcels', (e) => {
       console.log("click line..........")
       // Copy coordinates array.
       const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.asset_type;
-      const condition = e.features[0].properties.asset_condition;
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-    });
-
-
-    nmap.on('click', 'polygons-layer', (e) => {
-      console.log("click line..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.title;
-      const condition = e.features[0].properties.programme;
+      const parcel_no = e.features[0].properties.parcel_no;
+      const landuse = e.features[0].properties.landuse_id;
+      const area = e.features[0].properties.area_ha;
 
       // Ensure that if the map is zoomed out such that multiple
       // copies of the feature are visible, the popup appears
       // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      console.log(coordinates[0][0])
+      var centroid = turf.centroid(e.features[0])
+      console.log(centroid.geometry.coordinates)
+      while (Math.abs(e.lngLat.lng - coordinates[0][0]) > 180) {
+        coordinates[0][0] += e.lngLat.lng > coordinates[0][0] ? 360 : -360;
       }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
+      new mapboxgl.Popup({ offset: [0, 0] })
+        .setLngLat(centroid.geometry.coordinates)
+        .setHTML('<h1><u><strong>Parcel Details</strong></u><h1>' + '<h3><strong> Parcel Number: </strong>' + parcel_no + '</h3><p><strong> Area:  </strong> ' + area.toFixed(4) + '(Ha.)' + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap.value);
     });
 
-
-    // Cange the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'lines-layer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'lines-layer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
 
   });
 
@@ -363,13 +293,54 @@ getAll()
 
 const downloadMap = () => {
   ElMessage({
-    message: 'Coming soon..',
+    message: 'Downloading in GeoJson format.....',
     type: 'warning',
   })
+
+  var collection = turf.featureCollection(ParcelGeodata.value)
+
+  download(JSON.stringify(collection), "ParcelGeodata.json", "text/plain");
+
+
+
 
   console.log("Downlaod...s.")
 }
 
+const selectedLayers = ref(['Parcels', 'Boundary'])
+const layers = ['Parcels', 'Boundary']
+
+
+
+const switchLayer = () => {
+
+
+  for (let i = 0; i < layers.length; i++) {
+    let thisLayer = layers[i]
+    console.log('Thislayer', thisLayer)
+
+    if (selectedLayers.value.includes(thisLayer)) {
+      nmap.value.setLayoutProperty(
+        thisLayer,
+        'visibility',
+        'visible'
+      );
+    } else {
+      nmap.value.setLayoutProperty(
+        thisLayer,
+        'visibility',
+        'none'
+      );
+
+    }
+
+
+
+
+  }
+
+
+}
 
 
 console.log(model)
@@ -382,6 +353,13 @@ console.log(model)
     <template #header>
       <div class="card-header">
         <span>{{ toTitleCase(title.replace('_', ' ')) + ' Settlement'}}</span>
+
+        <el-checkbox-group :onChange="switchLayer" v-model="selectedLayers">
+          <el-checkbox-button v-for="layer in layers" :key="layer" :name="layer" :label="layer">{{
+            layer
+          }}</el-checkbox-button>
+        </el-checkbox-group>
+
         <el-button type="primary" :onClick="downloadMap" class="button">Download</el-button>
 
       </div>
@@ -434,5 +412,17 @@ console.log(model)
 
 .item {
   margin-bottom: 18px;
+}
+</style>
+
+
+<style scoped>
+.demo-button-style {
+  margin-top: 24px;
+}
+</style>
+<style>
+h1 {
+  text-align: center;
 }
 </style>

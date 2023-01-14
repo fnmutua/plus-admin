@@ -1,0 +1,30 @@
+id
+
+
+
+type_structure
+struct_owner
+
+address
+sanitation
+source_water
+mode_transport
+access_health
+handwashing
+solid_waste
+code
+age_plot_owner
+
+
+ALTER TABLE IF EXISTS public.households
+    ADD COLUMN expense_food character varying,
+    ADD COLUMN mode_acquisition character varying,
+    ADD COLUMN ownership_docs character varying,
+    ADD COLUMN shared_ownership character varying,
+    ADD COLUMN access_education character varying,
+    ADD COLUMN distance_to_sch character varying,
+    ADD COLUMN lighting_energy character varying,
+    ADD COLUMN cooking_energy character varying,
+    ADD COLUMN water_cost20l integer,
+    ADD COLUMN toilet_cost integer,
+    ADD COLUMN cooking_energy_cost integer;

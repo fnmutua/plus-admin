@@ -291,7 +291,61 @@ module.exports = function (sequelize, DataTypes) {
       },
  
     
+      expense_food: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
  
+      mode_acquisition: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+
+      ownership_docs: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      shared_ownership: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true
+      },
+
+
+      access_education: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+
+
+      distance_to_sch: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+
+      lighting_energy: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+
+      cooking_energy: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+
+      water_cost20l: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+      toilet_cost: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      cooking_energy_cost: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+    
       code: {
         type: DataTypes.STRING,
         allowNull: false

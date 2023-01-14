@@ -24,3 +24,4 @@ VITE_APP_TITLE=KISIP
 
 # Make sure to change here for production.
 VITE_APP_HOST=http://localhost    
+AES_KEY='maluini'

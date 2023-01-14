@@ -12,8 +12,11 @@ async function readShapefileAndConvertToGeoJSON(file) {
 
     //const shpName = keys.findIndex(element => element.includes(".shp "));
     const shpName = keys.filter(arr=>arr.match(".shp")!==null)
-  console.log(shpName)
   
+  console.log("Reading shp v2--------", shpName)
+  if (shpName.length ==0) { 
+    return // if no *.shp are found 
+  }
   return new Promise(async (resolve, reject) => {
      
           await zip.file(shpName[0]).async("ArrayBuffer").then(function(data) {
@@ -35,14 +38,18 @@ async function readShapefileAndConvertToGeoJSON(file) {
                   });
                 })
                 .catch(function (error) {
-                  console.error(error.stack);
+                  console.error(error);
+                  return 
+
+   
                 });
               
-             
-              
+          
               console.log('resolve', features)
             } catch (error) { 
-                console.log('errro')
+              console.log('errro')
+              console.log("Error reading Shapefile")
+              return 
             }
            })
   })

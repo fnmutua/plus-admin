@@ -51,6 +51,27 @@ import { readFile } from 'jsonfile';
 import type { UploadInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
 
+import { isProxy, toRaw } from 'vue';
+import JSZip from 'jszip';
+//import  shapefile   from 'shapefile';
+import { open } from 'shapefile';
+import * as turf from '@turf/turf'
+
+
+import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
+
+import MapboxDraw from "@mapbox/mapbox-gl-draw";
+
+import mapboxgl from "mapbox-gl";
+import 'mapbox-gl/dist/mapbox-gl.css'
+import { onMounted } from 'vue'
+
+import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
+
+
+
+import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
+
 
 const uploadRef = ref<UploadInstance>()
 const { push } = useRouter()
@@ -72,7 +93,8 @@ const cost = ref(false)
 const waste = ref(false)
 const security = ref(false)
 const hazards = ref(false)
-
+var bounds = ref()
+const map = ref()
 ///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
@@ -90,6 +112,98 @@ const ruleForm = reactive({
   code: ''
 })
 
+
+
+// Load map
+const loadMap = () => {
+  mapboxgl.accessToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw';
+  map.value = new mapboxgl.Map({
+    container: 'mapContainer',
+    // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+    style: 'mapbox://styles/mapbox/streets-v12',
+    center: [37.137343, 0.737451], // starting position
+    zoom: 5
+  });
+
+  const nav = new mapboxgl.NavigationControl();
+  map.value.addControl(nav, "top-left");
+
+  map.value.on('load', () => {
+
+
+    if (settlementPoly.value) {
+
+      map.value.addSource('polygons', {
+        type: 'geojson',
+        //data: settlementPoly.value
+        data: turf.featureCollection(settlementPoly.value),
+      });
+      map.value.addLayer({
+        'id': 'polygons-layer',
+        "type": "fill",
+        'source': 'polygons',
+        'paint': {
+          'fill-color': '#0080ff', // blue color fill
+          'fill-opacity': 0.2
+        }
+
+      });
+    }
+
+
+    bounds.value = turf.bbox((settlementPoly.value));
+    map.value.fitBounds(bounds.value, { padding: 20 });
+
+
+  });
+
+  const draw = new MapboxDraw({
+    displayControlsDefault: false,
+    // Select which mapbox-gl-draw control buttons to add to the map.
+    controls: {
+      polygon: true,
+      line_string: true,
+      uncombine_features: false,
+      point: true,
+      trash: true
+    },
+    // Set mapbox-gl-draw to draw by default.
+    // The user does not have to click the polygon control button first.
+    defaultMode: 'draw_polygon'
+  });
+  map.value.addControl(draw);
+
+
+  map.value.on('draw.create', updatePoly);
+  map.value.on('draw.delete', deletePoly);
+  map.value.on('draw.update', updatePoly);
+
+  map.value.resize()
+
+
+
+  //--- 
+}
+onMounted(() => {
+  console.log('Loaded.......')
+  loadMap()
+})
+
+
+
+const updatePoly = (e) => {
+  console.log("Poly", e)
+  settlementPoly.value = e
+
+  var feat = turf.featureCollection(settlementPoly.value.features)
+  uploadPolygon(feat)
+
+}
+
+const deletePoly = (e) => {
+  console.log("Poly", e)
+  settlementPoly.value = []
+}
 
 
 const fileUploadList = ref<UploadUserFile[]>([])
@@ -521,7 +635,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 }
 
 
-const uploadPolygon = (poly: any) => {
+const xuploadPolygon = (poly: any) => {
   console.log('Digitixed', poly.features)
   console.log('Len', poly.features.length)
 
@@ -550,6 +664,53 @@ const uploadPolygon = (poly: any) => {
   // ruleForm.geom = poly
 }
 
+
+const uploadPolygon = (poly) => {
+
+  // Zoom in to layer 
+  map.value.getSource("polygons").setData(poly.features);
+  bounds.value = turf.bbox((poly))
+  console.log("From poly File", bounds.value)
+  map.value.fitBounds(bounds.value, { padding: 20 })
+
+
+
+
+  console.log('Digitixed', poly)
+  console.log('Len', poly.features.length)
+
+  //polygons.value.push(poly.features[0].geometry.coordinates[0])
+  for (let i = 0; i < poly.features.length; i++) {
+
+    if (poly.features[i].geometry.type == 'Point' || poly.features[i].geometry.type == 'LineString') {
+
+      for (let j = 0; j < poly.features[i].geometry.coordinates.length; j++) {
+        console.log('j', j, poly.features[i].geometry.coordinates[j])
+        polygons.value.push(poly.features[i].geometry.coordinates[j])
+      }
+    }
+    else {
+      polygons.value.push(poly.features[i].geometry.coordinates[0])
+    }
+
+
+  }
+
+  console.log('OBJ-TYPE', poly.features[0].geometry.type)
+
+  var multiPoly = turf.multiPolygon(polygons);
+  console.log(multiPoly)
+
+  geoJson.value.type = poly.features[0].geometry.type
+  //geoJson.value.type = 'MultiPolygon'
+  // const merge3 = polygons.value.flat(1);
+
+  geoJson.value.coordinates = polygons
+  // ruleForm.geom = poly
+  console.log('Len', geoJson.value)
+
+
+}
 
 
 const title = 'Add/Create  Project'
@@ -584,7 +745,7 @@ const next = () => {
     showUploadDocuments.value = true
   }
 }
-
+const settlementPoly = ref([])
 
 const handleUploadGeo = async (uploadFile) => {
   console.log('Upload>>>', uploadFile)
@@ -592,6 +753,7 @@ const handleUploadGeo = async (uploadFile) => {
 
   console.log("File type", uploadFile.name.split('.').pop())
   var rfile = uploadFile.raw
+  var fileType = uploadFile.name.split('.').pop()
 
   let reader = new FileReader()
   console.log(reader)
@@ -599,19 +761,78 @@ const handleUploadGeo = async (uploadFile) => {
   //var mydata = JSON.parse(uploadFile);
 
 
-  reader.onload = readJson
-  reader.readAsText(rfile)
+  if (fileType === 'geojson') {
+    reader.onload = readJson
+    reader.readAsText(rfile)
+  }
+  else {
+    readShp(rfile)
 
+    // reader.readAsArrayBuffer(rfile)
+  }
+
+}
+
+const readShp = async (file) => {
+  console.log('Reading Shp file....')
+
+  // await getGeoJSON(file)
+  readShapefileAndConvertToGeoJSON(file)
+    .then((geojson) => {
+
+      let feat = turf.featureCollection(geojson)
+      // Zoom in to layer 
+      map.value.getSource("polygons").setData(feat);
+      bounds.value = turf.bbox((feat))
+      console.log("From File", bounds.value)
+      map.value.fitBounds(bounds.value, { padding: 20 })
+
+      uploadPolygon(feat)
+    })
+    .catch((error) => {
+      console.error(error)
+      ElMessage.error('Invalid shapefiles. Check your zipped file')
+
+
+    })
+
+  //uploadPolygon(feat)
 }
 
 const readJson = (event) => {
   console.log('Reading Josn file....', event)
   let str = event.target.result
-  let json = JSON.parse(str)
-  console.log(json)
 
-  uploadPolygon(json)
+  try {
+    let json = JSON.parse(str)
+    console.log(json)
+    settlementPoly.value = json  // Display on map
+
+    // Zoom in to layer 
+    map.value.getSource("polygons").setData(settlementPoly.value);
+    bounds.value = turf.bbox((settlementPoly.value))
+    console.log("From File", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+    uploadPolygon(json)
+  }
+  catch (err) {
+    console.log(err.message)
+
+    ElMessage.error('Invalid Geojson Format')
+    fileList.value = []
+  }
+
+
+
+
+
+
+
+
+
+
 }
+
 
 
 const geoSource = ref(false)
@@ -623,6 +844,10 @@ const AddSettlement = () => {
     name: 'AddSettlement'
   })
 }
+
+
+
+
 </script>
 
 <template>
@@ -764,16 +989,25 @@ const AddSettlement = () => {
 
       <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card>
-          <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
+          <!-- <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
             mapStyle="mapbox://styles/mapbox/light-v10">
             <mapbox-geocoder-control :countries="countries" />
             <mapbox-geolocate-control />
             <mapbox-draw-control v-if="geoSource === false" @create="uploadPolygon" />
             <mapbox-navigation-control position="bottom-right" />
-          </mapbox-map>
+          </mapbox-map> -->
+
+          <div id="mapContainer" class="basemap"></div>
+
         </el-card>
       </el-col>
     </el-row>
   </ContentWrap>
 </template>
 
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 500px;
+}
+</style>
