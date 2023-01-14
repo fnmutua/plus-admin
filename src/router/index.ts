@@ -420,18 +420,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           title: t('Parcel')
         }
       },
-      {
-        path: 'hh/:id',
-        component: () => import('@/views/Household/index.vue'),
-        name: 'Households',
-        props: {
-          name: String
-        },
-        meta: {
-          hidden: true,
-          title: t('Households')
-        }
-      },
+ 
       {
         path: 'map/:id',
         component: () => import('@/views/Map/SettlementParcelMap.vue'),
@@ -1331,18 +1320,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: 'Parcel'
         }
       },
-      {
-        path: 'hh/:id',
-        component: () => import('@/views/Household/index.vue'),
-        name: 'Households',
-        props: {
-          name: String
-        },
-        meta: {
-          hidden: true,
-          title: 'Households'
-        }
-      },
+   
 
       {
         path: 'hh/all',
@@ -1888,20 +1866,7 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
           title: 'Parcel'
         }
       },
-      {
-        path: 'hh/:id',
-      //  component: 'views/Household/index',
-        component: () => import('@/views/Household/index.vue'),
-
-        name: 'Households',
-        props: {
-          name: String
-        },
-        meta: {
-          hidden: true,
-          title: 'Households'
-        }
-      },
+   
       {
         path: 'map/:id',
       //  component: 'views/Map/SettlementParcelMap',
@@ -2584,20 +2549,7 @@ export const staffRoutes: AppRouteRecordRaw[] = [
           title: 'Parcel'
         }
       },
-      {
-        path: 'hh/:id',
-      //  component: 'views/Household/index',
-        component: () => import('@/views/Household/index.vue'),
-
-        name: 'Households',
-        props: {
-          name: String
-        },
-        meta: {
-          hidden: true,
-          title: 'Households'
-        }
-      },
+    
       {
         path: 'map/:id',
       //  component: 'views/Map/SettlementParcelMap',
@@ -4194,20 +4146,7 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
           title: 'Parcel'
         }
       },
-      {
-        path: 'hh/:id',
-      //  component: 'views/Household/index',
-        component: () => import('@/views/Household/index.vue'),
-
-        name: 'Households',
-        props: {
-          name: String
-        },
-        meta: {
-          hidden: true,
-          title: 'Households'
-        }
-      },
+ 
       {
         path: 'map/:id',
       //  component: 'views/Map/SettlementParcelMap',
