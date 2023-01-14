@@ -23,7 +23,8 @@ import {
   ElSteps,
   ElStep,
   ElButtonGroup,
-  ElSwitch
+  ElSwitch,
+  ElMessage
 } from 'element-plus'
 
 import {
@@ -58,6 +59,23 @@ import JSZip from 'jszip';
 //import  shapefile   from 'shapefile';
 import { open } from 'shapefile';
 import * as turf from '@turf/turf'
+
+import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
+
+import MapboxDraw from "@mapbox/mapbox-gl-draw";
+
+import mapboxgl from "mapbox-gl";
+import 'mapbox-gl/dist/mapbox-gl.css'
+import { onMounted } from 'vue'
+
+import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
+
+import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
+import "mapbox-layer-switcher/styles.css";
+
+
+
+
 
 const uploadRef = ref<UploadInstance>()
 const { push } = useRouter()
@@ -96,8 +114,6 @@ const ruleForm = reactive({
 })
 
 
-
-const fileUploadList = ref<UploadUserFile[]>([])
 
 
 
@@ -165,7 +181,7 @@ getProgrammeOptions()
 
 
 console.log('--> parent options', parentOptions.value)
-const coordinates = ref([])
+
 const geoJson = ref({})
 const polygons = ref([]) as Ref<[number, number][][]>
 
@@ -188,211 +204,8 @@ const countries = 'ke'
 
 
 
-const cascadeOptions = [
-  {
-    value: 'road',
-    label: 'Roads and Infrastructure',
-    children: [
-      {
-        value: 'new_road',
-        label: 'New Road',
-      },
-      {
-        value: 'upgrade_bitumen',
-        label: 'Road Upgrade',
-      },
-      {
-        value: 'storm_water',
-        label: 'Storm Water Drainage',
-      },
-    ],
-  },
-
-  {
-    value: 'nmt',
-    label: 'Non-Motorized Transport',
-    children: [
-      {
-        value: 'bicycle',
-        label: 'Bicycle Paths',
-      },
-      {
-        value: 'pedestrian',
-        label: 'Pedestrian Walkways',
-      },
-
-    ],
-  },
-
-  {
-    value: 'electric',
-    label: 'Electricity',
-    children: [
-      {
-        value: 'street_light',
-        label: 'Street Lights',
-      },
-      {
-        value: 'security_lighting',
-        label: 'Security Lights',
-      },
-    ],
-  },
-  {
-    value: 'security',
-    label: 'Security and Safety',
-    children: [
-
-      {
-        value: 'police_stn',
-        label: 'Police Station',
-      },
-      {
-        value: 'police_post',
-        label: 'Police Post',
-      },
-      {
-        value: 'chiefs_camp',
-        label: 'Chiefs Camp',
-      },
-      {
-        value: 'crime_spot',
-        label: 'Crime Hotspot',
-      }
-
-    ],
-  },
-
-
-  {
-    value: 'waste',
-    label: 'Waste Management',
-    children: [
-      {
-        value: 'waste_collection_point',
-        label: 'Waste Collection Points',
-      },
-      {
-        value: 'waste_sorting_point',
-        label: 'Waste Sorting Points',
-      },
-      {
-        value: 'treatment_center',
-        label: 'Treatment/Recycling centre',
-      },
-
-      {
-        value: 'other_waste_mgmt',
-        label: 'Others e.g Biodigesters',
-      },
-    ],
-  },
-
-  {
-    value: 'Sanitation_hygiene',
-    label: 'Sanitation and Hygiene',
-    children: [
-
-      {
-        value: 'toilet',
-        label: 'Toilet',
-      },
-      {
-        value: 'shower',
-        label: 'Showers',
-      },
-      {
-        value: 'handwashing',
-        label: 'HandWashing',
-      },
-      {
-        value: 'other',
-        label: 'Other',
-      }
-    ],
-  },
-
-
-  {
-    value: 'utility',
-    label: 'Public utilities',
-    children: [
-      {
-        value: 'playground',
-        label: 'Playground',
-      },
-
-      {
-        value: 'community_centre',
-        label: 'Community Centre',
-      },
-      {
-        value: 'day_care_Centre',
-        label: 'Day Care Centre',
-      },
-      {
-        value: 'youth_center',
-        label: 'Youth Centres',
-      },
-      {
-        value: 'open_space',
-        label: 'Open Spaces and Parks',
-      },
-      {
-        value: 'vending_platforms',
-        label: 'Vending Platform (Vibanda)',
-      }
-    ],
-  },
-  {
-    value: 'social',
-    label: 'Social Projects/Activities',
-    children: [
-      {
-        value: 'social_housing',
-        label: 'Social Housing',
-      },
-      {
-        value: 'coming_soon',
-        label: 'coming Soon',
-      },
-
-    ],
-  },
-
-]
-
-
-
-
-const status_options = [
-  {
-    value: 'planned',
-    label: 'Planned',
-  },
-  {
-    value: 'ongoing',
-    label: 'Ongoing',
-  },
-  {
-    value: 'completed',
-    label: 'Completed',
-  }
-
-]
-
-
-
-
 // uploading the documents 
 
-
-const handleUploadDocuments: UploadProps['onChange'] = async (uploadFile, uploadFiles) => {
-
-
-
-  console.log(fileList)
-}
 
 
 
@@ -405,80 +218,6 @@ function toTitleCase(str) {
 }
 
 
-const handleChange = (selected) => {
-  //  console.log(selected.length)
-  // console.log(selected[selected.length - 1])
-  ruleForm.type = selected[selected.length - 1]
-  var selection = selected[selected.length - 1]
-  // console.log(ruleForm)
-
-
-  //------------------rating and phases------------------
-  if (selection === 'primary_substation' || selection === 'powerline' || selection === 'floodlight' || selection === 'secondary_substation') {
-    rating.value = true
-    phase.value = true
-  } else {
-    rating.value = false
-    phase.value = false
-  }
-
-  //---------------height of floodlights----------
-  if (selection === 'floodlight') {
-    height.value = true
-    date_install.value = true
-  } else {
-    height.value = false
-    date_install.value = false
-  }
-
-  //---------------stances----------
-  if (selection === 'toilet' || selection === 'shower') {
-    stances.value = true
-  } else {
-    stances.value = false
-  }
-
-  //---------------stances----------
-  if (selection === 'toilet' || selection === 'shower') {
-    stances.value = true
-    cost.value = true
-  } else {
-    stances.value = false
-    cost.value = false
-  }
-
-  if (selection === 'illegal_dumping_site' || selection === 'legal_dumping_site' || selection === 'treatment_center' || selection === 'collection_point' || selection === 'waste_mgmt_project' || selection === 'other_waste_mgmt') {
-    waste.value = true
-    cost.value = true
-  } else {
-    waste.value = false
-    cost.value = false
-  }
-
-  if (selection === 'police_stn' || selection === 'police_post' || selection === 'chiefs_camp') {
-    security.value = true
-  } else {
-    security.value = false
-
-  }
-
-  if (selection === 'other_hazard' || selection === 'landslide' || selection === 'flooding' || selection === 'fire') {
-    hazards.value = true
-  } else {
-    hazards.value = false
-
-  }
-
-
-
-
-
-
-
-
-
-
-}
 
 
 const submitForm = async (formEl: FormInstance | undefined) => {
@@ -530,16 +269,19 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 }
 
 
-const resetForm = (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  formEl.resetFields()
-}
 
 const uploadPolygon = (poly) => {
 
+  // Zoom in to layer 
+  map.value.getSource("polygons").setData(poly.features);
+  bounds.value = turf.bbox((poly))
+  console.log("From poly File", bounds.value)
+  map.value.fitBounds(bounds.value, { padding: 20 })
+
+
+
 
   console.log('Digitixed', poly)
-
   console.log('Len', poly.features.length)
 
   //polygons.value.push(poly.features[0].geometry.coordinates[0])
@@ -571,21 +313,20 @@ const uploadPolygon = (poly) => {
   geoJson.value.coordinates = polygons
   // ruleForm.geom = poly
   console.log('Len', geoJson.value)
+
+
 }
 
 
 
 const title = 'Add/Create Settlement'
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 
-const mapHeight = '500px'
 
 const active = ref(0)
 const showForm = ref(true)
 const showGeoFields = ref(false)
 const showUploadDocuments = ref(false)
-
+var bounds = ref()
 const next = () => {
   console.log('Step:', active)
 
@@ -608,7 +349,7 @@ const next = () => {
   }
 }
 
-
+const settlementPoly = ref([])
 const handleUploadGeo = async (uploadFile) => {
   console.log('Upload>>>', uploadFile)
   //  uploadRef.value!.submit()
@@ -622,64 +363,77 @@ const handleUploadGeo = async (uploadFile) => {
 
   //var mydata = JSON.parse(uploadFile);
 
-  if (fileType === 'geojson') {
+  if (fileType === 'geojson' || fileType === 'json') {
     reader.onload = readJson
     reader.readAsText(rfile)
   }
-  else {
+  else if (fileType === 'zip') {
     readShp(rfile)
 
     // reader.readAsArrayBuffer(rfile)
+  } else {
+    ElMessage.error('Only geojson or zipped shapefiles are supported at the moment')
+
+
   }
 
 
 }
 
-const arrayFeatures = ref([])
-const getGeoJSON = async (file) => {
-  // read the shapefile using the FileReader API
-  const zip = new JSZip();
-  await zip.loadAsync(file);
-  const keys = Object.keys(zip.files)
-  //const shpName = keys.findIndex(element => element.includes(".shp "));
-  const shpName = keys.filter(arr => arr.match(".shp") !== null)
-  const dbf = keys.filter(arr => arr.match(".shp") !== null)
-  console.log(shpName)
 
-  const x = ref({ name: 'John' });
-  zip.file(shpName[0]).async("ArrayBuffer").then(async function (data) {
+// const getGeoJSON = async (file) => {
+//   // read the shapefile using the FileReader API
+//   const zip = new JSZip();
+//   await zip.loadAsync(file);
+//   const keys = Object.keys(zip.files)
+//   //const shpName = keys.findIndex(element => element.includes(".shp "));
+//   const shpName = keys.filter(arr => arr.match(".shp") !== null)
+//   const dbf = keys.filter(arr => arr.match(".shp") !== null)
+//   console.log(shpName)
 
-    const arr = ref([])
-    open(data)
-      .then(source => source.read()
-        .then(async function log(result) {
-          if (result.done) {
-            console.log(arr.value)
-            uploadPolygon(turf.featureCollection(arr.value))
-            return
-          };
-          // console.log(result.value);
-          arr.value.push(result.value)
-          return source.read().then(log);
-        }))
-      .catch(error => console.error(error.stack));
+//   const x = ref({ name: 'John' });
+//   zip.file(shpName[0]).async("ArrayBuffer").then(async function (data) {
 
-  })
+//     const arr = ref([])
+//     open(data)
+//       .then(source => source.read()
+//         .then(async function log(result) {
+//           if (result.done) {
+//             console.log(arr.value)
+//             uploadPolygon(turf.featureCollection(arr.value))
+//             return
+//           };
+//           // console.log(result.value);
+//           arr.value.push(result.value)
+//           return source.read().then(log);
+//         }))
+//       .catch(error => console.error(error.stack));
 
-}
+//   })
+
+// }
 
 const readShp = async (file) => {
   console.log('Reading Shp file....')
 
   // await getGeoJSON(file)
-
   readShapefileAndConvertToGeoJSON(file)
     .then((geojson) => {
-      //   console.log(turf.featureCollection(geojson))
-      uploadPolygon(turf.featureCollection(geojson))
+
+      let feat = turf.featureCollection(geojson)
+      // Zoom in to layer 
+      map.value.getSource("polygons").setData(feat);
+      bounds.value = turf.bbox((feat))
+      console.log("From File", bounds.value)
+      map.value.fitBounds(bounds.value, { padding: 20 })
+
+      uploadPolygon(feat)
     })
     .catch((error) => {
       console.error(error)
+      ElMessage.error('Invalid shapefiles. Check your zipped file')
+
+
     })
 
   //uploadPolygon(feat)
@@ -688,10 +442,35 @@ const readShp = async (file) => {
 const readJson = (event) => {
   console.log('Reading Josn file....', event)
   let str = event.target.result
-  let json = JSON.parse(str)
-  console.log(json)
 
-  uploadPolygon(json)
+  try {
+    let json = JSON.parse(str)
+    console.log(json)
+    settlementPoly.value = json  // Display on map
+
+    // Zoom in to layer 
+    map.value.getSource("polygons").setData(settlementPoly.value);
+    bounds.value = turf.bbox((settlementPoly.value))
+    console.log("From File", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+    uploadPolygon(json)
+  }
+  catch (err) {
+    console.log(err.message)
+
+    ElMessage.error('Invalid Geojson Format')
+    fileList.value = []
+  }
+
+
+
+
+
+
+
+
+
+
 }
 const geoSource = ref(false)
 
@@ -703,7 +482,6 @@ const AddSettlement = () => {
   })
 }
 
-
 const typeOptions = [
   {
     value: '1',
@@ -713,10 +491,102 @@ const typeOptions = [
     value: '2',
     label: 'Informal Settlement'
   },
-
 ]
+const map = ref()
+
+onMounted(() => {
+  console.log('Loaded.......')
+  loadMap()
+})
 
 
+
+const updatePoly = (e) => {
+  console.log("Poly", e)
+  settlementPoly.value = e
+
+  var feat = turf.featureCollection(settlementPoly.value.features)
+  uploadPolygon(feat)
+
+}
+
+const deletePoly = (e) => {
+  console.log("Poly", e)
+  settlementPoly.value = []
+}
+
+
+// Load map
+const loadMap = () => {
+  mapboxgl.accessToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw';
+  map.value = new mapboxgl.Map({
+    container: 'mapContainer',
+    // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+    style: 'mapbox://styles/mapbox/streets-v12',
+    center: [37.137343, 0.737451], // starting position
+    zoom: 5
+  });
+
+  const nav = new mapboxgl.NavigationControl();
+  map.value.addControl(nav, "top-left");
+
+  map.value.on('load', () => {
+
+
+    if (settlementPoly.value) {
+
+      map.value.addSource('polygons', {
+        type: 'geojson',
+        //data: settlementPoly.value
+        data: turf.featureCollection(settlementPoly.value),
+      });
+      map.value.addLayer({
+        'id': 'polygons-layer',
+        "type": "fill",
+        'source': 'polygons',
+        'paint': {
+          'fill-color': '#0080ff', // blue color fill
+          'fill-opacity': 0.2
+        }
+
+      });
+    }
+
+
+    bounds.value = turf.bbox((settlementPoly.value));
+    map.value.fitBounds(bounds.value, { padding: 20 });
+
+
+  });
+
+  const draw = new MapboxDraw({
+    displayControlsDefault: false,
+    // Select which mapbox-gl-draw control buttons to add to the map.
+    controls: {
+      polygon: true,
+      line_string: true,
+      uncombine_features: false,
+      point: true,
+      trash: false
+    },
+    // Set mapbox-gl-draw to draw by default.
+    // The user does not have to click the polygon control button first.
+    defaultMode: 'draw_polygon'
+  });
+  map.value.addControl(draw);
+  map.value.addControl(new MapboxLayerSwitcherControl());
+
+
+  map.value.on('draw.create', updatePoly);
+  map.value.on('draw.delete', deletePoly);
+  map.value.on('draw.update', updatePoly);
+
+  map.value.resize()
+
+
+
+  //--- 
+}
 
 
 </script>
@@ -724,60 +594,48 @@ const typeOptions = [
 <template>
   <ContentWrap :title="toTitleCase(title)">
 
-
-
     <el-row :gutter="10">
       <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card>
-
           <el-steps :active="active">
             <el-step title="Details" :icon="Edit" />
             <el-step title="Location" :icon="Location" />
             <el-step title="Documentation" :icon="Upload" />
           </el-steps>
           <el-divider />
-
           <el-form label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
             status-icon>
             <el-col v-if="showForm" :span="24" :lg="24" :md="12" :sm="12" :xs="24">
-
               <el-form-item label="Name" prop="name">
                 <el-input v-model="ruleForm.name" />
               </el-form-item>
-
               <el-form-item label="County" prop="county_id">
                 <el-select v-model="ruleForm.county_id" filterable placeholder="Select County">
                   <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
                 <el-button type="succcess" @click="AddSettlement()" :icon="Plus" />
               </el-form-item>
-
               <el-form-item label="Type" prop="settlement_type">
                 <el-select v-model="ruleForm.settlement_type" placeholder="Type">
                   <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
-
               <el-form-item label="Population">
                 <el-input-number v-model="ruleForm.population" />
               </el-form-item>
               <el-form-item label="Area(Ha.)">
                 <el-input-number :precision="2" v-model="ruleForm.area" />
               </el-form-item>
-
               <el-form-item label="Description" prop="description">
                 <el-input v-model="ruleForm.description" type="textarea" />
               </el-form-item>
-
             </el-col>
-
 
             <el-form-item v-if="showGeoFields" label="Location">
               <el-switch width="200px" v-model="geoSource"
                 style="--el-switch-on-color: orange; --el-switch-off-color: purple" class="mb-2"
                 active-text="Upload Geojson File" inactive-text="Draw on Map" />
             </el-form-item>
-
 
             <el-upload v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :on-change="handleUploadGeo">
@@ -791,8 +649,6 @@ const typeOptions = [
                 </div>
               </template>
             </el-upload>
-
-
 
             <el-upload v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" multiple
               :auto-upload="false" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
@@ -816,24 +672,33 @@ const typeOptions = [
             <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
               :icon="RefreshLeft">Reset</el-button>
           </el-button-group>
-
-
-
         </el-card>
       </el-col>
 
       <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card>
-          <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
+          <!-- <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
             mapStyle="mapbox://styles/mapbox/light-v10">
             <mapbox-geocoder-control :countries="countries" />
             <mapbox-geolocate-control />
             <mapbox-draw-control v-if="geoSource === false" @create="uploadPolygon" />
             <mapbox-navigation-control position="bottom-right" />
-          </mapbox-map>
+          </mapbox-map> -->
+
+          <div id="mapContainer" class="basemap"></div>
+
+
+
         </el-card>
       </el-col>
     </el-row>
   </ContentWrap>
 </template>
 
+
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 500px;
+}
+</style>

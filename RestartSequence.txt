@@ -23,5 +23,9 @@ pg_restore -U postgres -h containers-us-west-104.railway.app -p 7760   -p 6473 -
 
 
 # Restore DB to Raiway
-pg_restore -U postgres -h containers-us-west-104.railway.app -p 7760 -W -F t -d railway 09012023.kisip.sql.tar
+pg_restore -U postgres -h containers-us-west-93.railway.app  -p 6978 -W -F t -d railway 14012023.kisip.sql.tar
+
+
+
+ 9EW6eoFNLjhJYzaeK8fP
 

@@ -95,7 +95,7 @@ let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = ['userId']
-var filterValues = [1]  // remember to change here!
+var filterValues = [[userInfo.id]]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
@@ -690,7 +690,7 @@ const ruleForm = reactive({
   date: new Date(),
   amount: '',
   files: '',
-  userId: '',
+  userId: userInfo.id,
   code: ''
 })
 

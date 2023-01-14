@@ -103,7 +103,7 @@ const currentUser = wsCache.get(appStore.getUserInfo)
 
 
 var filters = ['status']
-var filterValues = ['New']  // remember to change here!
+var filterValues = [['New']]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'

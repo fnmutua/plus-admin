@@ -22,6 +22,7 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 import { ElMessage } from 'element-plus'
+import * as download from 'downloadjs'
 
 
 const route = useRoute()
@@ -260,14 +261,17 @@ const loadMap = () => {
 
 getAll()
 
-const html2Pdf = ref('')
 const downloadMap = () => {
   ElMessage({
     message: 'Coming soon..',
     type: 'warning',
   })
 
-  console.log("Downlaod...s.")
+
+  var collection = turf.featureCollection(filtergeo.value)
+
+  download(JSON.stringify(collection), "project.json", "text/plain");
+
 }
 
 

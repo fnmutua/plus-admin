@@ -1333,9 +1333,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
       },
       {
         path: 'hh/:id',
-      //  component: 'views/Household/index',
         component: () => import('@/views/Household/index.vue'),
-
         name: 'Households',
         props: {
           name: String
@@ -1345,6 +1343,19 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: 'Households'
         }
       },
+
+      {
+        path: 'hh/all',
+        component: () => import('@/views/Household/All.vue'),
+        name: 'AllHouseholds',
+        props: {
+          name: String
+        },
+        meta: {
+          hidden: false,
+          title: 'Households'
+        }
+      },  
       {
         path: 'map/:id',
       //  component: 'views/Map/SettlementParcelMap',
@@ -3185,7 +3196,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       {
         path: 'hh/:id',
       //  component: 'views/Household/index',
-        component: () => import('@/views/Household/index.vue'),
+        component: () => import('@/views/Household/filtered.vue'),
 
         name: 'Households',
         props: {
@@ -3196,6 +3207,33 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Households'
         }
       },
+      
+      {
+        path: 'hh/all',
+        component: () => import('@/views/Household/All.vue'),
+        name: 'AllHouseholds',
+        props: {
+          name: String
+        },
+        meta: {
+          hidden: false,
+          icon:'mdi:house-circle',
+          title: 'Households'
+        }
+      },  
+      {
+        path: 'hh/add',
+        component: () => import('@/views/Household/Add.vue'),
+        name: 'AddHousehold',
+        props: {
+          name: String
+        },
+        meta: {
+          hidden: true,
+          icon:'bi:house-add',
+          title: 'Add HH'
+        }
+      },   
       {
         path: 'map/:id',
       //  component: 'views/Map/SettlementParcelMap',
