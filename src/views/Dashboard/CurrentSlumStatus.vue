@@ -69,6 +69,7 @@ const getAverageIncome = async () => {
   formData.summaryField = 'income_level'
   formData.summaryFunction = 'count'
   formData.groupField = ['income_level']
+  formData.cache_key = 'getAverageIncome'
 
 
 
@@ -94,6 +95,7 @@ const getAccessTohealth = async () => {
   formData.model = 'households'
   formData.summaryFunction = 'count'
 
+  formData.cache_key = 'getAccessTohealth'
 
   // segregated by the settlement and county// Linking to be done later//
   formData.summaryField = 'access_health'
@@ -336,6 +338,7 @@ const getGender = async () => {
   formData.summaryField = 'gender'
   formData.summaryFunction = 'count'
   formData.groupField = ['gender']
+  formData.cache_key = 'getgender'
 
   let categories = []
   let series = []
@@ -493,6 +496,8 @@ const getRent = async () => {
   formData.summaryField = 'rent_payable'
   formData.summaryFunction = 'count'
   formData.groupField = ['rent_payable']
+  formData.cache_key = 'getrent'
+
   let categories = []
   let series = []
   let seriesData = []
@@ -586,6 +591,7 @@ const getEmployment = async () => {
   formData.summaryField = 'emp_status'
   formData.summaryFunction = 'count'
   formData.groupField = ['emp_status']
+  formData.cache_key = 'getEmploymentStatus'
 
 
   let series = []
@@ -672,14 +678,16 @@ const getOwnershipStatus = async () => {
   formData.summaryField = 'age_plot_owner'
   formData.summaryFunction = 'count'
   formData.groupField = ['age_plot_owner']
+  formData.cache_key = 'getOwnershipStatus'
 
 
   let series = []
 
   getSummarybyField(formData)
     .then(response => {
+      console.log('age_plot_owner', response)
+
       var results = response.Total
-      console.log('age_plot_owner', results)
       results.forEach(function (item) {
         let pieObjectEchart = {}
         let lbl = toTitleCase(item.age_plot_owner.replace("_", "-"))
@@ -760,6 +768,7 @@ const getOwnershipStatusByGender = async () => {
   formData.model = 'households'
   formData.summaryFunction = 'count'
 
+  formData.cache_key = 'getOwnershipStatusByGender'
 
   // segregated by the settlement and county// Linking to be done later//
   formData.summaryField = 'ownership_status'
@@ -913,6 +922,7 @@ const getEducationByGender = async () => {
   const formData = {}
   formData.model = 'households'
   formData.summaryFunction = 'count'
+  formData.cache_key = 'getEducationByGender'
 
 
   // segregated by the settlement and county// Linking to be done later//
@@ -1153,6 +1163,7 @@ const getSanitation = async () => {
   formData.model = 'households'
   formData.summaryFunction = 'count'
 
+  formData.cache_key = 'getSanitation'
 
   // segregated by the settlement and county// Linking to be done later//
   formData.summaryField = 'sanitation'
@@ -1393,6 +1404,7 @@ const getWater = async () => {
   formData.model = 'households'
   formData.summaryFunction = 'count'
 
+  formData.cache_key = 'getWater'
 
   // segregated by the settlement and county// Linking to be done later//
   formData.summaryField = 'source_water'
@@ -1631,6 +1643,8 @@ const getTransport = async () => {
   formData.model = 'households'
   formData.summaryField = 'mode_transport'
   formData.summaryFunction = 'count'
+  formData.cache_key = 'getTransport'
+
   formData.groupField = ['mode_transport']
   transport.value = await getSummarybyField(formData)
   //  console.log('transport---->', transport.value)
@@ -1645,6 +1659,8 @@ const getSolidWaste = async () => {
   formData.model = 'households'
   formData.summaryField = 'solid_waste'
   formData.summaryFunction = 'count'
+  formData.cache_key = 'getSolidWaste'
+
   formData.groupField = ['solid_waste']
   solid_waste.value = await getSummarybyField(formData)
   //  console.log('solid_waste---->', solid_waste.value)

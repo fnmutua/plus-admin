@@ -13,7 +13,7 @@ import { EChartsOption, registerMap } from 'echarts'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Echart } from '@/components/Echart'
 
-import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
 
@@ -98,6 +98,7 @@ const getKisipTenureSettlementsCountByCounty = async () => {
   // Asccoiated models 
   formData.assoc_models = ['settlement', 'county']
   formData.groupFields = ['settlement.county.name']
+  formData.cache_key = 'getKisipTenureSettlementsCountByCounty'
 
   let subCategories = []
   var cData = []
@@ -292,6 +293,8 @@ const getKisipInfSettlementsCountByCounty = async () => {
   // Asccoiated models 
   formData.assoc_models = ['settlement', 'county']
   formData.groupFields = ['settlement.county.name']
+  formData.cache_key = 'getKisipInfSettlementsCountByCounty'
+
 
   let subCategories = []
   var cData = []
@@ -489,6 +492,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
   // Asccoiated models 
   formData.assoc_models = ['settlement', 'county']
   formData.groupFields = ['settlement.county.name']
+  formData.cache_key = 'getKisipInclusionSettlementsCountByCounty'
 
   let subCategories = []
   var cData = []
@@ -901,6 +905,7 @@ const getBeneficiariesByCounty = async () => {
 
   formData.assoc_models = ['households', 'settlement']
   formData.groupFields = ['household.settlement.name', 'household.gender']
+  formData.cache_key = 'getBeneficiariesByCounty'
 
   let subCategories = []
   var maleData = []
@@ -1039,6 +1044,7 @@ const getBeneficiariesByCounty = async () => {
   indirect.groupFields = ['household.settlement.name', 'household.gender']
 
 
+  formData.cache_key = 'getBeneficiariesByCountyindirectResults'
 
   /// Direct beneficiaries 
   const indirectResults = await getSummarybyFieldFromMultipleIncludes(indirect)
@@ -1071,6 +1077,7 @@ const getRoadsConstructed = async () => {
   formData.filterField = 'indicator_category_id'
   formData.filterValue = 36
   let RdDataTarmac = []
+  formData.cache_key = 'getRoadsConstructed'
 
 
   /// Gravel Roads
@@ -1095,6 +1102,8 @@ const getRoadsConstructed = async () => {
 
   /// Gravel Roads
   formData.filterValue = 37 // 37 - Gravel 
+  formData.cache_key = 'getRoadsConstructedGravel'
+
   const RdDataGravel = []
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
@@ -1177,6 +1186,8 @@ const getRoadsConstructed = async () => {
   /// Footpaths
   formData.filterValue = 16 // footpaths
   const footPaths = []
+  formData.cache_key = 'getRoadsConstructedFootpaths'
+
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
 
@@ -1248,6 +1259,8 @@ const getRoadsConstructed = async () => {
   /// Footpaths
   formData.filterValue = 8 // footpaths
   const highmasts = []
+  formData.cache_key = 'getRoadsConstructedhighmasts'
+
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
 
@@ -1338,6 +1351,8 @@ const getInclusionBeneficiaries = async () => {
   let maleSeries = []
 
   /// Gravel Roads
+  formData.cache_key = 'getInclusionBeneficiaries'
+
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
       var results = response.Total
@@ -1354,6 +1369,8 @@ const getInclusionBeneficiaries = async () => {
   /// Female
   formData.filterValue = 33
   let femaleSeries = []
+  formData.cache_key = 'getInclusionBeneficiaries33'
+
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
       var results = response.Total

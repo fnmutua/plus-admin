@@ -63,10 +63,12 @@ const getSettlementPopPyramid = async () => {
     // get summary for each field   
     for (var j = 0; j < fields.length; j++) {
       formData.summaryField = fields[j] + mf[i]
+      formData.cache_key = 'getSettlementPopPyramid' + fields[j] + mf[i]
+      console.log('formData.cache_key', i, j)
       await getSummarybyFieldSimple(formData)
         .then(response => {
           var results = response.Total
-          //console.log("pyramid", results[0].sum)
+          console.log("pyramid---->", response)
           let summary = results[0].sum
 
           if (mf[i] == 'm') {
@@ -221,6 +223,7 @@ const getSettlementCountByCounty = async () => {
   formData.summaryField = 'county_id'
   formData.summaryFunction = 'count'
   formData.groupField = ['county_id']
+  formData.cache_key = 'getSettlementCountByCounty001'
 
   // Asccoiated models 
   formData.assoc_model = ['county']
@@ -437,6 +440,7 @@ const getSettlementPopulation = async () => {
   formData.assoc_model = ['county']
   formData.summaryField = 'settlement.population'
   formData.groupField = ['county.name']
+  formData.cache_key = 'getSettlementPopulationSummary'
 
 
   // Directbeneficisaries 
@@ -528,8 +532,7 @@ const getSettlementPopulation = async () => {
 
 const getAllApi = async () => {
   await Promise.all([
-    // getUserAccessSource(),
-    // getCountyGeo(),
+
     getSettlementPopulation(),
     getSettlementCountByCounty(),
     getSettlementPopPyramid(),

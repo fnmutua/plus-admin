@@ -81,6 +81,7 @@
     "qrcode": "^1.5.1",
     "qs": "^6.11.0",
     "read-excel-file": "^5.5.3",
+    "redis": "^4.5.1",
     "sequelize": "^6.20.1",
     "shapefile": "^0.6.6",
     "shpjs": "^4.0.4",
