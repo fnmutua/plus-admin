@@ -55,12 +55,13 @@ const getNewReports = async () => {
   formData.summaryFunction = 'count'
   formData.summaryField = 'status'
   formData.summaryFieldValue = 'New'
+  formData.cache_key = 'xgetNewReports'
 
   // Directbeneficisaries 
   await getSummarybyFieldSimple(formData)
     .then(response => {
       var results = response.Total
-      console.log('Count New Reports..........', results[0].count)
+      console.log('Count New Reports..........', response)
       newReports.value = results[0].count
       if (results[0].count > 0) {
         activeDot.value = true
@@ -77,6 +78,7 @@ const getNewAccounts = async () => {
   formData.summaryFunction = 'count'
   formData.summaryField = 'isactive'
   formData.summaryFieldValue = 'false'
+  formData.cache_key = 'getNewAccounts'
 
   // Directbeneficisaries 
   await getSummarybyFieldSimple(formData)
