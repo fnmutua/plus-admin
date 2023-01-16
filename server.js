@@ -18,7 +18,7 @@ const envt = 'PROD'   // PROD
 console.log("DEV: Swithcing on dotenv")
  
 const dotenv = require('dotenv')
-dotenv.config()
+dotenv.config() 
  }
  
 
