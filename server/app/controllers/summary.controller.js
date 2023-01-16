@@ -28,7 +28,9 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
 let redisClient;
 
 (async () => {
-  redisClient = redis.createClient();
+ // redisClient = redis.createClient();
+  const url = process.env.REDIS_URL || 'redis://localhost:6379';
+  redisClient = redis.createClient({url});
   redisClient.on("error", (error) => console.error(`Error : ${error}`));
   await redisClient.connect();
 })();
