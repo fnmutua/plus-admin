@@ -120,7 +120,7 @@ exports.SimpleSumModelByColumn= async (req, res) => {
     else {
         await db.models[reg_model].findAll(qry).then(async (response) => {
         await redisClient.set(cache_key, JSON.stringify(response), {
-          EX: 30,  // 1hour 
+          EX: 3600,  // 1hour 
           NX: false,
         });
         result=(response)
