@@ -532,14 +532,17 @@ const getSettlementPopulation = async () => {
 
 const getAllApi = async () => {
   await Promise.all([
+
+
     getSettlementPopPyramid(),
+
+
   ])
   loading.value = false
 }
-
+getCountyGeo()
 getSettlementPopulation()
 getSettlementCountByCounty()
-getCountyGeo()
 getAllApi()
 
 
@@ -660,10 +663,7 @@ const DownloadXlsx = async () => {
                 <div style="display: inline-block; margin-left: 20px">
                   <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
                 </div>
-                <!--  <download-excel :data="settlementsPercounty" worksheet="SettlementsPerCounty"
-                 name="SettlementsPerCounty.xls">
-                 <font-awesome-icon size="2x" color='red' icon="fa-solid fa-download" />
-               </download-excel> -->
+
               </div>
             </template>
 

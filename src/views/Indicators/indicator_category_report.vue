@@ -37,7 +37,7 @@ import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
 
 
-import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
+//import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
 
 
 
