@@ -1547,20 +1547,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
         icon: 'ant-design:plus-square-filled',
         meta: { hidden: true, title: 'Add', noCache: true }
       },
-      {
-        path: 'road/map/:id',
-        //component: 'views/Facilities/Roads/RoadMap',
-        component: () => import('@/views/Facilities/Roads/RoadMap.vue'),
-
-        name: 'RoadsMap',
-        icon: 'ant-design:plus-square-filled',
-
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Road Map'
-        }
-      },
+ 
       {
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
@@ -2080,20 +2067,7 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
         icon: 'ant-design:plus-square-filled',
         meta: { hidden: true, title: 'Add', noCache: true }
       },
-      {
-        path: 'road/map/:id',
-        //component: 'views/Facilities/Roads/RoadMap',
-        component: () => import('@/views/Facilities/Roads/RoadMap.vue'),
-
-        name: 'RoadsMap',
-        icon: 'ant-design:plus-square-filled',
-
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Road Map'
-        }
-      },
+ 
       {
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
@@ -2763,20 +2737,7 @@ export const staffRoutes: AppRouteRecordRaw[] = [
         icon: 'ant-design:plus-square-filled',
         meta: { hidden: true, title: 'Add', noCache: true }
       },
-      {
-        path: 'road/map/:id',
-        //component: 'views/Facilities/Roads/RoadMap',
-        component: () => import('@/views/Facilities/Roads/RoadMap.vue'),
-
-        name: 'RoadsMap',
-        icon: 'ant-design:plus-square-filled',
-
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Road Map'
-        }
-      },
+  
       {
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
@@ -3508,20 +3469,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         icon: 'ant-design:plus-square-filled',
         meta: { hidden: true, title: 'Add', noCache: true }
       },
-      {
-        path: 'road/map/:id',
-        //component: 'views/Facilities/Roads/RoadMap',
-        component: () => import('@/views/Facilities/Roads/RoadMap.vue'),
-
-        name: 'RoadsMap',
-        icon: 'ant-design:plus-square-filled',
-
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Road Map'
-        }
-      },
+ 
       {
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
@@ -4360,20 +4308,7 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
         icon: 'ant-design:plus-square-filled',
         meta: { hidden: true, title: 'Add', noCache: true }
       },
-      {
-        path: 'road/map/:id',
-        //component: 'views/Facilities/Roads/RoadMap',
-        component: () => import('@/views/Facilities/Roads/RoadMap.vue'),
-
-        name: 'RoadsMap',
-        icon: 'ant-design:plus-square-filled',
-
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Road Map'
-        }
-      },
+  
       {
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
