@@ -146,7 +146,7 @@ const schema = reactive<FormSchema[]>([
       span: 24
     },
     componentProps: {
-      multiple: false,
+      multiple: true,
       options: RoleOptions,
       style: {
         width: '100%'
