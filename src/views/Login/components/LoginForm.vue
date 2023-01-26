@@ -290,11 +290,11 @@ const reset = () => {
     </template>
   </Form>
 
-  <el-dialog v-model="dialogFormVisible" title="Please enter the username used during registration">
+  <el-dialog v-model="dialogFormVisible" title="Please enter the Email used during registration">
     <el-form :model="form">
 
 
-      <el-form-item label="Username" :label-width="formLabelWidth">
+      <el-form-item label="Email" :label-width="formLabelWidth">
         <el-input v-model="form.username" autocomplete="off" />
       </el-form-item>
 

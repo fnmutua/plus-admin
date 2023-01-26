@@ -29,21 +29,21 @@ const { currentRoute, addRoute, push } = useRouter()
 
 const { t } = useI18n()
 const ruleFormRef = ref<FormInstance>()
- 
+
 
 
 const rules = {
   username: [required()],
-  password: [ required()],
+  password: [required()],
   rptpassword: [required()],
- 
+
 }
 
- 
+
 
 
 console.log('Rules-->', rules)
- 
+
 const schema = reactive<FormSchema[]>([
   {
     field: 'title',
@@ -53,7 +53,7 @@ const schema = reactive<FormSchema[]>([
   },
   {
     field: 'password',
-    label: t('login.password'),
+    label: t('New Password'),
     value: '',
     component: 'InputPassword',
     colProps: {
@@ -68,7 +68,7 @@ const schema = reactive<FormSchema[]>([
   },
   {
     field: 'rptpassword',
-    label: t('login.password'),
+    label: t('Repeat New Password'),
     value: '',
     component: 'InputPassword',
     colProps: {
@@ -118,9 +118,9 @@ watch(
 
 const goToLogin = () => {
   push({
-              path: '/login',
-              name: 'Login'
-            })
+    path: '/login',
+    name: 'Login'
+  })
 
 }
 const reset = () => {
@@ -153,7 +153,8 @@ const reset = () => {
             push({
               path: '/login',
               name: 'Login'
-            })          })
+            })
+          })
       } finally {
         loading.value = false
       }
@@ -176,7 +177,7 @@ const reset = () => {
     <template #login>
       <div class="w-[100%]  mb-5">
         <ElButton :loading="loading" type="primary" class="w-[100%]" @click="reset">
-          {{ t('Change') }}
+          {{ t('Update') }}
         </ElButton>
       </div>
       <div class="w-[100%]">
@@ -185,7 +186,7 @@ const reset = () => {
         </ElButton>
       </div>
 
- 
+
     </template>
 
 

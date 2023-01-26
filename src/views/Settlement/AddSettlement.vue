@@ -231,7 +231,8 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.geom = geoJson.value
 
       console.log("Shp----->", geoJson.value)
-      const report = await CreateRecord(ruleForm)
+
+
 
 
 
@@ -248,6 +249,12 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       }
 
 
+
+      const report = await CreateRecord(ruleForm)
+
+
+
+
       filesFormData.append('parent_code', report.data.id)
       filesFormData.append('model', model)
       filesFormData.append('grp', 'Settlement Documentation')
@@ -257,10 +264,16 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 
       console.log('Upload starting ')
-      // await uploadDocuments(formData)
-      await uploadDocuments(filesFormData)
+      await uploadDocuments(formData)
 
-      console.log('uploading complete')
+
+      console.log("Creationg report :", report)
+
+
+
+
+
+
 
     } else {
       console.log('error submit!', fields)
@@ -490,6 +503,11 @@ const typeOptions = [
   {
     value: '2',
     label: 'Informal Settlement'
+  },
+
+  {
+    value: '3',
+    label: 'Project Location'
   },
 ]
 const map = ref()
