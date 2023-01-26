@@ -1189,7 +1189,7 @@ const DownloadXlsx = async () => {
 </script>
 
 <template>
-  <ContentWrap :title="t('KENSUP Projects')"
+  <ContentWrap :title="t('KISIP Projects')"
     :message="t('The list of  intervention beneficiaries. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
