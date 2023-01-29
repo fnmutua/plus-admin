@@ -35,3 +35,9 @@ export const getSummarybyFieldFromMultipleIncludes= (data: any): Promise<IRespon
    return request.post({ url: prod + '/api/v1/summary/byfield/multiple', data })
 }
 
+
+export const getSummaryGroupByMultipleFields= (data: any): Promise<IResponse> => {
+  // console.log('filters....', data)
+   return request.post({ url: prod + '/api/v1/summary/group/multiple', data })
+}
+

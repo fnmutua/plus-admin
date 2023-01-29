@@ -159,23 +159,7 @@ exports.nestedSumModelByColumn= async (req, res) => {
        group:[groupField],
       raw: true
   }
- // console.log("--groupField-----", qry)
-  
- // console.log("-------", qry)
-
-
-    // db.models[reg_model]
-    // .findAll(qry)
-    // .then((result) => {
-    //   if (result) {
-    //     console.log(result)
-    //     // res.status(200).send(result);
-    //     res.status(200).send({
-    //       Total: result,
-    //       code: '0000'
-    //     })
-    //   }
-    // })
+ 
   
   
     let result;
@@ -402,31 +386,80 @@ exports.sumModelByColumnAssociated = async (req, res) => {
     });
   }
   
-  
-
-    // db.models[reg_model]
-    // .findAll({
-    //   attributes: [ childGroupField,groupField, [Sequelize.fn(summaryFunction, Sequelize.col(childGroupField)), summaryFunction]], 
-    //   include: [{model: assoc_model1,attributes:['name'],nested: true} ],
-    //  group : [childGroupField, groupField],
-    //  order: [['count', 'DESC']],
-    //   raw: true
-    //     })
-
-    // .then((result) => {
-    //   if (result) {
-    //     // res.status(200).send(result);
-    //     res.status(200).send({
-    //       Total: result,
-    //       code: '0000'
-    //     })
-    //   }
-    // })
+   
 
  
 }
 
-	
+exports.sumGroupByMultipleColumns = async (req, res) => {
+  var reg_model = req.body.model
+  var cache_key = req.body.model + req.body.cache_key 
+  var groupField = req.body.groupField
+  var assoc_model = db.models[req.body.assoc_model[0]]
+
+  console.log('-------------------------------------------------------------------------------')
+  console.log('----------------------Sum Multiple---------------------------------------------')
+ 
+  let result;
+  let isCached = false;
+ 
+ 
+ 
+  try {
+    const cacheResults = await redisClient.get(cache_key);
+    console.log('cahed>>>>>>>>>>>>>>>>>>>>>>>>',cacheResults)
+    if (cacheResults) {
+      isCached = true;
+      result = JSON.parse(cacheResults);
+      console.log('using cached daata{{{{{{{{{{{{{{{{{')
+      res.status(200).send({
+        fromCache: isCached,
+        Total: result,
+        code: '0000'
+      });
+    } else {
+     
+      var  query = `SELECT `;
+      req.body.summaryFields.forEach((field, index) => {
+          query += `SUM(${field}) as su_${field}`;
+          if (index < req.body.summaryFields.length - 1) query += ', ';
+      });
+      query += ` FROM households`;
+      sequelize.query(query, { type: sequelize.QueryTypes.SELECT })
+        .then(async results => {
+             // res.status(200).send(result);
+           // console.log('KEY--hh-898->',results )
+            await redisClient.set(cache_key, JSON.stringify(results), {
+              EX: 3600,  // 1hour 
+              NX: true,
+            });
+           //  console.log('KEY--hh-899->',results )
+
+            res.status(200).send({
+              fromCache: isCached,
+              Total: results,
+              code: '0000'
+            });
+                  
+            
+        });
+      
+    }
+    console.log('Result....................', result)
+    
+
+   
+  } catch (error) {
+    console.log(error)
+    res.status(500).send({
+      message: 'Fetching data failed'
+    });
+  }
+  
+   
+
+ 
+}
 
 exports.sumModelAssociatedMultipleModels = async (req, res) => {
   
