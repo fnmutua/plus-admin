@@ -513,7 +513,7 @@ console.log('Options---->', indicatorsOptions)
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-tooltip content="Add Indicator Configuration" placement="top">
-        <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+        <el-button v-if="showAdminButtons" :onClick="AddIndicator" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
 
@@ -523,7 +523,8 @@ console.log('Options---->', indicatorsOptions)
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+          <el-button v-if="showAdminButtons" type="success" :icon="Edit"
+            @click="editIndicator(data as TableSlotDefault)" circle />
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
@@ -584,4 +585,3 @@ console.log('Options---->', indicatorsOptions)
   </el-dialog>
 
 </template>
- 

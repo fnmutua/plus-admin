@@ -520,7 +520,7 @@ const updateUser = () => {
         </el-form-item>
 
         <el-form-item label="Email" :label-width="formLabelWidth">
-          <el-input v-model="form.email" autocomplete="off" />
+          <el-input v-model="form.email" autocomplete="off" disabled />
         </el-form-item>
 
         <el-form-item label="Phone" :label-width="formLabelWidth">

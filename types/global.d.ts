@@ -36,6 +36,7 @@ declare interface AxiosConfig {
 }
 
 declare interface IResponse<T = any> {
+total: number
   code: string
   data: T extends any ? T : T & any
 }

@@ -1126,7 +1126,8 @@ getSettlement()
         <template #default="scope">
 
           <el-tooltip content="Review" placement="top">
-            <el-button type="primary" :icon="View" @click="editIndicator(scope as TableSlotDefault)" circle />
+            <el-button v-if="showAdminButtons" type="primary" :icon="View"
+              @click="editIndicator(scope as TableSlotDefault)" circle />
           </el-tooltip>
 
           <el-tooltip content="Delete" placement="top">
@@ -1155,7 +1156,7 @@ getSettlement()
       <el-descriptions-item label="Date"> {{ report.date }} </el-descriptions-item>
     </el-descriptions>
     <template #footer>
-      <span class="dialog-footer">
+      <span v-if="showAdminButtons" class="dialog-footer">
         <el-button type="success" @click="approve">Approve</el-button>
         <el-button type="danger" @click="reject">Reject</el-button>
       </span>

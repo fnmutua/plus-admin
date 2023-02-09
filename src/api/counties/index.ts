@@ -10,6 +10,7 @@ const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
 export const getCountyListApi = ({ params }: AxiosConfig) => {
   return request.get<{
+then(arg0: (response: { data: any }) => void): unknown
     total: number
     list: CountyType[]
   }>({ url: prod + '/api/v1/data/all', params })
