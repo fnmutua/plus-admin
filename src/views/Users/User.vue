@@ -24,7 +24,7 @@ import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider, ELRow } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
-import { activateUserApi, updateUserApi, getUserListApi } from '@/api/users'
+import { activateUserApi, updateUserApi, getUserListApi, getUserByKeyWord } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
@@ -381,7 +381,7 @@ const getFilteredBySearchData = async (searchString) => {
 
   //-------------------------
   console.log(formData)
-  const res = await searchByKeyWord(formData)
+  const res = await getUserByKeyWord(formData)
 
   console.log('After -----x ------Querry', res)
   tableDataList.value = res.data
@@ -484,6 +484,8 @@ const EditUser = (data: TableSlotDefault) => {
 
 
 const updateUser = () => {
+
+  console.log(form)
 
   updateUserApi(form).then(() => { })
 

@@ -66,6 +66,7 @@ exports.updateUser = (req, res) => {
   console.log('Update user....')
  
   console.log('Request:----->', req.body)
+  
 
   // get this one  record and update it by replacing the whole docuemnt
   User.findAll({ where: { id: req.body.id } }).then((result) => {
@@ -75,7 +76,8 @@ exports.updateUser = (req, res) => {
       result[0].save()
 
       // Now insert the roles
-      if (req.body.roles) {
+      console.log("Roles Leng",req.body.roles.length )
+      if (req.body.roles.length>0) {
         Role.findAll({
           where: {
             id: {
@@ -83,12 +85,14 @@ exports.updateUser = (req, res) => {
             }
           }
         }).then((roles) => {
+
+          console.log('Edit Roles found:----->', roles)
           result[0].setRoles(roles).then(() => {
             var token = jwt.sign({ id: result[0].id }, config.secret, {
               expiresIn: 86400 // 24 hours
             })
 
-            console.log(roles)
+            //console.log(roles)
             res.send({
               message: 'User and roles updated successfully!',
               code: "0000",
@@ -100,10 +104,9 @@ exports.updateUser = (req, res) => {
         })
       } else {
         // return success
-        res.status(200).send({
+        res.status(400).send({
           data: result,
-          message: 'User updated successfully!',
-          code: "0000"
+          message: 'A user requires at least one role on this system'
         })
       }
     }

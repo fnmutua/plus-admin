@@ -1287,7 +1287,7 @@ const DownloadXlsx = async () => {
             <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </div>
 
-        <div style="display: inline-block; margin-left: 20px">
+        <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
             <el-tooltip content="Add Project" placement="top">
                 <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
             </el-tooltip>
@@ -1352,7 +1352,7 @@ const DownloadXlsx = async () => {
                     <el-table-column fixed="right" label="Operations" width="200">
                         <template #default="scope">
 
-                            <el-tooltip content="Edit" placement="top">
+                            <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
                                 <el-button type="success" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
                                     circle />
                             </el-tooltip>
