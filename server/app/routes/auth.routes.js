@@ -14,7 +14,10 @@ module.exports = function (app) {
     controller.signup
   )
 
-  app.post('/api/auth/update', [authJwt.verifyToken], controller.updateUser)
+  app.post('/api/auth/update', [authJwt.verifyToken,authJwt.isAdminOrCountyAdmin], controller.updateUser)
+
+  //app.post("/api/v1/user/county", [authJwt.verifyToken, authJwt.isAdminOrCountyAdmin],controller.modelCountyUsers);
+
 
   app.post('/api/auth/signin', controller.signin)
   app.post('/api/auth/reset', controller.reset)

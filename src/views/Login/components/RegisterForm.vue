@@ -21,7 +21,6 @@ const { register, elFormRef, methods } = useForm()
 const { t } = useI18n()
 const countiesOptions = []
 
-let tableDataList = ref<CountyType[]>([])
 
 const getTableList = async (params?: Params) => {
 
@@ -138,25 +137,25 @@ const schema = reactive<FormSchema[]>([
     }
   },
 
-  {
-    field: 'role',
-    label: t('Role'),
-    component: 'Select',
-    colProps: {
-      span: 24
-    },
-    componentProps: {
-      multiple: true,
-      options: RoleOptions,
-      style: {
-        width: '100%'
-      },
-      slots: {
-        suffix: true,
-        prefix: true
-      }
-    }
-  },
+  // {
+  //   field: 'role',
+  //   label: t('Role'),
+  //   component: 'Select',
+  //   colProps: {
+  //     span: 24
+  //   },
+  //   componentProps: {
+  //     multiple: true,
+  //     options: RoleOptions,
+  //     style: {
+  //       width: '100%'
+  //     },
+  //     slots: {
+  //       suffix: true,
+  //       prefix: true
+  //     }
+  //   }
+  // },
   {
     field: 'county_id',
     label: t('County'),
@@ -211,6 +210,7 @@ const loginRegister = async () => {
         console.log('ValidForm', formData)
         formData.email = formData.username.trim()
         formData.username = formData.username.trim()
+        formData.role = ['public'] // 14 - general user with limited views
         // formData.role = [formData.role]   // convert the user roles to an array
 
         const res = await registerApi(formData)

@@ -142,11 +142,6 @@ const columns: TableColumn[] = [
   },
 
 
-  {
-    field: 'road.name',
-    label: t('Road')
-  },
-
 ]
 const handleClear = async () => {
   console.log('cleared....')
@@ -614,7 +609,7 @@ const AddFacility = (data: TableSlotDefault) => {
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </div>
-        <div style="display: inline-block; margin-left: 20px">
+        <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
           <el-tooltip content="Add Facility" placement="top">
             <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
           </el-tooltip>

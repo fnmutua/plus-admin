@@ -52,3 +52,10 @@ export const updateUserPass = (data: UserType): Promise<IResponse<UserType>> => 
   return request.post({ url: prod + '/api/auth/set', data })
 }
 
+
+
+export const getUserByKeyWord = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('Get user via search string..', data)
+  return request.post({ url: prod + '/api/v1/user/keyword', data })
+}
+

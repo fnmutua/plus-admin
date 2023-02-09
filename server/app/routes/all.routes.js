@@ -46,17 +46,17 @@ module.exports = function (app) {
   app.post('/api/v1/data/one', [authJwt.verifyToken], controller.modelOneRecord)
 
   // Gets the  table names
-  app.post('/api/v1/data/edit', [authJwt.verifyToken], controller.modelEditOneRecord)
+  app.post('/api/v1/data/edit', [authJwt.verifyToken, authJwt.isStaffOrAdmin], controller.modelEditOneRecord)
 
   // Gets the  table names
-  app.post('/api/v1/data/import', [authJwt.verifyToken], controller.modelImportData)
-  app.post('/api/v1/data/import/upsert',  [authJwt.verifyToken],controller.modelImportDataUpsert)
+  app.post('/api/v1/data/import', [authJwt.verifyToken, authJwt.isStaffOrAdmin], controller.modelImportData)
+  app.post('/api/v1/data/import/upsert',[authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelImportDataUpsert)
   
   // create one record
-  app.post('/api/v1/data/create',  [authJwt.verifyToken],controller.modelCreateOneRecord)
+  app.post('/api/v1/data/create', [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelCreateOneRecord)
 
   // create one record
-  app.post('/api/v1/data/delete', [authJwt.verifyToken], controller.modelDeleteOneRecord)
+  app.post('/api/v1/data/delete', [authJwt.verifyToken, authJwt.isStaffOrAdmin], controller.modelDeleteOneRecord)
 
   // count records
   app.post('/api/v1/data/count',  [authJwt.verifyToken],controller.modelCountAll)
@@ -85,7 +85,7 @@ module.exports = function (app) {
   app.post('/api/v1/upload', [authJwt.verifyToken], controller.modelUpload)
 
   app.post('/api/v1/upload/documentation', [authJwt.verifyToken], controller.ReportDocumentationUpload)
-  app.post('/api/v1/upload/delete', [authJwt.verifyToken], controller.RemoveDocument)
+  app.post('/api/v1/upload/delete', [authJwt.verifyToken, authJwt.isStaffOrAdmin], controller.RemoveDocument)
 
   // get parent IDS
   app.post('/api/v1/data/parentids',  [authJwt.verifyToken],controller.modelGetParentIDS)

@@ -15,7 +15,7 @@ var fs = require('fs')
 const envt = 'PROD'   // PROD
  if (envt==='DEV') {
 // Switch off for prodcution 
-console.log("DEV: Swithcing on dotenv")
+console.log("DEV: Switching on dotenv")
  
 const dotenv = require('dotenv')
 dotenv.config() 

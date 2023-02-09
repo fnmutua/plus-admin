@@ -610,7 +610,7 @@ const DownloadXlsx = async () => {
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
 
-    <div style="display: inline-block; margin-left: 20px">
+    <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
       <el-tooltip content="Add Tenure Intervention " placement="top">
         <el-button :onClick="AddIntervention" type="primary" :icon="Plus" />
       </el-tooltip>
@@ -632,9 +632,8 @@ const DownloadXlsx = async () => {
         <el-tooltip content="View on Map" placement="top">
           <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
         </el-tooltip>
-        <el-tooltip content="Edit" placement="top">
-          <el-button v-show="showAdminButtons" type="success" :icon="Edit"
-            @click="editIntervention(data as TableSlotDefault)" circle />
+        <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+          <el-button type="success" :icon="Edit" @click="editIntervention(data as TableSlotDefault)" circle />
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">

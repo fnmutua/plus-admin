@@ -17,6 +17,7 @@ module.exports = function(app) {
   app.post("/api/v1/user/county", [authJwt.verifyToken, authJwt.isAdminOrCountyAdmin],controller.modelCountyUsers);
 
 
+  app.post("/api/v1/user/keyword", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelPaginatedUsersfilterBykeyWord);
 
 
 

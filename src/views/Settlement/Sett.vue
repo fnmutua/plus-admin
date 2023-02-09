@@ -1218,7 +1218,7 @@ const DownloadXlsx = async () => {
 
           <div style="display: inline-block; margin-left: 20px">
             <el-tooltip content="Add Project" placement="top">
-              <el-button :onClick="AddSettlement" type="primary" :icon="Plus" />
+              <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
             </el-tooltip>
           </div>
 
@@ -1284,17 +1284,17 @@ const DownloadXlsx = async () => {
           <el-table-column fixed="right" label="Operations" width="150">
             <template #default="scope">
 
-              <el-tooltip content="Edit" placement="top">
+              <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
                 <el-button type="success" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)" circle />
               </el-tooltip>
               <el-tooltip content="View on Map" placement="top">
                 <el-button type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)" circle />
               </el-tooltip>
-              <el-tooltip content="Delete" placement="top">
+              <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
                 <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                   title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">
                   <template #reference>
-                    <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                    <el-button type="danger" :icon=Delete circle />
                   </template>
                 </el-popconfirm>
               </el-tooltip>
