@@ -3,7 +3,7 @@ import { Form } from '@/components/Form'
 import { reactive, ref, unref } from 'vue'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useForm } from '@/hooks/web/useForm'
-import { ElButton, ElInput, FormRules } from 'element-plus'
+import { ElButton, ElInput, FormInstance, FormRules } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { UserType } from '@/api/register/types'
 import { registerApi, getCountyAuth } from '@/api/register'
@@ -20,6 +20,7 @@ const { register, elFormRef, methods } = useForm()
 
 const { t } = useI18n()
 const countiesOptions = []
+const ruleFormRef = ref<FormInstance>()
 
 
 const getTableList = async (params?: Params) => {
@@ -41,7 +42,23 @@ const getTableList = async (params?: Params) => {
       countyOpt.label = arrayItem.name
       //  console.log(countyOpt)
       countiesOptions.push(countyOpt)
+
+
+
+
     })
+
+    // Add one option for non county persons 
+
+    var national = {}
+    national.value = "0"
+    national.label = 'Not Applicable'
+    countiesOptions.push(national)
+    // sort by value
+    countiesOptions.sort(function (a, b) {
+      return a.value - b.value;
+    });
+
   })
 }
 
@@ -93,7 +110,7 @@ const schema = reactive<FormSchema[]>([
   },
   {
     field: 'username',
-    label: t('login.username'),
+    label: t('email'),
     value: '',
     component: 'Input',
     colProps: {
@@ -120,22 +137,22 @@ const schema = reactive<FormSchema[]>([
       placeholder: t('login.passwordPlaceholder')
     }
   },
-  {
-    field: 'check_password',
-    label: t('login.checkPassword'),
-    value: '',
-    component: 'InputPassword',
-    colProps: {
-      span: 24
-    },
-    componentProps: {
-      style: {
-        width: '100%'
-      },
-      strength: true,
-      placeholder: t('login.passwordPlaceholder')
-    }
-  },
+  // {
+  //   field: 'check_password',
+  //   label: t('login.checkPassword'),
+  //   value: '',
+  //   component: 'InputPassword',
+  //   colProps: {
+  //     span: 24
+  //   },
+  //   componentProps: {
+  //     style: {
+  //       width: '100%'
+  //     },
+  //     strength: true,
+  //     placeholder: t('login.passwordPlaceholder')
+  //   }
+  // },
 
   // {
   //   field: 'role',
@@ -165,6 +182,8 @@ const schema = reactive<FormSchema[]>([
     },
     componentProps: {
       options: countiesOptions,
+      filterable: true,
+
       style: {
         width: '100%'
       },
@@ -183,11 +202,12 @@ const schema = reactive<FormSchema[]>([
   }
 ])
 
+
+
 const rules: FormRules = {
   username: [required()],
   password: [required()],
-  check_password: [required()],
-  count_id: [required()]
+  county_id: [required()]
 }
 
 const toLogin = () => {
@@ -210,6 +230,7 @@ const loginRegister = async () => {
         console.log('ValidForm', formData)
         formData.email = formData.username.trim()
         formData.username = formData.username.trim()
+
         formData.role = ['public'] // 14 - general user with limited views
         // formData.role = [formData.role]   // convert the user roles to an array
 

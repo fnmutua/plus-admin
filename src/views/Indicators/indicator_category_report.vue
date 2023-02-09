@@ -1117,13 +1117,13 @@ const tableRowClassName = (data) => {
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-tooltip content="Add Report " placement="top">
-        <el-button :onClick="AddReport" type="primary" :icon="Plus" />
+        <el-button v-if="showAdminButtons" :onClick="AddReport" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
 
     <div style="display: inline-block; margin-left: 20px">
       <el-tooltip content="Import" placement="top">
-        <el-button :onClick="ImportReports" type="primary" :icon="UploadFilled" />
+        <el-button v-if="showAdminButtons" :onClick="ImportReports" type="primary" :icon="UploadFilled" />
       </el-tooltip>
     </div>
 
@@ -1159,7 +1159,8 @@ const tableRowClassName = (data) => {
                 </template>
               </el-table-column>
             </el-table>
-            <el-button @click="addMoreDocs(props.row)" type="info" round>Add More Documents</el-button>
+            <el-button v-if="showAdminButtons" @click="addMoreDocs(props.row)" type="info" round>Add More
+              Documents</el-button>
 
           </div>
         </template>
@@ -1175,7 +1176,8 @@ const tableRowClassName = (data) => {
         <template #default="scope">
 
           <el-tooltip content="Edit" placement="top">
-            <el-button type="success" :icon="Edit" @click="editReport(scope.row as TableSlotDefault)" circle />
+            <el-button v-if="showAdminButtons" type="success" :icon="Edit"
+              @click="editReport(scope.row as TableSlotDefault)" circle />
           </el-tooltip>
 
           <el-tooltip content="Delete" placement="top">
@@ -1268,7 +1270,6 @@ const tableRowClassName = (data) => {
         <el-button @click="ImportDialogVisible = false">Cancel</el-button>
         <el-button v-if="showProcessBtn" type="secondary" @click="submitFiles()">Process</el-button>
         <el-button v-if="showSubmitBtn" type="primary" @click="submitBatchImport()">Submit</el-button>
-
         <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
       </span>
     </template>

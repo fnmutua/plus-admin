@@ -409,8 +409,6 @@ const editForm = async (formEl: FormInstance | undefined) => {
 }
 
 
-
-
 </script>
 
 <template>
@@ -431,7 +429,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-tooltip content="Add Indicator" placement="top">
-        <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+        <el-button v-if="showAdminButtons" :onClick="AddIndicator" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
 
@@ -441,7 +439,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+          <el-button v-if="showAdminButtons" type="success" :icon="Edit"
+            @click="editIndicator(data as TableSlotDefault)" circle />
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
@@ -509,4 +508,3 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
 </template>
- 

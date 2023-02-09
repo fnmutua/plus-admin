@@ -4,6 +4,8 @@ export type UserLoginType = {
 }
 
 export type UserType = {
+length: number
+forEach(arg0: (arrayItem: any) => void): unknown
   username: string
   password: string
   role: string

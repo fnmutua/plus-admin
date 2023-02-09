@@ -15,6 +15,11 @@ import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 
+
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
+
+
 interface Params {
   pageIndex?: number
   xpageSize?: number
@@ -48,6 +53,21 @@ const associated_Model = ''
 const associated_multiple_models = ['settlement', 'households']
 
 const nested_models = ['intervention', 'intervention_type'] // The mother, then followed by the child
+
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+
+
+// Hide buttons if not admin 
+const showAdminButtons = ref(false)
+
+if (userInfo.roles.includes("admin")) {
+  showAdminButtons.value = true
+}
+
 
 //// ------------------parameters -----------------------////
 
@@ -168,20 +188,20 @@ const onPageSizeChange = async (size: any) => {
 const getInterventionsAll = async () => {
   getFilteredData(filters, filterValues)
 }
- 
+
 
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
-   for(let key in obj){
-    if (key!='geom') {
+  for (let key in obj) {
+    if (key != 'geom') {
 
-      if(typeof obj[key] !== 'object'){
-         res[extraKey + key] = obj[key];
-      }else{
-         flattenJSON(obj[key], res, `${extraKey}${key}.`);
+      if (typeof obj[key] !== 'object') {
+        res[extraKey + key] = obj[key];
+      } else {
+        flattenJSON(obj[key], res, `${extraKey}${key}.`);
       };
-   };
+    };
   }
-   return res;
+  return res;
 };
 
 
@@ -204,8 +224,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.associated_multiple_models = associated_multiple_models
   //-------------------------
   //console.log(formData)
- 
-//-------------------------
+
+  //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
@@ -346,47 +366,19 @@ const viewOnMap = (data: TableSlotDefault) => {
 </script>
 
 <template>
-  <ContentWrap
-    :title="t('Tenure Regularization Settlements')"
-    :message="t('The list of tenure regularization settlements. Use the filters to subset')"
-  >
+  <ContentWrap :title="t('Tenure Regularization Settlements')"
+    :message="t('The list of tenure regularization settlements. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select
-        v-model="value2"
-        :onChange="handleSelectPhase"
-        :onClear="handleClear"
-        multiple
-        clearable
-        filterable
-        collapse-tags
-        placeholder="Filter by KISIP Phase"
-      >
-        <el-option
-          v-for="item in PhaseOptions"
-          :key="item.value"
-          :label="item.label"
-          :value="item.value"
-        />
+      <el-select v-model="value2" :onChange="handleSelectPhase" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="Filter by KISIP Phase">
+        <el-option v-for="item in PhaseOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select
-        v-model="value3"
-        :onChange="handleSelectSettlement"
-        :onClear="handleClear"
-        multiple
-        clearable
-        filterable
-        collapse-tags
-        placeholder="Filter by Settlement Name"
-      >
-        <el-option
-          v-for="item in settlementOptions"
-          :key="item.value"
-          :label="item.label"
-          :value="item.value"
-        />
+      <el-select v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable
+        filterable collapse-tags placeholder="Filter by Settlement Name">
+        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
@@ -397,52 +389,24 @@ const viewOnMap = (data: TableSlotDefault) => {
     </div>
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table
-      :columns="columns"
-      :data="tableDataList"
-      :loading="loading"
-      :selection="true"
-      :pageSize="pageSize"
-      :currentPage="currentPage"
-    >
+    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+      :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="View Profile" placement="top">
-          <el-button
-            type="primary"
-            :icon="TopRight"
-            @click="viewProfile(data as TableSlotDefault)"
-            circle
-          />
+          <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
         </el-tooltip>
 
         <el-tooltip content="View Households" placement="top">
-          <el-button
-            type="success"
-            :icon="User"
-            @click="viewHHs(data as TableSlotDefault)"
-            circle
-          />
+          <el-button v-if="showAdminButtons" type="success" :icon="User" @click="viewHHs(data as TableSlotDefault)"
+            circle />
         </el-tooltip>
         <el-tooltip content="View on Map" placement="top">
-          <el-button
-            type="warning"
-            :icon="Position"
-            @click="viewOnMap(data as TableSlotDefault)"
-            circle
-          />
+          <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
         </el-tooltip>
       </template>
     </Table>
-    <ElPagination
-      layout="sizes, prev, pager, next, total"
-      v-model:currentPage="currentPage"
-      v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 1000]"
-      :total="total"
-      :background="true"
-      @size-change="onPageSizeChange"
-      @current-change="onPageChange"
-      class="mt-4"
-    />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 </template>

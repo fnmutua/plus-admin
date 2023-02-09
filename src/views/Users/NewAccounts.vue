@@ -3,9 +3,9 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, DeleteRecord } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElFormItem, ElForm, ElInput, MessageParamsWithType } from 'element-plus'
+import { ElButton, ElSwitch, ElSelect, ElDialog, ElPopconfirm, ElFormItem, ElForm, ElInput, MessageParamsWithType } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Position,
@@ -14,7 +14,9 @@ import {
   User,
   Plus,
   Download,
+  Delete,
   Filter,
+  InfoFilled,
   MessageBox
 } from '@element-plus/icons-vue'
 
@@ -40,6 +42,19 @@ interface Params {
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const currentUser = wsCache.get(appStore.getUserInfo)
+
+
+
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+
+// Hide buttons if not admin 
+const showAdminButtons = ref(false)
+
+if (userInfo.roles.includes("admin")) {
+  showAdminButtons.value = true
+}
+
 
 
 const { push } = useRouter()
@@ -219,6 +234,25 @@ const destructure = (obj) => {
   }
 
   return simpleObj
+}
+
+const DeleteUSer = (data: TableSlotDefault) => {
+  console.log('----->', data.row)
+  let formData = {}
+  formData.id = data.row.id
+  formData.model = model
+
+  DeleteRecord(formData)
+
+  console.log(tableDataList.value)
+
+
+  // remove the deleted object from array list 
+  let index = tableDataList.value.indexOf(data.row);
+  if (index !== -1) {
+    tableDataList.value.splice(index, 1);
+  }
+
 }
 
 const getCountyNames = async () => {
@@ -495,16 +529,26 @@ const updateUser = () => {
     <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
-        <el-row class="mt-4">
+        <ElRow :gutter="5" justify="space-between">
           <el-tooltip content="Activate/Deactivate User" placement="top">
 
             <el-switch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)" />
           </el-tooltip>
 
-          <el-tooltip content="View Profile" placement="top">
-            <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(data as TableSlotDefault)" circle />
+          <el-tooltip content="Edit" placement="top">
+            <el-button type="success" :icon="Edit" @click="EditUser(data as TableSlotDefault)" circle />
           </el-tooltip>
-        </el-row>
+
+          <el-tooltip content="Delete" placement="top">
+            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              title="Are you sure to delete this User?" @confirm="DeleteUSer(data as TableSlotDefault)">
+              <template #reference>
+                <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+              </template>
+            </el-popconfirm>
+          </el-tooltip>
+        </ElRow>
+
 
       </template>
     </Table>
@@ -519,7 +563,7 @@ const updateUser = () => {
         </el-form-item>
 
         <el-form-item label="Email" :label-width="formLabelWidth">
-          <el-input v-model="form.email" autocomplete="off" />
+          <el-input v-model="form.email" autocomplete="off" disabled />
         </el-form-item>
 
         <el-form-item label="Phone" :label-width="formLabelWidth">

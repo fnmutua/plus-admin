@@ -12,8 +12,12 @@ import { useDesign } from '@/hooks/web/useDesign'
 import { useTemplateRefsList } from '@vueuse/core'
 import { ElScrollbar } from 'element-plus'
 import { useScrollTo } from '@/hooks/event/useScrollTo'
-
+import { Drawer } from '@/components/Setting'
 const { getPrefixCls } = useDesign()
+
+
+const drawer = ref(false)
+
 
 const prefixCls = getPrefixCls('tags-view')
 
@@ -258,120 +262,90 @@ watch(
 </script>
 
 <template>
-  <div
-    :id="prefixCls"
-    :class="prefixCls"
-    class="flex w-full relative bg-[#fff] dark:bg-[var(--el-bg-color)]"
-  >
-    <span
-      :class="`${prefixCls}__tool`"
+  <div :id="prefixCls" :class="prefixCls" class="flex w-full relative bg-[#fff] dark:bg-[var(--el-bg-color)]">
+    <span :class="`${prefixCls}__tool`"
       class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer"
-      @click="move(-200)"
-    >
-      <Icon
-        icon="ep:d-arrow-left"
-        :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'"
-      />
+      @click="move(-200)">
+      <Icon icon="ep:d-arrow-left" :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'" />
     </span>
     <div class="overflow-hidden flex-1">
       <ElScrollbar ref="scrollbarRef" class="h-full" @scroll="scroll">
         <div class="flex h-full">
-          <ContextMenu
-            :ref="itemRefs.set"
-            :schema="[
-              {
-                icon: 'ant-design:sync-outlined',
-                label: t('common.reload'),
-                disabled: selectedTag?.fullPath !== item.fullPath,
-                command: () => {
-                  refreshSelectedTag(item)
-                }
-              },
-              {
-                icon: 'ant-design:close-outlined',
-                label: t('common.closeTab'),
-                disabled: !!visitedViews?.length && selectedTag?.meta.affix,
-                command: () => {
-                  closeSelectedTag(item)
-                }
-              },
-              {
-                divided: true,
-                icon: 'ant-design:vertical-right-outlined',
-                label: t('common.closeTheLeftTab'),
-                disabled:
-                  !!visitedViews?.length &&
-                  (item.fullPath === visitedViews[0].fullPath ||
-                    selectedTag?.fullPath !== item.fullPath),
-                command: () => {
-                  closeLeftTags()
-                }
-              },
-              {
-                icon: 'ant-design:vertical-left-outlined',
-                label: t('common.closeTheRightTab'),
-                disabled:
-                  !!visitedViews?.length &&
-                  (item.fullPath === visitedViews[visitedViews.length - 1].fullPath ||
-                    selectedTag?.fullPath !== item.fullPath),
-                command: () => {
-                  closeRightTags()
-                }
-              },
-              {
-                divided: true,
-                icon: 'ant-design:tag-outlined',
-                label: t('common.closeOther'),
-                disabled: selectedTag?.fullPath !== item.fullPath,
-                command: () => {
-                  closeOthersTags()
-                }
-              },
-              {
-                icon: 'ant-design:line-outlined',
-                label: t('common.closeAll'),
-                command: () => {
-                  closeAllTags()
-                }
+          <ContextMenu :ref="itemRefs.set" :schema="[
+            {
+              icon: 'ant-design:sync-outlined',
+              label: t('common.reload'),
+              disabled: selectedTag?.fullPath !== item.fullPath,
+              command: () => {
+                refreshSelectedTag(item)
               }
-            ]"
-            v-for="item in visitedViews"
-            :key="item.fullPath"
-            :tag-item="item"
-            :class="[
-              `${prefixCls}__item`,
-              item?.meta?.affix ? `${prefixCls}__item--affix` : '',
-              {
-                'is-active': isActive(item)
+            },
+            {
+              icon: 'ant-design:close-outlined',
+              label: t('common.closeTab'),
+              disabled: !!visitedViews?.length && selectedTag?.meta.affix,
+              command: () => {
+                closeSelectedTag(item)
               }
-            ]"
-            @visible-change="visibleChange"
-          >
+            },
+            {
+              divided: true,
+              icon: 'ant-design:vertical-right-outlined',
+              label: t('common.closeTheLeftTab'),
+              disabled:
+                !!visitedViews?.length &&
+                (item.fullPath === visitedViews[0].fullPath ||
+                  selectedTag?.fullPath !== item.fullPath),
+              command: () => {
+                closeLeftTags()
+              }
+            },
+            {
+              icon: 'ant-design:vertical-left-outlined',
+              label: t('common.closeTheRightTab'),
+              disabled:
+                !!visitedViews?.length &&
+                (item.fullPath === visitedViews[visitedViews.length - 1].fullPath ||
+                  selectedTag?.fullPath !== item.fullPath),
+              command: () => {
+                closeRightTags()
+              }
+            },
+            {
+              divided: true,
+              icon: 'ant-design:tag-outlined',
+              label: t('common.closeOther'),
+              disabled: selectedTag?.fullPath !== item.fullPath,
+              command: () => {
+                closeOthersTags()
+              }
+            },
+            {
+              icon: 'ant-design:line-outlined',
+              label: t('common.closeAll'),
+              command: () => {
+                closeAllTags()
+              }
+            }
+          ]" v-for="item in visitedViews" :key="item.fullPath" :tag-item="item" :class="[
+  `${prefixCls}__item`,
+  item?.meta?.affix ? `${prefixCls}__item--affix` : '',
+  {
+    'is-active': isActive(item)
+  }
+]" @visible-change="visibleChange">
             <div>
               <router-link :ref="tagLinksRefs.set" :to="{ ...item }" custom v-slot="{ navigate }">
-                <div
-                  @click="navigate"
-                  class="h-full flex justify-center items-center whitespace-nowrap pl-15px"
-                >
-                  <Icon
-                    v-if="
-                      item?.matched &&
-                      item?.matched[1] &&
-                      item?.matched[1]?.meta?.icon &&
-                      tagsViewIcon
-                    "
-                    :icon="item?.matched[1]?.meta?.icon"
-                    :size="12"
-                    class="mr-5px"
-                  />
+                <div @click="navigate" class="h-full flex justify-center items-center whitespace-nowrap pl-15px">
+                  <Icon v-if="
+                    item?.matched &&
+                    item?.matched[1] &&
+                    item?.matched[1]?.meta?.icon &&
+                    tagsViewIcon
+                  " :icon="item?.matched[1]?.meta?.icon" :size="12" class="mr-5px" />
                   {{ t(item?.meta?.title as string) }}
-                  <Icon
-                    :class="`${prefixCls}__item--close`"
-                    color="#333"
-                    icon="ant-design:close-outlined"
-                    :size="12"
-                    @click.prevent.stop="closeSelectedTag(item)"
-                  />
+                  <Icon :class="`${prefixCls}__item--close`" color="#333" icon="ant-design:close-outlined" :size="12"
+                    @click.prevent.stop="closeSelectedTag(item)" />
                 </div>
               </router-link>
             </div>
@@ -379,88 +353,79 @@ watch(
         </div>
       </ElScrollbar>
     </div>
-    <span
-      :class="`${prefixCls}__tool`"
+    <span :class="`${prefixCls}__tool`"
       class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer"
-      @click="move(200)"
-    >
-      <Icon
-        icon="ep:d-arrow-right"
-        :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'"
-      />
+      @click="drawer = true">
+      <Icon icon="material-symbols:settings-suggest-outline" :width="24"
+        :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'" />
     </span>
-    <span
-      :class="`${prefixCls}__tool`"
+
+    <span :class="`${prefixCls}__tool`"
       class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer"
-      @click="refreshSelectedTag(selectedTag)"
-    >
-      <Icon
-        icon="ant-design:reload-outlined"
-        :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'"
-      />
+      @click="move(200)">
+      <Icon icon="ep:d-arrow-right" :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'" />
     </span>
-    <ContextMenu
-      trigger="click"
-      :schema="[
-        {
-          icon: 'ant-design:sync-outlined',
-          label: t('common.reload'),
-          command: () => {
-            refreshSelectedTag(selectedTag)
-          }
-        },
-        {
-          icon: 'ant-design:close-outlined',
-          label: t('common.closeTab'),
-          disabled: !!visitedViews?.length && selectedTag?.meta.affix
-        },
-        {
-          divided: true,
-          icon: 'ant-design:vertical-right-outlined',
-          label: t('common.closeTheLeftTab'),
-          disabled: !!visitedViews?.length && selectedTag?.fullPath === visitedViews[0].fullPath,
-          command: () => {
-            closeLeftTags()
-          }
-        },
-        {
-          icon: 'ant-design:vertical-left-outlined',
-          label: t('common.closeTheRightTab'),
-          disabled:
-            !!visitedViews?.length &&
-            selectedTag?.fullPath === visitedViews[visitedViews.length - 1].fullPath,
-          command: () => {
-            closeRightTags()
-          }
-        },
-        {
-          divided: true,
-          icon: 'ant-design:tag-outlined',
-          label: t('common.closeOther'),
-          command: () => {
-            closeOthersTags()
-          }
-        },
-        {
-          icon: 'ant-design:line-outlined',
-          label: t('common.closeAll'),
-          command: () => {
-            closeAllTags()
-          }
+    <span :class="`${prefixCls}__tool`"
+      class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer"
+      @click="refreshSelectedTag(selectedTag)">
+      <Icon icon="ant-design:reload-outlined" :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'" />
+    </span>
+    <ContextMenu trigger="click" :schema="[
+      {
+        icon: 'ant-design:sync-outlined',
+        label: t('common.reload'),
+        command: () => {
+          refreshSelectedTag(selectedTag)
         }
-      ]"
-    >
-      <span
-        :class="`${prefixCls}__tool`"
-        class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer block"
-      >
-        <Icon
-          icon="ant-design:setting-outlined"
-          :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'"
-        />
+      },
+      {
+        icon: 'ant-design:close-outlined',
+        label: t('common.closeTab'),
+        disabled: !!visitedViews?.length && selectedTag?.meta.affix
+      },
+      {
+        divided: true,
+        icon: 'ant-design:vertical-right-outlined',
+        label: t('common.closeTheLeftTab'),
+        disabled: !!visitedViews?.length && selectedTag?.fullPath === visitedViews[0].fullPath,
+        command: () => {
+          closeLeftTags()
+        }
+      },
+      {
+        icon: 'ant-design:vertical-left-outlined',
+        label: t('common.closeTheRightTab'),
+        disabled:
+          !!visitedViews?.length &&
+          selectedTag?.fullPath === visitedViews[visitedViews.length - 1].fullPath,
+        command: () => {
+          closeRightTags()
+        }
+      },
+      {
+        divided: true,
+        icon: 'ant-design:tag-outlined',
+        label: t('common.closeOther'),
+        command: () => {
+          closeOthersTags()
+        }
+      },
+      {
+        icon: 'ant-design:line-outlined',
+        label: t('common.closeAll'),
+        command: () => {
+          closeAllTags()
+        }
+      }
+    ]">
+      <span :class="`${prefixCls}__tool`"
+        class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer block">
+        <Icon icon="ant-design:setting-outlined"
+          :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'" />
       </span>
     </ContextMenu>
   </div>
+
 </template>
 
 <style lang="less" scoped>
@@ -509,6 +474,7 @@ watch(
       display: none;
       transform: translate(0, -50%);
     }
+
     &:not(.@{prefix-cls}__item--affix):hover {
       .@{prefix-cls}__item--close {
         display: block;
@@ -526,6 +492,7 @@ watch(
     color: var(--el-color-white);
     background-color: var(--el-color-primary);
     border: 1px solid var(--el-color-primary);
+
     .@{prefix-cls}__item--close {
       :deep(span) {
         color: var(--el-color-white) !important;
@@ -568,6 +535,7 @@ watch(
     &__item.is-active {
       color: var(--el-color-white);
       background-color: var(--el-color-primary);
+
       .@{prefix-cls}__item--close {
         :deep(span) {
           color: var(--el-color-white) !important;
