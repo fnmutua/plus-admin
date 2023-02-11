@@ -25,7 +25,6 @@ import PanelGroup from './components/PanelGroup.vue'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { value } from 'dom7'
 import {
-  Position,
   TopRight,
   User,
   Plus,
@@ -35,10 +34,16 @@ import {
   Filter,
   MessageBox
 } from '@element-plus/icons-vue'
+import { computed } from 'vue'
+import { useAppStore, useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
+
 
 use([
   GaugeChart
 ]);
+
+
 
 
 const { t } = useI18n()
@@ -52,8 +57,30 @@ const settlementsPercountyMin = ref()
 
 
 const aspect = ref()
+const appStore = useAppStoreWithOut()
 
 
+// use shorter chart titles for mobile and longer ones for large screens
+// initialize with long titles
+const pyramidChartTitle = ref("Informal Settlements Age-Gender Profile")
+const topSlumCountiesTitle = ref("Counties with the highest number of informal settlements (10)")
+const informalSettlementpercountyMapTitle = ref("Informal Settlements per county")
+const informalSettlementPopMapTitle = ref("Population in informal Settlements per County")
+const TableTitle = ref("Number of informal Settlements within Counties of Kenya")
+const ShowLegend = ref(true)
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('isMobile', isMobile.value)
+
+if (isMobile.value) {
+  pyramidChartTitle.value = "Profile"
+  topSlumCountiesTitle.value = "Top 10 Counties"
+  informalSettlementpercountyMapTitle.value = "Distribution of Slums"
+  informalSettlementPopMapTitle.value = "Slum Population"
+  TableTitle.value = "Slums per County"
+  ShowLegend.value = false
+
+}
 
 const pieOptionsData = reactive<EChartsOption>(pieOptions) as EChartsOption
 
@@ -1540,11 +1567,11 @@ const getSettlementPopPyramid = async () => {
         console.log('Maele Arrar>>>>>', mArray)
         pyramidOptions.value = {
           title: {
-            text: 'Informal Settlements Age-Gender Profile',
+            text: pyramidChartTitle,
             subtext: 'National Slum Mapping, 2023',
             left: 'center',
             textStyle: {
-              fontSize: 14
+              fontSize: 14,
             },
             subtextStyle: {
               fontSize: 12
@@ -1558,6 +1585,7 @@ const getSettlementPopPyramid = async () => {
             valueFormatter: (value) => Math.abs(value)
           },
           legend: {
+            show: ShowLegend,
             itemWidth: 20,
             itemHeight: 20,
             orient: 'horizontal',
@@ -1726,7 +1754,7 @@ const getTopSettlementCountByCounty = async () => {
 
   countofSlumsByCountyOptions.value = {
     title: {
-      text: 'Counties with the highest number of informal settlements (10)',
+      text: topSlumCountiesTitle,
       subtext: 'National Slum Mapping, 2023',
       left: 'center',
       textStyle: {
@@ -1832,7 +1860,7 @@ const getSettlementPopulation = async () => {
 
   settlementPopulationMap.value = {
     title: {
-      text: 'Population in informal Settlements per county',
+      text: informalSettlementPopMapTitle,
       subtext: 'National Slum Mapping, 2023',
       sublink: 'https://kisip.go.ke/',
       left: 'right',
@@ -1916,7 +1944,7 @@ const getSettlementsCountyMap = async () => {
     registerMap('KE', countyGeo.value);
     mapOption.value = {
       title: {
-        text: 'Informal Settlements per county',
+        text: informalSettlementpercountyMapTitle,
         subtext: 'National Slum Mapping, 2023',
         sublink: 'https://kisip.go.ke/',
         left: 'right',
@@ -2127,7 +2155,7 @@ const activeName = ref('Chart')
           <ElCard shadow="hover" class="mb-20px">
             <template #header>
               <div class="card-header">
-                <span>Number of informal Settlements within Counties of Kenya</span>
+                <span>{{ TableTitle }}</span>
                 <div style="display: inline-block; margin-left: 20px">
                   <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
                 </div>

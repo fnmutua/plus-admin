@@ -28,7 +28,8 @@ const toLogin = () => {
 </script>
 
 <template>
-  <div :class="prefixCls" class="h-[100%] relative <xl:bg-v-dark <sm:px-10px <xl:px-10px <md:px-10px">
+  <!-- <div :class="prefixCls" class="h-[100%] relative <xl:bg-v-dark <sm:px-10px <xl:px-10px <md:px-10px"> -->
+  <div :class="prefixCls" class="h-[100%] relative <xl <sm:px-10px <xl:px-10px <md:px-10px">
     <div class="relative h-full flex mx-auto">
       <div :class="`${prefixCls}__left flex-1 bg-gray-500 bg-opacity-20 relative p-30px <xl:hidden`">
         <div class="flex justify-center items-center h-[calc(100%-60px)]">
@@ -37,7 +38,7 @@ const toLogin = () => {
             <img src="@/assets/svgs/Coat_of_arms_of_Kenya.svg" key="1" alt="" class="w-350px" />
 
             <div class="text-2xl text-white text-center" key="2">{{
-                t('Kenya Slum Information System')
+              t('Kenya Slum Information System')
             }}</div>
           </TransitionGroup>
         </div>
