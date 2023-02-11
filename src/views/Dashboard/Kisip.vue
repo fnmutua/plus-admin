@@ -22,18 +22,9 @@ import { use } from "echarts/core";
 import { GaugeChart } from "echarts/charts";
 import PanelGroup from './components/KisipCards.vue'
 import { getSettlementListByCounty } from '@/api/settlements'
-import { value } from 'dom7'
-import {
-  Position,
-  TopRight,
-  User,
-  Plus,
-  Edit,
-  Delete,
-  Download,
-  Filter,
-  MessageBox
-} from '@element-plus/icons-vue'
+import { computed } from 'vue'
+import { useAppStoreWithOut } from '@/store/modules/app'
+
 
 use([
   GaugeChart
@@ -51,8 +42,40 @@ const settlementsPercountyMin = ref()
 
 
 const aspect = ref()
+const appStore = useAppStoreWithOut()
+
+// initialize with long titles
+const tenureSupportedTitle = ref("KISIP Tenure-Supported Settlements")
+const infrastructureSupportedTitle = ref("Infrastructure-Supported Settlements")
+const inclusionSupportedTitle = ref("Social Inclusion Settlements")
+const TenureSupportedBeneficiaryTitle = ref("Tenure beneficiaries by gender")
+const RoadsImprovedTitle = ref("Roads improved under the KISIP project (Km)")
+const footPathsConstructedTitle = ref("Footpaths constructed under the KISIP project(No.)")
+const highmastsConstructedTitle = ref("Highmast Security Lights constructed")
+const DPWTraineesTitle = ref("DPW: No. of people engaged and trained")
+
+const ShowLegend = ref(true)
 
 
+// Check whether user screen is mobile 
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('isMobile', isMobile.value)
+
+if (isMobile.value) {
+  // use shorter chart titles for mobile and longer ones for large screens
+  tenureSupportedTitle.value = ("Tenure Settlements")
+  infrastructureSupportedTitle.value = ("Infrastructure Settlements")
+  inclusionSupportedTitle.value = ("Inclusion Settlements")
+  TenureSupportedBeneficiaryTitle.value = ("Beneficiaries (M/F)")
+  RoadsImprovedTitle.value = ("Roads Improved(Km)")
+  footPathsConstructedTitle.value = ("Footpaths Construct.(No.)")
+  highmastsConstructedTitle.value = ("Highmasts Construct.(No.)")
+  DPWTraineesTitle.value = ("DPW Trainees(No.)")
+
+  ShowLegend.value = false
+
+}
 
 const pieOptionsData = reactive<EChartsOption>(pieOptions) as EChartsOption
 
@@ -181,7 +204,7 @@ const getKisipTenureSettlementsCountByCounty = async () => {
 
   MapgeopointOptions.value = {
     title: {
-      text: "KISIP Tenure-Supported Settlements",
+      text: tenureSupportedTitle,
       subtext: 'National Slum Mapping, 2023',
       sublink: "http://kisip.go.ke",
       left: "right",
@@ -378,7 +401,7 @@ const getKisipInfSettlementsCountByCounty = async () => {
 
   InfrastructureSettlementsMap.value = {
     title: {
-      text: "Infrastructure-Supported Settlements",
+      text: infrastructureSupportedTitle,
       subtext: 'National Slum Mapping, 2023',
       sublink: "http://kisip.go.ke",
       left: "right",
@@ -576,7 +599,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
 
   InclusionSettlementsMapOptions.value = {
     title: {
-      text: "Social Inclusion Settlements",
+      text: inclusionSupportedTitle,
       subtext: 'National Slum Mapping, 2023',
       sublink: "http://kisip.go.ke",
       left: "right",
@@ -690,7 +713,7 @@ const getCountyGeo = async () => {
     //Tenure 
     tenureSettlementsByCountiesMap.value = {
       title: {
-        text: 'Tenure Intervention Settlements',
+        text: tenureSupportedTitle,
         subtext: 'National Slum Mapping, 2023',
         sublink: 'https://kisip.go.ke/',
         left: 'right',
@@ -757,7 +780,7 @@ const getCountyGeo = async () => {
     // Infrastructure
     InfrastructureSettlementsByCountiesMap.value = {
       title: {
-        text: 'Infrastructure Intervention Settlements',
+        text: infrastructureSupportedTitle,
         subtext: 'National Slum Mapping, 2023',
         sublink: 'https://kisip.go.ke/',
         left: 'right',
@@ -822,7 +845,7 @@ const getCountyGeo = async () => {
     // Inclusion
     InclusionSettlementsByCountiesMap.value = {
       title: {
-        text: 'Inclusion Intervention Settlements',
+        text: inclusionSupportedTitle,
         subtext: 'National Slum Mapping, 2023',
         sublink: 'https://kisip.go.ke/',
         left: 'right',
@@ -937,7 +960,7 @@ const getBeneficiariesByCounty = async () => {
 
       countOfSettlementbeneficiary.value = {
         title: {
-          text: 'Tenure beneficiaries by gender',
+          text: TenureSupportedBeneficiaryTitle,
           subtext: 'National Slum Mapping, 2023',
           left: 'center',
           textStyle: {
@@ -967,6 +990,7 @@ const getBeneficiariesByCounty = async () => {
         },
         legend: {
           orient: 'horizontal',
+          show: ShowLegend,
           type: 'scroll',
           left: 'left',
           itemWidth: 20,
@@ -1136,7 +1160,7 @@ const getRoadsConstructed = async () => {
 
   sumOfGravelRoadsConstructed.value = {
     title: {
-      text: 'Roads improved under the KISIP project',
+      text: RoadsImprovedTitle,
       subtext: 'National Slum Mapping, 2023',
       left: 'center',
       textStyle: {
@@ -1209,7 +1233,7 @@ const getRoadsConstructed = async () => {
 
   FootPathsConstructed.value = {
     title: {
-      text: 'Footpaths constructed under the KISIP project',
+      text: footPathsConstructedTitle,
       subtext: 'National Slum Mapping, 2023',
       left: 'center',
       textStyle: {
@@ -1282,7 +1306,7 @@ const getRoadsConstructed = async () => {
 
   HighMastsConstructed.value = {
     title: {
-      text: 'Highmast Security Lights constructed ',
+      text: highmastsConstructedTitle,
       subtext: 'National Slum Mapping, 2023',
       left: 'center',
       textStyle: {
@@ -1387,7 +1411,7 @@ const getInclusionBeneficiaries = async () => {
 
   DPWBeneficiariesv2.value = {
     title: {
-      text: 'DPW: No. of people engaged and trained',
+      text: DPWTraineesTitle,
       subtext: 'National Slum Mapping, 2023',
       left: 'center',
       textStyle: {
@@ -1422,6 +1446,7 @@ const getInclusionBeneficiaries = async () => {
     },
     legend: {
       orient: 'horizontal',
+      show: ShowLegend,
       type: 'scroll',
       left: 'left',
       itemWidth: 20,
