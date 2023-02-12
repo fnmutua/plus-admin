@@ -81,6 +81,8 @@ const getaverageLengthStay = async () => {
   formData.summaryField = 'length_stay'
   formData.summaryFunction = 'AVG'
   formData.groupField = ''
+  formData.cache_key = 'lengthofStayHHs'
+
   const length_stay = await getSummarybyField(formData)
   // console.log('length_stay---->', Math.round(length_stay.Total[0].AVG))
   totalState.AverageLengthStay = Math.round(length_stay.Total[0].AVG)
@@ -93,11 +95,13 @@ const getAverageIncome = async () => {
   formData.summaryField = 'income_level'
   formData.summaryFunction = 'count'
   formData.groupField = ['income_level']
+  formData.cache_key = 'incomeLevelData'
+
 
   await getSummarybyField(formData)
     .then(response => {
       var res = response.Total
-      //   console.log('summary income---->', response)
+      console.log('summary income---->', response)
       var res = response.Total
       var max = Math.max.apply(Math, res.map(function (o) { return o.count; }))
       //   console.log("max", max)
@@ -125,6 +129,8 @@ const getTenureStatus = async () => {
   formData.summaryField = 'ownership_status'
   formData.summaryFunction = 'count'
   formData.groupField = ['ownership_status']
+  formData.cache_key = 'ownershipStatusKey'
+
   await getSummarybyField(formData)
     .then(response => {
       var res = response.Total
@@ -165,7 +171,7 @@ getAverageIncome()
               <div> </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
-                    t('Average Monthly Household Income (KES)')
+                  t('Average Monthly Household Income (KES)')
                 }}</div>
 
                 <div class="text-20px font-700 text-center">
@@ -189,7 +195,7 @@ getAverageIncome()
               <div> </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
-                    t('Average Duration of Stay within a settlement (years)')
+                  t('Average Duration of Stay within a settlement (years)')
                 }}</div>
                 <CountTo class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.AverageLengthStay"
                   :duration="2600" />
@@ -212,7 +218,7 @@ getAverageIncome()
               <div> </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
-                    t('Proportion of Households that own structures within slums (%)')
+                  t('Proportion of Households that own structures within slums (%)')
                 }}</div>
                 <CountTo class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.proportionOwners"
                   :duration="2600" />

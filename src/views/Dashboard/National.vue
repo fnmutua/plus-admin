@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElAvatar, ElCard, ElCollapse, ElCollapseItem, ElDivider, ElTabs, ElTabPane, ElProgress, ElSkeleton
+  ElRow, ElCol, ElCard, ElTabs, ElTabPane, ElSkeleton
 } from 'element-plus'
 import { ElTable, ElButton, ElTableColumn } from 'element-plus'
 import xlsx from "json-as-xlsx"
 
-import { pieOptions, barOptions, lineOptions } from './echarts-data'
+import { pieOptions } from './echarts-data'
 import { ref, reactive } from 'vue'
 import { getUserAccessSourceApi } from '@/api/dashboard/analysis'
 import { set } from 'lodash-es'
@@ -23,7 +23,6 @@ import { use } from "echarts/core";
 import { GaugeChart } from "echarts/charts";
 import PanelGroup from './components/PanelGroup.vue'
 import { getSettlementListByCounty } from '@/api/settlements'
-import { value } from 'dom7'
 import {
   TopRight,
   User,

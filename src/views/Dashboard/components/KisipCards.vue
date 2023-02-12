@@ -8,6 +8,7 @@ import { getCountApi } from '@/api/dashboard/analysis'
 import type { AnalysisTotalTypes } from '@/api/dashboard/analysis/types'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { Icon } from '@iconify/vue';
 
 const { t } = useI18n()
 
@@ -26,7 +27,10 @@ let totalState = reactive<AnalysisTotalTypes>({
   NoSettlements: 0,
   NoSlums: 0,
   NoSlumResidents: 0,
-  NoSlumBeneficiaries: 0
+  NoSlumBeneficiaries: 0,
+  communityDevPlans: 0,
+  titleDeeds: 0,
+  countyStrategies: 0
 })
 
 const getCount = async () => {
@@ -94,55 +98,86 @@ const getWaterConnections = async () => {
   })
 }
 
+
+const getCountyStrategies = async () => {
+  //  this.countQuerry.model = 'settlement'
+  const countQuerry = {}
+  countQuerry.filterField = 'indicator_category_id'
+  countQuerry.criteria = 1  // Counties where next generation of County Integrated Development Plans (CIDPs) include slum upgrading strategies developedunder the project
+  countQuerry.model = 'indicator_category_report'
+  countQuerry.sumField = 'amount'
+  countQuerry.cache_key = 'countiesWIthStrategies'
+  await getSumFilter(countQuerry).then((response) => {
+    totalState.countyStrategies = parseInt(response.data)
+    console.log('The countyStrategies', totalState.countyStrategies)
+  })
+}
+
+
+
+const getCommunityDevPlans = async () => {
+  //  this.countQuerry.model = 'settlement'
+  const countQuerry = {}
+  countQuerry.filterField = 'indicator_category_id'
+  countQuerry.criteria = 2  //  community Dev plans
+  countQuerry.model = 'indicator_category_report'
+  countQuerry.sumField = 'amount'
+  countQuerry.cache_key = 'getCommunityDevPlans'
+  await getSumFilter(countQuerry).then((response) => {
+    totalState.communityDevPlans = parseInt(response.data)
+    console.log('The communityDevPlans', totalState.communityDevPlans)
+  })
+}
+
+
+const getTitleDeeds = async () => {
+  //  this.countQuerry.model = 'settlement'
+  const countQuerry = {}
+  countQuerry.filterField = 'indicator_category_id'
+  countQuerry.criteria = 6  //  titlee Deeds
+  countQuerry.model = 'indicator_category_report'
+  countQuerry.sumField = 'amount'
+  countQuerry.cache_key = 'getTitleDeeds'
+  await getSumFilter(countQuerry).then((response) => {
+    totalState.titleDeeds = parseInt(response.data)
+    console.log('The communityDevPlans', totalState.titleDeeds)
+  })
+}
+
+
+
+
+
 getCount()
 getSettlementSummary()
 getPopulationSummary()
 getImprovedRoads()
 getWaterConnections()
+getCountyStrategies()
+getCommunityDevPlans()
+getTitleDeeds()
+
 </script>
 
 <template>
   <ElRow :gutter="10" justify="space-between" :class="prefixCls">
-    <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
-      <ElCard shadow="hover" class="mb-20px">
-        <ElSkeleton :loading="loading" animated :rows="2">
-          <template #default>
-            <div :class="`${prefixCls}__item flex justify-between`">
-              <div>
-                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--peoples p-16px inline-block rounded-6px`">
-                  <font-awesome-icon size="4x" icon="fa-solid fa-city" />
-                </div>
-              </div>
 
 
-              <div class="flex flex-col justify-between">
-                <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                    t('Beneficiary Slums')
-                }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSettlements"
-                  :duration="2600" />
-              </div>
-            </div>
-          </template>
-        </ElSkeleton>
-      </ElCard>
-    </ElCol>
-
-    <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
-      <ElCard shadow="hover" class="mb-20px">
+    <ElCol :xl="6" :lg="6" :md="6" :sm="24" :xs="24">
+      <ElCard shadow="always" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
                 <div :class="`${prefixCls}__item--icon ${prefixCls}__item--message p-16px inline-block rounded-6px`">
-                  <font-awesome-icon size="4x" icon="fa-solid fa-hands-holding-child" />
+                  <Icon icon="mingcute:certificate-2-line" height="60" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                    t('Beneficiaries under Safety Nets')
+                  t('Titles Deeds Issued')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSlumResidents"
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.titleDeeds"
                   :duration="2600" />
               </div>
             </div>
@@ -151,21 +186,21 @@ getWaterConnections()
       </ElCard>
     </ElCol>
 
-    <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
-      <ElCard shadow="hover" class="mb-20px">
+    <ElCol :xl="6" :lg="6" :md="6" :sm="24" :xs="24">
+      <ElCard shadow="always" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
                 <div :class="`${prefixCls}__item--icon ${prefixCls}__item--water p-16px inline-block rounded-6px`">
-                  <font-awesome-icon size="4x" icon="fa-solid fa-glass-water-droplet" />
+                  <Icon icon="carbon:map-boundary" height="60" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                    t('New household water connections resulting from the project')
+                  t('Community Development Plans Prepared')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.waterConnections"
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.communityDevPlans"
                   :duration="2600" />
               </div>
             </div>
@@ -174,19 +209,19 @@ getWaterConnections()
       </ElCard>
     </ElCol>
 
-    <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
-      <ElCard shadow="hover" class="mb-20px">
+    <ElCol :xl="6" :lg="6" :md="6" :sm="24" :xs="24">
+      <ElCard shadow="always" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
                 <div :class="`${prefixCls}__item--icon ${prefixCls}__item--road p-16px inline-block rounded-6px`">
-                  <font-awesome-icon size="4x" icon="fa-solid fa-road" />
+                  <Icon icon="fa6-solid:road-circle-check" height="60" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                    t('Rehabilitated Roads (Km)')
+                  t('Roads Upgraded (Km)')
                 }}</div>
                 <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.roadsKm"
                   :duration="2600" />
@@ -196,7 +231,28 @@ getWaterConnections()
         </ElSkeleton>
       </ElCard>
     </ElCol>
-
+    <ElCol :xl="6" :lg="6" :md="6" :sm="24" :xs="24">
+      <ElCard shadow="always" class="mb-20px">
+        <ElSkeleton :loading="loading" animated :rows="2">
+          <template #default>
+            <div :class="`${prefixCls}__item flex justify-between`">
+              <div>
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--shopping p-16px inline-block rounded-6px`">
+                  <Icon icon="ph:strategy-bold" height="60" />
+                </div>
+              </div>
+              <div class="flex flex-col justify-between">
+                <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
+                  t('Slum Prevention Strategies Developed')
+                }}</div>
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.countyStrategies"
+                  :duration="2600" />
+              </div>
+            </div>
+          </template>
+        </ElSkeleton>
+      </ElCard>
+    </ElCol>
 
 
   </ElRow>
@@ -224,14 +280,14 @@ getWaterConnections()
     }
 
     &--road {
-      color: #040404;
+      color: #ee0e0e;
     }
 
     &--water {
       color: #110bba;
     }
 
-    &:hover {
+    &:always {
       :deep(.@{namespace}-icon) {
         color: #fff !important;
       }
