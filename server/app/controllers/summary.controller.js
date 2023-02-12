@@ -318,7 +318,7 @@ exports.sumModelByColumn= async (req, res) => {
     });
   } catch (error) {
     res.status(500).send({
-      message: 'Fecthing data failed'
+      message: 'Fetching data failed'
     });
   }
   
@@ -580,3 +580,5 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   }
   
 }
+
+

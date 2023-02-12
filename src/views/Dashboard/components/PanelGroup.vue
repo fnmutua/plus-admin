@@ -7,7 +7,7 @@ import { ref, reactive } from 'vue'
 import { getCountApi } from '@/api/dashboard/analysis'
 import type { AnalysisTotalTypes } from '@/api/dashboard/analysis/types'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
-import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { getSummarybyFieldFromMultipleIncludes, getSummarybyFieldSimple } from '@/api/summary'
 import { Icon } from '@iconify/vue';
 
 const { t } = useI18n()
@@ -29,6 +29,8 @@ let totalState = reactive<AnalysisTotalTypes>({
   NoSlumResidents: 0,
   NoSlumBeneficiaries: 0,
   InfSettlementsCount: 0,
+  avg_slum_size: 0,
+  countiesWithSlums: 0,
   TenureSettlementsCount: 0
 })
 
@@ -67,28 +69,7 @@ const getPopulationSummary = async () => {
   })
 }
 
-const getKisipTenureSettlementsCountByCounty = async () => {
-  const formData = {}
-  formData.model = 'intervention'
-  formData.summaryField = 'settlement_id'
-  formData.summaryFunction = 'count'
 
-  // filter by field 
-  formData.filterField = 'intervention_type_id'
-  formData.filterValue = 1
-
-  formData.assoc_models = ['settlement', 'county']
-
-  await getSummarybyFieldFromMultipleIncludes(formData)
-    .then(response => {
-      var results = response.Total
-      console.log('Tenure settlements interventions by county', results)
-
-      totalState.TenureSettlementsCount = response.Total[0].count
-
-    });
-
-}
 const getKisipInfSettlementsCountByCounty = async () => {
   const formData = {}
   formData.model = 'intervention'
@@ -112,19 +93,70 @@ const getKisipInfSettlementsCountByCounty = async () => {
 
 }
 
+const getAverageSettlementSize = async () => {
+  const formData = {}
+  formData.model = 'settlement'
+  formData.summaryField = 'area'
+  formData.summaryFunction = 'AVG'
+
+  // filter by field 
+  formData.assoc_models = ['county']
+
+  await getSummarybyFieldSimple(formData)
+    .then(response => {
+      var results = response.Total
+      console.log('Average Slum Size', results)
+
+      totalState.avg_slum_size = Math.round(response.Total[0].AVG)
+
+    });
+
+}
+
+const getCountPerCounty = async () => {
+  const formData = {}
+  formData.model = 'settlement'
+  formData.summaryField = 'county_id'
+  formData.summaryFunction = 'count'
+
+  formData.groupFields = ['county_id']
+  formData.cache_key = 'countyByCountyId'
+  formData.assoc_models = ['county']
+  formData.cache_key = 'CountiesWithSlums'
+
+  /// Direct beneficiaries 
+  await getSummarybyFieldFromMultipleIncludes(formData)
+    .then(response => {
+
+      totalState.countiesWithSlums = response.Total.length
+
+
+
+
+    });
+
+
+
+
+}
+
+
+
 
 
 getCount()
 getSettlementSummary()
 getPopulationSummary()
-getKisipTenureSettlementsCountByCounty()
+//getKisipTenureSettlementsCountByCounty()
 getKisipInfSettlementsCountByCounty()
+getAverageSettlementSize()
+getCountPerCounty()
 </script>
 
 <template>
   <ElRow :gutter="10" justify="space-between" :class="prefixCls">
     <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
-      <ElCard shadow="hover" class="mb-20px">
+      <ElCard shadow="always" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
@@ -135,7 +167,7 @@ getKisipInfSettlementsCountByCounty()
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                    t('Number of Slums')
+                  t('Number of Slums')
                 }}</div>
                 <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSettlements"
                   :duration="2600" />
@@ -147,18 +179,18 @@ getKisipInfSettlementsCountByCounty()
     </ElCol>
 
     <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
-      <ElCard shadow="hover" class="mb-20px">
+      <ElCard shadow="always" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
                 <div :class="`${prefixCls}__item--icon ${prefixCls}__item--message p-16px inline-block rounded-6px`">
-                  <font-awesome-icon size="4x" icon="fa-solid fa-people-group" />
+                  <Icon icon="carbon:chart-population" width="60" />
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                    t('Resident Population')
+                  t('Informal Settlement Resident Population')
                 }}</div>
                 <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSlumResidents"
                   :duration="2600" />
@@ -170,20 +202,21 @@ getKisipInfSettlementsCountByCounty()
     </ElCol>
 
     <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
-      <ElCard shadow="hover" class="mb-20px">
+      <ElCard shadow="always" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
                 <div :class="`${prefixCls}__item--icon ${prefixCls}__item--money p-16px inline-block rounded-6px`">
-                  <Icon icon="icon-park-solid:map-road-two" width="60" />
+                  <Icon icon="fluent-mdl2:size-legacy" width="60" />
+
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                    t('Settlements Supported with Improved Infrastructure ')
+                  t('Average Informal Settlement size (Ha)')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.InfSettlementsCount"
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.avg_slum_size"
                   :duration="2600" />
               </div>
             </div>
@@ -193,21 +226,22 @@ getKisipInfSettlementsCountByCounty()
     </ElCol>
 
     <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
-      <ElCard shadow="hover" class="mb-20px">
+      <ElCard shadow="always" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
           <template #default>
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
                 <div :class="`${prefixCls}__item--icon ${prefixCls}__item--shopping p-16px inline-block rounded-6px`">
-                  <Icon icon="tabler:certificate" height='60' />
+                  <Icon icon="mdi:graph-box-outline" height="60" />
+
                 </div>
               </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                    t('Settlements Undergoing Tenure Regularization')
+                  t('Counties with Informal Settlements')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0"
-                  :end-val="totalState.TenureSettlementsCount" :duration="2600" />
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.countiesWithSlums"
+                  :duration="2600" />
               </div>
             </div>
           </template>
@@ -235,10 +269,10 @@ getKisipInfSettlementsCountByCounty()
     }
 
     &--shopping {
-      color: #34bfa3;
+      color: #6c78e1;
     }
 
-    &:hover {
+    &:always {
       :deep(.@{namespace}-icon) {
         color: #fff !important;
       }
@@ -260,7 +294,7 @@ getKisipInfSettlementsCountByCounty()
       }
 
       .@{prefix-cls}__item--shopping {
-        background: #34bfa3;
+        background: #6c78e1;
       }
     }
   }
