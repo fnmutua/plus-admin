@@ -180,6 +180,13 @@ const loadMap = () => {
 
 
 
+    nmap.value.addLayer({
+      id: 'satellite',
+      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+      type: "raster"
+    }, 'optional_before_argument');
+
+
 
     nmap.value.addLayer({
       'id': 'Boundary',

@@ -59,3 +59,9 @@ export const getUserByKeyWord = (data: UserType): Promise<IResponse<UserType>> =
   return request.post({ url: prod + '/api/v1/user/keyword', data })
 }
 
+
+
+export const getSystemRoles = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/roles/all', data })
+}

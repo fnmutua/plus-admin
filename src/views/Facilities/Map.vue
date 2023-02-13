@@ -30,7 +30,7 @@ const parcel_geo = ref([])
 const { t } = useI18n()
 
 const getAll = async () => {
-  console.log('Get all Settleemnts ')
+  console.log('Get all Settlements ')
   const id = route.params.id
   const settData = route.params.data
   console.log('Settlement ID, Data:', id, settData)
@@ -69,7 +69,7 @@ const getAll = async () => {
 }
 
 const getParcelGeo = async () => {
-  console.log('Get all parcels for this settleemtn ')
+  console.log('Get all parcels for this settlement ')
   const id = route.params.id
   const settData = route.params.data
   console.log('Settlement ID, Data:', id, settData)
@@ -117,26 +117,11 @@ console.log(model)
 <template>
   <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Settlement  Map ')">
     <l-map ref="map" :zoom="16" :center="[-1.30853, 36.917257]" style="height: 66vh">
-      <l-tile-layer
-        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
-        layer-type="base"
-        min-zoom="1"
-        max-zoom="21"
-        useBounds="true"
-        class="map"
-        :max-bounds="maxBounds"
-        name="Satellite"
-      />
-      <l-tile-layer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        layer-type="base"
-        min-zoom="1"
-        max-zoom="21"
-        useBounds="true"
-        class="map"
-        :max-bounds="maxBounds"
-        name="OpenStreetMap"
-      />
+      <l-tile-layer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
+        layer-type="base" min-zoom="1" max-zoom="21" useBounds="true" class="map" :max-bounds="maxBounds"
+        name="Satellite" />
+      <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" layer-type="base" min-zoom="1"
+        max-zoom="21" useBounds="true" class="map" :max-bounds="maxBounds" name="OpenStreetMap" />
 
       <l-geo-json ref="geo" layer-type="overlay" name="Settlement" :geojson="filtergeo" />
       <l-geo-json ref="parcel_ref" layer-type="overlay" name="Parcel" :geojson="parcel_geo" />

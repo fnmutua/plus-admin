@@ -333,7 +333,7 @@ const mapHeight = '450px'
             <mapbox-geolocate-control />
             <mapbox-draw-control @create="addPolygon" />
             <mapbox-navigation-control position="bottom-right" />
-            />
+
           </mapbox-map>
         </el-card>
       </el-col>
