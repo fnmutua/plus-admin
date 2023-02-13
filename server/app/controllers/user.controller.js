@@ -1,6 +1,8 @@
 const db = require('../models')
 const config = require('../config/db.config.js')
 const User = db.user
+const Role = db.role
+
 const Sequelize = require('sequelize')
  const op = Sequelize.Op
 //const User = db.user;
@@ -100,14 +102,20 @@ exports.Logout = (req, res) => {
  
  
 exports.modelAllUsers = (req, res) => {
- 
+  console.log('Current User', req.body.currrentUser)
+
   console.log('This User roles',req.roles)
    var currentUserRoles = req.roles
 
   // control the levels of users the loogend in user can see
-  if (currentUserRoles.includes(1)) {
+  if (currentUserRoles.includes(0)) {
+    var RoleFilters = [1,5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins
+  }
+
+  else if (currentUserRoles.includes(1)) {
     var RoleFilters = [5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins
   }
+
   else if (currentUserRoles.includes(11) || currentUserRoles.includes(10))  {   // SUD/KSIP staff
     var RoleFilters = [9,12,13,14] //   
   }
@@ -180,7 +188,9 @@ exports.modelAllUsers = (req, res) => {
     }
   }
   qry.distinct=true
-
+  qry.where =  {
+    id: { [op.notIn]: [req.body.currrentUser] }
+  }
   qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only 
   db.models[reg_model].findAndCountAll(qry).then((list) => {
     console.log(list)
@@ -198,9 +208,12 @@ exports.modelPaginatedUsersfilterBykeyWord = (req, res) => {
  
   console.log('This User roles',req.roles)
    var currentUserRoles = req.roles
-
   // control the levels of users the loogend in user can see
-  if (currentUserRoles.includes(1)) {
+  if (currentUserRoles.includes(0)) {
+    var RoleFilters = [1,5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins
+  }
+  // control the levels of users the loogend in user can see
+ else  if (currentUserRoles.includes(1)) {
     var RoleFilters = [5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins
   }
   else if (currentUserRoles.includes(11) || currentUserRoles.includes(10))  {   // SUD/KSIP staff
@@ -322,9 +335,12 @@ exports.modelCountyUsers = (req, res) => {
  
   console.log('This User roles',req.roles)
    var currentUserRoles = req.roles
-
   // control the levels of users the loogend in user can see
-  if (currentUserRoles.includes(1)) {
+  if (currentUserRoles.includes(0)) {
+    var RoleFilters = [1,5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins
+  }
+  // control the levels of users the loogend in user can see
+  else if (currentUserRoles.includes(1)) {
     var RoleFilters = [5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins
   }
   else if (currentUserRoles.includes(11) || currentUserRoles.includes(10))  {   // SUD/KSIP staff
@@ -410,4 +426,29 @@ exports.modelCountyUsers = (req, res) => {
       message: 'Users retrived successfully'
     })
   })
+}
+
+
+exports.rolesController = (req, res) => {
+ 
+  var qry = {}
+  //qry['id'] != 0
+  //qry.where = [['id'] != 0]
+
+  // remove super admin from the roles querry 
+  qry.where =  {
+    id: { [op.notIn]: [0] }
+  }
+
+
+ 
+   Role
+    .findAndCountAll(qry)
+    .then((list) => {
+       res.status(200).send({
+        data: list.rows,
+        total: list.count,
+        code: '0000'
+      })
+    })
 }
