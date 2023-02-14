@@ -701,7 +701,7 @@ exports.modelPaginatedData = (req, res) => {
 }
 
 exports.modelPaginatedDatafilterByColumn = (req, res) => {
-  // console.log('Req-body', req.body)
+ console.log('Req-body', req.body)
   // console.log('nested filters....>', req.body.nested_filter[0])
 
   var reg_model = req.body.model

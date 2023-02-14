@@ -101,7 +101,6 @@ const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
-const downloadLoading = ref(false)
 const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
 const formheader = ref('Edit Settlement')
@@ -119,7 +118,7 @@ var filterValues = [[1, 2]]  // make sure the inner array is array
 var tblData = []
 
 const associated_Model = ''
-const associated_multiple_models = ['county', 'document']
+const associated_multiple_models = ['county']
 
 const model = 'settlement'
 //// ------------------parameters -----------------------////
@@ -457,7 +456,7 @@ const getInterventions = async () => {
 
   // - multiple filters -------------------------------------
 
-  formData.associated_multiple_models = ['settlement', 'clusters']
+  formData.associated_multiple_models = ['settlement']
 
   //-------------------------
   //console.log(formData)
