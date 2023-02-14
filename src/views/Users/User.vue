@@ -28,6 +28,8 @@ import { activateUserApi, updateUserApi, getUserListApi, getSystemRoles, getUser
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
+import xlsx from "json-as-xlsx"
+
 import {
   searchByKeyWord
 } from '@/api/settlements'
@@ -105,6 +107,7 @@ const form = reactive({
   id: '',
   name: '',
   email: '',
+  username: '',
   phone: '',
   county_id: '',
   roles: []
@@ -416,7 +419,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('TBL-b4', tblData)
   res.data.forEach(function (arrayItem) {
     console.log('arrayItem ----->', arrayItem)
-    delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
+    //delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
     delete arrayItem['photo'] //  remove the geometry column
 
     var dd = destructure(arrayItem)
@@ -460,6 +463,7 @@ const EditUser = (data: TableSlotDefault) => {
   console.log(data)
   form.id = data.row.id
   form.name = data.row.name
+  form.username = data.row.username
   form.county_id = data.row.county_id
   form.email = data.row.email
   form.phone = data.row.phone
@@ -482,7 +486,54 @@ const updateUser = () => {
   dialogFormVisible.value = false
 }
 
+const DownloadXlsx = async () => {
+  console.log(tableDataList.value)
 
+  // change here !
+  let fields = [
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Name", value: "name" }, // Top level data
+    { label: "Email", value: "email" }, // Custom format
+    { label: "Username", value: "username" }, // Run functions
+
+  ]
+
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  // loop through the table data and sort the data 
+  // change here !
+  for (let i = 0; i < tableDataList.value.length; i++) {
+    let thisRecord = {}
+
+    thisRecord.index = i + 1
+    thisRecord.name = tableDataList.value[i].name
+    thisRecord.email = tableDataList.value[i].email
+    thisRecord.username = tableDataList.value[i].username
+
+
+    //console.log(i)
+    dataHolder.push(thisRecord)
+  }
+  dataObj.content = dataHolder
+
+
+
+
+  let settings = {
+    fileName: model, // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
 </script>
 
 <template>
@@ -501,7 +552,7 @@ const updateUser = () => {
         placeholder="Search by Name" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
@@ -519,14 +570,11 @@ const updateUser = () => {
       <template #action="data">
         <ElRow :gutter="5" justify="space-between">
           <el-tooltip content="Activate/Deactivate User" placement="top">
-
             <el-switch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)" />
           </el-tooltip>
-
           <el-tooltip content="Edit" placement="top">
             <el-button type="success" :icon="Edit" @click="EditUser(data as TableSlotDefault)" circle />
           </el-tooltip>
-
           <el-tooltip content="Delete" placement="top">
             <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
               title="Are you sure to delete this User?" @confirm="DeleteUSer(data as TableSlotDefault)">
@@ -536,7 +584,6 @@ const updateUser = () => {
             </el-popconfirm>
           </el-tooltip>
         </ElRow>
-
       </template>
     </Table>
     <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
@@ -548,9 +595,11 @@ const updateUser = () => {
         <el-form-item label="Name" :label-width="formLabelWidth">
           <el-input v-model="form.name" autocomplete="off" />
         </el-form-item>
-
+        <el-form-item label="Username" :label-width="formLabelWidth">
+          <el-input v-model="form.username" autocomplete="off" disabled />
+        </el-form-item>
         <el-form-item label="Email" :label-width="formLabelWidth">
-          <el-input v-model="form.email" autocomplete="off" disabled />
+          <el-input v-model="form.email" autocomplete="off" />
         </el-form-item>
 
         <el-form-item label="Phone" :label-width="formLabelWidth">
