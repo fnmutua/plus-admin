@@ -408,7 +408,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   console.log('After getting all users', res)
   tableDataList.value = res.data
-  total.value = res.data.length   // instead of usign the erronues total reurned due to left/right joins
+  total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
 
   loading.value = false
 
