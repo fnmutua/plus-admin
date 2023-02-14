@@ -198,7 +198,7 @@ exports.modelAllUsers = (req, res) => {
       data: list.rows,
       total: list.count,
       code: '0000',
-      message: 'Users retrived successfully'
+      message: 'Users retrieved successfully'
     })
   })
 }
