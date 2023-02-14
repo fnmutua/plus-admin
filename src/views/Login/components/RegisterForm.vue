@@ -110,7 +110,19 @@ const schema = reactive<FormSchema[]>([
   },
   {
     field: 'username',
-    label: t('email'),
+    label: t('Username'),
+    value: '',
+    component: 'Input',
+    colProps: {
+      span: 24
+    },
+    componentProps: {
+      placeholder: t('username')
+    }
+  },
+  {
+    field: 'email',
+    label: t('Email'),
     value: '',
     component: 'Input',
     colProps: {
@@ -120,7 +132,6 @@ const schema = reactive<FormSchema[]>([
       placeholder: t('login.usernamePlaceholder')
     }
   },
-
   {
     field: 'password',
     label: t('login.password'),
@@ -202,10 +213,10 @@ const schema = reactive<FormSchema[]>([
   }
 ])
 
-
-
 const rules: FormRules = {
+  name: [required()],
   username: [required()],
+  email: [required()],
   password: [required()],
   county_id: [required()]
 }
@@ -228,8 +239,9 @@ const loginRegister = async () => {
 
         console.log("Formdata------>", formData)
         console.log('ValidForm', formData)
-        formData.email = formData.username.trim()
+        formData.email = formData.email.trim()
         formData.username = formData.username.trim()
+        formData.name = formData.name.trim()
 
         formData.role = ['public'] // 14 - general user with limited views
         // formData.role = [formData.role]   // convert the user roles to an array
