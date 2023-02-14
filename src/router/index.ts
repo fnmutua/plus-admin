@@ -3392,7 +3392,7 @@ export const staffRoutes: AppRouteRecordRaw[] = [
        {
         path: 'clusters',
       //  component: 'views/Users/County',
-        component: () => import('@/views/Users/County.vue'),
+        component: () => import('@/views/settings/Cluster.vue'),
         name: 'Clusters',
         meta: {
           title: 'Clusters',
@@ -4243,7 +4243,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        {
         path: 'clusters',
       //  component: 'views/Users/County',
-        component: () => import('@/views/Users/County.vue'),
+        component: () => import('@/views/settings/Cluster.vue'),
         name: 'Clusters',
         meta: {
           title: 'Clusters',

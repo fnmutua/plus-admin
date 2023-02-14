@@ -22,7 +22,7 @@ import { ref, reactive, h } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn,
-  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, FormRules, ElPopconfirm
+  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElCol, ElForm, ElDescriptions, ElDescriptionsItem, ElUpload, ElLink, ElInput, ElCascader, FormRules, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -36,6 +36,7 @@ import { getModelSpecs } from '@/api/fields'
 import { BatchImportUpsert } from '@/api/settlements'
 import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
+import { computed } from 'vue'
 
 
 
@@ -54,6 +55,12 @@ console.log("userInfo--->", userInfo)
 
 
 
+const reviewWindowWidth = ref('40%')
+const isMobile = computed(() => appStore.getMobile)
+
+if (isMobile.value) {
+  reviewWindowWidth.value = "100%"
+}
 
 
 
@@ -1148,13 +1155,17 @@ getSettlement()
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
-  <el-dialog v-model="ReviewDialog" @close="handleClose" :title="formHeader" width="30%" draggable>
-    <el-descriptions title="" direction="vertical" :column="4" size="small" border>
+  <el-dialog v-model="ReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
+
+    <el-descriptions title="" direction="vertical" :column="2" size="small" border>
       <el-descriptions-item label="Location">{{ report.county }}</el-descriptions-item>
       <el-descriptions-item label="Indicator" :span="2">{{ report.indicator }}</el-descriptions-item>
       <el-descriptions-item label="Amount">{{ report.amount }}</el-descriptions-item>
       <el-descriptions-item label="Date"> {{ report.date }} </el-descriptions-item>
     </el-descriptions>
+
+
+
     <template #footer>
       <span v-if="showAdminButtons" class="dialog-footer">
         <el-button type="success" @click="approve">Approve</el-button>

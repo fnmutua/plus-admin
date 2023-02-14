@@ -68,7 +68,7 @@ function initModels(sequelize) {
   var roles = _roles(sequelize, DataTypes)
   var intervention_type = _intervention_type(sequelize, DataTypes)
   var intervention = _intervention(sequelize, DataTypes)
-  var clusters = _cluster(sequelize, DataTypes)
+  var cluster = _cluster(sequelize, DataTypes)
   var lots = _lot(sequelize, DataTypes)
   var benefit_type = _benefit_type(sequelize, DataTypes)
   var settlement_uploads = _settlement_uploads(sequelize, DataTypes)
@@ -114,7 +114,7 @@ function initModels(sequelize) {
     roles,
     intervention_type,
     intervention,
-    clusters,
+    cluster,
     lots,
     benefit_type,
     settlement_status,

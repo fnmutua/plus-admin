@@ -115,9 +115,9 @@ const { t } = useI18n()
 
 const columns: TableColumn[] = [
   {
-    field: 'id',
-    label: t('Id'),
-
+    field: 'index',
+    label: t('S/No'),
+    type: 'index'
   },
 
   {
@@ -490,16 +490,14 @@ const updateUser = () => {
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear" multiple clearable filterable
+      <el-select v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by County">
         <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
@@ -516,8 +514,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table
-:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
         <ElRow :gutter="5" justify="space-between">
@@ -531,8 +528,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           </el-tooltip>
 
           <el-tooltip content="Delete" placement="top">
-            <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
               title="Are you sure to delete this User?" @confirm="DeleteUSer(data as TableSlotDefault)">
               <template #reference>
                 <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
@@ -543,8 +539,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
       </template>
     </Table>
-    <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
