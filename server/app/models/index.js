@@ -117,7 +117,7 @@ db.models.settlement.hasMany(db.models.intervention, {
 })
 
 // Clusters
-db.models.clusters.belongsTo(db.models.lots, {
+db.models.cluster.belongsTo(db.models.lots, {
   foreignKey: 'lot_id'
 })
 
@@ -140,7 +140,7 @@ db.models.intervention.belongsTo(db.models.settlement, {
 
 
 
-db.models.intervention.belongsTo(db.models.clusters, {
+db.models.intervention.belongsTo(db.models.cluster, {
   foreignKey: 'cluster_id'
 })
 

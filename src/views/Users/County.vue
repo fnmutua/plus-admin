@@ -105,9 +105,9 @@ const { t } = useI18n()
 
 const columns: TableColumn[] = [
   {
-    field: 'id',
-    label: t('Id'),
-
+    field: 'index',
+    label: t('S/No'),
+    type: 'index'
   },
 
   {
