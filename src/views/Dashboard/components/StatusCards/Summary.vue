@@ -8,6 +8,7 @@ import { getCountApi } from '@/api/dashboard/analysis'
 import type { AnalysisTotalTypes } from '@/api/dashboard/analysis/types'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
+import { Icon } from '@iconify/vue';
 
 const { t } = useI18n()
 
@@ -163,7 +164,7 @@ getAverageIncome()
 
 <template>
   <ElRow :gutter="20" justify="space-between" :class="prefixCls">
-    <ElCol :xl="6" :lg="8" :md="12" :sm="12" :xs="24">
+    <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
       <ElCard shadow="always" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
           <template #default>
@@ -171,7 +172,7 @@ getAverageIncome()
               <div> </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
-                  t('Average Monthly Household Income (KES)')
+                  t('Median Monthly Household Income (KES)')
                 }}</div>
 
                 <div class="text-20px font-700 text-center">
@@ -179,7 +180,7 @@ getAverageIncome()
 
               </div>
               <div :class="`${prefixCls}__item--icon ${prefixCls}__item--peoples p-16px inline-block rounded-6px`">
-                <font-awesome-icon size="4x" icon="fa-solid fa-sack-dollar" />
+                <Icon icon="healthicons:money-bag" height="60" />
               </div>
             </div>
           </template>
@@ -187,7 +188,7 @@ getAverageIncome()
       </ElCard>
     </ElCol>
 
-    <ElCol :xl="8" :lg="7" :md="12" :sm="12" :xs="24">
+    <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
       <ElCard shadow="always" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
           <template #default>
@@ -195,22 +196,21 @@ getAverageIncome()
               <div> </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
-                  t('Average Duration of Stay within a settlement (years)')
+                  t('Average Income of Structure Landlords (KES)')
                 }}</div>
                 <CountTo class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.AverageLengthStay"
                   :duration="2600" />
               </div>
               <div :class="`${prefixCls}__item--icon ${prefixCls}__item--proportion  p-16px inline-block rounded-6px`">
 
-                <font-awesome-icon size="4x" icon="fa-solid fa-calendar-days" />
+                <Icon icon="game-icons:take-my-money" height="60" />
               </div>
             </div>
           </template>
         </ElSkeleton>
       </ElCard>
     </ElCol>
-
-    <ElCol :xl="8" :lg="7" :md="12" :sm="12" :xs="24">
+    <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
       <ElCard shadow="always" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
           <template #default>
@@ -218,13 +218,34 @@ getAverageIncome()
               <div> </div>
               <div class="flex flex-col justify-between">
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
-                  t('Proportion of Households that own structures within slums (%)')
+                  t('Proportion of Absentee Landlords (%)')
+                }}</div>
+                <CountTo class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.proportionOwners"
+                  :duration="2600" />
+              </div>
+              <div :class="`${prefixCls}__item--icon ${prefixCls}__item--absent  p-16px inline-block rounded-6px`">
+                <Icon icon="mdi:person-search" height="60" />
+              </div>
+            </div>
+          </template>
+        </ElSkeleton>
+      </ElCard>
+    </ElCol>
+    <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
+      <ElCard shadow="always" class="mb-20px">
+        <ElSkeleton :loading="loading" animated :rows="2">
+          <template #default>
+            <div :class="`${prefixCls}__item flex justify-between`">
+              <div> </div>
+              <div class="flex flex-col justify-between">
+                <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
+                  t('Households that own structures within slums (%)')
                 }}</div>
                 <CountTo class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.proportionOwners"
                   :duration="2600" />
               </div>
               <div :class="`${prefixCls}__item--icon ${prefixCls}__item--structures  p-16px inline-block rounded-6px`">
-                <font-awesome-icon size="4x" icon="fa-solid fa-house" />
+                <Icon icon="bi:house-lock-fill" height="60" />
               </div>
             </div>
           </template>
@@ -259,8 +280,13 @@ getAverageIncome()
       color: #34bfa3;
     }
 
+    &--absent {
+      color: #e10b20;
+    }
+
+
     &--structures {
-      color: #ed4415;
+      color: #168f5b;
     }
 
     &:hover {

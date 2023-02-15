@@ -30,6 +30,8 @@ let totalState = reactive<AnalysisTotalTypes>({
   NoSlumBeneficiaries: 0,
   InfSettlementsCount: 0,
   avg_slum_size: 0,
+  avg_hh_size: 0,
+  pop_density: 0,
   countiesWithSlums: 0,
   TenureSettlementsCount: 0
 })
@@ -69,6 +71,25 @@ const getPopulationSummary = async () => {
   })
 }
 
+const getAvgHHSize = async () => {
+  const formData = {}
+  formData.model = 'households'
+  formData.summaryField = 'hh_size'
+  formData.summaryFunction = 'AVG'
+
+
+  await getSummarybyFieldSimple(formData)
+    .then(response => {
+
+      console.log('HH Size', response)
+
+      totalState.avg_hh_size = response.Total[0].AVG
+
+    });
+}
+
+
+
 
 const getKisipInfSettlementsCountByCounty = async () => {
   const formData = {}
@@ -93,10 +114,10 @@ const getKisipInfSettlementsCountByCounty = async () => {
 
 }
 
-const getAverageSettlementSize = async () => {
+const getAveragePopDensity = async () => {
   const formData = {}
   formData.model = 'settlement'
-  formData.summaryField = 'area'
+  formData.summaryField = 'pop_density'
   formData.summaryFunction = 'AVG'
 
   // filter by field 
@@ -107,7 +128,7 @@ const getAverageSettlementSize = async () => {
       var results = response.Total
       console.log('Average Slum Size', results)
 
-      totalState.avg_slum_size = Math.round(response.Total[0].AVG)
+      totalState.pop_density = Math.round(response.Total[0].AVG)
 
     });
 
@@ -141,15 +162,14 @@ const getCountPerCounty = async () => {
 }
 
 
-
-
-
 getCount()
+getAvgHHSize()
+
 getSettlementSummary()
 getPopulationSummary()
 //getKisipTenureSettlementsCountByCounty()
 getKisipInfSettlementsCountByCounty()
-getAverageSettlementSize()
+getAveragePopDensity()
 getCountPerCounty()
 </script>
 
@@ -162,16 +182,20 @@ getCountPerCounty()
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
                 <div :class="`${prefixCls}__item--icon ${prefixCls}__item--peoples p-16px inline-block rounded-6px`">
-                  <Icon icon="fluent-mdl2:city-next" width="60" />
+                  <Icon icon="la:house-damage" height="60" />
                 </div>
               </div>
+
               <div class="flex flex-col justify-between">
-                <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Number of Slums')
-                }}</div>
+                <router-link :class="[]" to="/settlement/list">
+                  <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
+                    t('Number of Slums/Informal Settlements in Kenya')
+                  }}</div>
+                </router-link>
                 <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSettlements"
                   :duration="2600" />
               </div>
+
             </div>
           </template>
         </ElSkeleton>
@@ -188,13 +212,21 @@ getCountPerCounty()
                   <Icon icon="carbon:chart-population" width="60" />
                 </div>
               </div>
+
+
               <div class="flex flex-col justify-between">
-                <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Informal Settlement Resident Population')
-                }}</div>
+                <router-link :class="[]" to="/settlement/list">
+                  <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
+                    t('Slums/Informal Settlement Population in Kenya')
+                  }}</div>
+                </router-link>
                 <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSlumResidents"
                   :duration="2600" />
               </div>
+
+
+
+
             </div>
           </template>
         </ElSkeleton>
@@ -208,17 +240,23 @@ getCountPerCounty()
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
                 <div :class="`${prefixCls}__item--icon ${prefixCls}__item--money p-16px inline-block rounded-6px`">
-                  <Icon icon="fluent-mdl2:size-legacy" width="60" />
+                  <Icon icon="mdi:family" height="60" />
 
                 </div>
               </div>
+
               <div class="flex flex-col justify-between">
-                <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Average Informal Settlement size (Ha)')
-                }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.avg_slum_size"
+                <router-link :class="[]" to="/settlement/list">
+                  <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
+                    t('Average Household Size in Slums/Informal Settlements')
+                  }}</div>
+
+                </router-link>
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.avg_hh_size"
                   :duration="2600" />
               </div>
+
+
             </div>
           </template>
         </ElSkeleton>
@@ -232,17 +270,22 @@ getCountPerCounty()
             <div :class="`${prefixCls}__item flex justify-between`">
               <div>
                 <div :class="`${prefixCls}__item--icon ${prefixCls}__item--shopping p-16px inline-block rounded-6px`">
-                  <Icon icon="mdi:graph-box-outline" height="60" />
+                  <Icon icon="mdi:people-switch" height="60" />
 
                 </div>
               </div>
               <div class="flex flex-col justify-between">
-                <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                  t('Counties with Informal Settlements')
-                }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.countiesWithSlums"
+                <router-link :class="[]" to="/settlement/list">
+                  <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
+                    t('Population Density in Slums/Informal Settlements')
+                  }}</div>
+                </router-link>
+
+
+                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.pop_density"
                   :duration="2600" />
               </div>
+
             </div>
           </template>
         </ElSkeleton>

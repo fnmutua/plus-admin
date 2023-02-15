@@ -315,11 +315,35 @@ db.models.settlement.hasMany(db.models.project, {
   foreignKey: 'settlement_id'
 })
 
+// Proejct   - programme
 db.models.project.belongsTo(db.models.programme, {
   foreignKey: 'programme_id'
 })
 
 db.models.programme.hasMany(db.models.project, {
+  foreignKey: 'programme_id'
+})
+
+// Proejct   - component 
+db.models.project.belongsTo(db.models.component, {
+  foreignKey: 'component_id'
+})
+
+db.models.component.hasMany(db.models.project, {
+  foreignKey: 'component_id'
+})
+
+
+
+
+
+
+// Component    - Programment
+db.models.component.belongsTo(db.models.programme, {
+  foreignKey: 'programme_id'
+})
+
+db.models.programme.hasMany(db.models.component, {
   foreignKey: 'programme_id'
 })
 

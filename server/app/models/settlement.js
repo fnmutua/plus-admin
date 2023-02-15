@@ -41,7 +41,11 @@ module.exports = function (sequelize, DataTypes) {
       description: {
         type: DataTypes.STRING,
         allowNull: true
-      }
+      },
+      pop_density: {
+        type: DataTypes.DOUBLE,
+        allowNull: true
+      },
     },
     {
       sequelize,

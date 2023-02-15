@@ -511,7 +511,7 @@ const getInterventions = async () => {
 
   // - multiple filters -------------------------------------
 
-  formData.associated_multiple_models = ['settlement', 'clusters']
+  formData.associated_multiple_models = ['settlement', 'cluster']
 
   //-------------------------
   //console.log(formData)

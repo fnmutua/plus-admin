@@ -39,6 +39,7 @@ var _indicator_category_report = require('./indicator_category_report')
 var _project= require('./project')
 var _programme= require('./programme')
 var _document= require('./document')
+var _component= require('./component')
 
 
 
@@ -86,6 +87,7 @@ function initModels(sequelize) {
   var project = _project(sequelize, DataTypes)
   var programme = _programme(sequelize, DataTypes)
   var document = _document(sequelize, DataTypes)
+  var component = _component(sequelize, DataTypes)
   
   
   
@@ -130,7 +132,7 @@ function initModels(sequelize) {
      project,
      programme,
      document,
-
+     component,
     settlement_uploads
   }
 }
