@@ -34,7 +34,7 @@ export const usePermissionStore = defineStore('permission', {
   },
   actions: {
     generateRoutes(
-      type: 'admin' | 'county_admin' |'county_user'| 'staff'|'public',
+      type: 'admin' | 'county_admin' |'county_user'| 'staff'|'public' |'super_admin',
       routers?: AppCustomRouteRecordRaw[] | string[]
     ): Promise<unknown> {
       return new Promise<void>((resolve) => {
@@ -42,7 +42,7 @@ export const usePermissionStore = defineStore('permission', {
         console.log('Tyoe---->--', type)
         console.log('0001')
 
-        if (type === 'admin') {
+        if (type === 'admin' || type === 'super_admin') {
           console.log("generating routes.....admin")
           // 模拟后端过滤菜单
          // routerMap = generateRoutesFn2(routers as AppCustomRouteRecordRaw[])

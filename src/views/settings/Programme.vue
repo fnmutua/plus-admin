@@ -21,7 +21,7 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDatePicker, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -105,8 +105,8 @@ const columns: TableColumn[] = [
 
 
   {
-    field: 'code',
-    label: t('Code')
+    field: 'description',
+    label: t('Description')
   },
   {
     field: 'action',
@@ -132,7 +132,7 @@ const handleClear = async () => {
 
 
 const handleSelectIndicator = async (indicator: any) => {
-  var selectOption = 'id'
+  var selectOption = 'programme_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -196,7 +196,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.curUser = 1 // Id for logged in user
   formData.model = model
   //-Search field--------------------------------------------
-  formData.searchField = 'title'
+  formData.searchField = 'name'
   formData.searchKeyword = ''
   //--Single Filter -----------------------------------------
 
@@ -288,9 +288,11 @@ const editIndicator = (data: TableSlotDefault) => {
   console.log(data)
   ruleForm.id = data.row.id
   ruleForm.title = data.row.title
+  ruleForm.description = data.row.description
+  ruleForm.period = data.row.period
 
 
-  formHeader.value = 'Edit Programme'
+  formHeader.value = 'Edit Category'
 
 
   AddDialogVisible.value = true
@@ -331,15 +333,19 @@ const handleClose = () => {
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
-
+  description: '',
+  period: null
 })
 
 const rules = reactive<FormRules>({
   title: [
-    { required: true, message: 'Please provide A title', trigger: 'blur' },
+    { required: true, message: 'Please provide a title', trigger: 'blur' },
     { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
   ],
-
+  description: [
+    { required: true, message: 'Please provide a description', trigger: 'blur' },
+    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+  ],
 })
 
 const AddIndicator = () => {
@@ -385,12 +391,12 @@ const editForm = async (formEl: FormInstance | undefined) => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Programmes List')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Categogry List')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
       <el-select v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Category">
+        collapse-tags placeholder="Search Programme">
         <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
@@ -401,7 +407,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Programe" placement="top">
+      <el-tooltip content="Add Programme" placement="top">
         <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
@@ -417,7 +423,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
         <el-tooltip content="Delete" placement="top">
           <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+            title="Are you sure to delete this record?" @confirm="DeleteIndicator(data as TableSlotDefault)">
             <template #reference>
               <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
             </template>
@@ -426,15 +432,21 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
       <el-form-item label="Title">
         <el-input v-model="ruleForm.title" />
+      </el-form-item>
+      <el-form-item label="Description">
+        <el-input v-model="ruleForm.description" />
+      </el-form-item>
+      <el-form-item label="Period">
+        <el-date-picker v-model="ruleForm.period" type="daterange" format="YYYY-MM-DD" range-separator="To" />
       </el-form-item>
 
     </el-form>
@@ -450,4 +462,3 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
 </template>
- 

@@ -101,7 +101,8 @@ const ruleForm = reactive({
   settlement_id: '',
   title: '',
   type: '',
-  programme: '',
+  programme_id: '',
+  component_id: '',
   status: '',
   period: null,
   cost: 0,
@@ -239,6 +240,40 @@ const getProgrammeOptions = async () => {
   })
 }
 
+const componentOptions = ref([])
+const componentOptionsfiltered = ref([])
+
+const getComponentOptions = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'component',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var countyOpt = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      countyOpt.programme_id = arrayItem.programme_id
+
+      //  console.log(countyOpt)
+      componentOptions.value.push(countyOpt)
+    })
+    componentOptionsfiltered.value = componentOptions.value
+  })
+}
+
 //id","name","county_id","settlement_type","geom","area","population","code","description"
 const getParentNames = async () => {
   const res = await getCountyListApi({
@@ -270,7 +305,7 @@ const getParentNames = async () => {
 getParentNames()
 getProgrammeOptions()
 
-
+getComponentOptions()
 
 
 console.log('--> parent options', parentOptions.value)
@@ -283,7 +318,8 @@ const rules = reactive<FormRules>({
   settlement_id: [{ required: true, message: 'Please select a Settlement', trigger: 'blur' }],
   type: [{ required: true, message: 'Type is required', trigger: 'blur' }],
   title: [{ required: true, message: 'Title is required', trigger: 'blur' }],
-  programme: [{ required: true, message: 'Programme is required', trigger: 'blur' }],
+  programme_id: [{ required: true, message: 'Programme is required', trigger: 'blur' }],
+  component_id: [{ required: true, message: 'Component is required', trigger: 'blur' }],
   period: [{ required: true, message: 'Period is required', trigger: 'blur' }],
   status: [{ required: true, message: 'Status is required', trigger: 'blur' }],
 
@@ -847,6 +883,18 @@ const AddSettlement = () => {
 
 
 
+const handleChangeProgramme = async (programme_id: any) => {
+  console.log(programme_id)
+  console.log(componentOptions)
+
+  componentOptionsfiltered.value = componentOptions.value.filter(x => x.programme_id == programme_id);
+
+  // console.log(componentOptionsfiltered)
+}
+
+
+
+
 
 </script>
 
@@ -887,9 +935,17 @@ const AddSettlement = () => {
               </el-form-item>
 
 
-              <el-form-item label="Programme" prop="programme">
-                <el-select v-model="ruleForm.programme_id" filterable placeholder="Select">
+              <el-form-item label="Programme" prop="programme_id">
+                <el-select v-model="ruleForm.programme_id" filterable placeholder="Select"
+                  :onChange="handleChangeProgramme">
                   <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label"
+                    :value="item.value" />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="Component" prop="component_id">
+                <el-select v-model="ruleForm.component_id" filterable placeholder="Select">
+                  <el-option v-for="item in componentOptionsfiltered" :key="item.value" :label="item.label"
                     :value="item.value" />
                 </el-select>
               </el-form-item>

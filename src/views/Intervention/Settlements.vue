@@ -314,7 +314,7 @@ const getInterventionClusters = async () => {
       pageIndex: 1,
       limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'clusters',
+      model: 'cluster',
       searchField: 'description',
       searchKeyword: '',
       sort: 'ASC'

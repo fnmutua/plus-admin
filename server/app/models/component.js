@@ -1,6 +1,6 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('programme', {
+  return sequelize.define('component', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
@@ -11,15 +11,11 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: false
     },
-      
-    period: {
-      type: DataTypes.RANGE(DataTypes.DATEONLY),
-      allowNull: true
-    }, 
-    description: {
-      type: DataTypes.STRING,
-      allowNull: true
+    programme_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
     },
+ 
     code: {
       type: DataTypes.STRING,
       allowNull: false
@@ -27,12 +23,12 @@ module.exports = function(sequelize, DataTypes) {
  
   }, {
     sequelize,
-    tableName: 'programme',
+    tableName: 'component',
     schema: 'public',
     timestamps: false,
     indexes: [
       {
-        name: "programme_pkey",
+        name: "component_pkey",
         unique: true,
         fields: [
           { name: "id" },

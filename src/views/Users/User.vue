@@ -49,11 +49,15 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 // Hide buttons if not admin 
 const showAdminButtons = ref(false)
+const showSuperAdminButtons = ref(false)
 
 if (userInfo.roles.includes("admin")) {
   showAdminButtons.value = true
 }
 
+if (userInfo.roles.includes("super_admin")) {
+  showSuperAdminButtons.value = true
+}
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -579,7 +583,7 @@ const DownloadXlsx = async () => {
             <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
               title="Are you sure to delete this User?" @confirm="DeleteUSer(data as TableSlotDefault)">
               <template #reference>
-                <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                <el-button v-if="showSuperAdminButtons" type="danger" :icon=Delete circle />
               </template>
             </el-popconfirm>
           </el-tooltip>

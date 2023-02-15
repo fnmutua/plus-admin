@@ -61,11 +61,11 @@ const appStore = useAppStoreWithOut()
 
 // use shorter chart titles for mobile and longer ones for large screens
 // initialize with long titles
-const pyramidChartTitle = ref("Informal Settlements Age-Gender Profile")
-const topSlumCountiesTitle = ref("Counties with the highest number of informal settlements (10)")
-const informalSettlementpercountyMapTitle = ref("Informal Settlements per county")
-const informalSettlementPopMapTitle = ref("Population in informal Settlements per County")
-const TableTitle = ref("Number of informal Settlements within Counties of Kenya")
+const pyramidChartTitle = ref("Slums/Informal Settlements Age-Gender Profile")
+const topSlumCountiesTitle = ref("Top Counties: Slums/Informal Settlements")
+const informalSettlementpercountyMapTitle = ref("Slums/Informal Settlements per county")
+const informalSettlementPopMapTitle = ref("Population  Density in Slums/Informal Settlements per County")
+const TableTitle = ref("Number of Slums/Informal Settlements within Counties of Kenya")
 const ShowLegend = ref(true)
 const isMobile = computed(() => appStore.getMobile)
 
@@ -75,7 +75,7 @@ if (isMobile.value) {
   pyramidChartTitle.value = "Profile"
   topSlumCountiesTitle.value = "Top 10 Counties"
   informalSettlementpercountyMapTitle.value = "Distribution of Slums"
-  informalSettlementPopMapTitle.value = "Slum Population"
+  informalSettlementPopMapTitle.value = "Slum Population Density"
   TableTitle.value = "Slums per County"
   ShowLegend.value = false
 
@@ -1829,14 +1829,14 @@ const settlementPopulationMap = ref()
 const getSettlementPopulation = async () => {
   const formData = {}
   formData.model = 'settlement'
-  formData.summaryFunction = 'SUM'
+  formData.summaryFunction = 'AVG'
 
 
   // segregated by the settlement and county// Linking to be done later//
   formData.assoc_model = ['county']
-  formData.summaryField = 'settlement.population'
+  formData.summaryField = 'settlement.pop_density'
   formData.groupField = ['county.name']
-  formData.cache_key = 'getSettlementPopulationSummary'
+  formData.cache_key = 'getSettlementPopulationDensity'
 
 
   // Directbeneficisaries 
@@ -1847,7 +1847,7 @@ const getSettlementPopulation = async () => {
       results.forEach(function (item) {
         var cntySlums = {}
         cntySlums.name = item.name
-        cntySlums.value = parseInt(item.SUM)
+        cntySlums.value = parseInt(item.AVG)
         settlementsPop.value.push(cntySlums)
       });
 
@@ -1857,6 +1857,7 @@ const getSettlementPopulation = async () => {
 
     });
 
+  console.log("Pop Density >>>>>", settlementsPopMin.value, settlementsPopMax.value)
   settlementPopulationMap.value = {
     title: {
       text: informalSettlementPopMapTitle,
@@ -2047,7 +2048,7 @@ const DownloadXlsx = async () => {
   let fields = [
     { label: "S/No", value: "index" }, // Top level data
     { label: "Name", value: "name" }, // Top level data
-    { label: "Number of Informal Settlements", value: "count" }, // Custom format
+    { label: "Number of Slums/Informal Settlements", value: "count" }, // Custom format
 
   ]
 
@@ -2166,7 +2167,7 @@ const activeName = ref('Chart')
               <el-table height="350" stripe border show-summary :data="settlementsPercounty"
                 :default-sort="{ prop: 'NoSlums', order: 'descending' }" style="width: 100%">
                 <el-table-column prop="name" label="Name" sortable />
-                <el-table-column prop="NoSlums" label="Number of Informal Settlements" sortable />
+                <el-table-column prop="NoSlums" label="Number of Slums/Informal Settlements" sortable />
               </el-table>
             </ElSkeleton>
           </ElCard>

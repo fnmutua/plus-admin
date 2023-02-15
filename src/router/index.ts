@@ -113,7 +113,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
       {
         path: 'kisip1',
         component: () => import('@/views/Dashboard/Kisip.vue'),
-        name: 'Kisip',
+        name: 'InterventionsDashboard',
         meta: {
           title: t('Kisip'),
           noCache: true
@@ -1541,576 +1541,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
  
 ]
 
-export const xcountyAdminRoutes: AppRouteRecordRaw[] = [
-  {
-    path: '/dashboard',
-    component: Layout,
-    redirect: '/dashboard/national',
-    name: 'Dashboard',
-    meta: {
-      title: t('Dashboards'),
-      icon: 'ant-design:dashboard-filled',
-      alwaysShow: true
-    },
-    children: [
-      {
-        path: 'national',
-        component: () => import('@/views/Dashboard/National.vue'),
-        name: 'National',
-        meta: {
-          title: t('Overview'),
-          noCache: true,
-          icon:'ic:round-bubble-chart',
-          affix: true
-        }
-      },
-      {
-        path: 'status',
-        component: () => import('@/views/Dashboard/CurrentSlumStatus.vue'),
-        name: 'Status',
-        meta: {
-          title: t('Status'),
-          noCache: true,
-          affix: true,
-          icon:'pajamas:status',
-
-        }
-      },
-      {
-        path: 'kisip1',
-        component: () => import('@/views/Dashboard/Kisip.vue'),
-        name: 'Kisip',
-        meta: {
-          title: t('Kisip'),
-          noCache: true,
-          icon:'tabler:layout-dashboard',
-
-        }
-      }
-    ]
-  },
  
-  {
-    path: '/interventions',
-    component: Layout,
-    redirect: '/interventions/tenure/settlements',
-    name: 'Interventions',
-    meta: {
-      title: 'Interventions',
-      icon: 'mdi:office-building-marker-outline',
-      hidden: false
-    },
-    children: [
-      {
-        path: 'settlements',
-        name: 'InterventionTenureSettlements',
-      //  component: 'views/Intervention/Tenure/Settlements',
-        component: () => import('@/views/Intervention/Tenure/Settlements.vue'),
-
-        meta: {
-          title: 'Settlements',
-          icon:'fluent:globe-location-24-filled'
-        }
-      },
-   {
-        path: 'kensup',
-        name: 'kensup',
-      //  component: 'views/Level/Menu2',
-        component: () => import('@/views/Level/Menu2.vue'),
-
-        meta: {
-          title: 'KENSUP',
-          icon:'mdi:house-city'
-
-        }
-      }
-    ]
-  },
-  
-  {
-    path: '/settlement',
-    component: Layout,
-    redirect: '/settlement/list',
-    name: 'Settlements',
-    meta: {
-      title: t('Settlements'),
-      icon: 'mdi:map-legend',
-      alwaysShow: true
-    },
-    children: [
-
-      {
-        path: 'list',
-        component: () => import('@/views/Settlement/Sett.vue'),
-        name: 'List',
-        meta: {
-          title: 'List',
-          icon:'material-symbols:format-list-bulleted-rounded'
-        }
-      },
-   
-      {
-        path: ':id',
-      //  component: 'views/Settlement/SettlementDetails',
-        component: () => import('@/views/Settlement/SettlementDetails.vue'),
-
-        name: 'SettlementDetails',
-        meta: {
-          hidden: true,
-          title: 'Settlement Details',
-          icon:'ion:document-attach',
-          noCache: true
-        }
-      },
-      {
-        path: 'add',
-       // component: 'views/Settlement/Add',
-        component: () => import('@/views/Settlement/Add.vue'),
-
-        name: 'AddSettlement',
-        meta: {
-          hidden: false,
-          title: 'Add',
-          icon:'material-symbols:add-location-rounded',
-          noCache: true
-        }
-      },
-      {
-        path: 'parcel',
-       // component: 'views/Parcel/index',
-        component: () => import('@/views/Parcel/index.vue'),
-
-        name: 'Parcel',
-        meta: { hidden: true,
-          title: 'Parcel'
-        }
-      },
-   
-      {
-        path: 'map/:id',
-      //  component: 'views/Map/SettlementParcelMap',
-        component: () => import('@/views/Map/SettlementParcelMap.vue'),
-
-        name: 'SettlementMap',
-  
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Map'
-        }
-      },
-      {
-        path: 'uploads',
-       // component: 'views/Uploads/uploads',
-        component: () => import('@/views/Uploads/uploads.vue'),
-
-        name: 'Uploads',
-        meta: {
-          hidden: false,
-          props: true,
-          icon:'ion:document-attach',
-
-          title: 'Documents'
-        }
-      },
-      {
-        path: 'upload/file',
-     //   component: 'views/Uploads/uploadFiles',
-        component: () => import('@/views/Uploads/uploadFiles.vue'),
-
-        name: 'uploadFiles',
-  
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'uploadFiles'
-        }
-      },
-      
-  
-      {
-        path: 'doc/:id',
-     //   component: 'views/Settlement/SettlementDocs',
-        component: () => import('@/views/Settlement/SettlementDocs.vue'),
-
-        name: 'SettlementDocs',
-  
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Documents'
-        }
-      },
-  
-      {
-        path: 'map',
-      //  component: 'views/Map/index',
-        component: () => import('@/views/Map/index.vue'),
-
-        name: 'Map',
-        meta: {
-          hidden: true,
-          title: 'Map'
-        }
-      }
-
-
-
-
-
-
-
-
-
-    ]
-  },
-  {
-    path: '/facilities',
-    component: Layout,
-    redirect: '/facility/all',
-    name: 'Facilities',
-    meta: {
-      hidden: false,
-      title: 'Facilities',
-      icon:'ic:outline-local-convenience-store',
-      alwaysShow: false
-    },
-    children: [
-      {
-        path: 'all',
-     //   component: 'views/Map/index',
-        component: () => import('@/views/Map/index.vue'),
-
-        name: 'All',
-        meta: {
-          hidden: true,
-          title: 'All'
-        }
-      },
-      {
-        path: 'health',
-        //component: 'views/Facilities/Health/Health',
-        component: () => import('@/views/Facilities/Health/Health.vue'),
-
-        name: 'Health',
-        meta: {
-          icon: 'uis:hospital-symbol',
-          title: 'Health'
-        }
-      },
-      {
-        path: 'health/add',
-     //   component: 'views/Facilities/Health/Add',
-        component: () => import('@/views/Facilities/Health/Add.vue'),
-
-        name: 'Addhealth',
-        meta: { hidden: true, title: 'Add', noCache: true }
-      },
-      {
-        path: 'health/map/:id',
-      //  component: 'views/Facilities/Health/HealthMap',
-        component: () => import('@/views/Facilities/Health/HealthMap.vue'),
-
-        name: 'HealthFacilityMap',
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Facility Map'
-        }
-      },
-      {
-        path: 'health/details/:id',
-      // component: 'views/Facilities/Health/HealthFacilityDetails',
-        component: () => import('@/views/Facilities/Health/HealthFacilityDetails.vue'),
-
-        name: 'HealthFacilityDetails',
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Facility Profile'
-        }
-      },
-
-      /// Schools -----------------------
-      {
-        path: 'edu',
-       // component: 'views/Facilities/Education/Education',
-        component: () => import('@/views/Facilities/Education/Education.vue'),
-
-        name: 'Education',
-        meta: {
-          icon: 'material-symbols:school-rounded',
-          title: 'Education'
-        }
-      },
-      {
-        path: 'edu/add',
-        //component: 'views/Facilities/Education/Add',
-        component: () => import('@/views/Facilities/Education/Add.vue'),
-
-        name: 'AddEducation',
-        meta: { hidden: true, title: 'Add', noCache: true }
-      },
-      {
-        path: 'edu/map/:id',
-        //component: 'views/Facilities/Education/SchoolMap',
-        component: () => import('@/views/Facilities/Education/SchoolMap.vue'),
-
-        name: 'EducationFacilityMap',
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'School Map'
-        }
-      },
-      {
-        path: 'edu/details/:id',
-        //component: 'views/Facilities/Education/EducationFacilityDetails',
-        component: () => import('@/views/Facilities/Education/EducationFacilityDetails.vue'),
-
-        name: 'EducationFacilityDetails',
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'School Profile'
-        }
-      },
-
-
-      /// Roads -----------------------
-
-      {
-        path: 'road',
-      //  component: 'views/Facilities/Roads/Roads',
-        component: () => import('@/views/Facilities/Roads/Roads.vue'),
-
-        name: 'Road',
-        meta: {
-          icon: 'icon-park-solid:map-road-two',
-          title: 'Roads'
-        }
-      },
-      {
-        path: 'road/add',
-        //component: 'views/Facilities/Roads/Add',
-        component: () => import('@/views/Facilities/Roads/Add.vue'),
-
-        name: 'AddRoad',
-        icon: 'ant-design:plus-square-filled',
-        meta: { hidden: true, title: 'Add', noCache: true }
-      },
- 
-      {
-        path: 'road/details/:id',
-       // component: 'views/Facilities/Roads/RoadDetails',
-       component: () => import('@/views/Facilities/Roads/RoadFacilityDetails.vue'),
-
-        name: 'RoadsDetails',
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Road Profile'
-        }
-      },
-   /// Roads Assets-----------------------
-   {
-    path: 'roadasset',
-   //  component: 'views/Facilities/Roads/Assets',
-     component: () => import('@/views/Facilities/Roads/Assets.vue'),
-
-    name: 'RoadAsset',
-    meta: {
-      icon: 'game-icons:arch-bridge',
-      title: 'Road Structures'
-    }
-  },
-  {
-    path: 'roadasset/add',
-   // component: 'views/Facilities/Roads/AddAsset',
-    component: () => import('@/views/Facilities/Roads/AddAsset.vue'),
-
-    name: 'AddRoadStructure',
-    icon: 'ant-design:plus-square-filled',
-    meta: { hidden: true, title: 'Add', noCache: true }
-      },
-  
-
-      /// Water -----------------------
-   {
-        path: 'water',
-     //component: 'views/Facilities/Water/Water',
-     component: () => import('@/views/Facilities/Water/Water.vue'),
-
-        name: 'Water',
-        meta: {
-          icon: 'ic:sharp-water-drop',
-          title: 'Water Points'
-        }
-      },
-      {
-        path: 'water/add',
-      //  component: 'views/Facilities/Water/Add',
-        component: () => import('@/views/Facilities/Water/Add.vue'),
-
-        name: 'AddWaterPoint',
-        icon: 'ant-design:plus-square-filled',
-        meta: { hidden: true, title: 'Add', noCache: true }
-      },
-      {
-        path: 'water/map/:id',
-      //  component: 'views/Facilities/Water/WaterMap',
-        component: () => import('@/views/Facilities/Water/WaterMap.vue'),
-
-        name: 'WaterMap',
-        icon: 'ant-design:plus-square-filled',
-
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Water Point Map'
-        }
-      },
-      {
-        path: 'water/details/:id',
-       // component: 'views/Facilities/Water/WaterFacilityDetails',
-        component: () => import('@/views/Facilities/Water/WaterFacilityDetails.vue'),
-
-        name: 'WaterDetails',
-        meta: {
-          hidden: true,
-          props: true,
-          title: 'Water Point Profile'
-        }
-      },
-
-  
-   /// Sewer -----------------------
-            {
-              path: 'sewer',
-            //  component: 'views/Facilities/Sewer/Sewer',
-              component: () => import('@/views/Facilities/Sewer/Sewer.vue'),
-
-              name: 'Sewer',
-              meta: {
-                icon:'ph:toilet-fill',
-                title: 'Sewer'
-              }
-            },
-            {
-              path: 'sewer/add',
-             // component: 'views/Facilities/Sewer/Add',
-              component: () => import('@/views/Facilities/Sewer/Add.vue'),
-
-              name: 'AddSewer',
-              icon: 'ant-design:plus-square-filled',
-              meta: { hidden: true, title: 'Add', noCache: true }
-            },
-            {
-              path: 'sewer/map/:id',
-            //  component: 'views/Facilities/Sewer/SewerMap',
-              component: () => import('@/views/Facilities/Sewer/SewerMap.vue'),
-
-              name: 'SewerMap',
-              icon: 'ant-design:plus-square-filled',
-
-              meta: {
-                hidden: true,
-                props: true,
-                title: 'Road Map'
-              }
-            },
-            {
-              path: 'sewer/details/:id',
-            //  component: 'views/Facilities/Sewer/SewerFacilityDetails',
-              component: () => import('@/views/Facilities/Sewer/SewerFacilityDetails.vue'),
-
-              name: 'SewerFacilityDetails',
-              meta: {
-                hidden: true,
-                props: true,
-                title: 'Sewer Profile'
-              }
-      },
-    /// Other Facilities-----------------------
-   {
-    path: 'other',
-    // component: 'views/Facilities/Other/Other',
-     component: () => import('@/views/Facilities/Other/Other.vue'),
-
-    name: 'OtherFacility',
-    meta: {
-      icon:'zondicons:location-park',
-      title: 'Others'
-    }
-  }, 
-  {
-    path: 'other/add',
-  //  component: 'views/Facilities/Other/AddOther',
-    component: () => import('@/views/Facilities/Other/AddOther.vue'),
-    name: 'AddOther',
-    icon: 'ant-design:plus-square-filled',
-    meta: { hidden: true, title: 'Add Facility', noCache: true }
-  }
-    ]
-  }, 
-
-  {
-    path: '/mne',
-    component: Layout,
-    redirect: '/mne/indicator',
-    name: 'MonitoringEvaluation',
-    meta: {
-      title: 'M&E',
-      icon: 'uis:graph-bar',
-      alwaysShow: false
-    },
-    children: [
-      {
-        path: 'reports',
-      //  component: 'views/Indicators/indicator_category_report',
-        component: () => import('@/views/Indicators/indicator_category_report.vue'),
-
-        name: 'Reports',
-        meta: {
-          title: 'M&E Reports',
-          icon:'mdi:file-document-plus',
-        }
-      },
-  
-    ]
-  },
-
-
-  {
-    path: '/users',
-    component: Layout,
-    redirect: '/mne/indicator',
-    name: 'systemUsers',
-    meta: {
-      title: 'Users',
-      icon: 'wpf:usershield',
-      alwaysShow: true
-    },
-    children: [
- 
-      {
-        path: 'county',
-      //  component: 'views/Users/County',
-        component: () => import('@/views/Users/County.vue'),
-
-        name: 'CountyStaff',
-        meta: {
-          title: 'County',
-          hidden: false,
-          icon:'gis:map-users'
-
-        }
-      }, 
-    
-    ]
-  },
-
-]
 
 export const countyAdminRoutes: AppRouteRecordRaw[] = [
   {
@@ -3415,7 +2846,7 @@ export const staffRoutes: AppRouteRecordRaw[] = [
       {
         path: 'programmes',
       //  component: 'views/Users/County',
-        component: () => import('@/views/settings/Programmes.vue'),
+        component: () => import('@/views/settings/Programme.vue'),
         name: 'Programmes',
         meta: {
           title: 'Programmes',
@@ -3466,11 +2897,11 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       {
         path: 'kisip1',
         component: () => import('@/views/Dashboard/Kisip.vue'),
-        name: 'Kisip',
+        name: 'InterventionsDashboard',
         meta: {
-          title: t('Kisip'),
+          title: t('Interventions'),
           noCache: true,
-          icon:'tabler:layout-dashboard',
+          icon:'fa-solid:hands-helping',
 
         }
       }
@@ -3653,19 +3084,19 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     redirect: '/interventions/tenure/settlements',
     name: 'Interventions',
     meta: {
-      title: 'Interventions',
+      title: 'Programmes',
       icon: 'mdi:office-building-marker-outline',
       hidden: false
     },
     children: [
       {
-        path: 'kisip',
+        path: 'tenure',
         name: 'kisipInterventions',
         component: Layout,
         redirect: '/interventions/kisip/settlements',
         meta: {
-          title: 'KISIP',
-          icon: 'mingcute:certificate-fill',
+          title: 'Tenure',
+          icon: 'icon-park-outline:certificate',
 
         },
         children: [
@@ -3737,27 +3168,196 @@ export const adminRoutes: AppRouteRecordRaw[] = [
    
       
       {
-        path: 'kensup',
-        name: 'kensup',
+        path: 'socio',
         component: Layout,
         redirect: '/interventions/kensup/proj',
+        name: 'SocioEconomic',
+
         meta: {
-          title: 'KENSUP',
-          icon:'mdi:house-city'
+          title: 'Socio-Economic',
+          icon:'fluent:people-community-16-regular'
 
         },
         children: [
           {
-            path: 'proj',
+            path: 'mobilization',
             name: 'kensupInterventionProjects',
             component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
             meta: {
-              title: 'KENSUP',
-              icon:'mdi:house-city'
+              title: 'Mobilization',
+              icon:'healthicons:community-meeting'
             },
-       
           },
-        
+
+          {
+            path: 'profiling',
+            name: 'MappingInterventionProjects',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'Mapping',
+              icon:'healthicons:community-meeting'
+            },
+          },
+
+          {
+            path: 'conflict',
+            name: 'ConflictResolution',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'Conflict',
+              icon:'mdi:sword-fight'
+            },
+          },
+          {
+            path: 'microfin',
+            name: 'MicroFinance',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'MicroFinance',
+              icon:'mdi:bank-circle-outline'
+            },
+          },
+          {
+            path: 'igu',
+            name: 'IncomeGeneration',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'IncomeGeneration',
+              icon:'ri:money-dollar-circle-line'
+            },
+          },
+
+          {
+            path: 'safetynet',
+            name: 'SafetyNets',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'Safety Nets',
+              icon:'icon-park-outline:protection'
+            },
+          },
+
+
+          {
+            path: 'capacity',
+            name: 'CapacityBuilding',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'Capacity Building',
+              icon:'healthicons:i-training-class-outline'
+            },
+          },
+
+
+          {
+            path: 'hiv',
+            name: 'HivAids',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'HIV/AIDS',
+              icon:'material-symbols:health-and-safety-outline'
+            },
+          },
+
+
+
+
+
+
+
+
+
+        ]
+      },
+
+      
+      {
+        path: 'infrastructure',
+        component: Layout,
+        redirect: '/interventions/kensup/proj',
+        name: 'Infrastructure',
+
+        meta: {
+          title: 'Infrastructure',
+          icon:'fa6-solid:road-barrier'
+
+        },
+        children: [
+          {
+            path: 'physical',
+            name: 'physicalInfrastructureInterventionProjects',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'Physical',
+              icon:'ps:road'
+            },
+          },
+
+          {
+            path: 'social',
+            name: 'socialInfrastructureInterventionProjects',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'Social',
+              icon:'material-symbols:group-work-outline'
+            },
+          },
+
+          {
+            path: 'shelter',
+            name: 'shelterImprovementProjects',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'Shelter',
+              icon:'mdi:house-circle-outline'
+            },
+          },
+    
+
+
+
+
+
+
+
+
+        ]
+      },
+
+      
+      {
+        path: 'crosscutting',
+        component: Layout,
+        redirect: '/interventions/kensup/proj',
+        name: 'CrossCutting',
+
+        meta: {
+          title: 'Other',
+          icon:'material-symbols:other-admission-outline'
+
+        },
+        children: [
+          {
+            path: 'environment',
+            name: 'EnvironmentInterventionProjects',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'Environment',
+              icon:'mdi:environment'
+            },
+          },
+
+          {
+            path: 'strategy',
+            name: 'strategyInterventionProjects',
+            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            meta: {
+              title: 'Strategy',
+              icon:'mdi:strategy'
+            },
+          },
+
+
         ]
       }
     ]
@@ -4232,7 +3832,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
   {
     path: '/settings',
     component: Layout,
-    redirect: '/dashbaord',
+    //redirect: '/settings',
     name: 'Settings',
     meta: {
       title: 'Settings',
@@ -4264,12 +3864,26 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       }, 
       {
-        path: 'programmes',
+        path: 'progs',
       //  component: 'views/Users/County',
-        component: () => import('@/views/settings/Programmes.vue'),
-        name: 'Programmes',
+       // component: () => import('@/views/settings/Programmes.vue'),
+        component: () => import('@/views/settings/Programme.vue'),
+
+        name: 'ProjectsProgrammes',
         meta: {
           title: 'Programmes',
+          hidden: false,
+          icon:'material-symbols:settings'
+
+        }
+      }, 
+      {
+        path: 'components',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/settings/Component.vue'),
+        name: 'ProgrammeComponents',
+        meta: {
+          title: 'Components',
           hidden: false,
           icon:'material-symbols:settings'
 
@@ -4318,9 +3932,9 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
       {
         path: 'kisip1',
         component: () => import('@/views/Dashboard/Kisip.vue'),
-        name: 'Kisip',
+        name: 'InterventionsDashboard',
         meta: {
-          title: t('Kisip'),
+          title: t('Interventions'),
           noCache: true,
           icon:'tabler:layout-dashboard',
 
@@ -4410,7 +4024,7 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
     path: '/interventions',
     component: Layout,
     redirect: '/interventions/tenure/settlements',
-    name: 'Interventions',
+    name: 'Programmes',
     meta: {
       title: 'Interventions',
       icon: 'mdi:office-building-marker-outline',
