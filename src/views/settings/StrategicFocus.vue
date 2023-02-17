@@ -21,7 +21,7 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDatePicker, ElPopconfirm } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -80,12 +80,12 @@ var filterValues = []
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = []
-const model = 'programme'
+const model = 'domain'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
 const AddDialogVisible = ref(false)
-const formHeader = ref('Add Programme')
+const formHeader = ref('Add Strategic Focus Area')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
 
@@ -105,8 +105,8 @@ const columns: TableColumn[] = [
 
 
   {
-    field: 'description',
-    label: t('Description')
+    field: 'code',
+    label: t('Code')
   },
   {
     field: 'action',
@@ -132,7 +132,7 @@ const handleClear = async () => {
 
 
 const handleSelectIndicator = async (indicator: any) => {
-  var selectOption = 'programme_id'
+  var selectOption = 'id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -237,7 +237,7 @@ const getIndicatorOptions = async () => {
       //   pageIndex: 1,
       //   limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'programme',
+      model: 'domain',
       searchField: 'title',
       searchKeyword: '',
       sort: 'ASC'
@@ -263,7 +263,7 @@ const makeOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.category + '(' + arrayItem.id + ')'
     //  console.log(countyOpt)
     categoryOptions.value.push(countyOpt)
   })
@@ -288,11 +288,9 @@ const editIndicator = (data: TableSlotDefault) => {
   console.log(data)
   ruleForm.id = data.row.id
   ruleForm.title = data.row.title
-  ruleForm.description = data.row.description
-  ruleForm.period = data.row.period
 
 
-  formHeader.value = 'Edit Category'
+  formHeader.value = 'Edit Focus Area'
 
 
   AddDialogVisible.value = true
@@ -324,8 +322,8 @@ const handleClose = () => {
   showEditSaveButton.value = false
 
   ruleForm.id = ''
-  ruleForm.category = ''
-  formHeader.value = 'Add Category'
+  ruleForm.title = ''
+  formHeader.value = 'Add Strategic Focus'
 
 }
 
@@ -333,19 +331,15 @@ const handleClose = () => {
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
-  description: '',
-  period: null
+
 })
 
 const rules = reactive<FormRules>({
   title: [
-    { required: true, message: 'Please provide a title', trigger: 'blur' },
+    { required: true, message: 'Please provide A title', trigger: 'blur' },
     { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
   ],
-  description: [
-    { required: true, message: 'Please provide a description', trigger: 'blur' },
-    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
-  ],
+
 })
 
 const AddIndicator = () => {
@@ -391,12 +385,12 @@ const editForm = async (formEl: FormInstance | undefined) => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Programmes/Projects')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Strategic focus areas List')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
       <el-select v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Programme">
+        collapse-tags placeholder="Search Category">
         <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
@@ -407,7 +401,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Programme" placement="top">
+      <el-tooltip content="Add Indicator" placement="top">
         <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
@@ -423,7 +417,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
         <el-tooltip content="Delete" placement="top">
           <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this record?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
             <template #reference>
               <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
             </template>
@@ -432,7 +426,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
       </template>
     </Table>
-    <ElPagination layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
@@ -441,12 +435,6 @@ const editForm = async (formEl: FormInstance | undefined) => {
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
       <el-form-item label="Title">
         <el-input v-model="ruleForm.title" />
-      </el-form-item>
-      <el-form-item label="Description">
-        <el-input v-model="ruleForm.description" />
-      </el-form-item>
-      <el-form-item label="Period">
-        <el-date-picker v-model="ruleForm.period" type="daterange" format="YYYY-MM-DD" range-separator="To" />
       </el-form-item>
 
     </el-form>
@@ -458,7 +446,5 @@ const editForm = async (formEl: FormInstance | undefined) => {
         <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
       </span>
     </template>
-  </el-dialog>
-
-
+</el-dialog>
 </template>

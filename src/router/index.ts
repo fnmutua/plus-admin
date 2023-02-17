@@ -2393,7 +2393,9 @@ export const staffRoutes: AppRouteRecordRaw[] = [
           },
         
         ]
-      }
+      },
+
+    
     ]
   },
   
@@ -3112,8 +3114,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           },
           {
             path: 'project',
-            name: 'InterventionProjects',
-            component: () => import('@/views/Intervention/Project/Project.vue'),
+            name: 'TenureInterventionProjects',
+            component: () => import('@/views/Intervention/Tenure/Projects.vue'),
             meta: {
               title: 'Projects',
               icon:'fluent-emoji-high-contrast:construction'
@@ -3180,92 +3182,14 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         },
         children: [
           {
-            path: 'mobilization',
-            name: 'kensupInterventionProjects',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            path: 'projects',
+            name: 'SocioEconomicInterventions',
+            component: () => import('@/views/Intervention/SocioEconomic/Projects.vue'),
             meta: {
-              title: 'Mobilization',
+              title: 'Socio Economic',
               icon:'healthicons:community-meeting'
             },
           },
-
-          {
-            path: 'profiling',
-            name: 'MappingInterventionProjects',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
-            meta: {
-              title: 'Mapping',
-              icon:'healthicons:community-meeting'
-            },
-          },
-
-          {
-            path: 'conflict',
-            name: 'ConflictResolution',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
-            meta: {
-              title: 'Conflict',
-              icon:'mdi:sword-fight'
-            },
-          },
-          {
-            path: 'microfin',
-            name: 'MicroFinance',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
-            meta: {
-              title: 'MicroFinance',
-              icon:'mdi:bank-circle-outline'
-            },
-          },
-          {
-            path: 'igu',
-            name: 'IncomeGeneration',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
-            meta: {
-              title: 'IncomeGeneration',
-              icon:'ri:money-dollar-circle-line'
-            },
-          },
-
-          {
-            path: 'safetynet',
-            name: 'SafetyNets',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
-            meta: {
-              title: 'Safety Nets',
-              icon:'icon-park-outline:protection'
-            },
-          },
-
-
-          {
-            path: 'capacity',
-            name: 'CapacityBuilding',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
-            meta: {
-              title: 'Capacity Building',
-              icon:'healthicons:i-training-class-outline'
-            },
-          },
-
-
-          {
-            path: 'hiv',
-            name: 'HivAids',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
-            meta: {
-              title: 'HIV/AIDS',
-              icon:'material-symbols:health-and-safety-outline'
-            },
-          },
-
-
-
-
-
-
-
-
 
         ]
       },
@@ -3285,81 +3209,74 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         children: [
           {
             path: 'physical',
-            name: 'physicalInfrastructureInterventionProjects',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            name: 'InfrastructureInterventionProjects',
+            component: () => import('@/views/Intervention/Infrastructure/Projects.vue'),
             meta: {
-              title: 'Physical',
+              title: 'Infrastructure',
               icon:'ps:road'
             },
           },
-
-          {
-            path: 'social',
-            name: 'socialInfrastructureInterventionProjects',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
-            meta: {
-              title: 'Social',
-              icon:'material-symbols:group-work-outline'
-            },
-          },
-
-          {
-            path: 'shelter',
-            name: 'shelterImprovementProjects',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
-            meta: {
-              title: 'Shelter',
-              icon:'mdi:house-circle-outline'
-            },
-          },
-    
-
-
-
-
-
-
-
-
         ]
       },
-
-      
       {
-        path: 'crosscutting',
+        path: 'env',
         component: Layout,
         redirect: '/interventions/kensup/proj',
-        name: 'CrossCutting',
+        name: 'EnvironmentProjs',
 
         meta: {
-          title: 'Other',
-          icon:'material-symbols:other-admission-outline'
+          title: 'Environment',
+          icon:'fa6-solid:road-barrier'
 
         },
         children: [
           {
-            path: 'environment',
-            name: 'EnvironmentInterventionProjects',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            path: 'envt',
+            name: 'EnvtInterventionProjects',
+            component: () => import('@/views/Intervention/EnvironMent/Projects.vue'),
             meta: {
               title: 'Environment',
-              icon:'mdi:environment'
+              icon:'mdi:environment-outline'
             },
           },
-
+        ]
+      },
+   
+      {
+        path: 'strategy',
+        component: Layout,
+        redirect: '/interventions/kensup/proj',
+        name: 'StrategyInterventions',
+        meta: {
+          title: 'Strategy',
+          icon:'mdi:strategy'
+        },
+        children: [
           {
-            path: 'strategy',
-            name: 'strategyInterventionProjects',
-            component: () => import('@/views/Intervention/kensup/Project/Project.vue'),
+            path: 'project',
+            name: 'StrategyInterventionsProjs',
+            component: () => import('@/views/Intervention/Strategy/Projects.vue'),
             meta: {
               title: 'Strategy',
               icon:'mdi:strategy'
             },
           },
-
-
         ]
-      }
+      },
+
+
+      {
+        path: 'add/:group',
+        name: 'AddInterventionProjectsV2',
+        component: () => import('@/views/Intervention/Project/AddProject.vue'),
+        meta: {
+          title: 'Add Project',
+          hidden: true,
+          props: true,
+          icon:'material-symbols:add-circle-rounded'
+        },
+   
+      },
     ]
   },
   
@@ -3858,6 +3775,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'SettingsCategory',
         meta: {
           title: 'Category',
+          hidden: false,
+          icon:'material-symbols:settings'
+
+        }
+      }, 
+      {
+        path: 'focus',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/settings/StrategicFocus.vue'),
+        name: 'StrategicFocus',
+        meta: {
+          title: 'Strategic Focus',
           hidden: false,
           icon:'material-symbols:settings'
 

@@ -79,7 +79,7 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['programme']
+const associated_multiple_models = ['programme', 'domain']
 const model = 'component'
 //// ------------------parameters -----------------------////
 
@@ -103,12 +103,16 @@ const columns: TableColumn[] = [
     label: t('Title')
   },
 
+
+  {
+    field: 'strategic_focu.title',
+    label: t('Strategic Area')
+  },
+
   {
     field: 'programme.title',
     label: t('Programme')
   },
-
-
   {
     field: 'action',
     label: t('Actions')
@@ -308,6 +312,35 @@ const getProgrammeOptions = async () => {
 }
 
 
+const strategicFocusOptions = ref([])
+const getStrategicFocusAreas = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'domain',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var countyOpt = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      strategicFocusOptions.value.push(countyOpt)
+    })
+  })
+}
+
 console.log('Options---->', indicatorsOptions)
 const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
@@ -315,6 +348,8 @@ const editIndicator = (data: TableSlotDefault) => {
   console.log(data)
   ruleForm.id = data.row.id
   ruleForm.title = data.row.title
+  ruleForm.domain_id = data.row.domain_id
+  ruleForm.programme_id = data.row.programme_id
 
 
   formHeader.value = 'Edit Component'
@@ -359,6 +394,7 @@ const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
   programme_id: '',
+  domain_id: '',
 
 })
 
@@ -415,6 +451,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
 getIndicatorOptions()
 getInterventionsAll()
 getProgrammeOptions()
+getStrategicFocusAreas()
 
 
 
@@ -463,9 +500,9 @@ getProgrammeOptions()
 
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
@@ -473,6 +510,12 @@ getProgrammeOptions()
       <el-form-item label="Title">
         <el-input v-model="ruleForm.title" />
       </el-form-item>
+      <el-form-item label="Intervention Area" prop="domain">
+        <el-select v-model="ruleForm.domain_id" filterable placeholder="Select">
+          <el-option v-for="item in strategicFocusOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="Programme" prop="programme">
         <el-select v-model="ruleForm.programme_id" filterable placeholder="Select">
           <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -487,7 +530,5 @@ getProgrammeOptions()
         <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
       </span>
     </template>
-  </el-dialog>
-
-
+</el-dialog>
 </template>
