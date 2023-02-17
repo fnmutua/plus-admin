@@ -37,14 +37,17 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
   
- 
-    
     period: {
       type: DataTypes.RANGE(DataTypes.DATEONLY),
       allowNull: false
     },
+        
+    domain_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
     
-
+  
     cost: {
       type: DataTypes.INTEGER,
       allowNull: true

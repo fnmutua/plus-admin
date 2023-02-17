@@ -74,8 +74,17 @@ const benefitTypeOptions = ref([])
 const houseHoldOptions = ref([])
 const interventionsOptions = ref([])
 
-
-
+const domain_id = 5 //
+// 1	"Community Organization and Mobilization"
+// 2	"Socio-Economic and Mapping"
+// 3	"Conflict Prevention and Management"
+// 4	"Urban Development Strategies"
+// 5	"Security of Tenure"
+// 6	"Social Infrastructure"
+// 7	"Physical Infrastructure"
+// 8	"Micro-finance and credit systems"
+// 9	"Income Generating Activities"
+// 10	"Shelter Improvement"
 
 const settlementOptions = ref([])
 const page = ref(1)
@@ -1055,10 +1064,17 @@ const activeName = ref('list')
 const AddProject = () => {
 
   console.log("Adding Projects")
+  // push({
+  //   path: '/interventions/kisip/add',
+  //   name: 'AddInterventionProjectsV2'
+  // })
+
   push({
-    path: '/interventions/kisip/add',
-    name: 'AddInterventionProjects'
+    path: '/interventions/add/:domain',
+    name: 'AddInterventionProjectsV2',
+    params: { domain: domain_id }
   })
+
 }
 
 const AddDialogVisible = ref(false)
@@ -1229,31 +1245,31 @@ const DownloadXlsx = async () => {
       <el-tab-pane label="List" name="list">
 
         <!-- <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-          :currentPage="currentPage">
-          <template #action="data">
-            <el-tooltip content="View Profile" placement="top">
-              <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
-            </el-tooltip>
-            <el-tooltip content="View on Map" placement="top">
-              <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
-            </el-tooltip>
+            :currentPage="currentPage">
+            <template #action="data">
+              <el-tooltip content="View Profile" placement="top">
+                <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
+              </el-tooltip>
+              <el-tooltip content="View on Map" placement="top">
+                <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
+              </el-tooltip>
 
-            <el-tooltip content="Edit" placement="top">
-              <el-button type="success" :icon="Edit" @click="editProject(data as TableSlotDefault)" circle />
-            </el-tooltip>
+              <el-tooltip content="Edit" placement="top">
+                <el-button type="success" :icon="Edit" @click="editProject(data as TableSlotDefault)" circle />
+              </el-tooltip>
 
-            <el-tooltip content="Delete" placement="top">
-              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                title="Are you sure to delete this record?" @confirm="DeleteBeneficiary(data as TableSlotDefault)">
-                <template #reference>
-                  <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                </template>
-              </el-popconfirm>
-            </el-tooltip>
+              <el-tooltip content="Delete" placement="top">
+                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  title="Are you sure to delete this record?" @confirm="DeleteBeneficiary(data as TableSlotDefault)">
+                  <template #reference>
+                    <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                  </template>
+                </el-popconfirm>
+              </el-tooltip>
 
 
-          </template>
-        </Table> -->
+            </template>
+          </Table> -->
 
 
         <el-table :data="tableDataList" style="width: 100%" :row-class-name="tableRowClassName">
@@ -1352,8 +1368,8 @@ const DownloadXlsx = async () => {
         </el-form-item>
 
         <el-form-item label="Period" prop="period">
-          <el-date-picker v-model="ruleForm.period" type="monthrange" range-separator="To"
-            start-placeholder="Start date" end-placeholder="End date" />
+          <el-date-picker v-model="ruleForm.period" type="monthrange" range-separator="To" start-placeholder="Start date"
+            end-placeholder="End date" />
         </el-form-item>
 
         <el-form-item label="Programme" prop="programme">
@@ -1395,9 +1411,7 @@ const DownloadXlsx = async () => {
 
     </el-dialog>
 
-  </ContentWrap>
-
-
+</ContentWrap>
 </template>
  
 <style scoped>

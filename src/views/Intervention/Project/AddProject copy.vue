@@ -68,7 +68,6 @@ const model = 'project'
 const parentOptions = ref([])
 const loading = ref(true)
 const tmpSel = ref([])
-const tmp_domain = ref([])
 
 ///--------switches to enable fields on form based on selected feature --------------
 const rating = ref(false)
@@ -102,7 +101,7 @@ const ruleForm = reactive({
 })
 ///------------------------------------Get route source-----------------------------------
 const route = useRoute()
-const domain_id = ref([])
+
 
 
 
@@ -178,48 +177,11 @@ const loadMap = () => {
 }
 onMounted(() => {
   console.log('Loaded.......')
-  var domain_grp = route.params.group
-  console.log('domain_grp', domain_grp)
-  //******** Domains  */
-
-  // id	domain	Group	Group_id
-  // 11	Environmental Waste Management	Environment	1
-  // 6	Social Infrastructure	Infrastructure	2
-  // 7	Physical Infrastructure	Infrastructure	2
-  // 10	Shelter Improvement	Infrastructure	2
-  // 1	Community Organization and Mobilization	Socio-Economic	3
-  // 2	Socio-economic and Physical Mapping	Socio-Economic	3
-  // 3	Conflict Prevention and Management	Socio-Economic	3
-  // 8	Micro-finance and credit systems	Socio-Economic	3
-  // 9	Income Generating Activities	Socio-Economic	3
-  // 12	Vulnerable and Disadvantaged Groups	Socio-Economic	3
-  // 13	HIV/AIDS prevention and impact mitigation	Socio-Economic	3
-  // 14	Capacity Building and networking	Socio-Economic	3
-  // 4	Urban Development Strategies	Strategy	4
-  // 5	Security of tenure	Tenure	5
-
-  if (domain_grp === '1') {
-    domain_id.value = [11]
-  }
-  else if (domain_grp === '2') {
-    domain_id.value = [6, 7, 10]
-  }
-  else if (domain_grp === '3') {
-    domain_id.value = [1, 2, 3, 8, 9, 12, 14]
-  }
-  else if (domain_grp === '4') {
-    domain_id.value = [4]
-  }
-  else if (domain_grp === '5') {
-    domain_id.value = [5]
-  }
-
-
-
-  console.log('domain_id >>>>', domain_id.value);
+  const routePath = route.path;
+  const lastPath = routePath.substring(routePath.lastIndexOf('/') + 1);
+  console.log(routePath);
 
   loadMap()
-  getComponentsProgrameDomains()
 })
 
 
@@ -337,10 +299,6 @@ const getParentNames = async () => {
 
 const domainProgrammeOptions = ref([])
 const getComponentsProgrameDomains = async () => {
-  var filters = ['id']    // filter component options by Domain
-  var filterValues = [domain_id.value]   // Domain ID acquired from the path 
-
-
   const formData = {}
   formData.limit = 100
   formData.page = 1
@@ -350,9 +308,6 @@ const getComponentsProgrameDomains = async () => {
   formData.searchField = 'name'
   formData.searchKeyword = ''
   //--Single Filter -----------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-
 
   formData.associated_multiple_models = ['component']
 
@@ -401,7 +356,7 @@ getParentNames()
 getProgrammeOptions()
 
 getComponentOptions()
-
+getComponentsProgrameDomains()
 
 console.log('--> parent options', parentOptions.value)
 const coordinates = ref([])
@@ -1013,7 +968,7 @@ const handleChangeProgramme = async (programme_id: any) => {
                 </el-col>
                 <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
                   <el-form-item label="Domain" prop="domain_id">
-                    <el-cascader v-model="tmp_domain" :options="domainProgrammeOptions" :show-all-levels="false"
+                    <el-cascader v-model="tmpSel" :options="domainProgrammeOptions" :show-all-levels="false"
                       @change="handleChangeDomain" />
                   </el-form-item>
                 </el-col>
@@ -1115,19 +1070,19 @@ const handleChangeProgramme = async (programme_id: any) => {
       <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card>
           <!-- <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
-                                                                                                                                                                        mapStyle="mapbox://styles/mapbox/light-v10">
-                                                                                                                                                                        <mapbox-geocoder-control :countries="countries" />
-                                                                                                                                                                        <mapbox-geolocate-control />
-                                                                                                                                                                        <mapbox-draw-control v-if="geoSource === false" @create="uploadPolygon" />
-                                                                                                                                                                        <mapbox-navigation-control position="bottom-right" />
-                                                                                                                                                                      </mapbox-map> -->
+                                                                                                                        mapStyle="mapbox://styles/mapbox/light-v10">
+                                                                                                                        <mapbox-geocoder-control :countries="countries" />
+                                                                                                                        <mapbox-geolocate-control />
+                                                                                                                        <mapbox-draw-control v-if="geoSource === false" @create="uploadPolygon" />
+                                                                                                                        <mapbox-navigation-control position="bottom-right" />
+                                                                                                                      </mapbox-map> -->
 
           <div id="mapContainer" class="basemap"></div>
 
         </el-card>
       </el-col>
     </el-row>
-  </ContentWrap>
+</ContentWrap>
 </template>
 
 <style scoped>

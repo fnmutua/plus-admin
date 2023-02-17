@@ -264,10 +264,17 @@ exports.modelCreateOneRecord = (req, res) => {
   var reg_model = req.body.model
 
   console.log('model... ----', req.body.model)
+  console.log('geom... ----', req.body.geom)
+
   var obj = req.body
   delete obj.model // or delete person["age"];
+  
+  if (JSON.stringify(req.body.geom ) ===  "{}" ) {
+    delete obj.geom // or delete person["age"];
 
-  console.log('One record... ----', obj)
+  }
+
+  console.log('One record... Edited----', obj)
 
   // insert
   db.models[reg_model]
@@ -379,11 +386,27 @@ exports.modelSelectGeo = async (req, res) => {
     var arr = [req.body.id] //req.body // [80,64] }
   }
  
- console.log('Geoid arrays ----------------------------------->', arr)
-  var qry2 =
-  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
-  reg_model  + ' where geom is not null and   '+ columnFilterField +  ' IN (' +  arr + ')' + ' ) as f ) as fc'
+ // console.log('Geoid arrays  length----------------------------------->', arr[0].length)
+  //if (arr[0].length > 0) { // Fixed bug where the query fails when the array is null
+    
+    if (arr[0] === undefined || arr[0].length == 0) {
+
+    var qry2 =
+    " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
+    reg_model  + ' where geom is not null  ' + ' ) as f ) as fc'
+      
+
+  } else {
+   
+    var qry2 =
+    " select row_to_json(fc)  as json_build_object   from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
+    reg_model  + ' where geom is not null and   '+ columnFilterField +  ' IN (' +  arr + ')' + ' ) as f ) as fc'
+     
+    
+  }
+
   
+
    
 
   const result_geo = await sequelize.query(qry2, {
@@ -894,7 +917,7 @@ exports.modelPaginatedDatafilterBykeyWord = (req, res) => {
   
     console.log('--------------search Condition-----------', mergedObject)
   
-    qry.where = searchCond
+    qry.where = mergedObject
   } else {
 
     qry.where = queryCondition

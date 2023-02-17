@@ -1,6 +1,6 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('component', {
+  return sequelize.define('domain', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER,
@@ -11,27 +11,24 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: false
     },
-    programme_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false
+    description: {
+      type: DataTypes.STRING,
+      allowNull: true
     },
-    domain_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    }, 
+  
      code: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
  
   }, {
     sequelize,
-    tableName: 'component',
+    tableName: 'domain',
     schema: 'public',
     timestamps: false,
     indexes: [
       {
-        name: "component_pkey",
+        name: "domain_pkey",
         unique: true,
         fields: [
           { name: "id" },

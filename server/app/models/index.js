@@ -315,7 +315,7 @@ db.models.settlement.hasMany(db.models.project, {
   foreignKey: 'settlement_id'
 })
 
-// Proejct   - programme
+// Project   - programme
 db.models.project.belongsTo(db.models.programme, {
   foreignKey: 'programme_id'
 })
@@ -324,7 +324,7 @@ db.models.programme.hasMany(db.models.project, {
   foreignKey: 'programme_id'
 })
 
-// Proejct   - component 
+// Project   - component 
 db.models.project.belongsTo(db.models.component, {
   foreignKey: 'component_id'
 })
@@ -333,6 +333,26 @@ db.models.component.hasMany(db.models.project, {
   foreignKey: 'component_id'
 })
 
+// Project   - Domain 
+db.models.project.belongsTo(db.models.domain, {
+  foreignKey: 'domain_id'
+})
+
+db.models.domain.hasMany(db.models.project, {
+  foreignKey: 'domain_id'
+})
+
+
+
+// component    - focus 
+
+db.models.component.belongsTo(db.models.domain, {
+  foreignKey: 'domain_id'
+})
+
+db.models.domain.hasMany(db.models.component, {
+  foreignKey: 'domain_id'
+})
 
 
 
