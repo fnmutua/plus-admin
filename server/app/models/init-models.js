@@ -41,6 +41,8 @@ var _programme= require('./programme')
 var _document= require('./document')
 var _component= require('./component')
 var _domain= require('./domain')
+var _project_category= require('./project_category')
+var _project_menu= require('./project_menu')
 
 
 
@@ -91,6 +93,9 @@ function initModels(sequelize) {
   var component = _component(sequelize, DataTypes)
   var domain = _domain(sequelize, DataTypes)
    
+  var project_category = _project_category(sequelize, DataTypes)
+  var project_menu = _project_menu(sequelize, DataTypes)
+   
   
   
   
@@ -136,6 +141,8 @@ function initModels(sequelize) {
      document,
     component,
     domain,
+    project_category,
+    project_menu,
     settlement_uploads
   }
 }

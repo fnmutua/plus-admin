@@ -75,55 +75,13 @@ const benefitTypeOptions = ref([])
 const houseHoldOptions = ref([])
 const interventionsOptions = ref([])
 
-const domain_id = ref()
-const domain_grp = 1
-const page_title = 'Environment Projects/Interventions'
+const component_id = ref([])
+
+const domain_id = 1
+const page_title = 'Environmental Projects/Interventions'
 
 const tmp_domain = ref()
 
-
-// -----Domain groups ----------
-// Group	Group_id
-// Environment	1
-// Infrastructure	2
-// Socio-Economic	3
-// Strategy	4
-// Tenure	5
-
-
-//******** Domains  */
-
-// id	domain	Group	Group_id
-// 11	Environmental Waste Management	Environment	1
-// 6	Social Infrastructure	Infrastructure	2
-// 7	Physical Infrastructure	Infrastructure	2
-// 10	Shelter Improvement	Infrastructure	2
-// 1	Community Organization and Mobilization	Socio-Economic	3
-// 2	Socio-economic and Physical Mapping	Socio-Economic	3
-// 3	Conflict Prevention and Management	Socio-Economic	3
-// 8	Micro-finance and credit systems	Socio-Economic	3
-// 9	Income Generating Activities	Socio-Economic	3
-// 12	Vulnerable and Disadvantaged Groups	Socio-Economic	3
-// 13	HIV/AIDS prevention and impact mitigation	Socio-Economic	3
-// 14	Capacity Building and networking	Socio-Economic	3
-// 4	Urban Development Strategies	Strategy	4
-// 5	Security of tenure	Tenure	5
-
-if (domain_grp === 1) {
-    domain_id.value = [11]
-}
-else if (domain_grp === 2) {
-    domain_id.value = [6, 7, 10]
-}
-else if (domain_grp === 3) {
-    domain_id.value = [1, 2, 3, 8, 9, 12, 14]
-}
-else if (domain_grp === 4) {
-    domain_id.value = [4]
-}
-else if (domain_grp === 5) {
-    domain_id.value = [5]
-}
 
 
 
@@ -148,7 +106,7 @@ let tableDataList = ref<UserType[]>([])
 // - -----Model configs ------------
 const model = 'project'
 var filters = ['domain_id']
-var filterValues = [domain_id.value]  // make sure the inner array is array
+var filterValues = [[domain_id]]  // make sure the inner array is array
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement', 'domain', 'programme', 'component', 'document']
@@ -300,7 +258,7 @@ const filterByType = async (title: any) => {
 
 const filterByProgramme = async (title: any) => {
     var filters = ['domain_id', 'programme_id']
-    var filterValues = [domain_id.value, title]
+    var filterValues = [component_id.value, title]
     console.log('filters:', filters)
     console.log('FilterValues:', filterValues)
     getFilteredData(filters, filterValues)
@@ -308,7 +266,7 @@ const filterByProgramme = async (title: any) => {
 
 const filterBySettlement = async (title: any) => {
     var filters = ['domain_id', 'settlement_id']
-    var filterValues = [domain_id.value, title]
+    var filterValues = [component_id.value, title]
     console.log('filters:', filters)
     console.log('FilterValues:', filterValues)
     getFilteredData(filters, filterValues)
@@ -1016,7 +974,7 @@ const getProgrammeOptions = async () => {
 const domainProgrammeOptions = ref([])
 const getComponentsProgrameDomains = async () => {
     var filters = ['id']    // filter component options by Domain
-    var filterValues = [domain_id.value]   // Domain ID acquired from the path 
+    var filterValues = [component_id.value]   // Domain ID acquired from the path 
 
 
     const formData = {}
@@ -1074,19 +1032,121 @@ const getComponentsProgrameDomains = async () => {
     console.log('Domain >>>>', domainProgrammeOptions)
 
 }
+const componentCategoryOptions = ref([])
 
+const getComponentsComponentDomains = async () => {
+    var filters = ['domain_id']    // filter component options by Domain
+    var filterValues = [[domain_id]]  // Domain ID acquired from the path 
+
+
+    const formData = {}
+    formData.limit = 100
+    formData.page = 1
+    formData.curUser = 1 // Id for logged in user
+    formData.model = 'component'
+    //-Search field--------------------------------------------
+    formData.searchField = ''
+    formData.searchKeyword = ''
+    //--Single Filter -----------------------------------------
+    formData.filters = filters
+    formData.filterValues = filterValues
+    formData.associated_multiple_models = ['domain', 'project_category']
+
+    //-------------------------
+    console.log(formData)
+    await getSettlementListByCounty(formData).then((response: { data: any }) => {
+
+        var ret = response.data
+        let compIds = []
+
+
+        ret.forEach(function (component: { id: string; title: string }) {
+            compIds.push(component.id)
+
+            let compInst = {}
+            compInst.value = component.id
+            compInst.label = component.title
+            compInst.children = []
+
+            var categories = component.project_categories
+            console.log("Component categories >>>>>>", categories)
+
+
+
+            categories.forEach(function (comp: { id: string; title: string }) {
+                var compx = {}
+                compx.value = comp.id
+                compx.label = comp.title
+                //console.log(compx)
+                compInst.children.push(compx)
+                //   console.log('compns', compx)
+            })
+            // console.log(domain)
+
+            if (compInst.children.length > 0) {
+                console.log("----->", compInst)
+                componentCategoryOptions.value.push(compInst)
+            }
+
+
+
+
+        })
+
+        console.log("Component Domain >>>>>>", compIds)
+        console.log("domainProgrammeOptions >>>>>>", componentCategoryOptions)
+        component_id.value = compIds
+        loading.value = false
+
+
+    })
+
+
+}
+
+const countyOptions = ref([])
+const countyRefList = ref()
+
+const getCounties = async () => {
+    const res = await getCountyListApi({
+        params: {
+            pageIndex: 1,
+            limit: 100,
+            curUser: 1, // Id for logged in user
+            model: 'county',
+            searchField: 'name',
+            searchKeyword: '',
+            sort: 'ASC'
+        }
+    }).then((response: { data: any }) => {
+        console.log('Received response:', response)
+        //tableDataList.value = response.data
+        var ret = response.data
+        countyRefList.value = ret
+        loading.value = false
+
+        ret.forEach(function (arrayItem: { id: string; type: string }) {
+            var county = {}
+            county.value = arrayItem.id
+            county.label = arrayItem.name + '(' + arrayItem.id + ')'
+            //  console.log(countyOpt)
+            countyOptions.value.push(county)
+        })
+    })
+}
 
 
 getBeneficiaryType()
 getHouseholds()
-
 getInterventionTypes()
 getSettlementsOptions()
 getAllBeneficiaries()
 getInterventions()
 getProgrammeOptions()
+getCounties()
 //getGeo()
-getComponentsProgrameDomains()
+getComponentsComponentDomains()
+//getComponentsProgrameDomains()
 
 
 console.log('Options---->', interVentionTypeOptions)
@@ -1099,10 +1159,13 @@ console.log('Options---->', interVentionTypeOptions)
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
     settlement_id: '',
+    county_id: '',
+    location_level: '',
     title: '',
     type: '',
     programme_id: '',
     domain_id: '',
+    category_id: null,
     status: '',
     period: null,
     cost: 0,
@@ -1222,7 +1285,7 @@ const AddProject = () => {
     push({
         path: '/interventions/add/:domain',
         name: 'AddInterventionProjectsV2',
-        params: { group: domain_grp }
+        params: { domain: domain_id }
     })
 
 }
@@ -1236,19 +1299,33 @@ const editProject = (data: TableSlotDefault) => {
 
     console.log(data)
     ruleForm.id = data.row.id
+
+    ruleForm.location_level = data.row.location_level
+
     ruleForm.title = data.row.title
     ruleForm.programme_id = data.row.programme_id
     ruleForm.status = data.row.status
     ruleForm.domain_id = data.row.domain_id
-    tmp_domain.value = [data.row.domain_id, data.row.component_id]
+    ruleForm.category_id = data.row.category_id
+    tmp_domain.value = [data.row.component_id, data.row.category_id]
     ruleForm.period = data.row.period
     ruleForm.male_beneficiaries = data.row.male_beneficiaries
     ruleForm.female_beneficiaries = data.row.female_beneficiaries
     ruleForm.cost = data.row.cost
     ruleForm.settlement_id = data.row.settlement_id
+    ruleForm.county_id = data.row.county_id
     ruleForm.code = data.row.code
     ruleForm.geom = data.row.geom
     fileUploadList.value = data.row.documents
+
+
+    if (data.row.settlement_id) {
+        showSettlement.value = true
+    }
+    if (data.row.county_id) {
+        showCounty.value = true
+
+    }
 
     console.log(data.row.domain_id)
 
@@ -1354,12 +1431,61 @@ const DownloadXlsx = async () => {
 }
 
 
-const handleChangeDomain = (selected) => {
+const handleChangeComponentCategory = (selected) => {
 
-    ruleForm.domain_id = selected[0]
-    ruleForm.component_id = selected[1]
+    ruleForm.component_id = selected[0]
+    ruleForm.category_id = selected[1]
 
     //console.log(selected)
+
+}
+
+const locationOptions = [
+    {
+        label: "National",
+        value: 1
+    },
+    {
+        label: "County",
+        value: 2
+    },
+    {
+        label: "Settlement",
+        value: 3
+    },
+
+    {
+        label: "Other",
+        value: 4
+    },
+]
+
+const showCounty = ref(false)
+const showSettlement = ref(false)
+
+const handleSelectLocation = async (location: any) => {
+    if (location == 2) {
+        // county 
+        showCounty.value = true
+        showSettlement.value = false
+        ruleForm.settlement_id = null
+        ruleForm.geom = null
+
+    }
+    else if (location == 3) {
+        //settlement 
+        showCounty.value = false
+        showSettlement.value = true
+        ruleForm.county_id = null
+        ruleForm.geom = null
+
+    } else {
+        // National 
+        showCounty.value = false
+        showSettlement.value = false
+        ruleForm.geom = null
+
+    }
 
 }
 
@@ -1371,8 +1497,7 @@ const handleChangeDomain = (selected) => {
 
 
         <div style="display: inline-block; margin-left: 10px">
-            <el-select
-v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple clearable filterable
+            <el-select v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple clearable filterable
                 collapse-tags placeholder="By Settlement">
                 <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
@@ -1388,8 +1513,7 @@ v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple 
         </div>
 
         <div style="display: inline-block; margin-left: 20px">
-            <el-select
-v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+            <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
                 placeholder="Search by Name" />
         </div>
 
@@ -1426,19 +1550,16 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                                     <el-table-column label="Actions">
                                         <template #default="scope">
                                             <el-link :href="props.row.documents[scope.$index].name" download>
-                                                <Icon
-icon="material-symbols:download-for-offline-rounded" color="#46c93a"
+                                                <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a"
                                                     width="36" />
                                             </el-link>
                                             <el-tooltip content="Delete" placement="top">
-                                                <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No"
+                                                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No"
                                                     :icon="InfoFilled" icon-color="#626AEF"
                                                     title="Are you sure to delete this document?"
                                                     @confirm="removeDocument(scope.row)">
                                                     <template #reference>
-                                                        <el-button
-v-if="showAdminButtons" type="danger" :icon=Delete
+                                                        <el-button v-if="showAdminButtons" type="danger" :icon=Delete
                                                             circle />
                                                     </template>
                                                 </el-popconfirm>
@@ -1461,18 +1582,15 @@ v-if="showAdminButtons" type="danger" :icon=Delete
                         <template #default="scope">
 
                             <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                                <el-button
-type="success" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
+                                <el-button type="success" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
                                     circle />
                             </el-tooltip>
                             <el-tooltip content="View on Map" placement="top">
-                                <el-button
-type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                                <el-button type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                                     circle />
                             </el-tooltip>
                             <el-tooltip content="Delete" placement="top">
-                                <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                                     icon-color="#626AEF" title="Are you sure to delete this report?"
                                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
                                     <template #reference>
@@ -1485,8 +1603,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
 
                 </el-table>
 
-                <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+                <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                     v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
                     @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
             </el-tab-pane>
@@ -1500,11 +1617,25 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
         <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="30%" draggable>
             <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+                <el-form-item label="Location" prop="location_level">
+                    <el-select v-model="ruleForm.location_level" filterable placeholder="Select Location"
+                        @change="handleSelectLocation">
+                        <el-option v-for="item in locationOptions" :key="item.value" :label="item.label"
+                            :value="item.value" />
+                    </el-select>
+                </el-form-item>
 
-                <el-form-item label="Settlement" prop="settlement_id">
+                <el-form-item v-if=showSettlement label="Settlement" prop="settlement_id">
                     <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement">
-                        <el-option
-v-for="item in settlementOptions" :key="item.value" :label="item.label"
+                        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
+                            :value="item.value" />
+                    </el-select>
+                </el-form-item>
+
+                <el-form-item v-if=showCounty label="County" prop="county_id">
+                    <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
+                        @change="handleSelectCounty">
+                        <el-option v-for="item in countyOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
                     </el-select>
                 </el-form-item>
@@ -1526,8 +1657,7 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
                 </el-form-item>
 
                 <el-form-item label="Period" prop="period">
-                    <el-date-picker
-v-model="ruleForm.period" type="monthrange" range-separator="To"
+                    <el-date-picker v-model="ruleForm.period" type="monthrange" range-separator="To"
                         start-placeholder="Start date" end-placeholder="End date" />
                 </el-form-item>
 
@@ -1536,17 +1666,15 @@ v-model="ruleForm.period" type="monthrange" range-separator="To"
                         <el-form-item label="Programme" prop="programme_id">
                             <!-- <el-select v-model="ruleForm.programme_id" filterable placeholder="Select" :onChange="handleChangeProgramme"> -->
                             <el-select v-model="ruleForm.programme_id" filterable placeholder="Select">
-                                <el-option
-v-for="item in programmeOptions" :key="item.value" :label="item.label"
+                                <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label"
                                     :value="item.value" />
                             </el-select>
                         </el-form-item>
                     </el-col>
                     <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
                         <el-form-item label="Domain" prop="domain_id">
-                            <el-cascader
-v-model="tmp_domain" :options="domainProgrammeOptions" :show-all-levels="false"
-                                @change="handleChangeDomain" />
+                            <el-cascader v-model="tmp_domain" :options="componentCategoryOptions" :show-all-levels="false"
+                                @change="handleChangeComponentCategory" />
                         </el-form-item>
                     </el-col>
 
@@ -1555,8 +1683,7 @@ v-model="tmp_domain" :options="domainProgrammeOptions" :show-all-levels="false"
 
 
 
-                <el-form-item label="Documentation"> <el-upload
-v-model:file-list="fileUploadList" class="upload-demo"
+                <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo"
                         multiple :limit="3" :auto-upload="false">
                         <el-button type="primary">Click to upload</el-button>
                         <template #tip>
@@ -1576,8 +1703,7 @@ v-model:file-list="fileUploadList" class="upload-demo"
         </el-dialog>
 
         <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
-            <el-upload
-v-model:file-list="morefileList" class="upload-demo"
+            <el-upload v-model:file-list="morefileList" class="upload-demo"
                 action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5"
                 :auto-upload="false">
                 <el-button type="primary">Click to upload</el-button>

@@ -315,6 +315,16 @@ db.models.settlement.hasMany(db.models.project, {
   foreignKey: 'settlement_id'
 })
 
+
+// Proejct   - settleemnt
+db.models.project.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.county.hasMany(db.models.project, {
+  foreignKey: 'county_id'
+})
+
 // Project   - programme
 db.models.project.belongsTo(db.models.programme, {
   foreignKey: 'programme_id'
@@ -341,6 +351,28 @@ db.models.project.belongsTo(db.models.domain, {
 db.models.domain.hasMany(db.models.project, {
   foreignKey: 'domain_id'
 })
+
+// Project category  - Component  
+db.models.project_category.belongsTo(db.models.component, {
+  foreignKey: 'component_id'
+})
+
+db.models.component.hasMany(db.models.project_category, {
+  foreignKey: 'component_id'
+})
+
+// Project menu  - Project Categrory   
+db.models.project.belongsTo(db.models.project_category, {
+  foreignKey: 'category_id'
+})
+
+db.models.project_category.hasMany(db.models.project, {
+  foreignKey: 'category_id'
+})
+
+
+
+
 
 
 

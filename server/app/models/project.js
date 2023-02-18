@@ -8,7 +8,17 @@ module.exports = function(sequelize, DataTypes) {
       primaryKey: true
     },
    
+    location_level: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    
     settlement_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    county_id: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
@@ -47,6 +57,10 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
     
+    category_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
   
     cost: {
       type: DataTypes.INTEGER,
