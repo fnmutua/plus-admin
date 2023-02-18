@@ -3266,7 +3266,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
 
       {
-        path: 'add/:group',
+        path: 'add/:domain',
         name: 'AddInterventionProjectsV2',
         component: () => import('@/views/Intervention/Project/AddProject.vue'),
         meta: {
@@ -3786,7 +3786,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         component: () => import('@/views/settings/StrategicFocus.vue'),
         name: 'StrategicFocus',
         meta: {
-          title: 'Strategic Focus',
+          title: 'Domains',
           hidden: false,
           icon:'material-symbols:settings'
 
@@ -3818,6 +3818,19 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       }, 
+      {
+        path: 'projcat',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/settings/ProjectCategory.vue'),
+        name: 'ProjectCategory',
+        meta: {
+          title: 'Project Types',
+          hidden: false,
+          icon:'material-symbols:settings'
+
+        }
+      }, 
+
     ]
   }
 ]

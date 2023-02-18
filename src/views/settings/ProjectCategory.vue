@@ -80,12 +80,12 @@ var filterValues = []
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = []
-const model = 'domain'
+const model = 'project_category'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
 const AddDialogVisible = ref(false)
-const formHeader = ref('Add Strategic Focus Area')
+const formHeader = ref('Add Project Category')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
 
@@ -105,8 +105,8 @@ const columns: TableColumn[] = [
 
 
   {
-    field: 'code',
-    label: t('Code')
+    field: 'description',
+    label: t('Description')
   },
   {
     field: 'action',
@@ -132,7 +132,7 @@ const handleClear = async () => {
 
 
 const handleSelectIndicator = async (indicator: any) => {
-  var selectOption = 'id'
+  var selectOption = 'component_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -237,7 +237,7 @@ const getIndicatorOptions = async () => {
       //   pageIndex: 1,
       //   limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'domain',
+      model: 'component',
       searchField: 'title',
       searchKeyword: '',
       sort: 'ASC'
@@ -261,11 +261,11 @@ const makeOptions = (list) => {
   console.log('making the options..............', list)
   categoryOptions.value = []
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.category + '(' + arrayItem.id + ')'
+    var opt = {}
+    opt.value = arrayItem.id
+    opt.label = arrayItem.title + '(' + arrayItem.id + ')'
     //  console.log(countyOpt)
-    categoryOptions.value.push(countyOpt)
+    categoryOptions.value.push(opt)
   })
 }
 
@@ -288,6 +288,8 @@ const editIndicator = (data: TableSlotDefault) => {
   console.log(data)
   ruleForm.id = data.row.id
   ruleForm.title = data.row.title
+  ruleForm.description = data.row.description
+  ruleForm.component_id = data.row.component_id
 
 
   formHeader.value = 'Edit Focus Area'
@@ -323,7 +325,10 @@ const handleClose = () => {
 
   ruleForm.id = ''
   ruleForm.title = ''
-  formHeader.value = 'Add Strategic Focus'
+  ruleForm.description = ''
+  ruleForm.component_id = null
+
+  formHeader.value = 'Add Project Category'
 
 }
 
@@ -331,7 +336,8 @@ const handleClose = () => {
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
-
+  component_id: null,
+  description: ''
 })
 
 const rules = reactive<FormRules>({
@@ -340,6 +346,9 @@ const rules = reactive<FormRules>({
     { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
   ],
 
+  component_id: [
+    { required: true, message: 'Please provide A title', trigger: 'blur' },
+  ],
 })
 
 const AddIndicator = () => {
@@ -385,7 +394,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Domain areas List')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Project Categories')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
@@ -433,9 +442,22 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-      <el-form-item label="Title">
+      <el-form-item label="Component" prop="component_id">
+        <el-select v-model="ruleForm.component_id" filterable placeholder="Select">
+          <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Title" prop="title">
         <el-input v-model="ruleForm.title" />
       </el-form-item>
+      <el-form-item label="Description">
+        <el-input v-model="ruleForm.description" />
+      </el-form-item>
+
+
+
+
 
     </el-form>
     <template #footer>
