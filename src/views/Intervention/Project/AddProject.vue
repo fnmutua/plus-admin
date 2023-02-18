@@ -479,6 +479,7 @@ const rules = reactive<FormRules>({
   domain_id: [{ required: true, message: 'Domain is required', trigger: 'blur' }],
   period: [{ required: true, message: 'Period is required', trigger: 'blur' }],
   status: [{ required: true, message: 'Status is required', trigger: 'blur' }],
+  category_id: [{ required: true, message: 'Status is required', trigger: 'blur' }],
 
 
 
@@ -1061,10 +1062,10 @@ const handleSelectCounty = async (county_id: any) => {
   <ContentWrap :title="toTitleCase(title)">
 
 
-    <el-row :gutter="10">
+    <el-row :gutter="5">
       <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card>
-          <el-steps :active="active">
+          <el-steps :active="active" simple>
             <el-step title="Details" :icon="Edit" />
             <el-step title="Location" :icon="Location" />
             <el-step title="Documentation" :icon="Upload" />
@@ -1079,7 +1080,6 @@ const handleSelectCounty = async (county_id: any) => {
                   <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
-
 
               <el-form-item v-if=showSettlement label="Settlement" prop="settlement_id">
                 <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
@@ -1113,7 +1113,7 @@ const handleSelectCounty = async (county_id: any) => {
                   </el-form-item>
                 </el-col>
                 <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
-                  <el-form-item label="Domain" prop="category_id">
+                  <el-form-item label="Type" prop="category_id">
                     <el-cascader v-model="tmp_domain" :options="domainProgrammeOptions" :show-all-levels="false"
                       @change="handleChangeComponent" />
                   </el-form-item>
@@ -1198,15 +1198,15 @@ const handleSelectCounty = async (county_id: any) => {
 
 
           </el-form>
-
-          <el-divider />
-          <el-button-group>
-            <el-button type="primary" :icon="ArrowRight" @click="next">Next Step</el-button>
-            <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="success"
-              :icon="Promotion">Submit</el-button>
-            <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
-              :icon="RefreshLeft">Reset</el-button>
-          </el-button-group>
+          <div class="flex justify-between">
+            <el-button-group class="flex justify-between items-center ">
+              <el-button type="primary" :icon="ArrowRight" @click="next">Next Step</el-button>
+              <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="success"
+                :icon="Promotion">Submit</el-button>
+              <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
+                :icon="RefreshLeft">Reset</el-button>
+            </el-button-group>
+          </div>
 
 
 
