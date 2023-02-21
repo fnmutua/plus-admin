@@ -62,17 +62,17 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
         svgoOptions: true
       }),
       PurgeIcons(),
-      // viteMockServe({
-      //   ignore: /^\_/,
-      //   mockPath: 'mock',
-      //   localEnabled: !isBuild,
-      //   prodEnabled: isBuild,
-      //   injectCode: `
-      //     import { setupProdMockServer } from '../mock/_createProductionServer'
+      viteMockServe({
+        ignore: /^\_/,
+        mockPath: 'mock',
+        localEnabled: !isBuild,
+        prodEnabled: isBuild,
+        injectCode: `
+          import { setupProdMockServer } from '../mock/_createProductionServer'
 
-      //     setupProdMockServer()
-      //     `
-      // }),
+          setupProdMockServer()
+          `
+      }),
       VueMarcos(),
       createHtmlPlugin({
         inject: {
