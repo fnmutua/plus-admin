@@ -112,6 +112,40 @@ exports.modelAllData = (req, res) => {
   })
 }
 
+
+exports.modelAllDataNoGeo = (req, res) => {
+  var reg_model = req.query.model
+  // var ass_model = req.query.assocModel
+  // console.log("All Data----->")
+  var ass_model = db.models[req.query.assocModel]
+
+  //console.log('All Model Data-----> 30/10', req)
+
+  if (ass_model) {
+    var includeQuerry = {
+      include: [{ model: ass_model }]
+    }
+  } else {
+    var includeQuerry = {}
+    console.log('No Associated Model')
+  }
+  console.log('the Querry', includeQuerry)
+  includeQuerry.attributes = { exclude: ['geom'] } // will be applciable to users only 
+
+  db.models[reg_model].findAndCountAll(includeQuerry).then((list) => {
+    //db.models[reg_model].findAndCountAll({}).then(list => {
+
+    //console.log(list.rows)
+    res.status(200).send({
+      data: list.rows,
+      total: list.count,
+      code: '0000'
+    })
+  })
+}
+
+
+
 exports.xmodelAllDatafilter = (req, res) => {
   var reg_model = req.query.model
   var field = req.query.searchField
@@ -831,7 +865,56 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
   console.log('Final-object------------>', qry)
 
 
-  qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only 
+
+
+  // if involving households decryot the HH name
+
+
+
+  const searchString = 'households';
+  if (associated_multiple_models) {
+
+    console.log(associated_multiple_models)
+    if (associated_multiple_models.includes(searchString) ) {
+      console.log(`${searchString} is in the array`);
+      console.log(qry)
+    
+              console.log('getting households---->')
+              var attributes = []
+         
+              for( let key in   db.models[reg_model].rawAttributes ){
+                attributes.push(key)
+            }
+      
+              
+      
+      
+            //   console.log('attributes',attributes)
+              var index = attributes.indexOf('name');
+              if (index !== -1) {
+                  attributes.splice(index, 1);
+              }
+    
+              let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('household.name'), 'bytea'),'maluini'),'name']
+                attributes.push(encrytpedField)
+      
+              
+      qry.attributes = attributes
+      qry.attributes.exclude = ['password', 'resetPasswordExpires', 'resetPasswordToken'] 
+     }
+ }
+  else {
+    
+    qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only
+
+}
+     
+
+
+
+
+
+
   db.models[reg_model].findAndCountAll(qry).then((list) => {
     res.status(200).send({
       data: list.rows,

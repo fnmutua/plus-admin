@@ -17,6 +17,13 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: false
       },
+
+      subcounty_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
+
+
       settlement_type: {
         type: DataTypes.INTEGER,
         allowNull: false

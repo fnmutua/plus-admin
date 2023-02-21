@@ -94,6 +94,22 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+
+       
+    county_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+
+
+    subcounty_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+
+
+
+    
     geom: {
       type: DataTypes.GEOMETRY('Geometry', 4326),
       allowNull: true

@@ -97,12 +97,14 @@ const cost = ref(false)
 const waste = ref(false)
 const security = ref(false)
 const hazards = ref(false)
+const projectScopeGeo = ref([])
 
 ///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   name: '',
   county_id: '',
+  subcounty_id: '',
   settlement_type: '',
   geom: '',
   area: '',
@@ -174,7 +176,95 @@ const getParentNames = async () => {
     })
   })
 }
+
+const subcountyOptions = ref([])
+const subcountyfilteredOptions = ref([])
+const subcounties = ref([])
+const getSubcounty = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    //console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    subcounties.value = ret
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var parentOpt = {}
+      parentOpt.value = arrayItem.id
+      parentOpt.county_id = arrayItem.county_id
+      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      subcountyOptions.value.push(parentOpt)
+    })
+  })
+}
+
+const handleSelectCounty = async (county_id: any) => {
+  console.log(county_id)
+
+  var subset = [];
+  for (let i = 0; i < subcountyOptions.value.length; i++) {
+    if (subcountyOptions.value[i].county_id == county_id) {
+      subset.push(subcountyOptions.value[i]);
+    }
+  }
+  console.log(subset)
+  subcountyfilteredOptions.value = subset
+
+  // Get the select subcoites GEOy
+}
+
+const handleSelectSubCounty = async (subcounty_id: any) => {
+  console.log(subcounty_id)
+
+
+  // Get the select subcoites GEO 
+
+  var newArray = subcounties.value.filter(function (subcounty) {
+    return subcounty.id == subcounty_id;
+  }
+  );
+  console.log(newArray[0].geom)
+  if (newArray[0].geom != null) {
+    console.log(newArray[0].geom)
+    let geom = {
+      type: newArray[0].geom.type,
+      coordinates: newArray[0].geom.coordinates
+
+    }
+    console.log(geom)
+
+    geoJson.value = geom
+    map.value.getSource("scope").setData(geoJson.value);
+    bounds.value = turf.bbox((geoJson.value))
+    console.log("From subcounty", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+
+  } else {
+
+    console.log("The subcounty has no shapes...")
+  }
+
+
+
+
+
+
+}
+
+
 getParentNames()
+getSubcounty()
 getProgrammeOptions()
 
 
@@ -551,6 +641,24 @@ const loadMap = () => {
   map.value.on('load', () => {
 
 
+    map.value.addSource('scope', {
+      type: 'geojson',
+      //data: projectPoly.value
+      data: turf.featureCollection(projectScopeGeo.value),
+    });
+    map.value.addLayer({
+      'id': 'projectScopeGeo',
+      'type': 'line',
+      'source': 'scope',
+      'layout': {},
+      'paint': {
+        'line-color': '#000',
+        'line-width': 3
+      }
+    });
+
+
+
     if (settlementPoly.value) {
 
       map.value.addSource('polygons', {
@@ -615,7 +723,7 @@ const loadMap = () => {
     <el-row :gutter="10">
       <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card>
-          <el-steps :active="active">
+          <el-steps :active="active" simple>
             <el-step title="Details" :icon="Edit" />
             <el-step title="Location" :icon="Location" />
             <el-step title="Documentation" :icon="Upload" />
@@ -628,11 +736,22 @@ const loadMap = () => {
                 <el-input v-model="ruleForm.name" />
               </el-form-item>
               <el-form-item label="County" prop="county_id">
-                <el-select v-model="ruleForm.county_id" filterable placeholder="Select County">
+                <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
+                  :onChange="handleSelectCounty">
                   <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
                 <el-button type="succcess" @click="AddSettlement()" :icon="Plus" />
               </el-form-item>
+
+              <el-form-item label="Subcounty" prop="subcounty_id">
+                <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
+                  :onChange="handleSelectSubCounty">
+                  <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                    :value="item.value" />
+                </el-select>
+                <el-button type="succcess" @click="AddSettlement()" :icon="Plus" />
+              </el-form-item>
+
               <el-form-item label="Type" prop="settlement_type">
                 <el-select v-model="ruleForm.settlement_type" placeholder="Type">
                   <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -695,13 +814,7 @@ const loadMap = () => {
 
       <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card>
-          <!-- <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
-            mapStyle="mapbox://styles/mapbox/light-v10">
-            <mapbox-geocoder-control :countries="countries" />
-            <mapbox-geolocate-control />
-            <mapbox-draw-control v-if="geoSource === false" @create="uploadPolygon" />
-            <mapbox-navigation-control position="bottom-right" />
-          </mapbox-map> -->
+
 
           <div id="mapContainer" class="basemap"></div>
 

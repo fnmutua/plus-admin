@@ -258,7 +258,7 @@ const filterByType = async (title: any) => {
 
 const filterByProgramme = async (title: any) => {
     var filters = ['domain_id', 'programme_id']
-    var filterValues = [component_id.value, title]
+    var filterValues = [[domain_id], title]
     console.log('filters:', filters)
     console.log('FilterValues:', filterValues)
     getFilteredData(filters, filterValues)
@@ -266,7 +266,7 @@ const filterByProgramme = async (title: any) => {
 
 const filterBySettlement = async (title: any) => {
     var filters = ['domain_id', 'settlement_id']
-    var filterValues = [component_id.value, title]
+    var filterValues = [[domain_id], title]
     console.log('filters:', filters)
     console.log('FilterValues:', filterValues)
     getFilteredData(filters, filterValues)
@@ -623,7 +623,6 @@ const viewOnMap = (data: TableSlotDefault) => {
 
 
     if (data.row.geom === null) {
-        var msg = 'This Project does not have the location defined in the database!'
         // open(msg)
         ElMessage({
             message: 'This Project does not have the boundary defined in the database!',
@@ -637,9 +636,24 @@ const viewOnMap = (data: TableSlotDefault) => {
             name: 'ProjectMap',
             params: { id: data.row.id }
         })
+
+        // push({
+        //     path: '/settlement/map/:id',
+        //     name: 'SettlementMap',
+        //     params: { id: data.row.id }
+        // })
+
     }
 }
 
+const viewHHs = (data: TableSlotDefault) => {
+    console.log('On Click.....', data.row.id)
+    push({
+        path: '/settlement/hh/:id',
+        name: 'Households',
+        params: { id: data.row.id }
+    })
+}
 
 
 const loadMap = () => {
@@ -1496,12 +1510,12 @@ const handleSelectLocation = async (location: any) => {
         <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
 
-        <div style="display: inline-block; margin-left: 10px">
-            <el-select v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple clearable filterable
-                collapse-tags placeholder="By Settlement">
-                <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-        </div>
+        <!-- <div style="display: inline-block; margin-left: 10px">
+                                                    <el-select v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple clearable filterable
+                                                        collapse-tags placeholder="By Settlement">
+                                                        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+                                                    </el-select>
+                                                </div> -->
 
         <div style="display: inline-block; margin-left: 10px">
 
@@ -1589,6 +1603,8 @@ const handleSelectLocation = async (location: any) => {
                                 <el-button type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                                     circle />
                             </el-tooltip>
+
+
                             <el-tooltip content="Delete" placement="top">
                                 <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                                     icon-color="#626AEF" title="Are you sure to delete this report?"

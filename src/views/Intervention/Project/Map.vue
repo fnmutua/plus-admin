@@ -16,16 +16,18 @@ import * as turf from '@turf/turf'
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { Download } from '@element-plus/icons-vue'
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
-mapboxgl.accessToken = MapBoxToken;
-
 
 import { ElMessage } from 'element-plus'
 import * as download from 'downloadjs'
 
+import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
+import "mapbox-layer-switcher/styles.css";
 
 const route = useRoute()
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+mapboxgl.accessToken = MapBoxToken;
+
 
 ////Configurations //////////////
 const model = 'project'
@@ -48,6 +50,44 @@ const facilityGeoPolygons = ref()
 const { t } = useI18n()
 
 
+const ParcelGeodata = ref([])
+
+const getParcels = async () => {
+  const id = route.params.id
+  const filterCol = 'settlement_id'
+
+  const formData = {}
+  formData.model = 'parcel'
+  formData.columnFilterField = filterCol
+  formData.selectedParents = id
+
+  console.log(formData)
+
+  formData.filtredGeoIds = [id]
+  var parcelsPoly = []
+  await getfilteredGeo(formData)
+    .then((response: { data: any }) => {
+      //   filtergeo.value = response.data[0].json_build_object
+      console.log(response.data[0].json_build_object.features)
+      if (response.data[0].json_build_object.features) {
+        for (let i = 0; i < response.data[0].json_build_object.features.length; i++) {
+
+          parcelsPoly.push(response.data[0].json_build_object.features[i])
+
+        }
+      }
+
+
+
+
+    })
+  ParcelGeodata.value = parcelsPoly
+  console.log('Parcels Acqured', ParcelGeodata.value)
+
+
+
+
+}
 
 
 const getAll = async () => {
@@ -130,6 +170,15 @@ const loadMap = () => {
     });
 
 
+    nmap.addSource('parcels', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: turf.featureCollection(ParcelGeodata.value),
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+
+
     nmap.addLayer({
       'id': 'points-layer',
       "type": "circle",
@@ -171,88 +220,96 @@ const loadMap = () => {
         'line-width': 1
       }
     });
+
+
+    nmap.addLayer({
+      'id': 'Parcels',
+      "type": "fill",
+      'source': 'parcels',
+      'paint': {
+        'fill-color': [
+          'case',
+          ['==', ['get', 'landuse_id'], 0],
+          'brown',
+          ['==', ['get', 'landuse_id'], 1],
+          'yellow',
+          ['==', ['get', 'landuse_id'], 2],
+          'orange',
+          ['==', ['get', 'landuse_id'], 3],
+          'green',
+          ['==', ['get', 'landuse_id'], 4],
+          'yellow',
+          ['==', ['get', 'landuse_id'], 5],
+          'red',
+          ['==', ['get', 'landuse_id'], 6],
+          'gray',
+          ['==', ['get', 'landuse_id'], 7],
+          'yellow',
+          'white'],
+
+        'fill-opacity': 0.5
+      }
+    });
+
+    const layers: MapboxLayerDefinition[] = [
+      {
+        id: "Boundary",
+        title: "Boundary",
+        visibility: 'visible',
+        type: 'base'
+      },
+      {
+        id: "Parcels",
+        title: "Parcels",
+        visibility: 'visible',
+        type: 'base'
+      },
+
+    ];
+
+    nmap.addControl(new MapboxLayerSwitcherControl(layers));
+
+
+
     nmap.resize()
 
     var bounds = turf.bbox((filtergeo.value));
     nmap.fitBounds(bounds, { padding: 20 });
 
-    nmap.on('click', 'points-layer', (e) => {
-      console.log("Onclikc..........")
+
+
+
+
+
+
+
+    nmap.on('click', 'Parcels', (e) => {
+      console.log("click parcel..........", e)
       // Copy coordinates array.
       const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.asset_type;
-      const condition = e.features[0].properties.asset_condition;
+      const parcel_no = e.features[0].properties.parcel_no;
+      const landuse = e.features[0].properties.landuse_id;
+      const area = e.features[0].properties.area_ha;
 
       // Ensure that if the map is zoomed out such that multiple
       // copies of the feature are visible, the popup appears
       // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      console.log(coordinates[0][0], parcel_no)
+      var centroid = turf.centroid(e.features[0])
+      console.log(centroid.geometry.coordinates)
+      while (Math.abs(e.lngLat.lng - coordinates[0][0]) > 180) {
+        coordinates[0][0] += e.lngLat.lng > coordinates[0][0] ? 360 : -360;
       }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-    });
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'points-layer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
-    });
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'points-layer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
-
-
-    nmap.on('click', 'lines-layer', (e) => {
-      console.log("click line..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.asset_type;
-      const condition = e.features[0].properties.asset_condition;
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+      new mapboxgl.Popup({ offset: [0, 0] })
+        .setLngLat(centroid.geometry.coordinates)
+        .setHTML('<h1><u><strong>Parcel Details</strong></u><h1>' + '<h3><strong> Parcel Number: </strong>' + parcel_no + '</h3><p><strong> Area:  </strong> ' + area.toFixed(4) + '(Ha.)' + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
         .addTo(nmap);
     });
 
 
-    nmap.on('click', 'polygons-layer', (e) => {
-      console.log("click line..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.title;
-      const condition = e.features[0].properties.programme;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-    });
 
 
-    // Cange the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'lines-layer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
-    });
 
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'lines-layer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
 
   });
 
@@ -260,7 +317,7 @@ const loadMap = () => {
 }
 
 getAll()
-
+getParcels()
 const downloadMap = () => {
   ElMessage({
     message: 'Coming soon..',
@@ -280,8 +337,6 @@ console.log(model)
 </script>
  
 <template>
-
-
   <el-card class="box-card">
     <template #header>
       <div class="card-header">
@@ -300,9 +355,6 @@ console.log(model)
 
 
   </el-card>
-
-
-
 </template>  
 
 

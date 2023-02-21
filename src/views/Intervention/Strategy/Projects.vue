@@ -258,7 +258,7 @@ const filterByType = async (title: any) => {
 
 const filterByProgramme = async (title: any) => {
     var filters = ['domain_id', 'programme_id']
-    var filterValues = [component_id.value, title]
+    var filterValues = [[domain_id], title]
     console.log('filters:', filters)
     console.log('FilterValues:', filterValues)
     getFilteredData(filters, filterValues)
@@ -266,7 +266,7 @@ const filterByProgramme = async (title: any) => {
 
 const filterBySettlement = async (title: any) => {
     var filters = ['domain_id', 'settlement_id']
-    var filterValues = [component_id.value, title]
+    var filterValues = [[domain_id], title]
     console.log('filters:', filters)
     console.log('FilterValues:', filterValues)
     getFilteredData(filters, filterValues)
@@ -1167,7 +1167,8 @@ const ruleForm = reactive({
     domain_id: '',
     category_id: null,
     status: '',
-    period: null,
+    start_date: null,
+    end_date: null,
     cost: 0,
     male_beneficiaries: 0,
     female_beneficiaries: 0,
@@ -1308,7 +1309,8 @@ const editProject = (data: TableSlotDefault) => {
     ruleForm.domain_id = data.row.domain_id
     ruleForm.category_id = data.row.category_id
     tmp_domain.value = [data.row.component_id, data.row.category_id]
-    ruleForm.period = data.row.period
+    ruleForm.start_date = data.row.start_date
+    ruleForm.end_date = data.row.end_date
     ruleForm.male_beneficiaries = data.row.male_beneficiaries
     ruleForm.female_beneficiaries = data.row.female_beneficiaries
     ruleForm.cost = data.row.cost
@@ -1316,6 +1318,9 @@ const editProject = (data: TableSlotDefault) => {
     ruleForm.county_id = data.row.county_id
     ruleForm.code = data.row.code
     ruleForm.geom = data.row.geom
+
+
+
     fileUploadList.value = data.row.documents
 
 
@@ -1496,12 +1501,12 @@ const handleSelectLocation = async (location: any) => {
         <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
 
-        <div style="display: inline-block; margin-left: 10px">
-            <el-select v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple clearable filterable
-                collapse-tags placeholder="By Settlement">
-                <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-        </div>
+        <!-- <div style="display: inline-block; margin-left: 10px">
+                                    <el-select v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple clearable filterable
+                                        collapse-tags placeholder="By Settlement">
+                                        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+                                    </el-select>
+                                </div> -->
 
         <div style="display: inline-block; margin-left: 10px">
 
@@ -1656,9 +1661,12 @@ const handleSelectLocation = async (location: any) => {
                     <el-input-number v-model="ruleForm.cost" />
                 </el-form-item>
 
-                <el-form-item label="Period" prop="period">
-                    <el-date-picker v-model="ruleForm.period" type="monthrange" range-separator="To"
-                        start-placeholder="Start date" end-placeholder="End date" />
+                <el-form-item label="Start" prop="start_date">
+                    <el-date-picker v-model="ruleForm.start_date" type="date" />
+                </el-form-item>
+
+                <el-form-item label="End" prop="end_date">
+                    <el-date-picker v-model="ruleForm.end_date" type="date" />
                 </el-form-item>
 
                 <el-row>
@@ -1670,6 +1678,7 @@ const handleSelectLocation = async (location: any) => {
                                     :value="item.value" />
                             </el-select>
                         </el-form-item>
+
                     </el-col>
                     <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
                         <el-form-item label="Domain" prop="domain_id">
@@ -1677,6 +1686,7 @@ const handleSelectLocation = async (location: any) => {
                                 @change="handleChangeComponentCategory" />
                         </el-form-item>
                     </el-col>
+
 
                 </el-row>
 
@@ -1687,6 +1697,7 @@ const handleSelectLocation = async (location: any) => {
                         multiple :limit="3" :auto-upload="false">
                         <el-button type="primary">Click to upload</el-button>
                         <template #tip>
+
                             <div class="el-upload__tip">
                                 pdf/xlsx/csv/jpg/png files with a size less than 20mb.
                             </div>
@@ -1706,12 +1717,12 @@ const handleSelectLocation = async (location: any) => {
             <el-upload v-model:file-list="morefileList" class="upload-demo"
                 action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5"
                 :auto-upload="false">
-                <el-button type="primary">Click to upload</el-button>
-                <template #tip>
-                    <div class="el-upload__tip">
-                        jpg/png files with a size less than 500KB.
-                    </div>
-                </template>
+                <el-bu ton type="primary">Click to upload</el-button>
+                    <template #tip>
+                        <div class="el-upload__tip">
+                            jpg/png files with a size less than 500KB.
+                        </div>
+                    </template>
             </el-upload>
             <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
 

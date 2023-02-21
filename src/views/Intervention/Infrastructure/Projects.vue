@@ -78,7 +78,7 @@ const interventionsOptions = ref([])
 const component_id = ref([])
 
 const domain_id = 2
-const page_title = 'Infrastructure Projects/Interventions'
+const page_title = 'Infrastucture Interventions'
 
 const tmp_domain = ref()
 
@@ -109,7 +109,7 @@ var filters = ['domain_id']
 var filterValues = [[domain_id]]  // make sure the inner array is array
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['settlement', 'domain', 'programme', 'component', 'document']
+const associated_multiple_models = ['settlement', 'county', 'domain', 'programme', 'component', 'document']
 
 //// ------------------parameters -----------------------////
 const fileUploadList = ref<UploadUserFile[]>([])
@@ -166,6 +166,11 @@ const columns: TableColumn[] = [
         field: 'settlement.name',
         label: t('Settlement')
     },
+    {
+        field: 'county.name',
+        label: t('County')
+    },
+
     {
         field: 'documentation',
         label: t('Documents'),
@@ -258,7 +263,7 @@ const filterByType = async (title: any) => {
 
 const filterByProgramme = async (title: any) => {
     var filters = ['domain_id', 'programme_id']
-    var filterValues = [component_id.value, title]
+    var filterValues = [[domain_id], title]
     console.log('filters:', filters)
     console.log('FilterValues:', filterValues)
     getFilteredData(filters, filterValues)
@@ -266,7 +271,7 @@ const filterByProgramme = async (title: any) => {
 
 const filterBySettlement = async (title: any) => {
     var filters = ['domain_id', 'settlement_id']
-    var filterValues = [component_id.value, title]
+    var filterValues = [[domain_id], title]
     console.log('filters:', filters)
     console.log('FilterValues:', filterValues)
     getFilteredData(filters, filterValues)
@@ -1496,12 +1501,12 @@ const handleSelectLocation = async (location: any) => {
         <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
 
-        <div style="display: inline-block; margin-left: 10px">
-            <el-select v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple clearable filterable
-                collapse-tags placeholder="By Settlement">
-                <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-        </div>
+        <!-- <div style="display: inline-block; margin-left: 10px">
+                                    <el-select v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple clearable filterable
+                                        collapse-tags placeholder="By Settlement">
+                                        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+                                    </el-select>
+                                </div> -->
 
         <div style="display: inline-block; margin-left: 10px">
 

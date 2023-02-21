@@ -3069,7 +3069,6 @@ COPY public.health_facility (id, name, facility_number, level, reg_status, owner
 --
 
 COPY public.households (id, settlement_id, name, gender, national_id, kra_pin, marital_status, education_level, residence_type, length_stay, ownership_status, photo, age_00_04m, age_05_09m, age_10_14m, age_15_19m, age_20_24m, age_24_29m, age_30_34m, age_35_39m, age_40_44m, age_45_49m, age_50_54m, age_55_59m, age_60_64m, age_65_69m, age_70_plusm, age_00_04f, age_05_09f, age_10_14f, age_15_19f, age_20_24f, age_24_29f, age_30_34f, age_35_39f, age_40_44f, age_45_49f, age_50_54f, age_55_59f, age_60_64f, age_65_69f, age_70_plusf, hh_size, terminally_ill, ph_disabled, orphans, ment_disabled, hearing_disabled, visual_disabled, emp_status, income_level, type_structure, struct_owner, rent_payable, address, sanitation, source_water, mode_transport, access_health, handwashing, solid_waste, code, age_plot_owner, expense_food, mode_acquisition, ownership_docs, shared_ownership, access_education, distance_to_sch, lighting_energy, cooking_energy, water_cost20l, toilet_cost, cooking_energy_cost) FROM stdin;
-10190	20	\\xc30d04070302d23185da2fb21d5368d2360198e3fcbd07e9a3b9c4e7a81aab544539d6e55392c5f222922fd1542c1d8d1f30b751a16d26e3a2c670322fd6289a25a3b0ca716216	Male	121212					0		\\x	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	5	0	0	0	0	0	0													9f5c5667-f73f-471e-b0ac-89847431e387					false					0	0	0
 10194	210	\\xc30d0407030262fb26957cfb285e60d24101a7886ce836199b9185eafee288595bd24976d29c868f6640a7056ade0cbc50db706ea58feaa3923a489480b918acccf73cb83c4751556e086c482a457b3f4e3c	Female	45467426	\N	Widowed	secondary	plot_Owner	24	\N	\N	1	0	1	2	1	1	1	1	1	2	0	2	0	1	0	0	2	1	2	2	2	0	1	0	2	0	2	1	1	2	5	0	1	1	1	0	1	civil_servant	16000_20000	\N	\N	0_5000	\N	none	vendor	bicycle	private	water_only	dumpsite	8d07ad93-0db3-4606-98fa-be21ecf7d16f	56_65	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
 10192	20	\\xc30d04070302240ff3dab5eed5a867d23801e03456f28a57a0f400aa3da39e24e7c8276481bc3d800f4d659b168ffda911017b21413672a7386613449c1c5efaa8b61bb4635dcb28cc	Male	2323232					0		\\x	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	5	0	0	0	0	0	0													f599f042-fbc2-4d6a-82b0-5aa30ae4a800					false					0	0	0
 10666	11	\\xc30d040703024e86ac70ca6bcd1e62d24601ed4f2a02247e199dec0b3774015abf7dccb69157da55883b8f2269f2e6af2cf48c1a118904986be68cb27101bac0d0ca41addb45572a8cc4b80946af7bddef1fcea429afd1	Female	23637348	\N	Widowed	none	tenant	10	\N	\N	0	0	1	0	0	0	1	1	0	0	2	1	1	0	0	2	0	2	2	1	0	1	1	1	0	2	1	1	0	1	5	0	1	2	0	0	0	casual	>20000	\N	\N	>20000	\N	flush	piped	boda	other	none	bins	8e761132-fa9d-402a-90e5-483e9c476480	0_18	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
@@ -5368,6 +5367,18 @@ COPY public.project_category (id, title, component_id, description, code) FROM s
 70	Partnerships	12	formulation of partnership framework, development and execution of partnership agreements and arrangements	01db9a13-2a16-4e62-8870-810c5afe1ae9
 71	Resource Pools	12	establishment of resource pool 	37dd2b8f-6439-4df5-b6d5-4b35adcd33b1
 4	Formation of cooperatives	5	Formation of cooperatives	eaf12d51-e755-43fa-b033-f1745caa5434
+72	Road Upgrade	3	Road Upgrade	92a25286-008f-4141-aad9-a717ecaed6f1
+73	Bicycle paths	3	Construction of bicycle paths	b645c93f-7714-4ac7-9a7a-049495565151
+74	Pedestrian walkways	3	Construction of pedestrian walkways	52b5fdad-9613-4e52-ad25-32215f6d3cba
+75	Streeghtlight	3	Construction of Streeghtlights	3936d5f3-fe71-4bc4-aebd-9d2ba270929b
+76	Security Lights	3	Construction of Security Lights	2bfddb90-95c7-440c-8ae8-95bd48e167de
+77	Vending platforms	3	Construction of vending platforms	030b255d-48dd-47a0-b808-4cf9aecc885b
+78	Solid waste management	3	solid waste management	223f1d27-d06b-4787-8d1c-8fc17a609108
+79	Storm water drainage	3	storm water drainage	29248501-84bf-47d4-a132-aea0ff070222
+80	Water and sanitation	3	water and sanitation,	565119b1-cacb-4d64-984b-a9188ed56723
+81	Public parks	3	public parks	ca414ad2-4b88-4ecd-ae25-4cdd7e0dd52d
+82	Green spaces	3	green spaces	1d5fbb03-7e7b-4cb4-b9ad-988c09bb404e
+83	community social centers	3	community social centers	a72c61ab-f8d1-4634-8254-500b24da76e0
 \.
 
 
@@ -6180,7 +6191,7 @@ SELECT pg_catalog.setval('public.programme_id_seq', 3, true);
 -- Name: project_category_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.project_category_id_seq', 71, true);
+SELECT pg_catalog.setval('public.project_category_id_seq', 83, true);
 
 
 --

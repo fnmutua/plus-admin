@@ -75,6 +75,15 @@ db.models.settlement.belongsTo(db.models.county, {
   foreignKey: 'county_id'
 })
 
+db.models.subcounty.hasMany(db.models.settlement, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.settlement.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+
 // Parcels and settlements associations
 db.models.settlement.hasMany(db.models.parcel, {
   foreignKey: 'settlement_id'
@@ -83,15 +92,7 @@ db.models.settlement.hasMany(db.models.parcel, {
 db.models.parcel.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
 })
-
-// beneficiraires and settlements associations
-db.models.settlement.hasMany(db.models.beneficiary, {
-  foreignKey: 'settlement_id'
-})
-
-db.models.beneficiary.belongsTo(db.models.settlement, {
-  foreignKey: 'settlement_id'
-})
+ 
 
 // households and settlements associations
 db.models.settlement.hasMany(db.models.households, {
@@ -102,6 +103,32 @@ db.models.households.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
 })
 
+db.models.county.hasMany(db.models.households, {
+  foreignKey: 'county_id'
+})
+
+db.models.households.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.subcounty.hasMany(db.models.households, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.households.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+
+
+
+
+
+
+
+
+
+
 // Docuemnts and settlements associations
 db.models.settlement.hasMany(db.models.settlement_uploads, {
   foreignKey: 'settlement_id'
@@ -111,10 +138,33 @@ db.models.settlement_uploads.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
 })
 
-// Docuemnts and settlements associations
+// intervention and settlements associations
 db.models.settlement.hasMany(db.models.intervention, {
   foreignKey: 'settlement_id'
 })
+
+db.models.intervention.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.county.hasMany(db.models.intervention, {
+  foreignKey: 'county_id'
+})
+
+db.models.intervention.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+
+db.models.subcounty.hasMany(db.models.intervention, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.intervention.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+
 
 // Clusters
 db.models.cluster.belongsTo(db.models.lots, {
@@ -152,21 +202,33 @@ db.models.intervention.belongsTo(db.models.intervention_type, {
   foreignKey: 'intervention_type_id'
 })
 
-db.models.beneficiary.belongsTo(db.models.intervention, {
-  foreignKey: 'intervention_id'
-})
-
 
 
 db.models.beneficiary.belongsTo(db.models.benefit_type, {
   foreignKey: 'benefit_type_id'
 })
 
+
+
+//Beneficiriaes r
 db.models.beneficiary.belongsTo(db.models.households, {
   foreignKey: 'hh_id'
 })
 
+db.models.households.hasMany(db.models.beneficiary, {
+  foreignKey: 'hh_id'
+})
 
+
+db.models.beneficiary.belongsTo(db.models.project, {
+  foreignKey: 'project_id'
+})
+
+db.models.project.hasMany(db.models.beneficiary, {
+  foreignKey: 'project_id'
+})
+
+ 
 
 
 
@@ -188,6 +250,24 @@ db.models.settlement.hasMany(db.models.health_facility, {
   foreignKey: 'settlement_id'
 })
 
+db.models.health_facility.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.county.hasMany(db.models.health_facility, {
+  foreignKey: 'county_id'
+})
+db.models.health_facility.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.health_facility, {
+  foreignKey: 'subcounty_id'
+})
+
+
+
+
 
 /// Education Facilities 
 
@@ -199,6 +279,24 @@ db.models.settlement.hasMany(db.models.education_facility, {
   foreignKey: 'settlement_id'
 })
 
+db.models.education_facility.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.county.hasMany(db.models.education_facility, {
+  foreignKey: 'county_id'
+})
+
+db.models.education_facility.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.education_facility, {
+  foreignKey: 'subcounty_id'
+})
+
+
+
 /// Roads
 db.models.road.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
@@ -207,6 +305,9 @@ db.models.road.belongsTo(db.models.settlement, {
 db.models.settlement.hasMany(db.models.road, {
   foreignKey: 'settlement_id'
 })
+
+
+
 
 /// water points
 db.models.water_point.belongsTo(db.models.settlement, {
@@ -218,6 +319,28 @@ db.models.settlement.hasMany(db.models.water_point, {
 })
 
 
+db.models.water_point.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.county.hasMany(db.models.water_point, {
+  foreignKey: 'county_id'
+})
+
+
+db.models.water_point.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.water_point, {
+  foreignKey: 'subcounty_id'
+})
+
+
+
+
+
+
 /// sewer  
 db.models.sewer.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
@@ -226,6 +349,39 @@ db.models.sewer.belongsTo(db.models.settlement, {
 db.models.settlement.hasMany(db.models.sewer, {
   foreignKey: 'settlement_id'
 })
+
+db.models.sewer.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.county.hasMany(db.models.sewer, {
+  foreignKey: 'county_id'
+})
+
+
+db.models.sewer.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.sewer, {
+  foreignKey: 'subcounty_id'
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -248,6 +404,27 @@ db.models.other_facility.belongsTo(db.models.settlement, {
 db.models.settlement.hasMany(db.models.other_facility, {
   foreignKey: 'settlement_id'
 })
+
+db.models.other_facility.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.county.hasMany(db.models.other_facility, {
+  foreignKey: 'county_id'
+})
+
+db.models.other_facility.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.other_facility, {
+  foreignKey: 'subcounty_id'
+})
+
+
+
+
+
 
 
 /// indicator-category - category  
@@ -316,7 +493,7 @@ db.models.settlement.hasMany(db.models.project, {
 })
 
 
-// Proejct   - settleemnt
+ 
 db.models.project.belongsTo(db.models.county, {
   foreignKey: 'county_id'
 })
@@ -324,6 +501,47 @@ db.models.project.belongsTo(db.models.county, {
 db.models.county.hasMany(db.models.project, {
   foreignKey: 'county_id'
 })
+
+db.models.project.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.project, {
+  foreignKey: 'subcounty_id'
+})
+
+
+
+// Public Facility   - settleemnt/county/subc
+db.models.public_facility.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.public_facility, {
+  foreignKey: 'settlement_id'
+})
+
+
+ 
+db.models.public_facility.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.county.hasMany(db.models.public_facility, {
+  foreignKey: 'county_id'
+})
+
+db.models.public_facility.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.public_facility, {
+  foreignKey: 'subcounty_id'
+})
+
+
+
+
 
 // Project   - programme
 db.models.project.belongsTo(db.models.programme, {
@@ -369,13 +587,7 @@ db.models.project.belongsTo(db.models.project_category, {
 db.models.project_category.hasMany(db.models.project, {
   foreignKey: 'category_id'
 })
-
-
-
-
-
-
-
+ 
 // component    - focus 
 
 db.models.component.belongsTo(db.models.domain, {
@@ -385,9 +597,6 @@ db.models.component.belongsTo(db.models.domain, {
 db.models.domain.hasMany(db.models.component, {
   foreignKey: 'domain_id'
 })
-
-
-
 
 
 // Component    - Programment
@@ -424,6 +633,15 @@ db.models.document.belongsTo(db.models.settlement, {
 
 db.models.settlement.hasMany(db.models.document, {
   foreignKey: 'settlement_id'
+})
+
+
+db.models.subcounty.belongsTo(db.models.county, {
+  foreignKey: 'county_id',
+})
+
+db.models.county.hasMany(db.models.subcounty, {
+  foreignKey: 'county_id'
 })
 
 

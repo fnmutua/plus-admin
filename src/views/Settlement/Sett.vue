@@ -3,7 +3,7 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
+import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
@@ -118,7 +118,7 @@ var filterValues = [[1, 2]]  // make sure the inner array is array
 var tblData = []
 
 const associated_Model = ''
-const associated_multiple_models = ['county']
+const associated_multiple_models = ['county', 'subcounty']
 
 const model = 'settlement'
 //// ------------------parameters -----------------------////
@@ -153,33 +153,6 @@ const handleClear = async () => {
   getAllBeneficiaries()
 }
 
-const filterByCounty = async (title: any) => {
-  var selectOption = 'county_id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('intervention_type_id : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(title) && title.length > 0) {
-    filterValues.splice(index, 0, title) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (title.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
-}
 
 
 
@@ -531,7 +504,7 @@ const viewHHs = (data: TableSlotDefault) => {
   push({
     path: '/settlement/hh/:id',
     name: 'Households',
-    params: { id: data.row.id, name: data.row.name }
+    params: { id: data.row.id }
   })
 }
 
@@ -898,7 +871,7 @@ const typeOptions = [
 const countiesOptions = ref([])
 
 const getCountyNames = async () => {
-  const res = await getCountyListApi({
+  const res = await getListWithoutGeo({
     params: {
       pageIndex: 1,
       limit: 100,
@@ -925,6 +898,117 @@ const getCountyNames = async () => {
   })
 }
 
+const subcountiesOptions = ref([])
+const subcountyfilteredOptions = ref([])
+
+const getSubCountyNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var subcountyOpt = {}
+      subcountyOpt.value = arrayItem.id
+      subcountyOpt.county_id = arrayItem.county_id
+      subcountyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      subcountiesOptions.value.push(subcountyOpt)
+    })
+  })
+}
+
+
+
+
+
+const filterByCounty = async (county_id: any) => {
+  var selectOption = 'county_id'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
+  }
+  var index = filters.indexOf(selectOption) // 1
+  console.log('intervention_type_id : index--->', index)
+
+  // clear previously selected
+  if (filterValues[index]) {
+    // filterValues[index].length = 0
+    filterValues.splice(index, 1)
+  }
+
+  if (!filterValues.includes(county_id) && county_id.length > 0) {
+    filterValues.splice(index, 0, county_id) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (county_id.length === 0) {
+    filters.splice(index, 1)
+  }
+
+  console.log('FilterValues:', filterValues)
+  console.log(subcountiesOptions.value)
+
+
+
+  var subset = [];
+  for (let i = 0; i < subcountiesOptions.value.length; i++) {
+    if (subcountiesOptions.value[i].county_id == county_id) {
+      subset.push(subcountiesOptions.value[i]);
+    }
+  }
+  console.log('Subset--->', subset)
+  subcountyfilteredOptions.value = subset
+
+
+  getFilteredData(filters, filterValues)
+
+
+}
+
+
+const filterBySubCounty = async (subcounty_id: any) => {
+  var selectOption = 'subcounty_id'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
+  }
+  var index = filters.indexOf(selectOption) // 1
+  console.log('intervention_type_id : index--->', index)
+
+  // clear previously selected
+  if (filterValues[index]) {
+    // filterValues[index].length = 0
+    filterValues.splice(index, 1)
+  }
+
+  if (!filterValues.includes(subcounty_id) && subcounty_id.length > 0) {
+    filterValues.splice(index, 0, subcounty_id) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (subcounty_id.length === 0) {
+    filters.splice(index, 1)
+  }
+
+  console.log('FilterValues:', filterValues)
+  console.log(subcountiesOptions.value)
+
+  getFilteredData(filters, filterValues)
+
+
+}
+
 getBeneficiaryType()
 getHouseholds()
 
@@ -936,6 +1020,7 @@ getProgrammeOptions()
 //getGeo()
 
 getCountyNames()
+getSubCountyNames()
 
 console.log('Options---->', interVentionTypeOptions)
 
@@ -1187,7 +1272,6 @@ const DownloadXlsx = async () => {
 </script>
 
 <template>
-
   <ContentWrap :title="t('Settlements')" :message="t('Use the filters to subset')">
 
 
@@ -1197,11 +1281,23 @@ const DownloadXlsx = async () => {
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
 
         <div style="display: inline-block; margin-top: 5px">
-          <el-select size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple
-            clearable filterable collapse-tags placeholder="By County">
+          <el-select size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
+            filterable collapse-tags placeholder="By County">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
+
+
         </div>
+
+
+        <div style="display: inline-block; margin-top: 5px">
+          <el-select size="default" v-model="value5" :onChange="filterBySubCounty" :onClear="handleClear" multiple
+            clearable filterable collapse-tags placeholder="By Subcounty">
+            <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+              :value="item.value" />
+          </el-select>
+        </div>
+
       </el-col>
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
         <div style="display: inline-block; margin-top: 5px">
@@ -1276,11 +1372,12 @@ const DownloadXlsx = async () => {
           </el-table-column>
           <el-table-column label="Name" width="400" prop="name" />
           <el-table-column label="County" prop="county.name" />
+          <el-table-column label="Subcounty" prop="subcounty.name" />
           <el-table-column label="Population" prop="population" />
           <el-table-column label="Area(HA)" prop="area" />
 
 
-          <el-table-column fixed="right" label="Operations" width="150">
+          <el-table-column fixed="right" label="Operations" width="200">
             <template #default="scope">
 
               <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
@@ -1288,6 +1385,11 @@ const DownloadXlsx = async () => {
               </el-tooltip>
               <el-tooltip content="View on Map" placement="top">
                 <el-button type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)" circle />
+              </el-tooltip>
+
+              <el-tooltip content="View Households" placement="top">
+                <el-button v-show="showAdminButtons" type="success" :icon="User"
+                  @click="viewHHs(scope as TableSlotDefault)" circle />
               </el-tooltip>
               <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
                 <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
@@ -1385,8 +1487,6 @@ const DownloadXlsx = async () => {
     </el-dialog>
 
   </ContentWrap>
-
-
 </template>
  
 

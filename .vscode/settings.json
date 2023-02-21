@@ -22,5 +22,8 @@
     "vue",
     "react"
   ],
-  "god.tsconfig": "./tsconfig.json"
+  "god.tsconfig": "./tsconfig.json",
+  "cSpell.words": [
+    "subcounty"
+  ]
 }
