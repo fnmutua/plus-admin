@@ -37,8 +37,8 @@ if [ $CLOUD_SERVER -eq 1 ]; then
   echo "Setting up cloud host connection details"
   echo
 
-  export PGHOST="collect.casconsultants.co.ke"
-  export PGPORT="5433"
+  export PGHOST="localhost"
+  export PGPORT="5432"
   export PGUSER="postgres"
   export PGPASSWORD="***REDACTED***"
 
@@ -60,7 +60,7 @@ echo
 
 
  
-  psql -f 04012023.kisip.sql  kisip
+  psql -f 18022023.kisip.sql  kisip
 
  
 
