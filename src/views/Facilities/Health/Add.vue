@@ -43,13 +43,14 @@ import { CreateRecord } from '@/api/settlements'
 import type { FormInstance } from 'element-plus'
 import { uuid } from 'vue-uuid'
 
-const parentOptions = ref([])
 const loading = ref(true)
 
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   name: '',
   settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
   facility_type: '',
   facility_number: '',
   reg_status: '',
@@ -61,8 +62,11 @@ const ruleForm = reactive({
 })
 
 //id","name","county_id","settlement_type","geom","area","population","code","description"
+const settlementOptions = ref([])
 
-const getParentNames = async () => {
+const settlementfilteredOptions = ref([])
+
+const getSettlements = async () => {
   const res = await getCountyListApi({
     params: {
       pageIndex: 1,
@@ -83,15 +87,110 @@ const getParentNames = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var parentOpt = {}
       parentOpt.value = arrayItem.id
+      parentOpt.county_id = arrayItem.county_id
       parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
-      parentOptions.value.push(parentOpt)
+      settlementOptions.value.push(parentOpt)
     })
   })
 }
-getParentNames()
+const countyOptions = ref([])
+const countyRefList = ref()
 
-console.log('--> parent options', parentOptions.value)
+const getCounties = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'county',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    countyRefList.value = ret
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var county = {}
+      county.value = arrayItem.id
+      county.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      countyOptions.value.push(county)
+    })
+  })
+}
+
+
+const subcountyOptions = ref([])
+const subcountyfilteredOptions = ref([])
+const subcounties = ref([])
+const getSubCounties = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    //console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    subcounties.value = ret
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var parentOpt = {}
+      parentOpt.value = arrayItem.id
+      parentOpt.county_id = arrayItem.county_id
+      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      subcountyOptions.value.push(parentOpt)
+    })
+  })
+}
+
+const handleSelectCounty = async (county_id: any) => {
+  console.log(county_id)
+
+  var subset = [];
+  for (let i = 0; i < subcountyOptions.value.length; i++) {
+    if (subcountyOptions.value[i].county_id == county_id) {
+      subset.push(subcountyOptions.value[i]);
+    }
+  }
+  console.log(subset)
+  subcountyfilteredOptions.value = subset
+
+  // filter settleemnts 
+  var subset_settlements = [];
+  for (let i = 0; i < settlementOptions.value.length; i++) {
+    if (settlementOptions.value[i].county_id == county_id) {
+      subset_settlements.push(settlementOptions.value[i]);
+    }
+  }
+  console.log("Subset Setts", subset_settlements)
+  settlementfilteredOptions.value = subset_settlements
+
+
+  // Get the select subcoites GEO
+}
+
+
+
+getSettlements()
+getCounties()
+getSubCounties()
+
+console.log('--> parent options', settlementOptions.value)
 const polygons = ref([]) as Ref<[number, number][][]>
 const shp = []
 const rules = reactive<FormRules>({
@@ -99,7 +198,9 @@ const rules = reactive<FormRules>({
     { required: true, message: 'Please provide  name', trigger: 'blur' },
     { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
   ],
-  settlement_id: [{ required: true, message: 'Please select a county', trigger: 'blur' }],
+  settlement_id: [{ required: true, message: 'Please select a settlement', trigger: 'blur' }],
+  county_id: [{ required: true, message: 'Please select a county', trigger: 'blur' }],
+  subcounty_id: [{ required: true, message: 'Please select a subcounty', trigger: 'blur' }],
 
   facility_type: [
     { required: true, message: 'The Facility Type is required', trigger: 'blur' }
@@ -270,37 +371,66 @@ const MapBoxToken =
 
 const mapHeight = '450px'
 
+
+
 </script>
 
 <template>
   <ContentWrap :title="title">
     <el-row :gutter="20">
-      <el-col :span="10">
-        <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
-          status-icon>
+      <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+        <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm" status-icon>
           <el-form-item label="Name" prop="name">
             <el-input v-model="ruleForm.name" />
           </el-form-item>
           <el-form-item label="Facility No." prop="facility_number">
             <el-input v-model="ruleForm.facility_number" />
           </el-form-item>
+
+          <el-row>
+            <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+              <el-form-item label="County" prop="county_id">
+                <el-select v-model="ruleForm.county_id" filterable placeholder="County" :onChange="handleSelectCounty">
+                  <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+
+            <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+              <el-form-item label="Subcounty" prop="subcounty_id">
+                <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
+                  <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                    :value="item.value" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
           <el-form-item label="Settlement" prop="settlement_id">
             <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-              <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
+              <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+                :value="item.value" />
             </el-select>
           </el-form-item>
 
-          <el-form-item label="Type" prop="facility_type">
-            <el-select v-model="ruleForm.facility_type" placeholder="Facility Type">
-              <el-option v-for="item in ftypeOtions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
+          <el-row>
+            <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
 
-          <el-form-item label="Level" prop="level">
-            <el-select v-model="ruleForm.level" placeholder="Facility Level">
-              <el-option v-for="item in LevelOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
+              <el-form-item label="Type" prop="facility_type">
+                <el-select v-model="ruleForm.facility_type" placeholder="Facility Type">
+                  <el-option v-for="item in ftypeOtions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+
+              <el-form-item label="Level" prop="level">
+                <el-select v-model="ruleForm.level" placeholder="Facility Level">
+                  <el-option v-for="item in LevelOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
 
           <el-form-item label="Registration" prop="reg_status">
             <el-select v-model="ruleForm.reg_status" placeholder="Registration">
@@ -330,7 +460,7 @@ const mapHeight = '450px'
         </el-form>
       </el-col>
 
-      <el-col :span="14">
+      <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card class="box-card">
           <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
             mapStyle="mapbox://styles/mapbox/light-v10">

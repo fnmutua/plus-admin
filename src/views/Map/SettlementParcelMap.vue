@@ -17,10 +17,8 @@ import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { Download } from '@element-plus/icons-vue'
 
-
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
-
 
 import writeShapefile from '@/utils/writeShapefile'
 import * as download from 'downloadjs'
@@ -354,12 +352,10 @@ console.log(model)
 </script>
  
 <template>
-
-
   <el-card class="box-card">
     <template #header>
       <div class="card-header">
-        <span>{{ toTitleCase(title.replace('_', ' ')) + ' Settlement'}}</span>
+        <span>{{ toTitleCase(title.replace('_', ' ')) + ' Settlement' }}</span>
 
         <el-checkbox-group :onChange="switchLayer" v-model="selectedLayers">
           <el-checkbox-button v-for="layer in layers" :key="layer" :name="layer" :label="layer">{{
@@ -381,9 +377,6 @@ console.log(model)
 
 
   </el-card>
-
-
-
 </template>  
 
 

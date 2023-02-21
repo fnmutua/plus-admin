@@ -164,8 +164,8 @@ const columns: TableColumn[] = [
     label: t('Name')
   },
   {
-    field: 'category',
-    label: t('Category')
+    field: 'school_number',
+    label: t('Reistration')
   },
 
   {
@@ -602,21 +602,20 @@ const AddFacility = (data: TableSlotDefault) => {
 </script>
 
 <template>
-  <ContentWrap :title="toTitleCase(model.replace('_', ' '))"
-    :message="t('Use the filters on the list of view the Map ')">
+  <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Use the filters on the list of view the Map ')">
 
     <el-tabs @tab-click="onMap" type="border-card">
       <el-tab-pane label="List">
         <el-divider border-style="dashed" content-position="left">Filters</el-divider>
         <div style="display: inline-block; margin-left: 20px">
-          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable
-            filterable collapse-tags placeholder="Filter by">
+          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
+            collapse-tags placeholder="Filter by">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
         <div style="display: inline-block; margin-left: 20px">
-          <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable
-            filterable collapse-tags placeholder="Filter by  Name">
+          <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
+            collapse-tags placeholder="Filter by  Name">
             <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
@@ -657,28 +656,28 @@ const AddFacility = (data: TableSlotDefault) => {
       <el-tab-pane label="Map">
         <el-card class="box-card" />
         <!--         <mapbox-map ref="map" auto-resize="true" :maxBounds="maxBounds" :center="[37.817, 0.606]" :zoom="5"
-          :height="mapHeight" :accessToken="MapBoxToken" mapStyle="mapbox://styles/mapbox/light-v10">
-          <mapbox-geocoder-control :countries="countries" />
-          <mapbox-marker ref="markers" v-for="(l, key) in markerLatlon" :key="key" :lngLat="l" popup>
-            <mapbox-popup>
-              <div class="card-header">
-                <span style="color:blue;font-weight:bold; font-size: 45;">
-                  <h1>{{ markerProperties[key].name }}</h1>
-                </span>
-                <div>
-                  <el-divider>
-                    <el-icon>
-                      <star-filled />
-                    </el-icon>
-                  </el-divider>
-                  <h2>Coming soon....</h2>
+            :height="mapHeight" :accessToken="MapBoxToken" mapStyle="mapbox://styles/mapbox/light-v10">
+            <mapbox-geocoder-control :countries="countries" />
+            <mapbox-marker ref="markers" v-for="(l, key) in markerLatlon" :key="key" :lngLat="l" popup>
+              <mapbox-popup>
+                <div class="card-header">
+                  <span style="color:blue;font-weight:bold; font-size: 45;">
+                    <h1>{{ markerProperties[key].name }}</h1>
+                  </span>
+                  <div>
+                    <el-divider>
+                      <el-icon>
+                        <star-filled />
+                      </el-icon>
+                    </el-divider>
+                    <h2>Coming soon....</h2>
+                  </div>
                 </div>
-              </div>
-            </mapbox-popup>
-          </mapbox-marker>
-          <mapbox-geolocate-control />
-          <mapbox-navigation-control position="bottom-right" />
-        </mapbox-map> -->
+              </mapbox-popup>
+            </mapbox-marker>
+            <mapbox-geolocate-control />
+            <mapbox-navigation-control position="bottom-right" />
+          </mapbox-map> -->
         <div id="mapContainer" class="basemap"></div>
 
       </el-tab-pane>

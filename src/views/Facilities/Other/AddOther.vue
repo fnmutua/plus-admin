@@ -80,6 +80,8 @@ const ruleForm = reactive({
   ownership_type: '',
   owner: '',
   settlement_id: '',
+  county_id: '',
+  subcounty_id: '',
   geom: '',
 })
 
@@ -114,15 +116,157 @@ const getParentNames = async () => {
     })
   })
 }
-getParentNames()
+//getParentNames()
+
+
+
+//id","name","county_id","settlement_type","geom","area","population","code","description"
+const settlementOptions = ref([])
+
+const settlementfilteredOptions = ref([])
+
+const getSettlements = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'settlement',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var parentOpt = {}
+      parentOpt.value = arrayItem.id
+      parentOpt.county_id = arrayItem.county_id
+      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      settlementOptions.value.push(parentOpt)
+    })
+  })
+}
+const countyOptions = ref([])
+const countyRefList = ref()
+
+const getCounties = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'county',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    countyRefList.value = ret
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var county = {}
+      county.value = arrayItem.id
+      county.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      countyOptions.value.push(county)
+    })
+  })
+}
+
+
+const subcountyOptions = ref([])
+const subcountyfilteredOptions = ref([])
+const subcounties = ref([])
+const getSubCounties = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    //console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    subcounties.value = ret
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var parentOpt = {}
+      parentOpt.value = arrayItem.id
+      parentOpt.county_id = arrayItem.county_id
+      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      subcountyOptions.value.push(parentOpt)
+    })
+  })
+}
+
+const handleSelectCounty = async (county_id: any) => {
+  console.log(county_id)
+
+  var subset = [];
+  for (let i = 0; i < subcountyOptions.value.length; i++) {
+    if (subcountyOptions.value[i].county_id == county_id) {
+      subset.push(subcountyOptions.value[i]);
+    }
+  }
+  console.log(subset)
+  subcountyfilteredOptions.value = subset
+
+  // filter settleemnts 
+  var subset_settlements = [];
+  for (let i = 0; i < settlementOptions.value.length; i++) {
+    if (settlementOptions.value[i].county_id == county_id) {
+      subset_settlements.push(settlementOptions.value[i]);
+    }
+  }
+  console.log("Subset Setts", subset_settlements)
+  settlementfilteredOptions.value = subset_settlements
+
+
+  // Get the select subcoites GEO
+}
+
+
+
+getSettlements()
+getCounties()
+getSubCounties()
+
+
 console.log('--> parent options', parentOptions.value)
 const polygons = ref([]) as Ref<[number, number][][]>
 const shp = []
 const rules = reactive<FormRules>({
-  settlement_id: [{ required: true, message: 'Please select a settlemtn', trigger: 'blur' }],
+  county_id: [{ required: true, message: 'Please select a county', trigger: 'blur' }],
+  subcounty_id: [{ required: true, message: 'Please select a Subcounty', trigger: 'blur' }],
   type: [{ required: true, message: 'Facility Type is required', trigger: 'blur' }],
   condition: [{ required: true, message: 'Facility condition is required', trigger: 'blur' }],
 })
+
+
+
+
+
+
+
+
 
 const countries = 'ke'
 
@@ -574,7 +718,7 @@ const mapHeight = '450px'
   <ContentWrap :title="toTitleCase(title)">
 
     <el-row :gutter="20">
-      <el-col :span="10" :lg="10" :md="12" :sm="12" :xs="24">
+      <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card class="box-card">
           <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
             status-icon>
@@ -582,15 +726,38 @@ const mapHeight = '450px'
             <el-row :gutter="20">
               <el-divider content-position="left" />
 
+
+
+              <el-row>
+                <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+                  <el-form-item label="County" prop="county_id">
+                    <el-select v-model="ruleForm.county_id" filterable placeholder="County"
+                      :onChange="handleSelectCounty">
+                      <el-option v-for="item in countyOptions" :key="item.value" :label="item.label"
+                        :value="item.value" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+
+                <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+                  <el-form-item label="Subcounty" prop="subcounty_id">
+                    <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
+                      <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                        :value="item.value" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+
               <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
 
                 <el-form-item label="Settlement" prop="settlement_id">
-                  <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement">
-                    <el-option v-for="item in parentOptions" :key="item.value" :label="item.label"
+                  <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
+                    <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
-
 
                 <el-form-item label="Type" prop="type">
                   <el-cascader v-model="tmpSel" :options="cascadeOptions" :show-all-levels="false"
@@ -630,8 +797,7 @@ const mapHeight = '450px'
 
                 <el-form-item v-if="phase" label="Phase" prop="phase">
                   <el-select v-model="ruleForm.number_phases" filterable placeholder="Select">
-                    <el-option v-for="item in phase_options" :key="item.value" :label="item.label"
-                      :value="item.value" />
+                    <el-option v-for="item in phase_options" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
                 </el-form-item>
 
@@ -695,7 +861,7 @@ const mapHeight = '450px'
 
       </el-col>
 
-      <el-col :span="14" :lg="14" :md="12" :sm="12" :xs="24">
+      <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card class="box-card">
           <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
             mapStyle="mapbox://styles/mapbox/light-v10">

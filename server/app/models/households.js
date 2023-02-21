@@ -13,6 +13,20 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
+
+    
+      county_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
+  
+  
+      subcounty_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
+  
+
       name: {
         type: DataTypes.STRING,
         allowNull: true

@@ -17,3 +17,10 @@ then(arg0: (response: { data: any }) => void): unknown
 }
  
  
+export const getListWithoutGeo = ({ params }: AxiosConfig) => {
+  return request.get<{
+then(arg0: (response: { data: any }) => void): unknown
+    total: number
+    list: CountyType[]
+  }>({ url: prod + '/api/v1/data/all/nogeo', params })
+}

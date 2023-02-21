@@ -10,6 +10,9 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: true
     },
+
+
+
     category: {
       type: DataTypes.STRING,
       allowNull: true
@@ -99,6 +102,19 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
    
+    
+    county_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+
+
+    subcounty_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+
+    
  
     code: {
       type: DataTypes.STRING,

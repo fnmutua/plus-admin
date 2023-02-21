@@ -44,6 +44,7 @@ const model = ref()          // the model
 const code = ref()  // the parent code as per the imported excel file 
 const parent_key = ref()       // the parent foregin key in the model 
 const parentModel = ref()      // the parent model
+const parent = ref()      // the parent model
 
 
 ///---------------------xlsx-
@@ -55,6 +56,9 @@ const matchOptions = ref([])
 const assocModel = ref()
 const uploadObj = ref([])
 const matchedObj = ref([])
+const theParentModel = ref()
+const theParentModelField = ref()
+
 const matchedObjwithparent = ref([])
 const fieldSet = ref([])
 const show = ref(false)
@@ -204,7 +208,22 @@ const beneficiary_fields = [
 
 ]
 
+const parentOptions = [
 
+  {
+    value: 'settlement',
+    label: 'Settlement'
+  },
+
+  {
+    value: 'county',
+    label: 'County'
+  },
+  {
+    value: 'subcounty',
+    label: 'Subcounty'
+  },
+]
 
 const uploadOptions = [
   {
@@ -217,6 +236,10 @@ const uploadOptions = [
       {
         value: 'parcel',
         label: 'Parcels'
+      },
+      {
+        value: 'project',
+        label: 'Projects'
       },
       {
         value: 'intervention',
@@ -409,6 +432,7 @@ const handleSelectType = async (type: any) => {
     model.value = 'beneficiary'
     parentModel.value = 'households'
     parent_key.value = 'hh_id'
+
     code.value = 'pcode'
     assocModel.value = 'settlement'
     getParentOptions()
@@ -425,6 +449,17 @@ const handleSelectType = async (type: any) => {
     console.log('interventions_fields------>', interventions_fields)
     getParentOptions()
   }
+
+
+  else if (type === 'project') {
+    //fieldSet.value = interventions_fields
+    model.value = 'project'
+    parentModel.value = theParentModel.value
+    parent_key.value = theParentModelField.value
+    code.value = 'pcode'
+    getParentOptions()
+  }
+
 
   else if (type === 'beneficiary_parcel') {
     // fieldSet.value = beneficiary_parcels
@@ -759,6 +794,21 @@ const readXLSX = async (event) => {
 }
 
 
+
+
+const handleSelectParentModel = async (parent: any) => {
+  theParentModel.value = parent
+  if (parent === 'county') {
+    theParentModelField.value = "county_id"
+  }
+  else if (parent === 'settlement') {
+
+    theParentModelField.value = "settlement_id"
+
+  }
+
+
+}
 </script>
 
 <template>
@@ -770,6 +820,11 @@ const readXLSX = async (event) => {
         <el-option-group v-for="group in uploadOptions" :key="group.label" :label="group.label">
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
         </el-option-group>
+      </el-select>
+
+      <el-select v-model="parent" :onChange="handleSelectParentModel" :onClear="handleClear"
+        placeholder="Select Parent Model">
+        <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
 
@@ -822,13 +877,11 @@ const readXLSX = async (event) => {
       </el-icon>
     </el-button>
     <!-- <section>
-      <input type="file" @change="readXLSX" />
-    </section> -->
+                                                                      <input type="file" @change="readXLSX" />
+                                                                    </section> -->
 
 
   </ContentWrap>
-
-
 </template>
 
 <style scoped>

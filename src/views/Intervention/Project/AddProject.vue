@@ -105,6 +105,8 @@ const ruleForm = reactive({
   domain_id: domain_id.value,
   status: '',
   period: null,
+  start_date: '',
+  end_date: '',
   cost: 0,
   male_beneficiaries: 0,
   female_beneficiaries: 0,
@@ -477,7 +479,8 @@ const rules = reactive<FormRules>({
   title: [{ required: true, message: 'Title is required', trigger: 'blur' }],
   programme_id: [{ required: true, message: 'Programme is required', trigger: 'blur' }],
   domain_id: [{ required: true, message: 'Domain is required', trigger: 'blur' }],
-  period: [{ required: true, message: 'Period is required', trigger: 'blur' }],
+  start_date: [{ required: true, message: 'Start Date is required', trigger: 'blur' }],
+  end_date: [{ required: true, message: 'End Date is required', trigger: 'blur' }],
   status: [{ required: true, message: 'Status is required', trigger: 'blur' }],
   category_id: [{ required: true, message: 'Status is required', trigger: 'blur' }],
 
@@ -1121,10 +1124,26 @@ const handleSelectCounty = async (county_id: any) => {
 
               </el-row>
 
-              <el-form-item label="Period" prop="period">
-                <el-date-picker v-model="ruleForm.period" type="monthrange" range-separator="To"
-                  start-placeholder="Start date" end-placeholder="End date" />
-              </el-form-item>
+
+              <el-row>
+                <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
+
+                  <el-form-item label="Start" prop="start_date">
+                    <el-date-picker v-model="ruleForm.start_date" type="date" placeholder="Start" />
+                  </el-form-item>
+                </el-col>
+
+
+                <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
+
+                  <el-form-item label="End" prop="end_date">
+                    <el-date-picker v-model="ruleForm.end_date" type="date" placeholder="End" />
+                  </el-form-item>
+                </el-col>
+
+              </el-row>
+
+
               <el-row>
                 <el-form-item label="Status" prop="status">
                   <el-select v-model="ruleForm.status" filterable placeholder="Select">

@@ -15,11 +15,6 @@ import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 
-
-import { useAppStoreWithOut } from '@/store/modules/app'
-import { useCache } from '@/hooks/web/useCache'
-
-
 interface Params {
   pageIndex?: number
   xpageSize?: number
@@ -42,61 +37,48 @@ const downloadLoading = ref(false)
 
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
-
-var filters = ['benefit_type_id']
-var filterValues = [1]
+//const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
+var filters = []
+var filterValues = [[]]
 var tblData = []
-
-// Models and their associaions---------
-const model = 'beneficiary'
-const associated_Model = ''
-const associated_multiple_models = ['settlement', 'households']
-
-const nested_models = ['intervention', 'intervention_type'] // The mother, then followed by the child
-
-
-const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
-const userInfo = wsCache.get(appStore.getUserInfo)
-
-
-
-// Hide buttons if not admin 
-const showAdminButtons = ref(false)
-
-if (userInfo.roles.includes("admin")) {
-  showAdminButtons.value = true
-}
-
-
+const associated_Model = 'settlement'
+const model = 'households'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
 
 const columns: TableColumn[] = [
   {
-    field: 'id',
-    label: t('userDemo.index')
+    field: 'index',
+    label: t('userDemo.index'),
+    type: 'index'
   },
 
   {
-    field: 'household.name',
+    field: 'name',
     label: t('Name')
   },
   {
-    field: 'household.national_id',
+    field: 'gender',
+    label: t('Gender')
+  },
+  {
+    field: 'national_id',
     label: t('National ID')
   },
-
   {
     field: 'settlement.name',
     label: t('Settlement')
   },
-  {
-    field: 'intervention.intervention_type.type',
-    label: t('Intervention')
-  },
 
+  {
+    field: 'settlement.area',
+    label: t('Area(Ha.)')
+  },
+  {
+    field: 'intervention_phase',
+    label: t('Phase')
+  },
   {
     field: 'action',
     label: t('userDemo.action')
@@ -106,7 +88,7 @@ const handleClear = async () => {
   console.log('cleared....')
 
   // clear all the fileters -------
-  filterValues = []
+  filterValues = [[]]
   filters = []
   value1.value = ''
   value2.value = ''
@@ -117,7 +99,31 @@ const handleClear = async () => {
   //----run the get data--------
   getInterventionsAll()
 }
+const handleSelectType = async (intervention_type) => {
+  console.log('Target:', intervention_type)
+  var selectOption = 'intervention_type'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
+  }
+  var index = filters.indexOf(selectOption) // 1
+  console.log('index--->', index)
+  // clear previously selected
+  if (filterValues[index]) {
+    filterValues.splice(index, 1)
+  }
 
+  if (!filterValues.includes(intervention_type) && intervention_type.length > 0) {
+    filterValues.splice(index, 0, intervention_type) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (intervention_type.length === 0) {
+    filters.splice(index, 1)
+  }
+  console.log('FilterValues:', filterValues)
+
+  getFilteredData(filters, filterValues)
+}
 const handleSelectPhase = async (phase: any) => {
   var selectOption = 'intervention_phase'
   if (!filters.includes(selectOption)) {
@@ -175,7 +181,7 @@ const handleSelectSettlement = async (settlement: any) => {
 }
 
 const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
+  console.log('on change change: selected  ', selCounties)
   page.value = selPage
   getFilteredData(filters, filterValues)
 }
@@ -189,22 +195,21 @@ const getInterventionsAll = async () => {
   getFilteredData(filters, filterValues)
 }
 
-
-const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
+const destructure = (obj) => {
+  // console.log('deconstructing......')
+  const simpleObj = {}
   for (let key in obj) {
-    if (key != 'geom') {
-
-      if (typeof obj[key] !== 'object') {
-        res[extraKey + key] = obj[key];
-      } else {
-        flattenJSON(obj[key], res, `${extraKey}${key}.`);
-      };
-    };
+    const value = obj[key]
+    const type = typeof value
+    if (['string', 'boolean'].includes(type) || (type === 'number' && !isNaN(value))) {
+      simpleObj[key] = value
+    } else if (type === 'object') {
+      Object.assign(simpleObj, destructure(value))
+    }
   }
-  return res;
-};
 
-
+  return simpleObj
+}
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -214,19 +219,14 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
 
-  // - Associted and nested Models
   formData.assocModel = associated_Model
-  formData.nested_models = nested_models
   // - multiple filters -------------------------------------
   formData.filters = selFilters
   formData.filterValues = selfilterValues
-  formData.associated_multiple_models = associated_multiple_models
   //-------------------------
-  //console.log(formData)
-
-  //-------------------------
-  //console.log(formData)
+  console.log('=====>', formData)
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
@@ -237,9 +237,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('TBL-b4', tblData)
   res.data.forEach(function (arrayItem) {
     //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
+    delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
-    var dd = flattenJSON(arrayItem)
+    var dd = destructure(arrayItem)
 
     tblData.push(dd)
   })
@@ -292,7 +292,7 @@ const getSettlementsOptions = async () => {
       pageIndex: 1,
       limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'settlement',
+      model: model,
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
@@ -326,7 +326,7 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
-//getInterventionTypes()
+getInterventionTypes()
 getSettlementsOptions()
 getInterventionsAll()
 
@@ -366,9 +366,16 @@ const viewOnMap = (data: TableSlotDefault) => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Tenure Regularization Settlements')"
-    :message="t('The list of tenure regularization settlements. Use the filters to subset')">
+  <ContentWrap :title="t('Households')"
+    :message="t('The list of households in informal settlements. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+
+    <div style="display: inline-block; margin-left: 20px">
+      <el-select v-model="value1" value-key="type" :onChange="handleSelectType" :onClear="handleClear" multiple filterable
+        clearable collapse-tags placeholder="Filter by Intervention">
+        <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+    </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-select v-model="value2" :onChange="handleSelectPhase" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by KISIP Phase">
@@ -376,8 +383,8 @@ const viewOnMap = (data: TableSlotDefault) => {
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="Filter by Settlement Name">
+      <el-select v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="Filter by Settlement Name">
         <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
@@ -397,16 +404,15 @@ const viewOnMap = (data: TableSlotDefault) => {
         </el-tooltip>
 
         <el-tooltip content="View Households" placement="top">
-          <el-button v-if="showAdminButtons" type="success" :icon="User" @click="viewHHs(data as TableSlotDefault)"
-            circle />
+          <el-button type="success" :icon="User" @click="viewHHs(data as TableSlotDefault)" circle />
         </el-tooltip>
         <el-tooltip content="View on Map" placement="top">
           <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
         </el-tooltip>
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 </template>

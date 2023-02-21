@@ -23,6 +23,11 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
+    subcounty_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
     title: {
       type: DataTypes.STRING,
       allowNull: false
@@ -47,11 +52,14 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
   
-    period: {
-      type: DataTypes.RANGE(DataTypes.DATEONLY),
-      allowNull: false
+    start_date: {
+      type: DataTypes.DATE,
+      allowNull: true
     },
-        
+    end_date: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
     domain_id: {
       type: DataTypes.INTEGER,
       allowNull: false

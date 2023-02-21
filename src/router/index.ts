@@ -112,7 +112,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
       },
       {
         path: 'kisip1',
-        component: () => import('@/views/Dashboard/Kisip.vue'),
+        component: () => import('@/views/Dashboard/Interventions.vue'),
         name: 'InterventionsDashboard',
         meta: {
           title: t('Kisip'),
@@ -1114,8 +1114,8 @@ export const publicRoutes: AppRouteRecordRaw[] = [
       },
       {
         path: 'kisip1',
-        component: () => import('@/views/Dashboard/Kisip.vue'),
-        name: 'Kisip',
+        component: () => import('@/views/Dashboard/Interventions.vue'),
+        name: 'InterventionsDash',
         meta: {
           title: t('Kisip'),
           noCache: true,
@@ -1221,21 +1221,12 @@ export const publicRoutes: AppRouteRecordRaw[] = [
         component: Layout,
         redirect: '/interventions/kisip/settlements',
         meta: {
-          title: 'KISIP',
+          title: 'Interventions',
           icon: 'mingcute:certificate-fill',
 
         },
         children: [
-          {
-            path: 'settlements',
-            name: 'kisipInterventionSettlements',
-          //  component: 'views/Intervention/Tenure/Settlements',
-            component: () => import('@/views/Intervention/Settlements.vue'),
-            meta: {
-              title: 'Settlements',
-              icon:'mdi:map-legend'
-            }
-          },
+     
           {
             path: 'project',
             name: 'InterventionProjects',
@@ -1580,7 +1571,7 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
       },
       {
         path: 'kisip1',
-        component: () => import('@/views/Dashboard/Kisip.vue'),
+        component: () => import('@/views/Dashboard/Interventions.vue'),
         name: 'Kisip',
         meta: {
           title: t('Kisip'),
@@ -2140,8 +2131,8 @@ export const staffRoutes: AppRouteRecordRaw[] = [
       },
       {
         path: 'kisip1',
-        component: () => import('@/views/Dashboard/Kisip.vue'),
-        name: 'Kisip',
+        component: () => import('@/views/Dashboard/Interventions.vue'),
+        name: 'InterventionsDash',
         meta: {
           title: t('Kisip'),
           noCache: true,
@@ -2897,8 +2888,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'kisip1',
-        component: () => import('@/views/Dashboard/Kisip.vue'),
+        path: 'achievements',
+        component: () => import('@/views/Dashboard/Interventions.vue'),
         name: 'InterventionsDashboard',
         meta: {
           title: t('Interventions'),
@@ -3095,23 +3086,14 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         path: 'tenure',
         name: 'kisipInterventions',
         component: Layout,
-        redirect: '/interventions/kisip/settlements',
+        redirect: '/interventions/kisip/project',
         meta: {
           title: 'Tenure',
           icon: 'icon-park-outline:certificate',
 
         },
         children: [
-          {
-            path: 'settlements',
-            name: 'kisipInterventionSettlements',
-          //  component: 'views/Intervention/Tenure/Settlements',
-            component: () => import('@/views/Intervention/Settlements.vue'),
-            meta: {
-              title: 'Settlements',
-              icon:'mdi:map-legend'
-            }
-          },
+ 
           {
             path: 'project',
             name: 'TenureInterventionProjects',
@@ -3873,7 +3855,7 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
       },
       {
         path: 'kisip1',
-        component: () => import('@/views/Dashboard/Kisip.vue'),
+        component: () => import('@/views/Dashboard/Interventions.vue'),
         name: 'InterventionsDashboard',
         meta: {
           title: t('Interventions'),

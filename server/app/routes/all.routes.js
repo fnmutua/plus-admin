@@ -15,6 +15,7 @@ module.exports = function (app) {
 
   // Gets the  All dataes
   app.get('/api/v1/data/all',  [authJwt.verifyToken],controller.modelAllData)
+  app.get('/api/v1/data/all/nogeo',  [authJwt.verifyToken],controller.modelAllDataNoGeo)
 
   // Gets the  All dataes
   app.get('/api/v1/data/filter',  [authJwt.verifyToken],controller.modelAllDatafilter)

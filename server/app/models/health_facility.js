@@ -87,6 +87,18 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
    
+    
+    county_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+
+
+    subcounty_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+
  
     code: {
       type: DataTypes.STRING,
