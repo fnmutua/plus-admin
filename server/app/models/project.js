@@ -33,10 +33,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
 
-    programme_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
+   
     component_id: {
       type: DataTypes.INTEGER,
       allowNull: false
@@ -60,15 +57,8 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.DATE,
       allowNull: true
     },
-    domain_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
-    
-    category_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false
-    },
+  
+ 
   
     cost: {
       type: DataTypes.INTEGER,

@@ -17,6 +17,7 @@ import { getSummarybyFieldFromInclude, getSummarybyFieldFromMultipleIncludes } f
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
 import { getSummarybyField, getSummarybyFieldSimple, getSummarybyFieldNested, getSummaryGroupByMultipleFields } from '@/api/summary'
+import { watch } from 'vue';
 
 
 import { use } from "echarts/core";
@@ -36,6 +37,7 @@ import {
 import { computed } from 'vue'
 import { useAppStore, useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { useRoute } from 'vue-router'
 
 
 use([
@@ -59,6 +61,13 @@ const aspect = ref()
 const appStore = useAppStoreWithOut()
 
 
+const route = useRoute()
+
+
+
+console.log('Route >>>>>>', route)
+
+
 // use shorter chart titles for mobile and longer ones for large screens
 // initialize with long titles
 const pyramidChartTitle = ref("Slums/Informal Settlements Age-Gender Profile")
@@ -70,6 +79,9 @@ const ShowLegend = ref(true)
 const isMobile = computed(() => appStore.getMobile)
 
 console.log('isMobile', isMobile.value)
+
+
+
 
 if (isMobile.value) {
   pyramidChartTitle.value = "Profile"
@@ -2178,7 +2190,6 @@ const activeName = ref('Chart')
 
 
   </el-tabs>
-
 </template>
 
 <style>

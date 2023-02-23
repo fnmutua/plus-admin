@@ -93,9 +93,9 @@ const showEditSaveButton = ref(false)
 
 const columns: TableColumn[] = [
   {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
+    field: 'id',
+    label: t('Id'),
+
   },
 
   {
@@ -105,8 +105,8 @@ const columns: TableColumn[] = [
 
 
   {
-    field: 'strategic_focu.title',
-    label: t('Strategic Area')
+    field: 'acronym',
+    label: t('Acronym')
   },
 
   {
@@ -350,6 +350,8 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.title = data.row.title
   ruleForm.domain_id = data.row.domain_id
   ruleForm.programme_id = data.row.programme_id
+  ruleForm.acronym = data.row.acronym
+  ruleForm.icon = data.row.icon
 
 
   formHeader.value = 'Edit Component'
@@ -376,7 +378,16 @@ const DeleteIndicator = (data: TableSlotDefault) => {
   getFilteredData(filters, filterValues)
 }
 
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  title: '',
+  programme_id: '',
+  domain_id: '',
+  acronym: '',
+  icon: ''
 
+
+})
 const handleClose = () => {
 
   console.log("Clsoing the dialoig")
@@ -390,13 +401,7 @@ const handleClose = () => {
 }
 
 
-const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
-  title: '',
-  programme_id: '',
-  domain_id: '',
 
-})
 
 const rules = reactive<FormRules>({
   title: [
@@ -510,6 +515,11 @@ getStrategicFocusAreas()
       <el-form-item label="Title">
         <el-input v-model="ruleForm.title" />
       </el-form-item>
+
+      <el-form-item label="Acronym">
+        <el-input v-model="ruleForm.acronym" />
+      </el-form-item>
+
       <el-form-item label="Intervention Area" prop="domain">
         <el-select v-model="ruleForm.domain_id" filterable placeholder="Select">
           <el-option v-for="item in strategicFocusOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -521,6 +531,11 @@ getStrategicFocusAreas()
           <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
+
+      <el-form-item label="Icon">
+        <el-input v-model="ruleForm.icon" />
+      </el-form-item>
+
     </el-form>
     <template #footer>
 
@@ -530,5 +545,5 @@ getStrategicFocusAreas()
         <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
       </span>
     </template>
-</el-dialog>
+  </el-dialog>
 </template>

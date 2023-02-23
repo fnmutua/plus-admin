@@ -171,9 +171,7 @@ db.models.cluster.belongsTo(db.models.lots, {
   foreignKey: 'lot_id'
 })
 
-db.models.beneficiary_parcel.belongsTo(db.models.beneficiary, {
-  foreignKey: 'beneficiary_id'
-})
+
 
 db.models.beneficiary_parcel.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
@@ -202,15 +200,11 @@ db.models.intervention.belongsTo(db.models.intervention_type, {
   foreignKey: 'intervention_type_id'
 })
 
-
-
-db.models.beneficiary.belongsTo(db.models.benefit_type, {
-  foreignKey: 'benefit_type_id'
-})
+ 
 
 
 
-//Beneficiriaes r
+//Beneficiriaes 
 db.models.beneficiary.belongsTo(db.models.households, {
   foreignKey: 'hh_id'
 })
@@ -227,8 +221,15 @@ db.models.beneficiary.belongsTo(db.models.project, {
 db.models.project.hasMany(db.models.beneficiary, {
   foreignKey: 'project_id'
 })
-
  
+db.models.beneficiary.belongsTo(db.models.component, {
+  foreignKey: 'component_id'
+})
+
+db.models.component.hasMany(db.models.beneficiary, {
+  foreignKey: 'component_id'
+})
+
 
 
 
@@ -542,16 +543,6 @@ db.models.subcounty.hasMany(db.models.public_facility, {
 
 
 
-
-// Project   - programme
-db.models.project.belongsTo(db.models.programme, {
-  foreignKey: 'programme_id'
-})
-
-db.models.programme.hasMany(db.models.project, {
-  foreignKey: 'programme_id'
-})
-
 // Project   - component 
 db.models.project.belongsTo(db.models.component, {
   foreignKey: 'component_id'
@@ -561,14 +552,6 @@ db.models.component.hasMany(db.models.project, {
   foreignKey: 'component_id'
 })
 
-// Project   - Domain 
-db.models.project.belongsTo(db.models.domain, {
-  foreignKey: 'domain_id'
-})
-
-db.models.domain.hasMany(db.models.project, {
-  foreignKey: 'domain_id'
-})
 
 // Project category  - Component  
 db.models.project_category.belongsTo(db.models.component, {
@@ -579,15 +562,7 @@ db.models.component.hasMany(db.models.project_category, {
   foreignKey: 'component_id'
 })
 
-// Project menu  - Project Categrory   
-db.models.project.belongsTo(db.models.project_category, {
-  foreignKey: 'category_id'
-})
 
-db.models.project_category.hasMany(db.models.project, {
-  foreignKey: 'category_id'
-})
- 
 // component    - focus 
 
 db.models.component.belongsTo(db.models.domain, {
