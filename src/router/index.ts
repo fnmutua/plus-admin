@@ -7,6 +7,11 @@ import { useI18n } from '@/hooks/web/useI18n'
  
 const { t } = useI18n()
 
+
+console.log("try Daynamic definiiton of routes here............")
+
+
+
 export const constantRouterMap: AppRouteRecordRaw[] = [
   {
     path: '/',
@@ -2960,6 +2965,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'beneficiary',
+        name: 'InterventionBeneficiary',
+        component: () => import('@/views/Intervention/InterventionBeneficiary.vue'),
+        meta: {
+          title: 'Beneficiaries',
+          icon:'bi:people-fill'
+        },
+   
+      },
+      {
         path: 'hh/:id',
       //  component: 'views/Household/index',
         component: () => import('@/views/Household/filtered.vue'),
@@ -3071,7 +3086,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     ]
   },
  
-  {
+/*   {
     path: '/interventions',
     component: Layout,
     redirect: '/interventions/tenure/settlements',
@@ -3261,7 +3276,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       },
     ]
   },
-  
+   */
  {
     path: '/facilities',
     component: Layout,

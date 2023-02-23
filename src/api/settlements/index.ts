@@ -116,3 +116,10 @@ export const deleteDocument = (data: SettlementType): Promise<IResponse<Settleme
   // console.log('....', data)
   return request.post({ url: prod + '/api/v1/upload/delete', data })
 }
+
+export const getRoutesList = (
+  data: SettlementType
+): Promise<IResponse<SettlementType>> => {
+//  console.log('getSettlementListByCounty....', data)
+  return request.post({ url: prod + '/api/v1/routes', data })
+}

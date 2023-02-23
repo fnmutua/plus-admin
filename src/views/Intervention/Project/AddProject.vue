@@ -89,22 +89,18 @@ const map = ref()
 
 ///------------------------------------Get route source-----------------------------------
 const route = useRoute()
-const domain_id = ref()
+const component_id = ref()
 
 ///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-  settlement_id: null,
   location_level: null,
+  settlement_id: null,
   county_id: null,
   title: '',
   type: '',
-  programme_id: null,
-  component_id: null,
-  category_id: null,
-  domain_id: domain_id.value,
+  component_id: component_id.value,
   status: '',
-  period: null,
   start_date: '',
   end_date: '',
   cost: 0,
@@ -224,8 +220,8 @@ const loadMap = () => {
 }
 onMounted(() => {
   console.log('Loaded.......')
-  domain_id.value = route.params.domain
-  console.log('domain', domain_id)
+  component_id.value = route.params.domain
+  console.log('component_id', component_id)
   //******** Domains  */
 
   // id	domain	Group	Group_id
@@ -245,9 +241,9 @@ onMounted(() => {
   // 5	Security of tenure	Tenure	5
 
 
-  console.log('domain_id >>>>', domain_id);
+  console.log('component_id >>>>', component_id);
 
-  ruleForm.domain_id = domain_id.value
+  ruleForm.component_id = component_id.value
 
   loadMap()
   getComponentsProgrameDomains()
@@ -273,69 +269,6 @@ const deletePoly = (e) => {
 
 
 
-const programmeOptions = ref([])
-const getProgrammeOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'programme',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      programmeOptions.value.push(countyOpt)
-    })
-  })
-}
-
-const componentOptions = ref([])
-const componentOptionsfiltered = ref([])
-
-const getComponentOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'component',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      countyOpt.programme_id = arrayItem.programme_id
-
-      //  console.log(countyOpt)
-      componentOptions.value.push(countyOpt)
-    })
-    componentOptionsfiltered.value = componentOptions.value
-  })
-}
-
 //id","name","county_id","settlement_type","geom","area","population","code","description"
 const settlementsRefList = ref()
 const getSettlements = async () => {
@@ -359,6 +292,7 @@ const getSettlements = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var parentOpt = {}
       parentOpt.value = arrayItem.id
+      parentOpt.county_id = arrayItem.county_id
       parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
       parentOptions.value.push(parentOpt)
@@ -399,8 +333,8 @@ const getCounties = async () => {
 }
 const domainProgrammeOptions = ref([])
 const getComponentsProgrameDomains = async () => {
-  var filters = ['domain_id']    // filter component options by Domain
-  var filterValues = [domain_id.value]  // Domain ID acquired from the path 
+  var filters = ['id']    // filter component options by Domain
+  var filterValues = [component_id.value]  // Domain ID acquired from the path 
 
 
   const formData = {}
@@ -416,7 +350,7 @@ const getComponentsProgrameDomains = async () => {
   formData.filterValues = filterValues
 
 
-  formData.associated_multiple_models = ['project_category']
+  formData.associated_multiple_models = []
 
   //-------------------------
   console.log(formData)
@@ -460,9 +394,7 @@ const getComponentsProgrameDomains = async () => {
 }
 
 getSettlements()
-getProgrammeOptions()
 getCounties()
-getComponentOptions()
 
 
 console.log('--> parent options', parentOptions.value)
@@ -477,8 +409,6 @@ const rules = reactive<FormRules>({
   settlement_id: [{ required: true, message: 'Please select a settlement', trigger: 'blur' }],
   type: [{ required: true, message: 'Type is required', trigger: 'blur' }],
   title: [{ required: true, message: 'Title is required', trigger: 'blur' }],
-  programme_id: [{ required: true, message: 'Programme is required', trigger: 'blur' }],
-  domain_id: [{ required: true, message: 'Domain is required', trigger: 'blur' }],
   start_date: [{ required: true, message: 'Start Date is required', trigger: 'blur' }],
   end_date: [{ required: true, message: 'End Date is required', trigger: 'blur' }],
   status: [{ required: true, message: 'Status is required', trigger: 'blur' }],
@@ -488,185 +418,6 @@ const rules = reactive<FormRules>({
 
 })
 
-const countries = 'ke'
-
-
-
-
-
-const cascadeOptions = [
-  {
-    value: 'road',
-    label: 'Roads and Infrastructure',
-    children: [
-      {
-        value: 'new_road',
-        label: 'New Road',
-      },
-      {
-        value: 'upgrade_bitumen',
-        label: 'Road Upgrade',
-      },
-      {
-        value: 'storm_water',
-        label: 'Storm Water Drainage',
-      },
-    ],
-  },
-
-  {
-    value: 'nmt',
-    label: 'Non-Motorized Transport',
-    children: [
-      {
-        value: 'bicycle',
-        label: 'Bicycle Paths',
-      },
-      {
-        value: 'pedestrian',
-        label: 'Pedestrian Walkways',
-      },
-
-    ],
-  },
-
-  {
-    value: 'electric',
-    label: 'Electricity',
-    children: [
-      {
-        value: 'street_light',
-        label: 'Street Lights',
-      },
-      {
-        value: 'security_lighting',
-        label: 'Security Lights',
-      },
-    ],
-  },
-  {
-    value: 'security',
-    label: 'Security and Safety',
-    children: [
-
-      {
-        value: 'police_stn',
-        label: 'Police Station',
-      },
-      {
-        value: 'police_post',
-        label: 'Police Post',
-      },
-      {
-        value: 'chiefs_camp',
-        label: 'Chiefs Camp',
-      },
-      {
-        value: 'crime_spot',
-        label: 'Crime Hotspot',
-      }
-
-    ],
-  },
-
-
-  {
-    value: 'waste',
-    label: 'Waste Management',
-    children: [
-      {
-        value: 'waste_collection_point',
-        label: 'Waste Collection Points',
-      },
-      {
-        value: 'waste_sorting_point',
-        label: 'Waste Sorting Points',
-      },
-      {
-        value: 'treatment_center',
-        label: 'Treatment/Recycling centre',
-      },
-
-      {
-        value: 'other_waste_mgmt',
-        label: 'Others e.g Biodigesters',
-      },
-    ],
-  },
-
-  {
-    value: 'Sanitation_hygiene',
-    label: 'Sanitation and Hygiene',
-    children: [
-
-      {
-        value: 'toilet',
-        label: 'Toilet',
-      },
-      {
-        value: 'shower',
-        label: 'Showers',
-      },
-      {
-        value: 'handwashing',
-        label: 'HandWashing',
-      },
-      {
-        value: 'other',
-        label: 'Other',
-      }
-    ],
-  },
-
-
-  {
-    value: 'utility',
-    label: 'Public utilities',
-    children: [
-      {
-        value: 'playground',
-        label: 'Playground',
-      },
-
-      {
-        value: 'community_centre',
-        label: 'Community Centre',
-      },
-      {
-        value: 'day_care_Centre',
-        label: 'Day Care Centre',
-      },
-      {
-        value: 'youth_center',
-        label: 'Youth Centres',
-      },
-      {
-        value: 'open_space',
-        label: 'Open Spaces and Parks',
-      },
-      {
-        value: 'vending_platforms',
-        label: 'Vending Platform (Vibanda)',
-      }
-    ],
-  },
-  {
-    value: 'social',
-    label: 'Social Projects/Activities',
-    children: [
-      {
-        value: 'social_housing',
-        label: 'Social Housing',
-      },
-      {
-        value: 'coming_soon',
-        label: 'coming Soon',
-      },
-
-    ],
-  },
-
-]
 
 
 
@@ -694,9 +445,6 @@ const status_options = [
 
 
 const handleUploadDocuments: UploadProps['onChange'] = async (uploadFile, uploadFiles) => {
-
-
-
   console.log(fileList)
 }
 
@@ -818,10 +566,7 @@ const uploadPolygon = (poly) => {
 
 
 const title = 'Add/Create  Project'
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 
-const mapHeight = '500px'
 
 const active = ref(0)
 const showForm = ref(true)
@@ -995,6 +740,9 @@ const handleSelectSettlement = async (settlement_id: any) => {
   }
   );
   console.log(newArray[0].geom)
+
+  ruleForm.county_id = newArray[0].county_id
+
   if (newArray[0].geom != null) {
     console.log(newArray[0].geom)
     let geom = {
@@ -1074,18 +822,21 @@ const handleSelectCounty = async (county_id: any) => {
             <el-step title="Documentation" :icon="Upload" />
           </el-steps>
           <el-divider />
-          <el-form label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
+          <el-form
+label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
             status-icon>
             <el-col v-if="showForm" :span="24" :lg="24" :md="12" :sm="12" :xs="24">
               <el-form-item label="Location" prop="location_level">
-                <el-select v-model="ruleForm.location_level" filterable placeholder="Select Location"
+                <el-select
+v-model="ruleForm.location_level" filterable placeholder="Select Location"
                   @change="handleSelectLocation">
                   <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
 
               <el-form-item v-if=showSettlement label="Settlement" prop="settlement_id">
-                <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
+                <el-select
+v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
                   @change="handleSelectSettlement">
                   <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
@@ -1093,7 +844,8 @@ const handleSelectCounty = async (county_id: any) => {
               </el-form-item>
 
               <el-form-item v-if=showCounty label="County" prop="county_id">
-                <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
+                <el-select
+v-model="ruleForm.county_id" filterable placeholder="Select County"
                   @change="handleSelectCounty">
                   <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
@@ -1104,25 +856,7 @@ const handleSelectCounty = async (county_id: any) => {
               <el-form-item label="Title" prop="title">
                 <el-input v-model="ruleForm.title" />
               </el-form-item>
-              <el-row v-if="showForm">
 
-                <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
-                  <el-form-item label="Programme" prop="programme_id">
-                    <!-- <el-select v-model="ruleForm.programme_id" filterable placeholder="Select" :onChange="handleChangeProgramme"> -->
-                    <el-select v-model="ruleForm.programme_id" filterable placeholder="Select">
-                      <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label"
-                        :value="item.value" />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-                <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
-                  <el-form-item label="Type" prop="category_id">
-                    <el-cascader v-model="tmp_domain" :options="domainProgrammeOptions" :show-all-levels="false"
-                      @change="handleChangeComponent" />
-                  </el-form-item>
-                </el-col>
-
-              </el-row>
 
 
               <el-row>
@@ -1183,13 +917,15 @@ const handleSelectCounty = async (county_id: any) => {
 
 
             <el-form-item v-if="showGeoFields" label="Location">
-              <el-switch width="200px" v-model="geoSource"
+              <el-switch
+width="200px" v-model="geoSource"
                 style="--el-switch-on-color: orange; --el-switch-off-color: purple" class="mb-2"
                 active-text="Upload Geojson File" inactive-text="Draw on Map" />
             </el-form-item>
 
 
-            <el-upload v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
+            <el-upload
+v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :on-change="handleUploadGeo">
               <el-icon class="el-icon--upload"><upload-filled /></el-icon>
               <div class="el-upload__text">
@@ -1204,7 +940,8 @@ const handleSelectCounty = async (county_id: any) => {
 
 
 
-            <el-upload v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" multiple
+            <el-upload
+v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" multiple
               :auto-upload="false" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
               :on-change="handleUploadDocuments">
               <el-button type="primary">Click to upload documentation</el-button>
@@ -1220,9 +957,11 @@ const handleSelectCounty = async (county_id: any) => {
           <div class="flex justify-between">
             <el-button-group class="flex justify-between items-center ">
               <el-button type="primary" :icon="ArrowRight" @click="next">Next Step</el-button>
-              <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="success"
+              <el-button
+v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="success"
                 :icon="Promotion">Submit</el-button>
-              <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
+              <el-button
+v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
                 :icon="RefreshLeft">Reset</el-button>
             </el-button-group>
           </div>

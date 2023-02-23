@@ -239,11 +239,11 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
   
         }
       }
-      console.log('Final-object------------>', lstQuerries)
+      console.log('Final-001-object------------>', lstQuerries)
    
       qry.where = lstQuerries
     }
-    console.log('Final-object------------>', qry)
+    console.log('Final---03--object------------>', qry)
   
     console.log('getting households---->')
 

@@ -375,7 +375,7 @@ const mapHeight = '450px'
             status-icon>
 
             <el-row v-if="active === 0" :gutter="20">
-              <el-divider content-position="left" />
+              <el-divider direction="vertical" />
 
               <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
                 <el-form-item label="Name" prop="name">
@@ -395,8 +395,7 @@ const mapHeight = '450px'
 
                   <el-form-item label="Type" prop="category">
                     <el-select v-model="ruleForm.category" placeholder="Type">
-                      <el-option v-for="item in ftypeOtions" :key="item.value" :label="item.label"
-                        :value="item.value" />
+                      <el-option v-for="item in ftypeOtions" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                   </el-form-item>
 
@@ -425,8 +424,7 @@ const mapHeight = '450px'
 
                   <el-form-item label="Level" prop="level">
                     <el-select v-model="ruleForm.level" placeholder="Level">
-                      <el-option v-for="item in LevelOptions" :key="item.value" :label="item.label"
-                        :value="item.value" />
+                      <el-option v-for="item in LevelOptions" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                   </el-form-item>
 

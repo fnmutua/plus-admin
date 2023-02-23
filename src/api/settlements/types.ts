@@ -1,4 +1,5 @@
 export type SettlementType = {
+forEach(arg0: (arrayItem: any) => void): unknown
 id(arg0: string, id: any): unknown
   name: string
   county_id: BigInteger

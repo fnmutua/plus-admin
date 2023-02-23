@@ -102,7 +102,10 @@ const columns: TableColumn[] = [
     field: 'title',
     label: t('Title')
   },
-
+  {
+    field: 'acronym',
+    label: t('Acronym')
+  },
 
   {
     field: 'description',
@@ -289,7 +292,10 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.id = data.row.id
   ruleForm.title = data.row.title
   ruleForm.description = data.row.description
-  ruleForm.period = data.row.period
+  ruleForm.start_date = data.row.start_date
+  ruleForm.end_date = data.row.end_date
+  ruleForm.icon = data.row.icon
+  ruleForm.acronym = data.row.acronym
 
 
   formHeader.value = 'Edit Category'
@@ -334,7 +340,11 @@ const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
   description: '',
-  period: null
+  start_date: null,
+  end_date: null,
+  icon: null,
+  acronym: null
+
 })
 
 const rules = reactive<FormRules>({
@@ -442,12 +452,25 @@ const editForm = async (formEl: FormInstance | undefined) => {
       <el-form-item label="Title">
         <el-input v-model="ruleForm.title" />
       </el-form-item>
+      <el-form-item label="Acronym">
+        <el-input v-model="ruleForm.acronym" />
+      </el-form-item>
+
       <el-form-item label="Description">
         <el-input v-model="ruleForm.description" />
       </el-form-item>
-      <el-form-item label="Period">
-        <el-date-picker v-model="ruleForm.period" type="daterange" format="YYYY-MM-DD" range-separator="To" />
+      <el-form-item label="Start">
+        <el-date-picker v-model="ruleForm.start_date" type="date" format="YYYY-MM-DD" />
       </el-form-item>
+
+      <el-form-item label="End">
+        <el-date-picker v-model="ruleForm.end_date" type="date" format="YYYY-MM-DD" />
+      </el-form-item>
+
+      <el-form-item label="Icon">
+        <el-input v-model="ruleForm.icon" />
+      </el-form-item>
+
 
     </el-form>
     <template #footer>
@@ -459,6 +482,4 @@ const editForm = async (formEl: FormInstance | undefined) => {
       </span>
     </template>
   </el-dialog>
-
-
 </template>

@@ -19,6 +19,15 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: false
     }, 
+    acronym: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    icon: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    
      code: {
       type: DataTypes.STRING,
       allowNull: false
@@ -35,8 +44,14 @@ module.exports = function(sequelize, DataTypes) {
         unique: true,
         fields: [
           { name: "id" },
+          
         ]
       },
+
+      {
+        unique: true,
+        fields: ['acronym', 'icon' ]
+    }
     ]
   });
 };

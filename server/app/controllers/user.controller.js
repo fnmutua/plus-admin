@@ -183,7 +183,7 @@ exports.modelAllUsers = (req, res) => {
       for (let i = 0; i < req.body.filters.length; i++) {
         queryFields[req.body.filters[i]] = req.body.filterValues[i]
       }
-      console.log('Final-object------------>', queryFields)
+      console.log('Final-4-object------------>', queryFields)
       qry.where = queryFields
     }
   }
@@ -285,7 +285,7 @@ exports.modelPaginatedUsersfilterBykeyWord = (req, res) => {
       for (let i = 0; i < req.body.filters.length; i++) {
         queryFields[req.body.filters[i]] = req.body.filterValues[i]
       }
-      console.log('Final-object------------>', queryFields)
+      console.log('Final-6-object------------>', queryFields)
       qry.where = queryFields
     }
   }
@@ -410,7 +410,7 @@ exports.modelCountyUsers = (req, res) => {
       for (let i = 0; i < req.body.filters.length; i++) {
         queryFields[req.body.filters[i]] = req.body.filterValues[i]
       }
-      console.log('Final-object------------>', queryFields)
+      console.log('Final-5-object------------>', queryFields)
       qry.where = queryFields
     }
   }

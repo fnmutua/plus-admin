@@ -9,6 +9,7 @@ module.exports = function (app) {
 
   // Gets the  table names
   app.post('/api/v1/tables',  [authJwt.verifyToken],controller.modelBoard)
+  app.post('/api/v1/routes',  controller.GetRoutes)
 
   // Gets the  table names
   app.get('/api/v1/data', [authJwt.verifyToken], controller.modelData)
