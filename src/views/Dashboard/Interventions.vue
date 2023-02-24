@@ -111,16 +111,16 @@ const MapgeopointOptions = ref()
 const getKisipTenureSettlementsCountByCounty = async () => {
   const formData = {}
   formData.model = 'project'
-  formData.summaryField = 'settlement_id'
+  formData.summaryField = 'component_id'
   formData.summaryFunction = 'count'
 
   // filter by field 
-  formData.filterField = 'domain_id'
-  formData.filterValue = 5
+  formData.filterField = 'component_id'
+  formData.filterValue = [2, 5, 10] //
 
   // Asccoiated models 
-  formData.assoc_models = ['settlement', 'county']
-  formData.groupFields = ['settlement.county.name']
+  formData.assoc_models = ['county']
+  formData.groupFields = ['county.name']
   formData.cache_key = 'getKisipTenureSettlementsCountByCounty'
 
   let subCategories = []
@@ -129,7 +129,7 @@ const getKisipTenureSettlementsCountByCounty = async () => {
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
       var results = response.Total
-      console.log('Tenure settlements interventions by county', results)
+      // console.log('Tenure settlements interventions by county', results)
 
       //   let topTen = results.slice(0, 10)   // get the top 10
       results.forEach(function (item) {
@@ -157,8 +157,8 @@ const getKisipTenureSettlementsCountByCounty = async () => {
 
   // Same querry but now to get the settleemnts and their GEO
   const model = 'project'
-  var filters = ['domain_id']
-  var filterValues = ['5']
+  var filters = ['component_id']
+  var filterValues = [2, 5, 10]
   const associated_multiple_models = ['settlement']
   //// ------------------parameters -----------------------////
 
@@ -187,10 +187,15 @@ const getKisipTenureSettlementsCountByCounty = async () => {
   await getSettlementListByCounty(fiterModelData)
     .then(response => {
 
+      console.log('pg=190', response)
+
       for (let i = 0; i < response.data.length; i++) {
         let sett = response.data[i].settlement
-        let obj = {}
-        if (sett.geom) {
+        //  console.log(sett)
+        if (sett !== null && sett.geom !== null) {
+          // console.log(sett.geom)
+          let obj = {}
+
           var centroid = turf.centroid(sett.geom)
           //  console.log(sett.name, centroid.geometry.coordinates)
           let coords = centroid.geometry.coordinates
@@ -203,7 +208,7 @@ const getKisipTenureSettlementsCountByCounty = async () => {
       }
     });
 
-
+  //  console.log("tenusre settelemnts centroids", tenureSettlementsPoints.value)
   MapgeopointOptions.value = {
     title: {
       text: tenureSupportedTitle,
@@ -308,16 +313,16 @@ const InfrastructureSettlementsMapPoitns = ref([])
 const getKisipInfSettlementsCountByCounty = async () => {
   const formData = {}
   formData.model = 'project'
-  formData.summaryField = 'settlement_id'
+  formData.summaryField = 'component_id'
   formData.summaryFunction = 'count'
 
   // filter by field 
-  formData.filterField = 'domain_id'
-  formData.filterValue = 2 // Infrastructure
+  formData.filterField = 'component_id'
+  formData.filterValue = [3, 11, 12, 15] // Infrastructure
 
   // Asccoiated models 
-  formData.assoc_models = ['settlement', 'county']
-  formData.groupFields = ['settlement.county.name']
+  formData.assoc_models = ['county']
+  formData.groupFields = ['county.name']
   formData.cache_key = 'getKisipInfSettlementsCountByCounty'
 
 
@@ -355,8 +360,8 @@ const getKisipInfSettlementsCountByCounty = async () => {
 
   // Same querry but now to get the settleemnts and their GEO
   const model = 'project'
-  var filters = ['domain_id']
-  var filterValues = ['2']
+  var filters = ['component_id']
+  var filterValues = [3, 11, 12, 15] // Infrastructure
   const associated_multiple_models = ['settlement']
   //// ------------------parameters -----------------------////
 
@@ -383,27 +388,25 @@ const getKisipInfSettlementsCountByCounty = async () => {
   await getSettlementListByCounty(fiterModelData)
     .then(response => {
 
+
       for (let i = 0; i < response.data.length; i++) {
         let sett = response.data[i].settlement
-        if (sett !== null) {
+        //  console.log(sett)
+        if (sett !== null && sett.geom !== null) {
+          // console.log(sett.geom)
           let obj = {}
-          console.log(sett)
-          if (sett.geom !== null) {
 
-            // console.log(response.data[i].settlement)
-            var centroid = turf.centroid(sett.geom)
-            console.log(sett.name, centroid.geometry.coordinates)
-            let coords = centroid.geometry.coordinates
-            let value = coords.concat(sett.population)
-            obj.name = sett.name
-            obj.value = value
-            //  console.log(obj)
-            InfrastructureSettlementsMapPoitns.value.push(obj)
-          }
-
+          var centroid = turf.centroid(sett.geom)
+          //  console.log(sett.name, centroid.geometry.coordinates)
+          let coords = centroid.geometry.coordinates
+          let value = coords.concat(sett.population)
+          obj.name = sett.name
+          obj.value = value
+          //  console.log(obj)
+          InfrastructureSettlementsMapPoitns.value.push(obj)
         }
-
       }
+
     });
 
 
@@ -495,13 +498,7 @@ const getKisipInfSettlementsCountByCounty = async () => {
       }
     ]
   };
-
-
-
 }
-
-
-
 
 
 const InclusionSettlementsPercounty = ref([])
@@ -513,16 +510,16 @@ const InclusionSettlementsMapOptions = ref()
 const getKisipInclusionSettlementsCountByCounty = async () => {
   const formData = {}
   formData.model = 'project'
-  formData.summaryField = 'settlement_id'
+  formData.summaryField = 'component_id'
   formData.summaryFunction = 'count'
 
   // filter by field 
-  formData.filterField = 'domain_id'
-  formData.filterValue = 3 // Infrastructure
+  formData.filterField = 'component_id'
+  formData.filterValue = [7, 14] // scoial 
 
   // Asccoiated models 
-  formData.assoc_models = ['settlement', 'county']
-  formData.groupFields = ['settlement.county.name']
+  formData.assoc_models = ['county']
+  formData.groupFields = ['county.name']
   formData.cache_key = 'getKisipInclusionSettlementsCountByCounty'
 
   let subCategories = []
@@ -560,7 +557,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
 
   // Same querry but now to get the settleemnts and their GEO
   const model = 'project'
-  var filters = ['domain_id']
+  var filters = ['component_id']
   var filterValues = ['3']
   const associated_multiple_models = ['settlement']
   //// ------------------parameters -----------------------////
@@ -587,11 +584,14 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
   await getSettlementListByCounty(fiterModelData)
     .then(response => {
 
+
       for (let i = 0; i < response.data.length; i++) {
         let sett = response.data[i].settlement
-        let obj = {}
-        if (sett.geom) {
-          // console.log(response.data[i].settlement)
+        //    console.log(sett)
+        if (sett !== null && sett.geom !== null) {
+          // console.log(sett.geom)
+          let obj = {}
+
           var centroid = turf.centroid(sett.geom)
           //  console.log(sett.name, centroid.geometry.coordinates)
           let coords = centroid.geometry.coordinates
@@ -602,6 +602,8 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
           InclusionSettlementsMapPoints.value.push(obj)
         }
       }
+
+
     });
 
 
@@ -926,16 +928,17 @@ const countOfSettlementbeneficiary = ref()
 const getBeneficiariesByCounty = async () => {
   const formData = {}
   formData.model = 'beneficiary'
-  formData.summaryField = 'beneficiary.settlement_id'
+  formData.summaryField = 'hh_id'
   formData.summaryFunction = 'count'
 
 
   // Asccoiated models 
   //formData.assoc_models = ['settlement', 'households']
   //formData.groupFields = ['settlement.name', 'settlement.household.gender']
+  formData.nested_models = ['households', 'county']
 
-  formData.assoc_models = ['households', 'settlement']
-  formData.groupFields = ['household.settlement.name', 'household.gender']
+  formData.assoc_models = ['households']
+  formData.groupFields = ['household.gender', 'household.county.name']
   formData.cache_key = 'getBeneficiariesByCounty'
 
   let subCategories = []
@@ -945,7 +948,7 @@ const getBeneficiariesByCounty = async () => {
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
       var results = response.Total
-      console.log('All Settlemnts beneficiariaeies', results)
+      // console.log('All Settlemnts beneficiariaeies', results)
 
 
       results.forEach(function (item) {
@@ -957,7 +960,7 @@ const getBeneficiariesByCounty = async () => {
 
       results.forEach(function (dt) {
         if (dt.gender === 'Male') {
-          console.log(dt)
+          //   console.log(dt)
           maleData.push(parseInt(dt.count))
         } else {
           femaleData.push(parseInt(dt.count))
@@ -1064,25 +1067,7 @@ const getBeneficiariesByCounty = async () => {
     });
 
 
-  // indirect beneficiaries 
-  const indirect = {}
-  indirect.model = 'beneficiary'
-  indirect.summaryField = 'household.length_stay'
-  indirect.summaryFunction = 'sum'
 
-
-  // Asccoiated models 
-  indirect.assoc_models = ['households', 'settlement']
-  indirect.groupFields = ['household.settlement.name', 'household.gender']
-
-
-  formData.cache_key = 'getBeneficiariesByCountyindirectResults'
-
-  /// Direct beneficiaries 
-  const indirectResults = await getSummarybyFieldFromMultipleIncludes(indirect)
-
-
-  console.log('Indirect', indirectResults)
 
 }
 
@@ -1107,7 +1092,7 @@ const getRoadsConstructed = async () => {
   formData.assoc_models = ['county']
   formData.groupFields = ['county.name']
   formData.filterField = 'indicator_category_id'
-  formData.filterValue = 36
+  formData.filterValue = [36]
   let RdDataTarmac = []
   formData.cache_key = 'getRoadsConstructed'
 
@@ -1133,7 +1118,7 @@ const getRoadsConstructed = async () => {
 
 
   /// Gravel Roads
-  formData.filterValue = 37 // 37 - Gravel 
+  formData.filterValue = [37] // 37 - Gravel 
   formData.cache_key = 'getRoadsConstructedGravel'
 
   const RdDataGravel = []
@@ -1141,7 +1126,7 @@ const getRoadsConstructed = async () => {
     .then(response => {
       var rdData = {}
       var results = response.Total
-      console.log('Sum of Gravel roads constructed per county', results)
+      // console.log('Sum of Gravel roads constructed per county', results)
       results.forEach(function (item) {
         if (parseInt(item.sum) > 0) {
           rdData.county = item.name
@@ -1162,7 +1147,7 @@ const getRoadsConstructed = async () => {
     }));
 
   TotalRoadsConstructed.value = mergeById(RdDataTarmac, RdDataGravel)
-  console.log(TotalRoadsConstructed.value);
+  //console.log(TotalRoadsConstructed.value);
 
 
 
@@ -1216,7 +1201,7 @@ const getRoadsConstructed = async () => {
 
 
   /// Footpaths
-  formData.filterValue = 16 // footpaths
+  formData.filterValue = [16] // footpaths
   const footPaths = []
   formData.cache_key = 'getRoadsConstructedFootpaths'
 
@@ -1224,7 +1209,7 @@ const getRoadsConstructed = async () => {
     .then(response => {
 
       var results = response.Total
-      console.log('Sum of footPaths Constructed per county', results)
+      //  console.log('Sum of footPaths Constructed per county', results)
       results.forEach(function (item) {
         var rdData = {}
         if (parseInt(item.sum) > 0) {
@@ -1237,7 +1222,7 @@ const getRoadsConstructed = async () => {
 
     });
 
-  console.log(footPaths)
+  //console.log(footPaths)
 
   FootPathsConstructed.value = {
     title: {
@@ -1289,7 +1274,7 @@ const getRoadsConstructed = async () => {
 
 
   /// Footpaths
-  formData.filterValue = 8 // footpaths
+  formData.filterValue = [8]  // footpaths
   const highmasts = []
   formData.cache_key = 'getRoadsConstructedhighmasts'
 
@@ -1297,7 +1282,7 @@ const getRoadsConstructed = async () => {
     .then(response => {
 
       var results = response.Total
-      console.log('Sum of footPaths Constructed per county', results)
+      // console.log('Sum of footPaths Constructed per county', results)
       results.forEach(function (item) {
         var rdData = {}
         if (parseInt(item.sum) > 0) {
@@ -1310,7 +1295,7 @@ const getRoadsConstructed = async () => {
 
     });
 
-  console.log(highmasts)
+  //console.log(highmasts)
 
   HighMastsConstructed.value = {
     title: {
@@ -1388,7 +1373,7 @@ const getInclusionBeneficiaries = async () => {
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
       var results = response.Total
-      console.log('Inclusion beneficiaries county', results)
+      // console.log('Inclusion beneficiaries county', results)
       results.forEach(function (item) {
         if (parseInt(item.sum) > 0) {
           if (subCategories.indexOf(item.name) === -1) subCategories.push(item.name);
@@ -1406,7 +1391,7 @@ const getInclusionBeneficiaries = async () => {
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
       var results = response.Total
-      console.log('Sum of Gravel roads constructed per county', results)
+      // console.log('Sum of Gravel roads constructed per county', results)
       results.forEach(function (item) {
         if (parseInt(item.sum) > 0) {
           femaleSeries.push(parseInt(item.sum))
@@ -1552,49 +1537,6 @@ const activeName = ref('summary')
 
 <template>
   <PanelGroup />
-  <!--   <el-row :gutter="12">
-                                                <el-col :span="6">
-                                                  <el-card shadow="always">
-                                                    <el-row :gutter="12">
-                                                      <el-col :span="12">
-                                                        <div class="fa-3x">
-                                                          <span class="fa-layers fa-lg">
-                                                            <font-awesome-icon icon="fa-solid fa-road" />
-                                                            <span class="fa-layers-counter" style="background:yellowgreen">1,419</span>
-                                                          </span>
-                                                        </div>
-                                                      </el-col>
-                                                      <el-col :span="12">
-                                                        <span align:center>
-                                                          Roads improved (Km)
-                                                        </span>
-                                                      </el-col>
-                                                    </el-row>
-                                                  </el-card>
-                                                </el-col>
-
-                                                <el-col :span="6">
-                                                  <el-card shadow="always">
-                                                    <el-row :gutter="12">
-                                                      <el-col :span="12">
-                                                        <div class="fa-3x">
-                                                          <el-avatar shape="circle" :size="58" fit="fill" :icon="Download" />
-                                                        </div>
-                                                      </el-col>
-                                                      <el-col :span="12">
-                                                        <span align:center>
-                                                          Roads improved (Km)
-                                                        </span>
-                                                      </el-col>
-                                                    </el-row>
-                                                  </el-card> </el-col>
-                                                <el-col :span="6">
-                                                  <el-card shadow="always"> Never </el-card>
-                                                </el-col>
-                                                <el-col :span="6">
-                                                  <el-card shadow="always"> Never </el-card>
-                                                </el-col>
-                                              </el-row> -->
   <el-tabs v-loading="loading" element-loading-text="Generating maps, charts and tables......." v-model="activeName"
     class="demo-tabs">
     <el-tab-pane label="Summary" name="summary">
@@ -1701,7 +1643,6 @@ const activeName = ref('summary')
         <ElCol :xl="8" :lg="16" :md="24" :sm="24" :xs="24">
           <ElCard shadow="hover" class="mb-20px">
             <ElSkeleton :loading="loading" animated>
-              <!-- <Echart :options="topCountiesWithSlumsData" :height="400" /> -->
               <Echart :options="DPWBeneficiariesv2" :height="350" />
             </ElSkeleton>
           </ElCard>

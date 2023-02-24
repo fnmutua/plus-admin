@@ -2,7 +2,7 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, getHHsByCounty, getRoutesList } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
@@ -820,18 +820,44 @@ const getBeneficiaries = async (selfilters, selfilterValues) => {
 
   beneficiaryList.value = res.data // back for post filter
   loadingBeneficiaries.value = false
+}
 
 
 
+//// ------------------------------------ -------------------------------------//
+const componentOptions = ref([])
+const getInterventionComponents = async () => {
 
+  const formData = {}
+  formData.limit = 100
+  formData.page = 1
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'component'
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+
+  // - multiple filters -------------------------------------
+  formData.associated_multiple_models = ['programme']
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getRoutesList(formData)
+  res.data.forEach(function (arrayItem: { id: string; type: string }) {
+    var countyOpt = {}
+    countyOpt.value = arrayItem.id
+    countyOpt.label = arrayItem.title + '(' + arrayItem.programme.acronym + ')'
+    //  console.log(countyOpt)
+    componentOptions.value.push(countyOpt)
+  })
 
 
 }
 
-//// ------------------------------------ -------------------------------------// 
-
-
 getAllProjects()
+getInterventionComponents()
 getBeneficiaries(filtersBen, filterValuesBen)  // First time
 
 
@@ -842,6 +868,7 @@ getBeneficiaries(filtersBen, filterValuesBen)  // First time
 ///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
+  component_id: '',
   settlement_id: '',
   county_id: '',
   location_level: '',
@@ -986,6 +1013,7 @@ const editProject = (data: TableSlotDefault) => {
   ruleForm.end_date = data.row.end_date
 
 
+  ruleForm.component_id = data.row.component_id
 
   fileUploadList.value = data.row.documents
 
@@ -1345,6 +1373,12 @@ const filterTableData = () => {
 
         <el-form-item label="Title">
           <el-input v-model="ruleForm.title" />
+        </el-form-item>
+
+        <el-form-item label="Component" prop="component_id">
+          <el-select v-model="ruleForm.component_id" filterable placeholder="Select Component">
+            <el-option v-for="item in componentOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
         </el-form-item>
 
 

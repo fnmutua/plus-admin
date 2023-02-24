@@ -463,8 +463,8 @@ exports.sumGroupByMultipleColumns = async (req, res) => {
 
 exports.sumModelAssociatedMultipleModels = async (req, res) => {
   
-  console.log('xxxxsumModelByColumnAssociated.........')
-  var cache_key = req.body.model + req.body.cache_key 
+   var cache_key = req.body.model + req.body.cache_key 
+  
 
  
   var reg_model = req.body.model
@@ -488,6 +488,7 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
     
     console.log("groupfields, ",groupfields)
     console.log("summaryFunction, ",summaryFunction)
+    console.log("FilterValues, ",req.body.filterValue)
 
     var qry = {
       attributes: [...groupfields,[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
@@ -502,30 +503,52 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
 
   }
 
+  var includeModels = []
+  if ( typeof req.body.nested_models !== 'undefined' && Array.isArray(req.body.nested_models) && req.body.nested_models.length > 0 ) {
+     var child_model = db.models[req.body.nested_models[0]]
+     var grand_child_model = db.models[req.body.nested_models[1]]
   
- 
-  if (req.body.assoc_models.length >1) {
-    var nestedModels = { model: db.models[req.body.assoc_models[0]], attributes: [],include: [{ model: db.models[req.body.assoc_models[1]], attributes: [] }] }
- 
-  } else {
-    var nestedModels = { model: db.models[req.body.assoc_models[0]], attributes: []   } 
- 
+   var nestedModels = { model: child_model, include: [{ model: grand_child_model,attributes:[]  }], raw: true, nested: true }
+  // var nestedModels = { model: child_model, include: grand_child_model, raw: true, nested: true }
+   includeModels.push(nestedModels)
 
+  
+  } else {
+    var nestedModels =[]
  }
 
 
-  qry.include=nestedModels
+
+
+
+  console.log("Checking included models",req.body.assoc_models.length)
+  if (req.body.assoc_models.length > 0) {
+    // loop through the include models
+    for (let i = 0; i < req.body.assoc_models.length; i++) {
+      var modelIncl = {}
+      modelIncl.model = db.models[req.body.assoc_models[i]]
+      modelIncl.raw = false
+      modelIncl.nested = false
+      modelIncl.attributes=[]
+      includeModels.push(modelIncl)
+    }
+  }
+
+ // console.log(includeModels)
+    
+
+  qry.include=includeModels
  
   
   if (req.body.filterField) {
     let filterCol = req.body.filterField
     let filterValue = req.body.filterValue
-    qry.where = { [filterCol]: { [op.eq]: filterValue } } // Exclude the logged in user returing in the list
+   // qry.where = { [filterCol]: { [op.in]:  req.body.filterValue } }  
+    qry.where = { [filterCol]: { [op.in]:  req.body.filterValue } }  
 
   }
 
 
-  console.log("202020 - the ", qry)
 
 
   // db.models[reg_model]
@@ -541,13 +564,15 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   //   }
   // })
 
+  console.log("summary Qyerry - the ", qry)
 
      
   let result;
   let isCached = false;
 
   try {
-    const cacheResults = await redisClient.get(cache_key);
+   const cacheResults = await redisClient.get(cache_key);
+    //const cacheResults =''
     if (cacheResults) {
       isCached = true;
       result = JSON.parse(cacheResults);
@@ -575,7 +600,7 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
     });
   } catch (error) {
     res.status(500).send({
-      message: 'Fecthing data failed'
+      message: error
     });
   }
   

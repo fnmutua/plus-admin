@@ -56,7 +56,7 @@ const matchOptions = ref([])
 const assocModel = ref()
 const uploadObj = ref([])
 const matchedObj = ref([])
-const theParentModel = ref()
+const theParentModel = ref('settlement') // default is settlement for projects
 const theParentModelField = ref()
 
 const matchedObjwithparent = ref([])
@@ -877,8 +877,8 @@ const handleSelectParentModel = async (parent: any) => {
       </el-icon>
     </el-button>
     <!-- <section>
-                                                                      <input type="file" @change="readXLSX" />
-                                                                    </section> -->
+                                                                        <input type="file" @change="readXLSX" />
+                                                                      </section> -->
 
 
   </ContentWrap>
