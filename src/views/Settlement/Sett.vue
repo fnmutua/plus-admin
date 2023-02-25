@@ -118,7 +118,7 @@ var filterValues = [[1, 2]]  // make sure the inner array is array
 var tblData = []
 
 const associated_Model = ''
-const associated_multiple_models = ['county', 'subcounty']
+const associated_multiple_models = ['county', 'subcounty', 'document']
 
 const model = 'settlement'
 //// ------------------parameters -----------------------////
@@ -1347,6 +1347,7 @@ const DownloadXlsx = async () => {
                 <el-table :data="props.row.documents" border>
                   <el-table-column label="Name" prop="name" />
                   <el-table-column label="Type" prop="category" />
+                  <el-table-column label="Size(mb)" prop="size" />
 
                   <el-table-column label="Actions">
                     <template #default="scope">

@@ -709,8 +709,8 @@ const handleSubmitData = async () => {
 </script>
 
 <template>
-    <ContentWrap :title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')" v-loading="loadingPosting"
-        element-loading-text="Saving the data.. Please wait.......">
+    <ContentWrap :title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')"
+        v-loading.fullscreen.lock="loadingPosting" element-loading-text="Saving the data.. Please wait.......">
 
         <div style="display: inline-block;">
             <el-select v-model="type" :onChange="handleSelectType" placeholder="Select data to import"

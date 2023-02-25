@@ -72,6 +72,9 @@ export const uploadFiles = (data: SettlementType): Promise<IResponse<SettlementT
   return request.post({ url: prod + '/api/v1/upload', data })
 }
 
+
+
+
 export const CreateRecord = (data: SettlementType): Promise<IResponse<SettlementType>> => {
   console.log('....', data)
   return request.post({ url: prod + '/api/v1/data/create', data })
@@ -112,6 +115,11 @@ export const uploadDocuments = (data: SettlementType): Promise<IResponse<Settlem
 }
 
 
+export const uploadFilesBatch = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  // console.log('....', data)
+   return request.post({ url: prod + '/api/v1/upload/batch', data })
+ }
+
 export const deleteDocument = (data: SettlementType): Promise<IResponse<SettlementType>> => {
   // console.log('....', data)
   return request.post({ url: prod + '/api/v1/upload/delete', data })
@@ -123,3 +131,4 @@ export const getRoutesList = (
 //  console.log('getSettlementListByCounty....', data)
   return request.post({ url: prod + '/api/v1/routes', data })
 }
+
