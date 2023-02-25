@@ -34,7 +34,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: false
     },
-  
+    size: {
+      type: DataTypes.DECIMAL,
+      allowNull: false
+    },
    location: {
       type: DataTypes.STRING,
       allowNull: false

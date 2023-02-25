@@ -1,0 +1,563 @@
+<!-- eslint-disable prettier/prettier -->
+<!-- eslint-disable vue/no-deprecated-slot-scope-attribute -->
+<script setup lang="ts">
+import { ContentWrap } from '@/components/ContentWrap'
+import { useI18n } from '@/hooks/web/useI18n'
+import { getParentIds, BatchImportUpsert, getRoutesList, uploadFilesBatch } from '@/api/settlements'
+import { getCountyListApi } from '@/api/counties'
+import { getModelSpecs, getModelRelatives } from '@/api/fields'
+
+import { postBatchHouseholds } from '@/api/households'
+import { getListWithoutGeo } from '@/api/counties'
+import { getFilteredHouseholdsByColumn } from '@/api/households'
+import { uuid } from 'vue-uuid'
+
+
+import {
+    ElButton,
+    ElSelect,
+    ElTable,
+    ElIcon,
+    ElTableColumn,
+    ElInput,
+    ElSwitch,
+    ElOptionGroup,
+    ElOption
+} from 'element-plus'
+import { ElUpload } from 'element-plus'
+import {
+    Upload,
+    Refresh,
+    CaretRight,
+    RefreshLeft,
+    Tools
+} from '@element-plus/icons-vue'
+
+import { ref, watch, computed, reactive } from 'vue'
+import { ElDivider } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+
+import type { UploadProps, UploadUserFile } from 'element-plus'
+import readXlsxFile from 'read-excel-file'
+import { useVueFuse } from 'vue-fuse'
+import Fuse from 'fuse.js';
+
+
+
+const settlement = ref()
+const settlementOptions = ref([])
+const parentObj = ref([])
+const value_switch = ref(false)
+
+
+//// ------------------parameters -----------------------////
+const model = ref()          // the model 
+const code = ref()  // the parent code as per the imported excel file 
+const parent_key = ref()       // the parent foregin key in the model 
+const parentModel = ref()      // the parent model
+const type = ref()      // the parent model
+const matchedWithParent = ref()      // the parent model
+
+
+///---------------------xlsx-
+const file = ref()
+
+
+//// ------------------parameters -----------------------////
+const matchOptions = ref([])
+const assocModel = ref()
+const uploadObj = ref([])
+const matchedObj = ref([])
+const theParentModel = ref() // default is settlement for projects
+const theParentModelField = ref()
+
+const matchedObjwithparent = ref([])
+const fieldSet = ref([])
+const show = ref(false)
+const showSwitch = ref(false)
+const showSettleementSelect = ref(false)
+const { t } = useI18n()
+const parentOptions = ref([])
+const parentKeys = ref([])
+const showTable = ref(false)
+
+const showUploadSpace = ref(false)
+const showUploadButton = ref(false)
+const disableDoubeUpload = ref(false)
+
+
+
+function toTitleCase(str) {
+    return str.replace(
+        /\w\S*/g,
+        function (txt) {
+            return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+        }
+    );
+}
+
+
+
+
+//// ------------------------------------ -------------------------------------//
+
+
+
+const getparentOptions = async () => {
+    const res = await getListWithoutGeo({
+        params: {
+            pageIndex: 1,
+            limit: 1000,
+            curUser: 1, // Id for logged in user
+            model: theParentModel.value, //model 
+            searchField: 'name',
+            searchKeyword: '',
+            sort: 'ASC'
+        }
+    }).then((response: { data: any }) => {
+        console.log('Received response:', response)
+        //tableDataList.value = response.data
+        var ret = response.data
+
+
+        ret.forEach(function (arrayItem: { id: string; type: string }) {
+            var countyOpt = {}
+            countyOpt.value = arrayItem.id
+            if (arrayItem.name) {
+                countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+            }
+            else {
+                countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+
+            }
+            //  console.log(countyOpt)
+            parentOptions.value.push(countyOpt)
+        })
+    })
+}
+
+
+const getparentHouseholdOptions = async (selFilters, selfilterValues) => {
+    const formData = {}
+
+    formData.curUser = 1 // Id for logged in user
+    formData.model = 'household'
+    //-Search field--------------------------------------------
+    formData.searchField = ''
+    formData.searchKeyword = ''
+    //--Single Filter -----------------------------------------
+
+    //formData.assocModel = associated_Model
+
+
+    formData.associated_multiple_models = []
+
+    //-------------------------
+    //console.log(formData)
+
+    // const res = await getHHsByCounty(formData)
+
+    console.log("gettign HHS.........")
+    await getFilteredHouseholdsByColumn(formData)
+        .then((response) => {
+            console.log('Received HHS:', response)
+            response.data.forEach(function (arrayItem) {
+                console.log('arrayItem ----->', arrayItem)
+
+                //  generate the filter options
+                var opt = {}
+                opt.value = arrayItem.id
+                opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+                //  console.log(countyOpt)
+                parentOptions.value.push(opt)
+            });
+        })
+        .catch(function (error) {
+            console.log('error', error.response.data.message);
+
+        })
+
+
+
+
+
+}
+
+const uploadOptions = [
+    {
+        label: 'Settlement',
+        options: [
+            {
+                value: 'settlement',
+                label: 'Settlements'
+            },
+
+            {
+                value: 'project',
+                label: 'Projects'
+            }
+        ]
+    },
+    {
+        label: 'Households',
+        options: [
+            {
+                value: 'households',
+                label: 'Households'
+            },
+            {
+                value: 'beneficiary',
+                label: 'Beneficiaries'
+            },
+            {
+                value: 'parcel',
+                label: 'Parcels'
+            },
+        ]
+    },
+
+    {
+        label: 'Indicators',
+        options: [
+
+            {
+                value: 'indicator_category_report',
+                label: 'M&E Reports'
+            },
+        ]
+    }
+]
+
+const documentOptions = [
+    {
+        label: 'Reports',
+        options: [
+            {
+                value: 'socio_economic',
+                label: 'Socio Economic Report'
+            },
+            {
+                value: 'stakeholder_report',
+                label: 'Stakeholder Report'
+            },
+            {
+                value: 'planning_report',
+                label: 'Planning Report'
+            },
+
+            {
+                value: 'basemap_report',
+                label: 'Basemap Report'
+            },
+            {
+                value: 'esia_report',
+                label: 'Environmental Screening Report'
+            }
+        ]
+    },
+    {
+        label: 'Plans',
+        options: [
+            {
+                value: 'ldpdp',
+                label: 'Local Development Plan'
+            },
+            {
+                value: 'pdp',
+                label: 'Part Development Plan'
+            }
+        ]
+    },
+    {
+        label: 'Maps',
+        options: [
+            {
+                value: 'survey_plan',
+                label: 'Survey Plan'
+            },
+            {
+                value: 'rim',
+                label: 'Registry Index Map'
+            }
+        ]
+    },
+    {
+        label: 'Drawings',
+        options: [
+            {
+                value: 'design',
+                label: 'Design Proposals'
+            },
+            {
+                value: 'built',
+                label: 'As Built Designs'
+            }
+        ]
+    }
+]
+
+const document_field = ref()
+const handleSelectType = async (type: string) => {
+    theParentModel.value = type
+    console.log('Selected.....>', type)
+    parentOptions.value = []
+    showUploadSpace.value = true
+
+
+    if (type === 'settlement') {
+        document_field.value = 'settlement_id'
+        getparentOptions()
+
+
+
+    }
+    else if (type === 'households') {
+        document_field.value = 'hh_id'
+        getparentHouseholdOptions()
+
+
+    }
+
+    else if (type === 'beneficiary') {
+        document_field.value = 'beneficiary_id'
+        getparentOptions()
+
+    }
+
+    else if (type === 'project') {
+        document_field.value = 'project_id'
+        getparentOptions()
+
+    }
+
+
+
+
+    else if (type === 'indicator_category_report') {
+        document_field.value = 'indicator_category_report'
+        getparentOptions()
+
+    }
+
+    console.log(theParentModel.value)
+
+
+
+
+
+
+
+
+
+
+}
+
+
+const fileList = ref<UploadUserFile[]>([])
+
+
+
+
+
+// Handler for file upload
+
+
+const tableData = ref()
+const selectOptions = ref()
+
+
+const selectedValues = ref()
+
+
+
+const handleFileUpload = async () => {
+    // disableDoubeUpload.value = true   // Disable the button to prevent double upload
+    if (fileList.value.length == 0) {
+        ElMessage.error('Select atleast one!')
+    }
+
+    showTable.value = true
+
+
+    fileList.value.map(file => {
+        file['model'] = theParentModel.value // add the model column
+        file[document_field.value] = null // add the column to hold selected parent ID
+        file['field_id'] = document_field.value // add the column to hold selected parent ID
+
+        return file;
+    });
+
+
+
+}
+
+
+
+const prevValue = ref()
+
+const handleReset = async () => {
+    selectedValues.value = []
+    fileList.value = []
+    selectOptions.value = []
+    tableData.value = []
+    uploadObj.value = []
+    theParentModel.value = null
+    theParentModelField.value = null
+    showUploadButton.value = false
+    showUploadSpace.value = false
+    showTable.value = false
+}
+const loadingPosting = ref(false)
+
+const DisablePostSubmit = ref(false)
+const handleSubmitData = async () => {
+    console.log(fileList)
+
+    const fileTypes = []
+    const formData = new FormData()
+    for (var i = 0; i < fileList.value.length; i++) {
+        console.log('------>file', fileList.value[i])
+        var column = fileList.value[i].field_id
+        formData.append('file', fileList.value[i].raw)
+        formData.append('format', fileList.value[i].name.split('.').pop())
+        formData.append('category', fileList.value[i].type)
+        formData.append('field_id', fileList.value[i].field_id)
+        formData.append(column, fileList.value[i][column])
+        formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
+
+    }
+
+    formData.append('code', uuid.v4())
+
+
+
+    console.log(formData)
+    await uploadFilesBatch(formData)
+
+}
+
+//const beforeUpload = async (file) => {
+const beforeUpload: UploadProps['beforeUpload'] = (file) => {
+
+
+    console.log("before uplaod.............")
+
+    const isXls = file.type === 'application/vnd.ms-excel'
+    const isXlsx = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    const isPdf = file.type === 'application/pdf'
+    const isZip = file.type === 'application/zip'
+    const isDoc = file.type === 'application/msword'
+    const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    const isPng = file.type === 'image/png'
+    const isJPG = file.type === 'image/jpeg'
+    const isLt5M = file.size / 1024 / 1024 < 2
+
+    if (!isXls && !isXlsx && !isPdf && !isZip && !isDoc && !isDocx && !isPng && !isJPG) {
+        //this.$message.error('Upload only Excel files')
+        ElMessage.error('Upload only pdf/xls/xlsx/zip/doc/docx/png/jpg files')
+
+    }
+    if (!isLt5M) {
+        // this.$message.error('File size should not exceed 5MB')
+        ElMessage.error('File size should not exceed 20MB')
+    }
+    return isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG && isLt5M
+}
+
+const beforeAvatarUpload: UploadProps['beforeUpload'] = (rawFile) => {
+
+    console.log("Before upload.......")
+    if (rawFile.type !== 'image/jpeg') {
+        ElMessage.error('Avatar picture must be JPG format!')
+        return false
+    } else if (rawFile.size / 1024 / 1024 > 2) {
+        ElMessage.error('Avatar picture size can not exceed 2MB!')
+        return false
+    }
+    return true
+}
+
+</script>
+
+<template>
+    <ContentWrap :title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')"
+        v-loading.fullscreen.lock="loadingPosting" element-loading-text="Saving the data.. Please wait.......">
+
+        <div style="display: inline-block;">
+            <el-select v-model="type" :onChange="handleSelectType" placeholder="Select Model" style=" margin-right: 20px;">
+                <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
+                    <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+                </el-option-group>
+            </el-select>
+
+            <div style="display: inline-block; margin-left: 20px">
+                <el-button :onClick="handleReset" type="primary" :icon="RefreshLeft" />
+            </div>
+
+        </div>
+
+        <el-divider border-style="dashed" content-position="left">Upload</el-divider>
+        <el-upload v-if="showUploadSpace" class="upload-demo" drag :auto-upload="false"
+            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList"
+            :on-change="beforeUpload">
+            <div class="el-upload__text"> Drop files here or <em>click to upload</em> </div>
+        </el-upload>
+
+
+
+
+        <el-button v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload" type="primary"
+            :disabled="disableDoubeUpload">
+            Upload<el-icon class="el-icon--right">
+                <Upload />
+            </el-icon>
+        </el-button>
+
+
+
+
+        <el-table v-if="showTable" :data="fileList">
+            <el-table-column prop="name" label="Name" />
+            <el-table-column prop="type" label="Type">
+                <template #default="{ row }">
+                    <el-select v-model="row.type" placeholder="Select Type" clearable filterable>
+                        <el-option-group v-for="group in documentOptions" :key="group.label" :label="group.label">
+                            <el-option v-for="item in group.options" :key="item.value" :label="item.label"
+                                :value="item.value" />
+                        </el-option-group>
+                    </el-select>
+                </template>
+            </el-table-column>
+
+            <el-table-column prop="type" :label="toTitleCase(theParentModel)">
+                <template #default="{ row }">
+                    <el-select v-model="row[document_field]" placeholder="Select" clearable filterable>
+                        <el-option v-for="item in parentOptions" :key="item.value" :label="item.label"
+                            :value="item.value" />
+                    </el-select>
+                </template>
+            </el-table-column>
+
+
+        </el-table>
+
+        <el-button v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type="success"
+            :disabled="DisablePostSubmit">
+            Submit<el-icon class="el-icon--right">
+                <CaretRight />
+            </el-icon>
+        </el-button>
+    </ContentWrap>
+</template>
+
+<style scoped>
+.my-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.custom-icon {
+    font-size: 2rem;
+}
+</style>

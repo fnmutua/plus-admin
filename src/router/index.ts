@@ -3664,7 +3664,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           icon: 'gis:geojson-file',
 
         }
-      }
+      },
+      {
+        path: 'docs',
+    //    component: 'views/ImportData/excel',
+        component: () => import('@/views/ImportData/Document.vue'),
+        name: 'ImportDocuments',
+        meta: {
+          title: 'Documents',
+          icon: 'mdi:file-upload-outline',
+        }
+      },
     ]
   },
   {

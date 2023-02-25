@@ -1414,6 +1414,99 @@ exports.modelUpload = (req, res) => {
   }
 }
 
+exports.batchDocumentsUpload = async (req, res) => {
+  console.log(req.files)
+
+  if (!req.files) {
+    return res.status(500).send({ msg: 'file is not found' })
+  }
+  console.log('In upload single.....', req.files.file)
+  console.log('In upload  multiple express.....', req.files.file.length)
+
+  if (Array.isArray(req.files.file)) {
+
+    var myFiles = req.files.file
+
+  } else {
+    var myFiles = [req.files.file]
+
+
+  }
+  // accessing the file
+   //let ftypes = arr.split(',')
+
+
+  console.log('myFiles', myFiles.length)
+
+  // Run for more than one document
+
+    
+        var errors = []
+
+    for (let i = 0; i < myFiles.length; i++) {
+        // Sin
+        var column = req.body.field_id[i]
+
+      let fname =  myFiles[i].name.replace(/\s/g, '_')
+      let location= `./public/${fname}`
+         var thisFile = {
+              type: req.body.format,
+              name: fname,
+              file_path: `./public/${fname}`,
+            }
+        console.log('Thisfile', thisFile)
+        var reg_model = 'document'   
+        var obj = {}
+        obj.name = fname
+        obj.category= req.body.category[i]
+      obj.format = req.body.format[i]
+      obj.size=req.body.size[i]
+
+        obj.location= `./public/${fname}`
+        obj[column]=req.body[column][i]
+        
+        obj.code=crypto.randomUUID()
+
+        console.log("insert Object",obj )
+      // insert
+      await db.models[reg_model].create(obj)
+        .then(function (item) {
+          console.log("Moving to public...",location)
+          myFiles[i].mv(location)
+        
+      })
+      .catch(function (err) {
+        // handle error;
+        console.log('error0---------->', err)
+        errors.push(err)
+
+        if (err.name == 'SequelizeUniqueConstraintError') {
+          var message = 'One or more table constraints are violated. Check your id columns'
+        } else {
+          var message = 'The uploaded file does not match the required fields'
+        }
+        return res.status(500).send({ message: message })
+      })
+  }
+  if (errors.length === 0) {
+    res.status(200).send({
+      message: 'Upload Successful',
+      code: '0000'
+    })
+  
+
+  } else {
+
+    res.status(500).send({
+      message: 'Upload failed. There are '+errors.length  + ' errors',
+      code: '0000'
+    })
+  }
+
+
+  
+}
+
 exports.xReportDocumentationUpload = (req, res) => {
   console.log(req.files)
 
@@ -1606,6 +1699,10 @@ exports.ReportDocumentationUpload = async (req, res) => {
 
   
 }
+
+
+
+
 exports.RemoveDocument = (req, res) => {
   var reg_model = 'document'  
   let errors =[]
