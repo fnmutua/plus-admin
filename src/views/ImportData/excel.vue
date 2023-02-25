@@ -5,7 +5,7 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getParentIds, BatchImportUpsert } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { getModelSpecs } from '@/api/fields'
+import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 import { postBatchHouseholds } from '@/api/households'
 
@@ -56,7 +56,7 @@ const matchOptions = ref([])
 const assocModel = ref()
 const uploadObj = ref([])
 const matchedObj = ref([])
-const theParentModel = ref('settlement') // default is settlement for projects
+const theParentModel = ref() // default is settlement for projects
 const theParentModelField = ref()
 
 const matchedObjwithparent = ref([])
@@ -65,6 +65,8 @@ const show = ref(false)
 const showSwitch = ref(false)
 const showSettleementSelect = ref(false)
 const { t } = useI18n()
+const parentOptions = ref([])
+const parentKeys = ref([])
 
 
 
@@ -208,22 +210,6 @@ const beneficiary_fields = [
 
 ]
 
-const parentOptions = [
-
-  {
-    value: 'settlement',
-    label: 'Settlement'
-  },
-
-  {
-    value: 'county',
-    label: 'County'
-  },
-  {
-    value: 'subcounty',
-    label: 'Subcounty'
-  },
-]
 
 const uploadOptions = [
   {
@@ -300,7 +286,14 @@ const uploadOptions = [
   }
 ]
 
-
+function toTitleCase(str) {
+  return str.replace(
+    /\w\S*/g,
+    function (txt) {
+      return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+    }
+  );
+}
 const getModeldefinition = async (selModel) => {
 
   console.log(selModel)
@@ -326,20 +319,37 @@ const getModeldefinition = async (selModel) => {
     fieldSet.value = fields2
   })
 
+  await getModelRelatives(formData).then((response) => {
+    console.log(response)
+    response.models.forEach(function (relative) {
+      var parentOpt = {}
+      parentOpt.value = relative.model
+      parentOpt.label = toTitleCase(relative.model)
+      parentOpt.key = relative.key
+
+      parentOptions.value.push(parentOpt)
+    })
+
+    //parentKeys.value.push(response.keys)
+
+    // console.log("keys---->", parentKeys.value)
+  })
 
 }
 
 
 const getParentOptions = async () => {
 
+  console.log("parent --Model", theParentModel.value)
+
   await getCountyListApi({
     params: {
       pageIndex: 1,
       limit: 100,
       curUser: 1, // Id for logged in user
-      model: parentModel.value,
+      model: theParentModel.value,
       searchField: 'name',
-      assocModel: assocModel.value,
+      assocModel: '',
       searchKeyword: '',
       sort: 'ASC'
     }
@@ -379,7 +389,8 @@ const getParentOptions = async () => {
 
 const handleSelectType = async (type: any) => {
   type = type
-  console.log(type)
+  console.log('Selected.....>', type)
+  parentOptions.value = []
   getModeldefinition(type)
 
   if (type != 'settlement' && !value_switch.value) {
@@ -398,7 +409,7 @@ const handleSelectType = async (type: any) => {
     parent_key.value = 'county_id'
     code.value = 'county_code'
     // fieldSet.value = settlement_fields
-    getParentOptions()
+    // getParentOptions()
 
     console.log('settlements------>', type)
   } else if (type === 'parcel') {
@@ -408,7 +419,7 @@ const handleSelectType = async (type: any) => {
     parent_key.value = 'settlement_id'
     code.value = 'pcode'
     // fieldSet.value = settlement_fields
-    getParentOptions()
+    //  getParentOptions()
 
 
     //fieldSet.value = parcel_fields
@@ -420,7 +431,7 @@ const handleSelectType = async (type: any) => {
     parentModel.value = 'settlement'
     parent_key.value = 'settlement_id'
     code.value = 'pcode'
-    getParentOptions()
+    //getParentOptions()
     // fieldSet.value = hh_fields
     console.log('households------>', hh_fields)
 
@@ -434,8 +445,8 @@ const handleSelectType = async (type: any) => {
     parent_key.value = 'hh_id'
 
     code.value = 'pcode'
-    assocModel.value = 'settlement'
-    getParentOptions()
+    //assocModel.value = 'settlement'
+    //   getParentOptions()
   }
 
 
@@ -447,7 +458,7 @@ const handleSelectType = async (type: any) => {
     parent_key.value = 'settlement_id'
     code.value = 'pcode'
     console.log('interventions_fields------>', interventions_fields)
-    getParentOptions()
+    //   getParentOptions()
   }
 
 
@@ -457,7 +468,7 @@ const handleSelectType = async (type: any) => {
     parentModel.value = theParentModel.value
     parent_key.value = theParentModelField.value
     code.value = 'pcode'
-    getParentOptions()
+    //  getParentOptions()
   }
 
 
@@ -468,7 +479,7 @@ const handleSelectType = async (type: any) => {
     parent_key.value = 'beneficiary_id'
     code.value = 'pcode'
     console.log('beneficiary_parcels------>', interventions_fields)
-    getParentOptions()
+    //   getParentOptions()
   }
 
 
@@ -480,7 +491,7 @@ const handleSelectType = async (type: any) => {
     parent_key.value = 'settlement_id'
     code.value = 'pcode'
     console.log('health_facility------>', interventions_fields)
-    getParentOptions()
+    // getParentOptions()
   }
 
   else if (type === 'category') {
@@ -751,14 +762,16 @@ const readXLSX = async (event) => {
       for (let i = 0; i < uploadObj.value.length; i++) {
         console.log('------------>', i, uploadObj.value[i])
         var thisFeature = uploadObj.value[i]
-        console.log('------matchedObj------>', i, thisFeature)
+        // console.log('------matchedObj------>', i, thisFeature)
         var filterParent = parentObj.value.filter(function (el) {
           return el['code'] === uploadObj.value[i][code.value]
         });
         // here we add a prefix to the parent detaisl to avoid confusion 
-        let pre = `parent_`;
+        //let pre = `parent_`;
+        let pre = theParentModel.value + '_'
         let pfeature = Object.keys(filterParent[0]).reduce((a, c) => (a[`${pre}${c}`] = filterParent[0][c], a), {});
         const mergedFeature = { ...thisFeature, ...pfeature }; //  merge the feature with the parent details 
+        console.log("merged fearture", mergedFeature)
         matchedObjwithparent.value.push(mergedFeature)
       }
 
@@ -771,7 +784,7 @@ const readXLSX = async (event) => {
       console.log("Those without parents")
 
       for (let i = 0; i < uploadObj.value.length; i++) {
-        console.log('------------>', i, uploadObj.value[i])
+        console.log('------without------>', i, uploadObj.value[i])
         var thisFeature = uploadObj.value[i]
 
         matchedObjwithparent.value.push(thisFeature)
@@ -797,17 +810,28 @@ const readXLSX = async (event) => {
 
 
 const handleSelectParentModel = async (parent: any) => {
+
+  var filtered = parentOptions.value.filter(function (item) {
+    return item.value === parent;
+  }
+  );
+
+  console.log('newArray', filtered[0].key)
+
   theParentModel.value = parent
-  if (parent === 'county') {
-    theParentModelField.value = "county_id"
-  }
-  else if (parent === 'settlement') {
+  theParentModelField.value = filtered[0].key
+  // if (parent === 'county') {
+  //   theParentModelField.value = "county_id"
 
-    theParentModelField.value = "settlement_id"
+  // }
+  // else if (parent === 'settlement') {
+  //   theParentModelField.value = "settlement_id"
+  // }
 
-  }
+  // console.log(theParentModel.value)
+  // console.log(theParentModelField.value)
 
-
+  getParentOptions()
 }
 </script>
 
@@ -876,9 +900,6 @@ const handleSelectParentModel = async (parent: any) => {
         <Tools />
       </el-icon>
     </el-button>
-    <!-- <section>
-                                                                        <input type="file" @change="readXLSX" />
-                                                                      </section> -->
 
 
   </ContentWrap>

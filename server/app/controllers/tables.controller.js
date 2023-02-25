@@ -219,6 +219,52 @@ exports.modelBoard = (req, res) => {
   })
 }
 
+exports.modelRelatives = (req, res) => {
+   var reg_model = req.body.model
+  
+  var relatives = []
+  console.log('model',reg_model)
+
+ // const ass = db.models.project.getAssociations();
+
+ var relatives = []
+ var relativeKeys = []
+ var assoc_models = []
+ //const associatedModels = Object.keys( db.models[reg_model].associations).map(key =>  db.models[reg_model].associations[key].target.name);
+  const associatedModels = db.models[reg_model].associations;
+
+// iterate over the associations and log the associated models and foreign keys
+Object.keys(associatedModels).forEach((key) => {
+  const association = associatedModels[key];
+  relatives.push(association.target.name)
+  relativeKeys.push(association.foreignKey)
+
+  var associatedModel = {}
+  associatedModel.model = association.target.name
+  associatedModel.key = association.foreignKey
+  assoc_models.push(associatedModel)
+
+  console.log(`Associated model: ${association.target.name}, foreign key: ${association.foreignKey}`);
+});
+
+  
+ console.log(associatedModels)
+  
+
+
+  // console.log(fields)
+ 
+  res.status(200).send({
+    data: relatives,
+    models :assoc_models,
+    keys: relativeKeys,
+
+     code: '0000'
+  })
+}
+
+
+
 exports.modelData = (req, res) => {
   console.log('Include for users......')
 
@@ -449,7 +495,7 @@ exports.modelImportDataUpsert = async (req, res) => {
       var errorMsg = 'There are one or more duplicate records'
     }
 
-    res.status(500).send({ message: 'Import/Update failed:'+errorMsg})
+    res.status(500).send({ message: 'Import/Update failed for:'+errors.length + " Records"})
   } else {
     res.status(200).send({
       message: 'Import/Updated Successful',
