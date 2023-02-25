@@ -24,6 +24,7 @@
   ],
   "god.tsconfig": "./tsconfig.json",
   "cSpell.words": [
-    "subcounty"
+    "subcounty",
+    "vueuse"
   ]
 }

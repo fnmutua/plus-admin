@@ -3094,7 +3094,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'Interventions',
       icon: 'mdi:office-building-marker-outline',
-      hidden: false
+      hidden: true
     },
     children: [
       {
@@ -3630,13 +3630,25 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
       {
-        path: 'hh',
+        path: 'xlsx',
     //    component: 'views/ImportData/excel',
         component: () => import('@/views/ImportData/excel.vue'),
 
         name: 'ImportHH',
         meta: {
           title: 'Excel',
+          icon: 'bi:filetype-xlsx',
+
+        }
+      },
+      {
+        path: 'fuzzy',
+    //    component: 'views/ImportData/excel',
+        component: () => import('@/views/ImportData/Fuzzy.vue'),
+
+        name: 'Fuzzy',
+        meta: {
+          title: 'Fuzzy',
           icon: 'bi:filetype-xlsx',
 
         }

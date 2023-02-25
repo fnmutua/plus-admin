@@ -14,4 +14,9 @@ export const getModelSpecs = (data: any): Promise<IResponse> => {
 
 
 
+export const getModelRelatives = (data: any): Promise<IResponse> => {
+  // console.log('filters....', data)
+   return request.post({ url: prod + '/api/v1/model/relatives', data })
+ }
+ 
  

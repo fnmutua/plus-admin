@@ -98,5 +98,11 @@ module.exports = function (app) {
     controller.modelBoard
   );
 
+
+  app.post(
+    "/api/v1/model/relatives", [authJwt.verifyToken],
+    controller.modelRelatives
+  );
+
 }
 

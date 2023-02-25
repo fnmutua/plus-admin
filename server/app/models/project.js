@@ -30,7 +30,8 @@ module.exports = function(sequelize, DataTypes) {
 
     title: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: false,
+      unique: true
     },
 
    
@@ -97,8 +98,15 @@ module.exports = function(sequelize, DataTypes) {
         unique: true,
         fields: [
           { name: "id" },
+          { name: "title" },
+
         ]
       },
+     
     ]
   });
 };
+
+
+
+
