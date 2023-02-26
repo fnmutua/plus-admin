@@ -17,6 +17,7 @@ import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
+import { getFile } from '@/api/summary'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -1340,6 +1341,30 @@ const documentOptions = [
   }
 ]
 
+const downloadFile = async (data) => {
+
+  console.log(data.name)
+
+  const formData = {}
+  formData.filename = data.name
+  formData.responseType = 'blob'
+  await getFile(formData)
+    .then(response => {
+      console.log(response)
+
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', data.name)
+      document.body.appendChild(link)
+      link.click()
+
+    })
+    .catch(error => {
+      console.error('Error downloading file:', error);
+    });
+
+}
 
 
 </script>
@@ -1424,9 +1449,15 @@ const documentOptions = [
 
                   <el-table-column label="Actions">
                     <template #default="scope">
-                      <el-link :href="props.row.documents[scope.$index].name" download>
+
+
+                      <el-link :href="null" @click="downloadFile(scope.row)">
                         <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
                       </el-link>
+
+
+
+
                       <el-tooltip content="Delete" placement="top">
                         <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                           icon-color="#626AEF" title="Are you sure to delete this document?"

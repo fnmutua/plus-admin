@@ -7,10 +7,13 @@ var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
 const crypto = require('crypto');
 
+// for enabling storage of files outside public...
+const path = require('path')
+const fs = require('fs');
+
  
 const nodemailer = require('nodemailer')
 const { authJwt } = require("../middleware");
-var fs = require('fs');
 const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   host: config.HOST,
   port: config.PORT,
@@ -1416,6 +1419,12 @@ exports.modelUpload = (req, res) => {
 
 exports.batchDocumentsUpload = async (req, res) => {
 
+
+  //const uploadsDir = path.join( './../../../../', 'uploads'); // path to the uploads folder outside the app directory
+  //const uploadsDir = './../../../../'; // path to the uploads folder outside the app directory
+
+  const uploadsDir = path.join(__dirname, '../../../..', 'uploads');
+
   if (!req.files) {
     return res.status(500).send({ msg: 'file is not found' })
   }
@@ -1463,16 +1472,23 @@ exports.batchDocumentsUpload = async (req, res) => {
 
     } else {
       let fname = myFiles[i].name.replace(/\s/g, '_')
-      let location = `./public/${fname}`
+      //let location = `./public/${fname}`
+      let location = uploadsDir + '/' + fname
+      
+      
       console.log(i, '----', column)
       obj.name = fname
-      obj.location = `./public/${fname}`
+      obj.location = location
+   //   obj.location = `./public/${fname}`
+   //   obj.location = `./../../../../${fname}`
       obj.code = crypto.randomUUID()
       var thisFile = {
         type: req.body.format,
         name: fname,
-        file_path: `./public/${fname}`,
-      }
+   //     file_path: `./public/${fname}`,
+     //   file_path: `./../../../../${fname}`,   
+         file_path:location,   
+    }
       console.log('Thisfile', thisFile)
       var reg_model = 'document'
       console.log("insert Object", obj)
@@ -1519,6 +1535,27 @@ exports.batchDocumentsUpload = async (req, res) => {
   }
 }
   
+
+exports.downloadFile = (req, res) => {
+  console.log("Received files:", req.body )
+
+   const uploadedFile = path.join(__dirname, '../../../..', 'uploads', req.body.filename);
+
+  console.log(uploadedFile)
+  //console.log(path.join(__dirname, filePath))
+
+ // res.send('Message to send along with the file');
+
+  //res.sendFile(uploadedFile);
+
+  res.status(200).sendFile(uploadedFile, function(err){
+    if (err) {
+      console.log(err);
+      res.status(500).send(err);
+    }
+  });
+
+ }
  
 
 exports.xReportDocumentationUpload = (req, res) => {
@@ -1726,7 +1763,10 @@ exports.RemoveDocument = (req, res) => {
 
     if (typeof(req.body.filesToDelete[i]) == 'object') { 
 
-      var filePath = './public/' + req.body.filesToDelete[i].name;
+    //  var filePath = './public/' + req.body.filesToDelete[i].name;
+
+      const filePath = path.join(__dirname, '../../../..', 'uploads', req.body.filesToDelete[i].name);
+
       fs.unlinkSync(filePath);
     
       db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i].name } })
@@ -1741,7 +1781,9 @@ exports.RemoveDocument = (req, res) => {
       })
     } else {
 
-      var filePath = './public/' + req.body.filesToDelete[i];
+     // var filePath = './public/' + req.body.filesToDelete[i];
+      const filePath = path.join(__dirname, '../../../..', 'uploads', req.body.filesToDelete[i]);
+
       fs.unlinkSync(filePath);
     
       db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i] } })
@@ -1778,3 +1820,5 @@ exports.RemoveDocument = (req, res) => {
 
 
 }
+
+
