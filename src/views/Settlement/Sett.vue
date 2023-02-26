@@ -2,7 +2,7 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
@@ -182,22 +182,24 @@ const submitMoreDocuments = async () => {
     fileTypes.push(format)
     // formData.append('file', fileList.value[i])
     // formData.file = fileList.value[i]
+
+    formData.append('model', model)
+
     formData.append('file', morefileList.value[i].raw)
-    formData.append('DocType', format)
+    formData.append('format', morefileList.value[i].name.split('.').pop())
+    formData.append('category', documentCategory.value)
+    formData.append('field_id', 'settlement_id')
+
+    formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
+    formData.append('code', uuid.v4())
+    formData.append('settlement_id', currentRow.value.id)
+
 
   }
 
 
-  formData.append('parent_code', currentRow.value.id)
-  formData.append('model', model)
-  formData.append('grp', 'Settlement Documentation')
-  formData.append('code', uuid.v4())
-  formData.append('column', 'settlement_id')  //Column to save ID 
-
-
-
-  console.log(formData)
-  await uploadDocuments(formData)
+  console.log(currentRow.value.id)
+  await uploadFilesBatch(formData)
 
 }
 
@@ -1269,6 +1271,77 @@ const DownloadXlsx = async () => {
 
 }
 
+const documentCategory = ref()
+const documentOptions = [
+  {
+    label: 'Reports',
+    options: [
+      {
+        value: 'socio_economic',
+        label: 'Socio Economic Report'
+      },
+      {
+        value: 'stakeholder_report',
+        label: 'Stakeholder Report'
+      },
+      {
+        value: 'planning_report',
+        label: 'Planning Report'
+      },
+
+      {
+        value: 'basemap_report',
+        label: 'Basemap Report'
+      },
+      {
+        value: 'esia_report',
+        label: 'Environmental Screening Report'
+      }
+    ]
+  },
+  {
+    label: 'Plans',
+    options: [
+      {
+        value: 'ldpdp',
+        label: 'Local Development Plan'
+      },
+      {
+        value: 'pdp',
+        label: 'Part Development Plan'
+      }
+    ]
+  },
+  {
+    label: 'Maps',
+    options: [
+      {
+        value: 'survey_plan',
+        label: 'Survey Plan'
+      },
+      {
+        value: 'rim',
+        label: 'Registry Index Map'
+      }
+    ]
+  },
+  {
+    label: 'Drawings',
+    options: [
+      {
+        value: 'design',
+        label: 'Design Proposals'
+      },
+      {
+        value: 'built',
+        label: 'As Built Designs'
+      }
+    ]
+  }
+]
+
+
+
 </script>
 
 <template>
@@ -1366,7 +1439,9 @@ const DownloadXlsx = async () => {
                     </template>
                   </el-table-column>
                 </el-table>
-                <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button>
+                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
+                <el-button type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                  style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
             </template>
@@ -1474,7 +1549,14 @@ const DownloadXlsx = async () => {
     </el-dialog>
 
     <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
-      <el-upload v-model:file-list="morefileList" class="upload-demo"
+
+      <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
+        <el-option-group v-for="group in documentOptions" :key="group.label" :label="group.label">
+          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+        </el-option-group>
+      </el-select>
+
+      <el-upload v-model:file-list="morefileList" class="upload-demo "
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>

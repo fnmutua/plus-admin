@@ -61,6 +61,21 @@ module.exports = function(sequelize, DataTypes) {
           { name: "id" },
         ]
       },
+      {
+        unique: true,
+        fields: ['name', 'report_id']
+      },
+
+      {
+        unique: true,
+        fields: ['name', 'settlement_id']
+      },
+      {
+        unique: true,
+        fields: ['name', 'project_id']
+      },
+
+
     ]
   });
 };
