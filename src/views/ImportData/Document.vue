@@ -418,6 +418,9 @@ const handleSubmitData = async () => {
     for (var i = 0; i < fileList.value.length; i++) {
         console.log('------>file', fileList.value[i])
         var column = fileList.value[i].field_id
+
+        console.log('------>Field_ID', fileList.value[i].field_id)
+
         formData.append('file', fileList.value[i].raw)
         formData.append('format', fileList.value[i].name.split('.').pop())
         formData.append('category', fileList.value[i].type)
@@ -431,7 +434,7 @@ const handleSubmitData = async () => {
 
 
 
-    console.log(formData)
+    console.log('Befoer submit', formData)
     await uploadFilesBatch(formData)
 
 }

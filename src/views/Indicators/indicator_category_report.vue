@@ -3,7 +3,7 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElMessageBox, ElSelect, FormInstance } from 'element-plus'
 import { ElMessage } from 'element-plus'
@@ -628,7 +628,7 @@ const handleClose = () => {
 }
 
 
-const submitMoreDocuments = async () => {
+const xsubmitMoreDocuments = async () => {
   console.log('More files.....', morefileList)
 
   // uploading the documents 
@@ -658,6 +658,41 @@ const submitMoreDocuments = async () => {
 
   console.log(formData)
   await uploadDocuments(formData)
+
+}
+
+const submitMoreDocuments = async () => {
+  console.log('More files.....', morefileList)
+
+  // uploading the documents 
+  const fileTypes = []
+  const formData = new FormData()
+  let files = []
+  for (var i = 0; i < morefileList.value.length; i++) {
+    console.log('------>file', morefileList.value[i])
+    var format = morefileList.value[i].name.split('.').pop() // get file extension
+    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+    fileTypes.push(format)
+    // formData.append('file', fileList.value[i])
+    // formData.file = fileList.value[i]
+
+    formData.append('model', model)
+
+    formData.append('file', morefileList.value[i].raw)
+    formData.append('format', morefileList.value[i].name.split('.').pop())
+    formData.append('category', documentCategory.value)
+    formData.append('field_id', 'report_id')
+
+    formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
+    formData.append('code', uuid.v4())
+    formData.append('report_id', currentRow.value.id)
+
+
+  }
+
+
+  console.log(currentRow.value.id)
+  await uploadFilesBatch(formData)
 
 }
 
@@ -1088,6 +1123,74 @@ const tableRowClassName = (data) => {
 
 
 
+const documentCategory = ref()
+const documentOptions = [
+  {
+    label: 'Reports',
+    options: [
+      {
+        value: 'socio_economic',
+        label: 'Socio Economic Report'
+      },
+      {
+        value: 'stakeholder_report',
+        label: 'Stakeholder Report'
+      },
+      {
+        value: 'planning_report',
+        label: 'Planning Report'
+      },
+
+      {
+        value: 'basemap_report',
+        label: 'Basemap Report'
+      },
+      {
+        value: 'esia_report',
+        label: 'Environmental Screening Report'
+      }
+    ]
+  },
+  {
+    label: 'Plans',
+    options: [
+      {
+        value: 'ldpdp',
+        label: 'Local Development Plan'
+      },
+      {
+        value: 'pdp',
+        label: 'Part Development Plan'
+      }
+    ]
+  },
+  {
+    label: 'Maps',
+    options: [
+      {
+        value: 'survey_plan',
+        label: 'Survey Plan'
+      },
+      {
+        value: 'rim',
+        label: 'Registry Index Map'
+      }
+    ]
+  },
+  {
+    label: 'Drawings',
+    options: [
+      {
+        value: 'design',
+        label: 'Design Proposals'
+      },
+      {
+        value: 'built',
+        label: 'As Built Designs'
+      }
+    ]
+  }
+]
 
 </script>
 
@@ -1159,8 +1262,12 @@ const tableRowClassName = (data) => {
                 </template>
               </el-table-column>
             </el-table>
-            <el-button v-if="showAdminButtons" @click="addMoreDocs(props.row)" type="info" round>Add More
-              Documents</el-button>
+            <!-- <el-button v-if="showAdminButtons" @click="addMoreDocs(props.row)" type="info" round>Add More
+                          Documents</el-button> -->
+
+            <el-button v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+              style="margin-left: 10px;margin-top: 5px" size="small" />
+
 
           </div>
         </template>
@@ -1194,9 +1301,9 @@ const tableRowClassName = (data) => {
     </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
@@ -1277,6 +1384,15 @@ const tableRowClassName = (data) => {
 
 
   <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
+
+
+    <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
+      <el-option-group v-for="group in documentOptions" :key="group.label" :label="group.label">
+        <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+      </el-option-group>
+    </el-select>
+
+
     <el-upload v-model:file-list="morefileList" class="upload-demo"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
       :on-remove="handleRemove" :before-remove="beforeRemove" :limit="5" :auto-upload="false" :on-exceed="handleExceed">
