@@ -3637,6 +3637,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'ImportHH',
         meta: {
           title: 'Excel',
+          hidden:true,
           icon: 'bi:filetype-xlsx',
 
         }
@@ -3648,7 +3649,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         name: 'Fuzzy',
         meta: {
-          title: 'Fuzzy',
+          title: 'List(xlsx)',
           icon: 'bi:filetype-xlsx',
 
         }
@@ -3677,6 +3678,42 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       },
     ]
   },
+  {
+    path: '/repository',
+    component: Layout,
+    //redirect: '/settings',
+    name: 'Repository',
+    meta: {
+      title: 'Repository',
+      icon: 'material-symbols:home-storage-rounded',
+      alwaysShow: true
+    },
+    children: [
+       {
+        path: 'docs',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/Documents.vue'),
+        name: 'RepositoryDocs',
+        meta: {
+          title: 'Documents',
+          hidden: false,
+          icon:'bi:clipboard2-data-fill'
+        }
+      },
+      {
+        path: 'data',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/Documents.vue'),
+        name: 'RepositoryData',
+        meta: {
+          title: 'Data',
+          hidden: false,
+          icon:'fluent:calendar-data-bar-16-regular'
+        }
+      },
+    ]
+  },
+
   {
     path: '/mne',
     component: Layout,
@@ -3750,7 +3787,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       } 
     ]
   },
-
 
   {
     path: '/users',

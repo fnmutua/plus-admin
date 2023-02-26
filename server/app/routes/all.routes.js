@@ -105,5 +105,10 @@ module.exports = function (app) {
     controller.modelRelatives
   );
 
+  app.post(
+    "/api/v1/download", [authJwt.verifyToken], controller.downloadFile
+  );
+
+  
 }
 

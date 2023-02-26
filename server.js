@@ -2,16 +2,28 @@ const express = require('express')
 const bodyParser = require('body-parser')
 const cors = require('cors')
 const app = express()
+
+
+const fs = require('fs');
+
+
 var corsOptions = {
   origin: 'http://localhost:4000'
 }
 const path = require('path')
 const fileUpload = require('express-fileupload')
 
+
+const uploadsDir = path.join(__dirname, '..', 'uploads'); // path to the uploads folder
+if (!fs.existsSync(uploadsDir)) {
+  // if uploads folder does not exist, create it
+  fs.mkdirSync(uploadsDir);
+}
+
  
 
 
-const envt = 'PROD'   // PROD
+const envt = 'DEV'   // PROD
  if (envt==='DEV') {
 // Switch off for prodcution 
 console.log("DEV: Switching on dotenv")

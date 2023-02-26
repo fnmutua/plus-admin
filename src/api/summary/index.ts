@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import AxiosResponse from '@/config/axios'
  
 
 
@@ -41,3 +42,12 @@ export const getSummaryGroupByMultipleFields= (data: any): Promise<IResponse> =>
    return request.post({ url: prod + '/api/v1/summary/group/multiple', data })
 }
 
+{ responseType: 'blob'}  
+
+
+export const getFile= (data: any) => {
+  // console.log('filters....', data)
+   return request.post({ url: prod + '/api/v1/download',  data , responseType: 'blob' })
+}
+
+ 

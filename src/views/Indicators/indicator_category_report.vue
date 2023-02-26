@@ -35,6 +35,7 @@ import { getModelSpecs } from '@/api/fields'
 import { BatchImportUpsert } from '@/api/settlements'
 import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
+import { getFile } from '@/api/summary'
 
 
 //import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
@@ -1192,6 +1193,33 @@ const documentOptions = [
   }
 ]
 
+
+const downloadFile = async (data) => {
+
+  console.log(data.name)
+
+  const formData = {}
+  formData.filename = data.name
+  formData.responseType = 'blob'
+  await getFile(formData)
+    .then(response => {
+      console.log(response)
+
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', data.name)
+      document.body.appendChild(link)
+      link.click()
+
+    })
+    .catch(error => {
+      console.error('Error downloading file:', error);
+    });
+
+}
+
+
 </script>
 
 <template>
@@ -1243,13 +1271,14 @@ const documentOptions = [
             <el-table :data="props.row.documents" class="mb-4">
               <el-table-column label="Name" prop="name" />
               <el-table-column label="Type" prop="category" />
-              <el-table-column label="Link" prop="location" />
+              <el-table-column label="Size(mb)" prop="size" />
 
               <el-table-column label="Operations">
                 <template #default="scope">
-                  <el-link :href="props.row.documents[scope.$index].name" download>
+                  <el-link :href="null" @click="downloadFile(scope.row)">
                     <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
                   </el-link>
+
                   <el-tooltip content="Delete" placement="top">
                     <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                       icon-color="#626AEF" title="Are you sure to delete this document?"
@@ -1263,7 +1292,7 @@ const documentOptions = [
               </el-table-column>
             </el-table>
             <!-- <el-button v-if="showAdminButtons" @click="addMoreDocs(props.row)" type="info" round>Add More
-                          Documents</el-button> -->
+                                  Documents</el-button> -->
 
             <el-button v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
               style="margin-left: 10px;margin-top: 5px" size="small" />
