@@ -1915,7 +1915,6 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
        component: () => import('@/views/Facilities/Roads/RoadFacilityDetails.vue'),
-
         name: 'RoadsDetails',
         meta: {
           hidden: true,
@@ -1923,6 +1922,9 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
           title: 'Road Profile'
         }
       },
+
+
+
    /// Roads Assets-----------------------
    {
     path: 'roadasset',
@@ -3446,9 +3448,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         path: 'road/add',
         //component: 'views/Facilities/Roads/Add',
         component: () => import('@/views/Facilities/Roads/Add.vue'),
-
         name: 'AddRoad',
-        icon: 'ant-design:plus-square-filled',
         meta: { hidden: true, title: 'Add', noCache: true }
       },
  
@@ -3456,7 +3456,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         path: 'road/details/:id',
        // component: 'views/Facilities/Roads/RoadDetails',
        component: () => import('@/views/Facilities/Roads/RoadFacilityDetails.vue'),
-
         name: 'RoadsDetails',
         meta: {
           hidden: true,
@@ -3464,6 +3463,21 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Road Profile'
         }
       },
+
+      
+      {
+        path: 'road/map/:id',
+      //  component: 'views/Facilities/Water/WaterMap',
+        component: () => import('@/views/Facilities/Roads/RoadMap.vue'),
+        name: 'RoadMap',
+         meta: {
+          hidden: true,
+          props: true,
+          title: 'Road Map'
+        }
+      },
+
+
    /// Roads Assets-----------------------
    {
     path: 'roadasset',
@@ -3924,7 +3938,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       }, 
+      {
+        path: 'doctype',
+        component: () => import('@/views/settings/DocumentType.vue'),
+        name: 'DocumentTypes',
+        meta: {
+          title: 'Document Types',
+          hidden: false,
+          icon:'material-symbols:settings'
 
+        }
+      }, 
     ]
   }
 ]

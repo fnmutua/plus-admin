@@ -101,6 +101,56 @@ function toTitleCase(str) {
 
 //// ------------------------------------ -------------------------------------//
 
+//id","name","county_id","settlement_type","geom","area","population","code","description"
+const DocTypes = ref([])
+const getDocumentTypes = async () => {
+    const res = await getCountyListApi({
+        params: {
+            pageIndex: 1,
+            limit: 100,
+            curUser: 1, // Id for logged in user
+            model: 'document_type',
+            searchField: 'name',
+            searchKeyword: '',
+            sort: 'ASC'
+        }
+    }).then((response: { data: any }) => {
+        console.log('Document Typest:', response)
+        //tableDataList.value = response.data
+        var ret = response.data
+
+
+        const nestedData = ret.reduce((acc, cur) => {
+            const group = cur.group;
+            if (!acc[group]) {
+                acc[group] = [];
+            }
+            acc[group].push(cur);
+            return acc;
+        }, {});
+
+        console.log(nestedData.Map)
+        for (let property in nestedData) {
+            let opts = nestedData[property];
+            var doc = {}
+            doc.label = property
+            doc.options = []
+
+            opts.forEach(function (arrayItem) {
+                let opt = {}
+                opt.value = arrayItem.id
+                opt.label = arrayItem.type
+                doc.options.push(opt)
+
+            })
+            DocTypes.value.push(doc)
+
+        }
+        console.log(DocTypes)
+
+    })
+}
+getDocumentTypes()
 
 
 const getparentOptions = async () => {
@@ -483,11 +533,12 @@ const beforeAvatarUpload: UploadProps['beforeUpload'] = (rawFile) => {
 </script>
 
 <template>
-    <ContentWrap :title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')"
-        v-loading.fullscreen.lock="loadingPosting" element-loading-text="Saving the data.. Please wait.......">
+    <ContentWrap :title="t('Upload Documents')" v-loading.fullscreen.lock="loadingPosting"
+        element-loading-text="Saving the data.. Please wait.......">
 
         <div style="display: inline-block;">
-            <el-select v-model="type" :onChange="handleSelectType" placeholder="Select Model" style=" margin-right: 20px;">
+            <el-select v-model="type" :onChange="handleSelectType" placeholder="Select Model" style=" margin-right: 20px;"
+                filterable clearable>
                 <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
                     <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
                 </el-option-group>
@@ -501,8 +552,7 @@ const beforeAvatarUpload: UploadProps['beforeUpload'] = (rawFile) => {
 
         <el-divider border-style="dashed" content-position="left">Upload</el-divider>
         <el-upload v-if="showUploadSpace" class="upload-demo" drag :auto-upload="false"
-            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList"
-            :on-change="beforeUpload">
+            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList">
             <div class="el-upload__text"> Drop files here or <em>click to upload</em> </div>
         </el-upload>
 
@@ -524,7 +574,7 @@ const beforeAvatarUpload: UploadProps['beforeUpload'] = (rawFile) => {
             <el-table-column prop="type" label="Type">
                 <template #default="{ row }">
                     <el-select v-model="row.type" placeholder="Select Type" clearable filterable>
-                        <el-option-group v-for="group in documentOptions" :key="group.label" :label="group.label">
+                        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
                             <el-option v-for="item in group.options" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-option-group>

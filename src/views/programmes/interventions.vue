@@ -6,13 +6,13 @@ import { getSettlementListByCounty, getHHsByCounty, getRoutesList, uploadFilesBa
 import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
-  ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCol, FormRules, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
+  ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCol, FormRules, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
 
 import { ref, reactive, h } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider, ElOptionGroup } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
@@ -139,7 +139,8 @@ var filterValues = [[component_id.value]]  // make sure the inner array is array
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const nested_models = ['component', 'programme'] // The mother, then followed by the child
+//const nested_models = ['component', 'programme'] // The mother, then followed by the child
+const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
 
 //// ------------------parameters -----------------------////
@@ -1117,6 +1118,7 @@ const DownloadXlsx = async () => {
   let fields = [
     { label: "S/No", value: "index" }, // Top level data
     { label: "Title", value: "title" }, // Top level data
+    { label: "County", value: "county" }, // Custom format
     { label: "Settlement", value: "settlement" }, // Custom format
     { label: "Programme", value: "programme" }, // Run functions
     { label: "Component", value: "component" }, // Run functions
@@ -1140,7 +1142,8 @@ const DownloadXlsx = async () => {
     console.log(tableDataList.value[i].title)
     thisRecord.index = i + 1
     thisRecord.title = tableDataList.value[i].title
-    thisRecord.settlement = tableDataList.value[i].settlement.name
+    thisRecord.settlement = tableDataList.value[i].settlement ? tableDataList.value[i].settlement.name : ''
+    thisRecord.county = tableDataList.value[i].county ? tableDataList.value[i].county.name : ''
     thisRecord.component = tableDataList.value[i].component.title
     thisRecord.programme = tableDataList.value[i].component.programme.title
     thisRecord.female_beneficiaries = tableDataList.value[i].female_beneficiaries
@@ -1345,37 +1348,109 @@ const downloadFile = async (data) => {
 
 }
 
+
+
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
+
+const DocTypes = ref([])
+const getDocumentTypes = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'document_type',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Document Typest:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+
+    const nestedData = ret.reduce((acc, cur) => {
+      const group = cur.group;
+      if (!acc[group]) {
+        acc[group] = [];
+      }
+      acc[group].push(cur);
+      return acc;
+    }, {});
+
+    console.log(nestedData.Map)
+    for (let property in nestedData) {
+      let opts = nestedData[property];
+      var doc = {}
+      doc.label = property
+      doc.options = []
+
+      opts.forEach(function (arrayItem) {
+        let opt = {}
+        opt.value = arrayItem.id
+        opt.label = arrayItem.type
+        doc.options.push(opt)
+
+      })
+      DocTypes.value.push(doc)
+
+    }
+    console.log(DocTypes)
+
+  })
+}
+getDocumentTypes()
+
+
 </script>
 
 <template>
   <ContentWrap :title="page_title" :message="t(' The list of intervention beneficiaries. Use the filters to subset')">
+    <el-row>
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
 
-    <div style="display: inline-block;margin-bottom: 10px">
+        <div style="display: inline-block;margin-bottom: 10px">
 
 
-      <div style="display: inline-block; width: 400px">
-        <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-          placeholder="Search by Project Intervention title" style="width: 100%" />
-      </div>
+          <div style="display: inline-block; margin-bottom: 10px">
+            <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+              placeholder="Search by Title" style="width: 100%" />
+          </div>
 
-      <div style="display: inline-block; margin-left: 20px">
-        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-      </div>
+          <div style="display: inline-block; margin-left: 20px">
+            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+          </div>
 
-      <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
-        <el-tooltip content="Add Project" placement="top">
-          <el-button :onClick="AddProject" type="primary" :icon="Plus" />
-        </el-tooltip>
-      </div>
+          <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
+            <el-tooltip content="Add Project" placement="top">
+              <el-button :onClick="AddProject" type="primary" :icon="Plus" />
+            </el-tooltip>
+          </div>
 
-      <div style="display: inline-block; margin-left: 20px">
-        <el-tooltip content="Download" placement="top">
-          <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-        </el-tooltip>
-      </div>
+          <div style="display: inline-block; margin-left: 20px">
+            <el-tooltip content="Download" placement="top">
+              <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+            </el-tooltip>
+          </div>
 
-    </div>
-
+        </div>
+      </el-col>
+    </el-row>
 
     <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
       <el-tab-pane label="Interventions" name="list">
@@ -1386,7 +1461,7 @@ const downloadFile = async (data) => {
                 <h3>Documents</h3>
                 <el-table :data="props.row.documents">
                   <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="category" />
+                  <el-table-column label="Type" prop="document_type.type" />
                   <el-table-column label="Size(mb)" prop="size" />
 
                   <el-table-column label="Actions">
@@ -1426,31 +1501,65 @@ const downloadFile = async (data) => {
 
 
 
-          <el-table-column fixed="right" label="Operations" width="200">
-
+          <el-table-column fixed="right" label="Operations" :width="actionColumnWidth">
             <template #header>
-              <el-input v-model="search" placeholder="Filter" :onInput="filterTableData" />
+              <span v-if="isMobile">Actions</span>
+
+              <el-input v-else v-model="search" placeholder="Filter" :onInput="filterTableData" />
             </template>
             <template #default="scope">
 
-              <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                <el-button type="success" :icon="Edit" @click="editProject(scope as TableSlotDefault)" circle />
-              </el-tooltip>
-              <el-tooltip content="View on Map" placement="top">
-                <el-button type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)" circle />
-              </el-tooltip>
-              <el-tooltip content="View Households" placement="top">
-                <el-button type="success" :icon="User" @click="viewBen(scope as TableSlotDefault)" circle />
-              </el-tooltip>
 
-              <el-tooltip content="Delete" placement="top">
-                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                  title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">
-                  <template #reference>
-                    <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                  </template>
-                </el-popconfirm>
-              </el-tooltip>
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="showAdminButtons" @click="editProject(scope as TableSlotDefault)"
+                      :icon="Edit">Edit</el-dropdown-item>
+                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                      :icon="Position">Map</el-dropdown-item>
+
+                    <el-dropdown-item @click="viewBen(scope as TableSlotDefault)"
+                      :icon="User">Beneficiaries</el-dropdown-item>
+
+
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
+
+              <div v-else>
+
+
+                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+                  <el-button type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+                <el-tooltip content="View on Map" placement="top">
+                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+                <el-tooltip content="View Households" placement="top">
+                  <el-button type="success" size="small" :icon="User" @click="viewBen(scope as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+
+                <el-tooltip content="Delete" placement="top">
+                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                    title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+
+              </div>
+
             </template>
           </el-table-column>
 
@@ -1481,7 +1590,7 @@ const downloadFile = async (data) => {
 
 
 
-    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="30%" draggable>
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
       <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
 
@@ -1563,7 +1672,7 @@ const downloadFile = async (data) => {
 
 
       <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
-        <el-option-group v-for="group in documentOptions" :key="group.label" :label="group.label">
+        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
         </el-option-group>
       </el-select>

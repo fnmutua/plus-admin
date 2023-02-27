@@ -602,6 +602,17 @@ db.models.project.hasMany(db.models.document, {
 })
 
 
+db.models.document.belongsTo(db.models.document_type, {
+  foreignKey: 'category',
+})
+
+db.models.document_type.hasMany(db.models.document, {
+  foreignKey: 'category'
+})
+
+
+
+
 db.models.document.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id',
 })
@@ -618,6 +629,10 @@ db.models.subcounty.belongsTo(db.models.county, {
 db.models.county.hasMany(db.models.subcounty, {
   foreignKey: 'county_id'
 })
+
+
+
+
 
 
 // db.models.document.belongsTo(db.models.indicator_category_report, {

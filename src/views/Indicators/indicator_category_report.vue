@@ -17,11 +17,11 @@ import {
   InfoFilled
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, h } from 'vue'
+import { ref, reactive, computed, h } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
-  ElTableColumn,
-  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, FormRules, ElPopconfirm
+  ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
+  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, ElOptionGroup, FormRules, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -36,6 +36,7 @@ import { BatchImportUpsert } from '@/api/settlements'
 import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
 import { getFile } from '@/api/summary'
+import xlsx from "json-as-xlsx"
 
 
 //import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
@@ -126,58 +127,7 @@ const formatter = (row) => {
 }
 
 
-const columns: TableColumn[] = [
-  {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
-  },
 
-  {
-    field: 'indicator_category.indicator.name',
-    label: t('Indicator')
-  },
-  {
-    field: 'settlement.name',
-    label: t('Settlement')
-  },
-  {
-    field: 'county.name',
-    label: t('County')
-  },
-
-  {
-    field: 'indicator_category.indicator.unit',
-    label: t('Unit')
-  },
-  {
-    field: 'amount',
-    label: t('Amount')
-  },
-  {
-    field: 'date',
-    label: t('Date')
-  },
-  {
-    field: 'status',
-    label: t('Status')
-  },
-  {
-    field: '',
-    width: "250",
-    label: t('Documentation'),
-    type: 'expand'
-  },
-  {
-    field: 'documentation',
-    label: t('Documents'),
-    formatter: formatter
-  },
-  {
-    field: 'action',
-    label: t('Actions')
-  }
-]
 const handleClear = async () => {
   console.log('cleared....')
 
@@ -1220,6 +1170,124 @@ const downloadFile = async (data) => {
 }
 
 
+
+const DocTypes = ref([])
+const getDocumentTypes = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'document_type',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Document Typest:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+
+    const nestedData = ret.reduce((acc, cur) => {
+      const group = cur.group;
+      if (!acc[group]) {
+        acc[group] = [];
+      }
+      acc[group].push(cur);
+      return acc;
+    }, {});
+
+    console.log(nestedData.Map)
+    for (let property in nestedData) {
+      let opts = nestedData[property];
+      var doc = {}
+      doc.label = property
+      doc.options = []
+
+      opts.forEach(function (arrayItem) {
+        let opt = {}
+        opt.value = arrayItem.id
+        opt.label = arrayItem.type
+        doc.options.push(opt)
+
+      })
+      DocTypes.value.push(doc)
+
+    }
+    console.log(DocTypes)
+
+  })
+}
+getDocumentTypes()
+
+const DownloadXlsx = async () => {
+  console.log(tableDataList.value)
+
+  // change here !
+  let fields = [
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Indicator", value: "indicator" }, // Top level data
+    { label: "County", value: "county" }, // Custom format
+    { label: "Status", value: "status" }, // Run functions
+    { label: "Amount", value: "amount" }, // Run functions
+
+  ]
+
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  // loop through the table data and sort the data 
+  // change here !
+  for (let i = 0; i < tableDataList.value.length; i++) {
+    let thisRecord = {}
+    tableDataList.value[i]
+    thisRecord.index = i + 1
+    thisRecord.indicator = tableDataList.value[i].indicator_category.indicator.title
+    thisRecord.county = tableDataList.value[i] ? tableDataList.value[i].county.name : ''
+    thisRecord.status = tableDataList.value[i].status
+    thisRecord.amount = tableDataList.value[i].amount
+
+
+
+    dataHolder.push(thisRecord)
+  }
+  dataObj.content = dataHolder
+
+
+
+
+  let settings = {
+    fileName: model, // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
+
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
+
 </script>
 
 <template>
@@ -1241,7 +1309,7 @@ const downloadFile = async (data) => {
 
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
@@ -1261,8 +1329,6 @@ const downloadFile = async (data) => {
 
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
-
-
     <el-table :data="tableDataList" style="width: 100%" :row-class-name="tableRowClassName">
       <el-table-column type="expand">
         <template #default="props">
@@ -1270,7 +1336,7 @@ const downloadFile = async (data) => {
             <h3>Documents</h3>
             <el-table :data="props.row.documents" class="mb-4">
               <el-table-column label="Name" prop="name" />
-              <el-table-column label="Type" prop="category" />
+              <el-table-column label="Type" prop="document_type.type" />
               <el-table-column label="Size(mb)" prop="size" />
 
               <el-table-column label="Operations">
@@ -1292,7 +1358,7 @@ const downloadFile = async (data) => {
               </el-table-column>
             </el-table>
             <!-- <el-button v-if="showAdminButtons" @click="addMoreDocs(props.row)" type="info" round>Add More
-                                  Documents</el-button> -->
+                                                                                                      Documents</el-button> -->
 
             <el-button v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
               style="margin-left: 10px;margin-top: 5px" size="small" />
@@ -1308,22 +1374,45 @@ const downloadFile = async (data) => {
       <el-table-column label="Amount" prop="amount" />
       <el-table-column label="Status" prop="status" />
 
-      <el-table-column fixed="right" label="Operations" width="120">
+      <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
 
-          <el-tooltip content="Edit" placement="top">
-            <el-button v-if="showAdminButtons" type="success" :icon="Edit"
-              @click="editReport(scope.row as TableSlotDefault)" circle />
-          </el-tooltip>
 
-          <el-tooltip content="Delete" placement="top">
-            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-              title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
-              <template #reference>
-                <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-              </template>
-            </el-popconfirm>
-          </el-tooltip>
+          <el-dropdown v-if="isMobile">
+            <span class="el-dropdown-link">
+              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="showAdminButtons" @click="editReport(scope as TableSlotDefault)"
+                  :icon="Edit">Edit</el-dropdown-item>
+                <el-dropdown-item v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
+                  :icon="Delete" color="red">Delete</el-dropdown-item>
+
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+
+          <div v-else>
+
+
+
+            <el-tooltip content="Edit" placement="top">
+              <el-button v-if="showAdminButtons" type="success" :icon="Edit"
+                @click="editReport(scope.row as TableSlotDefault)" circle />
+            </el-tooltip>
+
+            <el-tooltip content="Delete" placement="top">
+              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
+                <template #reference>
+                  <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                </template>
+              </el-popconfirm>
+            </el-tooltip>
+
+          </div>
         </template>
       </el-table-column>
 
@@ -1335,51 +1424,71 @@ const downloadFile = async (data) => {
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
 
-      <el-form-item label="Indicator">
-        <el-select filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
-          placeholder="Select Indicator">
-          <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
+    <el-row :gutter="10">
 
+      <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+        <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
 
-      <el-form-item label="Location">
-        <el-cascader v-model="ruleForm.location" :options="cascadeOptions" @change="getCascadeSelectedValues"
-          :props="props1" filterable clearable placeholder="Select Location of Monitoring" />
-      </el-form-item>
-      <el-form-item label="Date">
-        <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />
-      </el-form-item>
-      <el-form-item label="Quantity">
-        <el-input-number v-model="ruleForm.amount" />
-      </el-form-item>
-      <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
-          :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
-          :on-exceed="handleExceed" :auto-upload="false">
-          <el-button type="primary">Click to upload</el-button>
-          <template #tip>
-            <div class="el-upload__tip">
-              pdf/xlsx/csv/jpg/png files with a size less than 20mb.
-            </div>
-          </template>
-        </el-upload></el-form-item>
+          <el-form-item label="Indicator">
+            <el-select filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
+              placeholder="Select Indicator">
+              <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
 
 
-    </el-form>
+          <el-form-item label="Location">
+            <el-cascader v-model="ruleForm.location" :options="cascadeOptions" @change="getCascadeSelectedValues"
+              :props="props1" filterable clearable placeholder="Select Location of Monitoring" />
+          </el-form-item>
+          <el-form-item label="Date">
+            <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />
+          </el-form-item>
+          <el-form-item label="Quantity">
+            <el-input-number v-model="ruleForm.amount" />
+          </el-form-item>
+          <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
+              :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
+              :on-exceed="handleExceed" :auto-upload="false">
+              <el-button type="primary">Click to upload</el-button>
+              <template #tip>
+                <div class="el-upload__tip">
+                  pdf/xlsx/csv/jpg/png files with a size less than 20mb.
+                </div>
+              </template>
+            </el-upload></el-form-item>
+
+
+        </el-form>
+
+      </el-col>
+
+    </el-row>
     <template #footer>
 
       <span class="dialog-footer">
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+
+        <el-row :gutter="10">
+
+          <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+
+            <el-button @click="AddDialogVisible = false">Cancel</el-button>
+            <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+            <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+
+
+          </el-col>
+
+
+        </el-row>
       </span>
     </template>
   </el-dialog>
 
-  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" width="50%" draggable>
+  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
+    draggable>
     <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="5" :on-exceed="handleExceed" :auto-upload="false">
@@ -1412,11 +1521,10 @@ const downloadFile = async (data) => {
   </el-dialog>
 
 
-  <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
-
+  <el-dialog v-model="addMoreDocuments" title="Upload More Documents" :width="dialogWidth">
 
     <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
-      <el-option-group v-for="group in documentOptions" :key="group.label" :label="group.label">
+      <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
         <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
       </el-option-group>
     </el-select>

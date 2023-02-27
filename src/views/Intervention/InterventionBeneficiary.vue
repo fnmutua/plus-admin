@@ -7,12 +7,12 @@ import { getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownItem, ElDropdownMenu
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
 
-import { ref, reactive, h } from 'vue'
+import { ref, reactive, computed, h } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -626,7 +626,7 @@ const DownloadXlsx = async () => {
     { label: "Name", value: "name" }, // Top level data
     { label: "Gender", value: "gender" }, // Custom format
     { label: "Settlement", value: "settlement" }, // Run functions
-    { label: "Ownership Status", value: "ownership_status" }, // Run functions
+    { label: "Project", value: "project" }, // Run functions
 
 
   ]
@@ -645,9 +645,9 @@ const DownloadXlsx = async () => {
     tableDataList.value[i]
     thisRecord.index = i + 1
     thisRecord.name = tableDataList.value[i].name
-    thisRecord.settlement = tableDataList.value[i].settlement.name
+    thisRecord.settlement = tableDataList.value[i].settlement ? tableDataList.value[i].settlement.name : ''
+    thisRecord.project = tableDataList.value[i].project ? tableDataList.value[i].project.title : ''
     thisRecord.gender = tableDataList.value[i].gender
-    thisRecord.ownership_status = tableDataList.value[i].ownership_status
 
 
     dataHolder.push(thisRecord)
@@ -688,9 +688,28 @@ const handleSelectProject = async (project: any) => {
     .then((result) => {
 
       console.log(result[0].settlement_id)
-      ruleForm.settlement_id=result[0].settlement_id
+      ruleForm.settlement_id = result[0].settlement_id
     });
 }
+
+
+
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
+
 
 </script>
 
@@ -702,14 +721,12 @@ const handleSelectProject = async (project: any) => {
 
 
         <div style="display: inline-block; margin-top: 5px">
-          <el-select
-size="default" v-model="value4" :onChange="filterByProject" :onClear="handleClear" multiple clearable
+          <el-select size="default" v-model="value4" :onChange="filterByProject" :onClear="handleClear" multiple clearable
             filterable collapse-tags placeholder="By Project">
             <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
 
-          <el-select
-size="default" v-model="value5" :onChange="filterByHousehold" :onClear="handleClear" multiple
+          <el-select size="default" v-model="value5" :onChange="filterByHousehold" :onClear="handleClear" multiple
             clearable filterable collapse-tags placeholder="By Household">
             <el-option v-for="item in householdOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -720,8 +737,7 @@ size="default" v-model="value5" :onChange="filterByHousehold" :onClear="handleCl
       </el-col>
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
         <div style="display: inline-block; margin-top: 5px">
-          <el-select
-size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
+          <el-select size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
             reserve-keyword placeholder="Search by Name" />
         </div>
       </el-col>
@@ -772,8 +788,7 @@ size="default" v-model="value3" multiple clearable filterable remote :remote-met
                         <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
                       </el-link>
                       <el-tooltip cont nt="Delete" placement="top">
-                        <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                           icon-color="#626AEF" title="Are you sure to delete this document?"
                           @confirm="removeDocument(scope.row)">
                           <template #reference>
@@ -794,33 +809,55 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
           <el-table-column label="Ownership Status" prop="project.title" />
 
 
-          <el-table-column fixed="right" label="Operations" width="150">
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
 
-              <el-tooltip ontent="Edit" placement="top">
-                <el-button
-v-if="showAdminButtons" type="success" :icon="Edit" @click="editHH(scope as TableSlotDefault)"
-                  circle />
-              </el-tooltip>
 
-              <el-tooltip cont nt="Delete" placement="top">
-                <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                  title="Are you sure to delete this household?"
-                  @confirm="DeleteBeneficiary(scope.row as TableSlotDefault)">
-                  <template #reference>
-                    <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                  </template>
-                </el-popconfirm>
-              </el-tooltip>
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="showAdminButtons" @click="editHH(scope as TableSlotDefault)"
+                      :icon="Edit">Edit</el-dropdown-item>
+
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteBeneficiary(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
+
+              <div v-else>
+
+
+
+                <el-tooltip ontent="Edit" placement="top">
+                  <el-button v-if="showAdminButtons" type="success" :icon="Edit"
+                    @click="editHH(scope as TableSlotDefault)" circle />
+                </el-tooltip>
+
+                <el-tooltip cont nt="Delete" placement="top">
+                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                    title="Are you sure to delete this household?"
+                    @confirm="DeleteBeneficiary(scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+
+              </div>
+
             </template>
           </el-table-column>
 
         </el-table>
 
 
-        <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
@@ -832,7 +869,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 
 
-    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="30%" draggable>
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
       <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
         <el-form-item label="Beneficiary" prop="hh_id">
@@ -862,8 +899,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
     </el-dialog>
 
     <el-dialog v model="addMoreDocuments" title="Upload More Documents" width="30%">
-      <el-upload
-v-model:file-list="morefileList" class="upload-demo"
+      <el-upload v-model:file-list="morefileList" class="upload-demo"
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>
