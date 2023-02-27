@@ -7,12 +7,12 @@ import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownItem, ElDropdownMenu,
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
 
-import { ref, reactive, h } from 'vue'
+import { ref, reactive, computed, h } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -800,10 +800,25 @@ const DownloadXlsx = async () => {
 
 }
 
+
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
+
 </script>
 
 <template>
-
   <ContentWrap :title="t('Households')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
     <el-row>
@@ -891,22 +906,45 @@ const DownloadXlsx = async () => {
           <el-table-column label="Settlement" prop="settlement.name" />
 
 
-          <el-table-column fixed="right" label="Operations" width="150">
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
 
-              <el-tooltip content="Edit" placement="top">
-                <el-button v-if="showAdminButtons" type="success" :icon="Edit"
-                  @click="editHH(scope as TableSlotDefault)" circle />
-              </el-tooltip>
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="showAdminButtons" @click="editHH(scope as TableSlotDefault)"
+                      :icon="Edit">Edit</el-dropdown-item>
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteHH(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
 
-              <el-tooltip content="Delete" placement="top">
-                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                  title="Are you sure to delete this household?" @confirm="DeleteHH(scope.row as TableSlotDefault)">
-                  <template #reference>
-                    <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                  </template>
-                </el-popconfirm>
-              </el-tooltip>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
+
+              <div v-else>
+
+
+
+                <el-tooltip content="Edit" placement="top">
+                  <el-button v-if="showAdminButtons" type="success" :icon="Edit"
+                    @click="editHH(scope as TableSlotDefault)" circle />
+                </el-tooltip>
+
+                <el-tooltip content="Delete" placement="top">
+                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                    title="Are you sure to delete this household?" @confirm="DeleteHH(scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+
+              </div>
+
             </template>
           </el-table-column>
 
@@ -924,7 +962,7 @@ const DownloadXlsx = async () => {
 
 
 
-    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="30%" draggable>
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
       <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
         <el-form-item label="Settlement" prop="settlement_id">
@@ -980,8 +1018,6 @@ const DownloadXlsx = async () => {
     </el-dialog>
 
   </ContentWrap>
-
-
 </template>
  
 

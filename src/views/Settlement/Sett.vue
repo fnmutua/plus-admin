@@ -7,12 +7,12 @@ import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElOptionGroup,
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
+import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled, ArrowDown } from '@element-plus/icons-vue'
 
-import { ref, reactive, h } from 'vue'
+import { ref, reactive, h, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -120,6 +120,7 @@ var tblData = []
 
 const associated_Model = ''
 const associated_multiple_models = ['county', 'subcounty', 'document']
+const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
 const model = 'settlement'
 //// ------------------parameters -----------------------////
@@ -252,6 +253,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
+  formData.nested_models = nested_models
 
   //-------------------------
   //console.log(formData)
@@ -1366,6 +1368,73 @@ const downloadFile = async (data) => {
 
 }
 
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
+
+const DocTypes = ref([])
+const getDocumentTypes = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'document_type',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Document Typest:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+
+    const nestedData = ret.reduce((acc, cur) => {
+      const group = cur.group;
+      if (!acc[group]) {
+        acc[group] = [];
+      }
+      acc[group].push(cur);
+      return acc;
+    }, {});
+
+    console.log(nestedData.Map)
+    for (let property in nestedData) {
+      let opts = nestedData[property];
+      var doc = {}
+      doc.label = property
+      doc.options = []
+
+      opts.forEach(function (arrayItem) {
+        let opt = {}
+        opt.value = arrayItem.id
+        opt.label = arrayItem.type
+        doc.options.push(opt)
+
+      })
+      DocTypes.value.push(doc)
+
+    }
+    console.log(DocTypes)
+
+  })
+}
+getDocumentTypes()
+
+
 
 </script>
 
@@ -1434,9 +1503,6 @@ const downloadFile = async (data) => {
 
     <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
       <el-tab-pane label="List" name="list">
-
-
-
         <el-table :data="tableDataList" style="width: 100%" border>
           <el-table-column type="expand">
             <template #default="props">
@@ -1444,30 +1510,23 @@ const downloadFile = async (data) => {
                 <h3>Documents</h3>
                 <el-table :data="props.row.documents" border>
                   <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="category" />
+                  <el-table-column label="Type" prop="document_type.type" />
                   <el-table-column label="Size(mb)" prop="size" />
-
                   <el-table-column label="Actions">
                     <template #default="scope">
-
-
-                      <el-link :href="null" @click="downloadFile(scope.row)">
-                        <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
-                      </el-link>
-
-
-
-
-                      <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                          icon-color="#626AEF" title="Are you sure to delete this document?"
-                          @confirm="removeDocument(scope.row)">
-                          <template #reference>
-                            <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                          </template>
-                        </el-popconfirm>
-                      </el-tooltip>
+                      <el-dropdown v-if="isMobile">
+                        <span class="el-dropdown-link">Actions</span>
+                        <el-dropdown-menu>
+                          <el-dropdown-item @click="downloadFile(scope.row)">Download</el-dropdown-item>
+                          <el-dropdown-item @click="removeDocument(scope.row)">Remove</el-dropdown-item>
+                        </el-dropdown-menu>
+                      </el-dropdown>
+                      <div v-else>
+                        <el-button type="success" @click="downloadFile(scope.row)">Download</el-button>
+                        <el-button type="danger" @click="removeDocument(scope.row)">Remove</el-button>
+                      </div>
                     </template>
+
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
@@ -1484,29 +1543,52 @@ const downloadFile = async (data) => {
           <el-table-column label="Area(HA)" prop="area" />
 
 
-          <el-table-column fixed="right" label="Operations" width="200">
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                      :icon="Edit">Edit</el-dropdown-item>
+                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                      :icon="Position">Map</el-dropdown-item>
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
 
-              <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                <el-button type="success" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)" circle />
-              </el-tooltip>
-              <el-tooltip content="View on Map" placement="top">
-                <el-button type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)" circle />
-              </el-tooltip>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
 
-              <el-tooltip content="View Households" placement="top">
-                <el-button v-show="showAdminButtons" type="success" :icon="User"
-                  @click="viewHHs(scope as TableSlotDefault)" circle />
-              </el-tooltip>
-              <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                  title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">
-                  <template #reference>
-                    <el-button type="danger" :icon=Delete circle />
-                  </template>
-                </el-popconfirm>
-              </el-tooltip>
+
+              <div v-else>
+                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+                  <el-button type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+                <el-tooltip content="View on Map" placement="top">
+                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+
+                <el-tooltip content="View Households" placement="top">
+                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="User"
+                    @click="viewHHs(scope as TableSlotDefault)" circle />
+                </el-tooltip>
+                <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
+                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                    title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button type="danger" size="small" :icon=Delete circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+
+              </div>
             </template>
+
           </el-table-column>
 
         </el-table>
@@ -1523,69 +1605,96 @@ const downloadFile = async (data) => {
 
 
 
-    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="30%" draggable>
-      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
+      <el-row :gutter="10">
 
-        <el-form-item label="County" prop="county_id">
-          <el-select v-model="ruleForm.county_id" filterable placeholder="Select County">
-            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
+        <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+          <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
 
 
 
-
-        <el-form-item label="Name">
-          <el-input v-model="ruleForm.name" />
-        </el-form-item>
-
-
-
-        <el-form-item label="Type" prop="settlement_type">
-          <el-select v-model="ruleForm.settlement_type" filterable placeholder="Select type">
-            <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="Population">
-          <el-input-number v-model="ruleForm.population" />
-        </el-form-item>
-        <el-form-item label="Area(ha)">
-          <el-input-number v-model="ruleForm.area" />
-        </el-form-item>
-
-        <el-form-item label="Description">
-          <el-input v-model="ruleForm.description" />
-        </el-form-item>
+            <el-form-item label="County" prop="county_id">
+              <el-select v-model="ruleForm.county_id" filterable placeholder="Select County">
+                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
 
 
 
-        <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
-            :limit="3" :auto-upload="false">
-            <el-button type="primary">Click to upload</el-button>
-            <template #tip>
-              <div class="el-upload__tip">
-                pdf/xlsx/csv/jpg/png files with a size less than 20mb.
-              </div>
-            </template>
-          </el-upload></el-form-item>
-      </el-form>
+            <el-form-item label="Name">
+              <el-input v-model="ruleForm.name" />
+            </el-form-item>
+
+
+
+            <el-form-item label="Type" prop="settlement_type">
+              <el-select v-model="ruleForm.settlement_type" filterable placeholder="Select type">
+                <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="Population">
+              <el-input-number v-model="ruleForm.population" />
+            </el-form-item>
+            <el-form-item label="Area(ha)">
+              <el-input-number v-model="ruleForm.area" />
+            </el-form-item>
+
+            <el-form-item label="Description">
+              <el-input v-model="ruleForm.description" />
+            </el-form-item>
+
+
+
+            <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" multiple :limit="3"
+                :auto-upload="false">
+                <el-button type="primary">Click to upload</el-button>
+                <template #tip>
+                  <div class="el-upload__tip">
+                    pdf/xlsx/csv/jpg/png files with a size less than 20mb.
+                  </div>
+                </template>
+              </el-upload></el-form-item>
+
+          </el-form>
+
+
+        </el-col>
+
+      </el-row>
+
+
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="AddDialogVisible = false">Cancel</el-button>
-          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+        <span class="dialog-footer space-between">
+          <el-row :gutter="10">
 
+            <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+
+              <el-button @click="AddDialogVisible = false">Cancel</el-button>
+              <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+
+
+            </el-col>
+
+
+          </el-row>
         </span>
       </template>
+
+
     </el-dialog>
 
     <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
 
       <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
-        <el-option-group v-for="group in documentOptions" :key="group.label" :label="group.label">
+
+
+        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
         </el-option-group>
       </el-select>
+
+
 
       <el-upload v-model:file-list="morefileList" class="upload-demo "
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
@@ -1645,3 +1754,5 @@ const downloadFile = async (data) => {
   min-height: 36px;
 }
 </style>
+
+

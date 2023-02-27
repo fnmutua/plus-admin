@@ -44,6 +44,7 @@ var _domain= require('./domain')
 var _project_category= require('./project_category')
 var _project_menu= require('./project_menu')
 var _subcounty= require('./subcounty')
+var _document_type= require('./document_type')
 
 
 
@@ -97,7 +98,8 @@ function initModels(sequelize) {
   var project_category = _project_category(sequelize, DataTypes)
   var project_menu = _project_menu(sequelize, DataTypes)
   var subcounty = _subcounty(sequelize, DataTypes)
-  
+  var document_type = _document_type(sequelize, DataTypes)
+
   
   
   
@@ -146,6 +148,7 @@ function initModels(sequelize) {
     project_category,
     project_menu,
     subcounty,
+    document_type,
     settlement_uploads
   }
 }

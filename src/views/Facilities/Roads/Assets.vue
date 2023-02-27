@@ -7,6 +7,9 @@ import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { ElMessage } from 'element-plus'
+import { computed } from 'vue'
+import xlsx from "json-as-xlsx"
+
 import {
   Position,
   TopRight,
@@ -18,7 +21,8 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, nextTick } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElTabPane, ElTabs, ElDivider } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElTabPane, ElTabs, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
+
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -26,6 +30,7 @@ import { useCache } from '@/hooks/web/useCache'
 
 
 
+import { featureGroup } from 'leaflet'
 
 import { getAllGeo } from '@/api/settlements'
 
@@ -35,6 +40,22 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 
 
+import { MapboxMap as MapboxMap } from 'vue-mapbox-ts'
+import { MapboxMarker as MapboxMarker } from 'vue-mapbox-ts'
+import { MapboxNavigationControl as MapboxNavigationControl } from 'vue-mapbox-ts'
+
+import { MapboxGeolocateControl as MapboxGeolocateControl } from 'vue-mapbox-ts'
+
+
+import {
+  MapboxGeocoderControl,
+  MapboxAttributionControl,
+  MapboxDrawControl,
+  MapboxPopup, MapboxGeogeometryRaw,
+  MapboxGeogeometryPolygon,
+  MapboxSourceGeoJson,
+  MapboxScaleControl
+} from 'vue-mapbox-ts'
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
@@ -52,14 +73,19 @@ mapboxgl.accessToken = MapBoxToken;
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
+const map = ref()
 
 console.log("userInfo--->", userInfo)
 
-
+// Map 
+const polygons = ref([]) as Ref<[number, number][][]>
+const shp = []
 const geoLoaded = ref(false)
 
+const markerLatlon = ref([])
+const markerProperties = ref([])
 
-
+const markers = ref()
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -107,19 +133,24 @@ const model_parent_key = 'road_id'
 
 
 
+
+
+const mapHeight = '450px'
+const countries = 'ke'
 const facilityGeo = ref([])
-const facilityGeoPoints = ref([])
-const facilityGeoLines = ref([])
-const facilityGeoPolygons = ref([])
+
 
 
 //// ------------------Map -----------------------////
+
+
 
 function toTitleCase(str) {
   return str.replace(/\w\S*/g, function (txt) {
     return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
   })
 }
+
 
 
 
@@ -132,21 +163,24 @@ const columns: TableColumn[] = [
     type: 'index'
   },
 
+
   {
     field: 'asset_type',
     label: t('Type')
   },
+
   {
     field: 'asset_condition',
     label: t('Condition')
   },
-
-
   {
     field: 'road.name',
     label: t('Road')
   },
-
+  {
+    field: 'action',
+    label: t('userDemo.action')
+  }
 ]
 const handleClear = async () => {
   console.log('cleared....')
@@ -348,7 +382,9 @@ const getModelOptions = async () => {
   })
 }
 
-
+const open = (msg: MessageParamsWithType) => {
+  ElMessage.error(msg)
+}
 
 const makeSettlementOptions = (list) => {
   console.log('making the options..............', list)
@@ -362,13 +398,11 @@ const makeSettlementOptions = (list) => {
   })
 }
 
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'road_assets.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
+
+
+
+
+
 
 const loadMap = () => {
   var nmap = new mapboxgl.Map({
@@ -384,54 +418,50 @@ const loadMap = () => {
   const nav = new mapboxgl.NavigationControl();
   nmap.addControl(nav, "top-right");
   nmap.on('load', () => {
-    nmap.addSource('lines', {
+    nmap.addSource('hcf', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(facilityGeoLines.value),
+      data: facilityGeo.value,
       // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
-
-    nmap.addSource('points', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(facilityGeoPoints.value),
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
-
-    nmap.addLayer({
-      'id': 'lines-layer',
-      "type": "line",
-      'source': 'lines',
-      'paint': {
-        "line-color": "red"
-      }
     });
 
 
     nmap.addLayer({
-      'id': 'points-layer',
+      'id': 'pontLayer',
       "type": "circle",
-      'source': 'points',
+      'source': 'hcf',
       'paint': {
-        "circle-color": "red"
+        'circle-radius': 6,
+        'circle-stroke-width': 2,
+        'circle-color': 'red',
+        'circle-stroke-color': 'white'
       }
     });
-
 
     nmap.resize()
+    console.log(markerLatlon.value)
+    const bounds = new mapboxgl.LngLatBounds(
+      markerLatlon.value[0],
+      markerLatlon.value[0]
+    );
 
 
-    var bounds = turf.bbox((facilityGeo.value));
-    nmap.fitBounds(bounds, { padding: 20 });
+    for (const coord of markerLatlon.value) {
+
+      bounds.extend(coord);
+    }
+
+    nmap.fitBounds(bounds, {
+      padding: 20
+    });
 
 
-
-    nmap.on('click', 'points-layer', (e) => {
+    nmap.on('click', 'pontLayer', (e) => {
       console.log("Onclikc..........")
       // Copy coordinates array.
       const coordinates = e.features[0].geometry.coordinates.slice();
       const description = e.features[0].properties.asset_type;
-      const condition = e.features[0].properties.asset_condition;
+      const reg_status = e.features[0].properties.asset_condition;
 
       // Ensure that if the map is zoomed out such that multiple
       // copies of the feature are visible, the popup appears
@@ -439,58 +469,26 @@ const loadMap = () => {
       while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
         coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
       }
+
+
+
       new mapboxgl.Popup({ offset: [0, -15] })
         .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-    });
-
-
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'points-layer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'points-layer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
-
-
-
-    nmap.on('click', 'lines-layer', (e) => {
-      console.log("click line..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.asset_type;
-      const condition = e.features[0].properties.asset_condition;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .setHTML('<h3>' + description + '</h3><p>' + reg_status + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
         .addTo(nmap);
 
 
     });
 
-
     // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'lines-layer', () => {
+    nmap.on('mouseenter', 'pontLayer', () => {
       nmap.getCanvas().style.cursor = 'pointer';
     });
 
     // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'lines-layer', () => {
+    nmap.on('mouseleave', 'pontLayer', () => {
       nmap.getCanvas().style.cursor = '';
     });
-
 
 
 
@@ -525,41 +523,29 @@ const getGeo = async () => {
 
   if (res.data[0].json_build_object) {
 
-    var points = []
-    var lines = []
-    var polygons = []
+
     facilityGeo.value = res.data[0].json_build_object
     console.log('Geo Returns---', res.data[0].json_build_object.features[0].geometry.coordinates)
     console.log("Facility Geo", facilityGeo)
-
-    for (let i = 0; i < res.data[0].json_build_object.features.length; i++) {
-
-      if (res.data[0].json_build_object.features[i].geometry.type === "Point") {
-
-        points.push(res.data[0].json_build_object.features[i])
-      } else if (res.data[0].json_build_object.features[i].geometry.type === "LineString") {
-
-        lines.push(res.data[0].json_build_object.features[i])
-
-      } else {
-        polygons.push(res.data[0].json_build_object.features[i])
-
-      }
-
-    }
-
-    console.log(points)
-    console.log(lines)
-    facilityGeoPoints.value = points
-    facilityGeoLines.value = lines
-    facilityGeoPolygons.value = polygons
-
 
 
 
     //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
     geoLoaded.value = true
 
+
+    for (let i in res.data[0].json_build_object.features) {
+
+      console.log(res.data[0].json_build_object.features[i].geometry.coordinates)
+      markerLatlon.value.push(res.data[0].json_build_object.features[i].geometry.coordinates)
+
+      var markProp = {}
+      markProp.name = res.data[0].json_build_object.features[i].properties.name
+      markerProperties.value.push(markProp)
+
+
+    }
+    console.log(markerProperties)
 
   }
 
@@ -577,11 +563,29 @@ const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
 
   push({
-    path: '/facilities/road/details/:id',
-    name: 'RoadsDetails',
-    params: { id: data.row.id }
+    path: '/facilities/water/details/:id',
+    name: 'WaterDetails',
+    params: { data: data.row.id, id: data.row.id }
   })
 }
+
+
+
+const viewOnMap = (data: TableSlotDefault) => {
+  console.log('On map.....', data.row)
+  if (data.row.geom) {
+    push({
+      path: '/facilities/water/map/:id',
+      name: 'WaterMap',
+      params: { id: data.row.id }
+    })
+  } else {
+    var msg = 'This Facility  does not have the location defined in the database!'
+    open(msg)
+  }
+}
+
+
 
 
 
@@ -592,32 +596,95 @@ const AddFacility = (data: TableSlotDefault) => {
   })
 }
 
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
+
+
+
+const DownloadXlsx = async () => {
+  console.log(tableDataList.value)
+
+  // change here !
+  let fields = [
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Type", value: "type" }, // Top level data
+    { label: "Condition", value: "asset_condition" }, // Custom format
+    { label: "Road", value: "road" }, // Run functions
+
+  ]
+
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  // loop through the table data and sort the data 
+  // change here !
+  for (let i = 0; i < tableDataList.value.length; i++) {
+    let thisRecord = {}
+    tableDataList.value[i]
+    thisRecord.index = i + 1
+    thisRecord.asset_condition = tableDataList.value[i].asset_condition
+    thisRecord.road = tableDataList.value[i].road ? tableDataList.value[i].road.name : ''
+    thisRecord.type = tableDataList.value[i].type
+
+
+
+
+
+
+    dataHolder.push(thisRecord)
+  }
+  dataObj.content = dataHolder
+
+
+
+
+  let settings = {
+    fileName: model, // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
+
 
 
 </script>
 
 <template>
-
-  <ContentWrap :title="toTitleCase(model.replace('_', ' '))"
-    :message="t('Use the filters on the list of view the Map ')">
+  <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Use the filters on the list of view the Map ')">
 
     <el-tabs @tab-click="onMap" type="border-card">
       <el-tab-pane label="List">
         <el-divider border-style="dashed" content-position="left">Filters</el-divider>
         <div style="display: inline-block; margin-left: 20px">
-          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable
-            filterable collapse-tags placeholder="Filter by">
+          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
+            collapse-tags placeholder="Filter by">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
+
         <div style="display: inline-block; margin-left: 20px">
-          <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable
-            filterable collapse-tags placeholder="Filter by  Name">
-            <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </div>
-        <div style="display: inline-block; margin-left: 20px">
-          <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+          <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         </div>
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
@@ -633,11 +700,30 @@ const AddFacility = (data: TableSlotDefault) => {
         <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
           :currentPage="currentPage">
           <template #action="data">
-            <el-tooltip content="View Profile" placement="top">
-              <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
-            </el-tooltip>
+
+            <el-dropdown v-if="isMobile">
+              <span class="el-dropdown-link">
+                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+
+                  <el-dropdown-item @click="viewOnMap(data as TableSlotDefault)" :icon="Position"
+                    color="red">Map</el-dropdown-item>
+
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
 
 
+            <div v-else>
+
+
+
+              <el-tooltip content="View on Map" placement="top">
+                <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
+              </el-tooltip>
+            </div>
           </template>
         </Table>
         <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"

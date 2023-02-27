@@ -26,7 +26,7 @@ module.exports = function(sequelize, DataTypes) {
     },
 
     category: {
-      type: DataTypes.STRING,
+      type: DataTypes.INTEGER,
       allowNull: false
     },
 

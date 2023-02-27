@@ -7,6 +7,9 @@ import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { ElMessage } from 'element-plus'
+import { computed } from 'vue'
+import xlsx from "json-as-xlsx"
+
 import {
   Position,
   TopRight,
@@ -18,7 +21,8 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, nextTick } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElTabPane, ElTabs, ElDivider } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElTabPane, ElTabs, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus'
+
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -405,6 +409,11 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
+
+
+
+
+
 const loadMap = () => {
   var nmap = new mapboxgl.Map({
     container: "mapContainer",
@@ -597,31 +606,109 @@ const AddFacility = (data: TableSlotDefault) => {
   })
 }
 
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
+
+
+
+const DownloadXlsx = async () => {
+  console.log(tableDataList.value)
+
+  // change here !
+  let fields = [
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Name", value: "name" }, // Top level data
+    { label: "Level", value: "level" }, // Custom format
+    { label: "Type", value: "type" }, // Custom format
+    { label: "Status", value: "reg_status" }, // Custom format
+    { label: "Settlement", value: "settlement" }, // Run functions
+    { label: "Owner", value: "owner" }, // Run functions
+    { label: "Number of Beds", value: "number_beds" }, // Run functions
+
+
+  ]
+
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  // loop through the table data and sort the data 
+  // change here !
+  for (let i = 0; i < tableDataList.value.length; i++) {
+    let thisRecord = {}
+    tableDataList.value[i]
+    thisRecord.index = i + 1
+    thisRecord.name = tableDataList.value[i].name
+    thisRecord.settlement = tableDataList.value[i].settlement ? tableDataList.value[i].settlement.name : ''
+    thisRecord.owner = tableDataList.value[i].owner
+    thisRecord.number_beds = tableDataList.value[i].number_beds
+    thisRecord.reg_status = tableDataList.value[i].reg_status
+    thisRecord.owner = tableDataList.value[i].owner
+    thisRecord.type = tableDataList.value[i].ownership_type
+    thisRecord.level = tableDataList.value[i].level
+
+
+
+
+
+    dataHolder.push(thisRecord)
+  }
+  dataObj.content = dataHolder
+
+
+
+
+  let settings = {
+    fileName: model, // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
+
 
 
 </script>
 
 <template>
-  <ContentWrap :title="toTitleCase(model.replace('_', ' '))"
-    :message="t('Use the filters on the list of view the Map ')">
+  <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Use the filters on the list of view the Map ')">
 
     <el-tabs @tab-click="onMap" type="border-card">
       <el-tab-pane label="List">
         <el-divider border-style="dashed" content-position="left">Filters</el-divider>
         <div style="display: inline-block; margin-left: 20px">
-          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable
-            filterable collapse-tags placeholder="Filter by">
+          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
+            collapse-tags placeholder="Filter by">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
         <div style="display: inline-block; margin-left: 20px">
-          <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable
-            filterable collapse-tags placeholder="Filter by  Name">
+          <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
+            collapse-tags placeholder="Filter by  Name">
             <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
         <div style="display: inline-block; margin-left: 20px">
-          <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+          <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         </div>
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
@@ -637,15 +724,37 @@ const AddFacility = (data: TableSlotDefault) => {
         <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
           :currentPage="currentPage">
           <template #action="data">
-            <el-tooltip content="View Profile" placement="top">
-              <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
-            </el-tooltip>
+
+            <el-dropdown v-if="isMobile">
+              <span class="el-dropdown-link">
+                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="viewProfile(data as TableSlotDefault)"
+                    :icon="TopRight">Profile</el-dropdown-item>
+
+                  <el-dropdown-item @click="viewOnMap(data as TableSlotDefault)" :icon="Position"
+                    color="red">Map</el-dropdown-item>
+
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
 
 
-            <el-tooltip content="View on Map" placement="top">
-              <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
-            </el-tooltip>
+            <div v-else>
 
+
+
+              <el-tooltip content="View Profile" placement="top">
+                <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
+              </el-tooltip>
+
+
+              <el-tooltip content="View on Map" placement="top">
+                <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
+              </el-tooltip>
+            </div>
           </template>
         </Table>
         <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
@@ -656,29 +765,7 @@ const AddFacility = (data: TableSlotDefault) => {
 
       <el-tab-pane label="Map">
         <el-card class="box-card" />
-        <!--         <mapbox-map ref="map" auto-resize="true" :maxBounds="maxBounds" :center="[37.817, 0.606]" :zoom="5"
-          :height="mapHeight" :accessToken="MapBoxToken" mapStyle="mapbox://styles/mapbox/light-v10">
-          <mapbox-geocoder-control :countries="countries" />
-          <mapbox-marker ref="markers" v-for="(l, key) in markerLatlon" :key="key" :lngLat="l" popup>
-            <mapbox-popup>
-              <div class="card-header">
-                <span style="color:blue;font-weight:bold; font-size: 45;">
-                  <h1>{{ markerProperties[key].name }}</h1>
-                </span>
-                <div>
-                  <el-divider>
-                    <el-icon>
-                      <star-filled />
-                    </el-icon>
-                  </el-divider>
-                  <h2>Coming soon....</h2>
-                </div>
-              </div>
-            </mapbox-popup>
-          </mapbox-marker>
-          <mapbox-geolocate-control />
-          <mapbox-navigation-control position="bottom-right" />
-        </mapbox-map> -->
+
         <div id="mapContainer" class="basemap"></div>
 
       </el-tab-pane>
