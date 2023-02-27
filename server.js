@@ -23,7 +23,7 @@ if (!fs.existsSync(uploadsDir)) {
  
 
 
-const envt = 'DEV'   // PROD
+const envt = 'PROD'   // PROD
  if (envt==='DEV') {
 // Switch off for prodcution 
 console.log("DEV: Switching on dotenv")
