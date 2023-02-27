@@ -3717,7 +3717,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       {
         path: 'data',
       //  component: 'views/Users/County',
-        component: () => import('@/views/Repository/Documents.vue'),
+        component: () => import('@/views/Repository/Data.vue'),
         name: 'RepositoryData',
         meta: {
           title: 'Data',

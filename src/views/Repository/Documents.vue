@@ -20,8 +20,8 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
+import { ref, reactive, computed } from 'vue'
+import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -83,7 +83,7 @@ var tblData = []
 const associated_Model = ''
 const model = 'document'
 
-const associated_multiple_models = ['project', 'settlement', 'indicator_category_report']
+const associated_multiple_models = ['project', 'settlement', 'indicator_category_report', 'document_type']
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
@@ -103,8 +103,8 @@ const columns: TableColumn[] = [
 
 
   {
-    field: 'category',
-    label: t('Category')
+    field: 'document_type.type',
+    label: t('Type')
   },
 
   {
@@ -333,13 +333,7 @@ const downloadFile = async (data) => {
 
 }
 
-const xhandleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'documents.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
+
 
 
 const handleDownload = async () => {
@@ -396,77 +390,71 @@ const handleDownload = async () => {
 
 }
 
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
+
+const DocTypes = ref([])
+const getDocumentTypes = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'document_type',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Document Typest:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
 
 
-const documentCategory = ref()
-const documentOptions = [
-  {
-    label: 'Reports',
-    options: [
-      {
-        value: 'socio_economic',
-        label: 'Socio Economic Report'
-      },
-      {
-        value: 'stakeholder_report',
-        label: 'Stakeholder Report'
-      },
-      {
-        value: 'planning_report',
-        label: 'Planning Report'
-      },
+    const nestedData = ret.reduce((acc, cur) => {
+      const group = cur.group;
+      if (!acc[group]) {
+        acc[group] = [];
+      }
+      acc[group].push(cur);
+      return acc;
+    }, {});
 
-      {
-        value: 'basemap_report',
-        label: 'Basemap Report'
-      },
-      {
-        value: 'esia_report',
-        label: 'Environmental Screening Report'
-      }
-    ]
-  },
-  {
-    label: 'Plans',
-    options: [
-      {
-        value: 'ldpdp',
-        label: 'Local Development Plan'
-      },
-      {
-        value: 'pdp',
-        label: 'Part Development Plan'
-      }
-    ]
-  },
-  {
-    label: 'Maps',
-    options: [
-      {
-        value: 'survey_plan',
-        label: 'Survey Plan'
-      },
-      {
-        value: 'rim',
-        label: 'Registry Index Map'
-      }
-    ]
-  },
-  {
-    label: 'Drawings',
-    options: [
-      {
-        value: 'design',
-        label: 'Design Proposals'
-      },
-      {
-        value: 'built',
-        label: 'As Built Designs'
-      }
-    ]
-  }
-]
+    console.log(nestedData.Map)
+    for (let property in nestedData) {
+      let opts = nestedData[property];
+      var doc = {}
+      doc.label = property
+      doc.options = []
 
+      opts.forEach(function (arrayItem) {
+        let opt = {}
+        opt.value = arrayItem.id
+        opt.label = arrayItem.type
+        doc.options.push(opt)
+
+      })
+      DocTypes.value.push(doc)
+
+    }
+    console.log(DocTypes)
+
+  })
+}
+getDocumentTypes()
 
 </script>
 
@@ -477,7 +465,7 @@ const documentOptions = [
     <div style="display: inline-block; margin-left: 20px">
       <el-select v-model="value3" :onChange="handleSelectProgramme" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter">
-        <el-option-group v-for="group in documentOptions" :key="group.label" :label="group.label">
+        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
         </el-option-group>
 
@@ -502,18 +490,43 @@ const documentOptions = [
     <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Download" @click="downloadFile(data as TableSlotDefault)" circle />
-        </el-tooltip>
 
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this record?" @confirm="DeleteFile(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
+
+        <el-dropdown v-if="isMobile">
+          <span class="el-dropdown-link">
+            <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="downloadFile(data as TableSlotDefault)"
+                :icon="Download">Download</el-dropdown-item>
+              <el-dropdown-item v-if="showAdminButtons" @click="DeleteFile(data as TableSlotDefault)" :icon="Delete"
+                color="red">Delete</el-dropdown-item>
+
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+
+
+        <div v-else>
+
+
+
+          <el-tooltip content="Edit" placement="top">
+            <el-button type="success" :icon="Download" @click="downloadFile(data as TableSlotDefault)" circle />
+          </el-tooltip>
+
+          <el-tooltip content="Delete" placement="top">
+            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              title="Are you sure to delete this record?" @confirm="DeleteFile(data as TableSlotDefault)">
+              <template #reference>
+                <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
+              </template>
+            </el-popconfirm>
+          </el-tooltip>
+        </div>
+
+
 
       </template>
     </Table>
