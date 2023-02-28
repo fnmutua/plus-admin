@@ -29,7 +29,7 @@ import {
 const route = useRoute()
 
 ////Configurations //////////////
-const model = 'health_facility'
+const model = 'other_facility'
 ////////////
 
 function toTitleCase(str) {

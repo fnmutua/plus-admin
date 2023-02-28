@@ -1541,6 +1541,7 @@ getDocumentTypes()
           <el-table-column label="Subcounty" prop="subcounty.name" />
           <el-table-column label="Population" prop="population" />
           <el-table-column label="Area(HA)" prop="area" />
+          <el-table-column label="Code" prop="code" />
 
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">

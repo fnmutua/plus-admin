@@ -559,15 +559,7 @@ getModelOptions()
 getInterventionsAll()
 getGeo()
 console.log('Options---->', countiesOptions)
-const viewProfile = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
 
-  push({
-    path: '/facilities/water/details/:id',
-    name: 'WaterDetails',
-    params: { data: data.row.id, id: data.row.id }
-  })
-}
 
 
 
@@ -575,8 +567,8 @@ const viewOnMap = (data: TableSlotDefault) => {
   console.log('On map.....', data.row)
   if (data.row.geom) {
     push({
-      path: '/facilities/water/map/:id',
-      name: 'WaterMap',
+      path: '/facilities/roadasset/map/:id',
+      name: 'RoadAssetMap',
       params: { id: data.row.id }
     })
   } else {

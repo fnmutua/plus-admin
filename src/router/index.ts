@@ -3494,12 +3494,22 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     path: 'roadasset/add',
    // component: 'views/Facilities/Roads/AddAsset',
     component: () => import('@/views/Facilities/Roads/AddAsset.vue'),
-
     name: 'AddRoadStructure',
-    icon: 'ant-design:plus-square-filled',
+ 
     meta: { hidden: true, title: 'Add', noCache: true }
       },
   
+      {
+        path: 'roadasset/map/:id',
+      //  component: 'views/Facilities/Sewer/SewerMap',
+        component: () => import('@/views/Facilities/Roads/RoadAssetMap.vue'),
+        name: 'RoadAssetMap',
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Road Asset Map'
+        }
+      },
 
       /// Water -----------------------
    {
@@ -3614,9 +3624,33 @@ export const adminRoutes: AppRouteRecordRaw[] = [
   //  component: 'views/Facilities/Other/AddOther',
     component: () => import('@/views/Facilities/Other/AddOther.vue'),
     name: 'AddOther',
-    icon: 'ant-design:plus-square-filled',
     meta: { hidden: true, title: 'Add Facility', noCache: true }
-  }
+      },
+      {
+        path: 'other/map/:id',
+      //  component: 'views/Facilities/Sewer/SewerMap',
+        component: () => import('@/views/Facilities/Other/OtherMap.vue'),
+        name: 'OtherMap',
+         meta: {
+          hidden: true,
+          props: true,
+          title: 'Road Map'
+        }
+      },
+
+      {
+        path: 'other/details/:id',
+      //  component: 'views/Facilities/Sewer/SewerFacilityDetails',
+        component: () => import('@/views/Facilities/Other/OtherFacilityDetails.vue'),
+
+        name: 'OtherFacilityDetails',
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Facility Profile'
+        }
+},
+  
     ]
   }, 
   {
@@ -3851,7 +3885,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       }, 
-    
+      {
+        path: 'profile',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Users/Profile.vue'),
+        name: 'userProfile',
+        meta: {
+          title: 'Profile',
+          hidden: false,
+          icon:'gis:map-users'
+
+        }
+      }, 
     ]
   },
   {

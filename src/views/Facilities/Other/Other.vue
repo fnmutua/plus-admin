@@ -168,14 +168,11 @@ const columns: TableColumn[] = [
     label: t('Name')
   },
   {
-    field: 'reg_status',
-    label: t('Status')
+    field: 'type',
+    label: t('Type')
   },
 
-  {
-    field: 'owner',
-    label: t('Owner')
-  },
+
   {
     field: 'settlement.name',
     label: t('Settlement')
@@ -573,8 +570,8 @@ const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.id)
 
   push({
-    path: '/facilities/health/details/:id',
-    name: 'HealthFacilityDetails',
+    path: '/facilities/other/details/:id',
+    name: 'OtherFacilityDetails',
     params: { data: data.row.id, id: data.row.id }
   })
 }
@@ -585,8 +582,8 @@ const viewOnMap = (data: TableSlotDefault) => {
   console.log('On map.....', data.row)
   if (data.row.geom) {
     push({
-      path: '/facilities/health/map/:id',
-      name: 'HealthFacilityMap',
+      path: '/facilities/other/map/:id',
+      name: 'OtherMap',
       params: { id: data.row.id }
     })
   } else {
@@ -601,8 +598,8 @@ const viewOnMap = (data: TableSlotDefault) => {
 
 const AddFacility = (data: TableSlotDefault) => {
   push({
-    path: '/facilities/education/add',
-    name: 'Addhealth'
+    path: '/facilities/other/add',
+    name: 'AddOther'
   })
 }
 

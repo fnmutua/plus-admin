@@ -15,19 +15,17 @@ import {
   ElTableColumn,
   ElInput,
   ElSwitch,
-  ElOption
+  ElUpload,
+  ElOption,
+  ElMessage, ElDivider, ElMessageBox, UploadProps, UploadUserFile, ElOptionGroup
 } from 'element-plus'
-import { ElUpload } from 'element-plus'
 import {
   Upload,
   Tools
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElDivider } from 'element-plus'
-import { ElMessage, ElMessageBox } from 'element-plus'
 
-import type { UploadProps, UploadUserFile } from 'element-plus'
 import readXlsxFile from 'read-excel-file'
 
 const settlement = ref()
@@ -81,17 +79,30 @@ const uploadOptions = [
   {
     label: 'Points',
     options: [
-      {
-        value: 'education_facility',
-        label: 'Schools'
-      },
+
       {
         value: 'health_facility',
         label: 'Health Care Facility'
       },
       {
+        value: 'education_facility',
+        label: 'Schools'
+      },
+
+      {
+        value: 'road_asset',
+        label: 'Road Structures'
+      },
+      {
         value: 'water_point',
         label: 'Water Points'
+      },
+
+
+
+      {
+        value: 'other_facility',
+        label: 'Other Facility'
       }
     ]
   },
@@ -102,6 +113,11 @@ const uploadOptions = [
         value: 'road',
         label: 'Roads'
       },
+      {
+        value: 'sewer',
+        label: 'Sewer'
+      },
+
       {
         value: 'path',
         label: 'Paths'
@@ -264,9 +280,23 @@ const handleSelectType = async (type: any) => {
     parentModel.value = 'settlement'
     parent_key.value = 'settlement_id'
     code.value = 'pcode'
-    console.log('Road------>', fieldSet.value)
     getParentOptions()
   }
+
+
+  else if (type === 'other_facility') {
+    // fieldSet.value = beneficiary_parcels
+    model.value = 'other_facility'
+    parentModel.value = 'settlement'
+    parent_key.value = 'settlement_id'
+    code.value = 'pcode'
+    console.log('other_facility------>', fieldSet.value)
+    getParentOptions()
+  }
+
+
+
+
 
 
 
@@ -485,13 +515,12 @@ const readJson = (event) => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Upload Geometry Data')"
-    :message="t('Ensure you have the required fields in the Geojson file')">
+  <ContentWrap :title="t('Upload Geometry Data')" :message="t('Ensure you have the required fields in the Geojson file')">
     <el-divider border-style="dashed" content-position="left">Data</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
       <el-select v-model="type" :onChange="handleSelectType" :onClear="handleClear" placeholder="Select data to import">
-        <el-option-group v-for="group in uploadOptions" :key="group.label" :label="group.label">
+        <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
         </el-option-group>
       </el-select>
@@ -547,13 +576,11 @@ const readJson = (event) => {
       </el-icon>
     </el-button>
     <!-- <section>
-      <input type="file" @change="readXLSX" />
-    </section> -->
+                                    <input type="file" @change="readXLSX" />
+                                  </section> -->
 
 
   </ContentWrap>
-
-
 </template>
 
 <style scoped>

@@ -32,43 +32,28 @@ const schemaProfile = reactive<DescriptionsSchema[]>([
     label: t('Name')
   },
   {
+    field: 'type',
+    label: t('Type')
+  },
+  {
     field: 'settlement',
     label: t('Settlement')
   },
-
   {
     field: 'county',
     label: t('County')
   },
   {
-    field: 'price',
-    label: t('Price for 20L')
+    field: 'status',
+    label: t('Status')
   },
 
-  {
-    field: 'ownership',
-    label: t('Ownership')
-  },
-  {
-    field: 'owner',
-    label: t('Owner')
-  },
+
+
 ])
 
 
 
-
-
-
-const form = reactive({
-  name: '',
-  county: '',
-  population: '',
-  area_ha: '',
-  description: '',
-  type: '',
-  subcounty: ''
-})
 
 const page = ref(1)
 const pSize = ref(5)
@@ -82,28 +67,28 @@ var filterValues = [intervenComponent]
 
 //const associated_Model = ''
 const associated_multiple_models = ['settlement']
-const model = 'water_point'
+const model = 'other_facility'
 const nested_models = ['settlement', 'county'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
 
 let settlement = reactive({
   count: 0,
-  name: '',
+  name: 'unnwo',
   flag: false
 })
 ////////////
 
 const profile = reactive({
   name: '',
-  settlement: '',
   county: '',
-  level: '',
+  type: '',
   status: '',
-  price: '',
+  settlement: '',
   ownership: '',
   owner: ''
 })
+
 
 
 
@@ -141,12 +126,13 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   profile.name = res.data[0].name
   profile.county = res.data[0].settlement.county.name
   profile.settlement = res.data[0].settlement.name
-  profile.price = res.data[0].price
+  profile.type = res.data[0].type
+  profile.status = res.data[0].reg_status
   profile.ownership = res.data[0].ownership_type
   profile.owner = res.data[0].owner
 
 
-
+  console.log('After profile', profile)
 }
 onMounted(() => {
   const id = route.params.id

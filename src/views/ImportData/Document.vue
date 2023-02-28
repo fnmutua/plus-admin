@@ -267,6 +267,42 @@ const uploadOptions = [
     },
 
     {
+        label: 'Facilities',
+        options: [
+            {
+                value: 'health',
+                label: 'Health'
+            },
+            {
+                value: 'education',
+                label: 'Education'
+            },
+            {
+                value: 'roads',
+                label: 'Roads'
+            },
+            {
+                value: 'road_assets',
+                label: 'Structures(roads)'
+            },
+            {
+                value: 'water_point',
+                label: 'Water'
+            },
+            {
+                value: 'sewer',
+                label: 'Sewer'
+            },
+
+            {
+                value: 'other',
+                label: 'Other'
+            },
+
+        ]
+    },
+
+    {
         label: 'Indicators',
         options: [
 
@@ -382,6 +418,49 @@ const handleSelectType = async (type: string) => {
 
 
 
+    else if (type === 'health_facility') {
+        document_field.value = 'health_facility_id'
+        getparentOptions()
+
+    }
+
+    else if (type === 'education_facility') {
+        document_field.value = 'education_facility_id'
+        getparentOptions()
+
+    }
+
+
+
+    else if (type === 'road') {
+        document_field.value = 'road_id'
+        getparentOptions()
+
+    }
+
+    else if (type === 'road_asset') {
+        document_field.value = 'road_asset_id'
+        getparentOptions()
+
+    }
+
+    else if (type === 'water_point') {
+        document_field.value = 'water_point_id'
+        getparentOptions()
+
+    }
+
+    else if (type === 'sewer') {
+        document_field.value = 'sewer_id'
+        getparentOptions()
+
+    }
+
+    else if (type === 'other_facility') {
+        document_field.value = 'other_facility_id'
+        getparentOptions()
+
+    }
 
     else if (type === 'indicator_category_report') {
         document_field.value = 'indicator_category_report'

@@ -310,3 +310,30 @@ exports.countyController = (req, res) => {
     })
 }
 
+
+exports.myProfile = (req, res) => {
+  console.log('Update user....')
+ 
+  console.log('Request:----->', req.body)
+  var qry = {}
+  qry.where =  {
+    id: req.body.id 
+  }
+  qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'isactive',  'resetPasswordToken'] } // will be applciable to users only 
+
+  // get this one  record and update it by replacing the whole docuemnt
+  User.findAll(qry).then((result) => {
+    if (result) {
+      res.status(200).send({
+        data: result,
+         code: '0000'
+      })
+    
+    } else {
+      res.status(500).send({ message: 'Retriveing your profile failed' })
+
+
+    }
+  })
+}
+

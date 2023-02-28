@@ -602,6 +602,88 @@ db.models.project.hasMany(db.models.document, {
 })
 
 
+db.models.document.belongsTo(db.models.health_facility, {
+  foreignKey: 'health_facility_id',
+})
+
+db.models.health_facility.hasMany(db.models.document, {
+  foreignKey: 'health_facility_id'
+})
+
+db.models.document.belongsTo(db.models.education_facility, {
+  foreignKey: 'education_facility_id',
+})
+
+db.models.education_facility.hasMany(db.models.document, {
+  foreignKey: 'education_facility_id'
+})
+
+
+db.models.document.belongsTo(db.models.road, {
+  foreignKey: 'road_id',
+})
+
+db.models.road.hasMany(db.models.document, {
+  foreignKey: 'road_id'
+})
+
+
+db.models.document.belongsTo(db.models.road_asset, {
+  foreignKey: 'road_asset_id',
+})
+
+db.models.road_asset.hasMany(db.models.document, {
+  foreignKey: 'road_asset_id'
+})
+
+
+db.models.document.belongsTo(db.models.water_point, {
+  foreignKey: 'water_point_id',
+})
+
+db.models.water_point.hasMany(db.models.document, {
+  foreignKey: 'water_point_id'
+})
+
+
+
+
+db.models.document.belongsTo(db.models.sewer, {
+  foreignKey: 'sewer_id',
+})
+
+db.models.sewer.hasMany(db.models.document, {
+  foreignKey: 'sewer_id'
+})
+
+
+db.models.document.belongsTo(db.models.other_facility, {
+  foreignKey: 'other_facility_id',
+})
+
+db.models.other_facility.hasMany(db.models.document, {
+  foreignKey: 'other_facility_id'
+})
+
+
+
+
+
+
+db.models.document.belongsTo(db.models.households, {
+  foreignKey: 'hh_id',
+})
+
+db.models.households.hasMany(db.models.document, {
+  foreignKey: 'hh_id'
+})
+
+
+
+
+
+
+
 db.models.document.belongsTo(db.models.document_type, {
   foreignKey: 'category',
 })
