@@ -32,38 +32,30 @@ const schemaProfile = reactive<DescriptionsSchema[]>([
     label: t('Name')
   },
   {
-    field: 'number_connections',
-    label: t('Number of Connections')
+    field: 'settlement',
+    label: t('Settlement')
+  }, {
+    field: 'surfaceType',
+    label: t('Surface Type')
   },
   {
     field: 'county',
     label: t('County')
   },
   {
-    field: 'length',
-    label: t('Length(Km)')
+    field: 'surfaceCondition',
+    label: t('Surface Condition')
   },
 
   {
-    field: 'ownership',
-    label: t('Ownership')
+    field: 'drainageCondition',
+    label: t('Drainage Condition')
   },
-  {
-    field: 'owner',
-    label: t('Owner')
-  },
+
 ])
 
 
-const form = reactive({
-  name: '',
-  county: '',
-  population: '',
-  area_ha: '',
-  description: '',
-  type: '',
-  subcounty: ''
-})
+
 
 const page = ref(1)
 const pSize = ref(5)
@@ -92,11 +84,10 @@ let settlement = reactive({
 const profile = reactive({
   name: '',
   county: '',
-  number_connections: '',
-  length: '',
+  surfaceCondition: '',
+  drainageCondition: '',
   settlement: '',
-  ownership: '',
-  owner: ''
+  surfaceType: '',
 })
 
 
@@ -136,9 +127,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   profile.name = res.data[0].name
   profile.county = res.data[0].settlement.county.name
   profile.settlement = res.data[0].settlement.name
-  profile.number_connections = res.data[0].number_connections
-  profile.length = res.data[0].length
-  profile.ownership = res.data[0].ownership_type
+  profile.surfaceCondition = res.data[0].surfaceCondition
+  profile.surfaceType = res.data[0].surfaceType
+  profile.drainageCondition = res.data[0].drainageCondition
   profile.owner = res.data[0].owner
 
 
@@ -156,10 +147,6 @@ onMounted(() => {
 
 <template>
   <Descriptions :title="t('Profile')" :message="t('Facility Profile')" :data="profile" :schema="schemaProfile" />
-
-
-
-
 </template>
 
 <style lang="less" scoped>

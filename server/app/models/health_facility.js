@@ -13,7 +13,7 @@ module.exports = function(sequelize, DataTypes) {
     },
     facility_number: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
     level: {
       type: DataTypes.STRING,
@@ -90,13 +90,13 @@ module.exports = function(sequelize, DataTypes) {
     
     county_id: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: true
     },
 
 
     subcounty_id: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: true
     },
 
  

@@ -14,23 +14,23 @@ module.exports = function(sequelize, DataTypes) {
 
     ownership_type: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
 
     owner: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: true
     },
 
 
     length: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: true
     },
 
     number_connections: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: true
     },
 
     settlement_id: {
@@ -42,13 +42,13 @@ module.exports = function(sequelize, DataTypes) {
    
     county_id: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: true
     },
 
 
     subcounty_id: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: true
     },
 
 
