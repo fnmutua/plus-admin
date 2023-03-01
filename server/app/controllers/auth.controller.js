@@ -5,7 +5,7 @@ const config = require('../config/auth.config')
 //const User = db.user;
 const Role = db.role
 const User = db.user
-//db.models[reg_model]
+ //db.models[reg_model]
 const Op = db.Sequelize.Op
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
@@ -302,21 +302,41 @@ exports.reset = (req, res) => {
     })
 }
 
-exports.signin = (req, res) => {
+exports.signin = async (req, res) => {
+  const  instlog = {}
+  instlog.table='auth'
+  instlog.action='Login'
+  instlog.source = 'Login'
+  instlog.date = new Date();
+  let ip = req.header('x-forwarded-for') || req.connection.remoteAddress;
+  console.log(ip)
+
   console.log('Logging in:', req.body.username)
   User.findOne({
     where: {
       username: req.body.username
     }
   })
-    .then((user) => {
-      console.log('Logged in Successfully', user)
-
+    .then(async (user) => {
+    
       if (!user) {
+         instlog.userId = 0
+        instlog.userName = req.body.username
+        instlog.status = 'Fail. User not found'
+        console.log(instlog)
+        await db.models.logs.create(instlog);
         return res.status(404).send({ message: 'User Not found.' })
       }
       var passwordIsValid = bcrypt.compareSync(req.body.password, user.password)
       if (!passwordIsValid) {
+ 
+        instlog.userId = 0
+        instlog.userName = req.body.username
+        instlog.status = 'Fail.  Invalid Password'
+        console.log(instlog)
+        await db.models.logs.create(instlog);
+
+
         return res.status(401).send({
           accessToken: null,
           message: 'Invalid Password!'
@@ -324,11 +344,26 @@ exports.signin = (req, res) => {
       }
 
       if (!user.isactive) {
+             instlog.userId = 0
+        instlog.userName = req.body.username
+        instlog.status = 'Fail.  Inactive account'
+        console.log(instlog)
+        await db.models.logs.create(instlog);
+
         return res.status(401).send({
           accessToken: null,
           message: 'Your account has not been activated yet. Please contact the admin'
         })
       }
+
+          // Log the user details 
+          instlog.userId = user.id
+          instlog.userName = user.name
+          instlog.status = 'Successful'
+          console.log(instlog)
+          await db.models.logs.create(instlog);
+
+ 
 
       var token = jwt.sign({ id: user.id }, config.secret, {
         expiresIn: 86400 // 24 hours
@@ -358,6 +393,11 @@ exports.signin = (req, res) => {
     .catch((err) => {
       res.status(500).send({ message: err.message })
     })
+  
+  
+    //Log.create({log}) // Create a log for login......
+    //const jane = await Log.create(log);
+
 }
 
 exports.updatePassword = (req, res) => {
