@@ -3897,6 +3897,19 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       }, 
+
+      {
+        path: 'logs',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Users/Logs.vue'),
+        name: 'Logs',
+        meta: {
+          title: 'Logs',
+          hidden: false,
+          icon:'ic:twotone-logo-dev'
+
+        }
+      }, 
     ]
   },
   {
