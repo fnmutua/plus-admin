@@ -306,10 +306,10 @@ exports.signin = async (req, res) => {
   const  instlog = {}
   instlog.table='auth'
   instlog.action='Login'
-  instlog.source = 'Login'
   instlog.date = new Date();
   let ip = req.header('x-forwarded-for') || req.connection.remoteAddress;
   console.log(ip)
+  instlog.source = ip
 
   console.log('Logging in:', req.body.username)
   User.findOne({
