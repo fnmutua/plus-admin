@@ -3,7 +3,7 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { ElMessage } from 'element-plus'
@@ -52,7 +52,7 @@ const indicatorsOptions = ref([])
 const categoryOptions = ref([])
 const categories = ref([])
 const page = ref(1)
-const pSize = ref(5)
+const pSize = ref(10)
 const selCounties = []
 const loading = ref(true)
 const pageSize = ref(10)
@@ -85,36 +85,7 @@ const model = 'logs'
 const { t } = useI18n()
 
 
-const columns: TableColumn[] = [
-  {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
-  },
 
-  {
-    field: 'date',
-    label: t('Date')
-  },
-  {
-    field: 'userName',
-    label: t('User')
-  },
-  {
-    field: 'action',
-    label: t('Action')
-  },
-  {
-    field: 'source',
-    label: t('Source')
-  },
-  {
-    field: 'status',
-    label: t('Status')
-  },
-
-
-]
 
 
 
@@ -177,7 +148,48 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 }
 
 
+const searchString = ref()
 
+
+const getFilteredBySearchData = async (searchString) => {
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+
+  //-Search field--------------------------------------------
+  formData.searchField = 'userName'
+  formData.searchKeyword = searchString
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = filters
+  formData.filterValues = filterValues
+  formData.associated_multiple_models = associated_multiple_models
+
+  //-------------------------
+  console.log(formData)
+  const res = await searchByKeyWord(formData)
+
+  console.log('After -----x ------Querry', res)
+  tableDataList.value = res.data
+  total.value = res.total
+  loading.value = false
+
+  tblData.value = [] // reset the table data
+
+}
+
+
+
+const searchByName = async (filterString: any) => {
+  searchString.value = filterString
+
+  getFilteredBySearchData(searchString.value)
+}
 
 
 
@@ -192,10 +204,17 @@ getInterventionsAll()
 const tableRowClassName = (data) => {
   if (data.row.status.includes("Fail")) {
     console.log('Row Styling --------->', data.row.status)
-
     return 'danger-row'
   }
-  return ''
+  else if (data.row.status.includes("Succ")) {
+
+    return 'success-row'
+
+  } else {
+    return ''
+
+
+  }
 }
 
 
@@ -208,17 +227,22 @@ const tableRowClassName = (data) => {
 <template>
   <ContentWrap :title="t('Logs')">
     <!-- <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-            :currentPage="currentPage" :row-class-name="tableRowClassName" /> -->
+                                                                            :currentPage="currentPage" :row-class-name="tableRowClassName" /> -->
 
+    <div style="display: inline-block; margin-bottom: 10px">
+      <el-select v-model="value1" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+        placeholder="Search by Name" />
+    </div>
 
-    <el-table :data="tableDataList" :loading="loading" :pageSize="pageSize" :currentPage="currentPage" style="width: 100%"
-      :row-class-name="tableRowClassName">
+    <el-table :data="tableDataList" :loading="loading" :pageSize="pageSize" :currentPage="currentPage" border
+      style="width: 100%" :row-class-name="tableRowClassName">
 
-      <el-table-column label="S/No" prop="id" />
-      <el-table-column label="User" prop="userName" />
-      <el-table-column label="Status" prop="status" />
-      <el-table-column label="Source" prop="source" />
-      <el-table-column label="Status" prop="status" />
+      <el-table-column sortable label="S/No" prop="id" />
+      <el-table-column sortable label="User" prop="userName" />
+      <el-table-column sortable label="Action" prop="action" />
+
+      <el-table-column sortable label="Status" prop="status" />
+      <el-table-column sortable label="Source" prop="source" />
     </el-table>
 
     <ElPagination layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
@@ -229,10 +253,10 @@ const tableRowClassName = (data) => {
 
 <style>
 .el-table .danger-row {
-  --el-table-tr-bg-color: var(--el-color-danger-light-9);
+  --el-table-tr-bg-color: var(--el-color-danger-light-7);
 }
 
 .el-table .success-row {
-  --el-table-tr-bg-color: var(--el-color-success-light-9);
+  --el-table-tr-bg-color: var(--el-color-success-light-7);
 }
 </style>
