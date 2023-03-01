@@ -1497,11 +1497,11 @@ const handleSelectLocation = async (location: any) => {
 
 
         <!-- <div style="display: inline-block; margin-left: 10px">
-                                <el-select v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple clearable filterable
-                                    collapse-tags placeholder="By Settlement">
-                                    <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-                                </el-select>
-                            </div> -->
+                                    <el-select v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple clearable filterable
+                                        collapse-tags placeholder="By Settlement">
+                                        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+                                    </el-select>
+                                </div> -->
 
         <div style="display: inline-block; margin-left: 10px">
 
@@ -1590,9 +1590,19 @@ const handleSelectLocation = async (location: any) => {
                                     circle />
                             </el-tooltip>
                             <el-tooltip content="Delete" placement="top">
-                                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                                    icon-color="#626AEF" title="Are you sure to delete this report?"
-                                    @confirm="DeleteProject(scope.row as TableSlotDefault)">
+                                <!-- <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                                        icon-color="#626AEF" title="Are you sure to delete this report?"
+                                        @confirm="DeleteProject(scope.row as TableSlotDefault)"> -->
+
+
+
+                                <el-popconfirm width="220" confirm-button-text="OK" cancel-button-text="No, Thanks"
+                                    :icon="InfoFilled" icon-color="#626AEF" title="Are you sure to delete this?"
+                                    @confirm="DeleteProject(data as TableSlotDefault)">
+
+
+
+
                                     <template #reference>
                                         <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
                                     </template>

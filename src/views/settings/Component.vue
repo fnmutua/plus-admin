@@ -495,8 +495,9 @@ getStrategicFocusAreas()
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this record?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+          <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+            icon-color="#626AEF" title="Are you sure to delete this record?"
+            @confirm="DeleteIndicator(data as TableSlotDefault)">
             <template #reference>
               <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
             </template>

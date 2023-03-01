@@ -439,13 +439,14 @@ const editForm = async (formEl: FormInstance | undefined) => {
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="Edit" placement="top">
-          <el-button v-if="showAdminButtons" type="success" :icon="Edit"
-            @click="editIndicator(data as TableSlotDefault)" circle />
+          <el-button v-if="showAdminButtons" type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)"
+            circle />
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+          <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+            icon-color="#626AEF" title="Are you sure to delete this indicator?"
+            @confirm="DeleteIndicator(data as TableSlotDefault)">
             <template #reference>
               <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
             </template>
@@ -454,9 +455,9 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
@@ -505,6 +506,4 @@ const editForm = async (formEl: FormInstance | undefined) => {
       </span>
     </template>
   </el-dialog>
-
-
 </template>

@@ -3,7 +3,7 @@ import { Descriptions } from '@/components/Descriptions'
 import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted, ref, reactive, unref } from 'vue'
 import { Form } from '@/components/Form'
-import { ElFormItem, ElInput, ElButton } from 'element-plus'
+import { ElFormItem, ElInput, ElButton, ElContainer, ElAside, ElDescriptions, ElDescriptionsItem, ElAvatar } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { useForm } from '@/hooks/web/useForm'
 import { useRoute } from 'vue-router'
@@ -149,21 +149,43 @@ onMounted(() => {
 </script>
 
 <template>
-  <el-row>
-    <el-card :body-style="{ padding: '0px' }">
-      <el-col :span="12">
+  <ContentWrap :title="t('Settlements')" :message="t('Use the filters to subset')">
 
-        <img :src="avatar" class="image" />
-      </el-col>
-      <el-col :span="12">
-        <Descriptions :title="t('Profile')" :message="t('Profile')" :data="profile" :schema="schemaProfile" />
-      </el-col>
+    <el-card shadow="always">
+
+      <el-descriptions class="margin-top" :column="3" border>
+        <el-descriptions-item>
+          <el-avatar shape="square" :size="100" fit="contain" :src="avatar" />
+        </el-descriptions-item>
+        <el-descriptions-item label="Username">kooriookami</el-descriptions-item>
+
+        <el-descriptions-item label="Telephone">18100000000</el-descriptions-item>
+
+      </el-descriptions>
     </el-card>
 
+    <!--   <el-row>
+                          <el-card shadow="always">
+                            <el-col :xl="6" :lg="6" :md="6" :sm="24" :xs="24">
+                              <div class="demo-fit">
+                                <div class="block">
+                                  <el-avatar shape="square" :size="100" fit="contain" :src="avatar" />
+                                </div>
+                              </div>
+                            </el-col>
+                          </el-card>
+                          <el-card shadow="always">
 
-  </el-row>
+                            <el-col :xl="6" :lg="6" :md="6" :sm="24" :xs="24">
+                              <Descriptions :title="t('Profile')" :message="t('Profile')" :data="profile" :schema="schemaProfile" />
+                            </el-col>
+
+                          </el-card>
+
+
+                        </el-row> -->
 </template>
-
+<ContentWrap/>
 <style lang="less" scoped>
 .is-required--item {
   position: relative;

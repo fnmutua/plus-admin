@@ -589,8 +589,8 @@ const DownloadXlsx = async () => {
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="By Settlement Name">
+      <el-select v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="By Settlement Name">
         <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
@@ -637,8 +637,17 @@ const DownloadXlsx = async () => {
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this record?" @confirm="DeleteIntervention(data as TableSlotDefault)">
+          <!-- <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              title="Are you sure to delete this record?" @confirm="DeleteIntervention(data as TableSlotDefault)">
+   -->
+
+
+          <el-popconfirm width="220" confirm-button-text="OK" cancel-button-text="No, Thanks" :icon="InfoFilled"
+            icon-color="#626AEF" title="Are you sure to delete this?"
+            @confirm="DeleteIntervention(data as TableSlotDefault)">
+
+
+
             <template #reference>
               <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
             </template>
@@ -648,9 +657,9 @@ const DownloadXlsx = async () => {
 
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
 
@@ -701,6 +710,4 @@ const DownloadXlsx = async () => {
       </span>
     </template>
   </el-dialog>
-
-
 </template>
