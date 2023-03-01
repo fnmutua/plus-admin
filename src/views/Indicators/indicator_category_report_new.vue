@@ -1084,22 +1084,22 @@ getSettlement()
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
     <!--     <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
-        </el-tooltip>
+        :currentPage="currentPage">
+        <template #action="data">
+          <el-tooltip content="Edit" placement="top">
+            <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+          </el-tooltip>
 
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
-      </template>
-    </Table> -->
+          <el-tooltip content="Delete" placement="top">
+            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+              <template #reference>
+                <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+              </template>
+            </el-popconfirm>
+          </el-tooltip>
+        </template>
+      </Table> -->
 
     <el-table :data="tableDataList" style="width: 100%">
       <el-table-column type="expand">
@@ -1138,8 +1138,9 @@ getSettlement()
           </el-tooltip>
 
           <el-tooltip content="Delete" placement="top">
-            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-              title="Are you sure to delete this report?" @confirm="DeleteIndicator(scope as TableSlotDefault)">
+            <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+              icon-color="#626AEF" title="Are you sure to delete this report?"
+              @confirm="DeleteIndicator(scope as TableSlotDefault)">
               <template #reference>
                 <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
               </template>
@@ -1150,9 +1151,9 @@ getSettlement()
 
     </el-table>
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
   <el-dialog v-model="ReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
@@ -1222,7 +1223,4 @@ getSettlement()
       </span>
     </template>
   </el-dialog>
-
-
-
 </template>

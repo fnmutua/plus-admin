@@ -1346,9 +1346,13 @@ if (isMobile.value) {
                   </el-link>
 
                   <el-tooltip content="Delete" placement="top">
-                    <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                      icon-color="#626AEF" title="Are you sure to delete this document?"
-                      @confirm="removeDocument(scope.row)">
+                    <!-- <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                          icon-color="#626AEF" title="Are you sure to delete this document?"
+                          @confirm="removeDocument(scope.row)"> -->
+
+                    <el-popconfirm width="220" confirm-button-text="OK" cancel-button-text="No, Thanks" :icon="InfoFilled"
+                      icon-color="#626AEF" title="Are you sure to delete this?" @confirm="removeDocument(scope.row)">
+
                       <template #reference>
                         <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
                       </template>
@@ -1358,7 +1362,7 @@ if (isMobile.value) {
               </el-table-column>
             </el-table>
             <!-- <el-button v-if="showAdminButtons" @click="addMoreDocs(props.row)" type="info" round>Add More
-                                                                                                      Documents</el-button> -->
+                                                                                                          Documents</el-button> -->
 
             <el-button v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
               style="margin-left: 10px;margin-top: 5px" size="small" />
@@ -1404,8 +1408,17 @@ if (isMobile.value) {
             </el-tooltip>
 
             <el-tooltip content="Delete" placement="top">
-              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
+              <!-- <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)"> -->
+
+
+
+              <el-popconfirm width="220" confirm-button-text="OK" cancel-button-text="No, Thanks" :icon="InfoFilled"
+                icon-color="#626AEF" title="Are you sure to delete this?"
+                @confirm="DeleteReport(scope.row as TableSlotDefault)">
+
+
+
                 <template #reference>
                   <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
                 </template>

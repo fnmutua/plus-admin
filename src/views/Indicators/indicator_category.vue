@@ -523,13 +523,14 @@ console.log('Options---->', indicatorsOptions)
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="Edit" placement="top">
-          <el-button v-if="showAdminButtons" type="success" :icon="Edit"
-            @click="editIndicator(data as TableSlotDefault)" circle />
+          <el-button v-if="showAdminButtons" type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)"
+            circle />
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+          <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+            icon-color="#626AEF" title="Are you sure to delete this indicator?"
+            @confirm="DeleteIndicator(data as TableSlotDefault)">
             <template #reference>
               <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
             </template>
@@ -538,9 +539,9 @@ console.log('Options---->', indicatorsOptions)
 
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
 
@@ -548,8 +549,7 @@ console.log('Options---->', indicatorsOptions)
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
       <el-form-item label="Indicator">
-        <el-select filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
-          placeholder="Select Indicator">
+        <el-select filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator" placeholder="Select Indicator">
           <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
@@ -583,5 +583,4 @@ console.log('Options---->', indicatorsOptions)
       </span>
     </template>
   </el-dialog>
-
 </template>
