@@ -807,7 +807,8 @@ const viewBen = (data: TableSlotDefault) => {
   //console.log(filtersBen, selected_project.value, filterValuesBen)
 
   getBeneficiaries(filtersBen, filterValuesBen)    // Get Beneficiaires 
-  beneficiaryTabTitle.value = 'Beneficiaries(' + data.row.settlement.name + ')'   // Change Tab Title 
+  //beneficiaryTabTitle.value = 'Beneficiaries(' + data.row.settlement.name + ')'   // Change Tab Title 
+  beneficiaryTabTitle.value = 'Beneficiaries'    // Change Tab Title 
   beneficiaryTabDisabled.value = false  // Enbale the tab for user to see the beneficiaires 
 
   activeName.value = 'Beneficiary' // Navigate to Beneficiary Tab
@@ -1473,7 +1474,7 @@ getDocumentTypes()
 
 
                       <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                        <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
                           icon-color="#626AEF" title="Are you sure to delete this document?"
                           @confirm="removeDocument(scope.row)">
                           <template #reference>
@@ -1550,8 +1551,11 @@ getDocumentTypes()
                 </el-tooltip>
 
                 <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">
+                  <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to delete this report?"
+                    @confirm="DeleteProject(scope.row as TableSlotDefault)">
+
+
                     <template #reference>
                       <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete circle />
                     </template>

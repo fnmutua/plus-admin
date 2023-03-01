@@ -884,7 +884,7 @@ if (isMobile.value) {
                         <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
                       </el-link>
                       <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                        <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
                           icon-color="#626AEF" title="Are you sure to delete this document?"
                           @confirm="removeDocument(scope.row)">
                           <template #reference>
@@ -935,8 +935,9 @@ if (isMobile.value) {
                 </el-tooltip>
 
                 <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to delete this household?" @confirm="DeleteHH(scope.row as TableSlotDefault)">
+                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" width="220" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to delete this household?"
+                    @confirm="DeleteHH(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
                     </template>

@@ -3,9 +3,9 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty, DeleteRecord } from '@/api/settlements'
+import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSwitch, ElSelect, ElDialog, ElPopconfirm, ElFormItem, ElForm, ElInput, MessageParamsWithType } from 'element-plus'
+import { ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElFormItem, ElForm, ElInput, MessageParamsWithType } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Position,
@@ -14,9 +14,7 @@ import {
   User,
   Plus,
   Download,
-  Delete,
   Filter,
-  InfoFilled,
   MessageBox
 } from '@element-plus/icons-vue'
 
@@ -24,7 +22,7 @@ import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider, ELRow } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
-import { activateUserApi, updateUserApi, getUserListApi } from '@/api/users'
+import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
@@ -42,19 +40,6 @@ interface Params {
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const currentUser = wsCache.get(appStore.getUserInfo)
-
-
-
-const userInfo = wsCache.get(appStore.getUserInfo)
-
-
-// Hide buttons if not admin 
-const showAdminButtons = ref(false)
-
-if (userInfo.roles.includes("admin")) {
-  showAdminButtons.value = true
-}
-
 
 
 const { push } = useRouter()
@@ -91,13 +76,14 @@ let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = ['isactive']
-var filterValues = [false]  // remember to change here!
+console.log(currentUser)
+var filterValues = [false]
 var tblData = []
 
 const associated_multiple_models = ['county']
 
 const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
-const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
+const nested_filter = ['id', [14]] //   column and value of the grandchild. In this case roles. 5=county Admin 
 
 
 const model = 'users'
@@ -234,25 +220,6 @@ const destructure = (obj) => {
   }
 
   return simpleObj
-}
-
-const DeleteUSer = (data: TableSlotDefault) => {
-  console.log('----->', data.row)
-  let formData = {}
-  formData.id = data.row.id
-  formData.model = model
-
-  DeleteRecord(formData)
-
-  console.log(tableDataList.value)
-
-
-  // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
-  if (index !== -1) {
-    tableDataList.value.splice(index, 1);
-  }
-
 }
 
 const getCountyNames = async () => {
@@ -418,7 +385,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   //-------------------------
   console.log('gettign getCountyStaff users --->', formData)
-  const res = await getUserListApi(formData)
+  const res = await getCountyStaff(formData)
 
   console.log('After getting all users', res)
   tableDataList.value = res.data
@@ -529,32 +496,22 @@ const updateUser = () => {
     <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
-        <ElRow :gutter="5" justify="space-between">
+        <el-row class="mt-4">
           <el-tooltip content="Activate/Deactivate User" placement="top">
 
             <el-switch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)" />
           </el-tooltip>
 
-          <el-tooltip content="Edit" placement="top">
-            <el-button type="success" :icon="Edit" @click="EditUser(data as TableSlotDefault)" circle />
+          <el-tooltip content="View Profile" placement="top">
+            <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(data as TableSlotDefault)" circle />
           </el-tooltip>
-
-          <el-tooltip content="Delete" placement="top">
-            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-              title="Are you sure to delete this User?" @confirm="DeleteUSer(data as TableSlotDefault)">
-              <template #reference>
-                <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-              </template>
-            </el-popconfirm>
-          </el-tooltip>
-        </ElRow>
-
+        </el-row>
 
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
 
     <el-dialog v-model="dialogFormVisible" title="User Details">
       <el-form :model="form">

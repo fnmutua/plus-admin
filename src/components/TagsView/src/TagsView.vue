@@ -353,12 +353,7 @@ watch(
         </div>
       </ElScrollbar>
     </div>
-    <span :class="`${prefixCls}__tool`"
-      class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer"
-      @click="drawer = true">
-      <Icon icon="material-symbols:settings-suggest-outline" :width="24"
-        :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'" />
-    </span>
+
 
     <span :class="`${prefixCls}__tool`"
       class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer"
@@ -420,12 +415,10 @@ watch(
     ]">
       <span :class="`${prefixCls}__tool`"
         class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer block">
-        <Icon icon="ant-design:setting-outlined"
-          :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'" />
+        <Icon icon="ant-design:setting-outlined" :color="appStore.getIsDark ? 'var(--el-text-color-regular)' : '#333'" />
       </span>
     </ContextMenu>
   </div>
-
 </template>
 
 <style lang="less" scoped>
