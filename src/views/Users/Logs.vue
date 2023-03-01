@@ -227,7 +227,7 @@ const tableRowClassName = (data) => {
 <template>
   <ContentWrap :title="t('Logs')">
     <!-- <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-                                                                            :currentPage="currentPage" :row-class-name="tableRowClassName" /> -->
+                                                                                :currentPage="currentPage" :row-class-name="tableRowClassName" /> -->
 
     <div style="display: inline-block; margin-bottom: 10px">
       <el-select v-model="value1" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
@@ -238,9 +238,9 @@ const tableRowClassName = (data) => {
       style="width: 100%" :row-class-name="tableRowClassName">
 
       <el-table-column sortable label="S/No" prop="id" />
+      <el-table-column sortable label="Date" prop="date" />
       <el-table-column sortable label="User" prop="userName" />
       <el-table-column sortable label="Action" prop="action" />
-
       <el-table-column sortable label="Status" prop="status" />
       <el-table-column sortable label="Source" prop="source" />
     </el-table>
