@@ -93,7 +93,6 @@
     "vue": "3.2.37",
     "vue-csv-import": "^4.1.2",
     "vue-echarts": "^6.2.3",
-    "vue-element-plus": "^2.13.14",
     "vue-excel-xlsx": "^1.2.2",
     "vue-fuse": "^4.1.1",
     "vue-html2pdf": "^1.8.0",
