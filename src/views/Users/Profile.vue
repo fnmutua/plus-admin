@@ -149,43 +149,27 @@ onMounted(() => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Settlements')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Profile')">
 
     <el-card shadow="always">
+      <el-col :xl="6" :lg="6" :md="6" :sm="24" :xs="24">
+        <div class="demo-fit">
+          <div class="block">
+            <el-avatar shape="square" :size="100" fit="contain" :src="avatar" />
+          </div>
+        </div>
+      </el-col>
+    </el-card>
+    <el-card shadow="always">
 
-      <el-descriptions class="margin-top" :column="3" border>
-        <el-descriptions-item>
-          <el-avatar shape="square" :size="100" fit="contain" :src="avatar" />
-        </el-descriptions-item>
-        <el-descriptions-item label="Username">kooriookami</el-descriptions-item>
+      <el-col :xl="6" :lg="6" :md="6" :sm="24" :xs="24">
+        <Descriptions :title="t('Profile')" :message="t('Profile')" :data="profile" :schema="schemaProfile" />
+      </el-col>
 
-        <el-descriptions-item label="Telephone">18100000000</el-descriptions-item>
-
-      </el-descriptions>
     </el-card>
 
-    <!--   <el-row>
-                          <el-card shadow="always">
-                            <el-col :xl="6" :lg="6" :md="6" :sm="24" :xs="24">
-                              <div class="demo-fit">
-                                <div class="block">
-                                  <el-avatar shape="square" :size="100" fit="contain" :src="avatar" />
-                                </div>
-                              </div>
-                            </el-col>
-                          </el-card>
-                          <el-card shadow="always">
-
-                            <el-col :xl="6" :lg="6" :md="6" :sm="24" :xs="24">
-                              <Descriptions :title="t('Profile')" :message="t('Profile')" :data="profile" :schema="schemaProfile" />
-                            </el-col>
-
-                          </el-card>
-
-
-                        </el-row> -->
+  </ContentWrap>
 </template>
-<ContentWrap/>
 <style lang="less" scoped>
 .is-required--item {
   position: relative;

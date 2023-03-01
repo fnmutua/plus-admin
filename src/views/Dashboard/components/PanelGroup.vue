@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ElRow, ElCol, ElCard, ElSkeleton, ElStatistic, ElTooltip, ElIcon } from 'element-plus'
+import { ElRow, ElCol, ElCard, ElSkeleton, ElTooltip, ElIcon } from 'element-plus'
 import { CountTo } from '@/components/CountTo'
 import { useDesign } from '@/hooks/web/useDesign'
 import { useI18n } from '@/hooks/web/useI18n'
@@ -197,7 +197,8 @@ getCountPerCounty()
                     t('Number of Slums/Informal Settlements in Kenya')
                   }}</div>
                 </router-link>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSettlements"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSettlements"
                   :duration="2600" />
               </div>
 
@@ -225,7 +226,8 @@ getCountPerCounty()
                     t('Slums/Informal Settlement Population in Kenya')
                   }}</div>
                 </router-link>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSlumResidents"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSlumResidents"
                   :duration="2600" />
               </div>
 
@@ -257,7 +259,8 @@ getCountPerCounty()
                   }}</div>
 
                 </router-link>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.avg_hh_size"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.avg_hh_size"
                   :duration="2600" />
               </div>
 
@@ -268,55 +271,56 @@ getCountPerCounty()
       </ElCard>
     </ElCol>
 
-    <!-- <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
-        <ElCard shadow="always" class="mb-20px">
-          <ElSkeleton :loading="loading" animated :rows="2">
-            <template #default>
-              <div :class="`${prefixCls}__item flex justify-between`">
-                <div>
-                  <div :class="`${prefixCls}__item--icon ${prefixCls}__item--shopping p-16px inline-block rounded-6px`">
-                    <Icon icon="mdi:people-switch" height="60" />
-
-                  </div>
-                </div>
-                <div class="flex flex-col justify-between">
-                  <router-link :class="[]" to="/settlement/list">
-                    <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
-                      t('Population Density in Slums/Informal Settlements')
-                    }}</div>
-                  </router-link>
-
-
-                  <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.pop_density"
-                    :duration="2600" />
-                </div>
-
-              </div>
-            </template>
-          </ElSkeleton>
-        </ElCard>
-      </ElCol> -->
-
-
-
     <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
       <ElCard shadow="always" class="mb-20px">
         <ElSkeleton :loading="loading" animated :rows="2">
-          <el-statistic :value="totalState.pop_density">
-            <template #title>
-              <div style="display: inline-flex; align-items: center">
-                Population Density
-                <el-tooltip effect="dark" content="Population Density in Slums/Informal Settlements" placement="top">
-                  <el-icon style="margin-left: 12px" :size="64">
-                    <Warning />
-                  </el-icon>
-                </el-tooltip>
+          <template #default>
+            <div :class="`${prefixCls}__item flex justify-between`">
+              <div>
+                <div :class="`${prefixCls}__item--icon ${prefixCls}__item--shopping p-16px inline-block rounded-6px`">
+                  <Icon icon="mdi:people-switch" height="60" />
+
+                </div>
               </div>
-            </template>
-          </el-statistic>
+              <div class="flex flex-col justify-between">
+                <router-link :class="[]" to="/settlement/list">
+                  <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
+                    t('Population Density in Slums/Informal Settlements')
+                  }}</div>
+                </router-link>
+
+
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.pop_density"
+                  :duration="2600" />
+              </div>
+
+            </div>
+          </template>
         </ElSkeleton>
       </ElCard>
     </ElCol>
+
+
+
+    <!-- <ElCol :xl="6" :lg="6" :md="12" :sm="12" :xs="24">
+        <ElCard shadow="always" class="mb-20px">
+          <ElSkeleton :loading="loading" animated :rows="2">
+            <el-statistic :value="totalState.pop_density">
+              <template #title>
+                <div style="display: inline-flex; align-items: center">
+                  Population Density
+                  <el-tooltip effect="dark" content="Population Density in Slums/Informal Settlements" placement="top">
+                    <el-icon style="margin-left: 12px" :size="64">
+                      <Warning />
+                    </el-icon>
+                  </el-tooltip>
+                </div>
+              </template>
+            </el-statistic>
+          </ElSkeleton>
+        </ElCard>
+      </ElCol> -->
 
   </ElRow>
 </template>
