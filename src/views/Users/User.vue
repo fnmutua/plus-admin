@@ -79,6 +79,7 @@ const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
+const maxCount = ref(0)
 const downloadLoading = ref(false)
 
 
@@ -346,6 +347,11 @@ const activateDeactivate = (data: TableSlotDefault) => {
   activateUserApi(data.row, { model: 'users' }).then(() => { })
 }
 
+function roundUp(number) {
+  return Math.ceil(number / 100) * 100;
+}
+
+
 
 const handleDownload = () => {
   downloadLoading.value = true
@@ -383,6 +389,7 @@ const getFilteredBySearchData = async (searchString) => {
   console.log('After -----x ------Querry', res)
   tableDataList.value = res.data
   total.value = res.total
+  maxCount.value = roundUp(res.total)
   loading.value = false
 
   tblData = [] // reset the table data
@@ -416,7 +423,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('After getting all users', res)
   tableDataList.value = res.data
   total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
-
+  maxCount.value = roundUp(res.total)
   loading.value = false
 
   tblData = [] // reset the table data
@@ -580,8 +587,9 @@ const DownloadXlsx = async () => {
             <el-button type="success" :icon="Edit" @click="EditUser(data as TableSlotDefault)" circle />
           </el-tooltip>
           <el-tooltip content="Delete" placement="top">
-            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-              title="Are you sure to delete this User?" @confirm="DeleteUSer(data as TableSlotDefault)">
+            <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+              icon-color="#626AEF" title="Are you sure to delete this User?"
+              @confirm="DeleteUSer(data as TableSlotDefault)">
               <template #reference>
                 <el-button v-if="showSuperAdminButtons" type="danger" :icon=Delete circle />
               </template>
@@ -590,9 +598,9 @@ const DownloadXlsx = async () => {
         </ElRow>
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, maxCount]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
 
     <el-dialog v-model="dialogFormVisible" title="User Details">
       <el-form :model="form">
