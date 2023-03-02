@@ -56,6 +56,13 @@ module.exports = function(sequelize, DataTypes) {
           { name: "id" },
         ]
       },
+
+      {
+        unique: true,
+        fields: ['parcel_no', 'area_ha', 'settlement_id']
+      },
+
+
     ]
   });
 };
