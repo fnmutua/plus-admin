@@ -39,7 +39,8 @@ const model = ref()          // the model
 const code = ref()  // the parent code as per the imported excel file 
 const parent_key = ref()       // the parent foregin key in the model 
 const parentModel = ref()      // the parent model
-
+const loadingPosting = ref(false)
+const loadingText = ref()
 
 ///---------------------xlsx-
 const file = ref()
@@ -315,6 +316,8 @@ const handleMutlipleSettlements = async () => {
 
 const handleProcess = async () => {
   console.log('upload--->', matchedObjwithparent.value)
+  loadingPosting.value = true
+  loadingText.value = 'Saving on the database. Please wait........'
   for (let i = 0; i < matchedObjwithparent.value.length; i++) {
 
     let feature = matchedObjwithparent.value[i]
@@ -359,7 +362,10 @@ const handleProcess = async () => {
       console.log('Error------>', error.response.data.message)
       ElMessage.error(error.response.data.message)
     })
-
+    .then((response: { data: any }) => {
+      loadingPosting.value = false
+      loadingText.value = ''
+    })
 
 
 
@@ -424,6 +430,8 @@ const beforeRemove: UploadProps['beforeRemove'] = (uploadFile) => {
 
 const submitFiles = async () => {
   console.log('on Submit....', fileList.value.length)
+  loadingPosting.value = true
+  loadingText.value = 'Matching fields.. Please wait.......'
   if (fileList.value.length == 0) {
     ElMessage.error('Select a  File first!')
   } else {
@@ -493,7 +501,7 @@ const readJson = (event) => {
 
 
   makeOptions(mergedfields)
-
+  loadingPosting.value = false
 
 
 
@@ -515,69 +523,73 @@ const readJson = (event) => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Upload Geometry Data')" :message="t('Ensure you have the required fields in the Geojson file')">
-    <el-divider border-style="dashed" content-position="left">Data</el-divider>
+  <ContentWrap :title="t('Upload Geometry Data')" :message="t('Ensure you have the required fields Geojson ')">
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="type" :onChange="handleSelectType" :onClear="handleClear" placeholder="Select data to import">
-        <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
-          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-        </el-option-group>
-      </el-select>
+    <div v-loading="loadingPosting" :element-loading-text="loadingText">
+
+      <div style="display: inline-block; margin-left: 20px">
+        <el-select v-model="type" :onChange="handleSelectType" :onClear="handleClear" placeholder="Select data to import">
+          <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
+            <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+          </el-option-group>
+        </el-select>
+      </div>
+
+
+      <div style="display: inline-block; margin-left: 20px">
+
+        <el-switch v-model="value_switch" v-if="showSwitch" size="large" @click="handleMutlipleSettlements"
+          active-text="Multiple Settlements" />
+
+      </div>
+
+
+      <div style="display: inline-block; margin-left: 20px">
+        <el-select v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
+          :onClear="handleClear" clearable filterable collapse-tags placeholder="Filter by Settlement">
+          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </div>
+
+
+
+      <el-divider border-style="dashed" content-position="left">Upload</el-divider>
+      <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+        v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
+        :limit="1" :on-exceed="handleExceed" :auto-upload="false">
+        <div class="el-upload__text"> Drop file here or <em>click to upload</em> </div>
+      </el-upload>
+
+      <el-button class="mt-4" style="width: 100%" @click="submitFiles" type="primary">
+        Upload<el-icon class="el-icon--right">
+          <Upload />
+        </el-icon>
+      </el-button>
+      <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe">
+        <el-table-column prop="column" label="Field">
+          <template #default="scope">
+            <el-input v-model="scope.row.field" controls-position="left" disabled />
+          </template>
+        </el-table-column>
+        <el-table-column prop="match" label="Match">
+          <template #default="scope">
+            <el-select v-model="scope.row.match" filterable placeholder="Select">
+              <el-option v-for="item in matchOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-button v-if="show" class="mt-4" style="width: 100%" @click="handleProcess" type="link">
+        Process<el-icon class="el-icon--right">
+          <Tools />
+        </el-icon>
+      </el-button>
+
+
     </div>
 
 
-    <div style="display: inline-block; margin-left: 20px">
 
-      <el-switch v-model="value_switch" v-if="showSwitch" size="large" @click="handleMutlipleSettlements"
-        active-text="Multiple Settlements" />
-
-    </div>
-
-
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
-        :onClear="handleClear" clearable filterable collapse-tags placeholder="Filter by Settlement">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
-
-
-
-    <el-divider border-style="dashed" content-position="left">Upload</el-divider>
-    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
-      v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
-      :limit="1" :on-exceed="handleExceed" :auto-upload="false">
-      <div class="el-upload__text"> Drop file here or <em>click to upload</em> </div>
-    </el-upload>
-
-    <el-button class="mt-4" style="width: 100%" @click="submitFiles" type="primary">
-      Upload<el-icon class="el-icon--right">
-        <Upload />
-      </el-icon>
-    </el-button>
-    <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe">
-      <el-table-column prop="column" label="Field">
-        <template #default="scope">
-          <el-input v-model="scope.row.field" controls-position="left" disabled />
-        </template>
-      </el-table-column>
-      <el-table-column prop="match" label="Match">
-        <template #default="scope">
-          <el-select v-model="scope.row.match" filterable placeholder="Select">
-            <el-option v-for="item in matchOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </template>
-      </el-table-column>
-    </el-table>
-    <el-button v-if="show" class="mt-4" style="width: 100%" @click="handleProcess" type="link">
-      Process<el-icon class="el-icon--right">
-        <Tools />
-      </el-icon>
-    </el-button>
-    <!-- <section>
-                                    <input type="file" @change="readXLSX" />
-                                  </section> -->
 
 
   </ContentWrap>

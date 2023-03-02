@@ -23,6 +23,7 @@ import "mapbox-layer-switcher/styles.css";
 import writeShapefile from '@/utils/writeShapefile'
 import * as download from 'downloadjs'
 import { ElMessage } from 'element-plus'
+import { ElCollapse, ElCollapseItem } from 'element-plus';
 
 
 
@@ -188,11 +189,11 @@ const loadMap = () => {
 
     nmap.value.addLayer({
       'id': 'Boundary',
-      "type": "fill",
+      "type": "line",
       'source': 'polygons',
       'paint': {
-        'fill-color': '#0080ff', // blue color fill
-        'fill-opacity': 0.2
+        'line-color': 'gray',
+        'line-width': 1
       }
     });
 
@@ -206,24 +207,27 @@ const loadMap = () => {
         'fill-color': [
           'case',
           ['==', ['get', 'landuse_id'], 0],
-          'brown',
+          '#8C675D',
           ['==', ['get', 'landuse_id'], 1],
-          'yellow',
+          '#800080',
           ['==', ['get', 'landuse_id'], 2],
-          'orange',
+          '#F6C567',
           ['==', ['get', 'landuse_id'], 3],
-          'green',
+          '#6FDC6E',
           ['==', ['get', 'landuse_id'], 4],
-          'yellow',
+          '#FFFF00',
           ['==', ['get', 'landuse_id'], 5],
-          'red',
+          '#FF1D1E',
           ['==', ['get', 'landuse_id'], 6],
-          'gray',
+          '#73B2FF',
           ['==', ['get', 'landuse_id'], 7],
-          'yellow',
+          '#DCDCDC',
+          ['==', ['get', 'landuse_id'], 8],
+          '#FDFD96',
+          ['==', ['get', 'landuse_id'], 9],
+          '#FDFD96',
           'white'],
-
-        'fill-opacity': 0.5
+        'fill-opacity': 0.6
       }
     });
 
@@ -347,6 +351,53 @@ const switchLayer = () => {
 
 }
 
+const xlegendItems = [{ label: 'Item 1', color: '#FF0000' },
+{ label: 'Item 2', color: '#00FF00' },
+{ label: 'Item 3', color: '#0000FF' }]
+
+const legendItems = [
+  {
+    "label": "Residential",
+    "color": "#8C675D"
+  },
+  {
+    "label": "Industrial",
+    "color": "#800080"
+  },
+  {
+    "label": "Education",
+    "color": "#F6C567"
+  },
+  {
+    "label": "Recreation/Reservation",
+    "color": "#6FDC6E"
+  },
+  {
+    "label": "Public Purpose",
+    "color": "#FFFF00"
+  },
+  {
+    "label": "Commercial",
+    "color": "#FF1D1E"
+  },
+  {
+    "label": "Public Utility",
+    "color": "#73B2FF"
+  },
+  {
+    "label": "Transportation",
+    "color": "#DCDCDC"
+  },
+  {
+    "label": "Undeveloped",
+    "color": "#FDFD96"
+  },
+  {
+    "label": "Agricultural",
+    "color": "#FDFD96"
+  }
+]
+
 
 console.log(model)
 </script>
@@ -369,10 +420,24 @@ console.log(model)
     </template>
 
 
+    <div class="map-container">
 
-    <div id="mapContainer" class="basemap"></div>
+      <div id="mapContainer" class="basemap"></div>
 
 
+    </div>
+    <div id="floating-div">
+      <el-collapse v-model="collapse">
+        <el-collapse-item title="LEGEND">
+          <div class="legend">
+            <div v-for="item in legendItems" :key="item.label" class="legend-item">
+              <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
+              <div class="legend-label">{{ item.label }}</div>
+            </div>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+    </div>
 
 
 
@@ -424,5 +489,51 @@ console.log(model)
 <style>
 h1 {
   text-align: center;
+}
+
+
+.map-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.map {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.legend {
+  padding: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+}
+
+.legend-label {
+  font-size: 14px;
+}
+
+#floating-div {
+  position: absolute;
+  top: 120px;
+  left: 50px;
+  z-index: 1;
+  background-color: white;
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 </style>
