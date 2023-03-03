@@ -1536,6 +1536,7 @@ getDocumentTypes()
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="ID" prop="id" />
           <el-table-column label="Name" width="400" prop="name" />
           <el-table-column label="County" prop="county.name" />
           <el-table-column label="Subcounty" prop="subcounty.name" />
