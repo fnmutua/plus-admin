@@ -17,7 +17,7 @@ module.exports = function(sequelize, DataTypes) {
     },
     settlement_id: {
       type: DataTypes.INTEGER,
-      allowNull: true
+      allowNull: false
     },
     parcel_no: {
       type: DataTypes.STRING,

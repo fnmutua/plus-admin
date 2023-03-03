@@ -9,13 +9,13 @@ import 'leaflet/dist/leaflet.css'
 import { useRoute } from 'vue-router'
 
 
-import { ElCard, ElButton, ElCheckboxGroup, ElCheckbox, ElCheckboxButton, ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { ElCard, ElButton, ElCheckboxGroup, ElCheckbox, ElCheckboxButton, ElDropdown, ElDropdownItem, ElDropdownMenu, ElSwitch, ElTooltip, ElOption, ElDivider } from 'element-plus'
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { Download } from '@element-plus/icons-vue'
+import { Download, ArrowDown, ArrowLeft } from '@element-plus/icons-vue'
 
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
@@ -24,12 +24,18 @@ import writeShapefile from '@/utils/writeShapefile'
 import * as download from 'downloadjs'
 import { ElMessage } from 'element-plus'
 import { ElCollapse, ElCollapseItem } from 'element-plus';
+import { onMounted, computed } from 'vue'
+import { useAppStoreWithOut } from '@/store/modules/app'
 
 
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 mapboxgl.accessToken = MapBoxToken;
+
+
+
+const appStore = useAppStoreWithOut()
 
 
 
@@ -180,19 +186,22 @@ const loadMap = () => {
 
 
     nmap.value.addLayer({
-      id: 'satellite',
+      id: 'Satellite',
       source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
       type: "raster"
-    }, 'optional_before_argument');
+    });
+
+    // switch it off until the user selects to
+    nmap.value.setLayoutProperty('Satellite', 'visibility', 'none')
 
 
-
+    // Load the boundary layer with red outline
     nmap.value.addLayer({
       'id': 'Boundary',
       "type": "line",
       'source': 'polygons',
       'paint': {
-        'line-color': 'gray',
+        'line-color': 'white',
         'line-width': 1
       }
     });
@@ -227,10 +236,26 @@ const loadMap = () => {
           ['==', ['get', 'landuse_id'], 9],
           '#FDFD96',
           'white'],
-        'fill-opacity': 0.6
+        'fill-opacity': 0.8,
+        "fill-outline-color": "white"
+
       }
     });
 
+
+    nmap.value.addLayer({
+      'id': 'Labels',
+      'type': 'symbol',
+      'source': 'parcels',
+      'layout': {
+        'text-field': ['get', 'parcel_no'],
+        'text-size': 14,
+        'text-offset': [0, 1]
+      },
+      'paint': {
+        'text-color': 'white'
+      }
+    });
 
 
     const layers: MapboxLayerDefinition[] = [
@@ -249,7 +274,7 @@ const loadMap = () => {
 
     ];
 
-    nmap.value.addControl(new MapboxLayerSwitcherControl(layers));
+    // nmap.value.addControl(new MapboxLayerSwitcherControl(layers));
 
 
     nmap.value.resize()
@@ -316,8 +341,8 @@ const downloadMap = () => {
   console.log("Downlaod...s.")
 }
 
-const selectedLayers = ref(['Parcels', 'Boundary'])
-const layers = ['Parcels', 'Boundary']
+const selectedLayers = ref(['Parcels', 'Boundary', 'Labels'], 'Satellite')
+const layers = ['Parcels', 'Boundary', 'Labels', 'Satellite']
 
 
 
@@ -351,9 +376,6 @@ const switchLayer = () => {
 
 }
 
-const xlegendItems = [{ label: 'Item 1', color: '#FF0000' },
-{ label: 'Item 2', color: '#00FF00' },
-{ label: 'Item 3', color: '#0000FF' }]
 
 const legendItems = [
   {
@@ -398,6 +420,15 @@ const legendItems = [
   }
 ]
 
+const isMobile = computed(() => appStore.getMobile)
+
+const showContent = ref(true)
+
+onMounted(() => {
+  if (isMobile.value) {
+    showContent.value = false;
+  }
+})
 
 console.log(model)
 </script>
@@ -407,14 +438,46 @@ console.log(model)
     <template #header>
       <div class="card-header">
         <span>{{ toTitleCase(title.replace('_', ' ')) + ' Settlement' }}</span>
+        <!-- 
+                          <el-checkbox-group :onChange="switchLayer" v-model="selectedLayers">
+                            <el-checkbox-button v-for="layer in layers" :key="layer" :name="layer" :label="layer">{{
+                              layer
+                            }}</el-checkbox-button>
 
-        <el-checkbox-group :onChange="switchLayer" v-model="selectedLayers">
-          <el-checkbox-button v-for="layer in layers" :key="layer" :name="layer" :label="layer">{{
-            layer
-          }}</el-checkbox-button>
-        </el-checkbox-group>
+                            <el-checkbox-button type="primary" :onClick="downloadMap">Download</el-checkbox-button>
 
-        <el-button type="primary" :onClick="downloadMap" class="button">Download</el-button>
+                          </el-checkbox-group>   -->
+
+        <div>
+          <el-dropdown>
+            <el-button type="primary">
+              <Icon :size=24 icon='ion:layers' />
+
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+
+                <el-checkbox-group :onChange="switchLayer" v-model="selectedLayers">
+                  <el-checkbox-button v-for="layer in layers" :key="layer" :name="layer" :label="layer">{{
+                    layer
+                  }}</el-checkbox-button>
+
+                  <!-- <el-checkbox-button type="primary" :onClick="downloadMap">Download</el-checkbox-button> -->
+
+                </el-checkbox-group>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+
+          <el-tooltip content="Download Data" placement="top">
+            <el-button type="primary" :onClick="downloadMap" style="  margin-left: 5px">
+              <Icon :size=24 icon='ic:sharp-file-download' />
+            </el-button>
+          </el-tooltip>
+
+
+        </div>
 
       </div>
     </template>
@@ -427,6 +490,7 @@ console.log(model)
 
     </div>
     <div id="floating-div">
+
       <el-collapse v-model="collapse">
         <el-collapse-item title="LEGEND">
           <div class="legend">
