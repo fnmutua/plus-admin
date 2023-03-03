@@ -27,6 +27,7 @@ import {
 import { ref, reactive } from 'vue'
 
 import readXlsxFile from 'read-excel-file'
+import { uuid } from 'vue-uuid'
 
 const settlement = ref()
 const settlementOptions = ref([])
@@ -318,31 +319,49 @@ const handleProcess = async () => {
   console.log('upload--->', matchedObjwithparent.value)
   loadingPosting.value = true
   loadingText.value = 'Saving on the database. Please wait........'
-  for (let i = 0; i < matchedObjwithparent.value.length; i++) {
 
-    let feature = matchedObjwithparent.value[i]
+
+  // for (let i = 0; i < matchedObjwithparent.value.length; i++) {
+  //   let feature = matchedObjwithparent.value[i]
+  //   let conv_feature = {}
+  //   for (var prop in feature) {
+  //     var matched_field = fieldSet.value.filter((obj) => {
+  //       // console.log('+++++', obj)
+  //       return obj.match === prop
+  //     })
+  //     console.log(i, matched_field)
+  //     if (matched_field.length > 0) {
+  //       conv_feature[matched_field[0].field] = feature[prop]  // Assign Field Vlue 
+  //     }
+
+  //     console.log('feature----', feature)
+
+  //     conv_feature.geom = (feature.geom)    // Asign Geometry then stringfy it 
+  //     conv_feature.code = uuid.v4()
+
+  //     console.log('conv_feature----', conv_feature)
+
+
+  //   }
+  //   matchedObj.value.push(conv_feature)
+  // }
+
+  matchedObj.value = matchedObjwithparent.value.map((feature) => {
     let conv_feature = {}
     for (var prop in feature) {
       var matched_field = fieldSet.value.filter((obj) => {
-        // console.log('+++++', obj)
         return obj.match === prop
       })
-      console.log(i, matched_field)
       if (matched_field.length > 0) {
-        conv_feature[matched_field[0].field] = feature[prop]  // Assign Field Vlue 
+        conv_feature[matched_field[0].field] = feature[prop]
       }
-
-      console.log('feature----', feature)
-
-      conv_feature.geom = (feature.geom)    // Asign Geometry then stringfy it 
-
-
-      console.log('conv_feature----', conv_feature)
-
-
+      conv_feature.geom = (feature.geom)
+      conv_feature.code = uuid.v4()
     }
-    matchedObj.value.push(conv_feature)
-  }
+    return conv_feature
+  })
+
+
   console.log('processed:', matchedObj)
 
 
@@ -464,37 +483,93 @@ const readJson = (event) => {
     uploadObj.value.push(json.features[i])  // Push to the temporary holder
 
   }
-  show.value = true
+
 
 
 
   console.log('rows-uploadObj------>', uploadObj.value)
   console.log('rows-parentObj------>', parentObj.value)
 
-  for (let i = 0; i < uploadObj.value.length; i++) {
+  // for (let i = 0; i < uploadObj.value.length; i++) {
+  //   console.log('------------>', i, uploadObj.value[i])
+  //   var thisFeature = uploadObj.value[i].properties
+  //   thisFeature.geom = uploadObj.value[i].geometry
+
+  //   console.log('------matchedObj------>', i, thisFeature)
+
+  //   if (uploadObj.value[i]['properties'][code.value]) {
+
+  //     show.value = true   // Show the matchign table if only any math is observed 
 
 
-    console.log('------------>', i, uploadObj.value[i])
+  //     var filterParent = parentObj.value.filter(function (el) {
+  //       return el['code'] === uploadObj.value[i]['properties'][code.value]
+  //     });
+  //     // here we add a prefix to the parent detaisl to avoid confusion 
+  //     let pre = parentModel.value + '_';  // a prefix to differential parent and child 
+  //     let pfeature = Object.keys(filterParent[0]).reduce((a, c) => (a[`${pre}${c}`] = filterParent[0][c], a), {});
 
-    var thisFeature = uploadObj.value[i].properties
-    thisFeature.geom = uploadObj.value[i].geometry
-
-    console.log('------matchedObj------>', i, thisFeature)
-
-    var filterParent = parentObj.value.filter(function (el) {
-      return el['code'] === uploadObj.value[i]['properties'][code.value]
-    });
-
-    // here we add a prefix to the parent detaisl to avoid confusion 
-    let pre = `parent_`;
-    let pfeature = Object.keys(filterParent[0]).reduce((a, c) => (a[`${pre}${c}`] = filterParent[0][c], a), {});
-
-    const mergedFeature = { ...thisFeature, ...pfeature }; //  merge the feature with the parent details 
+  //     const mergedFeature = { ...thisFeature, ...pfeature }; //  merge the feature with the parent details 
 
 
 
-    matchedObjwithparent.value.push(mergedFeature)
-  }
+  //     matchedObjwithparent.value.push(mergedFeature)
+
+  //   }
+
+  //   else {
+  //     console.log("The parent Code is required")
+  //     loadingPosting.value = false
+
+  //     ElMessage.error('The parent Code(pcode) is required in the uploaded Geojson File!')
+
+  //     return
+  //   }
+
+
+
+  // }
+
+
+  uploadObj.value.map((upload, i) => {
+    //console.log('------------>', i, upload)
+
+    var thisFeature = upload.properties
+    thisFeature.geom = upload.geometry
+
+    //console.log('------matchedObj------>', i, thisFeature)
+
+    if (upload.properties[code.value]) {
+      show.value = true // Show the matching table if only any match is observed
+
+      var filterParent = parentObj.value.filter(function (el) {
+        return el['code'] === upload.properties[code.value]
+      })
+
+      // here we add a prefix to the parent details to avoid confusion
+      let pre = parentModel.value + '_' // a prefix to differential parent and child
+      let pfeature = Object.keys(filterParent[0]).reduce(
+        (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+        {}
+      )
+
+      const mergedFeature = { ...thisFeature, ...pfeature } // merge the feature with the parent details
+
+      matchedObjwithparent.value.push(mergedFeature)
+    } else {
+      console.log('The parent Code is required')
+      loadingPosting.value = false
+
+      ElMessage.error(
+        'The parent Code(pcode) is required in the uploaded Geojson File!'
+      )
+
+      return
+    }
+  })
+
+
+
   console.log('children', matchedObjwithparent.value)
 
   const mergedfields = (Object.getOwnPropertyNames(matchedObjwithparent.value[0]));  // get properties from first row
