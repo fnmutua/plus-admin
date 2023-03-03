@@ -21,7 +21,7 @@ module.exports = function(sequelize, DataTypes) {
     },
     parcel_no: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: false
     },
     lpdp_no: {
       type: DataTypes.STRING,

@@ -481,15 +481,27 @@ exports.modelImportDataUpsert = async (req, res) => {
 
   //console.log('Model upsert----', data)
   let errors = []
-  for (let i = 0; i < data.length; i++) {
+  // for (let i = 0; i < data.length; i++) {
 
-    await db.models[reg_model].upsert(
-      req.body.data[i]
-    )
-      .then(data => console.log(data))
-     .catch(err => errors.push(err.original));
-      //.catch(err => console.log(err.original));
-  }
+  //   await db.models[reg_model].upsert(
+  //     req.body.data[i]
+  //   )
+  //     .then(data => console.log(data))
+  //     .catch(err => errors.push(err.original));
+  //     //.catch(err => console.log(err.original));
+  // }
+
+
+  await Promise.all(data.map(async (item) => {
+    try {
+      const data = await db.models[reg_model].upsert(item);
+      //console.log(data);
+    } catch (err) {
+      errors.push(err.original);
+    }
+  }));
+  
+
 
   console.log("Upsert Errors ---->", errors[0])
   if (errors.length > 0) {
@@ -498,7 +510,7 @@ exports.modelImportDataUpsert = async (req, res) => {
       var errorMsg = 'There are one or more duplicate records'
     }
 
-    res.status(500).send({ message: 'Import/Update failed for:'+errors.length + " Records"})
+    res.status(500).send({ message: 'Import/Update failed for:'+errors.length + " Records ("+errors[0]+')'})
   } else {
     res.status(200).send({
       message: 'Import/Updated Successful',
