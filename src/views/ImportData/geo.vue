@@ -21,13 +21,23 @@ import {
 } from 'element-plus'
 import {
   Upload,
+  ArrowDown,
+  Edit,
+  Share,
+  Delete,
+  RefreshLeft,
+  ArrowRightBold,
   Tools
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
 
 import readXlsxFile from 'read-excel-file'
 import { uuid } from 'vue-uuid'
+import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
+import JSZip from 'jszip';
+import * as shapefile from 'shapefile';
+
 
 const settlement = ref()
 const settlementOptions = ref([])
@@ -41,6 +51,8 @@ const code = ref()  // the parent code as per the imported excel file
 const parent_key = ref()       // the parent foregin key in the model 
 const parentModel = ref()      // the parent model
 const loadingPosting = ref(false)
+const showUploadinput = ref(false)
+const showUploadbtn = ref(false)
 const loadingText = ref()
 
 ///---------------------xlsx-
@@ -49,6 +61,7 @@ const file = ref()
 
 //// ------------------parameters -----------------------////
 const matchOptions = ref([])
+const reserveOptions = ref([])
 const uploadObj = ref([])
 const matchedObj = ref([])
 const matchedObjwithparent = ref([])
@@ -239,7 +252,7 @@ const handleSelectType = async (type: any) => {
     //fieldSet.value = settlement_fields
     getParentOptions()
 
-
+    showUploadinput.value = true
     // fieldSet.value = parcel_fields
     console.log('parcel------>', fieldSet.value)
 
@@ -317,37 +330,15 @@ const handleMutlipleSettlements = async () => {
 
 const handleProcess = async () => {
   console.log('upload--->', matchedObjwithparent.value)
+  console.log('FieldSet--->', fieldSet.value)
   loadingPosting.value = true
   loadingText.value = 'Saving on the database. Please wait........'
 
 
-  // for (let i = 0; i < matchedObjwithparent.value.length; i++) {
-  //   let feature = matchedObjwithparent.value[i]
-  //   let conv_feature = {}
-  //   for (var prop in feature) {
-  //     var matched_field = fieldSet.value.filter((obj) => {
-  //       // console.log('+++++', obj)
-  //       return obj.match === prop
-  //     })
-  //     console.log(i, matched_field)
-  //     if (matched_field.length > 0) {
-  //       conv_feature[matched_field[0].field] = feature[prop]  // Assign Field Vlue 
-  //     }
-
-  //     console.log('feature----', feature)
-
-  //     conv_feature.geom = (feature.geom)    // Asign Geometry then stringfy it 
-  //     conv_feature.code = uuid.v4()
-
-  //     console.log('conv_feature----', conv_feature)
-
-
-  //   }
-  //   matchedObj.value.push(conv_feature)
-  // }
 
   matchedObj.value = matchedObjwithparent.value.map((feature) => {
     let conv_feature = {}
+    console.log(feature)
     for (var prop in feature) {
       var matched_field = fieldSet.value.filter((obj) => {
         return obj.match === prop
@@ -396,8 +387,14 @@ const makeOptions = (list) => {
     var opt = {}
     opt.value = list[i]
     opt.label = list[i]
+    opt.disabled = false
     matchOptions.value.push(opt)
+    reserveOptions.value.push(opt)
+
   }
+
+  selectedValues.value = matchOptions
+
 }
 
 const handleClear = async () => {
@@ -429,6 +426,10 @@ const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
 
 }
 
+
+
+
+
 const handlePreview: UploadProps['onPreview'] = (uploadFile) => {
   console.log(uploadFile)
 }
@@ -447,36 +448,105 @@ const beforeRemove: UploadProps['beforeRemove'] = (uploadFile) => {
   )
 }
 
+
+const readShapefile = async (zip) => {
+
+  const filenames = Object.keys(zip.files);
+  const shpFilename = filenames.find((filename) => filename.endsWith('.shp'));
+  const dbfFilename = filenames.find((filename) => filename.endsWith('.dbf'));
+  const shpPrj = filenames.find((filename) => filename.endsWith('.prj'));
+
+  if (!shpFilename || !dbfFilename || !shpPrj) {
+    ElMessage.error('Shapefile is missing required files. Ensure .shp, .dbf and .prj files are present in the zipped file')
+    loadingPosting.value = false
+
+    // throw new Error('Shapefile is missing required files. Ensure .shp, .dbf and .prj files are present');
+  } else {
+
+    const shpFile = await zip.files[shpFilename].async('arraybuffer');
+    const dbfFile = await zip.files[dbfFilename].async('arraybuffer');
+
+    return { shp: shpFile, dbf: dbfFile };
+  }
+
+
+}
+
+const convertToGeoJSON = async (shapefileData) => {
+  const { shp, dbf } = shapefileData;
+  const shpBuffer = new Uint8Array(shp);
+  const dbfBuffer = new Uint8Array(dbf);
+  const { features, bbox } = await shapefile.read(shpBuffer, dbfBuffer);
+  const geojson = { type: 'FeatureCollection', features, bbox };
+  return geojson;
+}
+
+
+
 const submitFiles = async () => {
-  console.log('on Submit....', fileList.value.length)
+  console.log('on Submit....', fileList.value)
   loadingPosting.value = true
   loadingText.value = 'Matching fields.. Please wait.......'
   if (fileList.value.length == 0) {
     ElMessage.error('Select a  File first!')
   } else {
-    var rfile = fileList.value[0].raw
-
-    console.log("File type", rfile.name.split('.').pop())
-
-    let reader = new FileReader()
-
-    let ftype = rfile.name.split('.').pop()
-
-    console.log('------Json----')
-    reader.onload = readJson
 
 
+    const fileType = fileList.value[0].raw.type;
+    const extension = fileList.value[0].raw.name.split('.').pop().toLowerCase();
 
 
-    reader.readAsText(rfile)
+    console.log('fileType', fileType, extension)
+
+    if (fileType === 'application/x-zip-compressed' || extension === 'zip' || extension === 'rar') {
+      console.log('Reading Shp file....')
+      const zip = await JSZip.loadAsync(fileList.value[0].raw);
+      const shapefileData = await readShapefile(zip);
+      const geojson = await convertToGeoJSON(shapefileData);
+      //console.log(geojson)
+      loadOptions(geojson)
+
+    }
+    else if (fileType === 'application/json' || extension === 'geojson') {
+      var rfile = fileList.value[0].raw
+
+      console.log("File type", rfile.name.split('.').pop())
+
+      let reader = new FileReader()
+
+      let ftype = rfile.name.split('.').pop()
+
+      console.log('------Json----')
+      reader.onload = readJson
+      reader.readAsText(rfile)
+    }
+
+
+    else {
+      ElMessage.error('Please select a zipped shapefile or a geojon file')
+      loadingPosting.value = false
+
+      return false;
+    }
+
+
+
   }
+
+
 }
 
 const readJson = (event) => {
   let str = event.target.result
   let json = JSON.parse(str)
 
-  console.log('json', json.features)
+  loadOptions(json)
+
+}
+const loadOptions = (json) => {
+
+
+  console.log('json ---->', json)
 
   // makeOptions(fields)
   for (let i = 0; i < json.features.length; i++) {
@@ -490,45 +560,6 @@ const readJson = (event) => {
   console.log('rows-uploadObj------>', uploadObj.value)
   console.log('rows-parentObj------>', parentObj.value)
 
-  // for (let i = 0; i < uploadObj.value.length; i++) {
-  //   console.log('------------>', i, uploadObj.value[i])
-  //   var thisFeature = uploadObj.value[i].properties
-  //   thisFeature.geom = uploadObj.value[i].geometry
-
-  //   console.log('------matchedObj------>', i, thisFeature)
-
-  //   if (uploadObj.value[i]['properties'][code.value]) {
-
-  //     show.value = true   // Show the matchign table if only any math is observed 
-
-
-  //     var filterParent = parentObj.value.filter(function (el) {
-  //       return el['code'] === uploadObj.value[i]['properties'][code.value]
-  //     });
-  //     // here we add a prefix to the parent detaisl to avoid confusion 
-  //     let pre = parentModel.value + '_';  // a prefix to differential parent and child 
-  //     let pfeature = Object.keys(filterParent[0]).reduce((a, c) => (a[`${pre}${c}`] = filterParent[0][c], a), {});
-
-  //     const mergedFeature = { ...thisFeature, ...pfeature }; //  merge the feature with the parent details 
-
-
-
-  //     matchedObjwithparent.value.push(mergedFeature)
-
-  //   }
-
-  //   else {
-  //     console.log("The parent Code is required")
-  //     loadingPosting.value = false
-
-  //     ElMessage.error('The parent Code(pcode) is required in the uploaded Geojson File!')
-
-  //     return
-  //   }
-
-
-
-  // }
 
 
   uploadObj.value.map((upload, i) => {
@@ -581,18 +612,55 @@ const readJson = (event) => {
 
 
 
-  //show.value = true
+}
 
-  /*  if (value_switch.value) {
-     console.log("=====> Multiple settlements")
-     fieldSet.value.push({ field: 'settlement_id', match: '' })
- 
-   } */
+const handleSelectField = async (selectedOption) => {
 
+  if (selectedOption) {
+    matchOptions.value = matchOptions.value.filter(option => option.value !== selectedOption)
+    console.log(matchOptions.value)
+
+  }
 
 }
 
 
+const handleClearField = async (row) => {
+  console.log('Cleared.......', row)
+  //matchOptions.value = reserveOptions.value
+  //fieldSet.value = []
+
+
+}
+
+const selectedValues = ref()
+
+const prevValue = ref()
+
+const updateSelect = async (row, index) => {
+
+  // Remove the previously selected value for this row from the selectedValues array
+  prevValue.value = selectedValues.value[index];
+
+
+  if (prevValue.value) {
+    const prevIndex = matchOptions.value.findIndex((option) => option.value === prevValue.value);
+    if (prevIndex !== -1) {
+      matchOptions.value[prevIndex].disabled = false;
+    }
+  }
+
+  // Disable the selected value in the selectOptions array
+  const selectedIndex = matchOptions.value.findIndex((option) => option.value === row.key2);
+  if (selectedIndex !== -1) {
+    matchOptions.value[selectedIndex].disabled = true;
+  }
+
+  // Update the selectedValues array
+  selectedValues.value[index] = row.key2;
+
+  console.log('selectedValues', selectedValues)
+}
 
 
 </script>
@@ -612,14 +680,6 @@ const readJson = (event) => {
 
 
       <div style="display: inline-block; margin-left: 20px">
-
-        <el-switch v-model="value_switch" v-if="showSwitch" size="large" @click="handleMutlipleSettlements"
-          active-text="Multiple Settlements" />
-
-      </div>
-
-
-      <div style="display: inline-block; margin-left: 20px">
         <el-select v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
           :onClear="handleClear" clearable filterable collapse-tags placeholder="Filter by Settlement">
           <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -628,14 +688,15 @@ const readJson = (event) => {
 
 
 
-      <el-divider border-style="dashed" content-position="left">Upload</el-divider>
-      <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
-        v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
-        :limit="1" :on-exceed="handleExceed" :auto-upload="false">
+      <el-divider v-if="showUploadinput" border-style="dashed" content-position="left">Upload</el-divider>
+      <el-upload v-if="showUploadinput" class="upload-demo" drag
+        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList"
+        :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="1"
+        :on-exceed="handleExceed" :auto-upload="false">
         <div class="el-upload__text"> Drop file here or <em>click to upload</em> </div>
       </el-upload>
 
-      <el-button class="mt-4" style="width: 100%" @click="submitFiles" type="primary">
+      <el-button v-if="showUploadinput" class="mt-4" style="width: 100%" @click="submitFiles" type="primary">
         Upload<el-icon class="el-icon--right">
           <Upload />
         </el-icon>
@@ -648,19 +709,32 @@ const readJson = (event) => {
         </el-table-column>
         <el-table-column prop="match" label="Match">
           <template #default="scope">
-            <el-select v-model="scope.row.match" filterable placeholder="Select">
-              <el-option v-for="item in matchOptions" :key="item.value" :label="item.label" :value="item.value" />
+            <!-- <el-select @before-clear="handleClearField(scope.row)" v-model="scope.row.match" filterable
+                                                  placeholder="Select" :onChange="handleSelectField" :clearable="true">
+                                                  <el-option v-for="item in matchOptions" :key="item.value" :label="item.label" :value="item.value"
+                                                    :disabled="item.disabled" />
+                                                </el-select> -->
+
+            <el-select v-model="scope.row.match" @change="updateSelect(scope.row, scope.$index)" clearable>
+              <el-option v-for="(option, index) in matchOptions" :key="index" :label="option.label" :value="option.value"
+                :disabled="option.disabled" />
             </el-select>
+
           </template>
         </el-table-column>
       </el-table>
-      <el-button v-if="show" class="mt-4" style="width: 100%" @click="handleProcess" type="link">
-        Process<el-icon class="el-icon--right">
-          <Tools />
-        </el-icon>
-      </el-button>
+      <!-- <el-button v-if="show" class="mt-4" style="width: 100%" @click="handleProcess" type="link">
+                                                                                              Process<el-icon class="el-icon--right">
+                                                                                                <Tools />
+                                                                                              </el-icon>
+                                                                                            </el-button> -->
+      <div class="button-group-container">
+        <el-button-group v-if="show" class="mt-4" style="width: 100%">
+          <el-button type="primary" :icon="Tools" @click="handleProcess" />
+          <el-button type="primary" :icon="RefreshLeft" @click="handleClearField" />
+        </el-button-group>
 
-
+      </div>
     </div>
 
 
@@ -678,4 +752,9 @@ const readJson = (event) => {
 }
 </style>
 
-.custom-icon { font-size: 2rem; }
+<style>
+.button-group-container {
+  display: flex;
+  justify-content: space-between;
+}
+</style>
