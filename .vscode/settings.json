@@ -24,6 +24,7 @@
   ],
   "god.tsconfig": "./tsconfig.json",
   "cSpell.words": [
+    "fontawesome",
     "subcounty",
     "vueuse"
   ]

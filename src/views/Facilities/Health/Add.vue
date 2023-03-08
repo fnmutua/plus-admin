@@ -289,6 +289,11 @@ const ftypeOtions = [
 
 const LevelOptions = [
   {
+    value: 'Level 1',
+    label: 'Level 1'
+  },
+
+  {
     value: 'Level 2',
     label: 'Level 2'
   },

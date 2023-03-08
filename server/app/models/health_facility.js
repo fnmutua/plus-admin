@@ -15,6 +15,11 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: true
     },
+
+    facility_type: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     level: {
       type: DataTypes.STRING,
       allowNull: true

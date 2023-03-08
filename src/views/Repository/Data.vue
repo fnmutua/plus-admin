@@ -4,7 +4,7 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
+import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { ElMessage, ElOptionGroup } from 'element-plus'
 import {
@@ -49,7 +49,10 @@ console.log("userInfo--->", userInfo)
 const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
-var value3 = ref([])
+const value3 = ref([])
+const value4 = ref([])
+const value5 = ref([])
+
 const indicatorsOptions = ref([])
 const componentOptions = ref([])
 const categories = ref([])
@@ -77,14 +80,20 @@ console.log("Show Buttons -->", showAdminButtons)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
+//var filters = []
+//var filterValues = []
+
 var filters = []
-var filterValues = []
+var filterValues = []  // remember to change here!
+
+
 var tblData = []
 const associated_Model = ''
 const model = 'document'
 
 const associated_multiple_models = ['project', 'settlement', 'indicator_category_report', 'document_type']
 //// ------------------parameters -----------------------////
+
 
 const { t } = useI18n()
 
@@ -98,7 +107,7 @@ const columns: TableColumn[] = [
 
   {
     field: 'name',
-    label: t('Name')
+    label: t('Name'),
   },
 
 
@@ -116,6 +125,14 @@ const columns: TableColumn[] = [
     label: t('Size(mb)')
   },
   {
+    field: 'settlement.name',
+    label: t('Settlement')
+  },
+  {
+    field: 'project.title',
+    label: t('Project')
+  },
+  {
     field: 'action',
     label: t('Actions')
   }
@@ -130,6 +147,9 @@ const handleClear = async () => {
   value1.value = ''
   value2.value = ''
   value3.value = ''
+  value4.value = ''
+  value5.value = ''
+  value6.value = ''
   pSize.value = 5
   currentPage.value = 1
   tblData = []
@@ -138,7 +158,7 @@ const handleClear = async () => {
 }
 
 
-const handleSelectProgramme = async (indicator: any) => {
+const handleSelectReportType = async (indicator: any) => {
   var selectOption = 'category'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
@@ -165,6 +185,66 @@ const handleSelectProgramme = async (indicator: any) => {
 
   getFilteredData(filters, filterValues)
 }
+
+const handleSettlement = async (indicator: any) => {
+  var selectOption = 'settlement_id'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
+  }
+  var index = filters.indexOf(selectOption) // 1
+  console.log('category : index--->', index)
+
+  // clear previously selected
+  if (filterValues[index]) {
+    // filterValues[index].length = 0
+    filterValues.splice(index, 1)
+  }
+
+  if (!filterValues.includes(indicator) && indicator.length > 0) {
+    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (indicator.length === 0) {
+    filters.splice(index, 1)
+  }
+
+  console.log('FilterValues:', filterValues)
+
+  getFilteredData(filters, filterValues)
+}
+
+
+const handleproject = async (indicator: any) => {
+  var selectOption = 'project_id'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
+  }
+  var index = filters.indexOf(selectOption) // 1
+  console.log('category : index--->', index)
+
+  // clear previously selected
+  if (filterValues[index]) {
+    // filterValues[index].length = 0
+    filterValues.splice(index, 1)
+  }
+
+  if (!filterValues.includes(indicator) && indicator.length > 0) {
+    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (indicator.length === 0) {
+    filters.splice(index, 1)
+  }
+
+  console.log('FilterValues:project', indicator, filters, filterValues)
+
+  getFilteredData(filters, filterValues)
+}
+
+
+
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
@@ -206,7 +286,12 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
-  tableDataList.value = res.data
+  // Filter only the Data
+  const filteredItems = res.data.filter(item => item.document_type.group === 'Data');
+
+
+
+  tableDataList.value = filteredItems
   total.value = res.total
 
   tblData = [] // reset the table data
@@ -215,9 +300,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
     //  console.log(countyOpt)
     // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
-    var dd = flattenJSON(arrayItem)
+    //var dd = flattenJSON(arrayItem)
 
-    tblData.push(dd)
+    // tblData.push(dd)
   })
 
   console.log('TBL-4f', tblData)
@@ -273,15 +358,101 @@ const getProgrammeOptions = async () => {
 
 
 
+const projectOptions = ref([])
+const getProjectOptions = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'project',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      projectOptions.value.push(opt)
+    })
+  })
+}
+
+
+
+const settlementOptions = ref([])
+const getSettlementOptions = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'settlement',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      settlementOptions.value.push(opt)
+    })
+  })
+}
+
+
+const MEReportsOptions = ref([])
+const getMEOptions = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'indicator_category_report',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      MEReportsOptions.value.push(opt)
+    })
+  })
+}
 
 
 
 
-
-
-
-
-
+getProjectOptions()
+getSettlementOptions()
 getProgrammeOptions()
 getInterventionsAll()
 
@@ -463,16 +634,32 @@ getDocumentTypes()
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectProgramme" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter">
+      <el-select v-model="value3" :onChange="handleSelectReportType" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="Filter by Type">
         <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
         </el-option-group>
-
-
-
       </el-select>
     </div>
+
+    <div style="display: inline-block; margin-left: 5px">
+      <el-select v-model="value4" multiple clearable filterable :onChange="handleSettlement"
+        placeholder="Filter by Settlement">
+        <el-option v-for="(option, index) in settlementOptions" :key="index" :label="option.label" :value="option.value"
+          :disabled="option.disabled" />
+      </el-select>
+    </div>
+
+    <div style="display: inline-block; margin-left: 5px">
+      <el-select v-model="value5" multiple clearable filterable :onChange="handleproject" placeholder="Filter by Project">
+        <el-option v-for="(option, index) in projectOptions" :key="index" :label="option.label" :value="option.value"
+          :disabled="option.disabled" />
+      </el-select>
+    </div>
+
+
+
+
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleDownload" type="primary" :icon="Download" />
     </div>
@@ -487,7 +674,7 @@ getDocumentTypes()
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="false" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
 

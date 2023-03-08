@@ -403,6 +403,10 @@ const groupOptions = [
   {
     value: 'Map',
     label: 'Map'
+  },
+  {
+    value: 'Other',
+    label: 'Other'
   }
 
 ]

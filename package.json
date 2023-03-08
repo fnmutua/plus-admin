@@ -68,6 +68,7 @@
     "leaflet": "^1.9.2",
     "load-json-file": "^7.0.1",
     "lodash-es": "^4.17.21",
+    "mapbox-gl-fontawesome-markers": "^0.0.2",
     "mapbox-gl-vue": "^2.0.4",
     "mapbox-layer-switcher": "^0.0.6",
     "mitt": "^3.0.0",
