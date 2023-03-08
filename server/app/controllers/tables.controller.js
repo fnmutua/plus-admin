@@ -1025,6 +1025,7 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
 
 
   }
+  var lstQuerries = []
 
   //console.log(includeModels)
   if (associated_multiple_models) {
@@ -1045,6 +1046,11 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
         include: includeModels
       }
     }
+
+
+
+
+
   } else {
     var qry = {}
   }
@@ -1057,7 +1063,6 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
     qry.offset = (req.body.page - 1) * req.body.limit
   }
 
-  var lstQuerries = []
 
 
   if (req.body.filters) {

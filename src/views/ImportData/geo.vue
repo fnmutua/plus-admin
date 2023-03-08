@@ -225,6 +225,9 @@ const handleSelectType = async (type: any) => {
   console.log(type)
   getModeldefinition(type)
 
+  showUploadinput.value = true
+
+
   if (type != 'settlement' && !value_switch.value) {
     showSettleementSelect.value = true
     showSwitch.value = true
@@ -252,7 +255,6 @@ const handleSelectType = async (type: any) => {
     //fieldSet.value = settlement_fields
     getParentOptions()
 
-    showUploadinput.value = true
     // fieldSet.value = parcel_fields
     console.log('parcel------>', fieldSet.value)
 
@@ -709,11 +711,7 @@ const updateSelect = async (row, index) => {
         </el-table-column>
         <el-table-column prop="match" label="Match">
           <template #default="scope">
-            <!-- <el-select @before-clear="handleClearField(scope.row)" v-model="scope.row.match" filterable
-                                                  placeholder="Select" :onChange="handleSelectField" :clearable="true">
-                                                  <el-option v-for="item in matchOptions" :key="item.value" :label="item.label" :value="item.value"
-                                                    :disabled="item.disabled" />
-                                                </el-select> -->
+
 
             <el-select v-model="scope.row.match" @change="updateSelect(scope.row, scope.$index)" clearable>
               <el-option v-for="(option, index) in matchOptions" :key="index" :label="option.label" :value="option.value"
@@ -723,11 +721,7 @@ const updateSelect = async (row, index) => {
           </template>
         </el-table-column>
       </el-table>
-      <!-- <el-button v-if="show" class="mt-4" style="width: 100%" @click="handleProcess" type="link">
-                                                                                              Process<el-icon class="el-icon--right">
-                                                                                                <Tools />
-                                                                                              </el-icon>
-                                                                                            </el-button> -->
+
       <div class="button-group-container">
         <el-button-group v-if="show" class="mt-4" style="width: 100%">
           <el-button type="primary" :icon="Tools" @click="handleProcess" />

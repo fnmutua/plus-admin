@@ -3709,7 +3709,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         name: 'Importgeo',
         meta: {
-          title: 'Geojson',
+          title: 'Spatial',
           icon: 'gis:geojson-file',
 
         }

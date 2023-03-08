@@ -499,26 +499,7 @@ const selectedValues = ref()
 
 
 
-const handleFileUpload = async () => {
-    // disableDoubeUpload.value = true   // Disable the button to prevent double upload
-    if (fileList.value.length == 0) {
-        ElMessage.error('Select atleast one!')
-    }
 
-    showTable.value = true
-
-
-    fileList.value.map(file => {
-        file['model'] = theParentModel.value // add the model column
-        file[document_field.value] = null // add the column to hold selected parent ID
-        file['field_id'] = document_field.value // add the column to hold selected parent ID
-
-        return file;
-    });
-
-
-
-}
 
 
 
@@ -569,45 +550,69 @@ const handleSubmitData = async () => {
 }
 
 //const beforeUpload = async (file) => {
-const beforeUpload: UploadProps['beforeUpload'] = (file) => {
+const beforeUpload: UploadProps['beforeUpload'] = (files) => {
 
 
-    console.log("before uplaod.............")
+    for (var i = 0; i < files.length; i++) {
 
-    const isXls = file.type === 'application/vnd.ms-excel'
-    const isXlsx = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    const isPdf = file.type === 'application/pdf'
-    const isZip = file.type === 'application/zip'
-    const isDoc = file.type === 'application/msword'
-    const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    const isPng = file.type === 'image/png'
-    const isJPG = file.type === 'image/jpeg'
-    const isLt5M = file.size / 1024 / 1024 < 2
+        console.log("before uplaod.............", files[i])
+        console.log("before uplaod.............", files[i].raw.type)
 
-    if (!isXls && !isXlsx && !isPdf && !isZip && !isDoc && !isDocx && !isPng && !isJPG) {
-        //this.$message.error('Upload only Excel files')
-        ElMessage.error('Upload only pdf/xls/xlsx/zip/doc/docx/png/jpg files')
+        const isXls = files[i].raw.type === 'application/vnd.ms-excel'
+        const isXlsx = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        const isPdf = files[i].raw.type === 'application/pdf'
+        const isZip = files[i].raw.type === 'application/zip'
+        const isDoc = files[i].raw.type === 'application/msword'
+        const isDocx = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        const isPng = files[i].raw.type === 'image/png'
+        const isJPG = files[i].raw.type === 'image/jpeg'
+        const isLt5M = files[i].raw.size / 1024 / 1024 < 20
 
+        if (!isXls && !isXlsx && !isPdf && !isZip && !isDoc && !isDocx && !isPng && !isJPG) {
+            //this.$message.error('Upload only Excel files')
+            ElMessage.error('Upload only pdf/xls/xlsx/zip/doc/docx/png/jpg files')
+
+        }
+        if (!isLt5M) {
+            // this.$message.error('File size should not exceed 5MB')
+            ElMessage.error('File size should not exceed 20MB')
+        }
+        return (isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG) && isLt5M
     }
-    if (!isLt5M) {
-        // this.$message.error('File size should not exceed 5MB')
-        ElMessage.error('File size should not exceed 20MB')
-    }
-    return isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG && isLt5M
 }
 
-const beforeAvatarUpload: UploadProps['beforeUpload'] = (rawFile) => {
 
-    console.log("Before upload.......")
-    if (rawFile.type !== 'image/jpeg') {
-        ElMessage.error('Avatar picture must be JPG format!')
-        return false
-    } else if (rawFile.size / 1024 / 1024 > 2) {
-        ElMessage.error('Avatar picture size can not exceed 2MB!')
-        return false
+
+const handleFileUpload = async () => {
+    // disableDoubeUpload.value = true   // Disable the button to prevent double upload
+    const proceed = beforeUpload(fileList.value)
+
+    console.log(proceed)
+    if (fileList.value.length == 0) {
+        ElMessage.error('Select atleast one!')
     }
-    return true
+
+
+    if (proceed) {
+        showTable.value = true
+        fileList.value.map(file => {
+            file['model'] = theParentModel.value // add the model column
+            file[document_field.value] = null // add the column to hold selected parent ID
+            file['field_id'] = document_field.value // add the column to hold selected parent ID
+
+            return file;
+        });
+
+    }
+
+
+
+
 }
+
+
+
+
 
 </script>
 
