@@ -43,6 +43,16 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
 
+
+
+import {
+  countyOptions, cascadeOptions, settlementOptionsV2, subcountyOptions,
+  wasteOptions, frequencyOptions, phase_options, FacilityConditionOptions
+} from './../common/index.ts'
+import { generalOwnership } from '../common'
+
+
+
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 mapboxgl.accessToken = MapBoxToken;
@@ -63,7 +73,6 @@ const cost = ref(false)
 const waste = ref(false)
 const security = ref(false)
 const hazards = ref(false)
-const projectLocation = ref([])
 ///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
@@ -97,101 +106,14 @@ const ruleForm = reactive({
 
 
 //id","name","county_id","settlement_type","geom","area","population","code","description"
-const settlementOptions = ref([])
 
 const settlementfilteredOptions = ref([])
 
-const getSettlements = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var parentOpt = {}
-      parentOpt.value = arrayItem.id
-      parentOpt.county_id = arrayItem.county_id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      settlementOptions.value.push(parentOpt)
-    })
-  })
-}
-const countyOptions = ref([])
-const countyRefList = ref()
-
-const getCounties = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'county',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-    countyRefList.value = ret
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var county = {}
-      county.value = arrayItem.id
-      county.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      countyOptions.value.push(county)
-    })
-  })
-}
 
 
-const subcountyOptions = ref([])
+
 const subcountyfilteredOptions = ref([])
-const subcounties = ref([])
-const getSubCounties = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    //console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-    subcounties.value = ret
-    loading.value = false
 
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var parentOpt = {}
-      parentOpt.value = arrayItem.id
-      parentOpt.county_id = arrayItem.county_id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      subcountyOptions.value.push(parentOpt)
-    })
-  })
-}
 
 const handleSelectCounty = async (county_id: any) => {
   console.log(county_id)
@@ -207,9 +129,9 @@ const handleSelectCounty = async (county_id: any) => {
 
   // filter settleemnts 
   var subset_settlements = [];
-  for (let i = 0; i < settlementOptions.value.length; i++) {
-    if (settlementOptions.value[i].county_id == county_id) {
-      subset_settlements.push(settlementOptions.value[i]);
+  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
+    if (settlementOptionsV2.value[i].county_id == county_id) {
+      subset_settlements.push(settlementOptionsV2.value[i]);
     }
   }
   console.log("Subset Setts", subset_settlements)
@@ -221,14 +143,9 @@ const handleSelectCounty = async (county_id: any) => {
 
 
 
-getSettlements()
-getCounties()
-getSubCounties()
-
 
 console.log('--> parent options', parentOptions.value)
-const polygons = ref([]) as Ref<[number, number][][]>
-const shp = []
+
 const rules = reactive<FormRules>({
   county_id: [{ required: true, message: 'Please select a county', trigger: 'blur' }],
   subcounty_id: [{ required: true, message: 'Please select a Subcounty', trigger: 'blur' }],
@@ -244,314 +161,9 @@ const rules = reactive<FormRules>({
 
 
 
-const countries = 'ke'
-
-
-
-
-const FacilityConditionOptions = [
-  {
-    value: '100',
-    label: 'Excellent'
-  },
-  {
-    value: '200',
-    label: 'Good'
-  },
-  {
-    value: '300',
-    label: 'Fair'
-  },
-  {
-    value: '400',
-    label: 'Poor'
-  },
-  {
-    value: '500',
-    label: 'Very Poor'
-  },
-  {
-    value: '600',
-    label: 'Under Construction'
-  },
-]
-
-
-const cascadeOptions = [
-  {
-    value: 'electric',
-    label: 'Electricity',
-    children: [
-      {
-        value: 'powerline',
-        label: 'Powerline',
-      },
-      {
-        value: 'power_asset',
-        label: 'Power Assets',
-        children: [
-          {
-            value: 'primary_substation',
-            label: 'Primary Substation',
-          },
-          {
-            value: 'secondary_substation',
-            label: ' Secondary substation(transformer) ',
-          },
-          {
-            value: 'floodlight',
-            label: 'Floodlights',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    value: 'security',
-    label: 'Security and Safety',
-    children: [
-
-      {
-        value: 'police_stn',
-        label: 'Police Station',
-      },
-      {
-        value: 'police_post',
-        label: 'Police Post',
-      },
-      {
-        value: 'chiefs_camp',
-        label: 'Chiefs Camp',
-      },
-      {
-        value: 'crime_spot',
-        label: 'Crime Hotspot',
-      }
-
-    ],
-  },
-
-  {
-    value: 'Sanitation_hygiene',
-    label: 'Sanitation and Hygiene',
-    children: [
-
-      {
-        value: 'toilet',
-        label: 'Toilet',
-      },
-      {
-        value: 'shower',
-        label: 'Showers',
-      },
-      {
-        value: 'handwashing',
-        label: 'HandWashing',
-      }
-
-    ],
-  },
-  {
-    value: 'waste',
-    label: 'Waste Management',
-    children: [
-
-      {
-        value: 'dumping',
-        label: 'Dumping Sites',
-        children: [
-          {
-            value: 'illegal_dumping_site',
-            label: 'Illegal',
-          },
-          {
-            value: 'llegal_dumping_site',
-            label: 'Legal',
-          },
-        ]
-
-      },
-      {
-        value: 'treatment_center',
-        label: 'Treatment/Recycling centre',
-      },
-      {
-        value: 'collection_point',
-        label: 'Collection point ',
-      },
-      {
-        value: 'waste_mgmt_project',
-        label: 'Waste Management Projects',
-      },
-      {
-        value: 'other_waste_mgmt',
-        label: 'Others e.g Biodigesters',
-      },
-    ],
-  },
-
-
-
-
-  {
-    value: 'utility',
-    label: 'Public utilities',
-    children: [
-
-
-      {
-        value: 'playground',
-        label: 'Playground',
-      },
-      {
-        value: 'stadium',
-        label: 'Stadium',
-      },
-      {
-        value: 'chiefs_camp',
-        label: 'Community Hall',
-      },
-      {
-        value: 'open_space',
-        label: 'Open space',
-      }
-
-    ],
-  },
-
-
-  {
-    value: 'environment',
-    label: 'Environment',
-    children: [
-      {
-        value: 'river',
-        label: 'River',
-      },
-      {
-        value: 'wetland',
-        label: 'Swamp/Wetland',
-      },
-      {
-        value: 'forest',
-        label: 'Forest',
-      },
-
-      {
-        value: 'qurry_pit',
-        label: 'Quarry / Open Pits',
-      },
-      {
-        value: 'other_environment_areas',
-        label: 'Other Environmentally sensitive areas ',
-      },
-      {
-        value: 'hazard',
-        label: 'Hazards',
-        children: [
-          {
-            value: 'flooding',
-            label: 'Flooding',
-          },
-          {
-            value: 'fire',
-            label: 'Fire',
-          },
-          {
-            value: 'landslide',
-            label: 'Landslide',
-          },
-
-          {
-            value: 'other_hazard',
-            label: 'Other',
-          },
-
-
-
-
-        ]
-      },
-
-    ],
-  },
-]
-
-const phase_options = [{
-  value: 'single',
-  label: 'Single-Phase',
-},
-{
-  value: '3_phase',
-  label: 'Three-Phase',
-}]
-
-
-
-
-const frequencyOptions = [{
-  value: 'rare',
-  label: 'Rare',
-},
-{
-  value: 'often',
-  label: 'Often',
-},
-{
-  value: 'very_often',
-  label: 'Very Often',
-}
-
-]
-
-
-
-const ownsershipOptions = [
-  {
-    value: 'Private',
-    label: 'Private'
-  },
-  {
-    value: 'public',
-    label: 'Public'
-  },
-  {
-    value: 'Faith Based Organization',
-    label: 'Faith Based Organization'
-  },
-  {
-    value: 'Non - Governmental Organizations',
-    label: 'Non - Governmental Organizations'
-  }
-]
-
-const wasteOptions = [
-  {
-    value: 'Domestic',
-    label: 'Domestic'
-  },
-  {
-    value: 'Industrial',
-    label: 'Industrial'
-  },
-  {
-    value: 'Medical',
-    label: 'Medical'
-  },
-  {
-    value: 'Environmental',
-    label: 'Environmental'
-  }
-]
-
-
-
 const active = ref(0)
 
-const next = () => {
-  if (active.value++ > 0) active.value = 0
-  console.log(active.value)
-}
+
 
 
 
@@ -726,7 +338,12 @@ onMounted(() => {
 
   function updateRuleform(feature) {
     // do something with the new marker feature
-    console.log(feature.geometry);
+    var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+    feature.geometry.crs = crs
+    console.log('----feature', feature);
+
+
+
     ruleForm.geom = feature.geometry
     console.log(ruleForm)
   }
@@ -876,6 +493,7 @@ const digitize = ref()
                   </el-form-item>
                 </el-col>
 
+
                 <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
                   <el-form-item label="Subcounty" prop="subcounty_id">
                     <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
@@ -884,6 +502,8 @@ const digitize = ref()
                     </el-select>
                   </el-form-item>
                 </el-col>
+
+
               </el-row>
 
 
@@ -973,7 +593,7 @@ const digitize = ref()
 
                 <el-form-item label="Ownership" prop="ownership_type">
                   <el-select v-model="ruleForm.ownership_type" filterable placeholder="Select">
-                    <el-option v-for="item in ownsershipOptions" :key="item.value" :label="item.label"
+                    <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>

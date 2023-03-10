@@ -282,7 +282,12 @@ onMounted(() => {
 
   function updateRuleform(feature) {
     // do something with the new marker feature
-    console.log(feature.geometry);
+    var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+    feature.geometry.crs = crs
+    console.log('----feature', feature);
+
+
+
     ruleForm.geom = feature.geometry
     console.log(ruleForm)
   }
