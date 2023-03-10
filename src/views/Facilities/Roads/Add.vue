@@ -2,7 +2,7 @@
 import { Form, FormExpose } from '@/components/Form'
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { reactive, unref, ref } from 'vue'
+import { reactive, onMounted, ref } from 'vue'
 import {
   ElButton,
   ElSelect,
@@ -26,18 +26,19 @@ import {
   FormRules
 } from 'element-plus'
 
-import {
-  MapboxMap,
-  MapboxGeocoderControl,
-  MapboxAttributionControl,
-  MapboxDrawControl,
-  MapboxGeolocateControl,
-  MapboxGeogeometryPolygon,
-  MapboxNavigationControl,
-  MapboxSourceGeoJson,
-  MapboxScaleControl,
-  MapboxMarker
-} from 'vue-mapbox-ts'
+
+import mapboxgl from "mapbox-gl";
+import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
+import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
+
+import "mapbox-layer-switcher/styles.css";
+import * as turf from '@turf/turf'
+
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+mapboxgl.accessToken = MapBoxToken;
+
 
 
 import {
@@ -57,6 +58,7 @@ import { CreateRecord } from '@/api/settlements'
 import type { FormInstance } from 'element-plus'
 import { uuid } from 'vue-uuid'
 
+import { countyOptions, SchoolLevelOptions, settlementOptionsV2, subcountyOptions, drainageTypeOtions, SurfaceTypeOtions, RdClassOptions } from './../common/index.ts'
 
 
 const model = 'road'
@@ -81,35 +83,7 @@ const ruleForm = reactive({
   geom: '',
 })
 
-//id","name","county_id","settlement_type","geom","area","population","code","description"
-const getParentNames = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
 
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var parentOpt = {}
-      parentOpt.value = arrayItem.id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      parentOptions.value.push(parentOpt)
-    })
-  })
-}
-getParentNames()
 
 console.log('--> parent options', parentOptions.value)
 const polygons = ref([]) as Ref<[number, number][][]>
@@ -131,77 +105,6 @@ const rules = reactive<FormRules>({
 })
 
 const countries = 'ke'
-const RdClassOptions = [
-  {
-    value: 'A',
-    label: 'Class A'
-  },
-  {
-    value: 'B',
-    label: 'Class B'
-  }, {
-    value: 'C',
-    label: 'Class C'
-  }, {
-    value: 'D',
-    label: 'Class d'
-  }, {
-    value: 'county',
-    label: 'County Road'
-  },
-  {
-    value: 'unknown',
-    label: 'Unclassified'
-  },
-]
-
-const SurfaceTypeOtions = [
-  {
-    value: '100',
-    label: 'Asphalt'
-  },
-  {
-    value: '200',
-    label: ' Surface Dressing'
-  },
-  {
-    value: '300',
-    label: 'Gravel'
-  },
-  {
-    value: '400',
-    label: 'Earth'
-  },
-  {
-    value: '500',
-    label: 'Cabro'
-  },
-  {
-    value: '600',
-    label: 'Track'
-  },
-]
-
-const drainageTypeOtions = [
-  {
-    value: '100',
-    label: 'Left Side'
-  },
-  {
-    value: '200',
-    label: 'Right Side'
-  },
-  {
-    value: '300',
-    label: 'Both Sides'
-  },
-  {
-    value: '400',
-    label: 'None'
-  },
-
-]
-
 
 
 
@@ -236,18 +139,8 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
-      delete shp[0].target
-      delete shp[0].type
 
-      // ST_GEojson only accepts teh geometry part alone.
-      var poly = {
-        type: 'Linestring',
-        coordinates: []
-      }
 
-      poly.coordinates = shp[0].features[0].geometry.coordinates
-
-      ruleForm.geom = poly
       const res = CreateRecord(ruleForm)
       //   console.log(res)
       ///
@@ -261,20 +154,114 @@ const resetForm = (formEl: FormInstance | undefined) => {
   if (!formEl) return
   formEl.resetFields()
 }
-const addPolygon = (poly: any) => {
-  polygons.value.push(poly.features[0].geometry.coordinates[0])
-  var polyShape = poly
 
-  shp.push(polyShape)
-  // ruleForm.geom = poly
-}
+
 
 const title = 'Add/Create ' + model + ' Facility'
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 
-const mapHeight = '450px'
 
+const map = ref()
+const draw = ref()
+const showDrawMarker = ref(false)
+
+
+
+onMounted(() => {
+
+  console.log("Showmarkr ICons", showDrawMarker)
+  map.value = new mapboxgl.Map({
+    container: 'mapContainer',
+    style: 'mapbox://styles/mapbox/streets-v11',
+    center: [37.137343, 1.137451],
+    zoom: 5
+  });
+
+  map.value.addControl(new mapboxgl.NavigationControl());
+  // add marker for project location 
+
+
+  draw.value = new MapboxDraw({
+    displayControlsDefault: false,
+    controls: {
+      point: false,
+      line_string: true,
+      polygon: false,
+      trash: true
+    },
+
+  });
+  map.value.addControl(draw.value, 'top-left');
+
+
+  function updateRuleform(feature) {
+    // do something with the new marker feature
+    console.log(feature.geometry);
+    ruleForm.geom = feature.geometry
+    console.log(ruleForm)
+  }
+
+  // listen for the draw.create event
+  map.value.on('draw.create', function (e) {
+    // check if the new feature is a marker
+    // trigger your function here
+    updateRuleform(e.features[0]);
+  });
+
+  map.value.on('mousemove', function (e) {
+    document.getElementById('coordinates').innerHTML =
+      'Lon: ' + e.lngLat.lng.toFixed(5) + ' Lat: ' + e.lngLat.lat.toFixed(5);
+  });
+
+
+  map.value.on('load', function () {
+    // code to execute after the map has finished loading
+    console.log("Map has loaded......")
+
+
+    map.value.addLayer({
+      id: 'Satellite',
+      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+      type: "raster"
+    });
+
+    map.value.addLayer({
+      id: 'Streets',
+      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
+      type: "raster"
+    }, 'Satellite');
+
+    // switch it off until the user selects to
+    map.value.setLayoutProperty('Satellite', 'visibility', 'none')
+
+
+    const layers: MapboxLayerDefinition[] = [
+
+      {
+        id: "Satellite",
+        title: "Satellite",
+        visibility: 'none',
+        type: 'base'
+      },
+
+      {
+        id: "Streets",
+        title: "Streets",
+        visibility: 'none',
+        type: 'base'
+      },
+
+    ];
+    map.value.addControl(new MapboxLayerSwitcherControl(layers));
+
+
+
+
+
+
+  });
+
+
+})
 </script>
 
 <template>
@@ -303,14 +290,13 @@ const mapHeight = '450px'
                 </el-form-item>
                 <el-form-item label="Settlement" prop="settlement_id">
                   <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-                    <el-option v-for="item in parentOptions" :key="item.value" :label="item.label"
+                    <el-option v-for="item in settlementOptionsV2" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
                 <el-form-item label="Road Class" prop="rdClass">
                   <el-select v-model="ruleForm.rdClass" filterable placeholder="A,B,C..">
-                    <el-option v-for="item in RdClassOptions" :key="item.value" :label="item.label"
-                      :value="item.value" />
+                    <el-option v-for="item in RdClassOptions" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
                 </el-form-item>
                 <el-form-item label="Road Width" prop="width">
@@ -352,18 +338,8 @@ const mapHeight = '450px'
                 </el-form-item>
 
 
-
-
-
               </el-col>
             </el-row>
-
-
-
-
-
-
-
 
           </el-form>
 
@@ -391,15 +367,34 @@ const mapHeight = '450px'
 
       <el-col :span="14" :lg="14" :md="12" :sm="12" :xs="24">
         <el-card class="box-card">
-          <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
-            mapStyle="mapbox://styles/mapbox/light-v10">
-            <mapbox-geocoder-control :countries="countries" />
-            <mapbox-geolocate-control />
-            <mapbox-draw-control @create="addPolygon" />
-            <mapbox-navigation-control position="bottom-right" />
-          </mapbox-map>
+          <div id="mapContainer" class="basemap"></div>
+          <div id='coordinates' class='coordinates'></div>
+
         </el-card>
       </el-col>
     </el-row>
   </ContentWrap>
 </template>
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 500px;
+}
+
+
+.coordinates {
+  display: block;
+  position: relative;
+  width: 24%;
+  bottom: 20px;
+  left: 40%;
+  background-color: rgba(7, 7, 7, 0.85);
+  color: #fbfbfb;
+  text-align: center;
+  /* Center the text inside the paragraph element */
+  font-size: 10px;
+  z-index: 10;
+  border-radius: 5px;
+
+}
+</style>
