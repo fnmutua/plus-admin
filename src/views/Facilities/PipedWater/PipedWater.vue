@@ -143,7 +143,7 @@ var filterValues = []
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement', 'document']
-const model = 'sewer'
+const model = 'piped_water'
 const model_parent_key = 'settlement_id'
 //// ------------------parameters -----------------------////
 
@@ -159,38 +159,6 @@ const facilityGeo = ref([])
 
 //// ------------------Map -----------------------////
 
-
-
-const subcountyfilteredOptions = ref([])
-const settlementfilteredOptions = ref([])
-
-
-
-const handleSelectCounty = async (county_id: any) => {
-  console.log(county_id)
-
-  var subset = [];
-  for (let i = 0; i < subcountyOptions.value.length; i++) {
-    if (subcountyOptions.value[i].county_id == county_id) {
-      subset.push(subcountyOptions.value[i]);
-    }
-  }
-  console.log(subset)
-  subcountyfilteredOptions.value = subset
-
-  // filter settleemnts 
-  var subset_settlements = [];
-  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
-    if (settlementOptionsV2.value[i].county_id == county_id) {
-      subset_settlements.push(settlementOptionsV2.value[i]);
-    }
-  }
-  console.log("Subset Setts", subset_settlements)
-  settlementfilteredOptions.value = subset_settlements
-
-
-  // Get the select subcoites GEO
-}
 
 
 function toTitleCase(str) {
@@ -424,7 +392,36 @@ const makeSettlementOptions = (list) => {
 
 
 
+const subcountyfilteredOptions = ref([])
+const settlementfilteredOptions = ref([])
 
+
+
+const handleSelectCounty = async (county_id: any) => {
+  console.log(county_id)
+
+  var subset = [];
+  for (let i = 0; i < subcountyOptions.value.length; i++) {
+    if (subcountyOptions.value[i].county_id == county_id) {
+      subset.push(subcountyOptions.value[i]);
+    }
+  }
+  console.log(subset)
+  subcountyfilteredOptions.value = subset
+
+  // filter settleemnts 
+  var subset_settlements = [];
+  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
+    if (settlementOptionsV2.value[i].county_id == county_id) {
+      subset_settlements.push(settlementOptionsV2.value[i]);
+    }
+  }
+  console.log("Subset Setts", subset_settlements)
+  settlementfilteredOptions.value = subset_settlements
+
+
+  // Get the select subcoites GEO
+}
 
 
 
@@ -626,8 +623,8 @@ console.log('Options---->', countiesOptions)
 const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.id)
   push({
-    path: '/facilities/sewer/details/:id',
-    name: 'SewerFacilityDetails',
+    path: '/facilities/pipedwater/details/:id',
+    name: 'PipedWaterFacilityDetails',
     params: { data: data.id, id: data.id }
   })
 
@@ -648,8 +645,8 @@ const flyTo = (data: TableSlotDefault) => {
 
 const AddFacility = (data: TableSlotDefault) => {
   push({
-    path: '/facilities/sewer/add',
-    name: 'AddSewer'
+    path: '/facilities/pipedwater/add',
+    name: 'PipedWaterAdd'
   })
 }
 
@@ -813,11 +810,11 @@ const submitMoreDocuments = async () => {
       formData.append('file', morefileList.value[i].raw)
       formData.append('format', morefileList.value[i].name.split('.').pop())
       formData.append('category', documentCategory.value)
-      formData.append('field_id', 'sewer_id')
+      formData.append('field_id', 'piped_water_id')
 
       formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
       formData.append('code', uuid.v4())
-      formData.append('sewer_id', currentRow.value.id)
+      formData.append('piped_water_id', currentRow.value.id)
 
     }
 
@@ -1238,6 +1235,8 @@ const next = () => {
                 </el-col>
 
 
+
+
                 <el-row>
                   <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
                     <el-form-item label="County" prop="county_id">
@@ -1259,6 +1258,9 @@ const next = () => {
                   </el-col>
                 </el-row>
 
+
+
+
                 <el-col :xl="24" :lg="24" :md="12" :sm="12" :xs="24">
 
                   <el-form-item label="Settlement" prop="settlement_id">
@@ -1267,6 +1269,8 @@ const next = () => {
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
+
+
                   <el-form-item label="Ownership">
                     <el-select v-model="ruleForm.ownership_type" filterable placeholder="Select">
                       <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label"

@@ -370,8 +370,50 @@ db.models.subcounty.hasMany(db.models.sewer, {
 
 
 
+/// Piped Water  
+db.models.piped_water.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.piped_water, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.piped_water.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.county.hasMany(db.models.piped_water, {
+  foreignKey: 'county_id'
+})
 
 
+db.models.piped_water.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.piped_water, {
+  foreignKey: 'subcounty_id'
+})
+
+ 
+db.models.document.belongsTo(db.models.piped_water, {
+  foreignKey: 'piped_water_id',
+})
+
+db.models.piped_water.hasMany(db.models.document, {
+  foreignKey: 'piped_water_id'
+})
+
+
+
+db.models.document.belongsTo(db.models.road_asset, {
+  foreignKey: 'road_asset_id',
+})
+
+db.models.road_asset.hasMany(db.models.document, {
+  foreignKey: 'road_asset_id'
+})
 
 
 

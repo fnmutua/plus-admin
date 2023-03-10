@@ -3511,6 +3511,42 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
 
+      {
+        path: 'pipedwater',
+     //component: 'views/Facilities/Water/Water',
+     component: () => import('@/views/Facilities/PipedWater/PipedWater.vue'),
+        name: 'PipedWater',
+        meta: {
+          icon: 'ic:sharp-water-drop',
+          title: 'Piped Water'
+        }
+      },
+      {
+        path: 'pipedwater/add',
+     //component: 'views/Facilities/Water/Water',
+     component: () => import('@/views/Facilities/PipedWater/Add.vue'),
+        name: 'PipedWaterAdd',
+        meta: {
+          icon: 'ic:sharp-water-drop',
+          title: 'Add Piped Water',
+          hidden:true
+        }
+      },
+
+      {
+        path: 'pipedwater/details/:id',
+      //  component: 'views/Facilities/Sewer/SewerFacilityDetails',
+        component: () => import('@/views/Facilities/PipedWater/PipedWaterFacilityDetails.vue'),
+
+        name: 'PipedWaterFacilityDetails',
+        meta: {
+          hidden: true,
+          props: true,
+          title: 'Scheme Profile'
+        }
+},
+
+
       /// Water -----------------------
    {
         path: 'water',

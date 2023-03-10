@@ -2,7 +2,7 @@
 import { Form, FormExpose } from '@/components/Form'
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { reactive, onMounted, unref, ref } from 'vue'
+import { reactive, onMounted, ref } from 'vue'
 import {
   ElButton,
   ElSelect,
@@ -25,6 +25,7 @@ import {
   ElRadioGroup,
   FormRules
 } from 'element-plus'
+
 
 import mapboxgl from "mapbox-gl";
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
@@ -59,7 +60,7 @@ import { uuid } from 'vue-uuid'
 import { countyOptions, settlementOptionsV2, subcountyOptions, generalOwnership } from './../common/index.ts'
 
 
-const model = 'sewer'
+const model = 'piped_water'
 const parentOptions = ref([])
 const loading = ref(true)
 const colors = ref(['#99A9BF', '#F7BA2A', '#FF9900']) // same as { 2: '#99A9BF', 4: { value: '#F7BA2A', excluded: true }, 5: '#FF9900' }
@@ -80,10 +81,8 @@ const ruleForm = reactive({
 
 
 
-
 const subcountyfilteredOptions = ref([])
 const settlementfilteredOptions = ref([])
-
 
 
 
@@ -187,7 +186,6 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.code = uuid.v4()
 
 
-
       const res = CreateRecord(ruleForm)
       //   console.log(res)
       ///
@@ -201,23 +199,16 @@ const resetForm = (formEl: FormInstance | undefined) => {
   if (!formEl) return
   formEl.resetFields()
 }
+const addPolygon = (poly: any) => {
+  polygons.value.push(poly.features[0].geometry.coordinates[0])
+  var polyShape = poly
 
+  shp.push(polyShape)
+  // ruleForm.geom = poly
+}
 
 const title = 'Add/Create ' + model + ' Facility'
 
-
-
-const handleFlipSwitch = (e) => {
-
-  console.log(draw.value.isDrawEnabled)
-  // if (draw.value.isDrawEnabled) {
-  //   draw.value.deleteAll();
-  //   draw.value.changeMode('simple_select');
-  // } else {
-  //   draw.value.changeMode('draw_point');
-  // }
-  // draw.value.isDrawEnabled = !draw.value.isDrawEnabled;
-}
 
 
 const map = ref()
@@ -331,7 +322,7 @@ onMounted(() => {
   <ContentWrap :title="toTitleCase(title)">
 
     <el-row :gutter="20">
-      <el-col :lg="12" :md="12" :sm="24" :xs="24">
+      <el-col :span="24" :lg="12" :md="24" :sm="24" :xs="24">
         <el-card class="box-card">
 
 
@@ -374,6 +365,9 @@ onMounted(() => {
                 </el-col>
               </el-row>
 
+
+
+
               <el-col :xl="24" :lg="24" :md="12" :sm="12" :xs="24">
 
                 <el-form-item label="Settlement" prop="settlement_id">
@@ -410,6 +404,14 @@ onMounted(() => {
 
               </el-col>
             </el-row>
+
+
+
+
+
+
+
+
           </el-form>
 
 
@@ -427,11 +429,14 @@ onMounted(() => {
               </el-icon>
             </el-button>
           </el-row>
+
+
+
         </el-card>
 
       </el-col>
 
-      <el-col :lg="12" :md="12" :sm="24" :xs="24">
+      <el-col :span="24" :lg="12" :md="24" :sm="24" :xs="24">
         <el-card class="box-card">
           <div id="mapContainer" class="basemap"></div>
           <div id='coordinates' class='coordinates'></div>
@@ -441,7 +446,6 @@ onMounted(() => {
     </el-row>
   </ContentWrap>
 </template>
-
 <style scoped>
 .basemap {
   width: 100%;

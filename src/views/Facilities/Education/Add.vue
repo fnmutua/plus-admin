@@ -2,7 +2,7 @@
 import { Form, FormExpose } from '@/components/Form'
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { reactive, unref, ref } from 'vue'
+import { reactive, onMounted, ref } from 'vue'
 import {
   ElButton,
   ElSelect,
@@ -25,18 +25,6 @@ import {
   FormRules
 } from 'element-plus'
 
-import {
-  MapboxMap,
-  MapboxGeocoderControl,
-  MapboxAttributionControl,
-  MapboxDrawControl,
-  MapboxGeolocateControl,
-  MapboxGeogeometryPolygon,
-  MapboxNavigationControl,
-  MapboxSourceGeoJson,
-  MapboxScaleControl,
-  MapboxMarker
-} from 'vue-mapbox-ts'
 
 
 import {
@@ -55,6 +43,23 @@ import { CreateRecord } from '@/api/settlements'
 
 import type { FormInstance } from 'element-plus'
 import { uuid } from 'vue-uuid'
+import { countyOptions, SchoolLevelOptions, settlementOptionsV2, subcountyOptions, regOptions, mhmOptions, tenancyOptions, generalOwnership, } from './../common/index.ts'
+
+
+import mapboxgl from "mapbox-gl";
+import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
+import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
+
+import "mapbox-layer-switcher/styles.css";
+import * as turf from '@turf/turf'
+
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+mapboxgl.accessToken = MapBoxToken;
+
+
+
 
 const parentOptions = ref([])
 const loading = ref(true)
@@ -86,133 +91,20 @@ const ruleForm = reactive({
   geom: '',
 })
 
-//id","name","county_id","settlement_type","geom","area","population","code","description"
-const getParentNames = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var parentOpt = {}
-      parentOpt.value = arrayItem.id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      parentOptions.value.push(parentOpt)
-    })
-  })
-}
-//getParentNames()
 
 
 
-const settlementOptions = ref([])
 
-const settlementfilteredOptions = ref([])
 
-const getSettlements = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
 
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var parentOpt = {}
-      parentOpt.value = arrayItem.id
-      parentOpt.county_id = arrayItem.county_id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      settlementOptions.value.push(parentOpt)
-    })
-  })
-}
-const countyOptions = ref([])
 const countyRefList = ref()
 
-const getCounties = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'county',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-    countyRefList.value = ret
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var county = {}
-      county.value = arrayItem.id
-      county.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      countyOptions.value.push(county)
-    })
-  })
-}
 
 
-const subcountyOptions = ref([])
+
 const subcountyfilteredOptions = ref([])
-const subcounties = ref([])
-const getSubCounties = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    //console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-    subcounties.value = ret
-    loading.value = false
+const settlementfilteredOptions = ref([])
 
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var parentOpt = {}
-      parentOpt.value = arrayItem.id
-      parentOpt.county_id = arrayItem.county_id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      subcountyOptions.value.push(parentOpt)
-    })
-  })
-}
 
 const handleSelectCounty = async (county_id: any) => {
   console.log(county_id)
@@ -228,9 +120,9 @@ const handleSelectCounty = async (county_id: any) => {
 
   // filter settleemnts 
   var subset_settlements = [];
-  for (let i = 0; i < settlementOptions.value.length; i++) {
-    if (settlementOptions.value[i].county_id == county_id) {
-      subset_settlements.push(settlementOptions.value[i]);
+  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
+    if (settlementOptionsV2.value[i].county_id == county_id) {
+      subset_settlements.push(settlementOptionsV2.value[i]);
     }
   }
   console.log("Subset Setts", subset_settlements)
@@ -239,12 +131,6 @@ const handleSelectCounty = async (county_id: any) => {
 
   // Get the select subcoites GEO
 }
-
-
-
-getSettlements()
-getCounties()
-getSubCounties()
 
 
 
@@ -286,59 +172,8 @@ const rules = reactive<FormRules>({
 })
 
 const countries = 'ke'
-const regOptions = [
-  {
-    value: 'Registered',
-    label: 'Registered'
-  },
-  {
-    value: 'Not Registered',
-    label: 'Not Registered'
-  }
-]
 
 
-const ftypeOtions = [
-  {
-    value: 'Medical Clinic',
-    label: 'Medical Clinic'
-  },
-  {
-    value: 'Medical Center',
-    label: 'Medical Center'
-  },
-  {
-    value: 'Nursing and Maternity Home',
-    label: 'Nursing and Maternity Home'
-  },
-
-  {
-    value: 'Basic Health Centre',
-    label: 'Basic Health Centre'
-  },
-
-
-  {
-    value: 'Primary care hospitals',
-    label: 'Primary care hospitals'
-  },
-
-
-  {
-    value: 'Dispensary',
-    label: 'Dispensary'
-  },
-
-  {
-    value: 'VCT',
-    label: 'VCT'
-  },
-
-  {
-    value: 'Comprehensive health Centre',
-    label: 'Comprehensive health Centre'
-  },
-]
 
 const active = ref(0)
 
@@ -347,94 +182,8 @@ const next = () => {
   console.log(active.value)
 }
 
-const LevelOptions = [
-  {
-    value: '201',
-    label: 'Nursery school / ECD'
-  },
-  {
-    value: '202',
-    label: ' Primary school'
-  }, {
-    value: '203',
-    label: 'Secondary school'
-  },
-  {
-    value: '204',
-    label: 'Village Polytechnique'
-  },
-  {
-    value: '205',
-    label: 'Adult Education School'
-  },
-  {
-    value: '206',
-    label: 'School for physically challenged '
-  },
-  {
-    value: '207',
-    label: 'School for deaf'
-  },
-
-  {
-    value: '208',
-    label: 'School for blind'
-  },
-  {
-    value: '209',
-    label: 'School for mentally disabled'
-  },
-  {
-    value: '299',
-    label: 'Other'
-  }
-
-]
-
-const ownsershipOptions = [
-  {
-    value: 'Private Practice',
-    label: 'Private Practice'
-  },
-  {
-    value: 'Ministry of Education',
-    label: 'Ministry of Education'
-  },
-  {
-    value: 'Faith Based Organization',
-    label: 'Faith Based Organization'
-  },
-  {
-    value: 'Non - Governmental Organizations',
-    label: 'Non - Governmental Organizations'
-  }
-]
-const mhmOptions = [
-  {
-    value: '100',
-    label: 'Free pads'
-  },
-  {
-    value: '200',
-    label: 'Disposal bins'
-  },
-  {
-    value: '300',
-    label: 'Information, Education and Communication(IEC)'
-  }
-]
 
 
-const tenancyOptions = [
-  {
-    value: '100',
-    label: 'Rented'
-  },
-  {
-    value: '200',
-    label: 'Owned'
-  }
-]
 
 
 
@@ -449,18 +198,8 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = 'education_facility'
       ruleForm.code = uuid.v4()
-      delete shp[0].target
-      delete shp[0].type
 
-      // ST_GEojson only accepts teh geometry part alone.
-      var poly = {
-        type: 'Point',
-        coordinates: []
-      }
 
-      poly.coordinates = shp[0].features[0].geometry.coordinates
-
-      ruleForm.geom = poly
       const res = CreateRecord(ruleForm)
       //   console.log(res)
       ///
@@ -483,10 +222,189 @@ const addPolygon = (poly: any) => {
 }
 
 const title = 'Add/Create Education Facility'
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 
-const mapHeight = '450px'
+
+const map = ref()
+const draw = ref()
+const showDrawMarker = ref(false)
+
+
+
+const handleFlipSwitch = (e) => {
+
+  console.log(draw.value.isDrawEnabled)
+  // if (draw.value.isDrawEnabled) {
+  //   draw.value.deleteAll();
+  //   draw.value.changeMode('simple_select');
+  // } else {
+  //   draw.value.changeMode('draw_point');
+  // }
+  // draw.value.isDrawEnabled = !draw.value.isDrawEnabled;
+}
+
+
+onMounted(() => {
+
+  console.log("Showmarkr ICons", showDrawMarker)
+  map.value = new mapboxgl.Map({
+    container: 'mapContainer',
+    style: 'mapbox://styles/mapbox/streets-v11',
+    center: [37.137343, 1.137451],
+    zoom: 5
+  });
+
+  map.value.addControl(new mapboxgl.NavigationControl());
+  // add marker for project location 
+
+
+  draw.value = new MapboxDraw({
+    displayControlsDefault: false,
+    controls: {
+      point: true,
+      line_string: false,
+      polygon: false,
+      trash: true
+    },
+    styles: [
+      // define the style for the default blue marker icon
+      {
+        "id": "gl-draw-point",
+        "type": "circle",
+        "paint": {
+          "circle-radius": 6,
+          "circle-color": "red"
+        }
+      }
+    ]
+  });
+  map.value.addControl(draw.value, 'top-left');
+
+
+  function updateRuleform(feature) {
+    // do something with the new marker feature
+    console.log(feature.geometry);
+    ruleForm.geom = feature.geometry
+    console.log(ruleForm)
+  }
+
+  // listen for the draw.create event
+  map.value.on('draw.create', function (e) {
+    // check if the new feature is a marker
+    if (e.features[0].geometry.type === 'Point') {
+      // trigger your function here
+      updateRuleform(e.features[0]);
+    }
+  });
+
+  map.value.on('mousemove', function (e) {
+    document.getElementById('coordinates').innerHTML =
+      'Lon: ' + e.lngLat.lng.toFixed(5) + ' Lat: ' + e.lngLat.lat.toFixed(5);
+  });
+
+
+  map.value.on('load', function () {
+    // code to execute after the map has finished loading
+    console.log("Map has loaded......")
+
+
+    map.value.addLayer({
+      id: 'Satellite',
+      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+      type: "raster"
+    });
+
+    map.value.addLayer({
+      id: 'Streets',
+      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
+      type: "raster"
+    }, 'Satellite');
+
+    // switch it off until the user selects to
+    map.value.setLayoutProperty('Satellite', 'visibility', 'none')
+
+
+    const layers: MapboxLayerDefinition[] = [
+
+      {
+        id: "Satellite",
+        title: "Satellite",
+        visibility: 'none',
+        type: 'base'
+      },
+
+      {
+        id: "Streets",
+        title: "Streets",
+        visibility: 'none',
+        type: 'base'
+      },
+
+    ];
+    map.value.addControl(new MapboxLayerSwitcherControl(layers));
+
+
+
+
+
+
+  });
+
+
+})
+
+
+
+
+
+var markers = [];
+
+const handleInputCoordinates = () => {
+
+  if (ruleForm.longitude && ruleForm.latitude) {
+    console.log(ruleForm.longitude)
+    console.log(ruleForm.latitude)
+    var markerCoordinates = [ruleForm.longitude, ruleForm.latitude]
+
+
+    var geometry = {
+      "type": "Point",
+      "coordinates": [ruleForm.longitude, ruleForm.latitude]
+    };
+
+    var feature = turf.feature(geometry);
+    ruleForm.geom = feature.geometry
+
+
+    // Remove all the markers from the map
+    for (var i = 0; i < markers.length; i++) {
+      markers[i].remove();
+    }
+
+    markers.push(new mapboxgl.Marker().setLngLat([ruleForm.longitude, ruleForm.latitude]).addTo(map.value));
+
+    // assuming you have a marker object and a map object already defined
+
+    // get the marker coordinates
+
+    // fly to the marker coordinates
+    map.value.flyTo({
+      center: markerCoordinates,
+      zoom: 8, // optional, sets the zoom level
+      essential: true // optional, sets the animation as an essential gesture for full-screen mode
+    });
+
+
+  }
+
+}
+
+
+
+
+
+const digitize = ref()
+
+
 
 </script>
 
@@ -542,6 +460,21 @@ const mapHeight = '450px'
                     </el-select>
                   </el-form-item>
 
+                  <el-form-item label="Location" prop="location">
+                    <el-switch style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
+                      @change="handleFlipSwitch" class="mb-2" active-text="Input Coordinates" inactive-text="Digitize" />
+                  </el-form-item>
+
+
+                  <el-form-item v-if="digitize" label="Latitude" prop="latitude">
+                    <el-input-number v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
+                      @change="handleInputCoordinates" />
+                  </el-form-item>
+
+                  <el-form-item v-if="digitize" label="Longitude" prop="longitude">
+                    <el-input-number v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
+                      @change="handleInputCoordinates" />
+                  </el-form-item>
 
 
                 </div>
@@ -557,7 +490,7 @@ const mapHeight = '450px'
 
                   <el-form-item label="Ownership" prop="ownership_type">
                     <el-select v-model="ruleForm.ownership_type" placeholder="Ownership">
-                      <el-option v-for="item in ownsershipOptions" :key="item.value" :label="item.label"
+                      <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
@@ -568,7 +501,8 @@ const mapHeight = '450px'
 
                   <el-form-item label="Level" prop="level">
                     <el-select v-model="ruleForm.level" placeholder="Level">
-                      <el-option v-for="item in LevelOptions" :key="item.value" :label="item.label" :value="item.value" />
+                      <el-option v-for="item in SchoolLevelOptions" :key="item.value" :label="item.label"
+                        :value="item.value" />
                     </el-select>
                   </el-form-item>
 
@@ -695,15 +629,35 @@ const mapHeight = '450px'
 
       <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card class="box-card">
-          <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
-            mapStyle="mapbox://styles/mapbox/light-v10">
-            <mapbox-geocoder-control :countries="countries" />
-            <mapbox-geolocate-control />
-            <mapbox-draw-control @create="addPolygon" />
-            <mapbox-navigation-control position="bottom-right" />
-          </mapbox-map>
+          <div id="mapContainer" class="basemap"></div>
+          <div id='coordinates' class='coordinates'></div>
+
         </el-card>
       </el-col>
     </el-row>
   </ContentWrap>
 </template>
+
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 500px;
+}
+
+
+.coordinates {
+  display: block;
+  position: relative;
+  width: 24%;
+  bottom: 20px;
+  left: 40%;
+  background-color: rgba(7, 7, 7, 0.85);
+  color: #fbfbfb;
+  text-align: center;
+  /* Center the text inside the paragraph element */
+  font-size: 10px;
+  z-index: 10;
+  border-radius: 5px;
+
+}
+</style>
