@@ -146,101 +146,6 @@ const rules = reactive<FormRules>({
 
 })
 
-const countries = 'ke'
-const xregOptions = [
-  {
-    value: 'Registered',
-    label: 'Registered'
-  },
-  {
-    value: 'Not Registered',
-    label: 'Not Registered'
-  }
-]
-
-
-const xftypeOtions = [
-  {
-    value: 'Medical Clinic',
-    label: 'Medical Clinic'
-  },
-  {
-    value: 'Medical Center',
-    label: 'Medical Center'
-  },
-  {
-    value: 'Nursing and Maternity Home',
-    label: 'Nursing and Maternity Home'
-  },
-
-  {
-    value: 'Basic Health Centre',
-    label: 'Basic Health Centre'
-  },
-
-
-  {
-    value: 'Primary care hospitals',
-    label: 'Primary care hospitals'
-  },
-
-
-  {
-    value: 'Dispensary',
-    label: 'Dispensary'
-  },
-
-  {
-    value: 'VCT',
-    label: 'VCT'
-  },
-
-  {
-    value: 'Comprehensive health Centre',
-    label: 'Comprehensive health Centre'
-  },
-]
-
-
-const xLevelOptions = [
-  {
-    value: 'Level 1',
-    label: 'Level 1'
-  },
-
-  {
-    value: 'Level 2',
-    label: 'Level 2'
-  },
-  {
-    value: 'Level 3',
-    label: 'Level 3'
-  },
-  {
-    value: 'Level 4',
-    label: 'Level 4'
-  }
-]
-
-const xownsershipOptions = [
-  {
-    value: 'Private Practice',
-    label: 'Private Practice'
-  },
-  {
-    value: 'Ministry of Health',
-    label: 'Ministry of Health'
-  },
-  {
-    value: 'Faith Based Organization',
-    label: 'Faith Based Organization'
-  },
-  {
-    value: 'Non - Governmental Organizations',
-    label: 'Non - Governmental Organizations'
-  }
-]
-
 
 
 
@@ -267,13 +172,6 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 const resetForm = (formEl: FormInstance | undefined) => {
   if (!formEl) return
   formEl.resetFields()
-}
-const addPolygon = (poly: any) => {
-  polygons.value.push(poly.features[0].geometry.coordinates[0])
-  var polyShape = poly
-
-  shp.push(polyShape)
-  // ruleForm.geom = poly
 }
 
 const title = 'Add/Create Health Care Facility'
@@ -427,7 +325,9 @@ const handleInputCoordinates = () => {
 
     var geometry = {
       "type": "Point",
-      "coordinates": [ruleForm.longitude, ruleForm.latitude]
+      "coordinates": [ruleForm.longitude, ruleForm.latitude],
+      "crs": { type: 'name', properties: { name: 'EPSG:4326' } }
+
     };
 
     var feature = turf.feature(geometry);

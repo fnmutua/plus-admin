@@ -320,7 +320,9 @@ const handleInputCoordinates = () => {
 
     var geometry = {
       "type": "Point",
-      "coordinates": [ruleForm.longitude, ruleForm.latitude]
+      "coordinates": [ruleForm.longitude, ruleForm.latitude],
+      "crs": { type: 'name', properties: { name: 'EPSG:4326' } }
+
     };
 
     var feature = turf.feature(geometry);
