@@ -199,13 +199,7 @@ const resetForm = (formEl: FormInstance | undefined) => {
   if (!formEl) return
   formEl.resetFields()
 }
-const addPolygon = (poly: any) => {
-  polygons.value.push(poly.features[0].geometry.coordinates[0])
-  var polyShape = poly
 
-  shp.push(polyShape)
-  // ruleForm.geom = poly
-}
 
 const title = 'Add/Create ' + model + ' Facility'
 
