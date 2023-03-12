@@ -76,15 +76,15 @@ const ruleForm = reactive({
   level: '',
   owner: '',
   ownership_type: '',
-  male_enrollment: '',
-  female_enrollment: '',
-  number_teachers: '',
-  number_other_staff: '',
-  number_classrooms: '',
-  number_male_toilets: '',
-  number_female_toilets: '',
-  number_handwashing_stns: '',
-  avg_fees_term: '',
+  male_enrollment: null,
+  female_enrollment: null,
+  number_teachers: null,
+  number_other_staff: null,
+  number_classrooms: null,
+  number_male_toilets: null,
+  number_female_toilets: null,
+  number_handwashing_stns: null,
+  avg_fees_term: null,
   mhm: '',
   parcel_tenure: '',
   tenancy: '',
@@ -178,9 +178,19 @@ const countries = 'ke'
 const active = ref(0)
 
 const next = () => {
+  active.value++
   if (active.value++ > 1) active.value = 0
   console.log(active.value)
 }
+
+const back = () => {
+  active.value--
+  if (active.value-- > 1) active.value = 0
+  console.log(active.value)
+
+
+}
+
 
 
 
@@ -425,8 +435,7 @@ const digitize = ref()
 
           <el-steps :active="active" finish-status="success" simple>
             <el-step title="Profile" />
-            <el-step title="Enroll." />
-            <el-step title="Infrastructure" />
+            <el-step title="Enrollment" />
 
           </el-steps>
 
@@ -614,7 +623,11 @@ const digitize = ref()
 
 
           <el-row class="mb-4  md-5">
-            <el-button @click="next" type="primary"> Next Page<el-icon class="el-icon--right">
+            <el-button @click="back" type="primary">
+              <ArrowLeft /> <el-icon class="el-icon--left" /> Back
+            </el-button>
+
+            <el-button @click="next" type="primary"> Next <el-icon class="el-icon--right">
                 <ArrowRight />
               </el-icon>
             </el-button>

@@ -522,7 +522,7 @@ const loadingPosting = ref(false)
 const DisablePostSubmit = ref(false)
 const handleSubmitData = async () => {
     console.log(fileList)
-
+    loadingPosting.value = true
     const fileTypes = []
     const formData = new FormData()
     for (var i = 0; i < fileList.value.length; i++) {
@@ -546,6 +546,9 @@ const handleSubmitData = async () => {
 
     console.log('Befoer submit', formData)
     await uploadFilesBatch(formData)
+        .then((response: { data: any }) => {
+            loadingPosting.value = false
+        })
 
 }
 
