@@ -3487,6 +3487,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     name: 'RoadAsset',
     meta: {
       icon: 'game-icons:arch-bridge',
+      hidden: true, 
       title: 'Road Structures'
     }
   },
@@ -3511,13 +3512,49 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
 
-      {
+
+
+
+      /// Water -----------------------
+   {
+        path: 'water',
+     //component: 'views/Facilities/Water/Water',
+     component: () => import('@/views/Facilities/Water/Water.vue'),
+        name: 'Water',
+        meta: {
+          icon: 'ic:sharp-water-drop',
+          title: 'Water'
+     },
+             
+        
+     children: [
+    {
+        path: 'wp',
+      //  component: 'views/Facilities/Water/Add',
+        component: () => import('@/views/Facilities/Water/Water.vue'),
+        name: 'WaterPoint',
+         meta: {
+           hidden: false,
+           icon: 'ic:sharp-water-drop',
+           title: 'Water Points', noCache: true
+         }
+       },
+       {
+        path: 'wp/add',
+      //  component: 'views/Facilities/Water/Add',
+        component: () => import('@/views/Facilities/Water/Add.vue'),
+        name: 'AddWaterPoint',
+        icon: 'ant-design:plus-square-filled',
+        meta: { hidden: true, title: 'Add', noCache: true }
+       },
+
+       {
         path: 'pipedwater',
      //component: 'views/Facilities/Water/Water',
      component: () => import('@/views/Facilities/PipedWater/PipedWater.vue'),
         name: 'PipedWater',
         meta: {
-          icon: 'ic:sharp-water-drop',
+          icon: 'game-icons:tap',
           title: 'Piped Water'
         }
       },
@@ -3545,39 +3582,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Scheme Profile'
         }
 },
-
-
-      /// Water -----------------------
-   {
-        path: 'water',
-     //component: 'views/Facilities/Water/Water',
-     component: () => import('@/views/Facilities/Water/Water.vue'),
-
-        name: 'Water',
-        meta: {
-          icon: 'ic:sharp-water-drop',
-          title: 'Water Points'
-        }
-      },
-      {
-        path: 'water/add',
-      //  component: 'views/Facilities/Water/Add',
-        component: () => import('@/views/Facilities/Water/Add.vue'),
-
-        name: 'AddWaterPoint',
-        icon: 'ant-design:plus-square-filled',
-        meta: { hidden: true, title: 'Add', noCache: true }
-      },
       {
         path: 'water/map/:id',
       //  component: 'views/Facilities/Water/WaterMap',
         component: () => import('@/views/Facilities/Water/WaterMap.vue'),
 
         name: 'WaterMap',
-        icon: 'ant-design:plus-square-filled',
 
         meta: {
           hidden: true,
+          icon: 'ant-design:plus-square-filled',
+
           props: true,
           title: 'Water Point Map'
         }
@@ -3595,6 +3610,11 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
 
+     ]
+     
+      },
+    
+  
   
    /// Sewer -----------------------
             {
@@ -3780,6 +3800,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'RepositoryDocs',
         meta: {
           title: 'Documents',
+          hidden: false,
+          icon:'bi:clipboard2-data-fill'
+        }
+      },
+
+      {
+        path: 'tagged',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/DocumentsTagged.vue'),
+        name: 'RepositoryTagged',
+        meta: {
+          title: 'Tagged',
           hidden: false,
           icon:'bi:clipboard2-data-fill'
         }

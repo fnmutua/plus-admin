@@ -84,7 +84,6 @@ const morefileList = ref<UploadUserFile[]>([])
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-const map = ref()
 
 
 
@@ -93,15 +92,12 @@ const map = ref()
 
 console.log("userInfo--->", userInfo)
 
-// Map 
-const polygons = ref([]) as Ref<[number, number][][]>
-const shp = []
+
 const geoLoaded = ref(false)
 
 const markerLatlon = ref([])
 const markerProperties = ref([])
 
-const markers = ref()
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -373,9 +369,6 @@ const getModelOptions = async () => {
   })
 }
 
-const open = (msg: MessageParamsWithType) => {
-  ElMessage.error(msg)
-}
 
 const makeSettlementOptions = (list) => {
   console.log('making the options..............', list)
@@ -440,17 +433,39 @@ const getGeo = async () => {
 
 }
 
+const roadAssetGeo = ref([])
 
+const getAssetGeo = async () => {
+
+  const formData = {}
+  formData.model = 'road_asset'
+
+
+  console.log(formData)
+  const res = await getAllGeo(formData)
+
+
+
+  if (res.data[0].json_build_object) {
+
+
+    roadAssetGeo.value = res.data[0].json_build_object
+    console.log('getAssetGeo Returns---', res.data[0].json_build_object.features[0].geometry.coordinates)
+    console.log("getAssetGeo Geo", roadAssetGeo)
+
+
+  }
+
+
+
+}
 getParentNames()
 getModelOptions()
 getInterventionsAll()
 getGeo()
-
+getAssetGeo()
 
 const loadMap = (roadDetails) => {
-
-
-
   var centerPosition = [37.137343, 1.137451]
   var zoom = 6
 
@@ -479,6 +494,44 @@ const loadMap = (roadDetails) => {
       // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
     });
 
+
+
+    nmap.addSource('structures', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: roadAssetGeo.value,
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+
+    nmap.addLayer({
+      'id': 'structures',
+      "type": "circle",
+      'source': 'structures',
+      'paint': {
+        'circle-radius': 4,
+        'circle-stroke-width': 2,
+        'circle-color': [
+          'case',
+          ['==', ['get', 'asset_type'], 'footpath'],
+          '#a6cee3',
+          ['==', ['get', 'asset_type'], 'cycling_lane'],
+          '#1f78b4',
+          ['==', ['get', 'asset_type'], 'health_center'],
+          '#b2df8a',
+          ['==', ['get', 'asset_type'], 'streetlight'],
+          '#33a02c',
+          ['==', ['get', 'asset_type'], 'culvert'],
+          '#fb9a99',
+          ['==', ['get', 'asset_type'], 'bridge'],
+          '#e31a1c',
+          ['==', ['get', 'asset_type'], 'drift'],
+          '#fdbf6f',
+          ['==', ['get', 'asset_type'], 'parking'],
+          '#ff7f00', 'gray'],
+        'circle-stroke-color': 'white'
+      }
+    });
 
     nmap.addLayer({
       'id': 'roads-layer',
@@ -536,6 +589,13 @@ const loadMap = (roadDetails) => {
         type: 'base'
       },
 
+      {
+        id: "structures",
+        title: "Structures",
+        visibility: 'none',
+        type: 'base'
+      },
+
     ];
     nmap.addControl(new MapboxLayerSwitcherControl(layers));
     // Zoom to layers if not by clik on a list
@@ -574,6 +634,18 @@ const loadMap = (roadDetails) => {
         .addTo(nmap);
     });
 
+    // Listen for click events on the line layer
+    nmap.on('click', 'structures', function (e) {
+      // Get the coordinates of the clicked point
+      var coordinates = e.lngLat;
+      const description = e.features[0].properties.asset_type;
+      const type = e.features[0].properties.asset_condition;
+      // Create a popup with the desired content
+      var popup = new mapboxgl.Popup()
+        .setLngLat(coordinates)
+        .setHTML('<h3>' + description + '</h3><p>' + type + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap);
+    });
 
 
   });
@@ -622,6 +694,13 @@ const AddFacility = (data: TableSlotDefault) => {
   push({
     path: '/facilities/road/add',
     name: 'AddRoad'
+  })
+}
+
+const AddAsset = (data: TableSlotDefault) => {
+  push({
+    path: '/facilities/roadasset/add',
+    name: 'AddRoadStructure'
   })
 }
 
@@ -1070,30 +1149,45 @@ const next = () => {
 
     <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
       <el-tab-pane label="List" name="list">
+
         <div style="display: inline-block;">
           <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by Settlement">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
+
+
+
+
         <div style="display: inline-block; margin-left: 20px">
           <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by  Name">
             <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
+
+
+
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         </div>
-        <div style="display: inline-block; margin-left: 20px">
-          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-        </div>
+
         <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
-          <el-tooltip content="Add Facility" placement="top">
-            <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
+          <el-tooltip content="Add Road" placement="top">
+            <el-button :onClick="AddFacility" type="primary">
+              <Icon icon="material-symbols:add-road" width="24" />
+            </el-button>
           </el-tooltip>
         </div>
 
+        <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
+          <el-tooltip content="Add Structure" placement="top">
+            <el-button :onClick="AddAsset" type="primary" :icon="Plus">
+              <Icon icon="ph:bridge" width="18" />
+            </el-button>
+          </el-tooltip>
+        </div>
 
 
         <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border>
