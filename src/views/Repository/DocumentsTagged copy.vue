@@ -47,21 +47,7 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 
 const showAdminButtons = ref(false)
-const isMobile = computed(() => appStore.getMobile)
 
-console.log('IsMobile', isMobile)
-
-const dialogWidth = ref()
-const actionColumnWidth = ref()
-
-if (isMobile.value) {
-  dialogWidth.value = "90%"
-  actionColumnWidth.value = "75px"
-} else {
-  dialogWidth.value = "25%"
-  actionColumnWidth.value = "160px"
-
-}
 // flag for admin buttons
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
   showAdminButtons.value = true
@@ -82,51 +68,6 @@ const associated_multiple_models = ['project', 'settlement', 'indicator_category
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
-
-
-const groups = ref()
-const groups_backup = ref()
-
-function getPropertyByPath(obj, path) {
-  return path.split('.').reduce((acc, part) => acc && acc[part], obj);
-}
-
-function groupByProperties(objects, properties) {
-  const result = {};
-
-  for (const object of objects) {
-    // Check if the object has all the required properties
-    if (properties.some((property) => !getPropertyByPath(object, property))) {
-      continue;
-    }
-
-    let currentObject = result;
-
-    for (let i = 0; i < properties.length - 1; i++) {
-      const propertyValue = getPropertyByPath(object, properties[i]);
-
-      if (!currentObject[propertyValue]) {
-        currentObject[propertyValue] = {};
-      }
-
-      currentObject = currentObject[propertyValue];
-    }
-
-    const lastPropertyValue = getPropertyByPath(object, properties[properties.length - 1]);
-
-    if (!currentObject[lastPropertyValue]) {
-      currentObject[lastPropertyValue] = [];
-    }
-
-    currentObject[lastPropertyValue].push(object);
-  }
-
-  return result;
-}
-
-
-
-
 
 
 
@@ -155,32 +96,24 @@ const getFilteredData = async ([], []) => {
   //console.log(formData)
   await getSettlementListByCounty(formData)
     .then(response => {
-      console.log(response.data)
+      console.log(response)
 
-      groups.value = groupByProperties(response.data, ['document_type.group', 'document_type.type'])
-      console.log(groups)
+      response.data.forEach(function (arrayItem) {
+        //    console.log(arrayItem)
+        let doc = {}
+        doc.title = arrayItem.name
+        doc.format = arrayItem.format
+        doc.group = arrayItem.document_type.group
+        doc.category = arrayItem.document_type.type
+        doc.settlement = arrayItem.settlement ? arrayItem.settlement.name : ''
+        doc.link = arrayItem.location
+        doc.size = arrayItem.size
 
-      groups_backup.value = groupByProperties(response.data, ['document_type.group', 'document_type.type'])
+        liveDocs.value.push(doc)
+        filterLiveDocs.value.push(doc)
+      })
 
-
-      // const categories = groupByProperties(objects, ['category.main', 'category.sub']);
-
-      // response.data.forEach(function (arrayItem) {
-      //   //    console.log(arrayItem)
-      //   let doc = {}
-      //   doc.title = arrayItem.name
-      //   doc.format = arrayItem.format
-      //   doc.group = arrayItem.document_type.group
-      //   doc.category = arrayItem.document_type.type
-      //   doc.settlement = arrayItem.settlement ? arrayItem.settlement.name : ''
-      //   doc.link = arrayItem.location
-      //   doc.size = arrayItem.size
-
-      //   liveDocs.value.push(doc)
-      //   filterLiveDocs.value.push(doc)
-      // })
-
-      // groupedDocuments(filterLiveDocs.value)
+      groupedDocuments(filterLiveDocs.value)
 
 
     });
@@ -193,7 +126,7 @@ const getFilteredData = async ([], []) => {
 //console.log('TBL-4f', liveDocs.value)
 
 
-const xgroups = ref({
+const groups = ref({
   Reports: {
     socio_economic_reports: [],
     basemap_reports: [],
@@ -240,10 +173,10 @@ const xgroups = ref({
 const downloadFile = async (data) => {
 
   console.log(data)
-  console.log(data.row.name)
+  console.log(data.row.title)
 
   const formData = {}
-  formData.filename = data.row.name
+  formData.filename = data.row.title
   formData.responseType = 'blob'
   await getFile(formData)
     .then(response => {
@@ -252,7 +185,7 @@ const downloadFile = async (data) => {
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', data.row.name)
+      link.setAttribute('download', data.row.title)
       document.body.appendChild(link)
       link.click()
 
@@ -265,7 +198,21 @@ const downloadFile = async (data) => {
 
 
 
+const isMobile = computed(() => appStore.getMobile)
 
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
 
 
 function formatText(str) {
@@ -277,6 +224,10 @@ function formatText(str) {
   });
   return str;
 }
+
+
+
+
 
 
 
@@ -397,73 +348,23 @@ const groupedDocuments = async (data) => {
   return groups;
 }
 
-
-
-
-
 getFilteredData(filters, filterValues)
 
-//getDocumentTypes()
+
 const searchTerm = ref('')
-function searchObjectsByProperties(obj, props, parents = []) {
-  let matches = [];
-
-  for (let key in obj) {
-    const property = obj[key];
-    if (typeof property === 'object' && property !== null) {
-      if (Array.isArray(property)) {
-        for (let i = 0; i < property.length; i++) {
-          const result = searchObjectsByProperties(property[i], props, [...parents, obj]);
-          const uniqueMatches = result.filter(match => !parents.includes(match) && !matches.includes(match));
-          matches = matches.concat(uniqueMatches);
-        }
-      } else {
-        const result = searchObjectsByProperties(property, props, [...parents, obj]);
-        const uniqueMatches = result.filter(match => !parents.includes(match) && !matches.includes(match));
-        matches = matches.concat(uniqueMatches);
-      }
-    } else if (property && props.hasOwnProperty(key) &&
-      property.toString().toLowerCase().includes(props[key].toLowerCase())) {
-      if (!parents.includes(obj) && !matches.includes(obj)) {
-        matches.push(obj);
-      }
-    }
-  }
-
-  return matches;
-}
-
-
-
-
-
-
 
 
 const filteredGroups = async () => {
   //liveDocs.value.settlement.toLowerCase().includes(searchTerm.value.toLowerCase())
-  //console.log('cccccccccc>>>>------', groups_backup.value)
-  // const filtredData = groups_backup.value
-  //   .filter(doc => doc.settlement.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
-  //     doc.title.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
-  //     doc.group.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
-  //     doc.category.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
-  //     doc.format.toLowerCase().includes(searchTerm.value.toLowerCase())
+  const filtredData = liveDocs.value
+    .filter(doc => doc.settlement.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
+      doc.title.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
+      doc.group.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
+      doc.category.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
+      doc.format.toLowerCase().includes(searchTerm.value.toLowerCase())
 
-  //   )
-
-  let searchWord = searchTerm.value.toLowerCase()
-
-  const props = { name: searchWord };
-  const result = searchObjectsByProperties(groups_backup.value, props);
-  // const result = filterByPropertyValue(groups_backup.value, "name", searchWord);
-
-  //console.log(result)
-  const filtered = groupByProperties(result, ['document_type.group', 'document_type.type'])
-  //console.log('filter', filtered)
-
-
-  return filtered;
+    )
+  return filtredData;
 }
 
 
@@ -476,9 +377,8 @@ watch(
     filterLiveDocs.value = []
     filteredGroups()
       .then(res => {
-        // console.log('xxxxxxxxxxxx>>>>>', res)
-        //  groupedDocuments(res)
-        groups.value = res
+        console.log('xxxxxxxxxxxx>>>>>', res)
+        groupedDocuments(res)
 
 
       })
@@ -498,7 +398,7 @@ const handlePageChange = async (newPage) => {
   currentPage.value = newPage;
 }
 
-console.log("groups<<<---->>>", groups)
+console.log("groups", groups)
 
 </script>
 
@@ -537,8 +437,8 @@ console.log("groups<<<---->>>", groups)
             <el-table :data="docs.slice((currentPage - 1) * pageSize, currentPage * pageSize)"
               style="width: 100%; margin-left: 30px" size="small">
               style="width: 100%; margin-left: 30px" size="small">
-              <el-table-column prop="name" label="Title" />
-              <el-table-column prop="settlement.name" label="Settlement" />
+              <el-table-column prop="title" label="Title" />
+              <el-table-column prop="settlement" label="Settlement" />
               <el-table-column prop="size" label="Size(Mb)" />
               <el-table-column label="Action">
                 <template #default="scope">
