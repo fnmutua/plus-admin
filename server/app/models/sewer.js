@@ -12,16 +12,30 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
 
-    ownership_type: {
+
+    type: {
       type: DataTypes.STRING,
       allowNull: true
     },
+    
+ 
 
-    owner: {
+    pipe_type: {
       type: DataTypes.STRING,
       allowNull: true
     },
-
+    pipe_size: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    provider: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    provider_category: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
 
     length: {
       type: DataTypes.INTEGER,

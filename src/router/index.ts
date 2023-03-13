@@ -3794,24 +3794,24 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     },
     children: [
        {
-        path: 'docs',
+        path: 'manage',
       //  component: 'views/Users/County',
         component: () => import('@/views/Repository/Documents.vue'),
         name: 'RepositoryDocs',
         meta: {
-          title: 'Documents',
+          title: 'Manage',
           hidden: false,
           icon:'bi:clipboard2-data-fill'
         }
       },
 
       {
-        path: 'tagged',
+        path: 'docs',
       //  component: 'views/Users/County',
         component: () => import('@/views/Repository/DocumentsTagged.vue'),
         name: 'RepositoryTagged',
         meta: {
-          title: 'Tagged',
+          title: 'Documents',
           hidden: false,
           icon:'bi:clipboard2-data-fill'
         }

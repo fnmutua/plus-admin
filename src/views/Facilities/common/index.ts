@@ -745,8 +745,37 @@ const wasteOptions = [
 ]
 
 
+const pipeOptions = [
+  {
+    value: 'plastic',
+    label: 'Plastic'
+  },
+  {
+    value: 'concrete',
+    label: 'Concrete'
+  },
+  {
+    value: 'cast_iron',
+    label: 'Cast-Iron'
+  },
+  
+]
 
-
+const sewerTypes = [
+  {
+    value: 'domestic',
+    label: 'Domestic'
+  },
+  {
+    value: 'industrial',
+    label: 'Industrial'
+  },
+  {
+    value: 'storm',
+    label: 'Storm'
+  },
+  
+]
 getSettlements()
 getCounties()
 getSubCounties()
@@ -757,5 +786,5 @@ getRoads()
 export {
   countyOptions, settlementOptionsV2, subcountyOptions, regOptions,WaterFacilitytypeOptions,cascadeOptions,phase_options,frequencyOptions,wasteOptions,FacilityConditionOptions,
   SchoolLevelOptions, HCFTypeOptions, LevelOptions, generalOwnership, roadOptions,AssetConditionOptions,AssetTypeOptions,
-  ownsershipOptions, mhmOptions, tenancyOptions, drainageTypeOtions, SurfaceTypeOtions, RdClassOptions
+  ownsershipOptions, mhmOptions, tenancyOptions, drainageTypeOtions, SurfaceTypeOtions, RdClassOptions,pipeOptions,sewerTypes
 };

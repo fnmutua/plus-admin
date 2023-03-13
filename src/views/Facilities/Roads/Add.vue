@@ -115,11 +115,19 @@ const countries = 'ke'
 const active = ref(0)
 
 const next = () => {
-  if (active.value++ > 0) active.value = 0
-  console.log(active.value)
+  if (active.value < 1) {
+    active.value++
+  } else {
+    active.value = 0
+  }
 }
 
 
+const back = () => {
+  if (active.value > 0) {
+    active.value--
+  }
+}
 
 
 function toTitleCase(str) {
@@ -258,15 +266,14 @@ onMounted(() => {
     ];
     map.value.addControl(new MapboxLayerSwitcherControl(layers));
 
-
-
-
-
-
   });
-
-
 })
+
+
+
+
+
+
 </script>
 
 <template>
@@ -350,6 +357,11 @@ onMounted(() => {
 
 
           <el-row class="mb-4  md-5">
+
+            <el-button @click="back" type="primary">
+              <ArrowLeft /> <el-icon class="el-icon--left" /> Prev Page
+            </el-button>
+
             <el-button @click="next" type="primary"> Next Page<el-icon class="el-icon--right">
                 <ArrowRight />
               </el-icon>
