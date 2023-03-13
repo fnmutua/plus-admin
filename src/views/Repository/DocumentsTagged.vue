@@ -45,7 +45,7 @@ console.log("userInfo--->", userInfo)
 
 const pageSize = ref(5)
 const currentPage = ref(1)
-
+const loading = ref(false)
 const showAdminButtons = ref(false)
 const isMobile = computed(() => appStore.getMobile)
 
@@ -166,6 +166,7 @@ function flattenArrayOfJSON(arr) {
 
 const filterLiveDocs = ref([])
 const getFilteredData = async ([], []) => {
+  loading.value = true
   const formData = {}
   formData.limit = 1000
   formData.page = 1
@@ -198,7 +199,7 @@ const getFilteredData = async ([], []) => {
       groups_backup.value = groupByProperties(flattenedObj, ['document_type.group', 'document_type.type'])
 
 
-
+      loading.value = false
 
     });
 
@@ -522,7 +523,8 @@ console.log("groups<<<---->>>", groups)
 </script>
 
 <template>
-  <ContentWrap :title="t('Document Repository')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Document Repository')" :message="t('Use the filters to subset')" v-loading="loading"
+    element-loading-text="Getting the documents.......">
     <el-input v-model="searchTerm" placeholder="Search documents by name/settlement/format" class="search-input" />
     <el-collapse accordion>
       <el-collapse-item v-for="(formats, category) in groups" :key="category">
