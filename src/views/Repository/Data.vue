@@ -5,8 +5,8 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
-import { ElMessage, ElOptionGroup } from 'element-plus'
+import { ElButton, ElBadge, ElSelect, MessageParamsWithType } from 'element-plus'
+import { ElMessage, ElOptionGroup, ElIcon } from 'element-plus'
 import {
   Position,
   TopRight,
@@ -20,8 +20,11 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm } from 'element-plus'
+import { ref, reactive, watch, computed } from 'vue'
+import {
+  ElTable, ElTableColumn, ElCollapse, ElCollapseItem, ElPagination,
+  ElFormItem, ElInput, FormRules, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm
+} from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -40,33 +43,25 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 console.log("userInfo--->", userInfo)
 
-
-
-
-
-
-
-const { push } = useRouter()
-const value1 = ref([])
-const value2 = ref([])
-const value3 = ref([])
-const value4 = ref([])
-const value5 = ref([])
-
-const indicatorsOptions = ref([])
-const componentOptions = ref([])
-const categories = ref([])
-const filteredIndicators = ref([])
-const page = ref(1)
-const pSize = ref(5)
-const selCounties = []
-const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
-const total = ref(0)
-const downloadLoading = ref(false)
-const showAdminButtons = ref(false)
 
+const showAdminButtons = ref(false)
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
 // flag for admin buttons
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
   showAdminButtons.value = true
@@ -77,196 +72,103 @@ console.log("Show Buttons -->", showAdminButtons)
 
 
 
-let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-//var filters = []
-//var filterValues = []
-
 var filters = []
-var filterValues = []  // remember to change here!
-
-
-var tblData = []
-const associated_Model = ''
+var filterValues = []
 const model = 'document'
 
-const associated_multiple_models = ['project', 'settlement', 'indicator_category_report', 'document_type']
+const associated_multiple_models = ['project', 'indicator_category_report', 'document_type']
 //// ------------------parameters -----------------------////
-
+const nested_models = ['settlement', 'county'] // The mother, then followed by the child
+const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
 
 const { t } = useI18n()
 
 
-const columns: TableColumn[] = [
-  {
-    field: 'id',
-    label: t('Id'),
-
-  },
-
-  {
-    field: 'name',
-    label: t('Name'),
-  },
+const groups = ref()
+const groups_backup = ref()
 
 
-  {
-    field: 'document_type.type',
-    label: t('Type')
-  },
 
-  {
-    field: 'format',
-    label: t('Format')
-  },
-  {
-    field: 'size',
-    label: t('Size(mb)')
-  },
-  {
-    field: 'settlement.name',
-    label: t('Settlement')
-  },
-  {
-    field: 'project.title',
-    label: t('Project')
-  },
-  {
-    field: 'action',
-    label: t('Actions')
+
+function groupByProperties(objects, properties) {
+  const result = {};
+  for (const object of objects) {
+    // Check if the object has all the required properties
+    if (properties.some((property) => !object[property])) {
+      continue;
+    }
+
+    let currentObject = result;
+
+    for (let i = 0; i < properties.length - 1; i++) {
+      //   const propertyValue = getPropertyByPath(object, properties[i]);
+      const propertyValue = object[properties[i]];
+
+      if (!currentObject[propertyValue]) {
+        currentObject[propertyValue] = {};
+      }
+
+      currentObject = currentObject[propertyValue];
+    }
+
+    // const lastPropertyValue = getPropertyByPath(object, properties[properties.length - 1]);
+    const lastPropertyValue = object[properties[properties.length - 1]];
+
+    if (!currentObject[lastPropertyValue]) {
+      currentObject[lastPropertyValue] = [];
+    }
+
+    currentObject[lastPropertyValue].push(object);
   }
+  console.log('>>>result<<<<', result)
 
-]
-const handleClear = async () => {
-  console.log('cleared....')
-
-  // clear all the fileters -------
-  filterValues = []
-  filters = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
-  value4.value = ''
-  value5.value = ''
-  value6.value = ''
-  pSize.value = 5
-  currentPage.value = 1
-  tblData = []
-  //----run the get data--------
-  getInterventionsAll()
-}
-
-
-const handleSelectReportType = async (indicator: any) => {
-  var selectOption = 'category'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('category : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(indicator) && indicator.length > 0) {
-    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (indicator.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
-}
-
-const handleSettlement = async (indicator: any) => {
-  var selectOption = 'settlement_id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('category : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(indicator) && indicator.length > 0) {
-    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (indicator.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
-}
-
-
-const handleproject = async (indicator: any) => {
-  var selectOption = 'project_id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('category : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(indicator) && indicator.length > 0) {
-    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (indicator.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:project', indicator, filters, filterValues)
-
-  getFilteredData(filters, filterValues)
+  return result;
 }
 
 
 
+function flattenArrayOfJSON(arr) {
+  const result = [];
 
-const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
-  page.value = selPage
-  getFilteredData(filters, filterValues)
+  function flattenJSON(jsonObj) {
+    const flattenedObj = {};
+
+    function recurse(obj, currentKey) {
+      for (const key in obj) {
+        const value = obj[key];
+        const newKey = currentKey ? `${currentKey}.${key}` : key;
+
+        if (typeof value === "object" && value !== null) {
+          if (key !== "geom") {
+            recurse(value, newKey);
+          }
+        } else {
+          flattenedObj[newKey] = value;
+        }
+      }
+    }
+
+    recurse(jsonObj, null);
+    return flattenedObj;
+  }
+
+  for (const jsonObj of arr) {
+    const flattenedObj = flattenJSON(jsonObj);
+    result.push(flattenedObj);
+  }
+
+  return result;
 }
 
-const onPageSizeChange = async (size: any) => {
-  pSize.value = size
-  getFilteredData(filters, filterValues)
-}
-
-const getInterventionsAll = async () => {
-  getFilteredData(filters, filterValues)
-}
 
 
-
-const getFilteredData = async (selFilters, selfilterValues) => {
+const filterLiveDocs = ref([])
+const getFilteredData = async ([], []) => {
   const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
+  formData.limit = 1000
+  formData.page = 1
   formData.curUser = 1 // Id for logged in user
   formData.model = model
   //-Search field--------------------------------------------
@@ -274,213 +176,93 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.searchKeyword = ''
   //--Single Filter -----------------------------------------
 
-  formData.assocModel = associated_Model
 
   // - multiple filters -------------------------------------
-  formData.filters = selFilters
-  formData.filterValues = selfilterValues
+  formData.filters = []
+  formData.filterValues = []
   formData.associated_multiple_models = associated_multiple_models
+  formData.nested_models = nested_models
 
   //-------------------------
   //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-  console.log('After Querry', res)
-  // Filter only the Data
-  const filteredItems = res.data.filter(item => item.document_type.group === 'Data');
+  await getSettlementListByCounty(formData)
+    .then(response => {
+      var flattenedObj = flattenArrayOfJSON(response.data);
 
 
 
-  tableDataList.value = filteredItems
-  total.value = res.total
+      const filtDataFiles = flattenedObj.filter(file => {
+        const fileName = file.name.toLowerCase();
+        return fileName.endsWith('.csv') || fileName.endsWith('.xls') || fileName.endsWith('.zip') || fileName.endsWith('.xlsx');
+      });
 
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
-    //var dd = flattenJSON(arrayItem)
 
-    // tblData.push(dd)
-  })
+      groups.value = groupByProperties(filtDataFiles, ['document_type.group', 'document_type.type'])
 
-  console.log('TBL-4f', tblData)
-}
+
+      groups_backup.value = groupByProperties(filtDataFiles, ['document_type.group', 'document_type.type'])
 
 
 
 
-
-const makeOptions = (list) => {
-  console.log('making the options..............', list)
-  componentOptions.value = []
-  list.value.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
-    //  console.log(countyOpt)
-    componentOptions.value.push(countyOpt)
-  })
-}
-
-
-
-const programmeOptions = ref([])
-const getProgrammeOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'programme',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      programmeOptions.value.push(countyOpt)
-    })
-  })
-}
+    });
 
 
 
 
-const projectOptions = ref([])
-const getProjectOptions = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'project',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      projectOptions.value.push(opt)
-    })
-  })
-}
-
-
-
-const settlementOptions = ref([])
-const getSettlementOptions = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      settlementOptions.value.push(opt)
-    })
-  })
-}
-
-
-const MEReportsOptions = ref([])
-const getMEOptions = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'indicator_category_report',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      MEReportsOptions.value.push(opt)
-    })
-  })
-}
-
-
-
-
-getProjectOptions()
-getSettlementOptions()
-getProgrammeOptions()
-getInterventionsAll()
-
-
-const AddDocuments = () => {
-
-
-  push({
-    path: '/data/docs',
-    name: 'ImportDocuments'
-  })
 
 }
-
-const DeleteFile = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.row.id
-  formData.model = 'indicator_category_report'
-  formData.filesToDelete = [data.row.name]
+//console.log('TBL-4f', liveDocs.value)
 
 
+const xgroups = ref({
+  Reports: {
+    socio_economic_reports: [],
+    basemap_reports: [],
+    stakeholder_analysis_reports: [],
+    social_environmental_screening_reports: [],
+    planning_reports: [],
+    engineering_survey_reports: [],
+  },
+  Maps: {
+    survey_plans: [],
+    registry_index_maps: [],
+    area_lists: [],
+    beacon_certificates: [],
 
-  deleteDocument(formData)
-}
+  },
+  Plans: {
+    local_physical_land_use_development_plans: [],
+    social_management_plans: [],
+    resettlement_action_plans: [],
+    community_development_plans: [],
+
+  },
+  Data: {
+    households: [],
+    shapefiles: [],
+    satellite_imagery: [],
+    beneficiaries: [],
+    others: [],
+
+  },
+  Others: {
+    photos: [],
+    ownership_documents: [],
+    registration_documents: [],
+
+  },
+})
+
+
+
+
+
 
 const downloadFile = async (data) => {
 
+  console.log(data)
   console.log(data.row.name)
 
   const formData = {}
@@ -507,218 +289,359 @@ const downloadFile = async (data) => {
 
 
 
-const handleDownload = async () => {
-  console.log(tableDataList.value)
-
-  // change here !
-  let fields = [
-    { label: "S/No", value: "index" }, // Top level data
-    { label: "Name", value: "name" }, // Top level data
-    { label: "Size", value: "size" }, // Custom format
-    { label: "Type", value: "type" }, // Run functions
-    { label: "Report", value: "report" }, // Run functions
-    { label: "Settlement", value: "settlement" }, // Run functions
-    { label: "Project", value: "project" }, // Run functions
-
-  ]
 
 
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
-    let thisRecord = {}
-    tableDataList.value[i]
-    thisRecord.index = i + 1
-    thisRecord.name = tableDataList.value[i].name
-    thisRecord.report = tableDataList.value[i].indicator_category_report ? tableDataList.value[i].indicator_category_report.title : ''
-    thisRecord.settlement = tableDataList.value[i].settlement ? tableDataList.value[i].settlement.name : ''
-    thisRecord.project = tableDataList.value[i].project ? tableDataList.value[i].project.title : ''
-    thisRecord.size = tableDataList.value[i].size
-    thisRecord.type = tableDataList.value[i].category
-
-
-    dataHolder.push(thisRecord)
-  }
-  dataObj.content = dataHolder
-
-
-
-
-  let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
+function formatText(str) {
+  // Replace underscores with spaces
+  str = str.replace(/_/g, ' ');
+  // Convert to proper text (capitalize first letter of each word)
+  str = str.toLowerCase().replace(/\b(\w)/g, function (match, firstLetter) {
+    return firstLetter.toUpperCase();
+  });
+  return str;
 }
 
-const isMobile = computed(() => appStore.getMobile)
-
-console.log('IsMobile', isMobile)
-
-const dialogWidth = ref()
-const actionColumnWidth = ref()
-
-if (isMobile.value) {
-  dialogWidth.value = "90%"
-  actionColumnWidth.value = "75px"
-} else {
-  dialogWidth.value = "25%"
-  actionColumnWidth.value = "160px"
-
-}
-
-const DocTypes = ref([])
-const getDocumentTypes = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'document_type',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Document Typest:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
 
 
-    const nestedData = ret.reduce((acc, cur) => {
-      const group = cur.group;
-      if (!acc[group]) {
-        acc[group] = [];
+const groupedDocuments = async (data) => {
+
+
+  let tmp = data
+
+  function clearArrays(obj) {
+    for (let key in obj) {
+      if (Array.isArray(obj[key])) {
+        obj[key].length = 0;
+      } else if (typeof obj[key] === 'object') {
+        clearArrays(obj[key]);
       }
-      acc[group].push(cur);
-      return acc;
-    }, {});
+    }
+  }
 
-    console.log(nestedData.Map)
-    for (let property in nestedData) {
-      let opts = nestedData[property];
-      var doc = {}
-      doc.label = property
-      doc.options = []
+  clearArrays(groups)
+  console.log('inside grouping....', groups)
 
-      opts.forEach(function (arrayItem) {
-        let opt = {}
-        opt.value = arrayItem.id
-        opt.label = arrayItem.type
-        doc.options.push(opt)
+
+  for (const doc of data) {
+    // for (let i = 0; i < data.length; i++) {
+    //   let doc = data[i]
+    //filterLiveDocs
+    // console.log('Looping though the data>>>>>>>>', doc)
+    if (doc.group === 'Report') {
+      // console.log('------------>', doc)
+      if (doc.category === 'Socio Economic Report') {
+        groups.value.Reports.socio_economic_reports.push(doc);
+        //   console.log(doc)
+      } else if (doc.category === 'Basemap Report') {
+        groups.value.Reports.basemap_reports.push(doc);
+      } else if (doc.category === 'Stakeholder Analysis Report') {
+        groups.value.Reports.stakeholder_analysis_reports.push(doc);
+      }
+      else if (doc.category === 'Social Environmental Screening Report') {
+        groups.value.Reports.social_environmental_screening_reports.push(doc);
+      }
+      else if (doc.category === 'Planning Report') {
+        groups.value.Reports.planning_reports.push(doc);
+      }
+      else if (doc.category === 'Engineering Survey Report') {
+        groups.value.Reports.engineering_survey_reports.push(doc);
+      }
+      else {
+        groups.value.Reports.planning_reports.push(doc);
+      }
+
+    } else if (doc.group === 'Maps') {
+      if (doc.category === 'Survey Plans') {
+        groups.value.Maps.survey_plans.push(doc);
+        console.log(doc)
+      } else if (doc.category === 'Registry Index Maps') {
+        groups.value.Maps.registry_index_maps.push(doc);
+      } else if (doc.category === 'Area List') {
+        groups.value.Maps.area_lists.push(doc);
+      }
+      else if (doc.category === 'Beacon Certificates') {
+        groups.value.Maps.beacon_certificates.push(doc);
+      }
+      else if (doc.category === 'Survey Plans') {
+        groups.value.Maps.survey_plans.push(doc);
+      }
+    }
+
+    else if (doc.group === 'Data') {
+      if (doc.category === 'Households') {
+        groups.value.Data.households.push(doc);
+        console.log(doc)
+      } else if (doc.category === 'Shapefile') {
+        groups.value.Data.shapefiles.push(doc);
+      } else if (doc.category === 'Satellite Imagery') {
+        groups.value.Data.satellite_imagery.push(doc);
+      }
+      else if (doc.category === 'Beneficiaries') {
+        groups.value.Data.beneficiaries.push(doc);
+      }
+      else if (doc.category === 'Other') {
+        groups.value.Data.others.push(doc);
+      }
+    }
+
+
+    else if (doc.group === 'Plan') {
+      if (doc.category === 'Local Physical Land Use Development Plan') {
+        groups.value.Plans.local_physical_land_use_development_plans.push(doc);
+      } else if (doc.category === 'Social Management Plan') {
+        groups.value.Plans.social_management_plans.push(doc);
+      } else if (doc.category === 'Resettlement Action Plan') {
+        groups.value.Plans.resettlement_action_plans.push(doc);
+      }
+      else if (doc.category === 'Community Development Plan') {
+        groups.value.Plans.community_development_plans.push(doc);
+      }
+
+    }
+
+
+    else if (doc.group === 'Others') {
+      if (doc.category === 'Photo') {
+        groups.value.Others.photos.push(doc);
+        console.log(doc)
+      } else if (doc.category === 'Ownership Document') {
+        groups.value.Others.ownership_documents.push(doc);
+      } else if (doc.category === 'Registration Document') {
+        groups.value.Others.registration_documents.push(doc);
+      }
+
+
+    }
+
+  }
+
+  //console.log('after Groups....', groups.value)
+
+  return groups;
+}
+
+
+
+
+
+getFilteredData(filters, filterValues)
+
+//getDocumentTypes()
+const searchTerm = ref('')
+function searchObjectsByProperties(obj, props, parents = []) {
+  let matches = [];
+
+  for (let key in obj) {
+    const property = obj[key];
+    if (typeof property === 'object' && property !== null) {
+      if (Array.isArray(property)) {
+        for (let i = 0; i < property.length; i++) {
+          const result = searchObjectsByProperties(property[i], props, [...parents, obj]);
+          const uniqueMatches = result.filter(match => !parents.includes(match) && !matches.includes(match));
+          matches = matches.concat(uniqueMatches);
+        }
+      } else {
+        const result = searchObjectsByProperties(property, props, [...parents, obj]);
+        const uniqueMatches = result.filter(match => !parents.includes(match) && !matches.includes(match));
+        matches = matches.concat(uniqueMatches);
+      }
+    } else if (property && props.hasOwnProperty(key) &&
+      property.toString().toLowerCase().includes(props[key].toLowerCase())) {
+      if (!parents.includes(obj) && !matches.includes(obj)) {
+        matches.push(obj);
+      }
+    }
+  }
+
+  return matches;
+}
+
+
+
+
+
+
+
+
+const filteredGroups = async () => {
+  //liveDocs.value.settlement.toLowerCase().includes(searchTerm.value.toLowerCase())
+  //console.log('cccccccccc>>>>------', groups_backup.value)
+  // const filtredData = groups_backup.value
+  //   .filter(doc => doc.settlement.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
+  //     doc.title.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
+  //     doc.group.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
+  //     doc.category.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
+  //     doc.format.toLowerCase().includes(searchTerm.value.toLowerCase())
+
+  //   )
+
+
+  let searchWord = searchTerm.value.toLowerCase()
+
+  const props = { 'name': searchWord, 'settlement.name': searchWord, 'settlement.county.name': searchWord };
+  console.log(props)
+  const result = searchObjectsByProperties(groups_backup.value, props);
+  // const result = filterByPropertyValue(groups_backup.value, "name", searchWord);
+
+  //console.log(result)
+  const filtered = groupByProperties(result, ['document_type.group', 'document_type.type'])
+  console.log('filter', filtered)
+
+
+  return filtered;
+}
+
+
+
+watch(
+  searchTerm,
+  async (newValue, oldValue) => {
+    console.log(`Input value changed from ${oldValue} to ${newValue}`);
+    // Do something else here
+    filterLiveDocs.value = []
+    filteredGroups()
+      .then(res => {
+        // console.log('xxxxxxxxxxxx>>>>>', res)
+        //  groupedDocuments(res)
+        groups.value = res
+
 
       })
-      DocTypes.value.push(doc)
 
-    }
-    console.log(DocTypes)
 
-  })
+    // console.log('filterLiveDocs....', filterLiveDocs.value)
+    // console.log('groups....', groups.value)
+  },
+  {
+    immediate: true
+  }
+);
+
+
+const handlePageChange = async (newPage) => {
+
+  currentPage.value = newPage;
 }
-getDocumentTypes()
+
+console.log("groups<<<---->>>", groups)
 
 </script>
 
 <template>
-  <ContentWrap :title="t('Document Repository')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+  <ContentWrap :title="t('Data Repository')" :message="t('Use the filters to subset')">
+    <el-input v-model="searchTerm" placeholder="Search uploaded by name/settlement/county/format" class="search-input" />
+    <el-collapse accordion>
+      <el-collapse-item v-for="(formats, category) in groups" :key="category">
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectReportType" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter by Type">
-        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
-          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-        </el-option-group>
-      </el-select>
-    </div>
+        <template #title>
+          <Icon icon="material-symbols:folder-open-outline" class="collapsible-header-icon  " width="48" />
+          <span class="collapsible-header-text">{{ formatText(category) }}</span>
+        </template>
 
-    <div style="display: inline-block; margin-left: 5px">
-      <el-select v-model="value4" multiple clearable filterable :onChange="handleSettlement"
-        placeholder="Filter by Settlement">
-        <el-option v-for="(option, index) in settlementOptions" :key="index" :label="option.label" :value="option.value"
-          :disabled="option.disabled" />
-      </el-select>
-    </div>
+        <el-collapse accordion>
+          <el-collapse-item v-for="(docs, format) in formats" :key="format">
+            <template #title>
+              <Icon v-if="category === 'Report'" icon="ion:document-outline" color='gray'
+                class="collapsible-nested-header-icon " width="36" />
+              <Icon v-if="category === 'Map'" icon="ri:road-map-line" class="collapsible-nested-header-icon "
+                color='green' width="36" />
+              <Icon v-if="category === 'Data'" icon="material-symbols:chart-data-outline"
+                class="collapsible-nested-header-icon " color='gray' width="36" />
+              <Icon v-if="category === 'Other'" icon="material-symbols:linked-camera-outline"
+                class="collapsible-nested-header-icon " color='gray' width="24" />
+              <Icon v-if="category === 'Plan'" icon="carbon:heat-map-03" class="collapsible-nested-header-icon "
+                color='gray' width="24" />
 
-    <div style="display: inline-block; margin-left: 5px">
-      <el-select v-model="value5" multiple clearable filterable :onChange="handleproject" placeholder="Filter by Project">
-        <el-option v-for="(option, index) in projectOptions" :key="index" :label="option.label" :value="option.value"
-          :disabled="option.disabled" />
-      </el-select>
-    </div>
+              <span class="format-header-text">{{ formatText(format) }}</span>
+              <el-badge v-if="docs.length > 0" :value="docs.length" class="collapsible-header-badge" />
 
-
-
-
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Upload Documents" placement="top">
-        <el-button :onClick="AddDocuments" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
-
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
-
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="false" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-
-
-        <el-dropdown v-if="isMobile">
-          <span class="el-dropdown-link">
-            <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item @click="downloadFile(data as TableSlotDefault)"
-                :icon="Download">Download</el-dropdown-item>
-              <el-dropdown-item v-if="showAdminButtons" @click="DeleteFile(data as TableSlotDefault)" :icon="Delete"
-                color="red">Delete</el-dropdown-item>
-
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+            </template>
+            <el-table :data="docs.slice((currentPage - 1) * pageSize, currentPage * pageSize)"
+              style="width: 100%; margin-left: 30px" size="small">
+              <el-table-column label="#" type="index" width="50">
+                <template #default="{ $index }">
+                  <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="name" label="Title" />
+              <el-table-column prop="settlement.name" label="Settlement" />
+              <el-table-column prop="settlement.county.name" label="County" />
+              <el-table-column prop="size" label="Size(Mb)" />
+              <el-table-column label="Action">
+                <template #default="scope">
+                  <el-button @click="downloadFile(scope)" type="primary" icon="el-icon-download">Download</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pagination-wrapper" v-if="docs.length > 5">
+              <el-pagination :page-size="5" background small layout="prev, pager, next" :total="docs.length"
+                @current-change="handlePageChange" />
+            </div>
+          </el-collapse-item>
+        </el-collapse>
+      </el-collapse-item>
+    </el-collapse>
 
 
-        <div v-else>
-
-
-
-          <el-tooltip content="Edit" placement="top">
-            <el-button type="success" :icon="Download" @click="downloadFile(data as TableSlotDefault)" circle />
-          </el-tooltip>
-
-          <el-tooltip content="Delete" placement="top">
-            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-              title="Are you sure to delete this record?" @confirm="DeleteFile(data as TableSlotDefault)">
-              <template #reference>
-                <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
-              </template>
-            </el-popconfirm>
-          </el-tooltip>
-        </div>
-
-
-
-      </template>
-    </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 </template>
+<style scoped>
+.collapsible-header-icon {
+  margin-right: 8px;
+}
+
+.collapsible-nested-header-icon {
+  margin-right: 8px;
+  margin-left: 20px;
+}
+
+.collapsible-header-text {
+  vertical-align: middle;
+  font-size: 16px;
+
+}
+
+.collapsible-header-style {
+  background-color: #a8a0a0;
+}
+
+.format-header-text {
+  vertical-align: middle;
+  font-size: 14px;
+
+}
+
+.doc-list {
+  margin-left: 30px;
+}
+
+.doc-info {
+  display: flex;
+  flex-direction: column;
+  margin-left: 12px;
+}
+
+.doc-title {
+  font-weight: bold;
+}
+
+.doc-author {
+  margin-top: 5px;
+}
+
+.doc-date {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #888;
+}
+
+.item {
+  margin-top: 40px;
+  margin-right: 40px;
+}
+
+.el-divider {
+  margin: 5px 0;
+  border-top: 1px solid #dcdfe6;
+}
+</style>

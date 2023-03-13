@@ -67,7 +67,7 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 
 import "mapbox-layer-switcher/styles.css";
 
-import { countyOptions, settlementOptionsV2, subcountyOptions, generalOwnership } from './../common/index.ts'
+import { countyOptions, settlementOptionsV2, subcountyOptions, generalOwnership, pipeOptions, sewerTypes } from './../common/index.ts'
 
 
 
@@ -1006,9 +1006,12 @@ const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   id: '',
   name: '',
-  ownership_type: '',
-  owner: '',
+  provider: '',
+  provider_category: '',
   length: 0,
+  type: '',
+  pipe_type: '',
+  pipe_size: null,
   number_connections: 0,
   settlement_id: '',
   county_id: '',
@@ -1027,13 +1030,16 @@ const editFacility = (data: TableSlotDefault) => {
   currentRow.value = data.id
   ruleForm.id = data.id
   ruleForm.name = data.name
-  ruleForm.ownership_type = data.ownership_type
-  ruleForm.owner = data.owner
+  ruleForm.type = data.type
+
+  ruleForm.provider_category = data.provider_category
+  ruleForm.provider = data.provider
   ruleForm.number_connections = data.number_connections
   ruleForm.settlement_id = data.settlement_id
   ruleForm.county_id = data.county_id
   ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.geom = data.geom
+  ruleForm.pipe_type = data.pipe_type
+  ruleForm.pipe_size = data.pipe_size
 
 
 
@@ -1267,14 +1273,14 @@ const next = () => {
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="Ownership">
-                    <el-select v-model="ruleForm.ownership_type" filterable placeholder="Select">
+                  <el-form-item label="Service">
+                    <el-select v-model="ruleForm.provider_category" filterable placeholder="Select">
                       <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="Owner " prop="Owner">
-                    <el-input v-model="ruleForm.owner" />
+                  <el-form-item label="Provider " prop="provider">
+                    <el-input v-model="ruleForm.provider" />
                   </el-form-item>
                 </el-col>
 
@@ -1282,16 +1288,28 @@ const next = () => {
 
               <el-row class="mb-4  md-5" v-if="active === 1" :gutter="20">
                 <el-divider content-position="left" />
+                <el-form-item label="Type">
+                  <el-select v-model="ruleForm.type" filterable placeholder="Select">
+                    <el-option v-for="item in sewerTypes" :key="item.value" :label="item.label" :value="item.value" />
+                  </el-select>
+                </el-form-item>
 
                 <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
-                  <el-form-item label="Connections" prop="Owner">
+                  <el-form-item label="Connections " prop="Owner">
                     <el-input-number v-model="ruleForm.number_connections" />
                   </el-form-item>
 
                   <el-form-item label="Length(Km) " prop="length">
                     <el-input-number v-model="ruleForm.length" />
                   </el-form-item>
-
+                  <el-form-item label="Pipe">
+                    <el-select v-model="ruleForm.pipe_type" filterable placeholder="Select">
+                      <el-option v-for="item in pipeOptions" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="Pipe Size " prop="pipe_size">
+                    <el-input-number v-model="ruleForm.pipe_size" />
+                  </el-form-item>
 
                 </el-col>
               </el-row>

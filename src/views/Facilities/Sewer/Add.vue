@@ -56,7 +56,7 @@ import { CreateRecord } from '@/api/settlements'
 import type { FormInstance } from 'element-plus'
 import { uuid } from 'vue-uuid'
 
-import { countyOptions, settlementOptionsV2, subcountyOptions, generalOwnership } from './../common/index.ts'
+import { countyOptions, settlementOptionsV2, subcountyOptions, generalOwnership, pipeOptions, sewerTypes } from './../common/index.ts'
 
 
 const model = 'sewer'
@@ -67,9 +67,12 @@ const colors = ref(['#99A9BF', '#F7BA2A', '#FF9900']) // same as { 2: '#99A9BF',
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   name: '',
-  ownership_type: '',
-  owner: '',
+  provider: '',
+  provider_category: '',
   length: 0,
+  type: '',
+  pipe_type: '',
+  pipe_size: null,
   number_connections: 0,
   settlement_id: '',
   county_id: '',
@@ -148,7 +151,6 @@ const rules = reactive<FormRules>({
 
 })
 
-const countries = 'ke'
 
 
 
@@ -161,11 +163,19 @@ const countries = 'ke'
 const active = ref(0)
 
 const next = () => {
-  if (active.value++ > 0) active.value = 0
-  console.log(active.value)
+  if (active.value < 1) {
+    active.value++
+  } else {
+    active.value = 0
+  }
 }
 
 
+const back = () => {
+  if (active.value > 0) {
+    active.value--
+  }
+}
 
 
 function toTitleCase(str) {
@@ -359,7 +369,7 @@ onMounted(() => {
 
 
               <el-row>
-                <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+                <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="County" prop="county_id">
                     <el-select v-model="ruleForm.county_id" filterable placeholder="County"
                       :onChange="handleSelectCounty">
@@ -369,7 +379,7 @@ onMounted(() => {
                   </el-form-item>
                 </el-col>
 
-                <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+                <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Subcounty" prop="subcounty_id">
                     <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
                       <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
@@ -378,32 +388,47 @@ onMounted(() => {
                   </el-form-item>
                 </el-col>
               </el-row>
+              <el-row>
 
-              <el-col :xl="24" :lg="24" :md="12" :sm="12" :xs="24">
+                <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
 
-                <el-form-item label="Settlement" prop="settlement_id">
-                  <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-                    <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
-                      :value="item.value" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="Ownership">
-                  <el-select v-model="ruleForm.ownership_type" filterable placeholder="Select">
-                    <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label"
-                      :value="item.value" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="Owner " prop="Owner">
-                  <el-input v-model="ruleForm.owner" />
-                </el-form-item>
-              </el-col>
+                  <el-form-item label="Settlement" prop="settlement_id">
+                    <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
+                      <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+                        :value="item.value" />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="Provider " prop="provider">
+                    <el-input v-model="ruleForm.provider" />
+                  </el-form-item>
+                </el-col>
+                <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
+
+                  <el-form-item label="Service">
+                    <el-select v-model="ruleForm.provider_category" filterable placeholder="Select">
+                      <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label"
+                        :value="item.value" />
+                    </el-select>
+                  </el-form-item>
+
+                </el-col>
+              </el-row>
 
             </el-row>
 
             <el-row class="mb-4  md-5" v-if="active === 1" :gutter="20">
               <el-divider content-position="left" />
+              <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
 
-              <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
+                <el-form-item label="Type">
+                  <el-select v-model="ruleForm.type" filterable placeholder="Select">
+                    <el-option v-for="item in sewerTypes" :key="item.value" :label="item.label" :value="item.value" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+
+
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Connections " prop="Owner">
                   <el-input-number v-model="ruleForm.number_connections" />
                 </el-form-item>
@@ -412,13 +437,29 @@ onMounted(() => {
                   <el-input-number v-model="ruleForm.length" />
                 </el-form-item>
 
-
               </el-col>
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
+
+                <el-form-item label="Pipe">
+                  <el-select v-model="ruleForm.pipe_type" filterable placeholder="Select">
+                    <el-option v-for="item in pipeOptions" :key="item.value" :label="item.label" :value="item.value" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="Pipe Size " prop="pipe_size">
+                  <el-input-number v-model="ruleForm.pipe_size" />
+                </el-form-item>
+              </el-col>
+
+
             </el-row>
           </el-form>
 
 
           <el-row class="mb-4  md-5">
+            <el-button @click="back" type="primary">
+              <ArrowLeft /> <el-icon class="el-icon--left" /> Prev Page
+            </el-button>
+
             <el-button @click="next" type="primary"> Next Page<el-icon class="el-icon--right">
                 <ArrowRight />
               </el-icon>

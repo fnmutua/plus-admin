@@ -78,8 +78,10 @@ var filters = []
 var filterValues = []
 const model = 'document'
 
-const associated_multiple_models = ['project', 'settlement', 'indicator_category_report', 'document_type']
+const associated_multiple_models = ['project', 'indicator_category_report', 'document_type']
 //// ------------------parameters -----------------------////
+const nested_models = ['settlement', 'county'] // The mother, then followed by the child
+const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
 
 const { t } = useI18n()
 
@@ -87,23 +89,22 @@ const { t } = useI18n()
 const groups = ref()
 const groups_backup = ref()
 
-function getPropertyByPath(obj, path) {
-  return path.split('.').reduce((acc, part) => acc && acc[part], obj);
-}
+
+
 
 function groupByProperties(objects, properties) {
   const result = {};
-
   for (const object of objects) {
     // Check if the object has all the required properties
-    if (properties.some((property) => !getPropertyByPath(object, property))) {
+    if (properties.some((property) => !object[property])) {
       continue;
     }
 
     let currentObject = result;
 
     for (let i = 0; i < properties.length - 1; i++) {
-      const propertyValue = getPropertyByPath(object, properties[i]);
+      //   const propertyValue = getPropertyByPath(object, properties[i]);
+      const propertyValue = object[properties[i]];
 
       if (!currentObject[propertyValue]) {
         currentObject[propertyValue] = {};
@@ -112,7 +113,8 @@ function groupByProperties(objects, properties) {
       currentObject = currentObject[propertyValue];
     }
 
-    const lastPropertyValue = getPropertyByPath(object, properties[properties.length - 1]);
+    // const lastPropertyValue = getPropertyByPath(object, properties[properties.length - 1]);
+    const lastPropertyValue = object[properties[properties.length - 1]];
 
     if (!currentObject[lastPropertyValue]) {
       currentObject[lastPropertyValue] = [];
@@ -120,19 +122,48 @@ function groupByProperties(objects, properties) {
 
     currentObject[lastPropertyValue].push(object);
   }
+  console.log('>>>result<<<<', result)
 
   return result;
 }
 
 
 
+function flattenArrayOfJSON(arr) {
+  const result = [];
+
+  function flattenJSON(jsonObj) {
+    const flattenedObj = {};
+
+    function recurse(obj, currentKey) {
+      for (const key in obj) {
+        const value = obj[key];
+        const newKey = currentKey ? `${currentKey}.${key}` : key;
+
+        if (typeof value === "object" && value !== null) {
+          if (key !== "geom") {
+            recurse(value, newKey);
+          }
+        } else {
+          flattenedObj[newKey] = value;
+        }
+      }
+    }
+
+    recurse(jsonObj, null);
+    return flattenedObj;
+  }
+
+  for (const jsonObj of arr) {
+    const flattenedObj = flattenJSON(jsonObj);
+    result.push(flattenedObj);
+  }
+
+  return result;
+}
 
 
 
-
-
-
-const liveDocs = ref([])
 const filterLiveDocs = ref([])
 const getFilteredData = async ([], []) => {
   const formData = {}
@@ -150,37 +181,23 @@ const getFilteredData = async ([], []) => {
   formData.filters = []
   formData.filterValues = []
   formData.associated_multiple_models = associated_multiple_models
+  formData.nested_models = nested_models
 
   //-------------------------
   //console.log(formData)
   await getSettlementListByCounty(formData)
     .then(response => {
+      var flattenedObj = flattenArrayOfJSON(response.data);
+
+      console.log(flattenedObj)
       console.log(response.data)
 
-      groups.value = groupByProperties(response.data, ['document_type.group', 'document_type.type'])
-      console.log(groups)
-
-      groups_backup.value = groupByProperties(response.data, ['document_type.group', 'document_type.type'])
+      groups.value = groupByProperties(flattenedObj, ['document_type.group', 'document_type.type'])
 
 
-      // const categories = groupByProperties(objects, ['category.main', 'category.sub']);
+      groups_backup.value = groupByProperties(flattenedObj, ['document_type.group', 'document_type.type'])
 
-      // response.data.forEach(function (arrayItem) {
-      //   //    console.log(arrayItem)
-      //   let doc = {}
-      //   doc.title = arrayItem.name
-      //   doc.format = arrayItem.format
-      //   doc.group = arrayItem.document_type.group
-      //   doc.category = arrayItem.document_type.type
-      //   doc.settlement = arrayItem.settlement ? arrayItem.settlement.name : ''
-      //   doc.link = arrayItem.location
-      //   doc.size = arrayItem.size
 
-      //   liveDocs.value.push(doc)
-      //   filterLiveDocs.value.push(doc)
-      // })
-
-      // groupedDocuments(filterLiveDocs.value)
 
 
     });
@@ -452,15 +469,17 @@ const filteredGroups = async () => {
 
   //   )
 
+
   let searchWord = searchTerm.value.toLowerCase()
 
-  const props = { name: searchWord };
+  const props = { 'name': searchWord, 'settlement.name': searchWord, 'settlement.county.name': searchWord };
+  console.log(props)
   const result = searchObjectsByProperties(groups_backup.value, props);
   // const result = filterByPropertyValue(groups_backup.value, "name", searchWord);
 
   //console.log(result)
   const filtered = groupByProperties(result, ['document_type.group', 'document_type.type'])
-  //console.log('filter', filtered)
+  console.log('filter', filtered)
 
 
   return filtered;
@@ -519,15 +538,15 @@ console.log("groups<<<---->>>", groups)
         <el-collapse accordion>
           <el-collapse-item v-for="(docs, format) in formats" :key="format">
             <template #title>
-              <Icon v-if="category === 'Reports'" icon="ion:document-outline" color='gray'
+              <Icon v-if="category === 'Report'" icon="ion:document-outline" color='gray'
                 class="collapsible-nested-header-icon " width="36" />
-              <Icon v-if="category === 'Maps'" icon="ri:road-map-line" class="collapsible-nested-header-icon "
+              <Icon v-if="category === 'Map'" icon="ri:road-map-line" class="collapsible-nested-header-icon "
                 color='green' width="36" />
               <Icon v-if="category === 'Data'" icon="material-symbols:chart-data-outline"
                 class="collapsible-nested-header-icon " color='gray' width="36" />
-              <Icon v-if="category === 'Others'" icon="material-symbols:linked-camera-outline"
+              <Icon v-if="category === 'Other'" icon="material-symbols:linked-camera-outline"
                 class="collapsible-nested-header-icon " color='gray' width="24" />
-              <Icon v-if="category === 'Plans'" icon="carbon:heat-map-03" class="collapsible-nested-header-icon "
+              <Icon v-if="category === 'Plan'" icon="carbon:heat-map-03" class="collapsible-nested-header-icon "
                 color='gray' width="24" />
 
               <span class="format-header-text">{{ formatText(format) }}</span>
@@ -536,9 +555,14 @@ console.log("groups<<<---->>>", groups)
             </template>
             <el-table :data="docs.slice((currentPage - 1) * pageSize, currentPage * pageSize)"
               style="width: 100%; margin-left: 30px" size="small">
-              style="width: 100%; margin-left: 30px" size="small">
+              <el-table-column label="#" type="index" width="50">
+                <template #default="{ $index }">
+                  <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
+                </template>
+              </el-table-column>
               <el-table-column prop="name" label="Title" />
               <el-table-column prop="settlement.name" label="Settlement" />
+              <el-table-column prop="settlement.county.name" label="County" />
               <el-table-column prop="size" label="Size(Mb)" />
               <el-table-column label="Action">
                 <template #default="scope">
@@ -547,7 +571,7 @@ console.log("groups<<<---->>>", groups)
               </el-table-column>
             </el-table>
             <div class="pagination-wrapper" v-if="docs.length > 5">
-              <el-pagination :page-size="5" layout="prev, pager, next" :total="docs.length"
+              <el-pagination :page-size="5" background small layout="prev, pager, next" :total="docs.length"
                 @current-change="handlePageChange" />
             </div>
           </el-collapse-item>

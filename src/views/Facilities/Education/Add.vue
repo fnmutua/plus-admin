@@ -178,23 +178,19 @@ const countries = 'ke'
 const active = ref(0)
 
 const next = () => {
-  active.value++
-  if (active.value++ > 1) active.value = 0
-  console.log(active.value)
+  if (active.value < 2) {
+    active.value++
+  } else {
+    active.value = 0
+  }
 }
+
 
 const back = () => {
-  active.value--
-  if (active.value-- > 1) active.value = 0
-  console.log(active.value)
-
-
+  if (active.value > 0) {
+    active.value--
+  }
 }
-
-
-
-
-
 
 
 
@@ -428,32 +424,33 @@ const digitize = ref()
 <template>
   <ContentWrap :title="title">
 
-    <el-row :gutter="10">
+    <el-row :gutter="5">
       <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card class="box-card">
-
-
           <el-steps :active="active" finish-status="success" simple>
             <el-step title="Profile" />
             <el-step title="Enrollment" />
-
+            <el-step title="Facilities" />
           </el-steps>
-
           <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
             status-icon>
-
-            <el-row v-if="active === 0" :gutter="20">
+            <el-row v-if="active === 0">
               <el-divider content-position="left" />
+              <el-row>
+                <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="Name" prop="name">
+                    <el-input v-model="ruleForm.name" />
+                  </el-form-item>
+                </el-col>
 
-              <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
-                <el-form-item label="Name" prop="name">
-                  <el-input v-model="ruleForm.name" />
-                </el-form-item>
-
-                <div class="grid-content ep-bg-purple">
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Facility No." prop="facility_number">
                     <el-input v-model="ruleForm.school_number" />
                   </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row>
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="County" prop="county_id">
                     <el-select v-model="ruleForm.county_id" filterable placeholder="County"
                       :onChange="handleSelectCounty">
@@ -461,159 +458,175 @@ const digitize = ref()
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
-
+                </el-col>
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Subcounty" prop="subcounty_id">
                     <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
                       <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
-
+                </el-col>
+              </el-row>
+              <el-row>
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Settlement" prop="settlement_id">
                     <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
                       <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
-
-                  <el-form-item label="Location" prop="location">
-                    <el-switch style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
-                      @change="handleFlipSwitch" class="mb-2" active-text="Input Coordinates" inactive-text="Digitize" />
-                  </el-form-item>
-
-
-                  <el-form-item v-if="digitize" label="Latitude" prop="latitude">
-                    <el-input-number v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
-                      @change="handleInputCoordinates" />
-                  </el-form-item>
-
-                  <el-form-item v-if="digitize" label="Longitude" prop="longitude">
-                    <el-input-number v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
-                      @change="handleInputCoordinates" />
-                  </el-form-item>
-
-
-                </div>
-              </el-col>
-              <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
-                <div class="grid-content ep-bg-purple">
-
+                </el-col>
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Registration" prop="reg_status">
                     <el-select v-model="ruleForm.reg_status" placeholder="Registration">
                       <el-option v-for="item in regOptions" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                   </el-form-item>
+                </el-col>
+              </el-row>
 
+              <el-row>
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Ownership" prop="ownership_type">
                     <el-select v-model="ruleForm.ownership_type" placeholder="Ownership">
                       <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
-
+                </el-col>
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Owner" prop="owner">
                     <el-input v-model="ruleForm.owner" />
                   </el-form-item>
+                </el-col>
+              </el-row>
 
+              <el-row>
+                <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="Location" prop="location">
+                    <el-switch style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
+                      @change="handleFlipSwitch" class="mb-2" active-text="Input Coordinates" inactive-text="Digitize" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row>
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item v-if="digitize" label="Latitude" prop="latitude">
+                    <el-input-number v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
+                      @change="handleInputCoordinates" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item v-if="digitize" label="Longitude" prop="longitude">
+                    <el-input-number v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
+                      @change="handleInputCoordinates" />
+                  </el-form-item>
+                </el-col>
+
+              </el-row>
+            </el-row>
+            <el-row v-if="active === 1" :gutter="10">
+              <el-divider content-position="left" />
+
+              <el-row>
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Level" prop="level">
                     <el-select v-model="ruleForm.level" placeholder="Level">
                       <el-option v-for="item in SchoolLevelOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
-
+                </el-col>
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Avg. Fees/term">
                     <el-input-number v-model="ruleForm.avg_fees_term" />
                   </el-form-item>
+                </el-col>
+              </el-row>
 
 
-                </div>
-              </el-col>
-
-            </el-row>
-
-
-
-
-
-
-
-            <el-row v-if="active === 1" :gutter="20">
-              <el-divider content-position="left" />
-
-              <div class="grid-content ep-bg-purple">
-
+              <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Male">
                   <el-input-number v-model="ruleForm.male_enrollment" />
                 </el-form-item>
-
-              </div>
-              <div class="grid-content ep-bg-purple">
-                <el-form-item label="Female">
-                  <el-input-number v-model="ruleForm.female_enrollment" />
-                </el-form-item>
-              </div>
-              <div class="grid-content ep-bg-purple">
                 <el-form-item label="Teachers">
                   <el-input-number v-model="ruleForm.number_teachers" />
                 </el-form-item>
-              </div>
-              <div class="grid-content ep-bg-purple">
+              </el-col>
+
+              <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+                <el-form-item label="Female">
+                  <el-input-number v-model="ruleForm.female_enrollment" />
+                </el-form-item>
                 <el-form-item label="Staff">
                   <el-input-number v-model="ruleForm.number_other_staff" />
                 </el-form-item>
-              </div>
+              </el-col>
             </el-row>
-
-
-
 
 
             <el-row v-if="active === 2" :gutter="10">
               <el-divider content-position="left" />
-
-              <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
-                <el-form-item label="No. Classrooms" prop="number_classrooms">
-                  <el-input-number v-model="ruleForm.number_classrooms" />
-                </el-form-item>
-
-                <div class="grid-content ep-bg-purple">
+              <el-row>
+                <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="No. Classrooms" prop="number_classrooms">
+                    <el-input-number v-model="ruleForm.number_classrooms" />
+                  </el-form-item>
+                </el-col>
+                <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Female toilets" prop="number_female_toilets">
                     <el-input-number v-model="ruleForm.number_female_toilets" />
                   </el-form-item>
+                </el-col>
+              </el-row>
+
+
+              <el-row>
+                <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="No. Male Toilets" prop="number_male_toilets">
                     <el-input-number v-model="ruleForm.number_male_toilets" />
                   </el-form-item>
-
-
-                  <el-form-item label="Handwashing Stn.s" prop="number_handwashing_stns">
+                </el-col>
+                <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="H/W stations" prop="number_handwashing_stns">
                     <el-input-number v-model="ruleForm.number_handwashing_stns" />
                   </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row>
+                <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Mens. Hygiene" prop="mhm">
                     <el-select v-model="ruleForm.mhm" filterable placeholder="MHM">
                       <el-option v-for="item in mhmOptions" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                   </el-form-item>
-
+                </el-col>
+                <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Tenancy" prop="tenancy">
                     <el-select v-model="ruleForm.tenancy" filterable placeholder="Owned/Rented">
                       <el-option v-for="item in tenancyOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
-
-
+                </el-col>
+              </el-row>
+              <el-row>
+                <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Parcel Title" prop="tenure">
                     <el-switch v-model="ruleForm.parcel_tenure" class="mb-2" inline-prompt size="large"
                       style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes"
                       inactive-text="No" />
                   </el-form-item>
+                </el-col>
+
+              </el-row>
 
 
-                </div>
-              </el-col>
 
             </el-row>
+
 
 
 
@@ -626,7 +639,6 @@ const digitize = ref()
             <el-button @click="back" type="primary">
               <ArrowLeft /> <el-icon class="el-icon--left" /> Back
             </el-button>
-
             <el-button @click="next" type="primary"> Next <el-icon class="el-icon--right">
                 <ArrowRight />
               </el-icon>

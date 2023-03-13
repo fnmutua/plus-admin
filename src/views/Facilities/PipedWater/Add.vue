@@ -159,10 +159,6 @@ const countries = 'ke'
 
 const active = ref(0)
 
-const next = () => {
-  if (active.value++ > 0) active.value = 0
-  console.log(active.value)
-}
 
 
 
@@ -314,6 +310,20 @@ onMounted(() => {
 })
 
 
+const next = () => {
+  if (active.value < 1) {
+    active.value++
+  } else {
+    active.value = 0
+  }
+}
+
+
+const back = () => {
+  if (active.value > 0) {
+    active.value--
+  }
+}
 
 </script>
 
@@ -336,38 +346,39 @@ onMounted(() => {
 
             <el-row v-if="active === 0" :gutter="20">
               <el-divider />
-              <el-col :xl="24" :lg="24" :md="12" :sm="12" :xs="24">
+              <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Scheme Name" prop="name">
                   <el-input v-model="ruleForm.name" />
                 </el-form-item>
               </el-col>
+            </el-row>
 
 
-              <el-row>
-                <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
-                  <el-form-item label="County" prop="county_id">
-                    <el-select v-model="ruleForm.county_id" filterable placeholder="County"
-                      :onChange="handleSelectCounty">
-                      <el-option v-for="item in countyOptions" :key="item.value" :label="item.label"
-                        :value="item.value" />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
+            <el-row>
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
+                <el-form-item label="County" prop="county_id">
+                  <el-select v-model="ruleForm.county_id" filterable placeholder="County" :onChange="handleSelectCounty">
+                    <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
 
-                <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
-                  <el-form-item label="Subcounty" prop="subcounty_id">
-                    <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
-                      <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
-                        :value="item.value" />
-                    </el-select>
-                  </el-form-item>
-                </el-col>
-              </el-row>
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
+                <el-form-item label="Subcounty" prop="subcounty_id">
+                  <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
+                    <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                      :value="item.value" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
 
+            </el-row>
 
 
 
-              <el-col :xl="24" :lg="24" :md="12" :sm="12" :xs="24">
+            <el-row>
+
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
 
                 <el-form-item label="Settlement" prop="settlement_id">
                   <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
@@ -375,26 +386,32 @@ onMounted(() => {
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
-                <el-form-item label="Ownership">
-                  <el-select v-model="ruleForm.ownership_type" filterable placeholder="Select">
-                    <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label"
-                      :value="item.value" />
-                  </el-select>
-                </el-form-item>
+
+
+              </el-col>
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Owner " prop="Owner">
                   <el-input v-model="ruleForm.owner" />
                 </el-form-item>
               </el-col>
-
             </el-row>
 
-            <el-row class="mb-4  md-5" v-if="active === 1" :gutter="20">
-              <el-divider content-position="left" />
+            <el-form-item label="Ownership">
+              <el-select v-model="ruleForm.ownership_type" filterable placeholder="Select">
+                <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
 
-              <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
+
+            <el-row class="mb-4  md-5" v-if="active === 1" :gutter="20">
+
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Connections " prop="Owner">
                   <el-input-number v-model="ruleForm.number_connections" />
                 </el-form-item>
+              </el-col>
+
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
 
                 <el-form-item label="Length(Km) " prop="length">
                   <el-input-number v-model="ruleForm.length" />
@@ -415,6 +432,11 @@ onMounted(() => {
 
 
           <el-row class="mb-4  md-5">
+            <el-button @click="back" type="primary">
+              <ArrowLeft /> <el-icon class="el-icon--left" /> Prev Page
+            </el-button>
+
+
             <el-button @click="next" type="primary"> Next Page<el-icon class="el-icon--right">
                 <ArrowRight />
               </el-icon>

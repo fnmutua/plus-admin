@@ -363,52 +363,62 @@ const handleInputCoordinates = () => {
           <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
             status-icon>
 
-            <el-row :gutter="20">
+            <el-row>
               <el-divider content-position="left" />
-
-              <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
-
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Settlement" prop="road_id">
                   <el-select v-model="ruleForm.road_id" filterable placeholder="Road">
                     <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
                 </el-form-item>
+              </el-col>
+
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Type" prop="asset_type">
                   <el-select v-model="ruleForm.asset_type" filterable placeholder="Select">
                     <el-option v-for="item in AssetTypeOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
+              </el-col>
+            </el-row>
 
-                <el-form-item label="Location" prop="location">
-                  <el-switch style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
-                    @change="handleFlipSwitch" class="mb-2" active-text="Input Coordinates" inactive-text="Digitize" />
-                </el-form-item>
+            <el-row>
+              <el-form-item label="Condition" prop="asset_condition">
+                <el-select v-model="ruleForm.asset_condition" filterable placeholder="Select">
+                  <el-option v-for="item in AssetConditionOptions" :key="item.value" :label="item.label"
+                    :value="item.value" />
+                </el-select>
+              </el-form-item>
+            </el-row>
+            <el-row>
 
+              <el-form-item label="Location" prop="location">
+                <el-switch style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
+                  @change="handleFlipSwitch" class="mb-2" active-text="Input Coordinates" inactive-text="Digitize" />
+              </el-form-item>
+            </el-row>
+
+            <el-row>
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
 
                 <el-form-item v-if="digitize" label="Latitude" prop="latitude">
                   <el-input-number v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
                     @change="handleInputCoordinates" />
                 </el-form-item>
+              </el-col>
+
+              <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
 
                 <el-form-item v-if="digitize" label="Longitude" prop="longitude">
                   <el-input-number v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
                     @change="handleInputCoordinates" />
                 </el-form-item>
-
-
-
-
-
-                <el-form-item label="Condition" prop="asset_condition">
-                  <el-select v-model="ruleForm.asset_condition" filterable placeholder="Select">
-                    <el-option v-for="item in AssetConditionOptions" :key="item.value" :label="item.label"
-                      :value="item.value" />
-                  </el-select>
-                </el-form-item>
-
               </el-col>
+
             </el-row>
+
+
 
           </el-form>
 

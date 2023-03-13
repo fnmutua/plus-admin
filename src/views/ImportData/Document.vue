@@ -569,18 +569,32 @@ const beforeUpload: UploadProps['beforeUpload'] = (files) => {
         const isDocx = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         const isPng = files[i].raw.type === 'image/png'
         const isJPG = files[i].raw.type === 'image/jpeg'
+        // additionall 
+        const isCSV = files[i].raw.type === 'text/csv'
+        const isJSON = files[i].raw.type === 'application/json'
+        const isPPT = files[i].raw.type === ' application/vnd.ms-powerpoint'
+        const isPPTX = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        const isRAR = files[i].raw.type === 'application/vnd.rar'
+        const isTIF = files[i].raw.type === 'image/tiff'
+        const isTEXT = files[i].raw.type === 'text/plain'
+
+
+
         const isLt5M = files[i].raw.size / 1024 / 1024 < 20
 
-        if (!isXls && !isXlsx && !isPdf && !isZip && !isDoc && !isDocx && !isPng && !isJPG) {
+        if (!isXls && !isXlsx && !isPdf && !isZip && !isDoc && !isDocx && !isPng && !isJPG
+            && !isCSV && !isJSON && !isPPT && !isPPTX && !isRAR && !isTIF && !isTEXT
+        ) {
             //this.$message.error('Upload only Excel files')
-            ElMessage.error('Upload only pdf/xls/xlsx/zip/doc/docx/png/jpg files')
+            ElMessage.error(files[i].raw.type + ' is not allowed')
 
         }
         if (!isLt5M) {
             // this.$message.error('File size should not exceed 5MB')
             ElMessage.error('File size should not exceed 20MB')
         }
-        return (isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG) && isLt5M
+        return (isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG || isCSV || isJSON || isPPT ||
+            isPPTX || isRAR || isTIF || isTEXT)
     }
 }
 
