@@ -18,6 +18,7 @@ import {
     ElTableColumn,
     ElInput,
     ElSwitch,
+    ElOptionGroup,
     ElOption
 } from 'element-plus'
 import { ElUpload } from 'element-plus'
@@ -53,7 +54,7 @@ const parent_key = ref()       // the parent foregin key in the model
 const parentModel = ref()      // the parent model
 const type = ref()      // the parent model
 const matchedWithParent = ref()      // the parent model
-
+const selectedparent = ref()
 
 ///---------------------xlsx-
 const file = ref()
@@ -111,6 +112,13 @@ const getModeldefinition = async (selModel) => {
             return (obj.field !== 'geom');
         });
 
+        if (selModel === 'project') {
+            var additional = {}
+            additional.field = 'activities'
+            additional.match = ''
+            fields2.push(additional)
+        }
+
         console.log("fields:", fields2)
         //health_facility_fields.value = response.data
         fieldSet.value = fields2
@@ -123,9 +131,13 @@ const getModeldefinition = async (selModel) => {
             parentOpt.value = relative.model
             parentOpt.label = toTitleCase(relative.model)
             parentOpt.key = relative.key
-
             parentOptions.value.push(parentOpt)
         })
+        let na_opt = {}
+        na_opt.value = 'none'
+        na_opt.label = 'N/A'
+        parentOptions.value.push(na_opt)
+
 
         //parentKeys.value.push(response.keys)
 
@@ -155,19 +167,12 @@ const getParentOptions = async () => {
         //tableDataList.value = response.data
         const ret = response.data
         console.log('Received response:', ret)
-
-
         parentObj.value = ret.map(elem => {
             elem[parent_key.value] = elem.id    // add the parent_key as is representd on the child 
             elem['parent_code'] = elem.code     // add the parent  as is representd on the child 
             return elem;
         });
-
-
-
         console.log('Received 3:', parentObj.value)
-
-
         ret.forEach(function (arrayItem: { id: string; type: string }) {
             var settOpt = {}
             settOpt.value = arrayItem.id
@@ -281,19 +286,32 @@ const handleSelectType = async (type: any) => {
         // getParentOptions()
     }
 
+
+
+    else if (type === 'activity') {
+        // fieldSet.value = beneficiary_parcels
+        model.value = 'activity'
+        parentModel.value = ''
+        parent_key.value = ''
+        code.value = ''
+        // getParentOptions()
+    }
+
+
     else if (type === 'category') {
         model.value = 'category'
         code.value = 'code'
     }
 
 
+
+
     else if (type === 'indicator') {
         model.value = 'indicator'
-        code.value = 'code'
+        parentModel.value = 'activity'
+        parent_key.value = 'activity_id'
+        code.value = 'pcode'
     }
-
-
-
 
 
 
@@ -361,12 +379,13 @@ const uploadOptions = [
         ]
     },
     {
-        label: 'Indicators',
+        label: 'Monitoring/Evaluation',
         options: [
             {
-                value: 'category',
-                label: 'Categories'
+                value: 'activity',
+                label: 'Activities'
             },
+
             {
                 value: 'indicator',
                 label: 'Indicators'
@@ -374,6 +393,10 @@ const uploadOptions = [
             {
                 value: 'indicator_category',
                 label: 'Indicator Configurations'
+            },
+            {
+                value: 'category',
+                label: 'Categories'
             },
         ]
     }
@@ -383,27 +406,18 @@ const uploadOptions = [
 
 const handleSelectParentModel = async (parent: any) => {
 
-    var filtered = parentOptions.value.filter(function (item) {
-        return item.value === parent;
+
+    if (parent != 'none') {
+        var filtered = parentOptions.value.filter(function (item) {
+            return item.value === parent;
+        }
+        );
+        theParentModel.value = parent
+        theParentModelField.value = filtered[0].key
+        getParentOptions()
     }
-    );
 
-    console.log('newArray', filtered[0].key)
 
-    theParentModel.value = parent
-    theParentModelField.value = filtered[0].key
-    // if (parent === 'county') {
-    //   theParentModelField.value = "county_id"
-
-    // }
-    // else if (parent === 'settlement') {
-    //   theParentModelField.value = "settlement_id"
-    // }
-
-    // console.log(theParentModel.value)
-    // console.log(theParentModelField.value)
-
-    getParentOptions()
 
     showUploadButton.value = true
     showUploadSpace.value = true
@@ -472,22 +486,29 @@ const readXLSX = async (event) => {
         // FUSE match 001 - Mathc the uplaoded  XLXS file with the paretn based on pcode
         //--------------------------------------------------------------------------------
         // Use the map() method to add a new property to each object
-        matchedWithParent.value = uploadObj.value.map(obj => {
-            let input = obj.pcode
-            const fuse = new Fuse(parentObj.value, options);
 
-            let results = fuse.search(input);
-            console.log(results[0].item)
+        if (selectedparent.value != 'none') {
+            matchedWithParent.value = uploadObj.value.map(obj => {
+                let input = obj.pcode
+                const fuse = new Fuse(parentObj.value, options);
 
-            return {
-                ...obj, // spread existing properties of the object
-                [pfield]: results[0].item.id, // add new property to the object
-                ['county_id']: results[0].item.county_id, // add new property to the object
-                ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
-                ['settlement_id']: results[0].item.settlement_id  // add new property to the object
+                let results = fuse.search(input);
+                console.log(results[0].item)
 
-            };
-        });
+                return {
+                    ...obj, // spread existing properties of the object
+                    [pfield]: results[0].item.id, // add new property to the object
+                    ['county_id']: results[0].item.county_id, // add new property to the object
+                    ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
+                    ['settlement_id']: results[0].item.settlement_id  // add new property to the object
+
+                };
+            });
+        } else {
+
+            matchedWithParent.value = uploadObj.value
+        }
+
 
         console.log(matchedWithParent.value)
 
@@ -654,14 +675,7 @@ const handleSubmitData = async () => {
 
                 }
 
-                //   updatedObj[dict[key]] = filteredDict[0].key1;
-                //   console.log(updatedObj)
 
-                // if (dict[key]) {
-                //     updatedObj[dict[key]] = obj[key];
-                // } else {
-                //     updatedObj[key] = obj[key];
-                // }
             });
             return obj;
         });
@@ -713,14 +727,14 @@ const handleSubmitData = async () => {
         v-loading.fullscreen.lock="loadingPosting" element-loading-text="Saving the data.. Please wait.......">
 
         <div style="display: inline-block;">
-            <el-select v-model="type" :onChange="handleSelectType" placeholder="Select data to import"
+            <el-select v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Select data to import"
                 style=" margin-right: 20px">
                 <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
                     <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
                 </el-option-group>
             </el-select>
 
-            <el-select v-model="parent" :onChange="handleSelectParentModel" placeholder="Select Parent Model">
+            <el-select v-model="selectedparent" :onChange="handleSelectParentModel" placeholder="Select Parent Model">
                 <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
 

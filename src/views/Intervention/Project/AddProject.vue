@@ -476,10 +476,6 @@ const status_options = [
 // uploading the documents 
 
 
-const handleUploadDocuments: UploadProps['onChange'] = async (uploadFile, uploadFiles) => {
-  console.log(fileList)
-}
-
 
 
 
@@ -490,15 +486,6 @@ function toTitleCase(str) {
   })
 }
 
-
-const handleChangeComponent = (selected) => {
-
-  ruleForm.component_id = selected[0]
-  ruleForm.category_id = selected[1]
-
-  // console.log(selected)
-
-}
 
 
 
@@ -820,16 +807,6 @@ const handleSelectCounty = async (county_id: any) => {
 }
 
 
-//const active = ref(0)
-
-const xnext = () => {
-  if (active.value < 1) {
-    active.value++
-  } else {
-    active.value = 0
-  }
-}
-
 
 const next = () => {
   console.log('Step:', active)
@@ -871,6 +848,8 @@ const next = () => {
 const back = () => {
   if (active.value > 0) {
     active.value--
+    showForm.value = true
+
   }
 }
 
@@ -1002,19 +981,6 @@ const back = () => {
             </el-upload>
 
 
-
-            <!-- <el-upload v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" multiple
-                                      :auto-upload="false" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-                                      :on-change="handleUploadDocuments">
-                                      <el-button type="primary">Click to upload documentation</el-button>
-                                      <template #tip>
-                                        <div class="el-upload__tip">
-                                          pdf/xlsx/jpg/png files with a size less than 500kb
-                                        </div>
-                                      </template>
-                                    </el-upload> -->
-
-
           </el-form>
           <div class="flex justify-between">
             <el-button-group class="flex justify-between items-center ">
@@ -1029,9 +995,9 @@ const back = () => {
                 </el-icon>
               </el-button>
 
-              <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="success"
+              <el-button v-if="showActivityList" @click="submitForm(ruleFormRef)" type="success"
                 :icon="Promotion">Submit</el-button>
-              <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
+              <el-button v-if="showActivityList" @click="submitForm(ruleFormRef)" type="warning"
                 :icon="RefreshLeft">Reset</el-button>
             </el-button-group>
           </div>
