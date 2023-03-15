@@ -3,7 +3,7 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, getListManyToMany } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 
@@ -15,14 +15,21 @@ import {
   Filter
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, FormRules, ElPopconfirm } from 'element-plus'
+import { ref, reactive, computed } from 'vue'
+import {
+  ElPagination, ElInputNumber, ElTable,
+  ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
+  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, ElOptionGroup, FormRules, ElPopconfirm
+} from 'element-plus'
+
+
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
+import xlsx from "json-as-xlsx"
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -34,6 +41,21 @@ console.log("userInfo--->", userInfo)
 
 
 
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
 
 
 
@@ -41,7 +63,6 @@ const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
-const indicatorsOptions = ref([])
 const categoryOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
@@ -260,6 +281,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('TBL-4f', tblData)
 }
 
+const indicatorsOptions = ref([])
+
 const getIndicatorNames = async () => {
   const res = await getCountyListApi({
     params: {
@@ -272,7 +295,7 @@ const getIndicatorNames = async () => {
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received response:', response)
+    console.log('Received indicators:', response)
     //tableDataList.value = response.data
     var ret = response.data
 
@@ -281,9 +304,11 @@ const getIndicatorNames = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
       opt.value = arrayItem.id
+      opt.activity_id = arrayItem.activity_id
       opt.label = arrayItem.name + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
       indicatorsOptions.value.push(opt)
+      indicatorsOptionsFiltered.value.push(opt)
     })
   })
 }
@@ -312,7 +337,6 @@ const getCategoryOptions = async () => {
   })
 }
 
-
 const makeSettlementOptions = (list) => {
   console.log('making the options..............', list)
   categoryOptions.value = []
@@ -333,11 +357,154 @@ const handleDownload = () => {
   const exportType = exportFromJSON.types.csv
   if (data) exportFromJSON({ data, fileName, exportType })
 }
+const activityOptions = ref([])
+const activityOptionsFiltered = ref([])
+const getActivityOptions = async () => {
+  await getCountyListApi({
+    params: {
+      //   pageIndex: 1,
+      //   limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'activity',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    // var ret = response
+
+    console.log('Activities', response.data)
+    response.data.forEach(function (arrayItem: { id: string; type: string }) {
+      //console.log(arrayItem)
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+
+      //  console.log(countyOpt)
+      activityOptions.value.push(opt)
+    })
+
+
+  })
+}
+
+
+//const projectOptions = ref([])
+const getProjectOptions = async () => {
+  await getCountyListApi({
+    params: {
+      //   pageIndex: 1,
+      //   limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'project',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    // var ret = response
+
+    console.log('Activities', response.data)
+    response.data.forEach(function (arrayItem: { id: string; type: string }) {
+      //console.log(arrayItem)
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+
+      //  console.log(countyOpt)
+      projectOptions.value.push(opt)
+    })
+
+
+  })
+}
+
+
+const projectOptions = ref([])
+
+const getProjectActivities = async () => {
+  const formData = {}
+  formData.limit = 10000
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'project'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = ''
+
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+  formData.associated_multiple_models = ['activity']
+  formData.associated_multiple_field = ['project_activity']
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getListManyToMany(formData)
+
+  res.data.forEach(function (arrayItem) {
+
+    //console.log(arrayItem)
+    var opt = {}
+    opt.value = arrayItem.id
+    opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+
+    //  console.log(countyOpt)
+    projectOptions.value.push(opt)
+
+
+    arrayItem.activities.forEach(function (activity: { id: string; type: string }) {
+      //console.log(arrayItem)
+      var act_opt = {}
+      act_opt.project_id = arrayItem.id   // this the project id that will be used to filter the acivty options 
+      act_opt.value = activity.id
+      act_opt.label = activity.title + '(' + activity.id + ')'
+
+      //  console.log(countyOpt)
+      activityOptions.value.push(act_opt)  // We keep this as backup 
+      activityOptionsFiltered.value.push(act_opt)
+
+    })
+
+  })
+
+}
+
+
+const changeProject = async (project: any) => {
+
+  activityOptionsFiltered.value = activityOptions.value.filter(function (el) {
+    return el.project_id == project
+  });
+
+
+}
+
+const indicatorsOptionsFiltered = ref([])
+
+
+const changeActivity = async (activity: any) => {
+  indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
+    return el.activity_id == activity
+  });
+
+}
+
+
+
+getProjectActivities()
+//getActivityOptions()
+//getProjectOptions()
 
 getIndicatorNames()
 getCategoryOptions()
 getInterventionsAll()
-
 
 
 
@@ -352,6 +519,8 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.category_id = data.row.category_id
   ruleForm.frequency = data.row.frequency
   ruleForm.category_title = data.row.category_title
+  ruleForm.activity_id = data.row.activity_id
+  ruleForm.project_id = data.row.project_id
 
   formHeader.value = 'Edit Indicator'
 
@@ -408,7 +577,6 @@ const changeCategory = async (category: any) => {
 
 const changeIndicator = async (indicator: any) => {
   ruleForm.indicator_id = indicator
-
   var filtredOptions = indicatorsOptions.value.filter(function (el) {
     return el.value == indicator
   });
@@ -418,6 +586,9 @@ const changeIndicator = async (indicator: any) => {
 }
 
 
+
+
+
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   indicator_id: '',
@@ -425,6 +596,8 @@ const ruleForm = reactive({
   category_id: '',
   category_title: '',
   frequency: '',
+  activity_id: null,
+  project_id: null
 })
 
 const rules = reactive<FormRules>({
@@ -432,9 +605,9 @@ const rules = reactive<FormRules>({
     { required: true, message: 'Please provide indicator name', trigger: 'blur' },
     { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
   ],
-  category_id: [
-    { required: true, message: 'Indicator category is required', trigger: 'blur' }],
+  category_id: [{ required: true, message: 'Indicator category is required', trigger: 'blur' }],
   frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
+  activity_id: [{ required: true, message: 'The Indicator Activity is required', trigger: 'blur' }],
 
 })
 
@@ -486,6 +659,58 @@ console.log('Options---->', indicatorsOptions)
 
 
 
+const DownloadXlsx = async () => {
+  console.log(tableDataList.value)
+
+  // change here !
+  let fields = [
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Indicator", value: "indicator" }, // Top level data
+    { label: "Unit", value: "unit" }, // Custom format
+    { label: "Level", value: "level" }, // Custom format
+    { label: "Frequency", value: "frequency" }, // Custom format
+    { label: "Category", value: "category" }, // Custom format
+
+  ]
+
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  // loop through the table data and sort the data 
+  // change here !
+  for (let i = 0; i < tableDataList.value.length; i++) {
+    let thisRecord = {}
+    tableDataList.value[i]
+    thisRecord.index = i + 1
+    thisRecord.indicator = tableDataList.value[i].indicator.name
+    thisRecord.unit = tableDataList.value[i].indicator.unit
+    thisRecord.level = tableDataList.value[i].indicator.level
+    thisRecord.frequency = tableDataList.value[i].frequency
+    thisRecord.category = tableDataList.value[i].category.category
+
+
+    dataHolder.push(thisRecord)
+  }
+  dataObj.content = dataHolder
+
+
+
+
+  let settings = {
+    fileName: model, // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
+
 
 </script>
 
@@ -506,7 +731,7 @@ console.log('Options---->', indicatorsOptions)
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
@@ -519,38 +744,93 @@ console.log('Options---->', indicatorsOptions)
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button v-if="showAdminButtons" type="success" :icon="Edit"
-            @click="editIndicator(data as TableSlotDefault)" circle />
-        </el-tooltip>
 
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
+
+
+
+    <el-table :data="tableDataList" :loading="loading" border>
+      <el-table-column label="Id" prop="id" width="50px" />
+      <el-table-column label="Indicator" prop="indicator.name" />
+      <el-table-column label="Level" prop="indicator.level" />
+      <el-table-column label="Reporting" prop="frequency" />
+      <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+        <template #default="scope">
+          <el-dropdown v-if="isMobile">
+            <span class="el-dropdown-link">
+              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="showAdminButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
+                  color="green">Edit</el-dropdown-item>
+                <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                  :icon="Delete" color="red">Delete</el-dropdown-item>
+              </el-dropdown-menu>
             </template>
-          </el-popconfirm>
-        </el-tooltip>
+          </el-dropdown>
 
-      </template>
-    </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+          <div v-else>
+
+            <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+              <el-button type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
+                circle />
+            </el-tooltip>
+
+
+
+
+            <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
+              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                title="Are you sure to delete this record?" width="150"
+                @confirm="DeleteIndicator(scope.row as TableSlotDefault)">
+                <template #reference>
+                  <el-button type="danger" size="small" :icon=Delete circle />
+                </template>
+              </el-popconfirm>
+            </el-tooltip>
+
+          </div>
+        </template>
+
+      </el-table-column>
+    </el-table>
+
+
+
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
+  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
+
+      <el-form-item label="Project">
+        <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" placeholder="Select Project">
+          <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+
+
+      <el-form-item label="Activity">
+        <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" placeholder="Select Activity">
+          <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+
+
+
+
+
       <el-form-item label="Indicator">
-        <el-select filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
-          placeholder="Select Indicator">
-          <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-select filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator" placeholder="Select Indicator">
+          <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
+            :value="item.value" />
         </el-select>
       </el-form-item>
 
@@ -583,5 +863,4 @@ console.log('Options---->', indicatorsOptions)
       </span>
     </template>
   </el-dialog>
-
 </template>

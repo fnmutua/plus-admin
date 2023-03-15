@@ -1096,7 +1096,7 @@ const DeleteProject = (data: TableSlotDefault) => {
 
   }
   // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
+  let index = tableDataList.value.indexOf(data);
   if (index !== -1) {
     tableDataList.value.splice(index, 1);
   }
@@ -1416,6 +1416,8 @@ const getDocumentTypes = async () => {
   })
 }
 getDocumentTypes()
+
+
 
 
 </script>

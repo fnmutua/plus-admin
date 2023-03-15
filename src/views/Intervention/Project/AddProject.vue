@@ -20,12 +20,14 @@ import {
   FormRules,
   ElSteps,
   ElStep,
+  ElTag,
+  ElCheckTag,
   ElButtonGroup,
   ElSwitch
 } from 'element-plus'
 
 
-import { Edit, Plus, Location, Upload, ArrowRight, Promotion, RefreshLeft } from '@element-plus/icons-vue'
+import { Edit, Plus, Location, Upload, ArrowDown, ArrowLeft, ArrowRight, Promotion, RefreshLeft, List } from '@element-plus/icons-vue'
 
 
 import { getCountyListApi } from '@/api/counties'
@@ -107,6 +109,7 @@ const ruleForm = reactive({
   male_beneficiaries: 0,
   female_beneficiaries: 0,
   description: '',
+  activities: '',
   geom: '',
   code: ''
 })
@@ -267,7 +270,36 @@ const deletePoly = (e) => {
 
 
 
+//id","name","county_id","settlement_type","geom","area","population","code","description"
+const activityOptions = ref([])
+const getActivities = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 10000,
+      curUser: 1, // Id for logged in user
+      model: 'activity',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
 
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      console.log(opt)
+      activityOptions.value.push(opt)
+    })
+
+    console.log(activityOptions)
+
+  })
+}
 
 //id","name","county_id","settlement_type","geom","area","population","code","description"
 const settlementsRefList = ref()
@@ -395,7 +427,7 @@ const getComponentsProgrameDomains = async () => {
 
 getSettlements()
 getCounties()
-
+getActivities()
 
 console.log('--> parent options', parentOptions.value)
 const coordinates = ref([])
@@ -565,35 +597,16 @@ const uploadPolygon = (poly) => {
 }
 
 
-const title = 'Add/Create  Project'
+const title = 'Create Project'
 
 
 const active = ref(0)
 const showForm = ref(true)
 const showGeoFields = ref(false)
 const showUploadDocuments = ref(false)
+const showActivityList = ref(false)
 
-const next = () => {
-  console.log('Step:', active)
 
-  if (active.value++ > 2) active.value = 0
-  if (active.value == 0) {
-    showForm.value = true
-    showGeoFields.value = false
-    showUploadDocuments.value = false
-
-  }
-  else if (active.value == 1) {
-    showForm.value = false
-    showGeoFields.value = true
-    showUploadDocuments.value = false
-  }
-  else if (active.value == 2) {
-    showForm.value = false
-    showGeoFields.value = false
-    showUploadDocuments.value = true
-  }
-}
 
 const handleUploadGeo = async (uploadFile) => {
   console.log('Upload>>>', uploadFile)
@@ -807,6 +820,61 @@ const handleSelectCounty = async (county_id: any) => {
 }
 
 
+//const active = ref(0)
+
+const xnext = () => {
+  if (active.value < 1) {
+    active.value++
+  } else {
+    active.value = 0
+  }
+}
+
+
+const next = () => {
+  console.log('Step:', active)
+
+  //if (active.value++ > 2) active.value = 0
+
+  if (active.value < 2) {
+    active.value++
+  } else {
+    active.value = 0
+  }
+
+
+  if (active.value == 0) {
+    showForm.value = true
+    showGeoFields.value = false
+    showActivityList.value = false
+    showUploadDocuments.value = false
+
+  }
+  else if (active.value == 1) {
+    showForm.value = false
+    showGeoFields.value = true
+    showActivityList.value = false
+    showUploadDocuments.value = false
+  }
+  else if (active.value == 2) {
+    showForm.value = false
+    showGeoFields.value = false
+    showActivityList.value = true
+    showUploadDocuments.value = false
+  }
+
+
+
+}
+
+
+const back = () => {
+  if (active.value > 0) {
+    active.value--
+  }
+}
+
+
 </script>
 
 <template>
@@ -814,29 +882,30 @@ const handleSelectCounty = async (county_id: any) => {
 
 
     <el-row :gutter="5">
-      <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+      <el-col :xl="14" :lg="14" :md="24" :sm="24" :xs="24">
         <el-card>
           <el-steps :active="active" simple>
-            <el-step title="Details" :icon="Edit" />
-            <el-step title="Location" :icon="Location" />
-            <el-step title="Documentation" :icon="Upload" />
+            <el-step :title="active === 0 ? 'Details' : ''" :icon="Edit" :description="active === 0 ? 'Step 1' : ''"
+              :status="active === 0 ? 'process' : ''" :style="{ fontSize: '14px' }" />
+            <el-step :title="active === 1 ? 'Location' : ''" :icon="Location" :description="active === 1 ? 'Step 2' : ''"
+              :status="active === 1 ? 'process' : ''" :style="{ fontSize: '14px' }" />
+            <el-step :title="active === 2 ? 'Activities' : ''" :icon="List" :description="active === 2 ? 'Step 3' : ''"
+              :status="active === 2 ? 'process' : ''" :style="{ fontSize: '14px' }" />
+
           </el-steps>
           <el-divider />
-          <el-form
-label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
+          <el-form label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
             status-icon>
             <el-col v-if="showForm" :span="24" :lg="24" :md="12" :sm="12" :xs="24">
               <el-form-item label="Location" prop="location_level">
-                <el-select
-v-model="ruleForm.location_level" filterable placeholder="Select Location"
+                <el-select v-model="ruleForm.location_level" filterable placeholder="Select Location"
                   @change="handleSelectLocation">
                   <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
 
               <el-form-item v-if=showSettlement label="Settlement" prop="settlement_id">
-                <el-select
-v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
+                <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
                   @change="handleSelectSettlement">
                   <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
@@ -844,21 +913,14 @@ v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
               </el-form-item>
 
               <el-form-item v-if=showCounty label="County" prop="county_id">
-                <el-select
-v-model="ruleForm.county_id" filterable placeholder="Select County"
+                <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
                   @change="handleSelectCounty">
                   <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
-
-
-
               <el-form-item label="Title" prop="title">
                 <el-input v-model="ruleForm.title" />
               </el-form-item>
-
-
-
               <el-row>
                 <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
 
@@ -866,17 +928,12 @@ v-model="ruleForm.county_id" filterable placeholder="Select County"
                     <el-date-picker v-model="ruleForm.start_date" type="date" placeholder="Start" />
                   </el-form-item>
                 </el-col>
-
-
                 <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
-
                   <el-form-item label="End" prop="end_date">
                     <el-date-picker v-model="ruleForm.end_date" type="date" placeholder="End" />
                   </el-form-item>
                 </el-col>
-
               </el-row>
-
 
               <el-row>
                 <el-form-item label="Status" prop="status">
@@ -889,7 +946,6 @@ v-model="ruleForm.county_id" filterable placeholder="Select County"
                 </el-form-item>
               </el-row>
             </el-col>
-
 
             <el-row v-if="showForm">
               <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
@@ -913,19 +969,26 @@ v-model="ruleForm.county_id" filterable placeholder="Select County"
               </el-col>
 
             </el-row>
+            <el-row v-if="showActivityList">
+              <el-col :span="24">
+                <el-form-item v-if="showActivityList" label="Activities">
+                  <el-select v-model="ruleForm.activities" filterable multiple placeholder="Select" style="width: 100%;">
+                    <el-option v-for="item in activityOptions" :key="item.value" :label="item.label"
+                      :value="item.value" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row v-if="showGeoFields">
+              <el-form-item v-if="showGeoFields" label="Location">
+                <el-switch width="200px" v-model="geoSource"
+                  style="--el-switch-on-color: orange; --el-switch-off-color: purple" class="mb-2"
+                  active-text="Upload Geojson File" inactive-text="Draw on Map" />
+              </el-form-item>
+            </el-row>
 
 
-
-            <el-form-item v-if="showGeoFields" label="Location">
-              <el-switch
-width="200px" v-model="geoSource"
-                style="--el-switch-on-color: orange; --el-switch-off-color: purple" class="mb-2"
-                active-text="Upload Geojson File" inactive-text="Draw on Map" />
-            </el-form-item>
-
-
-            <el-upload
-v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
+            <el-upload v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :on-change="handleUploadGeo">
               <el-icon class="el-icon--upload"><upload-filled /></el-icon>
               <div class="el-upload__text">
@@ -940,28 +1003,35 @@ v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto
 
 
 
-            <el-upload
-v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" multiple
-              :auto-upload="false" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-              :on-change="handleUploadDocuments">
-              <el-button type="primary">Click to upload documentation</el-button>
-              <template #tip>
-                <div class="el-upload__tip">
-                  pdf/xlsx/jpg/png files with a size less than 500kb
-                </div>
-              </template>
-            </el-upload>
+            <!-- <el-upload v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" multiple
+                                      :auto-upload="false" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+                                      :on-change="handleUploadDocuments">
+                                      <el-button type="primary">Click to upload documentation</el-button>
+                                      <template #tip>
+                                        <div class="el-upload__tip">
+                                          pdf/xlsx/jpg/png files with a size less than 500kb
+                                        </div>
+                                      </template>
+                                    </el-upload> -->
 
 
           </el-form>
           <div class="flex justify-between">
             <el-button-group class="flex justify-between items-center ">
-              <el-button type="primary" :icon="ArrowRight" @click="next">Next Step</el-button>
-              <el-button
-v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="success"
+
+
+              <el-button @click="back" type="primary">
+                <ArrowLeft /> <el-icon class="el-icon--left" /> Prev Page
+              </el-button>
+
+              <el-button @click="next" type="primary"> Next Page<el-icon class="el-icon--right">
+                  <ArrowRight />
+                </el-icon>
+              </el-button>
+
+              <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="success"
                 :icon="Promotion">Submit</el-button>
-              <el-button
-v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
+              <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
                 :icon="RefreshLeft">Reset</el-button>
             </el-button-group>
           </div>
@@ -971,7 +1041,7 @@ v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
         </el-card>
       </el-col>
 
-      <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+      <el-col :xl="10" :lg="10" :md="24" :sm="24" :xs="24">
         <el-card>
 
           <div id="mapContainer" class="basemap"></div>

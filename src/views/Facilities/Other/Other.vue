@@ -1217,13 +1217,15 @@ const handleChange = (selected) => {
     <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
       <el-tab-pane label="List" name="list">
         <div style="display: inline-block;">
-          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
+          <el-select
+v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by Settlement">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
         <div style="display: inline-block; margin-left: 20px">
-          <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
+          <el-select
+v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by  Name">
             <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -1273,7 +1275,8 @@ const handleChange = (selected) => {
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button
+type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1293,7 +1296,8 @@ const handleChange = (selected) => {
                   <el-dropdown-menu>
 
 
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1304,12 +1308,14 @@ const handleChange = (selected) => {
               <div v-else>
 
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Map" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
+                  <el-button
+type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
@@ -1317,7 +1323,8 @@ const handleChange = (selected) => {
 
 
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this facility?" width="150"
                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -1333,7 +1340,8 @@ const handleChange = (selected) => {
 
         </el-table>
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -1349,9 +1357,11 @@ const handleChange = (selected) => {
                 <el-row>
                   <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
                     <el-form-item label="County" prop="county_id">
-                      <el-select v-model="ruleForm.county_id" filterable placeholder="County"
+                      <el-select
+v-model="ruleForm.county_id" filterable placeholder="County"
                         :onChange="handleSelectCounty">
-                        <el-option v-for="item in countyOptions" :key="item.value" :label="item.label"
+                        <el-option
+v-for="item in countyOptions" :key="item.value" :label="item.label"
                           :value="item.value" />
                       </el-select>
                     </el-form-item>
@@ -1360,7 +1370,8 @@ const handleChange = (selected) => {
                   <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
                     <el-form-item label="Subcounty" prop="subcounty_id">
                       <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
-                        <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                        <el-option
+v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                           :value="item.value" />
                       </el-select>
                     </el-form-item>
@@ -1368,14 +1379,16 @@ const handleChange = (selected) => {
                 </el-row>
                 <el-form-item label="Settlement" prop="settlement_id">
                   <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-                    <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
 
 
                 <el-form-item label="Type" prop="type">
-                  <el-cascader v-model="tmpSel" :options="cascadeOptions" :show-all-levels="false"
+                  <el-cascader
+v-model="tmpSel" :options="cascadeOptions" :show-all-levels="false"
                     @change="handleChange" />
 
                 </el-form-item>
@@ -1425,7 +1438,8 @@ const handleChange = (selected) => {
 
                 <el-form-item v-if="hazards" label="Frequency" prop="frequency">
                   <el-select v-model="ruleForm.frequency" filterable placeholder="Select">
-                    <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in frequencyOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -1433,7 +1447,8 @@ const handleChange = (selected) => {
 
                 <el-form-item label="Ownership" prop="ownership_type">
                   <el-select v-model="ruleForm.ownership_type" filterable placeholder="Select">
-                    <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in generalOwnership" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -1445,7 +1460,8 @@ const handleChange = (selected) => {
 
                 <el-form-item label="Condition" prop="asset_condition">
                   <el-select v-model="ruleForm.condition" filterable placeholder="Select">
-                    <el-option v-for="item in FacilityConditionOptions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in FacilityConditionOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -1505,14 +1521,13 @@ const handleChange = (selected) => {
 
     <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="20%">
       <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
-
-
         <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
         </el-option-group>
       </el-select>
 
-      <el-upload v-model:file-list="morefileList" class="upload-demo "
+      <el-upload
+v-model:file-list="morefileList" class="upload-demo "
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>

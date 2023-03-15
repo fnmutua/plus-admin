@@ -66,6 +66,7 @@ module.exports = function (sequelize, DataTypes) {
           unique: true,
           fields: [{ name: 'id' }]
         }
+       
       ]
     }
   )

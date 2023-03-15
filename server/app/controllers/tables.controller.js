@@ -6,6 +6,7 @@ const Sequelize = require('sequelize')
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
 const crypto = require('crypto');
+const Activity = db.activity
 
 // for enabling storage of files outside public...
 const path = require('path')
@@ -540,10 +541,27 @@ exports.modelCreateOneRecord = (req, res) => {
 
   console.log('One record... Edited----', obj)
 
+
+
   // insert
   db.models[reg_model]
     .create(obj)
-    .then(function (item) {
+    .then(async function (item) {
+
+      // Special for projects where we store the project-activty relation 
+      if (reg_model ==='project') {
+        var activity_list =req.body.activities
+        
+        const list_activities = await db.models.activity.findAll({
+          where: {
+            id: activity_list
+          }
+        });
+        
+        item.addActivities(list_activities)
+      }
+
+
       res.status(200).send({
         message: 'Import Successful',
         total: req.body.count,
@@ -1143,6 +1161,165 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
     })
   })
 }
+
+exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
+  console.log('Req-body', req.body)
+   // console.log('nested filters....>', req.body.nested_filter[0])
+ 
+   var reg_model = req.body.model
+ 
+   // Associated Models
+   var associated_multiple_models = req.body.associated_multiple_models
+   console.log('associated_multiple_models', associated_multiple_models.length)
+ 
+   // nested Models
+   // here me limit to two nesting levels only
+   var nested_models = req.body.nested_models
+   if (req.body.nested_models) {
+     var child_model = db.models[req.body.nested_models[0]]
+     var grand_child_model = db.models[req.body.nested_models[1]]
+     var nestedQuery = {}
+ 
+     // create the criterial for the grandchild 
+     if (req.body.nested_filter) {
+       nestedQuery[req.body.nested_filter[0]] = req.body.nested_filter[1]
+     }
+ 
+   }
+ 
+   var qry = {}
+   var includeModels = []
+ 
+   // loop through the include models
+   for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
+     var modelIncl = {}
+      modelIncl.model = db.models[req.body.associated_multiple_models[i]]
+     modelIncl.raw = true
+     modelIncl.nested = true
+     modelIncl.through = req.body.associated_multiple_field[i]
+     
+     includeModels.push(modelIncl)
+ 
+ 
+   }
+   var lstQuerries = []
+ 
+   //console.log(includeModels)
+   if (associated_multiple_models) {
+     if (nested_models) {
+       if (req.body.nested_filter) {
+         var nestedModels = { model: child_model, include: [{ model: grand_child_model, where: nestedQuery }], raw: true, nested: true }
+       } else {
+         var nestedModels = { model: child_model, include: grand_child_model, raw: true, nested: true }
+       }
+ 
+       includeModels.push(nestedModels)
+       var qry = {
+         include: includeModels
+       }
+     } else {
+       console.log('---no---')
+       var qry = {
+         include: includeModels
+       }
+     }
+ 
+ 
+ 
+ 
+ 
+   } else {
+     var qry = {}
+   }
+ 
+   console.log('The Querry----->', qry)
+   if (req.body.limit ) {
+     qry.limit = req.body.limit 
+   }
+   if (req.body.page ) {
+     qry.offset = (req.body.page - 1) * req.body.limit
+   }
+ 
+ 
+ 
+   if (req.body.filters) {
+     if (req.body.filters.length > 0 && req.body.filterValues.length > 0 && req.body.filterValues.length === req.body.filters.length )  {
+      
+       var queryFields = {}
+       for (let i = 0; i < req.body.filters.length; i++) {
+         
+         //lstQuerries.push(queryFields)
+         var lstValues  = []
+         for (let j = 0; j < req.body.filterValues[i].length; j++) {
+           lstValues.push(req.body.filterValues[i][j])
+         }
+         queryFields[req.body.filters[i]] = lstValues
+         lstQuerries.push(queryFields)
+ 
+       }
+       console.log('Final-7-object------------>', lstQuerries)
+ 
+     }
+  
+     qry.where = lstQuerries
+   }
+   console.log('Final-3-object------------>', qry)
+ 
+ 
+ 
+ 
+   // if involving households decryot the HH name
+ 
+ 
+ 
+   const searchString = 'households';
+   if (associated_multiple_models) {
+ 
+     console.log(associated_multiple_models)
+     if (associated_multiple_models.includes(searchString) ) {
+       console.log(`${searchString} is in the array`);
+       console.log(qry)
+     
+               console.log('getting households---->')
+               var attributes = []
+          
+               for( let key in   db.models[reg_model].rawAttributes ){
+                 attributes.push(key)
+             }
+             //   console.log('attributes',attributes)
+               var index = attributes.indexOf('name');
+               if (index !== -1) {
+                   attributes.splice(index, 1);
+               }
+     
+               let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('household.name'), 'bytea'),'maluini'),'name']
+                 attributes.push(encrytpedField)
+       
+               
+       qry.attributes = attributes
+       qry.attributes.exclude = ['password', 'resetPasswordExpires', 'resetPasswordToken'] 
+      }
+  }
+   else {
+     
+     qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only
+ 
+ }
+      
+ 
+ 
+ 
+ 
+ 
+ 
+   db.models[reg_model].findAndCountAll(qry).then((list) => {
+     res.status(200).send({
+       data: list.rows,
+       total: list.count,
+       code: '0000'
+     })
+   })
+ }
 
 exports.modelPaginatedDatafilterBykeyWord = (req, res) => {
   console.log('/api/v1/data/paginated/filter --- Keyword', req.body)
@@ -1837,5 +2014,4 @@ exports.RemoveDocument = (req, res) => {
 
 
 }
-
 

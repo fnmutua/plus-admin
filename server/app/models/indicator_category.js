@@ -40,7 +40,11 @@ module.exports = function (sequelize, DataTypes) {
           name: 'indicator_category_pkey',
           unique: true,
           fields: [{ name: 'id' }]
-        }
+        },
+        {
+          unique: true,
+          fields: ['indicator_id','activity_id','project_id' ]
+      }
       ]
     }
   )

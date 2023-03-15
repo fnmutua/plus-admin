@@ -30,6 +30,13 @@ module.exports = function (app) {
   // Gets the  data filtereed by column
   app.post('/api/v1/data/column/paginated', [authJwt.verifyToken], controller.modelPaginatedDatafilterByColumn)
   
+
+  // Gets the  data filtereed by column for a Many2many relationship
+
+  app.post('/api/v1/data/column/mm', [authJwt.verifyToken], controller.modelPaginatedDatafilterByColumnM2M)
+  
+
+
   //*************special controller for Housheolds only!****************************
  // app.post('/api/v1/hh/column/paginated',  [authJwt.verifyToken], controller.modelPaginatedDatafilterByColumn)
   app.post('/api/v1/hh/column/paginated', [authJwt.verifyToken, authJwt.isAdmin],controller.modelPaginatedDatafilterByColumn);

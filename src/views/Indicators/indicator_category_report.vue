@@ -317,7 +317,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
+  console.log('Reports collected........', res)
   tableDataList.value = res.data
   total.value = res.total
 
@@ -1221,6 +1221,25 @@ const getDocumentTypes = async () => {
 }
 getDocumentTypes()
 
+ 
+
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
+
+
 const DownloadXlsx = async () => {
   console.log(tableDataList.value)
 
@@ -1228,9 +1247,10 @@ const DownloadXlsx = async () => {
   let fields = [
     { label: "S/No", value: "index" }, // Top level data
     { label: "Indicator", value: "indicator" }, // Top level data
+    { label: "Quantity", value: "quantity" }, // Custom format
+    { label: "Settlement", value: "settlement" }, // Custom format
     { label: "County", value: "county" }, // Custom format
-    { label: "Status", value: "status" }, // Run functions
-    { label: "Amount", value: "amount" }, // Run functions
+    { label: "Date", value: "date" }, // Custom format
 
   ]
 
@@ -1247,11 +1267,11 @@ const DownloadXlsx = async () => {
     let thisRecord = {}
     tableDataList.value[i]
     thisRecord.index = i + 1
-    thisRecord.indicator = tableDataList.value[i].indicator_category.indicator.title
-    thisRecord.county = tableDataList.value[i] ? tableDataList.value[i].county.name : ''
-    thisRecord.status = tableDataList.value[i].status
-    thisRecord.amount = tableDataList.value[i].amount
-
+    thisRecord.indicator = tableDataList.value[i].indicator_category.indicator.name
+    thisRecord.quantity = tableDataList.value[i].amount
+    thisRecord.settlement = tableDataList.value[i].settlement.name
+    thisRecord.county = tableDataList.value[i].county.name
+    thisRecord.date = tableDataList.value[i].date
 
 
     dataHolder.push(thisRecord)
@@ -1272,22 +1292,6 @@ const DownloadXlsx = async () => {
 
 }
 
-const isMobile = computed(() => appStore.getMobile)
-
-console.log('IsMobile', isMobile)
-
-const dialogWidth = ref()
-const actionColumnWidth = ref()
-
-if (isMobile.value) {
-  dialogWidth.value = "90%"
-  actionColumnWidth.value = "75px"
-} else {
-  dialogWidth.value = "25%"
-  actionColumnWidth.value = "160px"
-
-}
-
 </script>
 
 <template>
@@ -1295,13 +1299,15 @@ if (isMobile.value) {
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Filter by Indicator">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-cascader :options="cascadeOptions" @change="handleSelectLocation" :props="props1" filterable clearable
+      <el-cascader
+:options="cascadeOptions" @change="handleSelectLocation" :props="props1" filterable clearable
         placeholder="Select Location of Monitoring" />
 
     </div>
@@ -1346,7 +1352,8 @@ if (isMobile.value) {
                   </el-link>
 
                   <el-tooltip content="Delete" placement="top">
-                    <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                       icon-color="#626AEF" title="Are you sure to delete this document?"
                       @confirm="removeDocument(scope.row)">
                       <template #reference>
@@ -1358,9 +1365,10 @@ if (isMobile.value) {
               </el-table-column>
             </el-table>
             <!-- <el-button v-if="showAdminButtons" @click="addMoreDocs(props.row)" type="info" round>Add More
-                                                                                                      Documents</el-button> -->
+                                                                                                                  Documents</el-button> -->
 
-            <el-button v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+            <el-button
+v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
               style="margin-left: 10px;margin-top: 5px" size="small" />
 
 
@@ -1373,22 +1381,20 @@ if (isMobile.value) {
       <el-table-column label="Unit" prop="indicator_category.indicator.unit" />
       <el-table-column label="Amount" prop="amount" />
       <el-table-column label="Status" prop="status" />
-
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
-
-
           <el-dropdown v-if="isMobile">
             <span class="el-dropdown-link">
               <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="showAdminButtons" @click="editReport(scope as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="editReport(scope as TableSlotDefault)"
                   :icon="Edit">Edit</el-dropdown-item>
-                <el-dropdown-item v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
-
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -1399,12 +1405,14 @@ if (isMobile.value) {
 
 
             <el-tooltip content="Edit" placement="top">
-              <el-button v-if="showAdminButtons" type="success" :icon="Edit"
+              <el-button
+v-if="showAdminButtons" type="success" :icon="Edit"
                 @click="editReport(scope.row as TableSlotDefault)" circle />
             </el-tooltip>
 
             <el-tooltip content="Delete" placement="top">
-              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
                 <template #reference>
                   <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
@@ -1419,7 +1427,8 @@ if (isMobile.value) {
     </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
@@ -1432,7 +1441,8 @@ if (isMobile.value) {
         <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
 
           <el-form-item label="Indicator">
-            <el-select filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
+            <el-select
+filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
               placeholder="Select Indicator">
               <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
@@ -1440,7 +1450,8 @@ if (isMobile.value) {
 
 
           <el-form-item label="Location">
-            <el-cascader v-model="ruleForm.location" :options="cascadeOptions" @change="getCascadeSelectedValues"
+            <el-cascader
+v-model="ruleForm.location" :options="cascadeOptions" @change="getCascadeSelectedValues"
               :props="props1" filterable clearable placeholder="Select Location of Monitoring" />
           </el-form-item>
           <el-form-item label="Date">
@@ -1449,16 +1460,17 @@ if (isMobile.value) {
           <el-form-item label="Quantity">
             <el-input-number v-model="ruleForm.amount" />
           </el-form-item>
-          <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
-              :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
-              :on-exceed="handleExceed" :auto-upload="false">
-              <el-button type="primary">Click to upload</el-button>
-              <template #tip>
-                <div class="el-upload__tip">
-                  pdf/xlsx/csv/jpg/png files with a size less than 20mb.
-                </div>
-              </template>
-            </el-upload></el-form-item>
+          <!-- <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
+                          :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
+                          :on-exceed="handleExceed" :auto-upload="false">
+                          <el-button type="primary">Click to upload</el-button>
+                          <template #tip>
+                            <div class="el-upload__tip">
+                              pdf/xlsx/csv/jpg/png files with a size less than 20mb.
+                            </div>
+                          </template>
+                        </el-upload>
+                      </el-form-item> -->
 
 
         </el-form>
@@ -1487,9 +1499,11 @@ if (isMobile.value) {
     </template>
   </el-dialog>
 
-  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
+  <el-dialog
+v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
     draggable>
-    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+    <el-upload
+class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="5" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>
@@ -1530,7 +1544,8 @@ if (isMobile.value) {
     </el-select>
 
 
-    <el-upload v-model:file-list="morefileList" class="upload-demo"
+    <el-upload
+v-model:file-list="morefileList" class="upload-demo"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
       :on-remove="handleRemove" :before-remove="beforeRemove" :limit="5" :auto-upload="false" :on-exceed="handleExceed">
       <el-button type="primary">Click to upload</el-button>

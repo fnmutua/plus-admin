@@ -3836,71 +3836,117 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     redirect: '/mne/indicator',
     name: 'MonitoringEvaluation',
     meta: {
-      title: 'M&E',
+      title: 'Monitoring/Evaluation',
       icon: 'uis:graph-bar',
       alwaysShow: false
     },
     children: [
       {
-        path: 'new',
+        path: 'activity',
       //  component: 'views/Indicators/indicator_category_report',
-        component: () => import('@/views/Indicators/indicator_category_report_new.vue'),
-        name: 'NewReports',
+        component: () => import('@/views/Indicators/Activity.vue'),
+
+        name: 'MEActivity',
         meta: {
-          title: 'New Reports',
-          icon:'carbon:result-new',
+          title: 'Activities',
+          icon:'icon-park-outline:activity-source',
           
         }
       },
+
+      
+      {
+        path: 'indicator',
+        //component: 'views/Facilities/Water/Water',
+        //component: () => import('@/views/Facilities/Water/Water.vue'),
+        component: Layout,
+        name: 'IdnicatorConfig',
+        meta: {
+          icon: 'icon-park-solid:dashboard-car',
+          title: 'Indicators'
+        },
+        children: [
+          {
+            path: 'list',
+         //   component: 'views/Indicators/indicator',
+            component: () => import('@/views/Indicators/indicator.vue'),
+            name: 'Indicators',
+            meta: {
+              title: 'List',
+              hidden: false,
+              icon:'cil:gauge'
+            }
+          },
+          {
+            path: 'config',
+         //   component: 'views/Indicators/indicator_category',
+            component: () => import('@/views/Indicators/indicator_category.vue'),
+            name: 'IndicatorConfigs',
+            meta: {
+              title: 'Configurations',
+              icon:'material-symbols:settings',
+              hidden: false
+            }
+          },
+        {
+          path: 'category',
+        // component: 'views/Indicators/category',
+          component: () => import('@/views/Indicators/category.vue'),
+          name: 'IndicatorCategory',
+          meta: {
+            title: 'Category',
+            icon: 'vaadin:options',
+            hidden:true
+          }
+        }
+        ]
+      },
       {
         path: 'reports',
-      //  component: 'views/Indicators/indicator_category_report',
-        component: () => import('@/views/Indicators/indicator_category_report.vue'),
+        //component: 'views/Facilities/Water/Water',
+        //component: () => import('@/views/Facilities/Water/Water.vue'),
+        component: Layout,
         name: 'Reports',
         meta: {
-          title: 'M&E Reports',
-          icon:'mdi:file-document-plus',
-        }
+          icon: 'fluent-mdl2:analytics-report',
+          title: 'Monitoring'
+        },
+        children: [
+          {
+            path: 'new',
+          //  component: 'views/Indicators/indicator_category_report',
+            component: () => import('@/views/Indicators/indicator_category_report_new.vue'),
+            name: 'NewReports',
+            meta: {
+              title: 'New Reports',
+              icon:'carbon:result-new',
+            }
+          },
+
+          {
+            path: 'past',
+          //  component: 'views/Indicators/indicator_category_report',
+            component: () => import('@/views/Indicators/indicator_category_report.vue'),
+            name: 'PastReports',
+            meta: {
+              title: 'Past Reports',
+              icon:'mdi:file-document-plus',
+            }
+          },
+        ]
       },
-   
+
       {
-        path: 'config',
-     //   component: 'views/Indicators/indicator_category',
-        component: () => import('@/views/Indicators/indicator_category.vue'),
-
-        name: 'IndicatorCategory',
+        path: 'evaluation',
+        //component: 'views/Facilities/Water/Water',
+        component: () => import('@/views/Indicators/evaluation.vue'),
+        //component: Layout,
+        name: 'Evaluation',
         meta: {
-          title: 'Configurations',
-          icon:'material-symbols:settings',
-          hidden: false
-
-        }
-      },
-      {
-        path: 'list',
-     //   component: 'views/Indicators/indicator',
-        component: () => import('@/views/Indicators/indicator.vue'),
-
-        name: 'Indicators',
-        meta: {
-          title: 'Indicators',
-          hidden: false,
-          icon:'cil:gauge'
-
-        }
-      },
-      {
-        path: 'category',
-       // component: 'views/Indicators/category',
-        component: () => import('@/views/Indicators/category.vue'),
-
-        name: 'Category',
-        meta: {
-          title: 'Category',
-          icon: 'vaadin:options',
-          hidden:true
-        }
-      } 
+          icon: 'pajamas:issue-type-test-case',
+          title: 'Evaluations'
+        },
+      }
     ]
   },
 
@@ -3915,7 +3961,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       alwaysShow: true
     },
     children: [
-  
       {
         path: 'all',
        // component: 'views/Users/User',
@@ -3925,7 +3970,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'All',
           hidden: false,
           icon: 'fa6-solid:users-rectangle',
-
         }
       },
       {
@@ -3937,7 +3981,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'New',
           hidden: false,
           icon:'grommet-icons:user-new',
-
         }
       },
       {
@@ -3950,7 +3993,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'County',
           hidden: false,
           icon:'gis:map-users'
-
         }
       }, 
       {
@@ -3962,7 +4004,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Profile',
           hidden: false,
           icon:'gis:map-users'
-
         }
       }, 
 
@@ -3975,7 +4016,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Logs',
           hidden: false,
           icon:'ic:twotone-logo-dev'
-
         }
       }, 
     ]
@@ -4002,6 +4042,19 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           icon:'clarity:heat-map-line'
         }
       },
+
+      {
+        path: 'evtype',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/settings/EvType.vue'),
+        name: 'EvaluationType',
+        meta: { 
+          title: 'Evaluation Types',
+          hidden: false,
+          icon:'clarity:heat-map-line'
+        }
+      },
+
       {
         path: 'category',
       //  component: 'views/Users/County',
