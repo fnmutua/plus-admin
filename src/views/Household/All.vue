@@ -900,10 +900,10 @@ if (isMobile.value) {
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="Name" width="400" prop="name" />
-          <el-table-column label="Gender" prop="gender" />
-          <el-table-column label="Ownership Status" prop="ownership_status" />
-          <el-table-column label="Settlement" prop="settlement.name" />
+          <el-table-column label="Name" width="200" prop="name" sortable />
+          <el-table-column label="Gender" prop="gender" sortable />
+          <el-table-column label="Ownership Status" prop="ownership_status" sortable />
+          <el-table-column label="Settlement" prop="settlement.name" sortable />
 
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">

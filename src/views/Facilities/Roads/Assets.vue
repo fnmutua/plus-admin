@@ -1171,9 +1171,9 @@ const editForm = async (formEl: FormInstance | undefined) => {
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="Road" prop="road.name" />
-          <el-table-column label="Asset" prop="asset_type" />
-          <el-table-column label="Condition" prop="asset_condition" />
+          <el-table-column label="Road" prop="road.name" sortable />
+          <el-table-column label="Asset" prop="asset_type" sortable />
+          <el-table-column label="Condition" prop="asset_condition" sortable />
 
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">

@@ -1139,23 +1139,6 @@ const DownloadXlsx = async () => {
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <!--     <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-                        :currentPage="currentPage">
-                        <template #action="data">
-                          <el-tooltip content="Edit" placement="top">
-                            <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
-                          </el-tooltip>
-
-                          <el-tooltip content="Delete" placement="top">
-                            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                              title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-                              <template #reference>
-                                <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                              </template>
-                            </el-popconfirm>
-                          </el-tooltip>
-                        </template>
-                      </Table> -->
 
     <el-table :data="tableDataList" style="width: 100%">
       <el-table-column type="expand">
@@ -1178,12 +1161,12 @@ const DownloadXlsx = async () => {
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" />
-      <el-table-column label="Settlement" prop="settlement.name" />
-      <el-table-column label="County" prop="county.name" />
-      <el-table-column label="Unit" prop="indicator_category.indicator.unit" />
-      <el-table-column label="Amount" prop="amount" />
-      <el-table-column label="Status" prop="status" />
+      <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
+      <el-table-column label="Settlement" prop="settlement.name" sortable />
+      <el-table-column label="County" prop="county.name" sortable />
+      <el-table-column label="Unit" prop="indicator_category.indicator.unit" sortable />
+      <el-table-column label="Amount" prop="amount" sortable />
+      <el-table-column label="Status" prop="status" sortable />
 
       <el-table-column fixed="right" label="Operations" width="120">
         <template #default="scope">

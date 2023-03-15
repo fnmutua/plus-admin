@@ -417,13 +417,15 @@ exports.modelCountyUsers = (req, res) => {
   qry.distinct=true
 
   qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only 
+  console.log('Final-6-object------------>', qry)
+
   db.models[reg_model].findAndCountAll(qry).then((list) => {
     console.log(list)
     res.status(200).send({
       data: list.rows,
       total: list.count,
       code: '0000',
-      message: 'Users retrived successfully'
+      message: 'Users retrived xsuccessfully'
     })
   })
 }

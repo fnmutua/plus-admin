@@ -723,10 +723,10 @@ const DownloadXlsx = async () => {
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="Id" prop="id" :width="idColumnWidth" />
-      <el-table-column label="Title" prop="title" />
-      <el-table-column label="Project" prop="project.title" />
-      <el-table-column label="Type" prop="evaluation_type.type" />
+      <el-table-column label="Id" prop="id" :width="idColumnWidth" sortable />
+      <el-table-column label="Title" prop="title" sortable />
+      <el-table-column label="Project" prop="project.title" sortable />
+      <el-table-column label="Type" prop="evaluation_type.type" sortable />
 
       <el-table-column label="Findings">
         <template #default="{ row }">

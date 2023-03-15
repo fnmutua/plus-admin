@@ -466,9 +466,14 @@ const DeleteFile = (data: TableSlotDefault) => {
   formData.model = 'indicator_category_report'
   formData.filesToDelete = [data.row.name]
 
-
-
   deleteDocument(formData)
+
+  // remove the deleted object from array list 
+  let index = tableDataList.value.indexOf(data);
+  if (index !== -1) {
+    tableDataList.value.splice(index, 1);
+  }
+
 }
 
 const downloadFile = async (data) => {

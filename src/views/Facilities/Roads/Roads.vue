@@ -1227,11 +1227,11 @@ const next = () => {
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="Name" prop="name" />
-          <el-table-column label="Surface" prop="surfaceType" />
-          <el-table-column label="Road Class" prop="rdClass" />
-          <el-table-column label="Drainage Condition" prop="drainageCondition" />
-          <el-table-column label="Settlement" prop="settlement.name" />
+          <el-table-column label="Name" prop="name" sortable />
+          <el-table-column label="Surface" prop="surfaceType" sortable />
+          <el-table-column label="Road Class" prop="rdClass" sortable />
+          <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+          <el-table-column label="Settlement" prop="settlement.name" sortable />
 
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">

@@ -1243,8 +1243,8 @@ const next = () => {
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="Name" prop="name" />
-          <el-table-column label="Settlement" prop="settlement.name" />
+          <el-table-column label="Name" prop="name" sortable />
+          <el-table-column label="Settlement" prop="settlement.name" sortable />
 
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">

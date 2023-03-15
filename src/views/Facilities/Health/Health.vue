@@ -163,7 +163,7 @@ const facilityGeo = ref([])
 const subcountyfilteredOptions = ref([])
 const settlementfilteredOptions = ref([])
 
- 
+
 
 const handleSelectCounty = async (county_id: any) => {
   console.log(county_id)
@@ -1159,15 +1159,13 @@ const editForm = async (formEl: FormInstance | undefined) => {
     <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
       <el-tab-pane label="List" name="list">
         <div style="display: inline-block;">
-          <el-select
-v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
+          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by Settlement">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
         <div style="display: inline-block; margin-left: 20px">
-          <el-select
-v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
+          <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by  Name">
             <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -1217,15 +1215,14 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="Name" prop="name" />
-          <el-table-column label="Settlement" prop="settlement.name" />
+          <el-table-column label="Name" prop="name" sortable />
+          <el-table-column label="Settlement" prop="settlement.name" sortable />
 
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
@@ -1236,13 +1233,11 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item
-@click="viewProfile(scope as TableSlotDefault)"
+                    <el-dropdown-item @click="viewProfile(scope as TableSlotDefault)"
                       :icon="Position">View</el-dropdown-item>
 
 
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1253,27 +1248,23 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
               <div v-else>
 
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button
-type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
+                  <el-button type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Profile" placement="top">
-                  <el-button
-type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
+                  <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Profile" placement="top">
-                  <el-button
-type="primary" size="small" :icon="TopRight"
+                  <el-button type="primary" size="small" :icon="TopRight"
                     @click="viewProfile(scope.row as TableSlotDefault)" circle />
                 </el-tooltip>
 
 
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this facility?" width="150"
                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -1289,8 +1280,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
         </el-table>
 
-        <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -1321,8 +1311,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
                 <el-form-item label="Ownership" prop="ownership">
                   <el-select v-model="ruleForm.ownership_type" filterable placeholder="Ownership">
-                    <el-option
-v-for="item in ownsershipOptions" :key="item.value" :label="item.label"
+                    <el-option v-for="item in ownsershipOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -1334,16 +1323,14 @@ v-for="item in ownsershipOptions" :key="item.value" :label="item.label"
 
                 <el-form-item label="Subcounty" prop="subcounty_id">
                   <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select subcounty">
-                    <el-option
-v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                    <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
 
                 <el-form-item label="Settlement" prop="settlement_id">
                   <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-                    <el-option
-v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+                    <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -1409,8 +1396,7 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
         </el-option-group>
       </el-select>
 
-      <el-upload
-v-model:file-list="morefileList" class="upload-demo "
+      <el-upload v-model:file-list="morefileList" class="upload-demo "
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>
