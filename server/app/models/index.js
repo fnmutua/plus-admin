@@ -635,6 +635,29 @@ db.models.indicator_category_report.hasMany(db.models.document, {
   foreignKey: 'report_id'
 })
 
+
+// activity  - indicator_category_report
+db.models.indicator_category.belongsTo(db.models.activity, {
+  foreignKey: 'activity_id',
+})
+
+db.models.activity.hasMany(db.models.indicator_category, {
+  foreignKey: 'activity_id'
+})   
+
+  
+
+// project  - indicator_category_report
+db.models.indicator_category.belongsTo(db.models.project, {
+  foreignKey: 'project_id',
+})
+
+db.models.project.hasMany(db.models.indicator_category, {
+  foreignKey: 'project_id'
+})   
+
+
+
 db.models.document.belongsTo(db.models.project, {
   foreignKey: 'project_id',
 })
@@ -720,12 +743,7 @@ db.models.households.hasMany(db.models.document, {
   foreignKey: 'hh_id'
 })
 
-
-
-
-
-
-
+ 
 db.models.document.belongsTo(db.models.document_type, {
   foreignKey: 'category',
 })
@@ -755,9 +773,60 @@ db.models.county.hasMany(db.models.subcounty, {
 })
 
 
+//Project    - Activty 
+db.models.project.belongsToMany(db.models.activity, {
+  through: 'project_activity',
+  foreignKey: 'project_id',
+  otherKey: 'activity_id'
+})
+db.models.activity.belongsToMany(db.models.project, {
+  through: 'project_activity',
+  foreignKey: 'activity_id',
+  otherKey: 'project_id',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+})
+
+
+//Activty - INDICATOR
+
+db.models.indicator.belongsTo(db.models.activity, {
+  foreignKey: 'activity_id',
+})
+
+db.models.activity.hasMany(db.models.indicator, {
+  foreignKey: 'activity_id'
+})
+
+
+// Evaluation - Evaluation Types
+db.models.evaluation.belongsTo(db.models.evaluation_type, {
+  foreignKey: 'evaluation_type_id',
+})
+
+db.models.evaluation_type.hasMany(db.models.evaluation, {
+  foreignKey: 'evaluation_type_id'
+})
 
 
 
+db.models.document.belongsTo(db.models.evaluation, {
+  foreignKey: 'evaluation_id',
+})
+
+db.models.evaluation.hasMany(db.models.document, {
+  foreignKey: 'evaluation_id'
+})
+
+
+
+db.models.evaluation.belongsTo(db.models.project, {
+  foreignKey: 'project_id',
+})
+
+db.models.project.hasMany(db.models.evaluation, {
+  foreignKey: 'project_id'
+})
 
 // db.models.document.belongsTo(db.models.indicator_category_report, {
 //   foreignKey: 'parent_code',

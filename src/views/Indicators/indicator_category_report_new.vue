@@ -38,6 +38,7 @@ import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
 import { computed } from 'vue'
 
+import xlsx from "json-as-xlsx"
 
 
 
@@ -1051,6 +1052,61 @@ getInterventionsAll()
 
 getSettlement()
 
+
+
+const DownloadXlsx = async () => {
+  console.log(tableDataList.value)
+
+  // change here !
+  let fields = [
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Indicator", value: "indicator" }, // Top level data
+    { label: "Quantity", value: "quantity" }, // Custom format
+    { label: "Settlement", value: "settlement" }, // Custom format
+    { label: "County", value: "county" }, // Custom format
+    { label: "Date", value: "date" }, // Custom format
+
+  ]
+
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  // loop through the table data and sort the data 
+  // change here !
+  for (let i = 0; i < tableDataList.value.length; i++) {
+    let thisRecord = {}
+    tableDataList.value[i]
+    thisRecord.index = i + 1
+    thisRecord.indicator = tableDataList.value[i].indicator_category.indicator.name
+    thisRecord.quantity = tableDataList.value[i].amount
+    thisRecord.settlement = tableDataList.value[i].settlement.name
+    thisRecord.county = tableDataList.value[i].county.name
+    thisRecord.date = tableDataList.value[i].date
+
+
+    dataHolder.push(thisRecord)
+  }
+  dataObj.content = dataHolder
+
+
+
+
+  let settings = {
+    fileName: model, // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
+
+
 </script>
 
 <template>
@@ -1072,7 +1128,7 @@ getSettlement()
 
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
@@ -1084,22 +1140,22 @@ getSettlement()
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
     <!--     <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
-        </el-tooltip>
+                        :currentPage="currentPage">
+                        <template #action="data">
+                          <el-tooltip content="Edit" placement="top">
+                            <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+                          </el-tooltip>
 
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
-      </template>
-    </Table> -->
+                          <el-tooltip content="Delete" placement="top">
+                            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                              title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+                              <template #reference>
+                                <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                              </template>
+                            </el-popconfirm>
+                          </el-tooltip>
+                        </template>
+                      </Table> -->
 
     <el-table :data="tableDataList" style="width: 100%">
       <el-table-column type="expand">
@@ -1150,9 +1206,9 @@ getSettlement()
 
     </el-table>
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
   <el-dialog v-model="ReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
@@ -1222,7 +1278,4 @@ getSettlement()
       </span>
     </template>
   </el-dialog>
-
-
-
 </template>

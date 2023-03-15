@@ -22,12 +22,9 @@ import {
 
 import { ref, reactive, computed } from 'vue'
 import {
-  ElPagination, ElInputNumber, ElTable,
-  ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, ElOptionGroup, FormRules, ElPopconfirm
+  ElPagination, ElTooltip, ElCol, ElOption, ElDivider, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu,
+  ElFormItem, ElRow, ElInput, FormRules, ElPopconfirm, ElTooltipContentProps, ElTable, ElTableColumn,
 } from 'element-plus'
-
-
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -52,7 +49,6 @@ console.log('IsMobile', isMobile)
 
 const dialogWidth = ref()
 const actionColumnWidth = ref()
-const idColumnWidth = ref("50px")
 
 if (isMobile.value) {
   dialogWidth.value = "90%"
@@ -60,7 +56,6 @@ if (isMobile.value) {
 } else {
   dialogWidth.value = "25%"
   actionColumnWidth.value = "160px"
-
 
 }
 
@@ -72,7 +67,7 @@ const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
 const indicatorsOptions = ref([])
-const settlementOptions = ref([])
+const ActivityOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
@@ -102,47 +97,31 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['activity']
-const model = 'indicator'
+const associated_multiple_models = []
+const model = 'activity'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
 const AddDialogVisible = ref(false)
-const formHeader = ref('Add Indicator')
+const formHeader = ref('Add Activity')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
 
 
 
+
+
+
 const columns: TableColumn[] = [
   {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
+    field: 'id',
+    label: t('Id'),
+
   },
 
   {
-    field: 'name',
-    label: t('Name')
-  },
-
-
-  {
-    field: 'activity.title',
-    label: t('Activity')
-  },
-
-  {
-    field: 'unit',
-    label: t('Unit')
-  },
-  {
-    field: 'type',
-    label: t('Type')
-  },
-  {
-    field: 'level',
-    label: t('Reporting Level')
+    field: 'title',
+    label: t('Title')
   },
 
 
@@ -174,8 +153,8 @@ const handleClear = async () => {
 }
 
 
-const handleSelectIndicator = async (indicator: any) => {
-  var selectOption = 'id'
+const handleSelectProgramme = async (indicator: any) => {
+  var selectOption = 'programme_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -239,7 +218,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.curUser = 1 // Id for logged in user
   formData.model = model
   //-Search field--------------------------------------------
-  formData.searchField = 'name'
+  formData.searchField = 'title'
   formData.searchKeyword = ''
   //--Single Filter -----------------------------------------
 
@@ -280,8 +259,8 @@ const getIndicatorOptions = async () => {
       //   pageIndex: 1,
       //   limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'indicator',
-      searchField: 'name',
+      model: 'activity',
+      searchField: 'title',
       searchKeyword: '',
       sort: 'ASC'
     }
@@ -294,20 +273,21 @@ const getIndicatorOptions = async () => {
     // pass result to the makeoptions
 
     categories.value = ret
-    makeSettlementOptions(categories)
+    makeOptions(categories)
   })
 }
 
 
-const makeSettlementOptions = (list) => {
+
+const makeOptions = (list) => {
   console.log('making the options..............', list)
-  settlementOptions.value = []
+  ActivityOptions.value = []
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
     //  console.log(countyOpt)
-    settlementOptions.value.push(countyOpt)
+    ActivityOptions.value.push(countyOpt)
   })
 }
 
@@ -319,42 +299,7 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
-const activityOptions = ref([])
-const getActivityOptions = async () => {
-  await getCountyListApi({
-    params: {
-      //   pageIndex: 1,
-      //   limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'activity',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    // var ret = response
 
-    console.log('Activities', response.data)
-    response.data.forEach(function (arrayItem: { id: string; type: string }) {
-      //console.log(arrayItem)
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
-
-      //  console.log(countyOpt)
-      activityOptions.value.push(opt)
-    })
-
-
-  })
-}
-
-
-getActivityOptions()
-getIndicatorOptions()
-getInterventionsAll()
 
 console.log('Options---->', indicatorsOptions)
 const editIndicator = (data: TableSlotDefault) => {
@@ -362,37 +307,48 @@ const editIndicator = (data: TableSlotDefault) => {
   showEditSaveButton.value = true
   console.log(data)
   ruleForm.id = data.row.id
-  ruleForm.name = data.row.name
-  ruleForm.type = data.row.type
-  ruleForm.format = data.row.format
-  ruleForm.level = data.row.level
-  ruleForm.unit = data.row.unit
-  ruleForm.activity_id = data.row.activity_id
-  formHeader.value = 'Edit Indicator'
+  ruleForm.title = data.row.title
+
+
+
+  formHeader.value = 'Edit Component'
 
 
   AddDialogVisible.value = true
 }
 
 
-const DeleteIndicator = (data: TableSlotDefault) => {
-  console.log('----->', data.row.id)
+const DeleteIndicator = async (data: TableSlotDefault) => {
+  console.log('----->', data.id)
   let formData = {}
-  formData.id = data.row.id
-  formData.model = 'indicator'
-  DeleteRecord(formData)
-  console.log(tableDataList.value)
+  formData.id = data.id
+  formData.model = model
+  await DeleteRecord(formData)
 
   // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
+  let index = tableDataList.value.indexOf(data);
   if (index !== -1) {
+    console.log('Remove index', index)
+
     tableDataList.value.splice(index, 1);
+    console.log(tableDataList.value)
+
   }
+
+
+
 
   getFilteredData(filters, filterValues)
 }
 
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  title: '',
 
+
+
+
+})
 const handleClose = () => {
 
   console.log("Clsoing the dialoig")
@@ -400,57 +356,37 @@ const handleClose = () => {
   showEditSaveButton.value = false
 
   ruleForm.id = ''
-  ruleForm.name = ''
-  ruleForm.type = ''
-  ruleForm.format = ''
-  ruleForm.level = ''
-  ruleForm.unit = ''
-  ruleForm.activity_id
-
-  formHeader.value = 'Add Indicator'
+  ruleForm.title = ''
+  formHeader.value = 'Add Activity'
 
 }
 
 
-const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
-  name: '',
-  type: '',
-  unit: '',
-  level: '',
-  format: '',
-  activity_id: '',
-  desc: '',
-})
+
 
 const rules = reactive<FormRules>({
-  name: [
-    { required: true, message: 'Please provide indicator name', trigger: 'blur' },
+  title: [
+    { required: true, message: 'Please provide A title', trigger: 'blur' },
     { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
   ],
-  type: [
-    { required: true, message: 'Indicator type is required', trigger: 'blur' }],
-  unit: [{ required: true, message: 'The Indicator type is required', trigger: 'blur' }],
-  format: [
-    { required: true, message: 'Indicator Formatt is required', trigger: 'blur' }],
 
-  level: [
-    { required: true, message: 'The  description is required', trigger: 'blur' }
-  ]
 })
 
-const AddIndicator = () => {
+const AddComponent = () => {
   AddDialogVisible.value = true
 }
 
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
-      ruleForm.model = 'indicator'
+      ruleForm.model = model
       ruleForm.code = uuid.v4()
-      const res = CreateRecord(ruleForm)
+      const res = await CreateRecord(ruleForm)
+      console.log('inserted object', res.data)
+      tableDataList.value.push(res.data)  // Add the added object on the list 
+
 
     } else {
       console.log('error submit!', fields)
@@ -463,7 +399,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate((valid, fields) => {
     if (valid) {
-      ruleForm.model = 'indicator'
+      ruleForm.model = model
 
       updateOneRecord(ruleForm).then(() => { })
 
@@ -478,17 +414,18 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
 
+getIndicatorOptions()
+getInterventionsAll()
+
+
 const DownloadXlsx = async () => {
   console.log(tableDataList.value)
 
   // change here !
   let fields = [
     { label: "S/No", value: "index" }, // Top level data
-    { label: "Title", value: "title" }, // Custom format
-    { label: "Activity", value: "activity" }, // Top level data
-    { label: "level", value: "level" }, // Custom format
-    { label: "Format", value: "format" }, // Custom format
-    { label: "Unit", value: "unit" } // Custom format
+    { label: "Title", value: "title" }, // Top level data
+    { label: "Code", value: "code" }, // Custom format
 
   ]
 
@@ -505,11 +442,8 @@ const DownloadXlsx = async () => {
     let thisRecord = {}
     tableDataList.value[i]
     thisRecord.index = i + 1
-    thisRecord.title = tableDataList.value[i].name
-    thisRecord.activity = tableDataList.value[i].activity.title
-    thisRecord.level = tableDataList.value[i].level
-    thisRecord.format = tableDataList.value[i].format
-    thisRecord.unit = tableDataList.value[i].unit
+    thisRecord.title = tableDataList.value[i].title
+    thisRecord.code = tableDataList.value[i].code
 
 
     dataHolder.push(thisRecord)
@@ -529,16 +463,18 @@ const DownloadXlsx = async () => {
   xlsx([dataObj], settings) //  download the excel file
 
 }
+
+
 </script>
 
 <template>
-  <ContentWrap :title="t('Indicator List')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Activities')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Indicator">
-        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+      <el-select v-model="value3" :onChange="handleSelectProgramme" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="Search Activity">
+        <el-option v-for="item in ActivityOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
@@ -548,22 +484,17 @@ const DownloadXlsx = async () => {
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Indicator" placement="top">
-        <el-button v-if="showAdminButtons" :onClick="AddIndicator" type="primary" :icon="Plus" />
+      <el-tooltip content="Add Programe" placement="top">
+        <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-
-
-
     <el-table :data="tableDataList" :loading="loading" border>
-      <el-table-column label="Id" prop="id" :width="idColumnWidth" />
-      <el-table-column label="Title" prop="name" />
-      <el-table-column label="Activity" prop="activity.title" />
-      <el-table-column label="Unit" prop="unit" />
-      <el-table-column label="Type" prop="type" />
+      <el-table-column label="Id" prop="id" width="50px" />
+      <el-table-column label="Title" prop="title" />
+      <el-table-column label="Code" prop="code" />
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -579,12 +510,16 @@ const DownloadXlsx = async () => {
               </el-dropdown-menu>
             </template>
           </el-dropdown>
+
+
           <div v-else>
 
             <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
               <el-button type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
                 circle />
             </el-tooltip>
+
+
 
 
             <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
@@ -603,70 +538,24 @@ const DownloadXlsx = async () => {
       </el-table-column>
     </el-table>
 
-
     <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules">
+      <el-row :gutter="10">
+        <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
+          <el-form-item label="Title">
+            <el-input v-model="ruleForm.title" />
+          </el-form-item>
 
-      <el-form-item label="Activity">
-        <el-select filterable v-model="ruleForm.activity_id" placeholder="Select Activity">
-          <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
+        </el-col>
+      </el-row>
 
 
-      <el-form-item label="Title">
-        <el-input v-model="ruleForm.name" />
-      </el-form-item>
-      <el-form-item label="Type">
-        <el-select v-model="ruleForm.type" placeholder="Type">
-          <el-option label="Output" value="output" />
-          <el-option label="Impact" value="outcome" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="Format">
-        <el-select v-model="ruleForm.format" placeholder="Format">
-          <el-option label="Number" value="number" />
-          <el-option label="Percent" value="percent" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="Unit">
-        <el-select clearable filterable v-model="ruleForm.unit" placeholder="Unit">
-          <el-option label="Block" value="Block" />
-          <el-option label="Connection" value="Connection" />
-          <el-option label="County" value="County" />
-          <el-option label="Footpath" value="Footpath" />
-          <el-option label="Grievance" value="Grievance" />
-          <el-option label="Kiosk" value="Kiosk" />
-          <el-option label="Kilometer" value="Km" />
-          <el-option label="Meter" value="M" />
-          <el-option label="Letter" value="Letter" />
-          <el-option label="Person" value="Person" />
-          <el-option label="Household" value="Household" />
-          <el-option label="Organization" value="Organization" />
-          <el-option label="Workshop" value="Workshop" />
-          <el-option label="Meeting" value="Meeting" />
-          <el-option label="Training" value="Training" />
-          <el-option label="Survey" value="Survey" />
-          <el-option label="Group" value="Group" />
-          <el-option label="Census" value="Census" />
-          <el-option label="Plan" value="Plan" />
-          <el-option label="Streetlight" value="Streetlight" />
-          <el-option label="Title" value="Title" />
-          <el-option label="Lease" value="Lease" />
-          <el-option label="Basemap" value="Basemap" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="Level">
-        <el-select v-model="ruleForm.level" placeholder="Level">
-          <el-option label="Settlement" value="Settlement" />
-          <el-option label="County" value="County" />
-        </el-select>
-      </el-form-item>
+
     </el-form>
     <template #footer>
 

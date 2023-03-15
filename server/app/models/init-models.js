@@ -47,6 +47,10 @@ var _subcounty= require('./subcounty')
 var _document_type= require('./document_type')
 var _logs= require('./logs')
 var _piped_water= require('./piped_water')
+var _activity= require('./activity')
+var _project_activity= require('./project_activity')
+var _evaluation_type= require('./evaluation_type')
+var _evaluation= require('./evaluation')
 
 
 
@@ -103,6 +107,10 @@ function initModels(sequelize) {
   var document_type = _document_type(sequelize, DataTypes)
   var logs = _logs(sequelize, DataTypes)
   var piped_water = _piped_water(sequelize, DataTypes)
+  var activity = _activity(sequelize, DataTypes)
+  var project_activity = _project_activity(sequelize, DataTypes)
+  var evaluation_type = _evaluation_type(sequelize, DataTypes)
+  var evaluation = _evaluation(sequelize, DataTypes)
 
   
   
@@ -155,6 +163,10 @@ function initModels(sequelize) {
     document_type,
     logs,
     piped_water,
+    activity,
+    project_activity,
+    evaluation_type,
+    evaluation,
     settlement_uploads
   }
 }

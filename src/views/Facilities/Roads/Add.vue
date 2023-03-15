@@ -122,7 +122,6 @@ const next = () => {
   }
 }
 
-
 const back = () => {
   if (active.value > 0) {
     active.value--

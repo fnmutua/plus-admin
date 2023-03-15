@@ -12,6 +12,6 @@ export const getAll = ({ params }: AxiosConfig) => {
 }
 
 export const getListByparent = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  console.log('getSettlementListByCounty....', data)
-  return request.post({ url: prod + '/api/v1/data/column/paginated', data })
+   return request.post({ url: prod + '/api/v1/data/column/paginated', data })
 }
+
