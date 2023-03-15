@@ -1145,11 +1145,11 @@ const next = () => {
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="Name" prop="name" />
-          <el-table-column label="Provider" prop="owner" />
-          <el-table-column label="Connection" prop="number_connections" />
-          <el-table-column label="Length(Km)" prop="length" />
-          <el-table-column label="Settlement" prop="settlement.name" />
+          <el-table-column label="Name" prop="name" sortable />
+          <el-table-column label="Provider" prop="owner" sortable />
+          <el-table-column label="Connection" prop="number_connections" sortable />
+          <el-table-column label="Length(Km)" prop="length" sortable />
+          <el-table-column label="Settlement" prop="settlement.name" sortable />
 
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">

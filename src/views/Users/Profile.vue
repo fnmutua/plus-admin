@@ -149,19 +149,45 @@ onMounted(() => {
 </script>
 
 <template>
-  <el-row>
-    <el-card :body-style="{ padding: '0px' }">
-      <el-col :span="12">
+  <div class="user-profile">
+    <div class="profile-header">
+      <img :src="profile.avatar" alt="User Profile Image" />
+      <h1>{{ name }}</h1>
+      <p>{{ tagline }}</p>
+    </div>
 
-        <img :src="avatar" class="image" />
-      </el-col>
-      <el-col :span="12">
-        <Descriptions :title="t('Profile')" :message="t('Profile')" :data="profile" :schema="schemaProfile" />
-      </el-col>
-    </el-card>
+    <div class="profile-details">
+      <div class="profile-card">
+        <div class="card-icon">
+          <Icon icon="mdi:email-mark-as-unread" color="red" width="48" />
+        </div>
+        <div class="card-content">
+          <h3>Email:</h3>
+          <p>{{ profile.email }}</p>
+        </div>
+      </div>
 
+      <div class="profile-card">
+        <div class="card-icon">
+          <Icon icon="ic:baseline-phone" color="green" width="48" />
+        </div>
+        <div class="card-content">
+          <h3>Phone:</h3>
+          <p>{{ profile.phone }}</p>
+        </div>
+      </div>
 
-  </el-row>
+      <div class="profile-card">
+        <div class="card-icon">
+          <Icon icon="material-symbols:location-on-outline" color="blue" width="48" />
+        </div>
+        <div class="card-content">
+          <h3>County:</h3>
+          <p>{{ profile.county }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style lang="less" scoped>
@@ -173,5 +199,92 @@ onMounted(() => {
     color: var(--el-color-danger);
     content: '*';
   }
+}
+</style>
+<style>
+.user-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Roboto', sans-serif;
+  margin: 20px;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.profile-header img {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.profile-header h1 {
+  font-size: 24px;
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+
+.profile-header p {
+  font-size: 18px;
+  color: #888;
+}
+
+.profile-details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  transition: all 0.2s ease-in-out;
+}
+
+.profile-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.card-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 70px;
+  height: 70px;
+  font-size: 24px;
+  color: #888;
+  background-color: #f8f8f8;
+  border-radius: 50%;
+  margin-bottom: 10px;
+}
+
+.card-content {
+  text-align: center;
+}
+
+.card-content h3 {
+  font-size: 18px;
+  margin-bottom: 5px;
+}
+
+.card-content p {
+  font-size: 16px;
+  color: #888;
 }
 </style>

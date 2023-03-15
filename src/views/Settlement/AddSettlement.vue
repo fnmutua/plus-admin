@@ -35,7 +35,10 @@ import {
   MapboxNavigationControl,
 
 } from 'vue-mapbox-ts'
-import { DocumentAdd, Edit, Plus, Picture, Location, Upload, ArrowRight, Promotion, RefreshLeft, UploadFilled } from '@element-plus/icons-vue'
+import {
+  DocumentAdd, Edit, Plus, ArrowLeft, Location, ArrowRight,
+  Promotion, RefreshLeft, UploadFilled
+} from '@element-plus/icons-vue'
 
 
 import { getCountyListApi } from '@/api/counties'
@@ -429,28 +432,43 @@ const active = ref(0)
 const showForm = ref(true)
 const showGeoFields = ref(false)
 const showUploadDocuments = ref(false)
+const submitBtns = ref(false)
 var bounds = ref()
-const next = () => {
-  console.log('Step:', active)
 
-  if (active.value++ > 2) active.value = 0
+
+const next = () => {
+  // if (active.value++ > 2) active.value = 0
+  if (active.value < 1) {
+    active.value++
+  } else {
+    active.value = 0
+  }
+
   if (active.value == 0) {
     showForm.value = true
     showGeoFields.value = false
-    showUploadDocuments.value = false
+    submitBtns.value = false
 
   }
   else if (active.value == 1) {
     showForm.value = false
     showGeoFields.value = true
-    showUploadDocuments.value = false
+    submitBtns.value = true
   }
-  else if (active.value == 2) {
-    showForm.value = false
+
+}
+
+
+const back = () => {
+  if (active.value > 0) {
+    active.value--
+    showForm.value = true
     showGeoFields.value = false
-    showUploadDocuments.value = true
+    submitBtns.value = false
   }
 }
+
+
 
 const settlementPoly = ref([])
 const handleUploadGeo = async (uploadFile) => {
@@ -724,9 +742,17 @@ const loadMap = () => {
       <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
         <el-card>
           <el-steps :active="active" simple>
-            <el-step title="Details" :icon="Edit" />
-            <el-step title="Location" :icon="Location" />
-            <el-step title="Documentation" :icon="Upload" />
+            <!-- <el-step title="Details" :icon="Edit" />
+                                                <el-step title="Location" :icon="Location" />
+                                                <el-step title="Documentation" :icon="Upload" /> -->
+
+            <el-step :title="active === 0 ? 'Details' : ''" :icon="Edit" :description="active === 0 ? 'Step 1' : ''"
+              :status="active === 0 ? 'process' : ''" :style="{ fontSize: '14px' }" />
+            <el-step :title="active === 1 ? 'Location' : ''" :icon="Location" :description="active === 1 ? 'Step 2' : ''"
+              :status="active === 1 ? 'process' : ''" :style="{ fontSize: '14px' }" />
+
+
+
           </el-steps>
           <el-divider />
           <el-form label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
@@ -803,10 +829,18 @@ const loadMap = () => {
 
           <el-divider />
           <el-button-group>
-            <el-button type="primary" :icon="ArrowRight" @click="next">Next Step</el-button>
-            <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="success"
+
+            <el-button @click="back" type="primary">
+              <ArrowLeft /> <el-icon class="el-icon--left" /> Prev Page
+            </el-button>
+
+            <el-button @click="next" type="primary"> Next Page<el-icon class="el-icon--right">
+                <ArrowRight />
+              </el-icon>
+            </el-button>
+            <el-button v-if="submitBtns" @click="submitForm(ruleFormRef)" type="success"
               :icon="Promotion">Submit</el-button>
-            <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
+            <el-button v-if="submitBtns" @click="submitForm(ruleFormRef)" type="warning"
               :icon="RefreshLeft">Reset</el-button>
           </el-button-group>
         </el-card>

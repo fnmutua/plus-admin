@@ -5,7 +5,10 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, DeleteRecord } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSwitch, ElSelect, ElDialog, ElRow, ElFooter, ElPopconfirm, ElFormItem, ElForm, ElInput, MessageParamsWithType } from 'element-plus'
+import {
+  ElButton, ElSwitch, ElSelect, ElDialog, ElRow,
+  ElTable, ElTableColumn, ElPopconfirm, ElFormItem, ElForm, ElInput, MessageParamsWithType
+} from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Position,
@@ -576,28 +579,81 @@ const DownloadXlsx = async () => {
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <ElRow :gutter="5" justify="space-between">
-          <el-tooltip content="Activate/Deactivate User" placement="top">
-            <el-switch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)" />
-          </el-tooltip>
-          <el-tooltip content="Edit" placement="top">
-            <el-button type="success" :icon="Edit" @click="EditUser(data as TableSlotDefault)" circle />
-          </el-tooltip>
-          <el-tooltip content="Delete" placement="top">
-            <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
-              icon-color="#626AEF" title="Are you sure to delete this User?"
-              @confirm="DeleteUSer(data as TableSlotDefault)">
-              <template #reference>
-                <el-button v-if="showSuperAdminButtons" type="danger" :icon=Delete circle />
-              </template>
-            </el-popconfirm>
-          </el-tooltip>
-        </ElRow>
-      </template>
-    </Table>
+    <!-- <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+          :currentPage="currentPage">
+          <template #action="data">
+            <ElRow :gutter="5" justify="space-between">
+              <el-tooltip content="Activate/Deactivate User" placement="top">
+                <el-switch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)" />
+              </el-tooltip>
+              <el-tooltip content="Edit" placement="top">
+                <el-button type="success" :icon="Edit" @click="EditUser(data as TableSlotDefault)" circle />
+              </el-tooltip>
+              <el-tooltip content="Delete" placement="top">
+                <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+                  icon-color="#626AEF" title="Are you sure to delete this User?"
+                  @confirm="DeleteUSer(data as TableSlotDefault)">
+                  <template #reference>
+                    <el-button v-if="showSuperAdminButtons" type="danger" :icon=Delete circle />
+                  </template>
+                </el-popconfirm>
+              </el-tooltip>
+            </ElRow>
+          </template>
+        </Table> -->
+
+
+    <el-table :data="tableDataList" style="width: 100%" fit>
+      <el-table-column type="index" label="#" width="50">
+        <!-- Use the 'index' slot to customize the index column -->
+        <template #default="scope">
+          {{ scope.$index + 1 }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Name" prop="name" width="200" sortable />
+      <el-table-column label="Username" prop="username" sortable />
+      <el-table-column label="County" prop="county.name" sortable />
+      <el-table-column fixed="right" label="Operations" :width="actionColumnWidth">
+        <template #default="scope">
+          <el-dropdown v-if="isMobile">
+            <span class="el-dropdown-link">
+              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="showAdminButtons" @click="activateDeactivate(scope as TableSlotDefault)"
+                  :icon="Edit">Activate</el-dropdown-item>
+                <el-dropdown-item>
+                  <el-switch @click="activateDeactivate(scope as TableSlotDefault)" :icon="Edit" />
+                </el-dropdown-item>
+                <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+
+          <div v-else>
+
+            <el-tooltip content="Activate" placement="top">
+              <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+                class="my-switch" />
+            </el-tooltip>
+            <el-tooltip content="Edit" placement="top">
+              <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
+            </el-tooltip>
+
+
+
+          </div>
+
+        </template>
+      </el-table-column>
+
+    </el-table>
+
+
+
+
     <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, maxCount]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
@@ -658,6 +714,10 @@ const DownloadXlsx = async () => {
 }
 
 .dialog-footer button:first-child {
+  margin-right: 10px;
+}
+
+.my-switch {
   margin-right: 10px;
 }
 </style>

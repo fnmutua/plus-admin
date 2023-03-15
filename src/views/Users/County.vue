@@ -5,7 +5,10 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElFormItem, ElForm, ElInput, MessageParamsWithType } from 'element-plus'
+import {
+  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElDropdown, ElDropdownItem,
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn
+} from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Position,
@@ -18,28 +21,50 @@ import {
   MessageBox
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider, ELRow } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import xlsx from "json-as-xlsx"
 
-import {
-  searchByKeyWord
-
-} from '@/api/settlements'
+import { searchByKeyWord } from '@/api/settlements'
 interface Params {
   pageIndex?: number
   xpageSize?: number
 }
 
-
-
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
+
+
+
 const currentUser = wsCache.get(appStore.getUserInfo)
+
+// Hide buttons if not admin 
+const showAdminButtons = ref(false)
+
+if (currentUser.roles.includes("admin")) {
+  showAdminButtons.value = true
+}
+
 
 
 const { push } = useRouter()
@@ -73,10 +98,11 @@ const formLabelWidth = '140px'
 
 
 let tableDataList = ref<UserType[]>([])
+let tableDataList_orig = ref<UserType[]>([])
+
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = ['county_id']
-console.log(currentUser)
 var filterValues = [currentUser.county_id]
 var tblData = []
 
@@ -103,32 +129,7 @@ const form = reactive({
 
 const { t } = useI18n()
 
-const columns: TableColumn[] = [
-  {
-    field: 'index',
-    label: t('S/No'),
-    type: 'index'
-  },
 
-  {
-    field: 'name',
-    label: t('Name')
-  },
-  {
-    field: 'username',
-    label: t('Username')
-  },
-
-
-  {
-    field: 'county.name',
-    label: t('County')
-  },
-  {
-    field: 'action',
-    label: t('Active')
-  }
-]
 const handleClear = async () => {
   console.log('cleared....')
 
@@ -321,14 +322,6 @@ const activateDeactivate = (data: TableSlotDefault) => {
 }
 
 
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'data.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
-
 const getFilteredBySearchData = async (searchString) => {
   const formData = {}
   formData.limit = pSize.value
@@ -356,6 +349,8 @@ const getFilteredBySearchData = async (searchString) => {
 
   console.log('After -----x ------Querry', res)
   tableDataList.value = res.data
+  tableDataList_orig.value = res.data // back for post filter
+
   total.value = res.total
   loading.value = false
 
@@ -389,7 +384,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   console.log('After getting all users', res)
   tableDataList.value = res.data
-  total.value = res.data.length   // instead of usign the erronues total reurned due to left/right joins
+  tableDataList_orig.value = res.data // back for post filter
+
+  total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
 
   loading.value = false
 
@@ -460,6 +457,83 @@ const updateUser = () => {
 
   dialogFormVisible.value = false
 }
+const search = ref('')
+
+const filterTableData = () => {
+
+  console.log("filtering data")
+
+  if (search.value) {
+    console.log(search.value)
+    tableDataList.value = tableDataList.value.filter(
+      (data) =>
+        !search.value ||
+        data.name.toLowerCase().includes(search.value.toLowerCase())
+    )
+    console.log(tableDataList.value)
+
+  } else {
+    console.log("Clear search", search.value)
+    console.log("Clear search", tableDataList_orig.value)
+
+    tableDataList.value = tableDataList_orig.value
+  }
+}
+
+
+
+const DownloadXlsx = async () => {
+  console.log(tableDataList.value)
+
+  // change here !
+  let fields = [
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Name", value: "name" }, // Top level data
+    { label: "Email", value: "email" }, // Custom format
+    { label: "Username", value: "username" }, // Run functions
+    { label: "Phone", value: "phone" }, // Run functions
+    { label: "County", value: "county" }, // Run functions
+
+  ]
+
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+
+  let dataHolder = []
+  // loop through the table data and sort the data 
+  // change here !
+  for (let i = 0; i < tableDataList.value.length; i++) {
+    let thisRecord = {}
+    tableDataList.value[i]
+    thisRecord.index = i + 1
+    thisRecord.name = tableDataList.value[i].name
+    thisRecord.county = tableDataList.value[i].county.name
+    thisRecord.email = tableDataList.value[i].email
+    thisRecord.username = tableDataList.value[i].username
+    thisRecord.phone = tableDataList.value[i].phone
+
+
+    dataHolder.push(thisRecord)
+  }
+  dataObj.content = dataHolder
+
+
+
+
+  let settings = {
+    fileName: model, // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
+
 
 
 </script>
@@ -480,7 +554,7 @@ const updateUser = () => {
         placeholder="Search by Name" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
@@ -493,25 +567,64 @@ const updateUser = () => {
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-row class="mt-4">
-          <el-tooltip content="Activate/Deactivate User" placement="top">
 
-            <el-switch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)" />
-          </el-tooltip>
 
-          <el-tooltip content="View Profile" placement="top">
-            <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(data as TableSlotDefault)" circle />
-          </el-tooltip>
-        </el-row>
 
-      </template>
-    </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <el-table :data="tableDataList" style="width: 100%" fit>
+      <el-table-column type="index" label="#" width="50">
+        <!-- Use the 'index' slot to customize the index column -->
+        <template #default="scope">
+          {{ scope.$index + 1 }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Name" prop="name" width="200" sortable />
+      <el-table-column label="Username" prop="username" sortable />
+      <el-table-column label="County" prop="county.name" sortable />
+      <el-table-column fixed="right" label="Operations" :width="actionColumnWidth">
+        <template #default="scope">
+
+
+          <el-dropdown v-if="isMobile">
+            <span class="el-dropdown-link">
+              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-if="showAdminButtons" @click="activateDeactivate(scope as TableSlotDefault)"
+                  :icon="Edit">Activate</el-dropdown-item>
+                <el-dropdown-item>
+                  <el-switch @click="activateDeactivate(scope as TableSlotDefault)" :icon="Edit" />
+                </el-dropdown-item>
+                <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+
+          <div v-else>
+
+            <el-tooltip content="Activate" placement="top">
+              <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+                class="my-switch" />
+            </el-tooltip>
+            <el-tooltip content="Edit" placement="top">
+              <ElButton type="primary" :icon="Edit" size="small" @click="EditUser(scope as TableSlotDefault)" circle />
+            </el-tooltip>
+
+
+
+          </div>
+
+        </template>
+      </el-table-column>
+
+    </el-table>
+
+
+
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
 
     <el-dialog v-model="dialogFormVisible" title="User Details">
       <el-form :model="form">
@@ -569,4 +682,10 @@ const updateUser = () => {
 .dialog-footer button:first-child {
   margin-right: 10px;
 }
+
+
+.my-switch {
+  margin-right: 10px;
+}
 </style>
+

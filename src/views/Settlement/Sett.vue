@@ -1065,7 +1065,7 @@ const DeleteBeneficiary = (data: TableSlotDefault) => {
   console.log(tableDataList.value)
 
   // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
+  let index = tableDataList.value.indexOf(data);
   if (index !== -1) {
     tableDataList.value.splice(index, 1);
   }
@@ -1220,7 +1220,7 @@ const DeleteProject = (data: TableSlotDefault) => {
 
   }
   // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
+  let index = tableDataList.value.indexOf(data);
   if (index !== -1) {
     tableDataList.value.splice(index, 1);
   }
@@ -1549,13 +1549,13 @@ getDocumentTypes()
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="ID" prop="id" />
-          <el-table-column label="Name" width="400" prop="name" />
-          <el-table-column label="County" prop="county.name" />
-          <el-table-column label="Subcounty" prop="subcounty.name" />
-          <el-table-column label="Population" prop="population" />
-          <el-table-column label="Area(HA)" prop="area" />
-          <el-table-column label="Code" prop="code" />
+          <el-table-column label="ID" prop="id" sortable />
+          <el-table-column label="Name" width="200" prop="name" sortable />
+          <el-table-column label="County" prop="county.name" sortable />
+          <el-table-column label="Subcounty" prop="subcounty.name" sortable />
+          <el-table-column label="Population" prop="population" sortable />
+          <el-table-column label="Area(HA)" prop="area" sortable />
+          <el-table-column label="Code" prop="code" sortable />
 
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">

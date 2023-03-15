@@ -1494,13 +1494,13 @@ getDocumentTypes()
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="Title" prop="title" width="400" />
-          <el-table-column label="County" prop="county.name" />
+          <el-table-column label="Title" prop="title" width="400" sortable />
+          <el-table-column label="County" prop="county.name" sortable />
 
-          <el-table-column label="Settlement" prop="settlement.name" />
-          <el-table-column label="Status" prop="status" />
-          <el-table-column label="Start" prop="start_date" :formatter="formatStartDate" />
-          <el-table-column label="End" prop="end_date" :formatter="formatEndDate" />
+          <el-table-column label="Settlement" prop="settlement.name" sortable />
+          <el-table-column label="Status" prop="status" sortable />
+          <el-table-column label="Start" prop="start_date" :formatter="formatStartDate" sortable />
+          <el-table-column label="End" prop="end_date" :formatter="formatEndDate" sortable />
 
 
 

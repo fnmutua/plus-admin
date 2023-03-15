@@ -4038,7 +4038,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'Clusters',
         meta: {
           title: 'Clusters',
-          hidden: false,
+          hidden:true,
           icon:'clarity:heat-map-line'
         }
       },
@@ -4074,7 +4074,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'StrategicFocus',
         meta: {
           title: 'Domains',
-          hidden: false,
+          hidden: true,
           icon:'material-symbols:settings'
 
         }
@@ -4112,7 +4112,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'ProjectCategory',
         meta: {
           title: 'Project Types',
-          hidden: false,
+          hidden: true,
           icon:'material-symbols:settings'
 
         }

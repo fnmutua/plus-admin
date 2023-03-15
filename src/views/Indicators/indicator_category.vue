@@ -749,10 +749,10 @@ const DownloadXlsx = async () => {
 
 
     <el-table :data="tableDataList" :loading="loading" border>
-      <el-table-column label="Id" prop="id" width="50px" />
-      <el-table-column label="Indicator" prop="indicator.name" />
-      <el-table-column label="Level" prop="indicator.level" />
-      <el-table-column label="Reporting" prop="frequency" />
+      <el-table-column label="Id" prop="id" width="50px" sortable />
+      <el-table-column label="Indicator" prop="indicator.name" sortable />
+      <el-table-column label="Level" prop="indicator.level" sortable />
+      <el-table-column label="Reporting" prop="frequency" sortable />
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">

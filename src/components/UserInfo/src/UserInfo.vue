@@ -11,6 +11,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { Share } from '@element-plus/icons-vue'
 import { Icon } from '@iconify/vue';
 
+const { push } = useRouter()
 
 
 
@@ -56,6 +57,17 @@ const loginOut = () => {
 const toDocument = () => {
   window.open('https://element-plus-admin-doc.cn/')
 }
+
+
+const viewProfile = () => {
+
+  push({
+
+    name: 'userProfile'
+  })
+
+}
+
 </script>
 
 <template>
@@ -70,7 +82,7 @@ const toDocument = () => {
     <template #dropdown>
       <ElDropdownMenu>
         <ElDropdownItem>
-          <div @click="toDocument">{{ t('Profile') }}</div>
+          <div @click="viewProfile">{{ t('Profile') }}</div>
         </ElDropdownItem>
         <ElDropdownItem divided>
           <div @click="loginOut">{{ t('common.loginOut') }}</div>
