@@ -480,28 +480,59 @@ exports.modelImportDataUpsert = async (req, res) => {
   var reg_model = req.body.model
   let data = req.body.data
 
-  //console.log('Model upsert----', data)
-  let errors = []
-  // for (let i = 0; i < data.length; i++) {
+   let errors = []
+ console.log(req.body)
 
-  //   await db.models[reg_model].upsert(
-  //     req.body.data[i]
-  //   )
-  //     .then(data => console.log(data))
-  //     .catch(err => errors.push(err.original));
-  //     //.catch(err => console.log(err.original));
-  // }
-
-
-  await Promise.all(data.map(async (item) => {
-    try {
-      const data = await db.models[reg_model].upsert(item);
-      //console.log(data);
-    } catch (err) {
-      errors.push(err.original);
-    }
-  }));
   
+  if (reg_model ==='project') {
+
+    await Promise.all(data.map(async (item) => {
+      try {
+        await db.models[reg_model]
+        .create(item)
+        .then(async function (prj) {
+          // Special for projects where we store the project-activty relation 
+          if (reg_model ==='project') {
+            const list_activities =item.activities
+             const arr = JSON.parse(list_activities);
+              
+  
+           // coonsole.log(arr)
+             const activties = await db.models.activity.findAll({
+              where: {
+                id: arr
+              }
+            });
+            
+            prj.addActivities(activties)
+          }
+    
+  
+        })
+      } 
+      catch (err) {
+        errors.push(err.original);
+        console.log('error-01', err)
+      }
+     
+    }));
+    
+    
+  } else {
+
+
+    await Promise.all(data.map(async (item) => {
+      try {
+        const data = await db.models[reg_model].upsert(item);
+        //console.log(data);
+      } catch (err) {
+        errors.push(err.original);
+      }
+    }));
+    
+
+  }
+
 
 
   console.log("Upsert Errors ---->", errors[0])
@@ -547,12 +578,10 @@ exports.modelCreateOneRecord = (req, res) => {
   db.models[reg_model]
     .create(obj)
     .then(async function (item) {
-
       // Special for projects where we store the project-activty relation 
       if (reg_model ==='project') {
         var activity_list =req.body.activities
-        
-        const list_activities = await db.models.activity.findAll({
+         const list_activities = await db.models.activity.findAll({
           where: {
             id: activity_list
           }
@@ -732,13 +761,40 @@ exports.modelOneRecord = (req, res) => {
 exports.modelEditOneRecord = (req, res) => {
   var reg_model = req.body.model
   // get this one  record and update it by replacing the whole docuemnt
-  db.models[reg_model].findAll({ where: { id: req.body.id } }).then((result) => {
+  db.models[reg_model].findOne({ where: { id: req.body.id } })
+      .then(async  (result) => {
+    //  .then(async function (result) {
+
+
+  //  .then(async function (item) {
+      // Special for projects where we store the project-activty relation 
+      if (reg_model ==='project') {
+        var activity_list =req.body.activities
+         const list_activities = await db.models.activity.findAll({
+          where: {
+            id: activity_list
+          }
+         });
+        
+         console.log(result)
+         console.log(list_activities)
+        
+        await result.setActivities(list_activities)
+      
+
+        //const modelA = await ModelA.findByPk(1);
+        //const modelBs = await ModelB.findAll({ where: { id: [2, 3] } });
+        //await modelA.setModelBs(modelBs);
+        
+      }
+
+    
 
     console.log("Edit", result)
     if (result) {
       // Result is array because we have used findAll. We can use findOne as well if you want one row and update that.
-      result[0].set(req.body)
-      result[0].save() // This is a promise
+      result.set(req.body)
+      result.save() // This is a promise
       res.status(200).send({
         message: "Update successful",
         code: "0000"

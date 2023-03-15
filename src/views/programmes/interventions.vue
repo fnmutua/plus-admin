@@ -138,7 +138,7 @@ var filters = ['component_id']
 var filterValues = [[component_id.value]]  // make sure the inner array is array
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
+const associated_multiple_models = ['settlement', 'activity', 'county', 'subcounty', 'component', 'document']
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
@@ -172,44 +172,6 @@ const formatter = (row) => {
 
 }
 
-const columns: TableColumn[] = [
-  {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
-  },
-
-  {
-    field: 'title',
-    label: t('Title')
-  },
-
-  {
-    field: 'programme.title',
-    label: t('Programme')
-  },
-
-  {
-    field: 'component.title',
-    label: t('Component')
-  },
-
-  {
-    field: 'settlement.name',
-    label: t('Settlement')
-  },
-  {
-    field: 'documentation',
-    label: t('Documents'),
-    formatter: formatter
-  },
-  {
-    field: 'action',
-    width: "300",
-    fixed: "right",
-    label: 'Operations'
-  }
-]
 
 
 const BeneficiaryColumns: TableColumn[] = [
@@ -280,38 +242,6 @@ const addMoreDocs = (data: TableSlotDefault) => {
 
 }
 
-const xsubmitMoreDocuments = async () => {
-  console.log('More files.....', morefileList)
-
-  // uploading the documents 
-  const fileTypes = []
-  const formData = new FormData()
-  let files = []
-  for (var i = 0; i < morefileList.value.length; i++) {
-    console.log('------>file', morefileList.value[i])
-    var format = morefileList.value[i].name.split('.').pop() // get file extension
-    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-    fileTypes.push(format)
-    // formData.append('file', fileList.value[i])
-    // formData.file = fileList.value[i]
-    formData.append('file', morefileList.value[i].raw)
-    formData.append('DocType', format)
-
-  }
-
-
-  formData.append('parent_code', currentRow.value.id)
-  formData.append('model', model)
-  formData.append('grp', 'Project Documentation')
-  formData.append('code', uuid.v4())
-  formData.append('column', 'project_id')  //Column to save ID 
-
-
-
-  console.log(formData)
-  await uploadDocuments(formData)
-
-}
 
 const submitMoreDocuments = async () => {
   console.log('More files.....', morefileList)
@@ -419,17 +349,17 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('TBL-b4-', tblData)
   let filteredIds = []
   res.data.forEach(function (arrayItem) {
-    console.log(arrayItem)
+    //  console.log(arrayItem)
     filteredIds.push(arrayItem.id)
 
     var dd = destructure(arrayItem)
     delete dd['0']
     delete dd['1']
 
-    tblData.value.push(dd)
+    tblData.value.push(arrayItem)
   })
 
-  console.log('Now get the filtered Geo for --', filteredIds)
+  // console.log('Now get the filtered Geo for --', filteredIds)
 
   formData.columnFilterField = 'id'
   formData.selectedParents = []
@@ -917,7 +847,7 @@ const ruleForm = reactive({
   status: '',
   start_date: null,
   end_date: null,
-
+  activities: [],
   cost: 0,
   male_beneficiaries: 0,
   female_beneficiaries: 0,
@@ -935,6 +865,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
   await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
+
+      console.log('before Updated', ruleForm)
       await updateOneRecord(ruleForm).then(() => { })
 
 
@@ -1022,7 +954,6 @@ const AddProject = () => {
 }
 
 const AddDialogVisible = ref(false)
-const formHeader = ref('Edit Project')
 
 const editProject = (data: TableSlotDefault) => {
 
@@ -1048,8 +979,8 @@ const editProject = (data: TableSlotDefault) => {
   ruleForm.geom = data.row.geom
   ruleForm.start_date = data.row.start_date
   ruleForm.end_date = data.row.end_date
-
-
+  //ruleForm.activities = data.row.activities
+  ruleForm.activities = data.row.activities.map(a => a.id);
   ruleForm.component_id = data.row.component_id
 
   fileUploadList.value = data.row.documents
@@ -1362,7 +1293,7 @@ if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
 } else {
-  dialogWidth.value = "25%"
+  dialogWidth.value = "40%"
   actionColumnWidth.value = "160px"
 
 }
@@ -1415,11 +1346,40 @@ const getDocumentTypes = async () => {
 
   })
 }
+
+
+//id","name","county_id","settlement_type","geom","area","population","code","description"
+const activityOptions = ref([])
+const getActivities = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 10000,
+      curUser: 1, // Id for logged in user
+      model: 'activity',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      console.log(opt)
+      activityOptions.value.push(opt)
+    })
+
+    console.log(activityOptions)
+
+  })
+}
 getDocumentTypes()
-
-
-
-
+getActivities()
 </script>
 
 <template>
@@ -1650,7 +1610,13 @@ getDocumentTypes()
           <el-date-picker v-model="ruleForm.end_date" />
         </el-form-item>
 
-
+        <el-col :span="24">
+          <el-form-item label="Activities">
+            <el-select v-model="ruleForm.activities" filterable multiple placeholder="Select" style="width: 100%;">
+              <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+        </el-col>
         <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
             :limit="3" :auto-upload="false">
             <el-button type="primary">Click to upload</el-button>
