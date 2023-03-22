@@ -114,6 +114,7 @@ const ruleForm = reactive({
   population: '',
   code: '',
   description: '',
+  isApproved: false
 
 
 })
@@ -322,6 +323,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
       ruleForm.geom = geoJson.value
+      ruleForm.isApproved = false
 
       console.log("Shp----->", geoJson.value)
 
@@ -743,8 +745,8 @@ const loadMap = () => {
         <el-card>
           <el-steps :active="active" simple>
             <!-- <el-step title="Details" :icon="Edit" />
-                                                <el-step title="Location" :icon="Location" />
-                                                <el-step title="Documentation" :icon="Upload" /> -->
+                                                    <el-step title="Location" :icon="Location" />
+                                                    <el-step title="Documentation" :icon="Upload" /> -->
 
             <el-step :title="active === 0 ? 'Details' : ''" :icon="Edit" :description="active === 0 ? 'Step 1' : ''"
               :status="active === 0 ? 'process' : ''" :style="{ fontSize: '14px' }" />
