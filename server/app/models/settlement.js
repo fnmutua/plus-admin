@@ -22,8 +22,6 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: false
       },
-
-
       settlement_type: {
         type: DataTypes.INTEGER,
         allowNull: false
@@ -52,6 +50,10 @@ module.exports = function (sequelize, DataTypes) {
       pop_density: {
         type: DataTypes.DOUBLE,
         allowNull: true
+      },
+      isApproved: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
       },
     },
     {
