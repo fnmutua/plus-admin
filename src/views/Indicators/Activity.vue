@@ -423,7 +423,7 @@ const DownloadXlsx = async () => {
 
   // change here !
   let fields = [
-    { label: "S/No", value: "index" }, // Top level data
+    { label: "S/No", value: "id" }, // Top level data
     { label: "Title", value: "title" }, // Top level data
     { label: "Code", value: "code" }, // Custom format
 
@@ -441,7 +441,7 @@ const DownloadXlsx = async () => {
   for (let i = 0; i < tableDataList.value.length; i++) {
     let thisRecord = {}
     tableDataList.value[i]
-    thisRecord.index = i + 1
+    thisRecord.id = tableDataList.value[i].id
     thisRecord.title = tableDataList.value[i].title
     thisRecord.code = tableDataList.value[i].code
 

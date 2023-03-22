@@ -449,7 +449,7 @@ exports.updatePassword = (req, res) => {
 exports.countyController = (req, res) => {
   var reg_model = 'county'
    db.models[reg_model]
-    .findAndCountAll({})
+    .findAndCountAll({attributes: { exclude: ['geom' ] }})
     .then((list) => {
       //console.log(list.rows)
       res.status(200).send({
