@@ -461,6 +461,21 @@ exports.countyController = (req, res) => {
 }
 
 
+
+exports.subCountyController = (req, res) => {
+  var reg_model = 'subcounty'
+   db.models[reg_model]
+    .findAndCountAll({attributes: { exclude: ['geom' ] }})
+    .then((list) => {
+      //console.log(list.rows)
+      res.status(200).send({
+        data: list.rows,
+        total: list.count,
+        code: '0000'
+      })
+    })
+}
+
 exports.myProfile = (req, res) => {
   console.log('Update user....')
  
