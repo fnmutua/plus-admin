@@ -467,7 +467,7 @@ exports.subCountyController = (req, res) => {
       res.status(200).send(list.rows)
     })
 }
-
+ 
 exports.myProfile = (req, res) => {
   console.log('Update user....')
  
