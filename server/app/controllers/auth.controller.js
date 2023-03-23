@@ -456,6 +456,15 @@ exports.countyController = (req, res) => {
     })
 }
 
+exports.settlementController = (req, res) => {
+  var reg_model = 'settlement'
+   db.models[reg_model]
+    .findAll({attributes: { exclude: ['geom' ] }})
+    .then((list) => {
+      //console.log(list.rows)
+      res.status(200).send(list)
+    })
+}
 
 
 exports.subCountyController = (req, res) => {
