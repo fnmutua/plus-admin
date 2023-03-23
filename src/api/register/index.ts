@@ -12,7 +12,7 @@ export const registerApi = (data: UserType): Promise<IResponse<UserType>> => {
 
 export const getCountyAuth = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('regs....', data)
-  return request.post({ url: prod + '/api/auth/county', data })
+  return request.get({ url: prod + '/api/auth/county', data })
 }
 
 
