@@ -8,7 +8,8 @@ const fs = require('fs');
 
 
 var corsOptions = {
-  origin: 'http://localhost:4000'
+ // origin: 'http://localhost:4000'
+  origin: '*'
 }
 const path = require('path')
 const fileUpload = require('express-fileupload')
