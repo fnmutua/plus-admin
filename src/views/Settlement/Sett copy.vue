@@ -102,7 +102,6 @@ const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
-const totalNew = ref(0)
 const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
 const formheader = ref('Edit Settlement')
@@ -110,6 +109,7 @@ const formheader = ref('Edit Settlement')
 
 let tableDataList = ref<UserType[]>([])
 let tableDataListNew = ref<UserType[]>([])
+const totalNew = ref(0)
 
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
@@ -266,9 +266,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   tableDataList.value = res.data
   total.value = res.total
 
-  // filter
-
-
   // filter only the new ones
   var filters = ['isApproved']
   var filterValues = [[false]]  // make sure the inner array is array
@@ -276,14 +273,12 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filters = filters
   formData.filterValues = filterValues
 
-  const newSettlements = await getSettlementListByCounty(formData)
-  console.log('newSettleemnt', newSettlements)
+  // const newSettlements = await getSettlementListByCounty(formData)
+  //console.log('newSettleemnt', newSettlements)
 
-  tableDataListNew.value = newSettlements.data
+  //tableDataListNew.value = newSettlements.data
 
-  totalNew.value = newSettlements.total
-  // 
-
+  //totalNew.value = newSettlements.total
   // 
 
   tblData.value = [] // reset the table data
