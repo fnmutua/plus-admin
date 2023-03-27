@@ -53,8 +53,8 @@ const getCount = async () => {
 const getSettlementSummary = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
-  countQuerry.filterField = 'settlement_type'
-  countQuerry.criteria = 1
+  countQuerry.filterFields = ['settlement_type', 'isApproved']
+  countQuerry.criteria = [1, 'Approved']
   countQuerry.model = 'settlement'
   await getCountFilter(countQuerry, { model: 'settlement' }).then((response) => {
     totalState.NoSettlements = response.count
@@ -65,8 +65,8 @@ const getSettlementSummary = async () => {
 const getPopulationSummary = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
-  countQuerry.filterField = 'settlement_type'
-  countQuerry.criteria = 1
+  countQuerry.filterFields = ['settlement_type', 'isApproved']
+  countQuerry.criteria = [1, 'Approved']
   countQuerry.model = 'settlement'
   countQuerry.sumField = 'population'
   await getSumFilter(countQuerry).then((response) => {

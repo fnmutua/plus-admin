@@ -15,7 +15,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'ownership_type',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "ownership_type_pkey",

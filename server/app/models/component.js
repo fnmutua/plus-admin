@@ -37,7 +37,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'component',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "component_pkey",

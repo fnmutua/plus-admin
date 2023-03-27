@@ -369,7 +369,7 @@ module.exports = function (sequelize, DataTypes) {
       sequelize,
       tableName: 'households',
       schema: 'public',
-      timestamps: false,
+      timestamps: true,
       indexes: [
         {
           name: 'household_pkey',

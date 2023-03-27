@@ -52,15 +52,15 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       },
       isApproved: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
+        type: DataTypes.STRING,
+        defaultValue: 'Pending'
       },
     },
     {
       sequelize,
       tableName: 'settlement',
       schema: 'public',
-      timestamps: false,
+      timestamps: true,
       indexes: [
         {
           name: 'settlement_pkey',

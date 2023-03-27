@@ -21,7 +21,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'category',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "category_pkey",

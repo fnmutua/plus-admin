@@ -19,7 +19,7 @@ module.exports = function (sequelize, DataTypes) {
       sequelize,
       tableName: 'lot',
       schema: 'public',
-      timestamps: false,
+      timestamps: true,
       indexes: [
         {
           name: 'lot_pkey',

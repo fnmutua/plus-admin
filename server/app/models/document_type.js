@@ -24,7 +24,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'document_type',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "document_type_pkey",

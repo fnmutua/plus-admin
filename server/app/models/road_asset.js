@@ -31,7 +31,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'road_asset',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "road_asset_pkey",

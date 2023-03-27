@@ -45,8 +45,8 @@ const getCount = async () => {
 const getSettlementSummary = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
-  countQuerry.filterField = 'settlement_type'
-  countQuerry.criteria = 1
+  countQuerry.filterFields = ['settlement_type', 'isApproved']
+  countQuerry.criteria = [1, 'Approved']
   countQuerry.model = 'settlement'
   await getCountFilter(countQuerry, { model: 'settlement' }).then((response) => {
     totalState.NoSettlements = response.count
@@ -57,8 +57,8 @@ const getSettlementSummary = async () => {
 const getPopulationSummary = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
-  countQuerry.filterField = 'settlement_type'
-  countQuerry.criteria = 1
+  countQuerry.filterFields = ['settlement_type', 'isApproved']
+  countQuerry.criteria = [1, 'Approved']
   countQuerry.model = 'settlement'
   countQuerry.sumField = 'population'
   await getSumFilter(countQuerry).then((response) => {
@@ -72,8 +72,8 @@ const getPopulationSummary = async () => {
 const getImprovedRoads = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
-  countQuerry.filterField = 'indicator_category_id'
-  countQuerry.criteria = 36
+  countQuerry.filterFields = ['indicator_category_id']
+  countQuerry.criteria = [36]
   countQuerry.model = 'indicator_category_report'
   countQuerry.sumField = 'amount'
   await getSumFilter(countQuerry).then((response) => {
@@ -87,8 +87,8 @@ const getImprovedRoads = async () => {
 const getWaterConnections = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
-  countQuerry.filterField = 'indicator_category_id'
-  countQuerry.criteria = 14  // water connection
+  countQuerry.filterFields = ['indicator_category_id']
+  countQuerry.criteria = [14]  // water connection
   countQuerry.model = 'indicator_category_report'
   countQuerry.sumField = 'amount'
   await getSumFilter(countQuerry).then((response) => {
@@ -102,8 +102,8 @@ const getWaterConnections = async () => {
 const getCountyStrategies = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
-  countQuerry.filterField = 'indicator_category_id'
-  countQuerry.criteria = 1  // Counties where next generation of County Integrated Development Plans (CIDPs) include slum upgrading strategies developedunder the project
+  countQuerry.filterFields = ['indicator_category_id']
+  countQuerry.criteria = [1]  // Counties where next generation of County Integrated Development Plans (CIDPs) include slum upgrading strategies developedunder the project
   countQuerry.model = 'indicator_category_report'
   countQuerry.sumField = 'amount'
   countQuerry.cache_key = 'countiesWIthStrategies'
@@ -118,8 +118,8 @@ const getCountyStrategies = async () => {
 const getCommunityDevPlans = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
-  countQuerry.filterField = 'indicator_category_id'
-  countQuerry.criteria = 2  //  community Dev plans
+  countQuerry.filterFields = ['indicator_category_id']
+  countQuerry.criteria = [2]  //  community Dev plans
   countQuerry.model = 'indicator_category_report'
   countQuerry.sumField = 'amount'
   countQuerry.cache_key = 'getCommunityDevPlans'
@@ -133,8 +133,8 @@ const getCommunityDevPlans = async () => {
 const getTitleDeeds = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
-  countQuerry.filterField = 'indicator_category_id'
-  countQuerry.criteria = 6  //  titlee Deeds
+  countQuerry.filterFields = ['indicator_category_id']
+  countQuerry.criteria = [6]  //  titlee Deeds
   countQuerry.model = 'indicator_category_report'
   countQuerry.sumField = 'amount'
   countQuerry.cache_key = 'getTitleDeeds'

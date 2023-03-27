@@ -75,7 +75,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'sewer',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "sewer_pkey",

@@ -29,7 +29,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'project_category',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "project_category_pkey",

@@ -526,6 +526,7 @@ exports.modelImportDataUpsert = async (req, res) => {
         const data = await db.models[reg_model].upsert(item);
         //console.log(data);
       } catch (err) {
+        console.log(err)
         errors.push(err.original);
       }
     }));
@@ -535,7 +536,7 @@ exports.modelImportDataUpsert = async (req, res) => {
 
 
 
-  console.log("Upsert Errors ---->", errors[0])
+  console.log("Upsert Errors ---->", errors)
   if (errors.length > 0) {
     let errorCodes = [...new Set(errors)];
     if (errorCodes.includes("42P10")) {
@@ -907,7 +908,40 @@ exports.modelCountDistinct = (req, res) => {
 
 // count with creteria
 
+const { Op } = require('sequelize');
+
 exports.modelCountFilter = (req, res) => {
+  var reg_model = req.body.model;
+  var filterFields = req.body.filterFields; // Modified to accept an array of filter fields
+  var criteria = req.body.criteria; // Modified to accept an array of criteria
+
+  // Here we create an object for the query comprising the field and value to query
+  const whereClause = {};
+
+  // Loop through each filter field and add it to the where clause with its corresponding criteria
+  const conditions = [];
+  for (let i = 0; i < filterFields.length; i++) {
+    const condition = {};
+    condition[filterFields[i]] = criteria[i];
+    conditions.push(condition);
+  }
+  whereClause[Op.and] = conditions;
+
+  console.log ('------------Clause-----------' , whereClause);
+
+  // Count the number of records that match the where clause
+  db.models[reg_model].count({ where: whereClause }).then((result) => {
+    if (result) {
+      res.status(200).send({
+        count: result,
+        code: '0000'
+      });
+    }
+  });
+}
+
+
+exports.xmodelCountFilter = (req, res) => {
   var reg_model = req.body.model
   var filterField = req.body.filterField
   var criteria = req.body.criteria
@@ -949,7 +983,7 @@ exports.modelSumAll = (req, res) => {
 
 // Sum  filtred
 
-exports.modelSumFiltered = (req, res) => {
+exports.xmodelSumFiltered = (req, res) => {
   var reg_model = req.body.model
   var sumField = req.body.sumField
   var filterField = req.body.filterField
@@ -976,6 +1010,39 @@ exports.modelSumFiltered = (req, res) => {
     }
   })
 }
+
+exports.modelSumFiltered = (req, res) => {
+  var reg_model = req.body.model
+  var sumField = req.body.sumField
+  var filterFields = req.body.filterFields
+  var criteria = req.body.criteria
+
+  const whereClause = {}
+  filterFields.forEach((field, index) => {
+    whereClause[field] = criteria[index]
+  })
+  console.log(whereClause)
+
+  console.log('Query:', req.body)
+  // get this one  record and update it by replacing the whole document
+  db.models[reg_model].sum(sumField, { where: whereClause }).then((result) => {
+    if (result) {
+      // res.status(200).send(result);
+      res.status(200).send({
+        data: result,
+        code: '0000'
+      })
+    } else {
+      res.status(200).send({
+        data: 0,
+        code: '0000'
+      })
+    }
+  })
+}
+
+
+
 
 exports.modelAllUsers = (req, res) => {
   var reg_model = req.body.model

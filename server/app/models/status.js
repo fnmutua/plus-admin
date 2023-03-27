@@ -15,7 +15,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'status',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "status_pkey",
