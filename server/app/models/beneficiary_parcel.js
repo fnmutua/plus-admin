@@ -40,7 +40,7 @@ module.exports = function (sequelize, DataTypes) {
       sequelize,
       tableName: 'beneficiary_parcel',
       schema: 'public',
-      timestamps: false,
+      timestamps: true,
       indexes: [
         {
           name: 'beneficiary_parcel_pkey',

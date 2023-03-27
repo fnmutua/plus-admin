@@ -20,7 +20,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'activity',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "activity_pkey",

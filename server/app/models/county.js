@@ -23,7 +23,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'county',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "county_pkey",

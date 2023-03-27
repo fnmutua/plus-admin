@@ -34,7 +34,7 @@ module.exports = function (sequelize, DataTypes) {
       sequelize,
       tableName: 'cluster',
       schema: 'public',
-      timestamps: false,
+      timestamps: true,
       indexes: [
         {
           name: 'cluster_pkey',

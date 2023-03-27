@@ -75,7 +75,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'water_point',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "water_facility_pkey",

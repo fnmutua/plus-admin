@@ -34,7 +34,7 @@ module.exports = function (sequelize, DataTypes) {
       sequelize,
       tableName: 'beneficiary',
       schema: 'public',
-      timestamps: false,
+      timestamps: true,
       indexes: [
         {
           name: 'benf_pkey',

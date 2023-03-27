@@ -1,0 +1,25 @@
+{
+  "development": {
+    "username": "postgres",
+    "password": "Admin@2011",
+    "database": "kisip",
+    "host": "localhost",
+    "dialect": "postgres"
+  },
+ 
+  "production": {
+    "username": "postgres",
+    "password": "Admin@2011",
+    "database": "kisip",
+    "host": "localhost",
+    "dialect": "postgres",
+    "dialectOptions": {
+      "ssl": {
+        "require": true,
+        "rejectUnauthorized": false
+      }
+    }
+  }
+}
+
+ 

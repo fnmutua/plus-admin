@@ -122,7 +122,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'health_facility',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "health_facility_pkey",

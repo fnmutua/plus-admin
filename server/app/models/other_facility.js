@@ -118,7 +118,7 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'other_facility',
     schema: 'public',
-    timestamps: false,
+    timestamps: true,
     indexes: [
       {
         name: "other_facility_pkey",

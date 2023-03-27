@@ -33,7 +33,7 @@ module.exports = function (sequelize, DataTypes) {
       sequelize,
       tableName: 'indicator',
       schema: 'public',
-      timestamps: false,
+      timestamps: true,
       indexes: [
         {
           name: 'indicator_pkey',

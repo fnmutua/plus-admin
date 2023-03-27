@@ -59,7 +59,7 @@ module.exports = function (sequelize, DataTypes) {
       sequelize,
       tableName: 'indicator_category_report',
       schema: 'public',
-      timestamps: false,
+      timestamps: true,
       indexes: [
         {
           name: 'indicator_category_report_pkey',
