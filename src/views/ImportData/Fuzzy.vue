@@ -39,6 +39,15 @@ import readXlsxFile from 'read-excel-file'
 import { useVueFuse } from 'vue-fuse'
 import Fuse from 'fuse.js';
 
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
+
+
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
 
 
 const settlement = ref()
@@ -452,6 +461,8 @@ const readXLSX = async (event) => {
                 record[f] = v
                 // console.log(f)
             }
+            record['createdBy'] = userInfo.id   // Add a 
+
 
             uploadObj.value.push(record) // Push to the temporary holder
         }  // remove header row
