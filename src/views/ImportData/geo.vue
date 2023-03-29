@@ -39,6 +39,16 @@ import JSZip from 'jszip';
 import * as shapefile from 'shapefile';
 
 
+
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
+
+
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
 const settlement = ref()
 const settlementOptions = ref([])
 const parentObj = ref([])
@@ -321,12 +331,6 @@ const handleSelectType = async (type: any) => {
 }
 
 
-const handleMutlipleSettlements = async () => {
-
-  console.log(value_switch)
-  showSettleementSelect.value = !value_switch.value
-
-}
 
 
 
@@ -552,7 +556,9 @@ const loadOptions = (json) => {
 
   // makeOptions(fields)
   for (let i = 0; i < json.features.length; i++) {
-    uploadObj.value.push(json.features[i])  // Push to the temporary holder
+    var feature = json.features[i]
+    feature.properties['createdBy'] = userInfo.id
+    uploadObj.value.push(feature)  // Push to the temporary holder
 
   }
 
@@ -565,7 +571,7 @@ const loadOptions = (json) => {
 
 
   uploadObj.value.map((upload, i) => {
-    //console.log('------------>', i, upload)
+    console.log('------------>', i, upload)
 
     var thisFeature = upload.properties
     thisFeature.geom = upload.geometry
