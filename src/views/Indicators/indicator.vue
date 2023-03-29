@@ -659,12 +659,14 @@ const DownloadXlsx = async () => {
           <el-option label="Title" value="Title" />
           <el-option label="Lease" value="Lease" />
           <el-option label="Basemap" value="Basemap" />
+          <el-option label="Strategy" value="Strategy" />
         </el-select>
       </el-form-item>
       <el-form-item label="Level">
         <el-select v-model="ruleForm.level" placeholder="Level">
           <el-option label="Settlement" value="Settlement" />
           <el-option label="County" value="County" />
+          <el-option label="National" value="National" />
         </el-select>
       </el-form-item>
     </el-form>

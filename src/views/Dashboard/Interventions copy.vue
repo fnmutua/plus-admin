@@ -159,7 +159,7 @@ const getKisipTenureSettlementsCountByCounty = async () => {
   // Same querry but now to get the settleemnts and their GEO
   const model = 'project'
   var filters = ['component_id']
-  var filterValues = [5, 7, 8, 9, 10] //
+  var filterValues = [2, 5, 10]
   const associated_multiple_models = ['settlement']
   //// ------------------parameters -----------------------////
 
@@ -311,8 +311,6 @@ const infMin = ref()
 
 const InfrastructureSettlementsMap = ref()
 const InfrastructureSettlementsMapPoitns = ref([])
-
-
 const getKisipInfSettlementsCountByCounty = async () => {
   const formData = {}
   formData.model = 'project'
@@ -364,8 +362,7 @@ const getKisipInfSettlementsCountByCounty = async () => {
   // Same querry but now to get the settleemnts and their GEO
   const model = 'project'
   var filters = ['component_id']
-  var filterValues = [13, 11, 12, 15] // Infrastructure
-
+  var filterValues = [3, 11, 12, 15] // Infrastructure
   const associated_multiple_models = ['settlement']
   //// ------------------parameters -----------------------////
 
@@ -511,7 +508,6 @@ const incMin = ref()
 
 const InclusionSettlementsMapPoints = ref([])
 const InclusionSettlementsMapOptions = ref()
-
 const getKisipInclusionSettlementsCountByCounty = async () => {
   const formData = {}
   formData.model = 'project'
@@ -520,13 +516,12 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
 
   // filter by field 
   formData.filterField = 'component_id'
-  formData.filterValue = [7] // Infrastructure
+  formData.filterValue = [14] // scoial 
 
   // Asccoiated models 
   formData.assoc_models = ['county']
   formData.groupFields = ['county.name']
-  formData.cache_key = 'getKisipInclusionSettlementsCountByCountyx'
-
+  formData.cache_key = 'getKisipInclusionSettlementsCountByCounty'
 
   let subCategories = []
   var cData = []
@@ -534,7 +529,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
       var results = response.Total
-      //  console.log('settlements interventions by county', results)
+      // console.log('settlements interventions by county', results)
 
       //   let topTen = results.slice(0, 10)   // get the top 10
       results.forEach(function (item) {
@@ -551,23 +546,22 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
         InclusionSettlementsPercounty.value.push(cntySlums)
       });
 
-      //  console.log(" Infrastructure settlements by county - II", InfrastructureSettlementsPercounty.value)
+      //   console.log(" Infrastructure inclusion by county - II", InclusionSettlementsPercounty.value)
       incMax.value = Math.max(...InclusionSettlementsPercounty.value.map(o => o.value))
       incMin.value = Math.min(...InclusionSettlementsPercounty.value.map(o => o.value))
 
 
-
+      //     console.log("MinMax", incMin, incMax)
 
     });
+
 
   // Same querry but now to get the settleemnts and their GEO
   const model = 'project'
   var filters = ['component_id']
-  var filterValues = [7] // Infrastructure
-
+  var filterValues = ['3']
   const associated_multiple_models = ['settlement']
   //// ------------------parameters -----------------------////
-
 
   const fiterModelData = {}
   fiterModelData.curUser = 1 // Id for logged in user
@@ -594,7 +588,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
 
       for (let i = 0; i < response.data.length; i++) {
         let sett = response.data[i].settlement
-        //  console.log(sett)
+        //    console.log(sett)
         if (sett !== null && sett.geom !== null) {
           // console.log(sett.geom)
           let obj = {}
@@ -610,12 +604,13 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
         }
       }
 
+
     });
 
 
   InclusionSettlementsMapOptions.value = {
     title: {
-      text: infrastructureSupportedTitle,
+      text: inclusionSupportedTitle,
       subtext: 'National Slum Mapping, 2023',
       sublink: "http://kisip.go.ke",
       left: "right",
@@ -673,7 +668,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
         name: "Settlements",
         type: "effectScatter",
         coordinateSystem: "geo",
-        data: InfrastructureSettlementsMapPoitns.value.sort((a, b) => b.value - a.value).slice(0, 6),
+        data: InclusionSettlementsMapPoints.value.sort((a, b) => b.value - a.value).slice(0, 6),
         symbolSize: val => val[2] / 100,
         showEffectOn: "render",
         rippleEffect: {
@@ -701,6 +696,8 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
       }
     ]
   };
+
+
 }
 
 
@@ -856,9 +853,7 @@ const getCountyGeo = async () => {
         }
       ]
     };
-
-    // // Inclusion
-    console.log("Inclusiong Mim/max", incMax.value, incMin.value)
+    // Inclusion
     InclusionSettlementsByCountiesMap.value = {
       title: {
         text: inclusionSupportedTitle,
@@ -1368,7 +1363,7 @@ const getInclusionBeneficiaries = async () => {
   formData.assoc_models = ['settlement']
   formData.groupFields = ['settlement.name']
   formData.filterField = 'indicator_category_id'
-  formData.filterValue = 4
+  formData.filterValue = 26
 
   let subCategories = []
   let maleSeries = []
@@ -1390,7 +1385,7 @@ const getInclusionBeneficiaries = async () => {
     });
 
   /// Female
-  formData.filterValue = 3
+  formData.filterValue = 33
   let femaleSeries = []
   formData.cache_key = 'getInclusionBeneficiaries33'
 
@@ -1514,13 +1509,13 @@ const getInclusionBeneficiaries = async () => {
 const getAllApi = async () => {
   await Promise.all([
     getUserAccessSource(),
+    getCountyGeo(),
     getKisipTenureSettlementsCountByCounty(),
     getKisipInfSettlementsCountByCounty(),
-    getKisipInclusionSettlementsCountByCounty(),
+    //   getKisipInclusionSettlementsCountByCounty(),
     getBeneficiariesByCounty(),
     getRoadsConstructed(),
-    getInclusionBeneficiaries(),
-    getCountyGeo(),
+    getInclusionBeneficiaries()
 
   ])
   loading.value = false

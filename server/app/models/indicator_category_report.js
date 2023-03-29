@@ -10,8 +10,13 @@ module.exports = function (sequelize, DataTypes) {
       },
       county_id: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: true
       },
+      project_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
       settlement_id: {
         type: DataTypes.INTEGER,
         allowNull: true

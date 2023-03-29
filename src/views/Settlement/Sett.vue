@@ -15,7 +15,6 @@ import { Position, View, Plus, User, Download, Delete, Edit, Filter, InfoFilled,
 import { ref, reactive, h, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
-import exportFromJSON from 'export-from-json'
 import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
 import { getFile } from '@/api/summary'
 
@@ -48,7 +47,6 @@ import { UserType } from '@/api/register/types'
 
 import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
-import { faEye } from '@fortawesome/free-solid-svg-icons'
 
 
 
@@ -125,7 +123,7 @@ var filterValues = [[1, 2]]  // make sure the inner array is array
 var tblData = []
 
 const associated_Model = ''
-const associated_multiple_models = ['county', 'subcounty', 'document']
+const associated_multiple_models = ['county', 'subcounty', 'users']
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
 const model = 'settlement'
@@ -558,6 +556,8 @@ const Review = (data: TableSlotDefault) => {
   settlement_raw.value.area = data.row.area
   settlement_raw.value.population = data.row.population
   settlement_raw.value.description = data.row.description
+  settlement_raw.value.user = data.row.user.name + ' | ' + data.row.user.email
+  settlement_raw.value.date = data.row.createdAt
 
   //
   ruleForm.id = data.row.id
@@ -1328,6 +1328,9 @@ const DownloadXlsx = async () => {
     { label: "Population", value: "population" }, // Run functions
     { label: "Area(HA)", value: "area" }, // Run functions
     { label: "Description", value: "description" }, // Run functions
+    { label: "Code", value: "code" }, // Run functions
+    { label: "CountyID", value: "CountyID" }, // Run functions
+    { label: "SubcountyID", value: "subcountyID" }, // Run functions
 
   ]
 
@@ -1349,6 +1352,9 @@ const DownloadXlsx = async () => {
     thisRecord.population = tableDataList.value[i].population
     thisRecord.area = tableDataList.value[i].area
     thisRecord.description = tableDataList.value[i].description
+    thisRecord.code = tableDataList.value[i].code
+    thisRecord.CountyID = tableDataList.value[i].county_id
+    thisRecord.SubcountyID = tableDataList.value[i].subcounty ? tableDataList.value[i].subcounty.id : null;
 
 
     dataHolder.push(thisRecord)
@@ -1474,8 +1480,7 @@ getDocumentTypes()
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
 
         <div style="display: inline-block; margin-top: 5px">
-          <el-select
-size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
+          <el-select size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
             filterable collapse-tags placeholder="By County">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -1485,11 +1490,9 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
 
 
         <div style="display: inline-block; margin-top: 5px">
-          <el-select
-size="default" v-model="value5" :onChange="filterBySubCounty" :onClear="handleClear" multiple
+          <el-select size="default" v-model="value5" :onChange="filterBySubCounty" :onClear="handleClear" multiple
             clearable filterable collapse-tags placeholder="By Subcounty">
-            <el-option
-v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+            <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
               :value="item.value" />
           </el-select>
         </div>
@@ -1497,8 +1500,7 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
       </el-col>
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
         <div style="display: inline-block; margin-top: 5px">
-          <el-select
-size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
+          <el-select size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
             reserve-keyword placeholder="Search by Name" />
         </div>
       </el-col>
@@ -1560,8 +1562,7 @@ size="default" v-model="value3" multiple clearable filterable remote :remote-met
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1584,14 +1585,11 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1601,24 +1599,20 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
 
               <div v-else>
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button
-type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
+                  <el-button type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button
-type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Households" placement="top">
-                  <el-button
-v-show="showAdminButtons" type="success" size="small" :icon="User"
+                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="User"
                     @click="viewHHs(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Delete circle />
@@ -1633,8 +1627,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
         </el-table>
 
-        <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
@@ -1675,8 +1668,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1699,14 +1691,11 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1714,24 +1703,20 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
               </el-dropdown>
               <div v-else>
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button
-type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
+                  <el-button type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button
-type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="Review" placement="top">
-                  <el-button
-v-show="showAdminButtons" type="success" size="small" :icon="View"
+                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Delete circle />
@@ -1746,8 +1731,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
         </el-table>
 
-        <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalNew" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
@@ -1787,8 +1771,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1811,14 +1794,11 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1827,19 +1807,16 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
               <div v-else>
 
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button
-type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="Review" placement="top">
-                  <el-button
-v-show="showAdminButtons" type="success" size="small" :icon="View"
+                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this report?" @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Delete circle />
@@ -1854,8 +1831,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
         </el-table>
 
-        <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalNew" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -1904,8 +1880,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
             <el-form-item label="Description">
               <el-input v-model="ruleForm.description" />
             </el-form-item>
-            <el-form-item label="Documentation"> <el-upload
-v-model:file-list="fileUploadList" multiple :limit="3"
+            <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" multiple :limit="3"
                 :auto-upload="false">
                 <el-button type="primary">Click to upload</el-button>
                 <template #tip>
@@ -1936,8 +1911,7 @@ v-model:file-list="fileUploadList" multiple :limit="3"
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
         </el-option-group>
       </el-select>
-      <el-upload
-v-model:file-list="morefileList" class="upload-demo "
+      <el-upload v-model:file-list="morefileList" class="upload-demo "
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>
@@ -1956,6 +1930,8 @@ v-model:file-list="morefileList" class="upload-demo "
         <el-descriptions-item label="Area(Ha)" :span="2">{{ settlement_raw.area }}</el-descriptions-item>
         <el-descriptions-item label="Population">{{ settlement_raw.population }}</el-descriptions-item>
         <el-descriptions-item label="Description"> {{ settlement_raw.description }} </el-descriptions-item>
+        <el-descriptions-item label="Submited By"> {{ settlement_raw.user }} </el-descriptions-item>
+        <el-descriptions-item label="Date"> {{ settlement_raw.date }} </el-descriptions-item>
       </el-descriptions>
       <template #footer>
         <span v-if="showAdminButtons" class="dialog-footer">

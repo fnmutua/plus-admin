@@ -1,3 +1,4 @@
+const { truncate } = require('fs')
 const Sequelize = require('sequelize')
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
@@ -15,7 +16,15 @@ module.exports = function (sequelize, DataTypes) {
       },
       category_id: {
         type: DataTypes.INTEGER,
-        allowNull: true
+        allowNull: false
+      },
+      project_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
+      activity_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
       },
       category_title: {
         type: DataTypes.STRING,
@@ -27,7 +36,8 @@ module.exports = function (sequelize, DataTypes) {
       },	
       code: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
+        unique:true
       },	
     },
     {
@@ -41,10 +51,9 @@ module.exports = function (sequelize, DataTypes) {
           unique: true,
           fields: [{ name: 'id' }]
         },
-        {
-          unique: true,
-          fields: ['indicator_id','activity_id','project_id' ]
-      }
+      
+         
+
       ]
     }
   )

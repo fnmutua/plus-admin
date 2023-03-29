@@ -493,14 +493,14 @@ const readXLSX = async (event) => {
                 const fuse = new Fuse(parentObj.value, options);
 
                 let results = fuse.search(input);
-                console.log(results[0].item)
+                console.log(pfield, results[0].item)
 
                 return {
                     ...obj, // spread existing properties of the object
                     [pfield]: results[0].item.id, // add new property to the object
                     ['county_id']: results[0].item.county_id, // add new property to the object
                     ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
-                    ['settlement_id']: results[0].item.settlement_id  // add new property to the object
+                    //['settlement_id']: results[0].item.settlement_id  // add new property to the object
 
                 };
             });
@@ -510,7 +510,7 @@ const readXLSX = async (event) => {
         }
 
 
-        console.log(matchedWithParent.value)
+        console.log('matched >>>', matchedWithParent.value)
 
         //--------------------------------------------------------------------------------
 

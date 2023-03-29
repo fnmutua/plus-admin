@@ -115,7 +115,7 @@ var filterValues = [['New']]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['settlement', 'county', 'document']
+const associated_multiple_models = ['project', 'document']
 const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -1072,15 +1072,13 @@ const DownloadXlsx = async () => {
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+      <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Filter by Indicator">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-cascader
-:options="cascadeOptions" @change="handleSelectLocation" :props="props1" filterable clearable
+      <el-cascader :options="cascadeOptions" @change="handleSelectLocation" :props="props1" filterable clearable
         placeholder="Select Location of Monitoring" />
 
     </div>
@@ -1132,14 +1130,12 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
         <template #default="scope">
 
           <el-tooltip content="Review" placement="top">
-            <el-button
-v-if="showAdminButtons" type="primary" :icon="View"
+            <el-button v-if="showAdminButtons" type="primary" :icon="View"
               @click="editIndicator(scope as TableSlotDefault)" circle />
           </el-tooltip>
 
           <el-tooltip content="Delete" placement="top">
-            <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
               title="Are you sure to delete this report?" @confirm="DeleteIndicator(scope as TableSlotDefault)">
               <template #reference>
                 <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
@@ -1151,8 +1147,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
     </el-table>
 
-    <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
@@ -1193,8 +1188,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
 
   <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" width="50%" draggable>
-    <el-upload
-class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="1" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>

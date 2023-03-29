@@ -98,41 +98,15 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['indicator', 'category']
+const associated_multiple_models = ['indicator', 'project', 'category']
 const model = 'indicator_category'
+const nested_models = ['indicator', 'activity'] // The mother, then followed by the child
+
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
 
-const columns: TableColumn[] = [
-  {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
-  },
 
-  {
-    field: 'indicator.name',
-    label: t('Name')
-  },
-
-  {
-    field: 'id',
-    label: t('ReferenceId')
-  },
-  {
-    field: 'indicator.level',
-    label: t('Level')
-  },
-  {
-    field: 'frequency',
-    label: t('frequency')
-  },
-  {
-    field: 'action',
-    label: t('Actions')
-  }
-]
 const handleClear = async () => {
   console.log('cleared....')
 
@@ -258,7 +232,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
-
+  formData.nested_models = nested_models
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
@@ -359,6 +333,7 @@ const handleDownload = () => {
 }
 const activityOptions = ref([])
 const activityOptionsFiltered = ref([])
+
 const getActivityOptions = async () => {
   await getCountyListApi({
     params: {
@@ -428,7 +403,7 @@ const projectOptions = ref([])
 
 const getProjectActivities = async () => {
   const formData = {}
-  formData.limit = 10000
+  // formData.limit = 10000
   formData.curUser = 1 // Id for logged in user
   formData.model = 'project'
   //-Search field--------------------------------------------
@@ -448,6 +423,7 @@ const getProjectActivities = async () => {
   //console.log(formData)
   const res = await getListManyToMany(formData)
 
+  console.log('Projects >>', res)
   res.data.forEach(function (arrayItem) {
 
     //console.log(arrayItem)
@@ -458,6 +434,7 @@ const getProjectActivities = async () => {
     //  console.log(countyOpt)
     projectOptions.value.push(opt)
 
+    //console.log('projectOptions', arrayItem)
 
     arrayItem.activities.forEach(function (activity: { id: string; type: string }) {
       //console.log(arrayItem)
@@ -468,7 +445,7 @@ const getProjectActivities = async () => {
 
       //  console.log(countyOpt)
       activityOptions.value.push(act_opt)  // We keep this as backup 
-      activityOptionsFiltered.value.push(act_opt)
+      //activityOptionsFiltered.value.push(act_opt)
 
     })
 
@@ -479,10 +456,13 @@ const getProjectActivities = async () => {
 
 const changeProject = async (project: any) => {
 
-  activityOptionsFiltered.value = activityOptions.value.filter(function (el) {
+  console.log('Activities List Project ID>>', activityOptions.value)
+  console.log('Activities List >>', project)
+
+  const filter_activities = await activityOptions.value.filter(function (el) {
     return el.project_id == project
   });
-
+  activityOptionsFiltered.value = filter_activities
 
 }
 
@@ -530,7 +510,7 @@ const editIndicator = (data: TableSlotDefault) => {
 
 
 const DeleteIndicator = (data: TableSlotDefault) => {
-  console.log('----->', data.row.id)
+  console.log('----->', data.row)
   let formData = {}
   formData.id = data.row.id
   formData.model = 'indicator_category'
@@ -597,6 +577,7 @@ const ruleForm = reactive({
   category_title: '',
   frequency: '',
   activity_id: null,
+  code: null,
   project_id: null
 })
 
@@ -621,7 +602,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
   await formEl.validate((valid, fields) => {
     if (valid) {
       ruleForm.model = 'indicator_category'
-      ruleForm.code = uuid.v4()
+      ruleForm.code = ruleForm.indicator_id + '_' + ruleForm.activity_id + '_' + ruleForm.project_id + '_' + ruleForm.category_id
       const res = CreateRecord(ruleForm)
       AddDialogVisible.value = false
 
@@ -637,6 +618,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
   await formEl.validate((valid, fields) => {
     if (valid) {
       ruleForm.model = 'indicator_category'
+      ruleForm.code = ruleForm.indicator_id + '_' + ruleForm.activity_id + '_' + ruleForm.project_id + '_' + ruleForm.category_id
 
       updateOneRecord(ruleForm).then(() => { })
 
@@ -750,9 +732,12 @@ const DownloadXlsx = async () => {
 
     <el-table :data="tableDataList" :loading="loading" border>
       <el-table-column label="Id" prop="id" width="50px" sortable />
+      <el-table-column label="Project" prop="project.title" sortable />
       <el-table-column label="Indicator" prop="indicator.name" sortable />
-      <el-table-column label="Level" prop="indicator.level" sortable />
       <el-table-column label="Reporting" prop="frequency" sortable />
+      <el-table-column label="Category" prop="category.category" sortable />
+
+
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -763,7 +748,7 @@ const DownloadXlsx = async () => {
               <el-dropdown-menu>
                 <el-dropdown-item v-if="showAdminButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
                   color="green">Edit</el-dropdown-item>
-                <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -783,7 +768,7 @@ const DownloadXlsx = async () => {
             <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
               <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this record?" width="150"
-                @confirm="DeleteIndicator(scope.row as TableSlotDefault)">
+                @confirm="DeleteIndicator(scope as TableSlotDefault)">
                 <template #reference>
                   <el-button type="danger" size="small" :icon=Delete circle />
                 </template>
@@ -803,29 +788,19 @@ const DownloadXlsx = async () => {
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
-
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-
 
       <el-form-item label="Project">
         <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" placeholder="Select Project">
           <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
-
-
-
       <el-form-item label="Activity">
         <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" placeholder="Select Activity">
           <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
-
-
-
-
-
 
       <el-form-item label="Indicator">
         <el-select filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator" placeholder="Select Indicator">
@@ -834,16 +809,11 @@ const DownloadXlsx = async () => {
         </el-select>
       </el-form-item>
 
-
       <el-form-item label="Category">
         <el-select v-model="ruleForm.category_id" :onChange="changeCategory" placeholder="Select Category">
           <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
-
-
-
-
       <el-form-item label="Frequency">
         <el-select clearable filterable v-model="ruleForm.frequency" placeholder="Unit">
           <el-option label="Quarterly" value="Quarterly" />
@@ -855,7 +825,6 @@ const DownloadXlsx = async () => {
 
     </el-form>
     <template #footer>
-
       <span class="dialog-footer">
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
         <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>

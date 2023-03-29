@@ -64,7 +64,7 @@ const value2 = ref([])
 var value3 = ref([])
 const indicatorsOptions = ref([])
 const countyOptions = ref([])
-const settlementOptions = ref([])
+const projectOptions = ref([])
 
 
 const categories = ref([])
@@ -101,7 +101,7 @@ var filterValues = [[userInfo.id]]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['settlement', 'county', 'document']
+const associated_multiple_models = ['document']
 const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -114,17 +114,7 @@ const show = ref(false)
 
 
 const { t } = useI18n()
-const formatter = (row) => {
-  console.log('row', row)
-  if (row.document.name) {
-    return h(ElLink, { href: row.document.name, download: row.document.name, type: 'danger' }, h(Icon, {
-      icon: "ic:outline-download-for-offline", height: '36'
-    }))
-  } else {
-    return
-  }
 
-}
 
 
 
@@ -173,66 +163,9 @@ const handleSelectIndicatorCategory = async (indicator: any) => {
     (category) => category.indicator == indicator
   )
   console.log('filyterested  ------>', filteredIndicators)
-  //makeSettlementOptions(filteredIndicators)
+  //makeprojectOptions(filteredIndicators)
 
   getFilteredData(filters, filterValues)
-}
-
-const handleSelectLocation = async (selectedLocation: any) => {
-
-
-  if (selectedLocation.length > 1) {
-    var selectOption = 'settlement_id'
-    var location = [selectedLocation[selectedLocation.length - 1]] // take the last value selected
-
-  } else {
-    var selectOption = 'county_id'
-    var location = [selectedLocation[0]]
-
-  }
-
-  console.log("Level", selectOption)
-  console.log("location", location)
-
-
-
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('category : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(location) && location.length > 0) {
-    filterValues.splice(index, 0, location) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (location.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('filters:', filters)
-  console.log('FilterValues:', filterValues)
-
-
-  getFilteredData(filters, filterValues)
-}
-
-
-
-const getCascadeSelectedValues = async (location: any) => {
-  console.log("Selected - settlement_id", (location.length))
-  ruleForm.county_id = location[0] // take the last value selected
-  if (location.length > 1) {
-    ruleForm.settlement_id = location[location.length - 1] // take the last value selected
-  }
-
 }
 
 
@@ -335,141 +268,78 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('TBL-4f', tblData)
 }
 
+
+
 const getIndicatorNames = async () => {
-  const res = await getCountyListApi({
-    params: {
-      //   pageIndex: 1,
-      //    limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'indicator_category',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
+  const formData = {}
 
-    loading.value = false
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'indicator_category'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
 
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.indicator_name + ' | ' + arrayItem.frequency + ' | ' + arrayItem.category_title
-      opt.title = arrayItem.category_title
-      //  console.log(countyOpt)
-      indicatorsOptions.value.push(opt)
-    })
+  formData.assocModel = ''
+
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+  formData.associated_multiple_models = ['project', 'category']
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+  console.log('Idnicator_categor', res)
+
+  res.data.forEach(function (arrayItem: { id: string; type: string }) {
+    var opt = {}
+    console.log(arrayItem)
+    opt.value = arrayItem.id
+    opt.label = arrayItem.indicator_name + ' | ' + arrayItem.project.title + ' | ' + arrayItem.category.category
+    opt.title = arrayItem.category.title
+    opt.project_id = arrayItem.project.id
+    opt.county_id = arrayItem.project.county_id
+    opt.settlement_id = arrayItem.project.settlement_id
+
+    indicatorsOptions.value.push(opt)
   })
+
 }
 
-const getCounties = async () => {
+
+const getProjects = async () => {
   const res = await getCountyListApi({
     params: {
       //   pageIndex: 1,
       //   limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'county',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received county response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-    // pass result to the makeoptions
-
-    //categories.value = ret
-    makeCountyOptions(ret)
-  })
-}
-
-const getSettlement = async () => {
-  const res = await getCountyListApi({
-    params: {
-      //   pageIndex: 1,
-      //   limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
+      model: 'project',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
     }
   }).then(async (response: { data: any }) => {
-    console.log('Received response:', response)
+    console.log('Projects response:', response)
     //tableDataList.value = response.data
     var ret = response.data
 
 
     loading.value = false
-    // pass result to the makeoptions
-    await getCounties()
-    //categories.value = ret
-    makeSettlementOptions(ret)
 
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      projectOptions.value.push(opt)
+    })
 
   })
 }
 
 
-const makeCountyOptions = (list) => {
-  console.log('making the county options..............', list)
-  countyOptions.value = []
-  list.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-    countyOpt.children = []
-    //  console.log(countyOpt)
-    countyOptions.value.push(countyOpt)
-  })
-  console.log("County options", countyOptions)
-}
 
-const makeSettlementOptions = (list) => {
-  console.log('making the settleemnt options..............', list)
-  settlementOptions.value = []
-  list.forEach(function (arrayItem: { id: string; type: string }) {
-    var settOpt = {}
-    settOpt.value = arrayItem.id
-    settOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-    settOpt.county_id = arrayItem.county_id
-    //  console.log(countyOpt)
-    settlementOptions.value.push(settOpt)
-  })
-  console.log("settlementOptions options", settlementOptions)
-  mergeCountyAndSettlementOptions()
-}
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'indicators.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
-
-
-const mergeCountyAndSettlementOptions = () => {
-
-
-  var arr = countyOptions.value.map(function (thisCounty, i) {
-    settlementOptions.value.map(function (sett, i) {
-      // console.log(thisCounty)
-      if (thisCounty.value == sett.county_id) {
-        thisCounty.children.push(sett)
-
-      }
-    });
-    return thisCounty;
-  });
-
-  cascadeOptions.value = arr
-  console.log("merged Options", arr)
-}
 
 
 const props1 = {
@@ -484,13 +354,11 @@ const editReport = (data: TableSlotDefault) => {
   ruleForm.id = data.id
   ruleForm.county_id = data.county_id
   ruleForm.settlement_id = data.settlement_id
+  ruleForm.project_id = data.project_id
   ruleForm.date = data.date
   ruleForm.amount = data.amount
   ruleForm.indicator_category_id = data.indicator_category_id
-  ruleForm.location = [data.county_id]
-  if (data.settlement_id) {
-    ruleForm.location.push(data.settlement_id)
-  }
+
   ruleForm.code = data.code
 
   formHeader.value = 'Edit Report'
@@ -566,8 +434,6 @@ const handleClose = () => {
   console.log("Closing the dialoig")
   showSubmitBtn.value = true
   showEditSaveButton.value = false
-  ruleForm.settlement_id = null
-  ruleForm.county_id = null
   ruleForm.indicator_category_id = null
   ruleForm.date = null
   ruleForm.amount = null
@@ -579,38 +445,6 @@ const handleClose = () => {
 }
 
 
-const xsubmitMoreDocuments = async () => {
-  console.log('More files.....', morefileList)
-
-  // uploading the documents 
-  const fileTypes = []
-  const formData = new FormData()
-  let files = []
-  for (var i = 0; i < morefileList.value.length; i++) {
-    console.log('------>file', morefileList.value[i])
-    var format = morefileList.value[i].name.split('.').pop() // get file extension
-    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-    fileTypes.push(format)
-    // formData.append('file', fileList.value[i])
-    // formData.file = fileList.value[i]
-    formData.append('file', morefileList.value[i].raw)
-    formData.append('DocType', format)
-
-  }
-
-
-  formData.append('parent_code', currentRow.value.id)
-  formData.append('model', model)
-  formData.append('grp', 'M&E Documentation')
-  formData.append('code', uuid.v4())
-  formData.append('column', 'report_id')  //Column to save ID 
-
-
-
-  console.log(formData)
-  await uploadDocuments(formData)
-
-}
 
 const submitMoreDocuments = async () => {
   console.log('More files.....', morefileList)
@@ -655,7 +489,12 @@ const changeIndicator = async (indicator: any) => {
     return el.value == indicator
   });
 
-  console.log("Filtered Idnciators", filtredOptions[0].label)
+  ruleForm.project_id = filtredOptions[0].project_id
+  ruleForm.settlement_id = filtredOptions[0].settlement_id
+  ruleForm.county_id = filtredOptions[0].county_id
+
+
+  console.log("Filtered Indicators", filtredOptions[0])
   //ruleForm.indicator_category_title = filtredOptions[0].category_title
 
 }
@@ -669,9 +508,9 @@ function getQuarter(date = new Date()) {
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   indicator_category_id: '',
-  location: [],
+  project_id: '',
+  settlement_id: '',
   county_id: '',
-  settlement_id: null,
   period: getQuarter,
   date: new Date(),
   amount: '',
@@ -1061,7 +900,7 @@ getIndicatorNames()
 getInterventionsAll()
 
 
-getSettlement()
+//getProjects()
 
 
 const tableRowClassName = (data) => {
@@ -1075,73 +914,7 @@ const tableRowClassName = (data) => {
 
 
 const documentCategory = ref()
-const documentOptions = [
-  {
-    label: 'Reports',
-    options: [
-      {
-        value: 'socio_economic',
-        label: 'Socio Economic Report'
-      },
-      {
-        value: 'stakeholder_report',
-        label: 'Stakeholder Report'
-      },
-      {
-        value: 'planning_report',
-        label: 'Planning Report'
-      },
 
-      {
-        value: 'basemap_report',
-        label: 'Basemap Report'
-      },
-      {
-        value: 'esia_report',
-        label: 'Environmental Screening Report'
-      }
-    ]
-  },
-  {
-    label: 'Plans',
-    options: [
-      {
-        value: 'ldpdp',
-        label: 'Local Development Plan'
-      },
-      {
-        value: 'pdp',
-        label: 'Part Development Plan'
-      }
-    ]
-  },
-  {
-    label: 'Maps',
-    options: [
-      {
-        value: 'survey_plan',
-        label: 'Survey Plan'
-      },
-      {
-        value: 'rim',
-        label: 'Registry Index Map'
-      }
-    ]
-  },
-  {
-    label: 'Drawings',
-    options: [
-      {
-        value: 'design',
-        label: 'Design Proposals'
-      },
-      {
-        value: 'built',
-        label: 'As Built Designs'
-      }
-    ]
-  }
-]
 
 
 const downloadFile = async (data) => {
@@ -1300,15 +1073,11 @@ const DownloadXlsx = async () => {
 
     <div style="display: inline-block; margin-left: 20px">
       <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="Filter by Indicator">
+        filterable collapse-tags placeholder="Filter by Project/Indicator">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-cascader :options="cascadeOptions" @change="handleSelectLocation" :props="props1" filterable clearable
-        placeholder="Select Location of Monitoring" />
 
-    </div>
 
 
 
@@ -1361,9 +1130,6 @@ const DownloadXlsx = async () => {
                 </template>
               </el-table-column>
             </el-table>
-            <!-- <el-button v-if="showAdminButtons" @click="addMoreDocs(props.row)" type="info" round>Add More
-                                                                                                                    Documents</el-button> -->
-
             <el-button v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
               style="margin-left: 10px;margin-top: 5px" size="small" />
 
@@ -1439,27 +1205,14 @@ const DownloadXlsx = async () => {
           </el-form-item>
 
 
-          <el-form-item label="Location">
-            <el-cascader v-model="ruleForm.location" :options="cascadeOptions" @change="getCascadeSelectedValues"
-              :props="props1" filterable clearable placeholder="Select Location of Monitoring" />
-          </el-form-item>
+
           <el-form-item label="Date">
             <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />
           </el-form-item>
           <el-form-item label="Quantity">
             <el-input-number v-model="ruleForm.amount" />
           </el-form-item>
-          <!-- <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
-                            :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
-                            :on-exceed="handleExceed" :auto-upload="false">
-                            <el-button type="primary">Click to upload</el-button>
-                            <template #tip>
-                              <div class="el-upload__tip">
-                                pdf/xlsx/csv/jpg/png files with a size less than 20mb.
-                              </div>
-                            </template>
-                          </el-upload>
-                        </el-form-item> -->
+
 
 
         </el-form>

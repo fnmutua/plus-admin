@@ -20,7 +20,7 @@ module.exports = function (sequelize, DataTypes) {
 
       subcounty_id: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: true
       },
       settlement_type: {
         type: DataTypes.INTEGER,
@@ -55,6 +55,8 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.STRING,
         defaultValue: 'Pending'
       },
+
+   
     },
     {
       sequelize,
