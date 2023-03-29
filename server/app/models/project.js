@@ -31,8 +31,7 @@ module.exports = function(sequelize, DataTypes) {
     title: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true
-    },
+     },
 
    
     component_id: {
@@ -94,11 +93,12 @@ module.exports = function(sequelize, DataTypes) {
     timestamps: true,
     indexes: [
       {
-        name: "project_pkey",
+        name: "project_county_pkey",
         unique: true,
         fields: [
           { name: "id" },
           { name: "title" },
+          { name: "county_id" },
 
         ]
       },

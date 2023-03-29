@@ -3,6 +3,8 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty, getRoutesList, uploadFilesBatch } from '@/api/settlements'
+import { getListManyToMany } from '@/api/settlements'
+
 import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
@@ -138,7 +140,8 @@ var filters = ['component_id']
 var filterValues = [[component_id.value]]  // make sure the inner array is array
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['settlement', 'activity', 'county', 'subcounty', 'component', 'document']
+//const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
+const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
@@ -155,22 +158,7 @@ const geoLoaded = ref(false)
 
 const { t } = useI18n()
 
-const formatter = (row) => {
-  if (row.documentation) {
 
-
-    return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, {
-      icon: "ic:outline-download-for-offline", height: '36'
-    }))
-
-    // return h(ElLink, { href: row.documentation, download: row.documentation, type: 'danger' }, h(Icon, { icon: "material-symbols:cloud-download", height: '36' }), 'Download ')
-
-
-  } else {
-    return
-  }
-
-}
 
 
 
@@ -238,7 +226,7 @@ const addMoreDocs = (data: TableSlotDefault) => {
 
   addMoreDocuments.value = true
 
-  console.log('currentRow', currentRow.value)
+  //  console.log('currentRow', currentRow.value)
 
 }
 
@@ -251,7 +239,7 @@ const submitMoreDocuments = async () => {
   const formData = new FormData()
   let files = []
   for (var i = 0; i < morefileList.value.length; i++) {
-    console.log('------>file', morefileList.value[i])
+    // console.log('------>file', morefileList.value[i])
     var format = morefileList.value[i].name.split('.').pop() // get file extension
     //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
     fileTypes.push(format)
@@ -366,7 +354,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filtredGeoIds = filteredIds
   const fgeo = await getfilteredGeo(formData)
 
-  console.log('the filtred GEO --', fgeo)
+  //console.log('the filtred GEO --', fgeo)
 
 
   if (fgeo.data[0].json_build_object) {
@@ -732,7 +720,7 @@ const viewBen = (data: TableSlotDefault) => {
   selected_project.value = data.row.id
   filterValuesBen.value = [[data.row.id], [component_id.value]] // make sure the inner array is array
 
-  console.log('----->', filtersBen.value.values, filterValuesBen.value)
+  //console.log('----->', filtersBen.value.values, filterValuesBen.value)
 
   //console.log(filtersBen, selected_project.value, filterValuesBen)
 
@@ -783,7 +771,7 @@ const getBeneficiaries = async (selfilters, selfilterValues) => {
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
   totalBen.value = res.total
-  console.log('Get Beneficiaires', res)
+  //console.log('Get Beneficiaires', res)
 
   beneficiaryList.value = res.data // back for post filter
   loadingBeneficiaries.value = false
@@ -980,7 +968,7 @@ const editProject = (data: TableSlotDefault) => {
   ruleForm.start_date = data.row.start_date
   ruleForm.end_date = data.row.end_date
   //ruleForm.activities = data.row.activities
-  ruleForm.activities = data.row.activities.map(a => a.id);
+  // ruleForm.activities = data.row.activities.map(a => a.id); Felix Revisit
   ruleForm.component_id = data.row.component_id
 
   fileUploadList.value = data.row.documents
@@ -1035,7 +1023,7 @@ const DeleteProject = (data: TableSlotDefault) => {
 }
 
 const tableRowClassName = (data) => {
-  console.log('Row Styling --------->', data.row)
+  // console.log('Row Styling --------->', data.row)
   if (data.row.documents.length > 0) {
     return 'warning-row'
   }
@@ -1370,7 +1358,7 @@ const getActivities = async () => {
       var opt = {}
       opt.value = arrayItem.id
       opt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      console.log(opt)
+      //  console.log(opt)
       activityOptions.value.push(opt)
     })
 

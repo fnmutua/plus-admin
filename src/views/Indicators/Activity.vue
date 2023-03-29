@@ -153,8 +153,8 @@ const handleClear = async () => {
 }
 
 
-const handleSelectProgramme = async (indicator: any) => {
-  var selectOption = 'programme_id'
+const handleSelectActivity = async (indicator: any) => {
+  var selectOption = 'id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -472,7 +472,7 @@ const DownloadXlsx = async () => {
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectProgramme" :onClear="handleClear" multiple clearable filterable
+      <el-select v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search Activity">
         <el-option v-for="item in ActivityOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -545,14 +545,7 @@ const DownloadXlsx = async () => {
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules">
-      <el-row :gutter="10">
-        <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
-          <el-form-item label="Title">
-            <el-input v-model="ruleForm.title" />
-          </el-form-item>
-
-        </el-col>
-      </el-row>
+      <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
 
 
 

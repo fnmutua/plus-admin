@@ -490,20 +490,27 @@ db.models.indicator.hasMany(db.models.indicator_category, {
 
 //reports - indciator:category
 db.models.indicator_category_report.belongsTo(db.models.indicator_category, {
-  foreignKey: 'indicator_category_id'
+  foreignKey: 'indicator_category_id',
+ 
 })
 
 db.models.indicator_category.hasMany(db.models.indicator_category_report, {
-  foreignKey: 'indicator_category_id'
+  foreignKey: 'indicator_category_id',
+ 
 })
 
 
 // county  - indicator_category_report
-db.models.indicator_category_report.belongsTo(db.models.county, {
-  foreignKey: 'county_id'
+db.models.indicator_category_report.belongsTo(db.models.project, {
+  foreignKey: 'project_id'
 })
 
-db.models.county.hasMany(db.models.indicator_category_report, {
+db.models.project.hasMany(db.models.indicator_category_report, {
+  foreignKey: 'project_id'
+})
+
+// county  - indicator_category_report
+db.models.indicator_category_report.belongsTo(db.models.county, {
   foreignKey: 'county_id'
 })
 
@@ -512,9 +519,7 @@ db.models.indicator_category_report.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
 })
 
-db.models.settlement.hasMany(db.models.indicator_category_report, {
-  foreignKey: 'settlement_id'
-})
+
 
 
 // user  - indicator_category_report
@@ -636,7 +641,16 @@ db.models.indicator_category_report.hasMany(db.models.document, {
 })
 
 
-// activity  - indicator_category_report
+
+
+
+
+
+
+
+
+
+// activity  - indicator_categor 
 db.models.indicator_category.belongsTo(db.models.activity, {
   foreignKey: 'activity_id',
 })
@@ -647,14 +661,24 @@ db.models.activity.hasMany(db.models.indicator_category, {
 
   
 
-// project  - indicator_category_report
+// project  - indicator_category 
 db.models.indicator_category.belongsTo(db.models.project, {
   foreignKey: 'project_id',
+ 
 })
 
 db.models.project.hasMany(db.models.indicator_category, {
-  foreignKey: 'project_id'
+  foreignKey: 'project_id',
+ 
 })   
+
+
+
+
+
+
+
+
 
 
 
@@ -792,10 +816,14 @@ db.models.activity.belongsToMany(db.models.project, {
 
 db.models.indicator.belongsTo(db.models.activity, {
   foreignKey: 'activity_id',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
 })
 
 db.models.activity.hasMany(db.models.indicator, {
-  foreignKey: 'activity_id'
+  foreignKey: 'activity_id',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
 })
 
 
@@ -828,25 +856,27 @@ db.models.project.hasMany(db.models.evaluation, {
   foreignKey: 'project_id'
 })
 
-// db.models.document.belongsTo(db.models.indicator_category_report, {
-//   foreignKey: 'parent_code',
-//   targetKey:'code'
-// })
-
-// db.models.indicator_category_report.hasMany(db.models.document, {
-//   foreignKey: 'parent_code'
-// })
-
-
-// db.models.document.belongsTo(db.models.project, {
-//   foreignKey: 'project_code',
-// })
-
-// db.models.project.hasMany(db.models.document, {
-//   foreignKey: 'project_code'
-// })
+ 
 
  
+// settleemnts creaters
+
+db.models.settlement.belongsTo(db.models.users, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+db.models.users.hasMany(db.models.settlement, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+
+
+
+
 
 
 

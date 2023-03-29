@@ -1160,8 +1160,14 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
   for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
     var modelIncl = {}
     modelIncl.model = db.models[req.body.associated_multiple_models[i]]
-    modelIncl.raw = true
-    modelIncl.nested = true
+
+    if (req.body.associated_multiple_models[i] === 'users') {
+         modelIncl.raw = true
+         modelIncl.nested = true
+         modelIncl.attributes = ['name', 'email', 'phone'];
+
+    }
+
     includeModels.push(modelIncl)
 
 
@@ -1227,8 +1233,9 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
  
     qry.where = lstQuerries
   }
-  console.log('Final-3-object------------>', qry)
 
+ 
+  console.log('Final-3-object-------excluding----->', qry)
 
 
 
@@ -1266,13 +1273,13 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
  }
   else {
     
-    qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only
 
 }
      
 
 
 
+qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only
 
 
 
@@ -1358,7 +1365,8 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
    console.log('The Querry----->', qry)
    if (req.body.limit ) {
      qry.limit = req.body.limit 
-   }
+  }
+  
    if (req.body.page ) {
      qry.offset = (req.body.page - 1) * req.body.limit
    }

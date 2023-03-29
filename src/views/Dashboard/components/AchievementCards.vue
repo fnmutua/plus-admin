@@ -73,7 +73,7 @@ const getImprovedRoads = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
   countQuerry.filterFields = ['indicator_category_id']
-  countQuerry.criteria = [36]
+  countQuerry.criteria = [2]
   countQuerry.model = 'indicator_category_report'
   countQuerry.sumField = 'amount'
   await getSumFilter(countQuerry).then((response) => {
@@ -103,7 +103,7 @@ const getCountyStrategies = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
   countQuerry.filterFields = ['indicator_category_id']
-  countQuerry.criteria = [1]  // Counties where next generation of County Integrated Development Plans (CIDPs) include slum upgrading strategies developedunder the project
+  countQuerry.criteria = [4]  // Counties where next generation of County Integrated Development Plans (CIDPs) include slum upgrading strategies developedunder the project
   countQuerry.model = 'indicator_category_report'
   countQuerry.sumField = 'amount'
   countQuerry.cache_key = 'countiesWIthStrategies'
@@ -119,7 +119,7 @@ const getCommunityDevPlans = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
   countQuerry.filterFields = ['indicator_category_id']
-  countQuerry.criteria = [2]  //  community Dev plans
+  countQuerry.criteria = [3]  //  community Dev plans
   countQuerry.model = 'indicator_category_report'
   countQuerry.sumField = 'amount'
   countQuerry.cache_key = 'getCommunityDevPlans'
@@ -134,7 +134,7 @@ const getTitleDeeds = async () => {
   //  this.countQuerry.model = 'settlement'
   const countQuerry = {}
   countQuerry.filterFields = ['indicator_category_id']
-  countQuerry.criteria = [6]  //  titlee Deeds
+  countQuerry.criteria = [1]  //  titlee Deeds
   countQuerry.model = 'indicator_category_report'
   countQuerry.sumField = 'amount'
   countQuerry.cache_key = 'getTitleDeeds'
