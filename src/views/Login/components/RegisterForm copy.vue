@@ -7,19 +7,14 @@ import { ElButton, ElInput, FormInstance, FormRules } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { UserType } from '@/api/register/types'
 import { registerApi, getCountyAuth } from '@/api/register'
-import { getCountyListApi } from '@/api/counties'
-import { CountyType } from '@/api/counties/types'
 
-interface Params {
-  pageIndex?: number
-  pageSize?: number
-}
+
 const emit = defineEmits(['to-login'])
 
 const { register, elFormRef, methods } = useForm()
 
 const { t } = useI18n()
-const countiesOptions = ref([])
+const countiesOptions = []
 
 
 const getTableList = async () => {
@@ -28,30 +23,33 @@ const getTableList = async () => {
   formData.model = 'county'
 
 
-
-  await getCountyAuth({}).then((response) => {
+  getCountyAuth().then((response) => {
     console.log('List of counties:', response)
     //tableDataList.value = response.data
-    var cnty = response.data
+    var cnty = response
 
     loading.value = false
 
-    cnty.forEach(function (arrayItem) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name
-      //  console.log(countyOpt)
-      countiesOptions.value.push(countyOpt)
-    })
+    // cnty.forEach(function (arrayItem) {
+    //   var countyOpt = {}
+    //   countyOpt.value = arrayItem.id
+    //   countyOpt.label = arrayItem.name
+    //   //  console.log(countyOpt)
+    //   countiesOptions.push(countyOpt)
+
+
+
+
+    // })
 
     // Add one option for non county persons 
 
     var national = {}
     national.value = "0"
     national.label = 'Not Applicable'
-    countiesOptions.value.push(national)
+    countiesOptions.push(national)
     // sort by value
-    countiesOptions.value.sort(function (a, b) {
+    countiesOptions.sort(function (a, b) {
       return a.value - b.value;
     });
 
