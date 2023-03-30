@@ -920,6 +920,7 @@ const getFilteredBySearchData = async (searchString) => {
   formData.filters = filters
   formData.filterValues = filterValues
   formData.associated_multiple_models = associated_multiple_models
+  formData.nested_models = nested_models
 
   //-------------------------
   console.log(formData)

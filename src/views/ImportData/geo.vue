@@ -557,6 +557,9 @@ const loadOptions = (json) => {
   // makeOptions(fields)
   for (let i = 0; i < json.features.length; i++) {
     var feature = json.features[i]
+    var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+    feature.geometry.crs = crs
+
     feature.properties['createdBy'] = userInfo.id
     uploadObj.value.push(feature)  // Push to the temporary holder
 

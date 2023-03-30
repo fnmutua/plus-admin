@@ -447,6 +447,7 @@ exports.updatePassword = (req, res) => {
 
 
 exports.countyController = (req, res) => {
+
   var reg_model = 'county'
    db.models[reg_model]
     .findAll({attributes: { exclude: ['geom' ] }})
@@ -455,6 +456,23 @@ exports.countyController = (req, res) => {
       res.status(200).send(list)
     })
 }
+
+exports.countyPostController = async (req, res) => {
+  console.log('getting counties......')
+
+  var reg_model = 'county'
+    await db.models[reg_model].findAll({
+    }).then((list) => {
+      res.status(200).send({
+        data: list,
+        code: "0000"
+      })
+    })
+
+  
+}
+
+
 
 exports.settlementController = (req, res) => {
   var reg_model = 'settlement'
