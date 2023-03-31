@@ -201,7 +201,7 @@ const loadMap = () => {
       "type": "line",
       'source': 'polygons',
       'paint': {
-        'line-color': 'white',
+        'line-color': 'red',
         'line-width': 1
       }
     });
@@ -439,14 +439,14 @@ console.log(model)
       <div class="card-header">
         <span>{{ toTitleCase(title.replace('_', ' ')) + ' Settlement' }}</span>
         <!-- 
-                          <el-checkbox-group :onChange="switchLayer" v-model="selectedLayers">
-                            <el-checkbox-button v-for="layer in layers" :key="layer" :name="layer" :label="layer">{{
-                              layer
-                            }}</el-checkbox-button>
+                            <el-checkbox-group :onChange="switchLayer" v-model="selectedLayers">
+                              <el-checkbox-button v-for="layer in layers" :key="layer" :name="layer" :label="layer">{{
+                                layer
+                              }}</el-checkbox-button>
 
-                            <el-checkbox-button type="primary" :onClick="downloadMap">Download</el-checkbox-button>
+                              <el-checkbox-button type="primary" :onClick="downloadMap">Download</el-checkbox-button>
 
-                          </el-checkbox-group>   -->
+                            </el-checkbox-group>   -->
 
         <div>
           <el-dropdown>

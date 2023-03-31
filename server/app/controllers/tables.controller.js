@@ -1233,11 +1233,11 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
  
     qry.where = lstQuerries
   }
-
+ 
  
   console.log('Final-3-object-------excluding----->', qry)
 
-
+  qry.order=[['id', 'ASC']]
 
   // if involving households decryot the HH name
 
