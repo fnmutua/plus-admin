@@ -1881,7 +1881,7 @@ getDocumentTypes()
             <el-form-item label="Description">
               <el-input v-model="ruleForm.description" />
             </el-form-item>
-            <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" multiple :limit="3"
+            <el-form-item label="Geometry"> <el-upload v-model:file-list="fileUploadList" multiple :limit="3"
                 :auto-upload="false">
                 <el-button type="primary">Click to upload</el-button>
                 <template #tip>
@@ -1931,7 +1931,7 @@ getDocumentTypes()
         <el-descriptions-item label="Area(Ha)" :span="2">{{ settlement_raw.area }}</el-descriptions-item>
         <el-descriptions-item label="Population">{{ settlement_raw.population }}</el-descriptions-item>
         <el-descriptions-item label="Description"> {{ settlement_raw.description }} </el-descriptions-item>
-        <el-descriptions-item label="Submited By"> {{ settlement_raw.user }} </el-descriptions-item>
+        <el-descriptions-item label="Submitted By"> {{ settlement_raw.user }} </el-descriptions-item>
         <el-descriptions-item label="Date"> {{ settlement_raw.date }} </el-descriptions-item>
       </el-descriptions>
       <template #footer>
