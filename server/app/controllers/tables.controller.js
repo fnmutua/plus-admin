@@ -33,7 +33,7 @@ exports.allAccess = (req, res) => {
 
 
 exports.GetRoutes = (req, res) => {
-  console.log('Req-body', req.body)
+  console.log('Req-body 001', req.body)
    // console.log('nested filters....>', req.body.nested_filter[0])
  
    var reg_model = req.body.model
@@ -1129,7 +1129,7 @@ exports.modelPaginatedData = (req, res) => {
 }
 
 exports.modelPaginatedDatafilterByColumn = (req, res) => {
- console.log('Req-body', req.body)
+ console.log('Req-body 002', req.body)
   // console.log('nested filters....>', req.body.nested_filter[0])
 
   var reg_model = req.body.model
@@ -1293,7 +1293,7 @@ qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordT
 }
 
 exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
-  console.log('Req-body', req.body)
+  console.log(' 003', req.body)
    // console.log('nested filters....>', req.body.nested_filter[0])
  
    var reg_model = req.body.model

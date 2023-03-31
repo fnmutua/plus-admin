@@ -49,8 +49,8 @@ const dialogWidth = ref()
 const actionColumnWidth = ref()
 
 if (isMobile.value) {
-  dialogWidth.value = "90%"
-  actionColumnWidth.value = "75px"
+  dialogWidth.value = "100px"
+  actionColumnWidth.value = "100px"
 } else {
   dialogWidth.value = "25%"
   actionColumnWidth.value = "160px"
@@ -604,7 +604,8 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.model = 'indicator_category'
       ruleForm.code = ruleForm.indicator_id + '_' + ruleForm.activity_id + '_' + ruleForm.project_id + '_' + ruleForm.category_id
       const res = CreateRecord(ruleForm)
-      AddDialogVisible.value = false
+      console.log('ruleForm.code >>', ruleForm.code)
+      //  AddDialogVisible.value = false
 
     } else {
       console.log('error submit!', fields)
@@ -788,42 +789,48 @@ const DownloadXlsx = async () => {
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" draggable>
+    <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
 
-      <el-form-item label="Project">
-        <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" placeholder="Select Project">
-          <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="Activity">
-        <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" placeholder="Select Activity">
-          <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
+      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
-      <el-form-item label="Indicator">
-        <el-select filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator" placeholder="Select Indicator">
-          <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
-            :value="item.value" />
-        </el-select>
-      </el-form-item>
+        <el-form-item label="Project">
+          <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" placeholder="Select Project">
+            <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Activity">
+          <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" placeholder="Select Activity">
+            <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
+              :value="item.value" />
+          </el-select>
+        </el-form-item>
 
-      <el-form-item label="Category">
-        <el-select v-model="ruleForm.category_id" :onChange="changeCategory" placeholder="Select Category">
-          <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="Frequency">
-        <el-select clearable filterable v-model="ruleForm.frequency" placeholder="Unit">
-          <el-option label="Quarterly" value="Quarterly" />
-          <el-option label="Monthly" value="Monthly" />
-          <el-option label="Annually" value="Annually" />
+        <el-form-item label="Indicator">
+          <el-select filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
+            placeholder="Select Indicator">
+            <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
+              :value="item.value" />
+          </el-select>
+        </el-form-item>
 
-        </el-select>
-      </el-form-item>
+        <el-form-item label="Category">
+          <el-select v-model="ruleForm.category_id" :onChange="changeCategory" placeholder="Select Category">
+            <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Frequency">
+          <el-select clearable filterable v-model="ruleForm.frequency" placeholder="Unit">
+            <el-option label="Quarterly" value="Quarterly" />
+            <el-option label="Monthly" value="Monthly" />
+            <el-option label="Annually" value="Annually" />
 
-    </el-form>
+          </el-select>
+        </el-form-item>
+
+      </el-form>
+
+    </el-col>
     <template #footer>
       <span class="dialog-footer">
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
@@ -831,5 +838,6 @@ const DownloadXlsx = async () => {
         <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
       </span>
     </template>
+
   </el-dialog>
 </template>

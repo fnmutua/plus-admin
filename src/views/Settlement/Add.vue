@@ -55,6 +55,7 @@ const ruleForm = reactive({
   area: '',
   population: '',
   code: '',
+  isApproved: '',
   description: ''
 })
 
@@ -133,6 +134,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = 'settlement'
       ruleForm.code = uuid.v4()
+      ruleForm.isApproved = ''
       delete shp[0].target
       delete shp[0].type
 
@@ -178,8 +180,7 @@ const mapHeight = '450px'
   <ContentWrap :title="title">
     <el-row :gutter="20">
       <el-col :span="10">
-        <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
-          status-icon>
+        <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm" status-icon>
           <el-form-item label="Name" prop="name">
             <el-input v-model="ruleForm.name" />
           </el-form-item>

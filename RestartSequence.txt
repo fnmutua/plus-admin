@@ -18,6 +18,10 @@ ALTER SEQUENCE beneficiary_id_seq1  RESTART WITH 1013 ;
 ALTER SEQUENCE beneficiary_id_seq  RESTART WITH 1013 ;
 
 
+ALTER SEQUENCE indicator_category_id_seq RESTART WITH 6 ;
+
+
+
 #Backup Railway DB
 pg_restore -U postgres -h containers-us-west-104.railway.app -p 7760   -p 6473 -W -F t -d railway  08012023.kisip.sql.tar
 

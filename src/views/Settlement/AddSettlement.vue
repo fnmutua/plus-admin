@@ -121,7 +121,7 @@ const ruleForm = reactive({
   population: '',
   code: '',
   description: '',
-  isApproved: false
+  isApproved: 'Pending'
 
 
 })
@@ -330,12 +330,10 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
       ruleForm.geom = geoJson.value
-      ruleForm.isApproved = false
+      ruleForm.isApproved = 'Pending'
       ruleForm.createdBy = userInfo.id
 
       console.log("Shp----->", geoJson.value)
-
-
 
 
 
@@ -753,30 +751,26 @@ const loadMap = () => {
         <el-card>
           <el-steps :active="active" simple>
             <!-- <el-step title="Details" :icon="Edit" />
-                                                                      <el-step title="Location" :icon="Location" />
-                                                                      <el-step title="Documentation" :icon="Upload" /> -->
+                                                                            <el-step title="Location" :icon="Location" />
+                                                                            <el-step title="Documentation" :icon="Upload" /> -->
 
-            <el-step
-:title="active === 0 ? 'Details' : ''" :icon="Edit" :description="active === 0 ? 'Step 1' : ''"
+            <el-step :title="active === 0 ? 'Details' : ''" :icon="Edit" :description="active === 0 ? 'Step 1' : ''"
               :status="active === 0 ? 'process' : ''" :style="{ fontSize: '14px' }" />
-            <el-step
-:title="active === 1 ? 'Location' : ''" :icon="Location" :description="active === 1 ? 'Step 2' : ''"
+            <el-step :title="active === 1 ? 'Location' : ''" :icon="Location" :description="active === 1 ? 'Step 2' : ''"
               :status="active === 1 ? 'process' : ''" :style="{ fontSize: '14px' }" />
 
 
 
           </el-steps>
           <el-divider />
-          <el-form
-label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
+          <el-form label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
             status-icon>
             <el-col v-if="showForm" :span="24" :lg="24" :md="12" :sm="12" :xs="24">
               <el-form-item label="Name" prop="name">
                 <el-input v-model="ruleForm.name" />
               </el-form-item>
               <el-form-item label="County" prop="county_id">
-                <el-select
-v-model="ruleForm.county_id" filterable placeholder="Select County"
+                <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
                   :onChange="handleSelectCounty">
                   <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
@@ -784,11 +778,9 @@ v-model="ruleForm.county_id" filterable placeholder="Select County"
               </el-form-item>
 
               <el-form-item label="Subcounty" prop="subcounty_id">
-                <el-select
-v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
+                <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
                   :onChange="handleSelectSubCounty">
-                  <el-option
-v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                  <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                     :value="item.value" />
                 </el-select>
                 <el-button type="succcess" @click="AddSettlement()" :icon="Plus" />
@@ -811,14 +803,12 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
             </el-col>
 
             <el-form-item v-if="showGeoFields" label="Location">
-              <el-switch
-width="200px" v-model="geoSource"
+              <el-switch width="200px" v-model="geoSource"
                 style="--el-switch-on-color: orange; --el-switch-off-color: purple" class="mb-2"
                 active-text="Upload Geojson File" inactive-text="Draw on Map" />
             </el-form-item>
 
-            <el-upload
-v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
+            <el-upload v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :on-change="handleUploadGeo">
               <el-icon class="el-icon--upload"><upload-filled /></el-icon>
               <div class="el-upload__text">
@@ -831,8 +821,7 @@ v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto
               </template>
             </el-upload>
 
-            <el-upload
-v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" multiple
+            <el-upload v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" multiple
               :auto-upload="false" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
               :on-change="handleUploadDocuments">
               <el-button type="primary">Click to upload documentation</el-button>
@@ -857,11 +846,9 @@ v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" mult
                 <ArrowRight />
               </el-icon>
             </el-button>
-            <el-button
-v-if="submitBtns" @click="submitForm(ruleFormRef)" type="success"
+            <el-button v-if="submitBtns" @click="submitForm(ruleFormRef)" type="success"
               :icon="Promotion">Submit</el-button>
-            <el-button
-v-if="submitBtns" @click="submitForm(ruleFormRef)" type="warning"
+            <el-button v-if="submitBtns" @click="submitForm(ruleFormRef)" type="warning"
               :icon="RefreshLeft">Reset</el-button>
           </el-button-group>
         </el-card>
