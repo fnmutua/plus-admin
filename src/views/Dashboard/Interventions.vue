@@ -520,12 +520,12 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
 
   // filter by field 
   formData.filterField = 'component_id'
-  formData.filterValue = [7] // Infrastructure
+  formData.filterValue = [7] // socai inclusi
 
   // Asccoiated models 
   formData.assoc_models = ['county']
   formData.groupFields = ['county.name']
-  formData.cache_key = 'getKisipInclusionSettlementsCountByCountyx'
+  formData.cache_key = 'getKisipInclusionSettlementsCountByCounty'
 
 
   let subCategories = []
@@ -534,7 +534,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
       var results = response.Total
-      //  console.log('settlements interventions by county', results)
+      console.log('settlements socio interventions by county', results)
 
       //   let topTen = results.slice(0, 10)   // get the top 10
       results.forEach(function (item) {
@@ -563,17 +563,16 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
   // Same querry but now to get the settleemnts and their GEO
   const model = 'project'
   var filters = ['component_id']
-  var filterValues = [7] // Infrastructure
+  var filterValues = [[7]] // Infrastructure
 
   const associated_multiple_models = ['settlement']
   //// ------------------parameters -----------------------////
 
 
   const fiterModelData = {}
-  fiterModelData.curUser = 1 // Id for logged in user
-  fiterModelData.model = model
+  fiterModelData.model = 'project'
   //-Search field--------------------------------------------
-  fiterModelData.searchField = 'name'
+  fiterModelData.searchField = 'geo--x'
   fiterModelData.searchKeyword = ''
   //--Single Filter -----------------------------------------
 
@@ -585,11 +584,12 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
   fiterModelData.associated_multiple_models = associated_multiple_models
 
   //-------------------------
-  //console.log(formData)
+  console.log(fiterModelData)
 
 
   await getSettlementListByCounty(fiterModelData)
     .then(response => {
+      console.log('---x---', response)
 
 
       for (let i = 0; i < response.data.length; i++) {
@@ -1368,7 +1368,7 @@ const getInclusionBeneficiaries = async () => {
   formData.assoc_models = ['settlement']
   formData.groupFields = ['settlement.name']
   formData.filterField = 'indicator_category_id'
-  formData.filterValue = 4
+  formData.filterValue = [6]
 
   let subCategories = []
   let maleSeries = []
@@ -1379,7 +1379,7 @@ const getInclusionBeneficiaries = async () => {
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
       var results = response.Total
-      // console.log('Inclusion beneficiaries county', results)
+      console.log('Inclusion beneficiaries  male county', results)
       results.forEach(function (item) {
         if (parseInt(item.sum) > 0) {
           if (subCategories.indexOf(item.name) === -1) subCategories.push(item.name);
@@ -1390,7 +1390,7 @@ const getInclusionBeneficiaries = async () => {
     });
 
   /// Female
-  formData.filterValue = 3
+  formData.filterValue = [5]
   let femaleSeries = []
   formData.cache_key = 'getInclusionBeneficiaries33'
 
