@@ -38,9 +38,7 @@ const { t } = useI18n()
 
 const loading = ref(true)
 const countyGeo = ref([])
-const settlementsPercounty = ref([])
-const settlementsPercountyMax = ref()
-const settlementsPercountyMin = ref()
+
 
 
 const aspect = ref()
@@ -138,13 +136,7 @@ const getSettlementsCountyMap = async () => {
   // Asccoiated models 
   formData.assoc_models = ['county']
   formData.groupFields = ['county.name']
-  formData.cache_key = 'getSettlementCountySettlementCountMap'
-
-
-
-
-
-
+  formData.cache_key = 'getSettlementCountySettlementCountMap1'
 
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
@@ -153,7 +145,7 @@ const getSettlementsCountyMap = async () => {
 
 
       var results = response.Total
-      console.log('settlement ---> pop', results)
+      console.log('settlement --001-> pop', results)
       results.forEach(function (item) {
         var cntySlums = {}
         cntySlums.name = item.name
@@ -167,7 +159,7 @@ const getSettlementsCountyMap = async () => {
 
     });
 
-  console.log("Count per county >>>>>", settlementsCountMin.value, settlementsCountMax.value)
+  console.log("Count per county >>>>>", settlementsCount)
   settlementCountMap.value = {
     title: {
       text: informalSettlementpercountyMapTitle,
@@ -236,6 +228,11 @@ const getSettlementsCountyMap = async () => {
 }
 
 
+
+const settMaxPopDensity = ref()
+const settMinPopDensity = ref()
+const settPopDensity = ref([])
+
 const getSettlementPopulation = async () => {
   const formData = {}
 
@@ -264,18 +261,25 @@ const getSettlementPopulation = async () => {
       results.forEach(function (item) {
         var cntySlums = {}
         cntySlums.name = item.name
-        cntySlums.value = parseInt(item.AVG)
-        settlementsPop.value.push(cntySlums)
+        cntySlums.value = (item.AVG)
+        settPopDensity.value.push(cntySlums)
       });
-      settlementsPopMax.value = Math.max(...settlementsPop.value.map(o => o.value))
-      settlementsPopMin.value = Math.min(...settlementsPop.value.map(o => o.value))
+      settMaxPopDensity.value = Math.max(...settPopDensity.value.map(o => o.value))
+      settMinPopDensity.value = Math.min(...settPopDensity.value.map(o => o.value))
 
     });
+
+
+  console.log('settlementCountMapMax', settMaxPopDensity.value)
+  console.log('settlementsPopMin', settMinPopDensity.value)
+
+
+
 
   settlementPopulationMap.value = {
     title: {
       text: informalSettlementPopMapTitle,
-      subtext: 'National Slum Mapping, 2023',
+      subtext: 'National Slum Mapping, 202323',
       sublink: 'https://kisip.go.ke/',
       left: 'right',
       textStyle: {
@@ -289,8 +293,8 @@ const getSettlementPopulation = async () => {
     },
     visualMap: {
       left: 'right',
-      min: settlementsPopMax,
-      max: settlementsPopMin,
+      min: settMinPopDensity,
+      max: settMaxPopDensity,
       inRange: {
         color: [
           '#313695',
@@ -332,12 +336,16 @@ const getSettlementPopulation = async () => {
             show: true
           }
         },
-        data: settlementsPop.value
+        data: settPopDensity.value
       }
     ]
   };
 
 }
+
+const settlementsPercounty = ref([])
+const settlementsPercountyMax = ref()
+const settlementsPercountyMin = ref()
 
 const getTopSettlementCountByCounty = async () => {
   const formData = {}
@@ -347,7 +355,7 @@ const getTopSettlementCountByCounty = async () => {
 
   // filter by field 
   formData.filterField = 'isApproved'
-  formData.filterValue = ['Approved'] //
+  formData.filterValue = ['Approved']  //
 
   // Asccoiated models 
   formData.assoc_models = ['county']
@@ -360,7 +368,7 @@ const getTopSettlementCountByCounty = async () => {
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
       var results = response.Total
-      console.log('settlements by county', results)
+      console.log('settlements by county - 2023', results)
 
       let topTen = results.slice(0, 10)   // get the top 10
       topTen.forEach(function (item) {
@@ -384,6 +392,9 @@ const getTopSettlementCountByCounty = async () => {
       settlementsPercountyMin.value = Math.min(...settlementsPercounty.value.map(o => o.value))
 
     });
+
+
+  console.log(settlementsPercountyMax, settlementsPercountyMin)
 
   countofSlumsByCountyOptions.value = {
     title: {
