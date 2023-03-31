@@ -28,6 +28,8 @@ import {
   searchByKeyWord
 } from '@/api/settlements'
 
+import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
+
 
 
 
@@ -1469,6 +1471,117 @@ getDocumentTypes()
 
 
 
+
+const readShp = async (file) => {
+  console.log('Reading Shp file....')
+
+  // await getGeoJSON(file)
+  readShapefileAndConvertToGeoJSON(file)
+    .then((geojson) => {
+
+      console.log("Geo>", geojson.length)
+      console.log("Geo1>", geojson[0])
+
+
+      if (geojson.length != 1) {
+        ElMessage.warning('Please uplaod a file with only one feature. This one has ' + geojson.length + ' features')
+
+      }
+      else {
+        console.log('ok>>', geojson[0])
+        let geom = {
+          type: geojson[0].geometry.type,
+          coordinates: geojson[0].geometry.coordinates
+        }
+        console.log(geom)
+        ruleForm.geom = geom
+      }
+
+
+    })
+    .catch((error) => {
+      console.error(error)
+      ElMessage.error('Invalid shapefiles. Check your zipped file')
+
+
+    })
+
+  //uploadPolygon(feat)
+}
+
+const readJson = (event) => {
+  console.log('Reading Josn file....', event)
+  let str = event.target.result
+
+  try {
+    let json = JSON.parse(str)
+    console.log('parsed', json)
+
+    if (json.features.length != 1) {
+      ElMessage.warning('Please uplaod a file with only one feature. This one has ' + json.features.length + ' features')
+
+    }
+    else {
+      console.log('ok>>', json.features)
+      let geom = {
+        type: json.features[0].geometry.type,
+        coordinates: json.features[0].geometry.coordinates
+      }
+      console.log(geom)
+      ruleForm.geom = geom
+    }
+
+  }
+  catch (err) {
+    console.log(err.message)
+
+    ElMessage.error('Invalid Geojson Format')
+
+  }
+
+
+
+
+
+
+
+
+
+
+}
+
+const handleUploadGeo = async (uploadFile) => {
+  console.log('Upload>>>', uploadFile)
+  //  uploadRef.value!.submit()
+
+  console.log("File type", uploadFile.name.split('.').pop())
+  var fileType = uploadFile.name.split('.').pop()
+  var rfile = uploadFile.raw
+
+  let reader = new FileReader()
+  console.log(reader)
+
+  //var mydata = JSON.parse(uploadFile);
+
+  if (fileType === 'geojson' || fileType === 'json') {
+    reader.onload = readJson
+    reader.readAsText(rfile)
+  }
+  else if (fileType === 'zip') {
+    readShp(rfile)
+
+    // reader.readAsArrayBuffer(rfile)
+  } else {
+    ElMessage.error('Only geojson or zipped shapefiles are supported at the moment')
+
+
+  }
+
+
+}
+
+
+
 </script>
 
 <template>
@@ -1881,12 +1994,12 @@ getDocumentTypes()
             <el-form-item label="Description">
               <el-input v-model="ruleForm.description" />
             </el-form-item>
-            <el-form-item label="Geometry"> <el-upload v-model:file-list="fileUploadList" multiple :limit="3"
+            <el-form-item label="Geometry"> <el-upload :on-change="handleUploadGeo" multiple :limit="3"
                 :auto-upload="false">
                 <el-button type="primary">Click to upload</el-button>
                 <template #tip>
                   <div class="el-upload__tip">
-                    pdf/xlsx/csv/jpg/png files with a size less than 20mb.
+                    geojson or zipped shapefile
                   </div>
                 </template>
               </el-upload></el-form-item>
