@@ -56,7 +56,11 @@ module.exports = function(sequelize, DataTypes) {
     },
 
 
-
+    createdBy: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+ 
 
     code: {
       type: DataTypes.STRING,

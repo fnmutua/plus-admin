@@ -20,10 +20,16 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.DATE,
       allowNull: false
     },
+
     findings: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: false
     },
+    createdBy: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+ 
   }, {
     sequelize,
     tableName: 'evaluation',
