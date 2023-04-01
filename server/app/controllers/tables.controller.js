@@ -474,9 +474,10 @@ exports.modelImportData = async (req, res) => {
   let errors = []
   for (let i = 0; i < data.length; i++) {
 
-    await db.models[reg_model].upsert(
-      req.body.data[i]
-    )
+    var obj = req.body.data[i]
+    obj.createdBy=req.thisUser.id
+
+    await db.models[reg_model].upsert(obj)
       .then(data => console.log(data))
       .catch(err => errors.push(err.original));
   }
@@ -505,6 +506,8 @@ exports.modelImportDataUpsert = async (req, res) => {
   if (reg_model ==='project') {
 
     await Promise.all(data.map(async (item) => {
+      item.createdBy=req.thisUser.id
+
       try {
         await db.models[reg_model]
         .create(item)
