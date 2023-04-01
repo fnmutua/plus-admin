@@ -543,6 +543,8 @@ exports.modelImportDataUpsert = async (req, res) => {
 
 
     await Promise.all(data.map(async (item) => {
+      item.createdBy=req.thisUser.id
+
       try {
         const data = await db.models[reg_model].upsert(item);
         //console.log(data);
@@ -567,7 +569,7 @@ exports.modelImportDataUpsert = async (req, res) => {
     res.status(500).send({ message: 'Import/Update failed for:'+errors.length + " Records ("+errors[0]+')'})
   } else {
     res.status(200).send({
-      message: 'Import/Updated Successful',
+      message: 'Import/Update Successful......',
       code: '0000'
     })
   }
