@@ -45,6 +45,7 @@ import { readFile } from 'jsonfile';
 import type { UploadInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
 import * as enums from '@/utils/enums'
+import { countyOptions, subcountyOptions, settlementOptionsV2 } from './../Facilities/common/index.ts'
 
 
 const { push } = useRouter()
@@ -57,40 +58,75 @@ const loading = ref(true)
 
 
 //id","name","county_id","settlement_type","geom","area","population","code","description"
-const getSettlements = async () => {
-    const res = await getCountyListApi({
-        params: {
-            pageIndex: 1,
-            limit: 100,
-            curUser: 1, // Id for logged in user
-            model: 'settlement',
-            searchField: 'name',
-            searchKeyword: '',
-            sort: 'ASC'
+// const getSettlements = async () => {
+//     const res = await getCountyListApi({
+//         params: {
+//             pageIndex: 1,
+//             limit: 100,
+//             curUser: 1, // Id for logged in user
+//             model: 'settlement',
+//             searchField: 'name',
+//             searchKeyword: '',
+//             sort: 'ASC'
+//         }
+//     }).then((response: { data: any }) => {
+//         console.log('Received response:', response)
+//         //tableDataList.value = response.data
+//         var ret = response.data
+
+//         loading.value = false
+
+//         ret.forEach(function (arrayItem: { id: string; type: string }) {
+//             var parentOpt = {}
+//             parentOpt.value = arrayItem.id
+//             parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+//             //  console.log(countyOpt)
+//             settlementOptions.value.push(parentOpt)
+//         })
+//     })
+// }
+// getSettlements()
+
+
+
+const subcountyfilteredOptions = ref([])
+const settlementfilteredOptions = ref([])
+
+
+const handleSelectCounty = async (county_id: any) => {
+    console.log(county_id)
+
+    var subset = [];
+    for (let i = 0; i < subcountyOptions.value.length; i++) {
+        if (subcountyOptions.value[i].county_id == county_id) {
+            subset.push(subcountyOptions.value[i]);
         }
-    }).then((response: { data: any }) => {
-        console.log('Received response:', response)
-        //tableDataList.value = response.data
-        var ret = response.data
+    }
+    console.log(subset)
+    subcountyfilteredOptions.value = subset
 
-        loading.value = false
+    // filter settleemnts 
+    var subset_settlements = [];
 
-        ret.forEach(function (arrayItem: { id: string; type: string }) {
-            var parentOpt = {}
-            parentOpt.value = arrayItem.id
-            parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-            //  console.log(countyOpt)
-            settlementOptions.value.push(parentOpt)
-        })
-    })
+    console.log('settlementOptionsV2>>', settlementOptionsV2)
+    for (let i = 0; i < settlementOptionsV2.value.length; i++) {
+        if (settlementOptionsV2.value[i].county_id == county_id) {
+            subset_settlements.push(settlementOptionsV2.value[i]);
+        }
+    }
+    console.log("Subset Setts", subset_settlements)
+    settlementfilteredOptions.value = subset_settlements
+
+
+    // Get the select subcoites GEO
 }
-getSettlements()
-
 
 
 ///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
+    county_id: '',
+    subcounty_id: '',
     settlement_id: '',
     name: '',
     gender: '',
@@ -169,6 +205,7 @@ const ruleForm = reactive({
 })
 
 const rules = reactive<FormRules>({
+    county_id: [{ required: true, message: 'Please select a County', trigger: 'blur' }],
     settlement_id: [{ required: true, message: 'Please select a Settlement', trigger: 'blur' }],
     name: [{ required: true, message: 'Name is required', trigger: 'blur' }],
     gender: [{ required: true, message: 'gender is required', trigger: 'blur' }],
@@ -492,9 +529,26 @@ const AddSettlement = () => {
 
             <el-row :gutter="20" v-if="Profile">
                 <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+
+                    <el-form-item label="County" prop="county_id">
+                        <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
+                            :onChange="handleSelectCounty">
+                            <el-option v-for="item in countyOptions" :key="item.value" :label="item.label"
+                                :value="item.value" />
+                        </el-select>
+                    </el-form-item>
+
+                    <el-form-item label="County" prop="subcounty_id">
+                        <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select Sub-County">
+                            <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                                :value="item.value" />
+                        </el-select>
+                    </el-form-item>
+
+
                     <el-form-item label="Settlement" prop="settlement_id">
-                        <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement">
-                            <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
+                        <el-select v-model="ruleForm.settlement_id" filterable allow-create placeholder="Select Settlement">
+                            <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                         <el-button @click="AddSettlement()" :icon="Plus" />
@@ -765,8 +819,7 @@ const AddSettlement = () => {
 
                     <el-form-item label="Documents" prop="ownership_docs">
                         <el-select v-model="ruleForm.ownership_docs" filterable placeholder="Select">
-                            <el-option v-for="item in enums.typeofDocumentation" :key="item" :label="item"
-                                :value="item" />
+                            <el-option v-for="item in enums.typeofDocumentation" :key="item" :label="item" :value="item" />
                         </el-select>
                     </el-form-item>
 
@@ -784,8 +837,7 @@ const AddSettlement = () => {
                 <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
                     <el-form-item label="Source of Water" prop="source_water">
                         <el-select v-model="ruleForm.source_water" filterable placeholder="Select">
-                            <el-option v-for="item in enums.sources_waterOptions" :key="item" :label="item"
-                                :value="item" />
+                            <el-option v-for="item in enums.sources_waterOptions" :key="item" :label="item" :value="item" />
                         </el-select>
                     </el-form-item>
                     <el-form-item label="Cost for 20L(Ksh)" prop="water_cost20l">
@@ -793,8 +845,7 @@ const AddSettlement = () => {
                     </el-form-item>
                     <el-form-item label="Sanitation Services" prop="sanitation">
                         <el-select v-model="ruleForm.sanitation" filterable placeholder="Select">
-                            <el-option v-for="item in enums.sanitationOptions" :key="item" :label="item"
-                                :value="item" />
+                            <el-option v-for="item in enums.sanitationOptions" :key="item" :label="item" :value="item" />
                         </el-select>
                     </el-form-item>
 
@@ -803,8 +854,7 @@ const AddSettlement = () => {
                     </el-form-item>
                     <el-form-item label="Handwashing Equipment" prop="handwashing">
                         <el-select v-model="ruleForm.handwashing" filterable placeholder="Select">
-                            <el-option v-for="item in enums.handwashingOptions" :key="item" :label="item"
-                                :value="item" />
+                            <el-option v-for="item in enums.handwashingOptions" :key="item" :label="item" :value="item" />
                         </el-select>
                     </el-form-item>
 
@@ -812,14 +862,12 @@ const AddSettlement = () => {
                 <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
                     <el-form-item label="Solid Waste" prop="solid_waste">
                         <el-select v-model="ruleForm.solid_waste" filterable placeholder="Select">
-                            <el-option v-for="item in enums.solid_wasteOptions" :key="item" :label="item"
-                                :value="item" />
+                            <el-option v-for="item in enums.solid_wasteOptions" :key="item" :label="item" :value="item" />
                         </el-select>
                     </el-form-item>
                     <el-form-item label="Access to health Facility" prop="access_health">
                         <el-select v-model="ruleForm.access_health" filterable placeholder="Select">
-                            <el-option v-for="item in enums.access_healthOptions" :key="item" :label="item"
-                                :value="item" />
+                            <el-option v-for="item in enums.access_healthOptions" :key="item" :label="item" :value="item" />
                         </el-select>
                     </el-form-item>
                     <el-form-item label="Mode of Transport" prop="mode_transport">
