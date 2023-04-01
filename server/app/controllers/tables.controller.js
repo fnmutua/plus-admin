@@ -859,9 +859,14 @@ exports.modelActivateUser = (req, res) => {
   })
 }
 
-exports.modelDeleteOneRecord = (req, res) => {
+
+
+exports.xmodelDeleteOneRecord = (req, res) => {
   var reg_model = req.body.model
   // get this one  record and update it by replacing the whole docuemnt
+
+  
+  
   db.models[reg_model].destroy({ where: { id: req.body.id } }).then((result) => {
     if (result) {
       // res.status(200).send(result);
@@ -872,6 +877,84 @@ exports.modelDeleteOneRecord = (req, res) => {
     }
   })
 }
+
+exports.modelDeleteOneRecord = async (req, res) => {
+  try {
+    const modelName = req.body.model;
+    const model = db.models[modelName];
+    const id = req.body.id;
+
+    // Check if the model exists
+    if (!model) {
+      return res.status(400).send({
+        message: `Model '${modelName}' does not exist`,
+        code: 'MODEL_NOT_FOUND'
+      });
+    }
+
+    // Check if the record exists
+    const record = await model.findOne({ where: { id } });
+    if (!record) {
+      return res.status(404).send({
+        message: `Record with id '${id}' does not exist in '${modelName}' model`,
+        code: 'RECORD_NOT_FOUND'
+      });
+    }
+
+ 
+    // Check for dependencies in associated models
+    const associations = Object.keys(model.associations);
+
+
+    for (let i = 0; i < associations.length; i++) {
+      const associationName = associations[i];
+
+      const association = model.associations[associationName];
+
+     // const association = model.associations;
+      let dependentRowsCount =0
+      const associationType = association.associationType;
+      if (associationType === 'HasMany') {
+        console.log('check assocatiation..', association.target, association.foreignKey,id )
+        let mdl = association.target
+     
+         dependentRowsCount = await mdl.count({
+          where: {
+            [association.foreignKey]: id
+          }
+         });
+        
+      
+      } else {
+        
+        dependentRowsCount = 0
+        }
+     
+
+      if (dependentRowsCount > 0) {
+        return res.status(500).send({
+          message: `Cannot delete '${modelName}' record, it has ${dependentRowsCount} dependent ${association.target.name}(s)`,
+          code: 'DEPENDENCY_FOUND'
+        });
+      }
+    }
+
+    // Delete the record
+    await model.destroy({ where: { id } });
+
+    res.status(200).send({
+      message: 'Delete successful',
+      code: '0000'
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR'
+    });
+  }
+};
+
 
 // count all
 exports.modelCountAll = (req, res) => {
