@@ -56,6 +56,10 @@ module.exports = function (sequelize, DataTypes) {
         defaultValue: 'Pending'
       },
 
+      createdBy: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
    
     },
     {

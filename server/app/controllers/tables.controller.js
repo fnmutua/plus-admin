@@ -11,7 +11,7 @@ const Activity = db.activity
 // for enabling storage of files outside public...
 const path = require('path')
 const fs = require('fs');
-
+const User = db.user;
  
 const nodemailer = require('nodemailer')
 const { authJwt } = require("../middleware");
@@ -27,6 +27,24 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
     idle: config.pool.idle
   }
 })
+
+
+
+getUser = (token) => {
+      jwt.verify(token, config.secret, (err, decoded) => {
+      console.log("----x-----", token)
+     thisUser = User.findOne({
+       where: {
+         id: decoded.id
+       }
+     })
+
+     });
+  
+     return thisUser
+
+ };
+
 exports.allAccess = (req, res) => {
   res.status(200).send('Public Content.')
 }
@@ -557,6 +575,13 @@ exports.modelImportDataUpsert = async (req, res) => {
 
 
 exports.modelCreateOneRecord = (req, res) => {
+
+
+  console.log(req.thisUser.id)
+
+  let token = req.headers["x-access-token"];
+ 
+
   console.log('creating......')
   var reg_model = req.body.model
 
@@ -564,6 +589,7 @@ exports.modelCreateOneRecord = (req, res) => {
   console.log('geom... ----', req.body.geom)
 
   var obj = req.body
+  obj.createdBy=req.thisUser.id
   delete obj.model // or delete person["age"];
   
   if (JSON.stringify(req.body.geom ) ===  "{}" ) {

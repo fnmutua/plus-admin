@@ -23,7 +23,11 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-
+      createdBy: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+   
 
         code: {
         type: DataTypes.STRING,

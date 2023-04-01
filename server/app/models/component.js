@@ -28,6 +28,11 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
     
+    createdBy: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+ 
      code: {
       type: DataTypes.STRING,
       allowNull: false
