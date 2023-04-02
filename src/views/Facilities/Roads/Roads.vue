@@ -8,7 +8,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocu
 
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType, UploadProps, ElOptionGroup, ElOption, FormInstance } from 'element-plus'
-import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElInputNumber, ElSwitch } from 'element-plus'
+import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElInputNumber, ElDescriptions, ElDescriptionsItem, ElBadge, ElSwitch } from 'element-plus'
 import { computed, onMounted } from 'vue'
 import xlsx from "json-as-xlsx"
 import { getFile } from '@/api/summary'
@@ -18,6 +18,7 @@ import {
   TopRight,
   User,
   Plus,
+  View,
   Edit,
   Delete,
   Download,
@@ -138,7 +139,7 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['settlement', 'document']
+const associated_multiple_models = ['settlement', 'document', 'users']
 const model = 'road'
 const model_parent_key = 'settlement_id'
 //// ------------------parameters -----------------------////
@@ -147,8 +148,6 @@ const model_parent_key = 'settlement_id'
 
 
 
-const mapHeight = '450px'
-const countries = 'ke'
 const facilityGeo = ref([])
 
 
@@ -277,6 +276,11 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 };
 
 
+const tableDataListNew = ref([])
+const tableDataListRejected = ref([])
+const totalRejected = ref(0)
+const totalNew = ref(0)
+
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -295,8 +299,13 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
 
-  //-------------------------
+  //------------------- ------
   //console.log(formData)
+
+  // filter only the new ones
+  // var filters = ['isApproved']
+  // var filterValues = ['Appproved']  // make sure the inner array is array
+
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
@@ -308,14 +317,43 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   res.data.forEach(function (arrayItem) {
     //  console.log(countyOpt)
     // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
-
     var dd = flattenJSON(arrayItem)
-
     tblData.push(dd)
   })
 
   console.log('TBL-4f', tblData)
+
+  if (showAdminButtons.value) {
+    // filter only the new ones
+    var filters = ['isApproved']
+    var filterValues = [['Pending']]  // make sure the inner array is array
+    formData.filters = filters
+    formData.filterValues = filterValues
+    const newSettlements = await getSettlementListByCounty(formData)
+    console.log('NeWHCF', newSettlements)
+    tableDataListNew.value = newSettlements.data
+    totalNew.value = newSettlements.total
+    //
+
+    var filters = ['isApproved']
+    var filterValues = [['Rejected']]  // make sure the inner array is array
+    formData.filters = filters
+    formData.filterValues = filterValues
+    const Rejected = await getSettlementListByCounty(formData)
+    console.log('Rejecetd HCF', Rejected)
+    tableDataListRejected.value = Rejected.data
+    totalRejected.value = Rejected.total
+
+
+
+
+  }
+
+
+
+
 }
+
 
 const getParentNames = async () => {
   const res = await getCountyListApi({
@@ -1142,13 +1180,100 @@ const next = () => {
   if (active.value++ > 3) active.value = 0
 }
 
+
+
+const ShowReviewDialog = ref(false)
+const RejectDialog = ref(false)
+const road_raw = ref({})
+const formHeader = ref()
+
+const Review = (data: TableSlotDefault) => {
+  console.log('On Click.....', data.row)
+  ShowReviewDialog.value = true
+
+  // make the descriptions dataset 
+  road_raw.value.name = data.row.name
+  road_raw.value.surface = data.row.surfaceType
+  road_raw.value.surface_condition = data.row.surfaceCondition
+  road_raw.value.drainage = data.row.drainageCondition
+  road_raw.value.user = data.row.user.name + ' | ' + data.row.user.email
+  road_raw.value.date = data.row.createdAt
+
+  //
+
+
+  ruleForm.id = data.row.id
+  ruleForm.name = data.row.name
+  ruleForm.rdClass = data.row.rdClass
+  ruleForm.rdReserve = data.row.rdReserve
+  ruleForm.width = data.row.width
+  ruleForm.surfaceType = data.row.surfaceType
+  ruleForm.surfaceCondition = data.row.surfaceCondition
+  ruleForm.traffic = data.row.traffic
+  ruleForm.direction = data.row.direction
+  ruleForm.drainage = data.row.drainage
+  ruleForm.drainageCondition = data.row.drainageCondition
+  ruleForm.settlement_id = data.row.settlement_id
+  ruleForm.geom = data.row.geom
+
+
+
+  formHeader.value = "Review"
+
+}
+
+const approve = async () => {
+  console.log("Appprove")
+  ruleForm.isApproved = 'Approved'
+  ruleForm.reviewerId = userInfo.id
+
+  console.log(ruleForm)
+  ruleForm.model = model
+  console.log(ruleForm)
+  await updateOneRecord(ruleForm).then(() => { })
+  ShowReviewDialog.value = false
+  getFilteredData(filters, filterValues)
+}
+
+
+const reject = async () => {
+  RejectDialog.value = true
+}
+
+const rejectReason = ref('')
+const confirmReject = async () => {
+  console.log('Reject Msg', rejectReason.value)
+  ruleForm.reject_msg = rejectReason.value
+  ruleForm.isApproved = 'Rejected'
+
+  console.log(ruleForm)
+  ruleForm.model = model
+  ruleForm.reviewerId = userInfo.id
+  console.log(ruleForm)
+  await updateOneRecord(ruleForm).then(() => { })
+  RejectDialog.value = false
+  ShowReviewDialog.value = false
+
+  getFilteredData(filters, filterValues)
+
+}
+
+
 </script>
 
 <template>
   <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Use the filters on the list of view the Map ')">
 
     <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
-      <el-tab-pane label="List" name="list">
+      <el-tab-pane name="list">
+        <template #label>
+          <span class="custom-tabs-label">
+            <el-badge type="primary" :value="total" class="item">
+              <el-button link>List</el-button>
+            </el-badge>
+          </span>
+        </template>
+
 
         <div style="display: inline-block;">
           <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
@@ -1156,23 +1281,18 @@ const next = () => {
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
-
-
-
-
         <div style="display: inline-block; margin-left: 20px">
           <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by  Name">
             <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
-
-
-
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         </div>
-
+        <div style="display: inline-block; margin-left: 20px">
+          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+        </div>
         <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
           <el-tooltip content="Add Road" placement="top">
             <el-button :onClick="AddFacility" type="primary">
@@ -1180,7 +1300,6 @@ const next = () => {
             </el-button>
           </el-tooltip>
         </div>
-
         <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
           <el-tooltip content="Add Structure" placement="top">
             <el-button :onClick="AddAsset" type="primary" :icon="Plus">
@@ -1189,8 +1308,232 @@ const next = () => {
           </el-tooltip>
         </div>
 
-
         <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border>
+          <el-table-column type="expand">
+            <template #default="props">
+              <div m="4">
+                <h3>Documents</h3>
+                <el-table :data="props.row.documents" border>
+                  <el-table-column label="Name" prop="name" />
+                  <el-table-column label="Type" prop="document_type.type" />
+                  <el-table-column label="Size(mb)" prop="size" />
+                  <el-table-column label="Actions">
+                    <!-- <template #default="scope"> -->
+                    <template #default="scope">
+
+                      <el-dropdown v-if="isMobile">
+                        <span class="el-dropdown-link">
+                          <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                        </span>
+                        <el-dropdown-menu>
+                          <el-dropdown-item @click="downloadFile(scope.row)" :icon="Download" color="green" />
+                          <el-dropdown-item v-if=showAdminButtons @click="removeDocument(scope.row)" :icon="Delete"
+                            color="red" />
+                        </el-dropdown-menu>
+                      </el-dropdown>
+                      <div v-else>
+                        <el-button v-if=showAdminButtons type="success" @click="downloadFile(scope.row)"
+                          :icon="Download" />
+                        <el-button type="danger" @click="removeDocument(scope.row)" :icon="Delete" />
+                      </div>
+                    </template>
+
+                  </el-table-column>
+                </el-table>
+                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
+                <el-button v-if=showAdminButtons type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                  style="margin-left: 10px;margin-top: 5px" size="small" />
+
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Name" prop="name" sortable />
+          <el-table-column label="Surface" prop="surfaceType" sortable />
+          <el-table-column label="Road Class" prop="rdClass" sortable />
+          <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+          <el-table-column label="Settlement" prop="settlement.name" sortable />
+
+
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="viewProfile(scope as TableSlotDefault)"
+                      :icon="Position">View</el-dropdown-item>
+
+
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
+
+              <div v-else>
+
+                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+                  <el-button type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+
+                <el-tooltip content="View Profile" placement="top">
+                  <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+
+                <el-tooltip content="View Profile" placement="top">
+                  <el-button type="primary" size="small" :icon="TopRight"
+                    @click="viewProfile(scope.row as TableSlotDefault)" circle />
+                </el-tooltip>
+
+
+                <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
+                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                    title="Are you sure to delete this facility?" width="150"
+                    @confirm="DeleteProject(scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button type="danger" size="small" :icon=Delete circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+
+              </div>
+            </template>
+
+          </el-table-column>
+
+        </el-table>
+
+        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+          v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+
+      </el-tab-pane>
+
+
+
+      <el-tab-pane name="new" v-if=showAdminButtons>
+        <template #label>
+          <span class="custom-tabs-label">
+            <el-badge type="success" :value="totalNew" class="item">
+              <el-button link>New</el-button>
+            </el-badge>
+          </span>
+        </template>
+
+        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border>
+          <el-table-column type="expand">
+            <template #default="props">
+              <div m="4">
+                <h3>Documents</h3>
+                <el-table :data="props.row.documents" border>
+                  <el-table-column label="Name" prop="name" />
+                  <el-table-column label="Type" prop="document_type.type" />
+                  <el-table-column label="Size(mb)" prop="size" />
+                  <el-table-column label="Actions">
+                    <!-- <template #default="scope"> -->
+                    <template #default="scope">
+
+                      <el-dropdown v-if="isMobile">
+                        <span class="el-dropdown-link">
+                          <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                        </span>
+                        <el-dropdown-menu>
+                          <el-dropdown-item @click="downloadFile(scope.row)" :icon="Download" color="green" />
+                          <el-dropdown-item v-if=showAdminButtons @click="removeDocument(scope.row)" :icon="Delete"
+                            color="red" />
+                        </el-dropdown-menu>
+                      </el-dropdown>
+                      <div v-else>
+                        <el-button type="success" @click="downloadFile(scope.row)" :icon="Download" />
+                        <el-button v-if=showAdminButtons type="danger" @click="removeDocument(scope.row)"
+                          :icon="Delete" />
+                      </div>
+                    </template>
+
+                  </el-table-column>
+                </el-table>
+                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
+                <el-button v-if=showAdminButtons type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                  style="margin-left: 10px;margin-top: 5px" size="small" />
+
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Name" prop="name" sortable />
+          <el-table-column label="Surface" prop="surfaceType" sortable />
+          <el-table-column label="Road Class" prop="rdClass" sortable />
+          <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+          <el-table-column label="Settlement" prop="settlement.name" sortable />
+
+
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="viewProfile(scope as TableSlotDefault)"
+                      :icon="Position">View</el-dropdown-item>
+
+
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
+
+              <div v-else>
+
+                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+                  <el-button type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+
+                <el-tooltip content="View Profile" placement="top">
+                  <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+
+                <el-tooltip content="View Profile" placement="top">
+                  <el-button type="primary" size="small" :icon="TopRight"
+                    @click="viewProfile(scope.row as TableSlotDefault)" circle />
+                </el-tooltip>
+
+                <el-tooltip content="Review" placement="top">
+                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
+                    @click="Review(scope as TableSlotDefault)" circle />
+                </el-tooltip>
+
+
+              </div>
+            </template>
+
+          </el-table-column>
+
+        </el-table>
+
+        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalNew" :background="true"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      </el-tab-pane>
+
+      <el-tab-pane name="rejected" v-if=showAdminButtons :badge="5">
+        <template #label>
+          <span class="custom-tabs-label">
+            <el-badge :value="totalRejected" class="item">
+              <el-button link>Rejected</el-button>
+            </el-badge>
+          </span>
+        </template>
+        <el-table :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border>
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1233,7 +1576,6 @@ const next = () => {
           <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
           <el-table-column label="Settlement" prop="settlement.name" sortable />
 
-
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
               <el-dropdown v-if="isMobile">
@@ -1242,10 +1584,13 @@ const next = () => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="viewProfile(scope.row as TableSlotDefault)"
+                    <el-dropdown-item @click="viewProfile(scope as TableSlotDefault)"
                       :icon="Position">View</el-dropdown-item>
 
-
+                    <el-tooltip content="Review" placement="top">
+                      <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
+                        @click="Review(scope as TableSlotDefault)" circle />
+                    </el-tooltip>
                     <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
@@ -1256,15 +1601,14 @@ const next = () => {
 
               <div v-else>
 
-                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
 
-                <el-tooltip content="Map" placement="top">
+
+                <el-tooltip content="View Profile" placement="top">
                   <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
+
+
 
                 <el-tooltip content="View Profile" placement="top">
                   <el-button type="primary" size="small" :icon="TopRight"
@@ -1290,121 +1634,13 @@ const next = () => {
         </el-table>
 
         <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
+          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalRejected" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
-        <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
-          <el-row :gutter="10">
-
-
-            <div style="display: inline-block; width: 100%;   margin-bottom: 10px">
-              <el-steps :active="active" finish-status="success">
-                <el-step title="Profile" />
-                <el-step title="Condition" />
-
-              </el-steps>
-            </div>
-
-            <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
-              status-icon>
-
-              <el-row v-if="active === 0" :gutter="20">
-
-                <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
-                  <el-form-item label="Road Name" prop="name">
-                    <el-input v-model="ruleForm.name" />
-                  </el-form-item>
-                  <el-form-item label="Settlement" prop="settlement_id">
-                    <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-                      <el-option v-for="item in settlementOptionsV2" :key="item.value" :label="item.label"
-                        :value="item.value" />
-                    </el-select>
-                  </el-form-item>
-                  <el-form-item label="Road Class" prop="rdClass">
-                    <el-select v-model="ruleForm.rdClass" filterable placeholder="A,B,C..">
-                      <el-option v-for="item in RdClassOptions" :key="item.value" :label="item.label"
-                        :value="item.value" />
-                    </el-select>
-                  </el-form-item>
-                  <el-form-item label="Road Width" prop="width">
-                    <el-input-number v-model="ruleForm.width" />
-                  </el-form-item>
-                  <el-form-item label="Reserve" prop="rdReserve">
-                    <el-input-number v-model="ruleForm.rdReserve" />
-                  </el-form-item>
-                </el-col>
-              </el-row>
-
-              <el-row class="mb-4  md-5" v-if="active === 1" :gutter="20">
-
-                <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
-                  <el-form-item label="Surface Type" prop="mhm">
-                    <el-select v-model="ruleForm.surfaceType" filterable placeholder="surfaceType">
-                      <el-option v-for="item in SurfaceTypeOtions" :key="item.value" :label="item.label"
-                        :value="item.value" />
-                    </el-select>
-                  </el-form-item>
-
-                  <el-form-item label="Condition" prop="mhm">
-                    <el-rate v-model="ruleForm.surfaceCondition" :colors="colors" show-text
-                      :texts="['Under Construction', 'Very Poor', 'Poor', 'good', 'Excellent']" />
-                  </el-form-item>
-
-                  <el-form-item label="Drainage Type" prop="mhm">
-                    <el-select v-model="ruleForm.drainage" filterable placeholder="drainage">
-                      <el-option v-for="item in drainageTypeOtions" :key="item.value" :label="item.label"
-                        :value="item.value" />
-                    </el-select>
-                  </el-form-item>
-
-
-                  <el-form-item label="Condition" prop="mhm">
-                    <el-rate v-model="ruleForm.drainageCondition" :colors="colors" show-text
-                      :texts="['Under Construction', 'Very Poor', 'Poor', 'good', 'Excellent']" />
-                  </el-form-item>
-
-
-
-
-
-                </el-col>
-              </el-row>
-
-
-
-
-
-
-
-
-            </el-form>
-
-
-
-          </el-row>
-
-          <template #footer>
-            <span class="dialog-footer space-between">
-              <el-row :gutter="10">
-
-                <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-                  <el-button @click="next">Next step</el-button>
-
-                  <el-button @click="AddDialogVisible = false">Cancel</el-button>
-                  <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-
-
-                </el-col>
-
-
-              </el-row>
-            </span>
-          </template>
-
-
-        </el-dialog>
 
       </el-tab-pane>
+
+
 
 
       <el-tab-pane label="Map" name="map">
@@ -1451,6 +1687,133 @@ const next = () => {
       </el-upload>
       <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
 
+    </el-dialog>
+
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
+      <el-row :gutter="10">
+
+
+        <div style="display: inline-block; width: 100%;   margin-bottom: 10px">
+          <el-steps :active="active" finish-status="success">
+            <el-step title="Profile" />
+            <el-step title="Condition" />
+
+          </el-steps>
+        </div>
+
+        <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm" status-icon>
+
+          <el-row v-if="active === 0" :gutter="20">
+
+            <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
+              <el-form-item label="Road Name" prop="name">
+                <el-input v-model="ruleForm.name" />
+              </el-form-item>
+              <el-form-item label="Settlement" prop="settlement_id">
+                <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
+                  <el-option v-for="item in settlementOptionsV2" :key="item.value" :label="item.label"
+                    :value="item.value" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="Road Class" prop="rdClass">
+                <el-select v-model="ruleForm.rdClass" filterable placeholder="A,B,C..">
+                  <el-option v-for="item in RdClassOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="Road Width" prop="width">
+                <el-input-number v-model="ruleForm.width" />
+              </el-form-item>
+              <el-form-item label="Reserve" prop="rdReserve">
+                <el-input-number v-model="ruleForm.rdReserve" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row class="mb-4  md-5" v-if="active === 1" :gutter="20">
+
+            <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
+              <el-form-item label="Surface Type" prop="mhm">
+                <el-select v-model="ruleForm.surfaceType" filterable placeholder="surfaceType">
+                  <el-option v-for="item in SurfaceTypeOtions" :key="item.value" :label="item.label"
+                    :value="item.value" />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="Condition" prop="mhm">
+                <el-rate v-model="ruleForm.surfaceCondition" :colors="colors" show-text
+                  :texts="['Under Construction', 'Very Poor', 'Poor', 'good', 'Excellent']" />
+              </el-form-item>
+
+              <el-form-item label="Drainage Type" prop="mhm">
+                <el-select v-model="ruleForm.drainage" filterable placeholder="drainage">
+                  <el-option v-for="item in drainageTypeOtions" :key="item.value" :label="item.label"
+                    :value="item.value" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="Condition" prop="mhm">
+                <el-rate v-model="ruleForm.drainageCondition" :colors="colors" show-text
+                  :texts="['Under Construction', 'Very Poor', 'Poor', 'good', 'Excellent']" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+        </el-form>
+
+
+      </el-row>
+
+      <template #footer>
+        <span class="dialog-footer space-between">
+          <el-row :gutter="10">
+
+            <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+              <el-button @click="next">Next step</el-button>
+
+              <el-button @click="AddDialogVisible = false">Cancel</el-button>
+              <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+
+
+            </el-col>
+
+
+          </el-row>
+        </span>
+      </template>
+
+
+    </el-dialog>
+
+    <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
+      <el-descriptions title="" direction="vertical" :column="2" size="small" border>
+        <el-descriptions-item label="Name">{{ road_raw.name }}</el-descriptions-item>
+        <el-descriptions-item label="Surface Type" :span="2">{{ road_raw.surfaceType }}</el-descriptions-item>
+        <el-descriptions-item label="Surface Condition">{{ road_raw.surfaceCondition }}</el-descriptions-item>
+        <el-descriptions-item label="Drainage Condition"> {{ road_raw.ownedrainageConditionr }} </el-descriptions-item>
+        <el-descriptions-item label="Submitted By"> {{ road_raw.user }} </el-descriptions-item>
+        <el-descriptions-item label="Date"> {{ road_raw.date }} </el-descriptions-item>
+
+
+
+
+
+      </el-descriptions>
+      <template #footer>
+        <span v-if="showAdminButtons" class="dialog-footer">
+          <el-button type="success" @click="approve">Approve</el-button>
+          <el-button type="danger" @click="reject">Reject</el-button>
+        </span>
+      </template>
+    </el-dialog>
+    <el-dialog v-model="RejectDialog" title="Reason for rejection" width="20%">
+      <el-input v-model="rejectReason" placeholder="" />
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="RejectDialog = false">Cancel</el-button>
+          <el-button type="primary" @click="confirmReject">
+            Confirm
+          </el-button>
+        </span>
+      </template>
     </el-dialog>
 
 
@@ -1558,6 +1921,13 @@ const next = () => {
   padding: 5px;
   border-radius: 5px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+
+
+.item {
+  margin-top: 10px;
+  margin-right: 40px;
 }
 </style>
 

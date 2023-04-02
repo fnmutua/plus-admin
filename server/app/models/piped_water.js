@@ -57,6 +57,11 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
  
+    isApproved: {
+      type: DataTypes.STRING,
+      defaultValue: 'Pending'
+    },
+ 
     geom: {
       type: DataTypes.GEOMETRY('Geometry', 4326),
       allowNull: true

@@ -858,7 +858,7 @@ db.models.project.hasMany(db.models.evaluation, {
 
  
 
- 
+// Link owners with data 
 // settleemnts creaters
 
 db.models.settlement.belongsTo(db.models.users, {
@@ -873,12 +873,106 @@ db.models.users.hasMany(db.models.settlement, {
 
 })
 
+// health_facility creaters
+db.models.health_facility.belongsTo(db.models.users, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+db.models.users.hasMany(db.models.health_facility, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
 
 
 
+// education_facility creaters
+db.models.education_facility.belongsTo(db.models.users, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+db.models.users.hasMany(db.models.education_facility, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+
+// other_facility creaters
+db.models.other_facility.belongsTo(db.models.users, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+db.models.users.hasMany(db.models.other_facility, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
 
 
 
+// other_facility creaters
+db.models.piped_water.belongsTo(db.models.users, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+db.models.users.hasMany(db.models.piped_water, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+
+
+// other_facility creaters
+db.models.water_point.belongsTo(db.models.users, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+db.models.users.hasMany(db.models.water_point, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+
+
+// SEWER creaters
+db.models.sewer.belongsTo(db.models.users, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+db.models.users.hasMany(db.models.sewer, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+
+// Roads creaters
+db.models.road.belongsTo(db.models.users, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
+
+db.models.users.hasMany(db.models.road, {
+  foreignKey: 'createdBy',
+  attributes: { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] }
+
+})
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db
