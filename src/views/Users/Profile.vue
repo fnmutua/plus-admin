@@ -20,7 +20,20 @@ import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { activateUserApi, updateUserApi, getUserListApi, getMyProfile } from '@/api/users'
+import {
+  ElAvatar
+} from 'element-plus'
 
+import {
+  UserFilled,
+  TopRight,
+  Edit,
+  User,
+  Plus,
+  Download,
+  Filter,
+  MessageBox
+} from '@element-plus/icons-vue'
 
 
 const { register, elFormRef } = useForm()
@@ -111,11 +124,19 @@ const userName = ref('')
 const avatar = ref('')
 const email = ref('')
 
+
+function getInitials(name) {
+  const words = name.split(' ');
+  const initials = words.map(word => word.charAt(0).toUpperCase());
+  return initials.join('');
+}
+
+const initials =ref()
 const getFilteredData = async () => {
   const formData = {}
 
   formData.model = model
-  formData.id = 1
+  formData.id =  userInfo.id
 
 
   //-------------------------
@@ -132,6 +153,7 @@ const getFilteredData = async () => {
   profile.phone = res.data[0].phone
   avatar.value = res.data[0].avatar
 
+  initials.value = getInitials(res.data[0].name)
   console.log(userDetails)
 
 }
@@ -146,16 +168,22 @@ onMounted(() => {
   getFilteredData(filters, filterValues)
   console.log(settlement)
 })
+
+
+
+
 </script>
 
 <template>
   <div class="user-profile">
     <div class="profile-header">
-      <img :src="profile.avatar" alt="User Profile Image" />
-      <h1>{{ name }}</h1>
+      <!-- <img :src="profile.avatar" alt="User Profile Image" /> -->
+ 
+      <el-avatar size="large"> {{ initials }} </el-avatar>
+     <h1>{{ name }}</h1>
       <p>{{ tagline }}</p>
     </div>
-
+ 
     <div class="profile-details">
       <div class="profile-card">
         <div class="card-icon">
