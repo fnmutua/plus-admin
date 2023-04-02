@@ -1059,6 +1059,7 @@ const showAddSaveButton = ref(true)
 
 const AddDialogVisible = ref(false)
 const editFacility = (data: TableSlotDefault) => {
+  handleSelectCounty(data.county_id)
 
   showEditSaveButton.value = true
 
@@ -1114,7 +1115,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
     <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
       <el-tab-pane label="List" name="list">
         <div style="display: inline-block;">
-          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
+          <el-select
+v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by Road">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -1165,7 +1167,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button
+type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1184,11 +1187,13 @@ const editForm = async (formEl: FormInstance | undefined) => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="viewProfile(scope as TableSlotDefault)"
+                    <el-dropdown-item
+@click="viewProfile(scope as TableSlotDefault)"
                       :icon="Position">View</el-dropdown-item>
 
 
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1199,23 +1204,27 @@ const editForm = async (formEl: FormInstance | undefined) => {
               <div v-else>
 
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Profile" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
+                  <el-button
+type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Profile" placement="top">
-                  <el-button type="primary" size="small" :icon="TopRight"
+                  <el-button
+type="primary" size="small" :icon="TopRight"
                     @click="viewProfile(scope.row as TableSlotDefault)" circle />
                 </el-tooltip>
 
 
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this facility?" width="150"
                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -1231,7 +1240,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
         </el-table>
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -1242,19 +1252,22 @@ const editForm = async (formEl: FormInstance | undefined) => {
               <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-position="left">
                 <el-form-item label="Road" prop="road_id">
                   <el-select v-model="ruleForm.road_id" filterable placeholder="Road">
-                    <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in countiesOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
                 <el-form-item label="Type" prop="asset_type">
                   <el-select v-model="ruleForm.asset_type" filterable placeholder="Select">
-                    <el-option v-for="item in AssetTypeOptions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in AssetTypeOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
                 <el-form-item label="Condition" prop="asset_condition">
                   <el-select v-model="ruleForm.asset_condition" filterable placeholder="Select">
-                    <el-option v-for="item in AssetConditionOptions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in AssetConditionOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -1323,7 +1336,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
         </el-option-group>
       </el-select>
 
-      <el-upload v-model:file-list="morefileList" class="upload-demo "
+      <el-upload
+v-model:file-list="morefileList" class="upload-demo "
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>

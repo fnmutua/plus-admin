@@ -108,6 +108,10 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
  
+    isApproved: {
+      type: DataTypes.STRING,
+      defaultValue: 'Pending'
+    },
  
     code: {
       type: DataTypes.STRING,

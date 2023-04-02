@@ -305,19 +305,29 @@ const editIndicator = (data: TableSlotDefault) => {
 }
 
 
-const DeleteIndicator = (data: TableSlotDefault) => {
-  console.log('----->', data.row.id)
+const DeleteIndicator = async (data: TableSlotDefault) => {
+  console.log('--xxx--->', data.row.id)
   let formData = {}
   formData.id = data.row.id
   formData.model = model
-  DeleteRecord(formData)
-  console.log(tableDataList.value)
+  
+ 
+ await  DeleteRecord(formData).then(response => {
+    console.log(response)
+    // remove the deleted object from array list 
+    let index = tableDataList.value.indexOf(data);
+    if (index !== -1) {
+      tableDataList.value.splice(index, 1);
+      
+    }
 
-  // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
-  if (index !== -1) {
-    tableDataList.value.splice(index, 1);
-  }
+  })
+    .catch(error => {
+      console.log(error)
+      ElMessage.error(error)
+    });
+
+  
 
   getFilteredData(filters, filterValues)
 }
@@ -405,7 +415,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search Programme">
         <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -424,7 +435,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+    <Table
+:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="Edit" placement="top">
@@ -432,7 +444,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+          <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
             title="Are you sure to delete this record?" @confirm="DeleteIndicator(data as TableSlotDefault)">
             <template #reference>
               <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
@@ -442,7 +455,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
       </template>
     </Table>
-    <ElPagination layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination
+layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
