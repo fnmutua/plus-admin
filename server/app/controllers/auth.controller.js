@@ -252,7 +252,7 @@ exports.reset = (req, res) => {
           console.log(err)
         }
 
-        console.log('rESET-tOKEN', req.headers)
+        console.log('rESET-tOKEN', req)
         //   console.log(user)
 
         var transporter = nodemailer.createTransport({
@@ -264,8 +264,12 @@ exports.reset = (req, res) => {
         }) // initialize create Transport service
 
 
-        const xCLIENT_URL = 'http://' + req.headers.host
-        const CLIENT_URL = req.headers.referer
+        const CLIENT_URL = 'https://' + req.headers.host
+        const xCLIENT_URL = req.headers.referer
+        //const CLIENT_URL = req.host;
+        console.log(req.originalUrl)
+        console.log(req.hostname)
+
         console.log('Reset-URL', CLIENT_URL)
 
         const mailOptions = {
