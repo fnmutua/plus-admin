@@ -47,7 +47,13 @@ module.exports = function(sequelize, DataTypes) {
     ownership: {
       type: DataTypes.INTEGER,
       allowNull: false
-    }
+    },
+
+    code: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique:true
+    },
   }, {
     sequelize,
     tableName: 'public_facility',
