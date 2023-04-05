@@ -66,6 +66,14 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.GEOMETRY('Geometry', 4326),
       allowNull: true
     },
+
+    code: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique:true
+    },
+
+    
   }, {
     sequelize,
     tableName: 'piped_water',
