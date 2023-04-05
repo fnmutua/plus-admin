@@ -18,7 +18,7 @@ ALTER SEQUENCE beneficiary_id_seq1  RESTART WITH 1013 ;
 ALTER SEQUENCE beneficiary_id_seq  RESTART WITH 1013 ;
 
 
-ALTER SEQUENCE settlement_id_seq  RESTART WITH 242 ;
+ALTER SEQUENCE users_id_seq  RESTART WITH 33 ;
 
 
 

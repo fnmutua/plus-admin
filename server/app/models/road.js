@@ -71,7 +71,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       defaultValue: 'Pending'
     },
-
+    code: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
 
     geom: {
       type: DataTypes.GEOMETRY('Geometry', 4326),
@@ -90,6 +93,11 @@ module.exports = function(sequelize, DataTypes) {
           { name: "id" },
         ]
       },
+      {
+        name: 'road_code',
+        unique: true,
+        fields: [{ name: 'code' }]
+      }
     ]
   });
 };
