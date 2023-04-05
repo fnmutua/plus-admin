@@ -87,6 +87,11 @@ module.exports = function(sequelize, DataTypes) {
           { name: "id" },
         ]
       },
+      {
+        name: 'piped_code',
+        unique: true,
+        fields: [{ name: 'code' }]
+      }
     ]
   });
 };

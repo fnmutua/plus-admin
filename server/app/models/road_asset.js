@@ -26,6 +26,12 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+
+    code: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique:true
+    },
  
     geom: {
       type: DataTypes.GEOMETRY('Geometry', 4326),
