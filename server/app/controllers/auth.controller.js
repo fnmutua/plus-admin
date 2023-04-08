@@ -10,6 +10,9 @@ const Op = db.Sequelize.Op
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
 const nodemailer = require('nodemailer')
+const turf = require('@turf/turf');
+
+
 
 exports.signup = (req, res) => {
   console.log('Inside REgistration', req.body)
@@ -398,9 +401,6 @@ exports.signin = async (req, res) => {
       res.status(500).send({ message: err.message })
     })
   
-  
-    //Log.create({log}) // Create a log for login......
-    //const jane = await Log.create(log);
 
 }
 
@@ -420,7 +420,7 @@ exports.updatePassword = (req, res) => {
     }
   }).then((userInfo) => {
     if (userInfo != null) {
-      console.log('user found in db', userInfo)
+      console.log('User found in db', userInfo)
       bcrypt
         .hash(req.body.password, 8)
         .then((hashedPassword) => {
@@ -431,15 +431,12 @@ exports.updatePassword = (req, res) => {
         })
         .then(() => {
           console.log('password updated')
-
           res.status(200).send({
             code: "0000",
             message: 'Password Succesfully Updated'
           })
         })
     } else {
-      //console.error('no user exists in db to update');
-      //res.status(404).json('no user exists in db to update');
       res.status(401).send({
         accessToken: null,
         message: 'Invalid/Expired Link'
@@ -451,7 +448,6 @@ exports.updatePassword = (req, res) => {
 
 
 exports.countyController = (req, res) => {
-
   var reg_model = 'county'
    db.models[reg_model]
     .findAll({attributes: { exclude: ['geom' ] }})
@@ -461,9 +457,53 @@ exports.countyController = (req, res) => {
     })
 }
 
+
+exports.countyByLocationController = (req, res) => {
+  var reg_model = 'county'
+  var point = req.body.MyLocation
+  console.log(point)
+  //  db.models[reg_model]
+  //   .findAll({attributes: { exclude: ['geom' ] }})
+  //   .then((list) => {
+  //     //console.log(list.rows)
+  //     res.status(200).send(loc)
+  //   })
+  
+  
+    
+// Find the intersecting polygon
+db.models[reg_model].findAll().then(features => {
+  var intersectingPolygon = null;
+  for (let feature of features) {
+  // console.log(feature)
+    if (turf.booleanPointInPolygon(point, feature.geom)) {
+      intersectingPolygon = feature;
+      delete intersectingPolygon.geom
+      break;
+    }
+  }
+  if (intersectingPolygon) {
+ 
+   let county = { id: intersectingPolygon.id, name: intersectingPolygon.name,code: intersectingPolygon.code } // Pick only the properties we need to store on the deivce
+    res.status(200).send([county])
+  } else {
+    // Route for handling requests when there is no intersecting polygon
+ 
+    console.log('No intersecting polygon found');
+  
+    res.status(500).send({ message: 'Unable to determine your county based on your location' })
+
+
+  }
+});
+
+}
+
+
+
+
 exports.countyPostController = async (req, res) => {
   console.log('getting counties......')
-
   var reg_model = 'county'
     await db.models[reg_model].findAll({
     }).then((list) => {
@@ -472,13 +512,12 @@ exports.countyPostController = async (req, res) => {
         code: "0000"
       })
     })
-
-  
 }
 
+ 
 
 
-exports.settlementController = (req, res) => {
+exports.xsettlementController = (req, res) => {
   var reg_model = 'settlement'
    db.models[reg_model]
     .findAll({attributes: { exclude: ['geom' ] }})
@@ -489,15 +528,74 @@ exports.settlementController = (req, res) => {
 }
 
 
-exports.subCountyController = (req, res) => {
-  var reg_model = 'subcounty'
-   db.models[reg_model]
+
+exports.settlementController = (req, res) => {
+  var reg_model = 'settlement'
+  console.log('county', req.body.county)
+  var county = req.body.county
+  if (county) {
+ 
+    db.models[reg_model]
+      .findAndCountAll({
+        where: {
+          county_id: {
+            [Op.eq]: county
+          }
+        },
+        attributes: { exclude: ['geom'] }
+      })
+    .then((list) => {
+      //console.log(list.rows)
+      res.status(200).send(list.rows)
+    })
+
+  } else {
+
+    db.models[reg_model]
     .findAndCountAll({attributes: { exclude: ['geom' ] }})
     .then((list) => {
       //console.log(list.rows)
       res.status(200).send(list.rows)
     })
+  }
+
 }
+
+
+exports.subCountyController = (req, res) => {
+  var reg_model = 'subcounty'
+
+  console.log('county', req.body.county)
+  var county = req.body.county
+  if (county) {
+ 
+    db.models[reg_model]
+      .findAndCountAll({
+        where: {
+          county_id: {
+            [Op.eq]: county
+          }
+        },
+        attributes: { exclude: ['geom'] }
+      })
+    .then((list) => {
+      //console.log(list.rows)
+      res.status(200).send(list.rows)
+    })
+
+  } else {
+
+    db.models[reg_model]
+    .findAndCountAll({attributes: { exclude: ['geom' ] }})
+    .then((list) => {
+      //console.log(list.rows)
+      res.status(200).send(list.rows)
+    })
+  }
+
+}
+
+
  
 exports.myProfile = (req, res) => {
   console.log('Update user....')
