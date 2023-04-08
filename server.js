@@ -8,7 +8,7 @@ const fs = require('fs');
 
 
 var corsOptions = {
-  origin: ['http://localhost', 'http://localhost:3000', '*']
+  origin: ['http://localhost', 'http://localhost:3000','http://localhost:8100', '*']
 };
 
 const path = require('path')
