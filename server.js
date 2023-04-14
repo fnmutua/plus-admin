@@ -8,7 +8,7 @@ const fs = require('fs');
 
 
 var corsOptions = {
-  origin: ['http://localhost', 'http://localhost:3000','http://localhost:8100', '*']
+  origin: ['http://localhost','http://localhost:4000', 'http://localhost:3000','http://localhost:8100', '*']
 };
 
 const path = require('path')
@@ -24,7 +24,7 @@ if (!fs.existsSync(uploadsDir)) {
  
 
 
-const envt = 'PROD'   // PROD
+const envt = 'DEV'   // PROD
  if (envt==='DEV') {
 // Switch off for prodcution 
 console.log("DEV: Switching on dotenv")
