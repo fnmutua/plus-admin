@@ -189,7 +189,7 @@ const getParentNames = async () => {
 }
 
 const subcountyOptions = ref([])
-const subcountyfilteredOptions = ref([])
+const subcountyfilteredOptions = ref()
 const subcounties = ref([])
 const getSubcounty = async () => {
   const res = await getCountyListApi({
@@ -223,7 +223,7 @@ const getSubcounty = async () => {
 const handleSelectCounty = async (county_id: any) => {
   console.log(county_id)
 
-  const subset = subcountyOptions.value.filter((option) => option.county_id === county_id);
+  const subset = await subcountyOptions.value.filter((option) => option.county_id === county_id);
   console.log(subset);
 
   subcountyfilteredOptions.value = subset;
