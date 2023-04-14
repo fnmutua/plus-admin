@@ -227,6 +227,8 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.model = 'settlement'
       ruleForm.code = uuid.v4()
       ruleForm.geom = geoJson.value
+
+      
       ruleForm.isApproved = 'Pending'
       ruleForm.createdBy = userInfo.id
 
@@ -561,7 +563,12 @@ geoJson.value.type = poly.features[0].geometry.type
 //geoJson.value.type = 'MultiPolygon'
 // const merge3 = polygons.value.flat(1);
 
+   // do something with the new marker feature
+   var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+  
+
 geoJson.value.coordinates = multiPoly.features[0].geometry.coordinates
+geoJson.value.crs = crs
 // ruleForm.geom = poly
 console.log('final GEojson', geoJson.value)
 
