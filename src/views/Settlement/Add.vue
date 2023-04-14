@@ -146,6 +146,13 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
       poly.coordinates = shp[0].features[0].geometry.coordinates
 
+
+          // do something with the new marker feature
+    var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+    poly.geometry.crs = crs
+ 
+
+
       ruleForm.geom = poly
       const res = CreateRecord(ruleForm)
       //   console.log(res)
@@ -222,7 +229,8 @@ const mapHeight = '450px'
 
       <el-col :span="14">
         <el-card class="box-card">
-          <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
+          <mapbox-map
+:center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
             mapStyle="mapbox://styles/agspatial/clamkcjwx000b14mmgzyx86vv">
             <mapbox-geocoder-control :countries="countries" />
             <mapbox-geolocate-control />
