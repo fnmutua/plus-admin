@@ -39,50 +39,16 @@ let redisClient;
 // Cache these two fucntions 
 //SimpleSumModelByColumn
 //sumModelByColumnAssociated
-
-exports.xSimpleSumModelByColumn= (req, res) => {
-  var reg_model = req.body.model
-  var summaryField = req.body.summaryField
-  var summaryFunction = req.body.summaryFunction
  
-  console.log('Summarizing:', reg_model, ' by ', summaryField)
-  
-  var queryFields = {}
-
-  // here filter if the value to filter in that column is provided 
-  if (req.body.summaryFieldValue) {
-    queryFields[req.body.summaryField] =req.body.summaryFieldValue
-    var qry = {
-      attributes: [[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-      raw: true
-    }
-    qry.where = queryFields
-
-
-  } else {
-    var qry = {
-      attributes: [[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-      raw: true
-    }
-
-  }
-
-    db.models[reg_model]
-    .findAll(qry)
-    .then((result) => {
-      if (result) {
-        // res.status(200).send(result);
-        res.status(200).send({
-          Total: result,
-          code: '0000'
-        })
-      }
-    })
-}
 
 exports.SimpleSumModelByColumn= async (req, res) => {
   var reg_model = req.body.model
-  var cache_key =  req.body.cache_key 
+
+  if (req.body.cache_key ) {
+
+    var cache_key = req.body.cache_key  
+  }
+  
   var summaryField = req.body.summaryField
   var summaryFunction = req.body.summaryFunction
  
@@ -200,48 +166,13 @@ exports.nestedSumModelByColumn= async (req, res) => {
   
 }
 
-
-
-exports.xnestedSumModelByColumn= (req, res) => {
-  var reg_model = req.body.model
-  var summaryField = req.body.summaryField
-  var summaryFunction = req.body.summaryFunction
-  var assoc_model = db.models[req.body.assoc_model[0]]
-  
-  var groupField = req.body.groupField[0]
-
-  var nestedModels = { model: assoc_model,attributes: [] }
-
-     var qry = {
-       attributes: [groupField, [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-       include: nestedModels,
-       group:[groupField],
-      raw: true
-  }
- // console.log("--groupField-----", qry)
-  
-  //console.log("-------", qry)
-
-
-    db.models[reg_model]
-    .findAll(qry)
-    .then((result) => {
-      if (result) {
-        console.log(result)
-        // res.status(200).send(result);
-        res.status(200).send({
-          Total: result,
-          code: '0000'
-        })
-      }
-    })
-}
+ 
 
 
 
 exports.sumModelByColumn= async (req, res) => {
   var reg_model = req.body.model
-  var cache_key = req.body.model + req.body.cache_key 
+  var cache_key =  req.body.cache_key 
 
   var summaryField = req.body.summaryField
   var summaryFunction = req.body.summaryFunction
@@ -249,6 +180,8 @@ exports.sumModelByColumn= async (req, res) => {
 
 
   console.log('Summarizing Model by Column:', reg_model, ' by ', summaryField)
+  console.log('Cahcek JKYE',cache_key)
+
    let groupfields  = []
   if (req.body.groupField.length > 0) {
     
@@ -304,7 +237,7 @@ exports.sumModelByColumn= async (req, res) => {
           // res.status(200).send(result);
           console.log('KEY---->',cache_key )
           await redisClient.set(cache_key, JSON.stringify(response), {
-            EX: 3600,  // 1hour 
+            EX: 3,  // 1hour 
             NX: true,
           });
           result =  response;
