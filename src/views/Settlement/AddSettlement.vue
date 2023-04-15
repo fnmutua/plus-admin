@@ -104,6 +104,41 @@ const ruleForm = reactive({
 
 
 
+const subcountyOptions = ref([])
+const subcounties = ref([])
+var bounds = ref()
+
+const getSubcounty = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    //console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    subcounties.value = ret
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var parentOpt = {}
+      parentOpt.value = arrayItem.id
+      parentOpt.county_id = arrayItem.county_id
+      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      subcountyOptions.value.push(parentOpt)
+    })
+  })
+}
+
+
+
 const fileList = ref([])
 
 
@@ -280,6 +315,7 @@ const handleFlipSwitch = (e) => {
 
 
 onMounted(() => {
+  getSubcounty()
 
   console.log("Showmarkr ICons", showDrawMarker)
   map.value = new mapboxgl.Map({
@@ -296,22 +332,12 @@ onMounted(() => {
   draw.value = new MapboxDraw({
     displayControlsDefault: false,
     controls: {
-      point: true,
+      point: false,
       line_string: false,
-      polygon: false,
+      polygon: true,
       trash: true
     },
-    styles: [
-      // define the style for the default blue marker icon
-      {
-        "id": "gl-draw-point",
-        "type": "circle",
-        "paint": {
-          "circle-radius": 6,
-          "circle-color": "red"
-        }
-      }
-    ]
+    
   });
   map.value.addControl(draw.value, 'top-left');
 
@@ -331,7 +357,7 @@ onMounted(() => {
   // listen for the draw.create event
   map.value.on('draw.create', function (e) {
     // check if the new feature is a marker
-    if (e.features[0].geometry.type === 'Point') {
+    if (e.features[0].geometry.type === 'Polygon') {
       // trigger your function here
       updateRuleform(e.features[0]);
     }
@@ -538,8 +564,46 @@ const handleUploadGeo = async (uploadFile) => {
 }
 
 
+
+const handleSelectSubCounty = async (subcounty_id: any) => {
+  console.log(subcounty_id)
+
+  // Get the select subcoites GEO 
+
+  var newArray = await subcounties.value.filter(function (subcounty) {
+    return subcounty.id == subcounty_id;
+  }
+  );
+  console.log(newArray[0].geom)
+  if (newArray[0].geom != null) {
+    console.log(newArray[0].geom)
+    let geom = {
+      type: newArray[0].geom.type,
+      coordinates: newArray[0].geom.coordinates
+
+    }
+    console.log(geom)
+
+    geoJson.value = geom
+    map.value.getSource("scope").setData(geoJson.value);
+    bounds.value = turf.bbox((geoJson.value))
+    console.log("From subcounty", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+
+  } else {
+
+    console.log("The subcounty has no shapes...")
+  }
+
+
+
+
+
+
+}
+
  
- 
+
 
 
  
@@ -588,7 +652,7 @@ v-for="item in countyOptions" :key="item.value" :label="item.label"
                 </el-col>
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Subcounty" prop="subcounty_id">
-                    <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
+                    <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County"  :onChange="handleSelectSubCounty">
                       <el-option
 v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
