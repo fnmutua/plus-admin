@@ -87,6 +87,7 @@
     "sequelize": "^6.29.3",
     "sequelize-cli": "^6.6.0",
     "shapefile": "^0.6.6",
+    "shortid": "^2.2.16",
     "shpjs": "^4.0.4",
     "simple-statistics": "^7.8.0",
     "umzug": "^3.2.1",
