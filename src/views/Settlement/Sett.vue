@@ -252,7 +252,8 @@ const onPageSizeChange = async (size: any) => {
     var sfilterValues = [[1, 2],['Approved']]  // make sure the inner array is array
   } else if (activeTab.value === 'New') {
     var sfilters = ['settlement_type','isApproved']
-    var sfilterValues = [[1, 2],['Pending']]  // make sure the inner array is array
+    var sfilterValues = [[1, 2], ['Pending']]  // make sure the inner array is array
+     
 }
 else if (activeTab.value === 'Rejected') {
     var sfilters = ['settlement_type','isApproved']
@@ -319,21 +320,23 @@ const getSettlementCount = async () => {
 
 const getNewOrRejectedSettlements = async (status) => {
 
-  console.log('clicked....', status)
+  console.log('getNewOrRejectedSettlements....', status, page.value)
 
   if (status === 'New') {
     var filters = ['isApproved']
     var filterValues = [['Pending']]  // make sure the inner array is array
-
+  
   } else  if (status === 'Rejected') {
     var filters = ['isApproved']
     var filterValues = [['Rejected']]  // make sure the inner array is array
-  }
+ 
+   }
 
   else {
     var filters = ['isApproved']
     var filterValues = [['Approved']]  // make sure the inner array is array
-
+ 
+ 
   }
 
 
@@ -968,6 +971,8 @@ const loadMap = () => {
 
 const showPagination = ref(true)
 const clickTab = async (obj) => {
+  page.value = 1
+
   console.log("Loading tabs.............", obj.props.label)
   if (obj.props.label == "Map") {
     loadMap()
@@ -978,31 +983,30 @@ const clickTab = async (obj) => {
   }
 
   if (obj.props.name == "New") { 
-
-    getNewOrRejectedSettlements('New')
-    activeTab.value='New'
-    page.value = 1
+     activeTab.value='New'
     showPagination.value=true
 
+    getNewOrRejectedSettlements('New')
+  
 
   } 
 
   if (obj.props.name == "Rejected") { 
-
-    getNewOrRejectedSettlements('Rejected')
+     showPagination.value = true
     activeTab.value='Rejected'
-    page.value = 1
-    showPagination.value=true
+    getNewOrRejectedSettlements('Rejected')
+
 
 
   } 
 
   if (obj.props.name == "list") { 
 
-    getNewOrRejectedSettlements('list')
+     showPagination.value = true
     activeTab.value='list'
-    page.value = 1
-    showPagination.value=true
+
+    getNewOrRejectedSettlements('list')
+ 
 
 
 
