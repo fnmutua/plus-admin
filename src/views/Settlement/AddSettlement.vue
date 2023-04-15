@@ -26,6 +26,7 @@ import {
   ElMessage,
   FormRules
 } from 'element-plus'
+import { getOneGeo, getfilteredGeo } from '@/api/settlements'
 
 
 
@@ -569,32 +570,57 @@ const handleUploadGeo = async (uploadFile) => {
 const handleSelectSubCounty = async (subcounty_id: any) => {
   console.log(subcounty_id)
 
-  // Get the select subcoites GEO 
 
-  var newArray = await subcounties.value.filter(function (subcounty) {
-    return subcounty.id == subcounty_id;
-  }
-  );
-  console.log(newArray[0].geom)
-  if (newArray[0].geom != null) {
-    console.log(newArray[0].geom)
-    let geom = {
-      type: newArray[0].geom.type,
-      coordinates: newArray[0].geom.coordinates
+  const formData = {}
+  formData.model = 'subcounty'
+  formData.id = subcounty_id
 
-    }
-    console.log(geom)
+  console.log(formData)
+  const res = await getOneGeo(formData)
 
-    geoJson.value = geom
-    map.value.getSource("scope").setData(geoJson.value);
+  if (res.data[0].json_build_object.features) {
+    geoJson.value = res.data[0].json_build_object
+
+     map.value.getSource("scope").setData(geoJson.value);
     bounds.value = turf.bbox((geoJson.value))
     console.log("From subcounty", bounds.value)
     map.value.fitBounds(bounds.value, { padding: 20 })
 
-  } else {
 
-    console.log("The subcounty has no shapes...")
   }
+  else {
+
+console.log("The subcounty has no shapes...")
+}
+
+  console.log('Got subcounty geo', res)
+
+  // Get the select subcoites GEO 
+
+  // var newArray = await subcounties.value.filter(function (subcounty) {
+  //   return subcounty.id == subcounty_id;
+  // }
+  // );
+  // console.log(newArray[0].geom)
+  // if (newArray[0].geom != null) {
+  //   console.log(newArray[0].geom)
+  //   let geom = {
+  //     type: newArray[0].geom.type,
+  //     coordinates: newArray[0].geom.coordinates
+
+  //   }
+  //   console.log(geom)
+
+  //   geoJson.value = geom
+  //   map.value.getSource("scope").setData(geoJson.value);
+  //   bounds.value = turf.bbox((geoJson.value))
+  //   console.log("From subcounty", bounds.value)
+  //   map.value.fitBounds(bounds.value, { padding: 20 })
+
+  // } else {
+
+  //   console.log("The subcounty has no shapes...")
+  // }
 
 }
 
