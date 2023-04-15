@@ -226,13 +226,13 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = 'settlement'
       ruleForm.code = uuid.v4()
-      ruleForm.geom = geoJson.value
+      // = geoJson.value
 
       
       ruleForm.isApproved = 'Pending'
       ruleForm.createdBy = userInfo.id
 
-      console.log("Shp----->", geoJson.value)
+      console.log("Shp----->", ruleForm)
 
 
 
@@ -416,12 +416,6 @@ var markers = [];
 
  
 
-
-
-
-const digitize = ref()
-
-
 const readShp = async (file) => {
   console.log('Reading Shp file....')
 
@@ -429,14 +423,33 @@ const readShp = async (file) => {
   readShapefileAndConvertToGeoJSON(file)
     .then((geojson) => {
 
-      let feat = turf.featureCollection(geojson)
-      // Zoom in to layer 
-      map.value.getSource("scope").setData(feat);
-      bounds.value = turf.bbox((feat))
-      console.log("From File", bounds.value)
-      map.value.fitBounds(bounds.value, { padding: 20 })
+      console.log("Geo>", geojson.length)
+      console.log("Geo1>", geojson[0])
 
-      uploadPolygon(feat)
+
+      if (geojson.length != 1) {
+        ElMessage.warning('Please uplaod a file with only one feature. This one has ' + geojson.length + ' features')
+
+      }
+      else {
+        console.log('ok>>', geojson[0])
+      
+
+        var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+
+        let geom = {
+          type: geojson[0].geometry.type,
+          coordinates: geojson[0].geometry.coordinates,
+          crs:crs
+
+        }
+    
+
+        console.log('>>',geom)
+        ruleForm.geom = geom
+      }
+
+
     })
     .catch((error) => {
       console.error(error)
@@ -448,31 +461,39 @@ const readShp = async (file) => {
   //uploadPolygon(feat)
 }
 
-const settlementPoly = ref([])
-
-var bounds = ref()
-
 const readJson = (event) => {
   console.log('Reading Josn file....', event)
   let str = event.target.result
 
   try {
     let json = JSON.parse(str)
-    console.log(json)
-    settlementPoly.value = json  // Display on map
+    console.log('parsed', json)
 
-    // Zoom in to layer 
-    map.value.getSource("scope").setData(json);
-    bounds.value = turf.bbox((json))
-    console.log("From File", bounds.value)
-    map.value.fitBounds(bounds.value, { padding: 20 })
-    uploadPolygon(json)
+    if (json.features.length != 1) {
+      ElMessage.warning('Please uplaod a file with only one feature. This one has ' + json.features.length + ' features')
+
+    }
+    else {
+      console.log('ok>>', json.features)
+      var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+
+      let geom = {
+        type: json.features[0].geometry.type,
+        coordinates: json.features[0].geometry.coordinates,
+        crs:crs
+      }
+      console.log(geom)
+      ruleForm.geom = geom
+
+      console.log(ruleForm)
+    }
+
   }
   catch (err) {
     console.log(err.message)
 
     ElMessage.error('Invalid Geojson Format')
-    fileList.value = []
+
   }
 
 
@@ -485,6 +506,7 @@ const readJson = (event) => {
 
 
 }
+
 const handleUploadGeo = async (uploadFile) => {
   console.log('Upload>>>', uploadFile)
   //  uploadRef.value!.submit()
@@ -516,71 +538,18 @@ const handleUploadGeo = async (uploadFile) => {
 }
 
 
+ 
+ 
 
 
-const uploadPolygon = (poly) => {
-
-// Zoom in to layer 
-map.value.getSource("scope").setData(poly.features);
-bounds.value = turf.bbox((poly))
-console.log("From poly File", bounds.value)
-map.value.fitBounds(bounds.value, { padding: 20 })
-
-
-
-
-console.log('Digitixed', poly)
-console.log('Len', poly.features.length)
-
-//polygons.value.push(poly.features[0].geometry.coordinates[0])
-// for (let i = 0; i < poly.features.length; i++) {
-
-//   if (poly.features[i].geometry.type == 'Point' || poly.features[i].geometry.type == 'LineString') {
-
-//     for (let j = 0; j < poly.features[i].geometry.coordinates.length; j++) {
-//       console.log('j', j, poly.features[i].geometry.coordinates[j])
-//       polygons.value.push(poly.features[i].geometry.coordinates[j])
-//     }
-//   }
-//   else {
-//     polygons.value.push(poly.features[i].geometry.coordinates[0])
-//   }
-
-
-// }
-
-console.log('OBJ-TYPE', poly.features[0].geometry.type)
-
-// var multiPoly = turf.multiPolygon(poly);
-// console.log(multiPoly)
-
-const multiPoly = turf.combine(poly);
-
-console.log(multiPoly); // Output: Feature(MultiPolygon)
-
-
-geoJson.value.type = poly.features[0].geometry.type
-//geoJson.value.type = 'MultiPolygon'
-// const merge3 = polygons.value.flat(1);
-
-   // do something with the new marker feature
-   var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
-  
-
-geoJson.value.coordinates = multiPoly.features[0].geometry.coordinates
-geoJson.value.crs = crs
-// ruleForm.geom = poly
-console.log('final GEojson', geoJson.value)
-
-
-}
+ 
 </script>
 
 <template>
   <ContentWrap :title="title">
 
     <el-row :gutter="5">
-      <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+      <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
         <el-card class="box-card">
           <el-steps :active="active" finish-status="success" simple>
             <el-step title="Profile" />
@@ -610,9 +579,7 @@ ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="de
               <el-row>
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="County" prop="county_id">
-                    <el-select
-v-model="ruleForm.county_id" filterable placeholder="County"
-                      :onChange="handleSelectCounty">
+                    <el-select v-model="ruleForm.county_id" filterable placeholder="County" :onChange="handleSelectCounty">
                       <el-option
 v-for="item in countyOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
@@ -682,15 +649,18 @@ v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto
 
           </el-form>
 
-
-          <el-row class="mb-4  md-5">
-            <el-button @click="back" type="primary">
+ 
+              <el-button @click="back" type="primary">
               <ArrowLeft /> <el-icon class="el-icon--left" /> Back
             </el-button>
-            <el-button @click="next" type="primary"> Next <el-icon class="el-icon--right">
+  
+              <el-button @click="next" type="primary"> Next <el-icon class="el-icon--right">
                 <ArrowRight />
               </el-icon>
             </el-button>
+        
+
+
             <el-button @click="submitForm(ruleFormRef)" type="success">Save<el-icon class="el-icon--right">
                 <CircleCheckFilled />
               </el-icon>
@@ -699,7 +669,7 @@ v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto
                 <RefreshLeft />
               </el-icon>
             </el-button>
-          </el-row>
+       
 
 
 
@@ -707,7 +677,7 @@ v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto
 
       </el-col>
 
-      <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
+      <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
         <el-card class="box-card">
           <div id="mapContainer" class="basemap"></div>
           <div id='coordinates' class='coordinates'></div>
