@@ -30,6 +30,9 @@ import {
 
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 
+import filterDataByKeys from '@/utils/filterArrays'
+
+import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldSimple } from '@/api/summary'
 
 
 
@@ -102,9 +105,13 @@ const selCounties = []
 const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
+const activeTab = ref('list')
+
+
 const total = ref(0)
-const totalNew = ref(0)
 const totalRejected = ref(0)
+const totalApproved = ref(0)
+const totalPending = ref(0)
 const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
 const formheader = ref('Edit Settlement')
@@ -213,14 +220,50 @@ const submitMoreDocuments = async () => {
 
 
 const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
-  page.value = selPage
-  getFilteredData(filters, filterValues)
+   page.value = selPage
+  
+  console.log(activeTab.value)
+  if (activeTab.value === 'list') {
+    var sfilters = ['settlement_type','isApproved']
+    var sfilterValues = [[1, 2],['Approved']]  // make sure the inner array is array
+  } else if (activeTab.value === 'New') {
+    var sfilters = ['settlement_type','isApproved']
+    var sfilterValues = [[1, 2],['Pending']]  // make sure the inner array is array
+}
+else if (activeTab.value === 'Rejected') {
+    var sfilters = ['settlement_type','isApproved']
+    var sfilterValues = [[1, 2],['Rejected']]  // make sure the inner array is array
+}
+
+
+  console.log(sfilters,sfilterValues)
+  getNewOrRejectedSettlements(activeTab.value)
+
+  //getFilteredData(sfilters, sfilterValues)
 }
 
 const onPageSizeChange = async (size: any) => {
   pSize.value = size
-  getFilteredData(filters, filterValues)
+  //getFilteredData(filters, filterValues)
+
+  console.log(activeTab.value)
+  if (activeTab.value === 'list') {
+    var sfilters = ['settlement_type','isApproved']
+    var sfilterValues = [[1, 2],['Approved']]  // make sure the inner array is array
+  } else if (activeTab.value === 'New') {
+    var sfilters = ['settlement_type','isApproved']
+    var sfilterValues = [[1, 2],['Pending']]  // make sure the inner array is array
+}
+else if (activeTab.value === 'Rejected') {
+    var sfilters = ['settlement_type','isApproved']
+    var sfilterValues = [[1, 2],['Rejected']]  // make sure the inner array is array
+}
+
+
+  console.log(sfilters,sfilterValues)
+  getNewOrRejectedSettlements(activeTab.value)
+
+
 }
 
 const getAllBeneficiaries = async () => {
@@ -242,7 +285,112 @@ const destructure = (obj) => {
 
   return simpleObj
 }
+
+
+
+const getSettlementCount = async () => {
+  const formData = {}
+  formData.model = 'settlement'
+  formData.summaryField = 'isApproved'
+  formData.summaryFunction = 'count'
+  formData.groupField = ['isApproved']
+
+ 
+
+
+
+  const newSettCount = await getSummarybyField(formData)
+  console.log('income_levels---->', newSettCount)
+
+  let pending = await filterDataByKeys(newSettCount.Total, ['isApproved'], 'Pending');
+  let approved = await filterDataByKeys(newSettCount.Total, ['isApproved'], 'Approved');
+  let rejected = await filterDataByKeys(newSettCount.Total, ['isApproved'], 'Rejected');
+  totalPending.value = parseInt( pending[0].count)
+  totalApproved.value =parseInt(approved[0].count) 
+  totalRejected.value = parseInt(rejected[0].count)
+
+  console.log(totalPending.value)
+  console.log(totalApproved.value)
+  console.log(totalRejected.value)
+
+}
+
+
+
+const getNewOrRejectedSettlements = async (status) => {
+
+  console.log('clicked....', status)
+
+  if (status === 'New') {
+    var filters = ['isApproved']
+    var filterValues = [['Pending']]  // make sure the inner array is array
+
+  } else  if (status === 'Rejected') {
+    var filters = ['isApproved']
+    var filterValues = [['Rejected']]  // make sure the inner array is array
+  }
+
+  else {
+    var filters = ['isApproved']
+    var filterValues = [['Approved']]  // make sure the inner array is array
+
+  }
+
+
+
+
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = filters
+  formData.filterValues = filterValues
+  formData.associated_multiple_models = associated_multiple_models
+  formData.nested_models = nested_models
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+
+ 
+
+  if (status === 'New') {
+
+    tableDataListNew.value = res.data
+
+    console.log('New', res.data)
+    total.value = totalPending.value
+
+    console.log('total ---',total.value)
+
+
+  } else  if(status === 'Rejected'){
+
+    tableDataListRejected.value = res.data
+    total.value=totalRejected.value
+
+  } else {
+
+    tableDataList.value = res.data
+    total.value=totalApproved.value
+  }
+
+
+
+}
+
+
 const getFilteredData = async (selFilters, selfilterValues) => {
+
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
@@ -272,25 +420,10 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   // filter
   if (showAdminButtons.value) {
 
-    // filter only the new ones
-    var filters = ['isApproved']
-    var filterValues = [['Pending']]  // make sure the inner array is array
-    formData.filters = filters
-    formData.filterValues = filterValues
-    const newSettlements = await getSettlementListByCounty(formData)
-    console.log('newSettleemnt', newSettlements)
-    tableDataListNew.value = newSettlements.data
-    totalNew.value = newSettlements.total
-    //
+    getSettlementCount()  // This gets the approved/new/rejecetd counts
+ 
 
-    var filters = ['isApproved']
-    var filterValues = [['Rejected']]  // make sure the inner array is array
-    formData.filters = filters
-    formData.filterValues = filterValues
-    const RejectedSettlements = await getSettlementListByCounty(formData)
-    console.log('newSettleemnt', RejectedSettlements)
-    tableDataListRejected.value = RejectedSettlements.data
-    totalRejected.value = RejectedSettlements.total
+
   }
 
   // 
@@ -328,7 +461,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
       console.log('Geo Returns---', fgeo.data[0].json_build_object.features)
       console.log("Facility Geo", facilityGeo)
 
-      for (let i = 0; i < fgeo.data[0].json_build_object.features.length; i++) {
+      if (fgeo.data[0].json_build_object.features) {
+
+        for (let i = 0; i < fgeo.data[0].json_build_object.features.length; i++) {
         console.log("Geo Type -------->", fgeo.data[0].json_build_object.features[i].geometry.type)
 
         if (fgeo.data[0].json_build_object.features[i].geometry.type === "Point") {
@@ -356,6 +491,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
       //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
       geoLoaded.value = true
+      }
+   
 
 
     }
@@ -829,70 +966,51 @@ const loadMap = () => {
 }
 
 
-const onMap = async (obj) => {
-  console.log("Loading map.............", obj.props.label)
+const showPagination = ref(true)
+const clickTab = async (obj) => {
+  console.log("Loading tabs.............", obj.props.label)
   if (obj.props.label == "Map") {
     loadMap()
     //console.log(map.value)
     //maxBounds.value = turf.bbox(facilityGeo.value);
+    activeTab.value = 'Map'
+    showPagination.value=false
   }
+
+  if (obj.props.name == "New") { 
+
+    getNewOrRejectedSettlements('New')
+    activeTab.value='New'
+    page.value = 1
+    showPagination.value=true
+
+
+  } 
+
+  if (obj.props.name == "Rejected") { 
+
+    getNewOrRejectedSettlements('Rejected')
+    activeTab.value='Rejected'
+    page.value = 1
+    showPagination.value=true
+
+
+  } 
+
+  if (obj.props.name == "list") { 
+
+    getNewOrRejectedSettlements('list')
+    activeTab.value='list'
+    page.value = 1
+    showPagination.value=true
+
+
+
+} 
 
 }
 
-const getGeo = async () => {
-
-  const formData = {}
-  formData.model = model
-
-
-  console.log(formData)
-  const res = await getAllGeo(formData)
-
-
-
-  if (res.data[0].json_build_object) {
-    var points = []
-    var lines = []
-    var polygons = []
-    facilityGeo.value = res.data[0].json_build_object
-    console.log('Geo Returns---', res.data[0].json_build_object.features)
-    console.log("Facility Geo", facilityGeo)
-
-    for (let i = 0; i < res.data[0].json_build_object.features.length; i++) {
-      console.log("Geo Type -------->", res.data[0].json_build_object.features[i].geometry.type)
-
-      if (res.data[0].json_build_object.features[i].geometry.type === "Point") {
-
-        points.push(res.data[0].json_build_object.features[i])
-      } else if (res.data[0].json_build_object.features[i].geometry.type === "LineString" || res.data[0].json_build_object.features[i].geometry.type === "MultiLineString") {
-
-        lines.push(res.data[0].json_build_object.features[i])
-
-      } else {
-        polygons.push(res.data[0].json_build_object.features[i])
-
-      }
-
-    }
-
-    console.log('Points ---x-------', points)
-
-    facilityGeoPoints.value = points
-    facilityGeoLines.value = lines
-    facilityGeoPolygons.value = polygons
-
-    console.log('Lines--->', facilityGeoPoints.value)
-
-
-    //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
-    geoLoaded.value = true
-
-
-  }
-
-
-
-}
+ 
 
 const getFilteredBySearchData = async (searchString) => {
   const formData = {}
@@ -1586,13 +1704,13 @@ const handleUploadGeo = async (uploadFile) => {
   <ContentWrap :title="t('Settlements')" :message="t('Use the filters to subset')">
 
 
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
-
+ 
     <el-row>
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
 
         <div style="display: inline-block; margin-top: 5px">
-          <el-select size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
+          <el-select
+size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
             filterable collapse-tags placeholder="By County">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -1602,9 +1720,11 @@ const handleUploadGeo = async (uploadFile) => {
 
 
         <div style="display: inline-block; margin-top: 5px">
-          <el-select size="default" v-model="value5" :onChange="filterBySubCounty" :onClear="handleClear" multiple
+          <el-select
+size="default" v-model="value5" :onChange="filterBySubCounty" :onClear="handleClear" multiple
             clearable filterable collapse-tags placeholder="By Subcounty">
-            <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+            <el-option
+v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
               :value="item.value" />
           </el-select>
         </div>
@@ -1612,7 +1732,8 @@ const handleUploadGeo = async (uploadFile) => {
       </el-col>
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
         <div style="display: inline-block; margin-top: 5px">
-          <el-select size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
+          <el-select
+size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
             reserve-keyword placeholder="Search by Name" />
         </div>
       </el-col>
@@ -1637,11 +1758,11 @@ const handleUploadGeo = async (uploadFile) => {
       </el-col>
     </el-row>
 
-    <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
+    <el-tabs @tab-click="clickTab" v-model="activeName" type="border-card">
       <el-tab-pane name="list">
         <template #label>
           <span class="custom-tabs-label">
-            <el-badge type="primary" :value="total" class="item">
+            <el-badge type="primary" :value="totalApproved" class="item">
               <el-button link>List</el-button>
             </el-badge>
           </span>
@@ -1662,13 +1783,15 @@ const handleUploadGeo = async (uploadFile) => {
                         <span class="el-dropdown-link">Actions</span>
                         <el-dropdown-menu>
                           <el-dropdown-item @click="downloadFile(scope.row)">Download</el-dropdown-item>
-                          <el-dropdown-item v-if="showAdminButtons"
+                          <el-dropdown-item
+v-if="showAdminButtons"
                             @click="removeDocument(scope.row)">Remove</el-dropdown-item>
                         </el-dropdown-menu>
                       </el-dropdown>
                       <div v-else>
                         <el-button type="success" @click="downloadFile(scope.row)">Download</el-button>
-                        <el-button type="danger" v-if="showAdminButtons"
+                        <el-button
+type="danger" v-if="showAdminButtons"
                           @click="removeDocument(scope.row)">Remove</el-button>
                       </div>
                     </template>
@@ -1676,7 +1799,8 @@ const handleUploadGeo = async (uploadFile) => {
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button
+v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1699,11 +1823,14 @@ const handleUploadGeo = async (uploadFile) => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item
+@click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1713,20 +1840,24 @@ const handleUploadGeo = async (uploadFile) => {
 
               <div v-else>
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button
+type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Households" placement="top">
-                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="User"
+                  <el-button
+v-show="showAdminButtons" type="success" size="small" :icon="User"
                     @click="viewHHs(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this report?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -1742,15 +1873,13 @@ const handleUploadGeo = async (uploadFile) => {
 
         </el-table>
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
-          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      
       </el-tab-pane>
 
-      <el-tab-pane name="new" v-if=showAdminButtons>
+      <el-tab-pane name="New" v-if=showAdminButtons>
         <template #label>
           <span class="custom-tabs-label">
-            <el-badge type="success" :value="totalNew" class="item">
+            <el-badge type="success" :value="totalPending" class="item">
               <el-button link>New</el-button>
             </el-badge>
           </span>
@@ -1783,7 +1912,8 @@ const handleUploadGeo = async (uploadFile) => {
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button
+type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1806,11 +1936,14 @@ const handleUploadGeo = async (uploadFile) => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item
+@click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1818,20 +1951,24 @@ const handleUploadGeo = async (uploadFile) => {
               </el-dropdown>
               <div v-else>
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button
+type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="Review" placement="top">
-                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
+                  <el-button
+v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this report?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -1847,12 +1984,10 @@ const handleUploadGeo = async (uploadFile) => {
 
         </el-table>
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalNew" :background="true"
-          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      
       </el-tab-pane>
 
-      <el-tab-pane name="rejected" v-if=showAdminButtons :badge="5">
+      <el-tab-pane name="Rejected" v-if=showAdminButtons :badge="5">
         <template #label>
           <span class="custom-tabs-label">
             <el-badge :value="totalRejected" class="item">
@@ -1887,7 +2022,8 @@ const handleUploadGeo = async (uploadFile) => {
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button
+type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1910,11 +2046,14 @@ const handleUploadGeo = async (uploadFile) => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item
+@click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1923,16 +2062,19 @@ const handleUploadGeo = async (uploadFile) => {
               <div v-else>
 
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button
+type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="Review" placement="top">
-                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
+                  <el-button
+v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this report?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -1947,11 +2089,7 @@ const handleUploadGeo = async (uploadFile) => {
           </el-table-column>
 
         </el-table>
-
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalNew" :background="true"
-          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-
+ 
 
       </el-tab-pane>
 
@@ -1966,6 +2104,12 @@ const handleUploadGeo = async (uploadFile) => {
 
         <div id="mapContainer" class="basemap"></div>
       </el-tab-pane>
+
+      <ElPagination
+v-if="showPagination"
+layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </el-tabs>
 
 
@@ -1997,7 +2141,8 @@ const handleUploadGeo = async (uploadFile) => {
             <el-form-item label="Description">
               <el-input v-model="ruleForm.description" />
             </el-form-item>
-            <el-form-item label="Geometry"> <el-upload :on-change="handleUploadGeo" multiple :limit="3"
+            <el-form-item label="Geometry"> <el-upload
+:on-change="handleUploadGeo" multiple :limit="3"
                 :auto-upload="false">
                 <el-button type="primary">Click to upload</el-button>
                 <template #tip>
@@ -2028,7 +2173,8 @@ const handleUploadGeo = async (uploadFile) => {
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
         </el-option-group>
       </el-select>
-      <el-upload v-model:file-list="morefileList" class="upload-demo "
+      <el-upload
+v-model:file-list="morefileList" class="upload-demo "
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>

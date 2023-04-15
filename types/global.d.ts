@@ -36,6 +36,7 @@ declare interface AxiosConfig {
 }
 
 declare interface IResponse<T = any> {
+Total(Total: any, arg1: string[], arg2: string): unknown
 total: number
   code: string
   data: T extends any ? T : T & any

@@ -290,15 +290,14 @@ const resetForm = (formEl: FormInstance | undefined) => {
 }
  
 
-const title = 'Add/Create Settleemnt'
+const title = 'Add/Create Settlement'
 
 
 const map = ref()
 const draw = ref()
 const showDrawMarker = ref(false)
 
-getSubcounty()
-
+ 
  
 
 const showDrawIcons = ref(true)

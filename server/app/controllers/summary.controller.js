@@ -82,7 +82,7 @@ exports.xSimpleSumModelByColumn= (req, res) => {
 
 exports.SimpleSumModelByColumn= async (req, res) => {
   var reg_model = req.body.model
-  var cache_key = req.body.model + req.body.cache_key 
+  var cache_key =  req.body.cache_key 
   var summaryField = req.body.summaryField
   var summaryFunction = req.body.summaryFunction
  
