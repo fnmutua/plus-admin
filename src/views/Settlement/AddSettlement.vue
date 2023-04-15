@@ -64,7 +64,12 @@ import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
+import { useRouter } from 'vue-router'
 
+import shortid from 'shortid';
+
+
+const { push } = useRouter()
 
 
 
@@ -94,7 +99,7 @@ const ruleForm = reactive({
   county_id: '',
   subcounty_id: '',
   settlement_type: '',
-  geom: '',
+  geom: null,
   area: '',
   population: '',
   code: '',
@@ -120,22 +125,13 @@ const getSubcounty = async () => {
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    //console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
+     var ret = response.data
     subcounties.value = ret
   
   })
 }
-
-
-
-const fileList = ref([])
-
-
-
-const countyRefList = ref()
-
+ 
+ 
 const projectScopeGeo = ref([])
 
 const typeOptions = [
@@ -160,6 +156,9 @@ const settlementfilteredOptions = ref([])
 
 const handleSelectCounty = async (county_id: any) => {
   console.log(county_id)
+
+  // Reset the subounty on changing the county 
+  ruleForm.subcounty_id=null
 
   var subset = [];
   for (let i = 0; i < subcountyOptions.value.length; i++) {
@@ -248,12 +247,15 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
   console.log("submit................", formEl)
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = 'settlement'
-      ruleForm.code = uuid.v4()
+     // ruleForm.code = uuid.v4()
+      ruleForm.code = shortid.generate();
       // = geoJson.value
 
+
+      
       
       ruleForm.isApproved = 'Pending'
       ruleForm.createdBy = userInfo.id
@@ -262,7 +264,17 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 
 
-      const res = CreateRecord(ruleForm)
+      const res = await CreateRecord(ruleForm)
+
+      console.log('res>>>', res)
+      if (res.code === "0000") {
+        // code 0000 is successfule
+        push({
+      path: '/settlement/list',
+      name: 'List'
+    })
+      }
+  
       //   console.log(res)
       ///
     } else {
