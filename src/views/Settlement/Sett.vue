@@ -295,6 +295,7 @@ const getSettlementCount = async () => {
   formData.summaryField = 'isApproved'
   formData.summaryFunction = 'count'
   formData.groupField = ['isApproved']
+  formData.cache_key = ''
 
  
 
