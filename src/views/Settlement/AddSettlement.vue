@@ -36,6 +36,7 @@ import {
   Edit,
   Share,
   CircleCheckFilled,
+  UploadFilled,
   RefreshLeft
 } from '@element-plus/icons-vue'
 
@@ -104,7 +105,6 @@ const ruleForm = reactive({
 
 
 
-const subcountyOptions = ref([])
 const subcounties = ref([])
 var bounds = ref()
 
@@ -112,7 +112,7 @@ const getSubcounty = async () => {
   const res = await getCountyListApi({
     params: {
       pageIndex: 1,
-      limit: 100,
+      limit: 500,
       curUser: 1, // Id for logged in user
       model: 'subcounty',
       searchField: 'name',
@@ -124,16 +124,7 @@ const getSubcounty = async () => {
     //tableDataList.value = response.data
     var ret = response.data
     subcounties.value = ret
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var parentOpt = {}
-      parentOpt.value = arrayItem.id
-      parentOpt.county_id = arrayItem.county_id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      subcountyOptions.value.push(parentOpt)
-    })
+  
   })
 }
 
@@ -284,38 +275,21 @@ const resetForm = (formEl: FormInstance | undefined) => {
   if (!formEl) return
   formEl.resetFields()
 }
-const addPolygon = (poly: any) => {
-  polygons.value.push(poly.features[0].geometry.coordinates[0])
-  var polyShape = poly
+ 
 
-  shp.push(polyShape)
-  // ruleForm.geom = poly
-}
-
-const title = 'Add/Create Education Facility'
+const title = 'Add/Create Settleemnt'
 
 
 const map = ref()
 const draw = ref()
 const showDrawMarker = ref(false)
 
+getSubcounty()
 
+ 
 
-const handleFlipSwitch = (e) => {
-
-  console.log(draw.value.isDrawEnabled)
-  // if (draw.value.isDrawEnabled) {
-  //   draw.value.deleteAll();
-  //   draw.value.changeMode('simple_select');
-  // } else {
-  //   draw.value.changeMode('draw_point');
-  // }
-  // draw.value.isDrawEnabled = !draw.value.isDrawEnabled;
-}
-
-
+const showDrawIcons = ref(true)
 onMounted(() => {
-  getSubcounty()
 
   console.log("Showmarkr ICons", showDrawMarker)
   map.value = new mapboxgl.Map({
@@ -334,7 +308,7 @@ onMounted(() => {
     controls: {
       point: false,
       line_string: false,
-      polygon: true,
+      polygon: showDrawIcons.value,
       trash: true
     },
     
@@ -473,6 +447,12 @@ const readShp = async (file) => {
 
         console.log('>>',geom)
         ruleForm.geom = geom
+
+        geoJson.value = geom
+    map.value.getSource("scope").setData(geoJson.value);
+    bounds.value = turf.bbox((geoJson.value))
+    console.log("From subcounty", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
       }
 
 
@@ -512,6 +492,15 @@ const readJson = (event) => {
       ruleForm.geom = geom
 
       console.log(ruleForm)
+
+
+      geoJson.value = geom
+      map.value.getSource("scope").setData(geoJson.value);
+      bounds.value = turf.bbox((geoJson.value))
+      console.log("From subcounty", bounds.value)
+      map.value.fitBounds(bounds.value, { padding: 20 })
+
+
     }
 
   }
@@ -595,13 +584,14 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
     console.log("The subcounty has no shapes...")
   }
 
-
-
-
-
-
 }
 
+const toggleSwitch = async () => { 
+
+  showDrawIcons.value = !showDrawIcons.value  
+
+  console.log(showDrawIcons.value)
+}
  
 
 
@@ -683,11 +673,16 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
 
               <el-form-item v-if="showGeoFields" label="Location">
               <el-switch
+@change="toggleSwitch"
 width="200px" v-model="geoSource"
                 style="--el-switch-on-color: orange; --el-switch-off-color: purple" class="mb-2"
-                active-text="Upload Geojson File" inactive-text="Draw on Map" />
+                active-text="Upload Geojson or zipped Shapefile" inactive-text="Draw on Map" />
             </el-form-item>
 
+
+            <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
+
+            <el-form-item v-if="showGeoFields" >
 
             <el-upload
 v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
@@ -696,14 +691,12 @@ v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto
               <div class="el-upload__text">
                 Drop Geometry File here or <em>Click to upload</em>
               </div>
-              <template #tip>
-                <div class="el-upload__tip">
-                  GeoJson files with a size less than 500kb
-                </div>
-              </template>
+             
             </el-upload>
 
+          </el-form-item>
 
+            </el-col>
             </el-row>
 
  
