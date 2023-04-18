@@ -76,6 +76,7 @@ const getAvgHHSize = async () => {
   formData.model = 'households'
   formData.summaryField = 'hh_size'
   formData.summaryFunction = 'AVG'
+  formData.cache_key = 'avgHhSize'
 
 
   await getSummarybyFieldSimple(formData)
@@ -119,6 +120,7 @@ const getAveragePopDensity = async () => {
   formData.model = 'settlement'
   formData.summaryField = 'pop_density'
   formData.summaryFunction = 'AVG'
+  formData.cache_key = 'getPopDensity'
 
   // filter by field 
   formData.assoc_models = ['county']
@@ -192,7 +194,8 @@ getCountPerCounty()
                     t('Number of Slums/Informal Settlements in Kenya')
                   }}</div>
                 </router-link>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSettlements"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSettlements"
                   :duration="2600" />
               </div>
 
@@ -220,7 +223,8 @@ getCountPerCounty()
                     t('Slums/Informal Settlement Population in Kenya')
                   }}</div>
                 </router-link>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSlumResidents"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSlumResidents"
                   :duration="2600" />
               </div>
 
@@ -252,7 +256,8 @@ getCountPerCounty()
                   }}</div>
 
                 </router-link>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.avg_hh_size"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.avg_hh_size"
                   :duration="2600" />
               </div>
 
@@ -282,7 +287,8 @@ getCountPerCounty()
                 </router-link>
 
 
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.pop_density"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.pop_density"
                   :duration="2600" />
               </div>
 
