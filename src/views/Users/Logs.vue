@@ -139,6 +139,11 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
+var result = res.data 
+result.sort((a, b) => (a.id > b.id) ? -1 : 1);
+
+  console.log(result);
+
 
   console.log('After Querry', res)
   tableDataList.value = res.data
@@ -230,11 +235,13 @@ const tableRowClassName = (data) => {
                                                                                 :currentPage="currentPage" :row-class-name="tableRowClassName" /> -->
 
     <div style="display: inline-block; margin-bottom: 10px">
-      <el-select v-model="value1" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select
+v-model="value1" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name" />
     </div>
 
-    <el-table :data="tableDataList" :loading="loading" :pageSize="pageSize" :currentPage="currentPage" border
+    <el-table
+:data="tableDataList" :loading="loading" :pageSize="pageSize" :currentPage="currentPage" border
       style="width: 100%" :row-class-name="tableRowClassName">
 
       <el-table-column sortable label="S/No" prop="id" />
@@ -245,7 +252,8 @@ const tableRowClassName = (data) => {
       <el-table-column sortable label="Source" prop="source" />
     </el-table>
 
-    <ElPagination layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination
+layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
