@@ -101,6 +101,7 @@ exports.SimpleSumModelByColumn= async (req, res) => {
       code: '0000'
     });
   } catch (error) {
+    console.log('Summary Error Failed:',error)
     res.status(500).send({
       message: 'Fecthing data failed'
     });
