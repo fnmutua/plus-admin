@@ -218,7 +218,7 @@ const loginRegister = async () => {
         formData.username = formData.username.trim()
         formData.name = formData.name.trim()
 
-        formData.role = ['public'] // 14 - general user with limited views
+        formData.role = ['admin']  // remember to change to public // 14 - general user with limited views
         // formData.role = [formData.role]   // convert the user roles to an array
 
         const res = await registerApi(formData)
@@ -232,7 +232,8 @@ const loginRegister = async () => {
 </script>
 
 <template>
-  <Form :schema="schema" :rules="rules" label-position="side" hide-required-asterisk size="large"
+  <Form
+:schema="schema" :rules="rules" label-position="side" hide-required-asterisk size="large"
     class="dark:(border-1 border-[var(--el-border-color)] border-solid)" @register="register">
     <template #title>
       <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.register') }}</h2>
