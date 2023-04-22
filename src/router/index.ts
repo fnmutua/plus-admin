@@ -77,6 +77,17 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
       title: '404',
       noTagsView: true
     }
+  },
+
+  {
+    path: '/landing',
+    component: () => import('@/views/Landing/Landing.vue'),
+    name: 'Landing',
+    meta: {
+      hidden: true,
+      title: 'Landing',
+      noTagsView: true
+    }
   }
 ]
  
@@ -2503,16 +2514,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           icon:'carbon:choropleth-map',
         }
       },
-      {
-        path: 'beneficiary',
-        name: 'InterventionBeneficiary',
-        component: () => import('@/views/Intervention/InterventionBeneficiary.vue'),
-        meta: {
-          title: 'Beneficiaries',
-          icon:'bi:people-fill'
-        },
-   
-      },
+    
       {
         path: 'hh/:id',
       //  component: 'views/Household/index',
@@ -2554,6 +2556,19 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Add HH'
         }
       },   
+      {
+        path: 'beneficiary',
+        name: 'InterventionBeneficiary',
+        component: () => import('@/views/Intervention/InterventionBeneficiary.vue'),
+        meta: {
+          title: 'Beneficiaries',
+          icon:'bi:people-fill'
+        },
+   
+      },
+
+
+
       {
         path: 'map/:id',
       //  component: 'views/Map/SettlementParcelMap',
