@@ -245,7 +245,7 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
     }
     console.log('Final---03--object------------>', qry)
   
-    console.log('getting households---->')
+    console.log('getting households---33->')
 
 
     var attributes = []

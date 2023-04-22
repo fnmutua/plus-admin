@@ -820,20 +820,19 @@ if (isMobile.value) {
 
 <template>
   <ContentWrap :title="t('Households')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
-    <el-row>
-      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+     <el-row>
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
 
-        <div style="display: inline-block; margin-top: 5px">
-          <el-select size="default" v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple
+        <div style="display: inline-block; margin-right: 5px">
+          <el-select
+size="default" v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple
             clearable filterable collapse-tags placeholder="By Settlement">
             <el-option v-for="item in settOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
-      </el-col>
-      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-        <div style="display: inline-block; margin-top: 5px">
-          <el-select size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
+          <div style="display: inline-block; margin-top: 5px">
+          <el-select
+size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
             reserve-keyword placeholder="Search by Name" />
         </div>
       </el-col>
@@ -859,13 +858,6 @@ if (isMobile.value) {
     </el-row>
 
 
-
-
-
-
-
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
-
     <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
       <el-tab-pane label="List" name="list">
 
@@ -884,7 +876,8 @@ if (isMobile.value) {
                         <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
                       </el-link>
                       <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+                        <el-popconfirm
+confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
                           icon-color="#626AEF" title="Are you sure to delete this document?"
                           @confirm="removeDocument(scope.row)">
                           <template #reference>
@@ -915,9 +908,11 @@ if (isMobile.value) {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showAdminButtons" @click="editHH(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="editHH(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteHH(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteHH(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -930,12 +925,14 @@ if (isMobile.value) {
 
 
                 <el-tooltip content="Edit" placement="top">
-                  <el-button v-if="showAdminButtons" type="success" :icon="Edit"
+                  <el-button
+v-if="showAdminButtons" type="success" :icon="Edit"
                     @click="editHH(scope as TableSlotDefault)" circle />
                 </el-tooltip>
 
                 <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" width="220" :icon="InfoFilled"
+                  <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" width="220" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete this household?"
                     @confirm="DeleteHH(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -951,14 +948,13 @@ if (isMobile.value) {
 
         </el-table>
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
 
-      <el-tab-pane label="Map" name="Map">
-        <div id="mapContainer" class="basemap"></div>
-      </el-tab-pane>
+     
     </el-tabs>
 
 
@@ -1005,7 +1001,8 @@ if (isMobile.value) {
     </el-dialog>
 
     <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
-      <el-upload v-model:file-list="morefileList" class="upload-demo"
+      <el-upload
+v-model:file-list="morefileList" class="upload-demo"
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>

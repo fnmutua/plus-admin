@@ -106,13 +106,20 @@ router.beforeEach(async (to, from, next) => {
 
       console.log("Path--->", to.path)
       next()
-    } else if (to.path.startsWith("/reset")){
+    } else if (to.path.startsWith("/reset") ){
       next()  // for reset do not redirect
     }
+    else if (to.path.startsWith("/landing") ){
+      next()  // for reset do not redirect
+    }
+         
     
     else {
       next(`/login?redirect=${to.path}`) // 否则全部重定向到登录页
     }
+
+
+
   }
 })
 

@@ -370,29 +370,30 @@ const viewOnMap = (data: TableSlotDefault) => {
     :title="t('Households')"
     :message="t('The list of households in informal settlements. Use the filters to subset')"
   >
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
-
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select
-        v-model="value1"
-        value-key="type"
-        :onChange="handleSelectType"
-        :onClear="handleClear"
-        multiple
-        filterable
-        clearable
-        collapse-tags
-        placeholder="Filter by Intervention"
-      >
-        <el-option
-          v-for="item in countiesOptions"
-          :key="item.value"
-          :label="item.label"
-          :value="item.value"
-        />
-      </el-select>
+ 
+    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+        <div style="display: inline-block; margin-top: 5px">
+          <div style="display: inline-block; margin-right: 5px">
+            <el-select
+              v-model="value1"
+              value-key="type"
+              :onChange="handleSelectType"
+              :onClear="handleClear"
+              multiple
+              filterable
+              clearable
+              collapse-tags
+              placeholder="Filter by Intervention"
+            >
+              <el-option
+                v-for="item in countiesOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
     </div>
-    <div style="display: inline-block; margin-left: 20px">
+    <div style="display: inline-block; margin-left: 5px">
       <el-select
         v-model="value2"
         :onChange="handleSelectPhase"
@@ -430,14 +431,17 @@ const viewOnMap = (data: TableSlotDefault) => {
         />
       </el-select>
     </div>
+        </div>
+    </el-col>
+    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleDownload" type="primary" :icon="Download" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
-
+    </el-col>
     <Table
       :columns="columns"
       :data="tableDataList"

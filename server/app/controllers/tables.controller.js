@@ -166,21 +166,18 @@ exports.GetRoutes = (req, res) => {
  
    const searchString = 'households';
    if (associated_multiple_models) {
- 
-     console.log(associated_multiple_models)
+      console.log(associated_multiple_models)
      if (associated_multiple_models.includes(searchString) ) {
        console.log(`${searchString} is in the array`);
        console.log(qry)
      
-               console.log('getting households---->')
+               console.log('getting households--1-->')
                var attributes = []
           
                for( let key in   db.models[reg_model].rawAttributes ){
                  attributes.push(key)
              }
-       
-               
-       
+             
        
              //   console.log('attributes',attributes)
                var index = attributes.indexOf('name');
@@ -1365,7 +1362,7 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
       console.log(`${searchString} is in the array`);
       console.log(qry)
     
-              console.log('getting households---->')
+              console.log('getting households--x2-->')
               var attributes = []
          
               for( let key in   db.models[reg_model].rawAttributes ){
@@ -1378,13 +1375,17 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
               }
     
               let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('household.name'), 'bytea'),'maluini'),'name']
-                attributes.push(encrytpedField)
+      attributes.push(encrytpedField)
+      
+      console.log('these attributes', attributes)
       
               
       qry.attributes = attributes
       qry.attributes.exclude = ['password', 'resetPasswordExpires', 'resetPasswordToken'] 
      }
- }
+  }
+  
+
   else {
     
 
@@ -1393,7 +1394,7 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
 
 
 
-qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only
+//qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only
 
 
 
@@ -1525,7 +1526,7 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
        console.log(`${searchString} is in the array`);
        console.log(qry)
      
-               console.log('getting households---->')
+               console.log('getting households--3-->')
                var attributes = []
           
                for( let key in   db.models[reg_model].rawAttributes ){
