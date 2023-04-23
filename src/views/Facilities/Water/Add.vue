@@ -146,21 +146,27 @@ const countries = 'ke'
 
 
 
-
 const active = ref(0)
-
+const showNext=ref(true)
+const showSubmit=ref(false)
 const next = () => {
-  if (active.value < 1) {
+  if (active.value<1) {
     active.value++
+    showNext.value = true
+    showSubmit.value=false
+ 
   } else {
-    active.value = 0
+ //   active.value = 0
+    showNext.value = false
+    showSubmit.value=true
   }
 }
-
 
 const back = () => {
   if (active.value > 0) {
     active.value--
+    showNext.value = true
+    showSubmit.value=false
   }
 }
 
@@ -383,7 +389,8 @@ const digitize = ref()
 
           </el-steps>
 
-          <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
+          <el-form
+ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
             status-icon>
 
             <el-row v-if="active === 0" :gutter="10">
@@ -399,9 +406,11 @@ const digitize = ref()
               <el-row>
                 <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
                   <el-form-item label="County" prop="county_id">
-                    <el-select v-model="ruleForm.county_id" filterable placeholder="County"
+                    <el-select
+v-model="ruleForm.county_id" filterable placeholder="County"
                       :onChange="handleSelectCounty">
-                      <el-option v-for="item in countyOptions" :key="item.value" :label="item.label"
+                      <el-option
+v-for="item in countyOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
@@ -410,7 +419,8 @@ const digitize = ref()
                 <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
                   <el-form-item label="Subcounty" prop="subcounty_id">
                     <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
-                      <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                      <el-option
+v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
@@ -420,7 +430,8 @@ const digitize = ref()
 
                 <el-form-item label="Settlement" prop="settlement_id">
                   <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-                    <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -428,7 +439,8 @@ const digitize = ref()
 
                 <el-form-item label="Type" prop="facility_type">
                   <el-select v-model="ruleForm.type" filterable placeholder="select">
-                    <el-option v-for="item in WaterFacilitytypeOptions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in WaterFacilitytypeOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -438,7 +450,8 @@ const digitize = ref()
 
                 <el-form-item label="Ownership" prop="ownership">
                   <el-select v-model="ruleForm.ownership_type" filterable placeholder="select">
-                    <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in generalOwnership" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -450,18 +463,21 @@ const digitize = ref()
 
 
               <el-form-item label="Location" prop="location">
-                <el-switch style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
+                <el-switch
+style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
                   @change="handleFlipSwitch" class="mb-2" active-text="Input Coordinates" inactive-text="Digitize" />
               </el-form-item>
 
 
               <el-form-item v-if="digitize" label="Latitude" prop="latitude">
-                <el-input-number v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
+                <el-input-number
+v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
                   @change="handleInputCoordinates" />
               </el-form-item>
 
               <el-form-item v-if="digitize" label="Longitude" prop="longitude">
-                <el-input-number v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
+                <el-input-number
+v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
                   @change="handleInputCoordinates" />
               </el-form-item>
 
@@ -498,24 +514,23 @@ const digitize = ref()
 
           </el-form>
 
-
-          <el-row class="mb-4  md-5">
-            <el-button @click="back" type="primary">
-              <ArrowLeft /> <el-icon class="el-icon--left" /> Prev Page
-            </el-button>
-            <el-button @click="next" type="primary"> Next Page<el-icon class="el-icon--right">
-                <ArrowRight />
-              </el-icon>
-            </el-button>
-            <el-button @click="submitForm(ruleFormRef)" type="success">Save<el-icon class="el-icon--right">
-                <CircleCheckFilled />
-              </el-icon>
-            </el-button>
-            <el-button @click="resetForm(ruleFormRef)" type="warning">Reset<el-icon class="el-icon--right">
-                <RefreshLeft />
-              </el-icon>
-            </el-button>
-          </el-row>
+          <el-row class="mb-4  md-5" justify="center">
+  <el-button @click="back" type="primary">
+    <ArrowLeft /> <el-icon class="el-icon--left" /> Back
+  </el-button>
+  <el-button v-if="showNext" @click="next" type="primary"> Next <el-icon class="el-icon--right">
+    <ArrowRight />
+  </el-icon>
+  </el-button>
+  <el-button v-if="showSubmit" @click="submitForm(ruleFormRef)" type="success">Save<el-icon class="el-icon--right">
+    <CircleCheckFilled />
+  </el-icon>
+  </el-button>
+  <el-button @click="resetForm(ruleFormRef)" type="warning">Reset<el-icon class="el-icon--right">
+    <RefreshLeft />
+  </el-icon>
+  </el-button>
+</el-row>
 
 
 
