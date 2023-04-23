@@ -112,21 +112,32 @@ const countries = 'ke'
 
 
 
-const active = ref(0)
 
+const active = ref(0)
+const showNext=ref(true)
+const showSubmit=ref(false)
 const next = () => {
-  if (active.value < 1) {
+  if (active.value<1) {
     active.value++
+    showNext.value = true
+    showSubmit.value=false
+ 
   } else {
-    active.value = 0
+ //   active.value = 0
+    showNext.value = false
+    showSubmit.value=true
   }
 }
 
 const back = () => {
   if (active.value > 0) {
     active.value--
+    showNext.value = true
+    showSubmit.value=false
   }
 }
+
+
 
 
 function toTitleCase(str) {
@@ -289,7 +300,8 @@ onMounted(() => {
 
           </el-steps>
 
-          <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
+          <el-form
+ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
             status-icon>
 
             <el-row v-if="active === 0" :gutter="20">
@@ -301,7 +313,8 @@ onMounted(() => {
                 </el-form-item>
                 <el-form-item label="Settlement" prop="settlement_id">
                   <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-                    <el-option v-for="item in settlementOptionsV2" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in settlementOptionsV2" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -325,26 +338,30 @@ onMounted(() => {
               <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
                 <el-form-item label="Surface Type" prop="mhm">
                   <el-select v-model="ruleForm.surfaceType" filterable placeholder="surfaceType">
-                    <el-option v-for="item in SurfaceTypeOtions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in SurfaceTypeOtions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
 
                 <el-form-item label="Condition" prop="mhm">
-                  <el-rate v-model="ruleForm.surfaceCondition" :colors="colors" show-text
+                  <el-rate
+v-model="ruleForm.surfaceCondition" :colors="colors" show-text
                     :texts="['Under Construction', 'Very Poor', 'Poor', 'good', 'Excellent']" />
                 </el-form-item>
 
                 <el-form-item label="Drainage Type" prop="mhm">
                   <el-select v-model="ruleForm.drainage" filterable placeholder="drainage">
-                    <el-option v-for="item in drainageTypeOtions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in drainageTypeOtions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
 
 
                 <el-form-item label="Condition" prop="mhm">
-                  <el-rate v-model="ruleForm.drainageCondition" :colors="colors" show-text
+                  <el-rate
+v-model="ruleForm.drainageCondition" :colors="colors" show-text
                     :texts="['Under Construction', 'Very Poor', 'Poor', 'good', 'Excellent']" />
                 </el-form-item>
 
@@ -355,25 +372,24 @@ onMounted(() => {
           </el-form>
 
 
-          <el-row class="mb-4  md-5">
+          <el-row class="mb-4  md-5" justify="center">
+  <el-button @click="back" type="primary">
+    <ArrowLeft /> <el-icon class="el-icon--left" /> Back
+  </el-button>
+  <el-button v-if="showNext" @click="next" type="primary"> Next <el-icon class="el-icon--right">
+    <ArrowRight />
+  </el-icon>
+  </el-button>
+  <el-button v-if="showSubmit" @click="submitForm(ruleFormRef)" type="success">Save<el-icon class="el-icon--right">
+    <CircleCheckFilled />
+  </el-icon>
+  </el-button>
+  <el-button @click="resetForm(ruleFormRef)" type="warning">Reset<el-icon class="el-icon--right">
+    <RefreshLeft />
+  </el-icon>
+  </el-button>
+</el-row>
 
-            <el-button @click="back" type="primary">
-              <ArrowLeft /> <el-icon class="el-icon--left" /> Prev Page
-            </el-button>
-
-            <el-button @click="next" type="primary"> Next Page<el-icon class="el-icon--right">
-                <ArrowRight />
-              </el-icon>
-            </el-button>
-            <el-button @click="submitForm(ruleFormRef)" type="success">Save<el-icon class="el-icon--right">
-                <CircleCheckFilled />
-              </el-icon>
-            </el-button>
-            <el-button @click="resetForm(ruleFormRef)" type="warning">Reset<el-icon class="el-icon--right">
-                <RefreshLeft />
-              </el-icon>
-            </el-button>
-          </el-row>
 
 
 

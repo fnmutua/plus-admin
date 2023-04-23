@@ -176,19 +176,26 @@ const countries = 'ke'
 
 
 const active = ref(0)
-
+const showNext=ref(true)
+const showSubmit=ref(false)
 const next = () => {
   if (active.value < 2) {
     active.value++
+    showNext.value = true
+    showSubmit.value=false
+
   } else {
-    active.value = 0
+ //   active.value = 0
+    showNext.value = false
+    showSubmit.value=true
   }
 }
-
 
 const back = () => {
   if (active.value > 0) {
     active.value--
+    showNext.value = true
+    showSubmit.value=false
   }
 }
 
@@ -248,11 +255,27 @@ const handleFlipSwitch = (e) => {
   // draw.value.isDrawEnabled = !draw.value.isDrawEnabled;
 }
 
-
+const state = reactive({
+      isOnline: false,
+    }); 
+    
 onMounted(() => {
+ 
+  window.addEventListener('online', () => {
+        console.log('is online')
+        state.isOnline = true;
+      });
+  window.addEventListener('offline', () => {
+    console.log('is offline')
 
-  console.log("Showmarkr ICons", showDrawMarker)
-  map.value = new mapboxgl.Map({
+        state.isOnline = false;
+      });
+ 
+
+    
+console.log('Online Status',state)
+
+   map.value = new mapboxgl.Map({
     container: 'mapContainer',
     style: 'mapbox://styles/mapbox/streets-v11',
     center: [37.137343, 1.137451],
@@ -360,7 +383,7 @@ onMounted(() => {
 
   });
 
-
+  return state
 })
 
 
@@ -432,7 +455,8 @@ const digitize = ref()
             <el-step title="Enrollment" />
             <el-step title="Facilities" />
           </el-steps>
-          <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
+          <el-form
+ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
             status-icon>
             <el-row v-if="active === 0">
               <el-divider content-position="left" />
@@ -452,9 +476,11 @@ const digitize = ref()
               <el-row>
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="County" prop="county_id">
-                    <el-select v-model="ruleForm.county_id" filterable placeholder="County"
+                    <el-select
+v-model="ruleForm.county_id" filterable placeholder="County"
                       :onChange="handleSelectCounty">
-                      <el-option v-for="item in countyOptions" :key="item.value" :label="item.label"
+                      <el-option
+v-for="item in countyOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
@@ -462,7 +488,8 @@ const digitize = ref()
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Subcounty" prop="subcounty_id">
                     <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
-                      <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                      <el-option
+v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
@@ -472,7 +499,8 @@ const digitize = ref()
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Settlement" prop="settlement_id">
                     <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-                      <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+                      <el-option
+v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
@@ -490,7 +518,8 @@ const digitize = ref()
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Ownership" prop="ownership_type">
                     <el-select v-model="ruleForm.ownership_type" placeholder="Ownership">
-                      <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label"
+                      <el-option
+v-for="item in generalOwnership" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
@@ -505,7 +534,8 @@ const digitize = ref()
               <el-row>
                 <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Location" prop="location">
-                    <el-switch style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
+                    <el-switch
+style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
                       @change="handleFlipSwitch" class="mb-2" active-text="Input Coordinates" inactive-text="Digitize" />
                   </el-form-item>
                 </el-col>
@@ -513,13 +543,15 @@ const digitize = ref()
               <el-row>
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item v-if="digitize" label="Latitude" prop="latitude">
-                    <el-input-number v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
+                    <el-input-number
+v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
                       @change="handleInputCoordinates" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item v-if="digitize" label="Longitude" prop="longitude">
-                    <el-input-number v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
+                    <el-input-number
+v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
                       @change="handleInputCoordinates" />
                   </el-form-item>
                 </el-col>
@@ -533,7 +565,8 @@ const digitize = ref()
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Level" prop="level">
                     <el-select v-model="ruleForm.level" placeholder="Level">
-                      <el-option v-for="item in SchoolLevelOptions" :key="item.value" :label="item.label"
+                      <el-option
+v-for="item in SchoolLevelOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
@@ -606,7 +639,8 @@ const digitize = ref()
                 <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Tenancy" prop="tenancy">
                     <el-select v-model="ruleForm.tenancy" filterable placeholder="Owned/Rented">
-                      <el-option v-for="item in tenancyOptions" :key="item.value" :label="item.label"
+                      <el-option
+v-for="item in tenancyOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
@@ -615,7 +649,8 @@ const digitize = ref()
               <el-row>
                 <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Parcel Title" prop="tenure">
-                    <el-switch v-model="ruleForm.parcel_tenure" class="mb-2" inline-prompt size="large"
+                    <el-switch
+v-model="ruleForm.parcel_tenure" class="mb-2" inline-prompt size="large"
                       style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes"
                       inactive-text="No" />
                   </el-form-item>
@@ -634,24 +669,24 @@ const digitize = ref()
 
           </el-form>
 
+          <el-row class="mb-4  md-5" justify="center">
+  <el-button @click="back" type="primary">
+    <ArrowLeft /> <el-icon class="el-icon--left" /> Back
+  </el-button>
+  <el-button v-if="showNext" @click="next" type="primary"> Next <el-icon class="el-icon--right">
+    <ArrowRight />
+  </el-icon>
+  </el-button>
+  <el-button v-if="showSubmit" @click="submitForm(ruleFormRef)" type="success">Save<el-icon class="el-icon--right">
+    <CircleCheckFilled />
+  </el-icon>
+  </el-button>
+  <el-button @click="resetForm(ruleFormRef)" type="warning">Reset<el-icon class="el-icon--right">
+    <RefreshLeft />
+  </el-icon>
+  </el-button>
+</el-row>
 
-          <el-row class="mb-4  md-5">
-            <el-button @click="back" type="primary">
-              <ArrowLeft /> <el-icon class="el-icon--left" /> Back
-            </el-button>
-            <el-button @click="next" type="primary"> Next <el-icon class="el-icon--right">
-                <ArrowRight />
-              </el-icon>
-            </el-button>
-            <el-button @click="submitForm(ruleFormRef)" type="success">Save<el-icon class="el-icon--right">
-                <CircleCheckFilled />
-              </el-icon>
-            </el-button>
-            <el-button @click="resetForm(ruleFormRef)" type="warning">Reset<el-icon class="el-icon--right">
-                <RefreshLeft />
-              </el-icon>
-            </el-button>
-          </el-row>
 
 
 

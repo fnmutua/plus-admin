@@ -808,6 +808,9 @@ const handleSelectCounty = async (county_id: any) => {
 
 
 
+const showNext=ref(true)
+const showSubmit=ref(false)
+
 const next = () => {
   console.log('Step:', active)
 
@@ -815,8 +818,12 @@ const next = () => {
 
   if (active.value < 2) {
     active.value++
+    showNext.value = true
+    showSubmit.value = false
   } else {
-    active.value = 0
+   // active.value = 0
+    showNext.value = false
+    showSubmit.value=true
   }
 
 
@@ -849,6 +856,8 @@ const back = () => {
   if (active.value > 0) {
     active.value--
     showForm.value = true
+    showNext.value = true
+    showSubmit.value=false
 
   }
 }
@@ -864,27 +873,33 @@ const back = () => {
       <el-col :xl="14" :lg="14" :md="24" :sm="24" :xs="24">
         <el-card>
           <el-steps :active="active" simple>
-            <el-step :title="active === 0 ? 'Details' : ''" :icon="Edit" :description="active === 0 ? 'Step 1' : ''"
+            <el-step
+:title="active === 0 ? 'Details' : ''" :icon="Edit" :description="active === 0 ? 'Step 1' : ''"
               :status="active === 0 ? 'process' : ''" :style="{ fontSize: '14px' }" />
-            <el-step :title="active === 1 ? 'Location' : ''" :icon="Location" :description="active === 1 ? 'Step 2' : ''"
+            <el-step
+:title="active === 1 ? 'Location' : ''" :icon="Location" :description="active === 1 ? 'Step 2' : ''"
               :status="active === 1 ? 'process' : ''" :style="{ fontSize: '14px' }" />
-            <el-step :title="active === 2 ? 'Activities' : ''" :icon="List" :description="active === 2 ? 'Step 3' : ''"
+            <el-step
+:title="active === 2 ? 'Activities' : ''" :icon="List" :description="active === 2 ? 'Step 3' : ''"
               :status="active === 2 ? 'process' : ''" :style="{ fontSize: '14px' }" />
 
           </el-steps>
           <el-divider />
-          <el-form label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
+          <el-form
+label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
             status-icon>
             <el-col v-if="showForm" :span="24" :lg="24" :md="12" :sm="12" :xs="24">
               <el-form-item label="Location" prop="location_level">
-                <el-select v-model="ruleForm.location_level" filterable placeholder="Select Location"
+                <el-select
+v-model="ruleForm.location_level" filterable placeholder="Select Location"
                   @change="handleSelectLocation">
                   <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
 
               <el-form-item v-if=showSettlement label="Settlement" prop="settlement_id">
-                <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
+                <el-select
+v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
                   @change="handleSelectSettlement">
                   <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
@@ -892,7 +907,8 @@ const back = () => {
               </el-form-item>
 
               <el-form-item v-if=showCounty label="County" prop="county_id">
-                <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
+                <el-select
+v-model="ruleForm.county_id" filterable placeholder="Select County"
                   @change="handleSelectCounty">
                   <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
@@ -952,7 +968,8 @@ const back = () => {
               <el-col :span="24">
                 <el-form-item v-if="showActivityList" label="Activities">
                   <el-select v-model="ruleForm.activities" filterable multiple placeholder="Select" style="width: 100%;">
-                    <el-option v-for="item in activityOptions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in activityOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -960,14 +977,16 @@ const back = () => {
             </el-row>
             <el-row v-if="showGeoFields">
               <el-form-item v-if="showGeoFields" label="Location">
-                <el-switch width="200px" v-model="geoSource"
+                <el-switch
+width="200px" v-model="geoSource"
                   style="--el-switch-on-color: orange; --el-switch-off-color: purple" class="mb-2"
                   active-text="Upload Geojson File" inactive-text="Draw on Map" />
               </el-form-item>
             </el-row>
 
 
-            <el-upload v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
+            <el-upload
+v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :on-change="handleUploadGeo">
               <el-icon class="el-icon--upload"><upload-filled /></el-icon>
               <div class="el-upload__text">
@@ -982,25 +1001,24 @@ const back = () => {
 
 
           </el-form>
-          <div class="flex justify-between">
-            <el-button-group class="flex justify-between items-center ">
-
-
-              <el-button @click="back" type="primary">
-                <ArrowLeft /> <el-icon class="el-icon--left" /> Prev Page
-              </el-button>
-
-              <el-button @click="next" type="primary"> Next Page<el-icon class="el-icon--right">
-                  <ArrowRight />
-                </el-icon>
-              </el-button>
-
-              <el-button v-if="showActivityList" @click="submitForm(ruleFormRef)" type="success"
-                :icon="Promotion">Submit</el-button>
-              <el-button v-if="showActivityList" @click="submitForm(ruleFormRef)" type="warning"
-                :icon="RefreshLeft">Reset</el-button>
-            </el-button-group>
-          </div>
+                 
+          <el-row class="mb-4  md-5" justify="center">
+  <el-button @click="back" type="primary">
+    <ArrowLeft /> <el-icon class="el-icon--left" /> Back
+  </el-button>
+  <el-button v-if="showNext" @click="next" type="primary"> Next <el-icon class="el-icon--right">
+    <ArrowRight />
+  </el-icon>
+  </el-button>
+  <el-button v-if="showSubmit" @click="submitForm(ruleFormRef)" type="success">Save<el-icon class="el-icon--right">
+    <CircleCheckFilled />
+  </el-icon>
+  </el-button>
+  <el-button @click="resetForm(ruleFormRef)" type="warning">Reset<el-icon class="el-icon--right">
+    <RefreshLeft />
+  </el-icon>
+  </el-button>
+</el-row>
 
 
 

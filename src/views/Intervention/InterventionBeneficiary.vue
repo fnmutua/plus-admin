@@ -220,15 +220,7 @@ const filterByHousehold = async (title: any) => {
 
 const currentRow = ref()
 const addMoreDocuments = ref()
-const addMoreDocs = (data: TableSlotDefault) => {
-
-  currentRow.value = data
-
-  addMoreDocuments.value = true
-
-  console.log('currentRow', currentRow.value)
-
-}
+ 
 
 const submitMoreDocuments = async () => {
   console.log('More files.....', morefileList)
@@ -345,40 +337,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 }
 
 
-
-
-
-const getFilteredBySearchData = async (searchString) => {
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = searchString
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = associated_multiple_models
-
-  //-------------------------
-  console.log(formData)
-  const res = await getFilteredHouseholdsBykeyword(formData)
-
-  console.log('After -----x ------Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
-  loading.value = false
-
-  tblData.value = [] // reset the table data
-
-}
+ 
  
 
 
@@ -415,7 +374,7 @@ const getProjectsOptions = async () => {
   const res = await getListWithoutGeo({
     params: {
       pageIndex: 1,
-       curUser: 1, // Id for logged in user
+      curUser: 1, // Id for logged in user
       model: 'project',
       searchField: 'title',
       searchKeyword: '',
@@ -637,9 +596,9 @@ const DownloadXlsx = async () => {
     tableDataList.value[i]
     thisRecord.index = i + 1
     thisRecord.name = tableDataList.value[i].name
-    thisRecord.settlement = tableDataList.value[i].settlement ? tableDataList.value[i].settlement.name : ''
+    thisRecord.settlement = tableDataList.value[i].project.settlement ? tableDataList.value[i].project.settlement.name : ''
     thisRecord.project = tableDataList.value[i].project ? tableDataList.value[i].project.title : ''
-    thisRecord.gender = tableDataList.value[i].gender
+    thisRecord.gender = tableDataList.value[i].household.gender
 
 
     dataHolder.push(thisRecord)
@@ -706,7 +665,7 @@ if (isMobile.value) {
 </script>
 
 <template>
-  <ContentWrap :title="t('Households')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Beneficiaries')" :message="t('Use the filters to subset')">
      <el-row>
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <div style="display: inline-block; margin-top: 5px">
@@ -756,48 +715,16 @@ size="default" v-model="value5" :onChange="filterByHousehold" :onClear="handleCl
 
 
 
-
  
     <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
       <el-tab-pane label="List" name="list">
 
         <el-table :data="tableDataList" style="width: 100%" border>
-          <el-table-column type="expand">
-            <template #default="props">
-              <div m="4">
-                <h3>Documents</h3>
-                <el-table :data="props.row.documents" border>
-                  <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="category" />
-
-                  <el-table-column label="Actions">
-                    <template #default="scope">
-                      <el-link :href="props.row.documents[scope.$index].name" download>
-                        <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
-                      </el-link>
-                      <el-tooltip cont nt="Delete" placement="top">
-                        <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                          icon-color="#626AEF" title="Are you sure to delete this document?"
-                          @confirm="removeDocument(scope.row)">
-                          <template #reference>
-                            <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                          </template>
-                        </el-popconfirm>
-                      </el-tooltip>
-                    </template>
-                  </el-table-column>
-                </el-table>
-                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-
-              </div>
-            </template>
-          </el-table-column>
+          
+          <el-table-column label="#" width="50" prop="id" sortable />
           <el-table-column label="Name" width="200" prop="name" sortable />
           <el-table-column label="Gender" prop="household.gender" sortable />
-          <el-table-column label="Ownership Status" prop="project.title" sortable />
-
-
+          <el-table-column label="Project" prop="project.title" sortable />
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
 

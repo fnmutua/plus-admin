@@ -213,11 +213,19 @@ const geoSource = ref(false)
 
 const active = ref(0)
 
+const showNext=ref(true)
+const showSubmit=ref(false)
+
 const next = () => {
-  if (active.value < 2) {
+  if (active.value < 1) {
+    showNext.value = true
+    showSubmit.value = false
+    
     active.value++
   } else {
-    active.value = 0
+  //  active.value = 0
+    showNext.value = false
+    showSubmit.value=true
   }
 
   if (active.value == 0) {
@@ -237,6 +245,8 @@ const next = () => {
 const back = () => {
   if (active.value > 0) {
     active.value--
+    showNext.value = true
+    showSubmit.value=false
   }
 }
 
@@ -744,25 +754,24 @@ v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto
           </el-form>
 
  
-              <el-button @click="back" type="primary">
-              <ArrowLeft /> <el-icon class="el-icon--left" /> Back
-            </el-button>
-  
-              <el-button @click="next" type="primary"> Next <el-icon class="el-icon--right">
-                <ArrowRight />
-              </el-icon>
-            </el-button>
-        
-
-
-            <el-button @click="submitForm(ruleFormRef)" type="success">Save<el-icon class="el-icon--right">
-                <CircleCheckFilled />
-              </el-icon>
-            </el-button>
-            <el-button @click="resetForm(ruleFormRef)" type="warning">Reset<el-icon class="el-icon--right">
-                <RefreshLeft />
-              </el-icon>
-            </el-button>
+             
+          <el-row class="mb-4  md-5" justify="center">
+  <el-button @click="back" type="primary">
+    <ArrowLeft /> <el-icon class="el-icon--left" /> Back
+  </el-button>
+  <el-button v-if="showNext" @click="next" type="primary"> Next <el-icon class="el-icon--right">
+    <ArrowRight />
+  </el-icon>
+  </el-button>
+  <el-button v-if="showSubmit" @click="submitForm(ruleFormRef)" type="success">Save<el-icon class="el-icon--right">
+    <CircleCheckFilled />
+  </el-icon>
+  </el-button>
+  <el-button @click="resetForm(ruleFormRef)" type="warning">Reset<el-icon class="el-icon--right">
+    <RefreshLeft />
+  </el-icon>
+  </el-button>
+</el-row>
        
 
 
