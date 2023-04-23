@@ -106,7 +106,7 @@ const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const activeTab = ref('list')
-
+const enableSubcounty =ref(false)
 
 const total = ref(0)
 const totalRejected = ref(0)
@@ -151,6 +151,7 @@ const { t } = useI18n()
 
 const handleClear = async () => {
   console.log('cleared....')
+  enableSubcounty.value=false
 
   // clear all the fileters -------
   filterValues = []
@@ -1162,11 +1163,21 @@ const getSubCountyNames = async () => {
   })
 }
 
+ 
+  const onClear = async () => {
+    console.log('Selected value has been cleared.');
+    enableSubcounty.value=false   // allow selection of subcounty 
 
+    }
 
 
 
 const filterByCounty = async (county_id: any) => {
+
+
+  if (county_id) {
+    enableSubcounty.value=true   // allow selection of subcounty 
+  }
   var selectOption = 'county_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
@@ -1711,22 +1722,20 @@ const handleUploadGeo = async (uploadFile) => {
 
  
     <el-row>
-      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-
-        <div style="display: inline-block; margin-top: 5px">
+      <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+        <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
           <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
             filterable collapse-tags placeholder="By County">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
-
-
         </div>
+      </el-col>
+        <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
 
-
-        <div style="display: inline-block; margin-top: 5px">
-          <el-select
-size="default" v-model="value5" :onChange="filterBySubCounty" :onClear="handleClear" multiple
+          <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+           <el-select
+:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" :onClear="handleClear" multiple
             clearable filterable collapse-tags placeholder="By Subcounty">
             <el-option
 v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
@@ -1735,26 +1744,26 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
         </div>
 
       </el-col>
-      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+      <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
         <div style="display: inline-block; margin-top: 5px">
           <el-select
 size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
             reserve-keyword placeholder="Search by Name" />
         </div>
       </el-col>
-      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+      <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
         <div style="display: inline-block; margin-top: 5px">
-          <div style="display: inline-block; margin-left: 20px">
+          <div style="display: inline-block; margin-left: 5px">
             <el-button :onClick="handleClear" type="primary" :icon="Filter" />
           </div>
 
-          <div style="display: inline-block; margin-left: 20px">
+          <div style="display: inline-block; margin-left: 5px">
             <el-tooltip content="Add Project" placement="top">
               <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
             </el-tooltip>
           </div>
 
-          <div style="display: inline-block; margin-left: 20px">
+          <div style="display: inline-block; margin-left: 5px">
             <el-tooltip content="Download" placement="top">
               <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
             </el-tooltip>

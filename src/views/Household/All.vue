@@ -2,12 +2,12 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch} from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownItem, ElDropdownMenu,
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownItem, ElDropdownMenu,ElOptionGroup
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
@@ -21,6 +21,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocu
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { uuid } from 'vue-uuid'
+import { getFile } from '@/api/summary'
 
 import xlsx from "json-as-xlsx"
 import { getAllGeo } from '@/api/settlements'
@@ -124,7 +125,7 @@ var filterValues = []
 var tblData = []
 
 const associated_Model = ''
-const associated_multiple_models = ['settlement']
+const associated_multiple_models = ['settlement', 'document']
 
 const model = 'households'
 //// ------------------parameters -----------------------////
@@ -193,7 +194,7 @@ const addMoreDocs = (data: TableSlotDefault) => {
 
 }
 
-const submitMoreDocuments = async () => {
+const xsubmitMoreDocuments = async () => {
   console.log('More files.....', morefileList)
 
   // uploading the documents 
@@ -225,6 +226,43 @@ const submitMoreDocuments = async () => {
   await uploadDocuments(formData)
 
 }
+
+const submitMoreDocuments = async () => {
+  console.log('More files.....', morefileList)
+
+  // uploading the documents 
+  const fileTypes = []
+  const formData = new FormData()
+  let files = []
+  for (var i = 0; i < morefileList.value.length; i++) {
+    console.log('------>file', morefileList.value[i])
+    var format = morefileList.value[i].name.split('.').pop() // get file extension
+    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+    fileTypes.push(format)
+    // formData.append('file', fileList.value[i])
+    // formData.file = fileList.value[i]
+
+    formData.append('model', model)
+
+    formData.append('file', morefileList.value[i].raw)
+    formData.append('format', morefileList.value[i].name.split('.').pop())
+    formData.append('category', documentCategory.value)
+    formData.append('field_id', 'hh_id')
+
+    formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
+    formData.append('code', uuid.v4())
+    formData.append('hh_id', currentRow.value.id)
+
+
+  }
+
+
+  console.log(currentRow.value.id)
+  await uploadFilesBatch(formData)
+
+}
+
+const documentCategory = ref()
 
 
 const onPageChange = async (selPage: any) => {
@@ -801,6 +839,34 @@ const DownloadXlsx = async () => {
 }
 
 
+
+const downloadFile = async (data) => {
+
+console.log(data.name)
+
+const formData = {}
+formData.filename = data.name
+formData.responseType = 'blob'
+await getFile(formData)
+  .then(response => {
+    console.log(response)
+
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', data.name)
+    document.body.appendChild(link)
+    link.click()
+
+  })
+  .catch(error => {
+    console.error('Error downloading file:', error);
+  });
+
+}
+
+
+
 const isMobile = computed(() => appStore.getMobile)
 
 console.log('IsMobile', isMobile)
@@ -815,6 +881,62 @@ if (isMobile.value) {
   actionColumnWidth.value = "160px"
 
 }
+
+
+const DocTypes = ref([])
+const getDocumentTypes = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'document_type',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Document Typest:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+
+    const nestedData = ret.reduce((acc, cur) => {
+      const group = cur.group;
+      if (!acc[group]) {
+      
+        acc[group] = [];
+      }
+
+        if (group =='Other') {
+          acc[group].push(cur); 
+        }
+      return acc;
+    }, {});
+
+    console.log(nestedData.Map)
+    for (let property in nestedData) {
+      let opts = nestedData[property];
+      var doc = {}
+      doc.label = property
+      doc.options = []
+
+      opts.forEach(function (arrayItem) {
+        let opt = {}
+        opt.value = arrayItem.id
+        opt.label = arrayItem.type
+        doc.options.push(opt)
+
+      })
+      DocTypes.value.push(doc)
+
+    }
+    console.log(DocTypes)
+
+  })
+}
+getDocumentTypes()
+
 
 </script>
 
@@ -868,27 +990,33 @@ size="default" v-model="value3" multiple clearable filterable remote :remote-met
                 <h3>Documents</h3>
                 <el-table :data="props.row.documents" border>
                   <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="category" />
-
+                  <el-table-column label="Type" prop="document_type.type" />
+                  <el-table-column label="Size(mb)" prop="size" />
                   <el-table-column label="Actions">
                     <template #default="scope">
-                      <el-link :href="props.row.documents[scope.$index].name" download>
-                        <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
-                      </el-link>
-                      <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm
-confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
-                          icon-color="#626AEF" title="Are you sure to delete this document?"
-                          @confirm="removeDocument(scope.row)">
-                          <template #reference>
-                            <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                          </template>
-                        </el-popconfirm>
-                      </el-tooltip>
+                      <el-dropdown v-if="isMobile">
+                        <span class="el-dropdown-link">Actions</span>
+                        <el-dropdown-menu>
+                          <el-dropdown-item @click="downloadFile(scope.row)">Download</el-dropdown-item>
+                          <el-dropdown-item
+v-if="showAdminButtons"
+                            @click="removeDocument(scope.row)">Remove</el-dropdown-item>
+                        </el-dropdown-menu>
+                      </el-dropdown>
+                      <div v-else>
+                        <el-button type="success" @click="downloadFile(scope.row)">Download</el-button>
+                        <el-button
+type="danger" v-if="showAdminButtons"
+                          @click="removeDocument(scope.row)">Remove</el-button>
+                      </div>
                     </template>
+
                   </el-table-column>
                 </el-table>
-                <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button>
+                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
+                <el-button
+v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                  style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
             </template>
@@ -1001,6 +1129,11 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
     </el-dialog>
 
     <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
+      <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
+        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
+          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+        </el-option-group>
+      </el-select>
       <el-upload
 v-model:file-list="morefileList" class="upload-demo"
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
