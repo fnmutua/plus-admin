@@ -55,7 +55,9 @@ import { onMounted } from 'vue'
 
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 
+import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
 
+import "mapbox-layer-switcher/styles.css";
 
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import { useRoute } from 'vue-router'
@@ -150,6 +152,66 @@ const loadMap = () => {
   map.value.addControl(nav, "top-left");
 
   map.value.on('load', () => {
+
+
+    map.value.addLayer({
+    'id': 'draw-layer',
+    'type': 'fill',
+    'source': {
+      'type': 'geojson',
+      'data': {
+        'type': 'FeatureCollection',
+        'features': []
+      }
+    },
+    'paint': {
+      'fill-color': 'red',
+      'fill-opacity': 0.5
+    },
+    'layout': {}
+  });
+
+  // Set the state of the layer to "draw" to enable drawing on it
+  map.value.setFeatureState({'source': 'draw-layer', 'id': 'draw-layer'}, {'draw': true});
+
+
+
+  map.value.addLayer({
+      id: 'Satellite',
+      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+      type: "raster"
+    });
+
+    map.value.addLayer({
+      id: 'Streets',
+      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
+      type: "raster"
+    }, 'Satellite');
+
+    // switch it off until the user selects to
+    map.value.setLayoutProperty('Satellite', 'visibility', 'none')
+
+
+
+    const layers: MapboxLayerDefinition[] = [
+
+      {
+        id: "Satellite",
+        title: "Satellite",
+        visibility: 'none',
+        type: 'base'
+      },
+
+      {
+        id: "Streets",
+        title: "Streets",
+        visibility: 'none',
+        type: 'base'
+      },
+
+    ];
+    map.value.addControl(new MapboxLayerSwitcherControl(layers));
+
 
 
     map.value.addSource('scope', {

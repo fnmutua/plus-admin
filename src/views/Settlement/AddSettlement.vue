@@ -322,20 +322,11 @@ onMounted(() => {
   });
 
   map.value.addControl(new mapboxgl.NavigationControl());
-  // add marker for project location 
+  // add marker for project location
 
 
-  draw.value = new MapboxDraw({
-    displayControlsDefault: false,
-    controls: {
-      point: false,
-      line_string: false,
-      polygon: showDrawIcons.value,
-      trash: true
-    },
-    
-  });
-  map.value.addControl(draw.value, 'top-left');
+
+  
 
 
   function updateRuleform(feature) {
@@ -356,8 +347,30 @@ onMounted(() => {
     if (e.features[0].geometry.type === 'Polygon') {
       // trigger your function here
       updateRuleform(e.features[0]);
+
+  
+ 
+
     }
   });
+
+
+  
+  // Listen for the draw.delete event
+  map.value.on('draw.delete', function(event) {
+    // Get the IDs of the deleted features
+    var deletedFeatureIds = event.features.map(function(feature) {
+      return feature.id;
+    });
+
+    // Remove the corresponding layers from the map
+    deletedFeatureIds.forEach(function(id) {
+      map.value.removeLayer(id);
+    });
+  });
+
+
+
 
   map.value.on('mousemove', function (e) {
     document.getElementById('coordinates').innerHTML =
@@ -368,6 +381,43 @@ onMounted(() => {
   map.value.on('load', function () {
     // code to execute after the map has finished loading
     console.log("Map has loaded......")
+
+    map.value.addLayer({
+    'id': 'draw-layer',
+    'type': 'fill',
+    'source': {
+      'type': 'geojson',
+      'data': {
+        'type': 'FeatureCollection',
+        'features': []
+      }
+    },
+    'paint': {
+      'fill-color': 'red',
+      'fill-opacity': 0.5
+    },
+    'layout': {}
+  });
+
+  // Set the state of the layer to "draw" to enable drawing on it
+  map.value.setFeatureState({'source': 'draw-layer', 'id': 'draw-layer'}, {'draw': true});
+
+
+  
+
+  draw.value = new MapboxDraw({
+    displayControlsDefault: false,
+    controls: {
+      point: false,
+      line_string: false,
+      polygon: showDrawIcons.value,
+      trash: true
+    },
+    
+  });
+  map.value.addControl(draw.value, 'top-left');
+
+
 
 
     map.value.addLayer({
@@ -425,16 +475,16 @@ onMounted(() => {
     });
 
 
+
+  
+ 
+
   });
 
 
 })
 
-
-
-
-
-var markers = [];
+ 
 
  
 

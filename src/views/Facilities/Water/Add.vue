@@ -233,18 +233,6 @@ onMounted(() => {
   // add marker for project location 
 
 
-  draw.value = new MapboxDraw({
-    displayControlsDefault: false,
-    controls: {
-      point: true,
-      line_string: false,
-      polygon: false,
-      trash: true
-    },
-
-  });
-  map.value.addControl(draw.value, 'top-left');
-
   function updateRuleform(feature) {
     // do something with the new marker feature
     var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
@@ -273,6 +261,45 @@ onMounted(() => {
   map.value.on('load', function () {
     // code to execute after the map has finished loading
     console.log("Map has loaded......")
+
+
+
+    map.value.addLayer({
+    'id': 'draw-layer',
+    'type': 'fill',
+    'source': {
+      'type': 'geojson',
+      'data': {
+        'type': 'FeatureCollection',
+        'features': []
+      }
+    },
+    'paint': {
+      'fill-color': 'red',
+      'fill-opacity': 0.5
+    },
+    'layout': {}
+  });
+
+  // Set the state of the layer to "draw" to enable drawing on it
+  map.value.setFeatureState({'source': 'draw-layer', 'id': 'draw-layer'}, {'draw': true});
+
+
+
+    
+  draw.value = new MapboxDraw({
+    displayControlsDefault: false,
+    controls: {
+      point: true,
+      line_string: false,
+      polygon: false,
+      trash: true
+    },
+
+  });
+  map.value.addControl(draw.value, 'top-left');
+
+
 
 
     map.value.addLayer({
