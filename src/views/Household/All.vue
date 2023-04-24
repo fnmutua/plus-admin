@@ -944,19 +944,20 @@ getDocumentTypes()
   <ContentWrap :title="t('Households')" :message="t('Use the filters to subset')">
      <el-row>
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-
         <div style="display: inline-block; margin-right: 5px">
           <el-select
 size="default" v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple
             clearable filterable collapse-tags placeholder="By Settlement">
             <el-option v-for="item in settOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
+          </el-select>         
         </div>
-          <div style="display: inline-block; margin-top: 5px">
-          <el-select
+        
+        <div style="display: inline-block; margin-right: 5px">
+          <el-select  
 size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
             reserve-keyword placeholder="Search by Name" />
         </div>
+
       </el-col>
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
         <div style="display: inline-block; margin-top: 5px">
