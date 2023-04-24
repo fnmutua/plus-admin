@@ -286,27 +286,6 @@ console.log('Online Status',state)
   // add marker for project location 
 
 
-  draw.value = new MapboxDraw({
-    displayControlsDefault: false,
-    controls: {
-      point: true,
-      line_string: false,
-      polygon: false,
-      trash: true
-    },
-    styles: [
-      // define the style for the default blue marker icon
-      {
-        "id": "gl-draw-point",
-        "type": "circle",
-        "paint": {
-          "circle-radius": 6,
-          "circle-color": "red"
-        }
-      }
-    ]
-  });
-  map.value.addControl(draw.value, 'top-left');
 
 
   function updateRuleform(feature) {
@@ -339,6 +318,51 @@ console.log('Online Status',state)
   map.value.on('load', function () {
     // code to execute after the map has finished loading
     console.log("Map has loaded......")
+
+   
+
+    map.value.addLayer({
+    'id': 'draw-layer',
+    'type': 'fill',
+    'source': {
+      'type': 'geojson',
+      'data': {
+        'type': 'FeatureCollection',
+        'features': []
+      }
+    },
+    'paint': {
+      'fill-color': 'red',
+      'fill-opacity': 0.5
+    },
+    'layout': {}
+  });
+
+  // Set the state of the layer to "draw" to enable drawing on it
+  map.value.setFeatureState({'source': 'draw-layer', 'id': 'draw-layer'}, {'draw': true});
+
+
+  draw.value = new MapboxDraw({
+    displayControlsDefault: false,
+    controls: {
+      point: true,
+      line_string: false,
+      polygon: false,
+      trash: true
+    },
+    styles: [
+      // define the style for the default blue marker icon
+      {
+        "id": "gl-draw-point",
+        "type": "circle",
+        "paint": {
+          "circle-radius": 6,
+          "circle-color": "red"
+        }
+      }
+    ]
+  });
+  map.value.addControl(draw.value, 'top-left');
 
 
     map.value.addLayer({

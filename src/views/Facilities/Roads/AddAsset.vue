@@ -202,28 +202,6 @@ onMounted(() => {
   // add marker for project location 
 
 
-  draw.value = new MapboxDraw({
-    displayControlsDefault: false,
-    controls: {
-      point: true,
-      line_string: false,
-      polygon: false,
-      trash: true
-    },
-    styles: [
-      // define the style for the default blue marker icon
-      {
-        "id": "gl-draw-point",
-        "type": "circle",
-        "paint": {
-          "circle-radius": 6,
-          "circle-color": "red"
-        }
-      }
-    ]
-  });
-  map.value.addControl(draw.value, 'top-left');
-
 
   function updateRuleform(feature) {
     // do something with the new marker feature
@@ -251,7 +229,53 @@ onMounted(() => {
     // code to execute after the map has finished loading
     console.log("Map has loaded......")
 
+    map.value.addLayer({
+    'id': 'draw-layer',
+    'type': 'fill',
+    'source': {
+      'type': 'geojson',
+      'data': {
+        'type': 'FeatureCollection',
+        'features': []
+      }
+    },
+    'paint': {
+      'fill-color': 'red',
+      'fill-opacity': 0.5
+    },
+    'layout': {}
+  });
 
+  // Set the state of the layer to "draw" to enable drawing on it
+  map.value.setFeatureState({'source': 'draw-layer', 'id': 'draw-layer'}, {'draw': true});
+
+
+
+    
+  draw.value = new MapboxDraw({
+    displayControlsDefault: false,
+    controls: {
+      point: true,
+      line_string: false,
+      polygon: false,
+      trash: true
+    },
+    styles: [
+      // define the style for the default blue marker icon
+      {
+        "id": "gl-draw-point",
+        "type": "circle",
+        "paint": {
+          "circle-radius": 6,
+          "circle-color": "red"
+        }
+      }
+    ]
+  });
+  map.value.addControl(draw.value, 'top-left');
+
+
+  
     map.value.addLayer({
       id: 'Satellite',
       source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
@@ -360,7 +384,8 @@ const handleInputCoordinates = () => {
     <el-row :gutter="20">
       <el-col :span="24" :lg="12" :md="24" :sm="24" :xs="24">
         <el-card class="box-card">
-          <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
+          <el-form
+ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
             status-icon>
 
             <el-row>
@@ -376,7 +401,8 @@ const handleInputCoordinates = () => {
               <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Type" prop="asset_type">
                   <el-select v-model="ruleForm.asset_type" filterable placeholder="Select">
-                    <el-option v-for="item in AssetTypeOptions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in AssetTypeOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </el-form-item>
@@ -386,7 +412,8 @@ const handleInputCoordinates = () => {
             <el-row>
               <el-form-item label="Condition" prop="asset_condition">
                 <el-select v-model="ruleForm.asset_condition" filterable placeholder="Select">
-                  <el-option v-for="item in AssetConditionOptions" :key="item.value" :label="item.label"
+                  <el-option
+v-for="item in AssetConditionOptions" :key="item.value" :label="item.label"
                     :value="item.value" />
                 </el-select>
               </el-form-item>
@@ -394,7 +421,8 @@ const handleInputCoordinates = () => {
             <el-row>
 
               <el-form-item label="Location" prop="location">
-                <el-switch style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
+                <el-switch
+style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
                   @change="handleFlipSwitch" class="mb-2" active-text="Input Coordinates" inactive-text="Digitize" />
               </el-form-item>
             </el-row>
@@ -403,7 +431,8 @@ const handleInputCoordinates = () => {
               <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
 
                 <el-form-item v-if="digitize" label="Latitude" prop="latitude">
-                  <el-input-number v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
+                  <el-input-number
+v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
                     @change="handleInputCoordinates" />
                 </el-form-item>
               </el-col>
@@ -411,7 +440,8 @@ const handleInputCoordinates = () => {
               <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
 
                 <el-form-item v-if="digitize" label="Longitude" prop="longitude">
-                  <el-input-number v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
+                  <el-input-number
+v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
                     @change="handleInputCoordinates" />
                 </el-form-item>
               </el-col>
