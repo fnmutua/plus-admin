@@ -81,43 +81,7 @@ const getAll = async () => {
     nmap.addControl(nav, "top-right");
 
 
-    var pol = {
-      "type": "FeatureCollection",
-      "features": [
-        {
-          "type": "Feature",
-          "properties": {},
-          "geometry": {
-            "coordinates": [
-              [
-                [
-                  36.12173989331012,
-                  2.1141945486082108
-                ],
-                [
-                  36.12173989331012,
-                  1.3939869331683639
-                ],
-                [
-                  37.55102761788126,
-                  1.3939869331683639
-                ],
-                [
-                  37.55102761788126,
-                  2.1141945486082108
-                ],
-                [
-                  36.12173989331012,
-                  2.1141945486082108
-                ]
-              ]
-            ],
-            "type": "Polygon"
-          }
-        }
-      ]
-    }
-
+  
 
 
     nmap.on('load', () => {

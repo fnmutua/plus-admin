@@ -124,6 +124,7 @@ const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
+const showEditButtons = ref(false)
 
 
 
@@ -134,7 +135,11 @@ if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) 
   showAdminButtons.value = true
 }
 
-
+// Show Edit buttons 
+if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
+}
 console.log("Show Buttons -->", showAdminButtons)
 
 
@@ -1207,6 +1212,13 @@ const confirmReject = async () => {
 
 }
 
+const tableRowClassName = (data) => {
+  // console.log('Row Styling --------->', data.row)
+  if (data.row.documents.length > 0) {
+    return 'warning-row'
+  }
+  return ''
+}
 
 </script>
 
@@ -1244,7 +1256,7 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </div>
-        <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
+        <div v-if="showEditButtons" style="display: inline-block; margin-left: 20px">
           <el-tooltip content="Add Facility" placement="top">
             <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
           </el-tooltip>
@@ -1252,7 +1264,7 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
 
 
 
-        <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border>
+        <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border   :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1278,9 +1290,9 @@ v-if=showAdminButtons @click="removeDocument(scope.row)" :icon="Delete"
                       </el-dropdown>
                       <div v-else>
                         <el-button
-v-if=showAdminButtons type="success" @click="downloadFile(scope.row)"
+v-if=showEditButtons type="success" @click="downloadFile(scope.row)"
                           :icon="Download" />
-                        <el-button type="danger" @click="removeDocument(scope.row)" :icon="Delete" />
+                        <el-button v-if=showAdminButtons type="danger" @click="removeDocument(scope.row)" :icon="Delete" />
                       </div>
                     </template>
 
@@ -1288,7 +1300,7 @@ v-if=showAdminButtons type="success" @click="downloadFile(scope.row)"
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
                 <el-button
-v-if=showAdminButtons type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+v-if=showEditButtons type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1322,7 +1334,7 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
 
               <div v-else>
 
-                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
                   <el-button
 type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
                     circle />
@@ -1369,7 +1381,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 
 
-      <el-tab-pane name="new" v-if=showAdminButtons>
+      <el-tab-pane name="new" v-if=showEditButtons>
         <template #label>
           <span class="custom-tabs-label">
             <el-badge type="success" :value="totalNew" class="item">
@@ -1378,7 +1390,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           </span>
         </template>
 
-        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border>
+        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1444,7 +1456,7 @@ v-if=showAdminButtons type="success" :icon="Plus" circle @click="addMoreDocs(pro
 
               <div v-else>
 
-                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
                   <el-button
 type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
                     circle />
@@ -1490,7 +1502,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
             </el-badge>
           </span>
         </template>
-        <el-table :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border>
+        <el-table :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border   :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">

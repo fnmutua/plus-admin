@@ -117,7 +117,7 @@ const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
-
+const showEditButtons = ref(false)
 
 
 
@@ -127,7 +127,11 @@ if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) 
   showAdminButtons.value = true
 }
 
-
+// Show Edit buttons 
+if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
+}
 console.log("Show Buttons -->", showAdminButtons)
 
 
@@ -1258,6 +1262,13 @@ const confirmReject = async () => {
 
 }
 
+const tableRowClassName = (data) => {
+  // console.log('Row Styling --------->', data.row)
+  if (data.row.documents.length > 0) {
+    return 'warning-row'
+  }
+  return ''
+}
 
 </script>
 
@@ -1276,13 +1287,15 @@ const confirmReject = async () => {
 
 
         <div style="display: inline-block;">
-          <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
+          <el-select
+v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by Settlement">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
         <div style="display: inline-block; margin-left: 20px">
-          <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
+          <el-select
+v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by  Name">
             <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -1293,14 +1306,14 @@ const confirmReject = async () => {
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </div>
-        <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
+        <div v-if="showEditButtons" style="display: inline-block; margin-left: 20px">
           <el-tooltip content="Add Road" placement="top">
             <el-button :onClick="AddFacility" type="primary">
               <Icon icon="material-symbols:add-road" width="24" />
             </el-button>
           </el-tooltip>
         </div>
-        <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
+        <div v-if="showEditButtons" style="display: inline-block; margin-left: 20px">
           <el-tooltip content="Add Structure" placement="top">
             <el-button :onClick="AddAsset" type="primary" :icon="Plus">
               <Icon icon="ph:bridge" width="18" />
@@ -1308,7 +1321,7 @@ const confirmReject = async () => {
           </el-tooltip>
         </div>
 
-        <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border>
+        <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border   :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1327,21 +1340,24 @@ const confirmReject = async () => {
                         </span>
                         <el-dropdown-menu>
                           <el-dropdown-item @click="downloadFile(scope.row)" :icon="Download" color="green" />
-                          <el-dropdown-item v-if=showAdminButtons @click="removeDocument(scope.row)" :icon="Delete"
+                          <el-dropdown-item
+v-if=showAdminButtons @click="removeDocument(scope.row)" :icon="Delete"
                             color="red" />
                         </el-dropdown-menu>
                       </el-dropdown>
                       <div v-else>
-                        <el-button v-if=showAdminButtons type="success" @click="downloadFile(scope.row)"
+                        <el-button
+v-if=showEditButtons type="success" @click="downloadFile(scope.row)"
                           :icon="Download" />
-                        <el-button type="danger" @click="removeDocument(scope.row)" :icon="Delete" />
+                        <el-button v-if=showAdminButtons  type="danger" @click="removeDocument(scope.row)" :icon="Delete" />
                       </div>
                     </template>
 
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button v-if=showAdminButtons type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button
+v-if=showEditButtons type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1362,11 +1378,13 @@ const confirmReject = async () => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="viewProfile(scope as TableSlotDefault)"
+                    <el-dropdown-item
+@click="viewProfile(scope as TableSlotDefault)"
                       :icon="Position">View</el-dropdown-item>
 
 
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1376,24 +1394,28 @@ const confirmReject = async () => {
 
               <div v-else>
 
-                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
+                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Profile" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
+                  <el-button
+type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Profile" placement="top">
-                  <el-button type="primary" size="small" :icon="TopRight"
+                  <el-button
+type="primary" size="small" :icon="TopRight"
                     @click="viewProfile(scope.row as TableSlotDefault)" circle />
                 </el-tooltip>
 
 
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this facility?" width="150"
                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -1409,7 +1431,8 @@ const confirmReject = async () => {
 
         </el-table>
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -1418,7 +1441,7 @@ const confirmReject = async () => {
 
 
 
-      <el-tab-pane name="new" v-if=showAdminButtons>
+      <el-tab-pane name="new" v-if=showEditButtons>
         <template #label>
           <span class="custom-tabs-label">
             <el-badge type="success" :value="totalNew" class="item">
@@ -1427,7 +1450,7 @@ const confirmReject = async () => {
           </span>
         </template>
 
-        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border>
+        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1446,13 +1469,15 @@ const confirmReject = async () => {
                         </span>
                         <el-dropdown-menu>
                           <el-dropdown-item @click="downloadFile(scope.row)" :icon="Download" color="green" />
-                          <el-dropdown-item v-if=showAdminButtons @click="removeDocument(scope.row)" :icon="Delete"
+                          <el-dropdown-item
+v-if=showAdminButtons @click="removeDocument(scope.row)" :icon="Delete"
                             color="red" />
                         </el-dropdown-menu>
                       </el-dropdown>
                       <div v-else>
                         <el-button type="success" @click="downloadFile(scope.row)" :icon="Download" />
-                        <el-button v-if=showAdminButtons type="danger" @click="removeDocument(scope.row)"
+                        <el-button
+v-if=showAdminButtons type="danger" @click="removeDocument(scope.row)"
                           :icon="Delete" />
                       </div>
                     </template>
@@ -1460,7 +1485,8 @@ const confirmReject = async () => {
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button v-if=showAdminButtons type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button
+v-if=showEditButtons type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1481,7 +1507,8 @@ const confirmReject = async () => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="viewProfile(scope as TableSlotDefault)"
+                    <el-dropdown-item
+@click="viewProfile(scope as TableSlotDefault)"
                       :icon="Position">View</el-dropdown-item>
 
 
@@ -1492,23 +1519,27 @@ const confirmReject = async () => {
 
               <div v-else>
 
-                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
+                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Profile" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
+                  <el-button
+type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Profile" placement="top">
-                  <el-button type="primary" size="small" :icon="TopRight"
+                  <el-button
+type="primary" size="small" :icon="TopRight"
                     @click="viewProfile(scope.row as TableSlotDefault)" circle />
                 </el-tooltip>
 
                 <el-tooltip content="Review" placement="top">
-                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
+                  <el-button
+v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
 
@@ -1520,7 +1551,8 @@ const confirmReject = async () => {
 
         </el-table>
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalNew" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
@@ -1552,19 +1584,20 @@ const confirmReject = async () => {
                         </span>
                         <el-dropdown-menu>
                           <el-dropdown-item @click="downloadFile(scope.row)" :icon="Download" color="green" />
-                          <el-dropdown-item @click="removeDocument(scope.row)" :icon="Delete" color="red" />
+                          <el-dropdown-item v-if=showAdminButtons @click="removeDocument(scope.row)" :icon="Delete" color="red" />
                         </el-dropdown-menu>
                       </el-dropdown>
                       <div v-else>
                         <el-button type="success" @click="downloadFile(scope.row)" :icon="Download" />
-                        <el-button type="danger" @click="removeDocument(scope.row)" :icon="Delete" />
+                        <el-button v-if=showAdminButtons  type="danger" @click="removeDocument(scope.row)" :icon="Delete" />
                       </div>
                     </template>
 
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button
+type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1584,14 +1617,17 @@ const confirmReject = async () => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item @click="viewProfile(scope as TableSlotDefault)"
+                    <el-dropdown-item
+@click="viewProfile(scope as TableSlotDefault)"
                       :icon="Position">View</el-dropdown-item>
 
                     <el-tooltip content="Review" placement="top">
-                      <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
+                      <el-button
+v-show="showAdminButtons" type="success" size="small" :icon="View"
                         @click="Review(scope as TableSlotDefault)" circle />
                     </el-tooltip>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1604,20 +1640,23 @@ const confirmReject = async () => {
 
 
                 <el-tooltip content="View Profile" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
+                  <el-button
+type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
 
 
                 <el-tooltip content="View Profile" placement="top">
-                  <el-button type="primary" size="small" :icon="TopRight"
+                  <el-button
+type="primary" size="small" :icon="TopRight"
                     @click="viewProfile(scope.row as TableSlotDefault)" circle />
                 </el-tooltip>
 
 
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                  <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this facility?" width="150"
                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -1633,7 +1672,8 @@ const confirmReject = async () => {
 
         </el-table>
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalRejected" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -1676,7 +1716,8 @@ const confirmReject = async () => {
       </el-select>
 
 
-      <el-upload v-model:file-list="morefileList" class="upload-demo "
+      <el-upload
+v-model:file-list="morefileList" class="upload-demo "
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>
@@ -1711,7 +1752,8 @@ const confirmReject = async () => {
               </el-form-item>
               <el-form-item label="Settlement" prop="settlement_id">
                 <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-                  <el-option v-for="item in settlementOptionsV2" :key="item.value" :label="item.label"
+                  <el-option
+v-for="item in settlementOptionsV2" :key="item.value" :label="item.label"
                     :value="item.value" />
                 </el-select>
               </el-form-item>
@@ -1734,24 +1776,28 @@ const confirmReject = async () => {
             <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
               <el-form-item label="Surface Type" prop="mhm">
                 <el-select v-model="ruleForm.surfaceType" filterable placeholder="surfaceType">
-                  <el-option v-for="item in SurfaceTypeOtions" :key="item.value" :label="item.label"
+                  <el-option
+v-for="item in SurfaceTypeOtions" :key="item.value" :label="item.label"
                     :value="item.value" />
                 </el-select>
               </el-form-item>
 
               <el-form-item label="Condition" prop="mhm">
-                <el-rate v-model="ruleForm.surfaceCondition" :colors="colors" show-text
+                <el-rate
+v-model="ruleForm.surfaceCondition" :colors="colors" show-text
                   :texts="['Under Construction', 'Very Poor', 'Poor', 'good', 'Excellent']" />
               </el-form-item>
 
               <el-form-item label="Drainage Type" prop="mhm">
                 <el-select v-model="ruleForm.drainage" filterable placeholder="drainage">
-                  <el-option v-for="item in drainageTypeOtions" :key="item.value" :label="item.label"
+                  <el-option
+v-for="item in drainageTypeOtions" :key="item.value" :label="item.label"
                     :value="item.value" />
                 </el-select>
               </el-form-item>
               <el-form-item label="Condition" prop="mhm">
-                <el-rate v-model="ruleForm.drainageCondition" :colors="colors" show-text
+                <el-rate
+v-model="ruleForm.drainageCondition" :colors="colors" show-text
                   :texts="['Under Construction', 'Very Poor', 'Poor', 'good', 'Excellent']" />
               </el-form-item>
             </el-col>

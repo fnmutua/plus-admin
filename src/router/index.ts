@@ -1896,7 +1896,47 @@ export const staffRoutes: AppRouteRecordRaw[] = [
 
     ]
   },
- {
+ 
+  {
+    path: '/interventions',
+    component: Layout,
+    redirect: '/interventions/tenure',
+    name: 'Interventions',
+    meta: {
+      title: 'Interventions',
+      icon: 'mdi:office-building-marker-outline',
+      hidden: true
+    },
+    children: [
+      {
+        path: 'add/:domain',
+        name: 'AddInterventionProjectsV2',
+        component: () => import('@/views/Intervention/Project/AddProject.vue'),
+        meta: {
+          title: 'Add Project',
+          hidden: true,
+          props: true,
+          icon:'material-symbols:add-circle-rounded'
+        },
+   
+      },
+      {
+        path: 'tenure',
+        name: 'kisipInterventions',
+        component: Layout,
+        redirect: '/interventions/kisip/project',
+        meta: {
+          title: 'Tenure',
+          icon: 'icon-park-outline:certificate',
+          hidden: true,
+
+        }
+      }
+    ]
+    
+    },
+  
+  {
     path: '/facilities',
     component: Layout,
     redirect: '/facility/all',
