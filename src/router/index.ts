@@ -1867,7 +1867,19 @@ export const staffRoutes: AppRouteRecordRaw[] = [
           icon:'material-symbols:format-list-bulleted-rounded'
         }
       },
-   
+      {
+        path: 'add',
+       // component: 'views/Settlement/Add',
+        component: () => import('@/views/Settlement/AddSettlement.vue'),
+
+        name: 'AddSettlement',
+        meta: {
+          hidden: false,
+          title: 'Add',
+          icon:'material-symbols:add-location-rounded',
+          noCache: true
+        }
+      },
       {
         path: 'map/:id',
       //  component: 'views/Map/SettlementParcelMap',
