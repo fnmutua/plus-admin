@@ -16,6 +16,7 @@ const turf = require('@turf/turf');
 
 exports.signup = (req, res) => {
   console.log('Inside REgistration', req.body)
+  const emails = []
   // Save User to Database
   User.create({
     username: req.body.username,
@@ -33,13 +34,34 @@ exports.signup = (req, res) => {
             }
           }
         }).then((roles) => {
-          user.setRoles(roles).then(() => {
+          user.setRoles(roles).then(async () => {
             var token = jwt.sign({ id: user.id }, config.secret, {
               expiresIn: 86400 // 24 hours
             })
 
-        // Send email to admin about the new reighstration
+        // Send email to admin about the new Regitstration
+        
+            // query for all users with a role_id of 1
+                await User.findAll({
+                  include: [
+                    {
+                      model: Role,
+                      where: { id: 1 }
+                    }
+                  ]
+                }).then(admins => {
+                  // handle the results
+ 
+                  admins.forEach(admin => {
+                    emails.push(admin.email);
+                  });
+                  console.log(emails); // an array of email addresses
 
+                }).catch(error => {
+                  // handle the error
+                  console.log('Fail:',error)
+                });
+            
         var transporter = nodemailer.createTransport({
           service: 'gmail',
           auth: {
@@ -52,10 +74,11 @@ exports.signup = (req, res) => {
         const xCLIENT_URL = 'http://' + req.headers.host
         const CLIENT_URL = req.headers.referer
         console.log('Reset-URL', CLIENT_URL)
+        console.log('Admin Emails >>', emails); // an array of email addresses
 
         const mailOptions = {
           from: 'kisip.mis@gmail.com',
-          to: 'felix.mutua@gmail.com',
+          to: emails,
           subject: 'New KISIP MIS user account',
           text:
             'A new user account (' +  req.body.email + ')has been created. Please review and approve appropriately via this link:\n\n' +
