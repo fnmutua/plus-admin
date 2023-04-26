@@ -127,10 +127,6 @@ const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
 const showEditButtons = ref(false)
 
-
-
-
-
 // flag for admin buttons
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
   showAdminButtons.value = true

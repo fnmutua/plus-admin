@@ -61,7 +61,7 @@ if (isMobile.value) {
   actionColumnWidth.value = "75px"
 } else {
   dialogWidth.value = "25%"
-  actionColumnWidth.value = "160px"
+  actionColumnWidth.value = "100px"
 
 
 }
@@ -87,16 +87,21 @@ const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
+const showEditButtons = ref(false)
 
 // flag for admin buttons
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
   showAdminButtons.value = true
 }
 
-
+// Show Edit buttons 
+if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
+}
 console.log("Show Buttons -->", showAdminButtons)
 
-
+ 
 
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
@@ -651,22 +656,29 @@ const DownloadXlsx = async () => {
   xlsx([dataObj], settings) //  download the excel file
 
 }
-
+const tableRowClassName = (data) => {
+   console.log('Row Styling --------->', data.row)
+  if (data.row.documents.length > 0) {
+    return 'warning-row'
+  }
+  return ''
+}
 
 </script>
 
 <template>
   <ContentWrap :title="t('Evaluations')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
-
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleChangeProject" :onClear="handleClear" multiple clearable filterable
+ 
+    <div style="display: inline-block; margin-left: 0px">
+      <el-select
+v-model="value3" :onChange="handleChangeProject" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by project intervention">
         <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSearchEvaluation" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value4" :onChange="handleSearchEvaluation" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search for an Evaluation">
         <el-option v-for="item in evaluationOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -680,17 +692,16 @@ const DownloadXlsx = async () => {
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
-    <div style="display: inline-block; margin-left: 20px">
+    <div style="display: inline-block; margin-bottom: 20px; margin-left: 20px">
       <el-tooltip content="Add Indicator" placement="top">
-        <el-button v-if="showAdminButtons" :onClick="AddIndicator" type="primary" :icon="Plus" />
+        <el-button v-if="showEditButtons" :onClick="AddIndicator" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
 
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
+ 
 
 
-
-    <el-table :data="tableDataList" :loading="loading" border>
+    <el-table :data="tableDataList" :loading="loading" border  :row-class-name="tableRowClassName">
       <el-table-column type="expand">
         <template #default="props">
           <div m="4">
@@ -705,19 +716,20 @@ const DownloadXlsx = async () => {
                     <span class="el-dropdown-link">Actions</span>
                     <el-dropdown-menu>
                       <el-dropdown-item @click="downloadFile(scope.row)">Download</el-dropdown-item>
-                      <el-dropdown-item @click="removeDocument(scope.row)">Remove</el-dropdown-item>
+                      <el-dropdown-item   v-if="showAdminButtons"  @click="removeDocument(scope.row)">Remove</el-dropdown-item>
                     </el-dropdown-menu>
                   </el-dropdown>
                   <div v-else>
                     <el-button type="success" @click="downloadFile(scope.row)">Download</el-button>
-                    <el-button type="danger" @click="removeDocument(scope.row)">Remove</el-button>
+                    <el-button  v-if="showAdminButtons"  type="danger" @click="removeDocument(scope.row)">Remove</el-button>
                   </div>
                 </template>
 
               </el-table-column>
             </el-table>
             <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-            <el-button type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+            <el-button
+v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
               style="margin-left: 10px;margin-top: 5px" size="small" />
 
           </div>
@@ -746,23 +758,27 @@ const DownloadXlsx = async () => {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="showAdminButtons" @click="editEvaluation(scope as TableSlotDefault)" :icon="Edit"
+                <el-dropdown-item
+v-if="showEditButtons" @click="editEvaluation(scope as TableSlotDefault)" :icon="Edit"
                   color="green">Edit</el-dropdown-item>
-                <el-dropdown-item v-if="showAdminButtons" @click="DeleteEvaluation(scope.row as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteEvaluation(scope.row as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
           <div v-else>
 
-            <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-              <el-button type="success" size="small" :icon="Edit" @click="editEvaluation(scope as TableSlotDefault)"
+            <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
+              <el-button
+type="success" size="small" :icon="Edit" @click="editEvaluation(scope as TableSlotDefault)"
                 circle />
             </el-tooltip>
 
 
             <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this record?" width="150"
                 @confirm="DeleteEvaluation(scope.row as TableSlotDefault)">
                 <template #reference>
@@ -778,7 +794,8 @@ const DownloadXlsx = async () => {
     </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
@@ -836,7 +853,8 @@ const DownloadXlsx = async () => {
       </el-option-group>
     </el-select>
 
-    <el-upload v-model:file-list="morefileList" class="upload-demo "
+    <el-upload
+v-model:file-list="morefileList" class="upload-demo "
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
       <el-button type="primary">Click to upload</el-button>
       <template #tip>

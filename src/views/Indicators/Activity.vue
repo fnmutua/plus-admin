@@ -79,11 +79,24 @@ const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
+const showEditButtons = ref(false)
+
+
+
+
 
 // flag for admin buttons
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
   showAdminButtons.value = true
 }
+
+// Show Edit buttons 
+if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
+}
+console.log("Show Buttons -->", showAdminButtons)
+
 
 
 console.log("Show Buttons -->", showAdminButtons)
@@ -464,6 +477,13 @@ const DownloadXlsx = async () => {
 
 }
 
+const tableRowClassName = (data) => {
+  // console.log('Row Styling --------->', data.row)
+  if (data.row.documents.length > 0) {
+    return 'warning-row'
+  }
+  return ''
+}
 
 </script>
 
@@ -472,7 +492,8 @@ const DownloadXlsx = async () => {
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search Activity">
         <el-option v-for="item in ActivityOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -485,7 +506,7 @@ const DownloadXlsx = async () => {
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-tooltip content="Add Programe" placement="top">
-        <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
+        <el-button  v-if="showEditButtons"  :onClick="AddComponent" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
 
@@ -503,9 +524,11 @@ const DownloadXlsx = async () => {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="showAdminButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
                   color="green">Edit</el-dropdown-item>
-                <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -515,7 +538,8 @@ const DownloadXlsx = async () => {
           <div v-else>
 
             <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-              <el-button type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
+              <el-button
+type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
                 circle />
             </el-tooltip>
 
@@ -523,7 +547,8 @@ const DownloadXlsx = async () => {
 
 
             <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this record?" width="150"
                 @confirm="DeleteIndicator(scope.row as TableSlotDefault)">
                 <template #reference>
@@ -538,7 +563,8 @@ const DownloadXlsx = async () => {
       </el-table-column>
     </el-table>
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
