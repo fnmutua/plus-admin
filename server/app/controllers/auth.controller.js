@@ -229,11 +229,11 @@ exports.updateUser = (req, res) => {
 exports.reset = (req, res) => {
   console.log('Reset password....', req.headers)
   console.log(req.body)
-  if (req.body.username === '') {
+  if (req.body.email === '') {
     res.status(400).send('email required')
   }
   /* console.error(req.body.email); */
-  User.findOne({ where: { username: req.body.username } })
+  User.findOne({ where: { email: req.body.email } })
     .then((user) => {
       //      console.log("Reset fr:", user)
       if (user === null) {
@@ -248,7 +248,7 @@ exports.reset = (req, res) => {
         try {
           const result = User.update(
             { resetPasswordToken: token, resetPasswordExpires: Date.now() + 86400000 },
-            { where: { username: req.body.username } }
+            { where: { email: req.body.email } }
           )
           console.log(result)
         } catch (err) {
@@ -277,7 +277,7 @@ exports.reset = (req, res) => {
 
         const mailOptions = {
           from: 'kisip.mis@gmail.com',
-          to: `${req.body.username}`,
+          to: `${req.body.email}`,
           subject: 'Link To Reset Password',
           text:
             'You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n' +

@@ -32,17 +32,9 @@ const ruleFormRef = ref<FormInstance>()
 
 
 
-const rules = {
-  username: [required()],
-  password: [required()],
-  rptpassword: [required()],
-
-}
 
 
 
-
-console.log('Rules-->', rules)
 
 const schema = reactive<FormSchema[]>([
   {
@@ -103,6 +95,45 @@ const loading = ref(false)
 
 
 const redirect = ref<string>('')
+
+
+
+const passwordValidator = async (rule, value) => {
+  console.log('Validate main password')
+  if (value === '') {
+    return Promise.reject('Please enter the password.');
+  } else if (value.length < 8 || value.length > 20) {
+    return Promise.reject('The password must be between 8 and 20 characters long.');
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/.test(value)) {
+    return Promise.reject('Required: at least one uppercase letter, one lowercase letter, one digit, and one special character.');
+  } else {
+    return Promise.resolve();
+  }
+};
+ 
+
+const passwordMatchValidator = async (rule, value, formData) => {
+  const { getFormData } = methods
+
+  const formDatax = await getFormData<UserType>()
+
+  console.log('formDatax password',  formDatax.password )
+  if  (value !== formDatax.password) {
+    return Promise.reject('Passwords do not match.');
+  } else {
+    return Promise.resolve();
+  }
+};
+
+const rules = {
+  username: [required()],
+  password: [{ validator: passwordValidator, trigger: 'blur' }],
+   rptpassword: [{ validator: (rule, value, formData) => passwordMatchValidator(rule, value, formData, { trigger: 'blur' }), trigger: 'blur' }, required()],
+
+}
+
+
+
 
 watch(
   () => currentRoute.value,
@@ -166,7 +197,8 @@ const reset = () => {
 </script>
 
 <template>
-  <Form :schema="schema" :rules="rules" label-position="top" hide-required-asterisk size="large"
+  <Form
+:schema="schema" :rules="rules" label-position="top" hide-required-asterisk size="large"
     class="dark:(border-1 border-[var(--el-border-color)] border-solid)" @register="register">
     <template #title>
       <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('Reset Password') }}</h2>

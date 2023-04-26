@@ -863,7 +863,7 @@ exports.modelActivateUser = (req, res) => {
 
       const mailOptions = {
         from: 'kisip.mis@gmail.com',
-        to: `${req.body.username}`,
+        to: `${req.body.email}`,
         subject: 'Account Status',
         text: 'Dear ' + `${req.body.name}` + '. \n\n' + msg + '\n\n' + 'Systems Administrator.'
       }

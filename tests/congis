@@ -1,0 +1,39 @@
+export token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNjgyMzM1MTg4LCJleHAiOjE2ODI0MjE1ODh9.GYTx8hSCH0bSCY9POju1GSfLHxmU9JvAPuiGjfFwpqU
+
+
+"{\"id\":1,\"name\":\"Felix Mutua\",\"roles\":[\"super_admin\",\"admin\"],\"data\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNjgyMzM1MTg4LCJleHAiOjE2ODI0MjE1ODh9.GYTx8hSCH0bSCY9POju1GSfLHxmU9JvAPuiGjfFwpqU\",\"county_id\":47}"
+
+
+
+
+echo ${env.token}
+
+
+
+{
+    "limit": 5,
+    "page": 1,
+    "curUser": 1,
+    "model": "settlement",
+    "searchField": "name",
+    "searchKeyword": "",
+    "assocModel": "",
+    "filters": [
+        "settlement_type"
+    ],
+    "filterValues": [
+        [
+            1,
+            2
+        ]
+    ],
+    "associated_multiple_models": [
+        "county",
+        "subcounty",
+        "users"
+    ],
+    "nested_models": [
+        "document",
+        "document_type"
+    ]
+}

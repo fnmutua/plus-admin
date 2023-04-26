@@ -113,6 +113,8 @@ const ruleForm = reactive({
   description: '',
   activities: '',
   geom: '',
+  latitude: null,
+  logitude:null,
   code: ''
 })
 
@@ -137,6 +139,30 @@ const locationOptions = [
   },
 ]
 
+
+
+const source_location =ref('')
+
+const showButtons = ref(true)
+ const draw = ref(new MapboxDraw({
+    displayControlsDefault: false,
+    // Select which mapbox-gl-draw control buttons to add to the map.
+    controls: {
+      polygon: showButtons.value,
+      line_string: showButtons.value,
+      uncombine_features: showButtons.value,
+      point: showButtons.value,
+      trash: true
+    },
+    // Set mapbox-gl-draw to draw by default.
+    // The user does not have to click the polygon control button first.
+    defaultMode: 'draw_polygon'
+}))
+
+
+
+
+
 // Load map
 const loadMap = () => {
   mapboxgl.accessToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw';
@@ -152,6 +178,17 @@ const loadMap = () => {
   map.value.addControl(nav, "top-left");
 
   map.value.on('load', () => {
+
+    map.value.addControl(draw.value);
+
+
+    
+  map.value.on('mousemove', function (e) {
+    document.getElementById('coordinates').innerHTML =
+      'Lon: ' + e.lngLat.lng.toFixed(4) + ' Lat: ' + e.lngLat.lat.toFixed(4);
+  });
+
+
 
 
     map.value.addLayer({
@@ -256,22 +293,7 @@ const loadMap = () => {
 
   });
 
-  const draw = new MapboxDraw({
-    displayControlsDefault: false,
-    // Select which mapbox-gl-draw control buttons to add to the map.
-    controls: {
-      polygon: true,
-      line_string: true,
-      uncombine_features: false,
-      point: true,
-      trash: true
-    },
-    // Set mapbox-gl-draw to draw by default.
-    // The user does not have to click the polygon control button first.
-    defaultMode: 'draw_polygon'
-  });
-  map.value.addControl(draw);
-
+ 
 
   map.value.on('draw.create', updatePoly);
   map.value.on('draw.delete', deletePoly);
@@ -283,6 +305,52 @@ const loadMap = () => {
 
   //--- 
 }
+var markers = [];
+
+
+const handleInputCoordinates = () => {
+
+if (ruleForm.longitude && ruleForm.latitude) {
+  console.log(ruleForm.longitude)
+  console.log(ruleForm.latitude)
+  var markerCoordinates = [ruleForm.longitude, ruleForm.latitude]
+
+
+  var geometry = {
+    "type": "Point",
+    "coordinates": [ruleForm.longitude, ruleForm.latitude],
+    "crs": { type: 'name', properties: { name: 'EPSG:4326' } }
+
+  };
+
+  var feature = turf.feature(geometry);
+  ruleForm.geom = feature.geometry
+
+
+  // Remove all the markers from the map
+  for (var i = 0; i < markers.length; i++) {
+    markers[i].remove();
+  }
+
+  markers.push(new mapboxgl.Marker().setLngLat([ruleForm.longitude, ruleForm.latitude]).addTo(map.value));
+
+  // assuming you have a marker object and a map object already defined
+
+  // get the marker coordinates
+
+  // fly to the marker coordinates
+  map.value.flyTo({
+    center: markerCoordinates,
+    zoom: 8, // optional, sets the zoom level
+    essential: true // optional, sets the animation as an essential gesture for full-screen mode
+  });
+
+
+}
+
+}
+
+
 onMounted(() => {
   console.log('Loaded.......')
   component_id.value = route.params.domain
@@ -752,6 +820,16 @@ const AddSettlement = () => {
 const showCounty = ref(false)
 const showSettlement = ref(false)
 
+
+
+const digitize = ref(false)
+
+const handleFlipSwitch = () => {
+   
+ console.log('Diasbale Draw',digitize.value )
+}
+
+
 const handleSelectLocation = async (location: any) => {
   if (location == 2) {
     // county 
@@ -924,6 +1002,50 @@ const back = () => {
   }
 }
 
+const handleChangeSource = async (source: any) => {
+
+// Get a list of the controls on the map
+const controls = map.value.getControls();
+
+console.log(controls); // [NavigationControl, GeolocateControl]
+
+  if (source == 'digitize') { 
+    console.log('xxx')
+    showButtons.value=true
+  } else {
+
+    showButtons.value = false
+
+  }
+
+ 
+    
+
+
+  // if (source == 'digitize') {
+      
+  
+      
+  //       map.value.addControl(draw);
+  //      drawId.value = draw.getAll().features[0].id 
+
+ 
+   
+
+     
+
+
+  //  }  
+ 
+ 
+
+
+
+ 
+
+
+
+}
 
 </script>
 
@@ -1017,6 +1139,10 @@ v-model="ruleForm.county_id" filterable placeholder="Select County"
               </el-col>
 
             </el-row>
+
+          
+
+
             <el-row v-if="showForm">
               <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
 
@@ -1037,18 +1163,41 @@ v-for="item in activityOptions" :key="item.value" :label="item.label"
                 </el-form-item>
               </el-col>
             </el-row>
+    
+
+
+
             <el-row v-if="showGeoFields">
-              <el-form-item v-if="showGeoFields" label="Location">
-                <el-switch
-width="200px" v-model="geoSource"
-                  style="--el-switch-on-color: orange; --el-switch-off-color: purple" class="mb-2"
-                  active-text="Upload Geojson File" inactive-text="Draw on Map" />
-              </el-form-item>
-            </el-row>
+                <el-form-item label="Location" prop="source_location">
+                  <el-select v-model="source_location" filterable placeholder="Select"  @change="handleChangeSource">
+                    <el-option   label="Coordinates" value="coordinates" />
+                    <el-option   label="Digitize" value="digitize" />
+                    <el-option   label="Upload" value="upload" />
+                  </el-select>
+                </el-form-item>
+         
+              </el-row>
 
+ 
+              <el-row v-if="source_location=='coordinates'">
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item v-if="!digitize" label="Latitude" prop="latitude">
+                    <el-input-number
+v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
+                      @change="handleInputCoordinates" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item v-if="!digitize" label="Longitude" prop="longitude">
+                    <el-input-number
+v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
+                      @change="handleInputCoordinates" />
+                  </el-form-item>
+                </el-col>
 
+              </el-row>
             <el-upload
-v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
+v-if="source_location=='upload'" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :on-change="handleUploadGeo">
               <el-icon class="el-icon--upload"><upload-filled /></el-icon>
               <div class="el-upload__text">
@@ -1091,6 +1240,7 @@ v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto
         <el-card>
 
           <div id="mapContainer" class="basemap"></div>
+          <div id='coordinates' class='coordinates'></div>
 
         </el-card>
       </el-col>
@@ -1102,5 +1252,21 @@ v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto
 .basemap {
   width: 100%;
   height: 500px;
+}
+
+.coordinates {
+  display: block;
+  position: relative;
+  width: 24%;
+  bottom: 20px;
+  left: 40%;
+  background-color: rgba(7, 7, 7, 0.85);
+  color: #fbfbfb;
+  text-align: center;
+  /* Center the text inside the paragraph element */
+  font-size: 10px;
+  z-index: 10;
+  border-radius: 5px;
+
 }
 </style>

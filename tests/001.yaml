@@ -1,0 +1,11 @@
+config:
+  target: "http://localhost:4000"
+  phases:
+    - duration: 30
+      arrivalRate: 10
+
+scenarios:
+  - name: "Login"
+    flow:
+      - get:
+          url: "/api/auth/county"

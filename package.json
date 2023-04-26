@@ -33,6 +33,7 @@
     "@fortawesome/free-solid-svg-icons": "^6.2.0",
     "@fortawesome/vue-fontawesome": "^3.0.1",
     "@iconify/iconify": "^2.2.1",
+    "@mapbox/mapbox-gl-draw-static-mode": "^1.0.1",
     "@mapbox/mapbox-gl-geocoder": "^5.0.1",
     "@turf/turf": "^6.5.0",
     "@vueuse/core": "^9.13.0",

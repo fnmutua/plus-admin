@@ -1735,7 +1735,7 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Indicators/indicator_category_report.vue'),
             name: 'PastReports',
             meta: {
-              title: 'Past Reports',
+              title: 'File a Report',
               icon:'mdi:file-document-plus',
             }
           },
@@ -2357,7 +2357,7 @@ export const staffRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Indicators/indicator_category_report.vue'),
             name: 'PastReports',
             meta: {
-              title: 'Past Reports',
+              title: 'File a Report',
               icon:'mdi:file-document-plus',
             }
           },
@@ -3250,7 +3250,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Indicators/indicator_category_report.vue'),
             name: 'PastReports',
             meta: {
-              title: 'Past Reports',
+              title: 'File a Report',
               icon:'mdi:file-document-plus',
             }
           },
@@ -4011,7 +4011,7 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Indicators/indicator_category_report.vue'),
             name: 'PastReports',
             meta: {
-              title: 'Past Reports',
+              title: 'File a Report',
               icon:'mdi:file-document-plus',
             }
           },
