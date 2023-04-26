@@ -284,7 +284,7 @@ const loginRegister = async () => {
         formData.username = formData.username.trim()
         formData.name = formData.name.trim()
 
-        formData.role = ['public']  // remember to change to public // 14 - general user with limited views
+        formData.role = ['public']   // remember to change to public // 14 - general user with limited views
         // formData.role = [formData.role]   // convert the user roles to an array
 
         const res = await registerApi(formData)
