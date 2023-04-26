@@ -33,7 +33,7 @@ module.exports = function (sequelize, DataTypes) {
       },
       isactive: {
         type: DataTypes.BOOLEAN,
-        defaultValue: true
+        defaultValue: false
       },
       phone: {
         type: DataTypes.BIGINT

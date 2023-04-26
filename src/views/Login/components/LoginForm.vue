@@ -37,7 +37,7 @@ const dialogFormVisible = ref(false)
 const formLabelWidth = '140px'
 
 const form = reactive({
-  username: '',
+  email: '',
 })
 
 const schema = reactive<FormSchema[]>([
@@ -263,7 +263,8 @@ const reset = () => {
 </script>
 
 <template>
-  <Form :schema="schema" :rules="rules" label-position="top" hide-required-asterisk size="large"
+  <Form
+:schema="schema" :rules="rules" label-position="top" hide-required-asterisk size="large"
     class="dark:(border-1 border-[var(--el-border-color)] border-solid)" @register="register">
     <template #title>
       <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.login') }}</h2>
@@ -295,7 +296,7 @@ const reset = () => {
 
 
       <el-form-item label="Email" :label-width="formLabelWidth">
-        <el-input v-model="form.username" autocomplete="off" />
+        <el-input v-model="form.email" autocomplete="off" />
       </el-form-item>
 
     </el-form>

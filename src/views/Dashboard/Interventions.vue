@@ -525,7 +525,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
   // Asccoiated models 
   formData.assoc_models = ['county']
   formData.groupFields = ['county.name']
-  formData.cache_key = 'getKisipInclusionSettlementsCountByCounty'
+  formData.cache_key = 'getKisipInclusionSettlementsCountByCounty2'
 
 
   let subCategories = []
@@ -561,7 +561,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
     });
 
   // Same querry but now to get the settleemnts and their GEO
-  const model = 'project'
+
   var filters = ['component_id']
   var filterValues = [[7]] // Infrastructure
 
@@ -582,6 +582,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
   fiterModelData.filters = filters
   fiterModelData.filterValues = filterValues
   fiterModelData.associated_multiple_models = associated_multiple_models
+  fiterModelData.cache_key = 'getKisipInclusionSettlementsCountByCounty2Geo'
 
   //-------------------------
   console.log(fiterModelData)
@@ -615,7 +616,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
 
   InclusionSettlementsMapOptions.value = {
     title: {
-      text: infrastructureSupportedTitle,
+      text: inclusionSupportedTitle,
       subtext: 'National Slum Mapping, 2023',
       sublink: "http://kisip.go.ke",
       left: "right",
@@ -673,7 +674,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
         name: "Settlements",
         type: "effectScatter",
         coordinateSystem: "geo",
-        data: InfrastructureSettlementsMapPoitns.value.sort((a, b) => b.value - a.value).slice(0, 6),
+        data: InclusionSettlementsMapPoints.value.sort((a, b) => b.value - a.value).slice(0, 6),
         symbolSize: val => val[2] / 100,
         showEffectOn: "render",
         rippleEffect: {
@@ -1324,12 +1325,10 @@ const getRoadsConstructed = async () => {
         saveAsImage: { show: true, pixelRatio: 4 }
       }
     },
-
     legend: {
       // Try 'horizontal'
       orient: 'horizontal',
       bottom: 20,
-
     },
     tooltip: {},
     dataset: {
@@ -1349,16 +1348,11 @@ const getRoadsConstructed = async () => {
     // to a column of dataset.source by default.
     series: [{ type: 'bar' }]
   };
-
-
-
-
 }
 
 
 // --------------DPW Beneficiaries KISIP II --------------------------------
 const DPWBeneficiariesv2 = ref()
-
 const getInclusionBeneficiaries = async () => {
   const formData = {}
   formData.model = 'indicator_category_report'
@@ -1368,16 +1362,16 @@ const getInclusionBeneficiaries = async () => {
   formData.assoc_models = ['settlement']
   formData.groupFields = ['settlement.name']
   formData.filterField = 'indicator_category_id'
-  formData.filterValue = [6]
+  formData.filterValue = [6,8]
 
   let subCategories = []
   let maleSeries = []
 
   /// Gravel Roads
-  formData.cache_key = 'getInclusionBeneficiaries'
-
+  formData.cache_key = 'getInclusionBeneficiariesDPWM'
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
+      console.log(response)
       var results = response.Total
       console.log('Inclusion beneficiaries  male county', results)
       results.forEach(function (item) {
@@ -1390,9 +1384,9 @@ const getInclusionBeneficiaries = async () => {
     });
 
   /// Female
-  formData.filterValue = [5]
+  formData.filterValue = [5,7]
   let femaleSeries = []
-  formData.cache_key = 'getInclusionBeneficiaries33'
+  formData.cache_key = 'getInclusionBeneficiariesDPWF'
 
   await getSummarybyFieldFromMultipleIncludes(formData)
     .then(response => {
@@ -1543,7 +1537,8 @@ const activeName = ref('summary')
 
 <template>
   <PanelGroup />
-  <el-tabs v-loading="loading" element-loading-text="Generating maps, charts and tables......." v-model="activeName"
+  <el-tabs
+v-loading="loading" element-loading-text="Generating maps, charts and tables......." v-model="activeName"
     class="demo-tabs">
     <el-tab-pane label="Summary" name="summary">
       <ElRow :gutter="20" justify="space-between">

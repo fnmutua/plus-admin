@@ -234,26 +234,15 @@ const addPolygon = (poly: any) => {
   // ruleForm.geom = poly
 }
 
-const title = 'Add/Create Education Facility'
+const title = 'Add/Create   Project'
 
 
 const map = ref()
 const draw = ref()
 const showDrawMarker = ref(false)
 
+ 
 
-
-const handleFlipSwitch = (e) => {
-
-  console.log(draw.value.isDrawEnabled)
-  // if (draw.value.isDrawEnabled) {
-  //   draw.value.deleteAll();
-  //   draw.value.changeMode('simple_select');
-  // } else {
-  //   draw.value.changeMode('draw_point');
-  // }
-  // draw.value.isDrawEnabled = !draw.value.isDrawEnabled;
-}
 
 const state = reactive({
       isOnline: false,
@@ -416,6 +405,17 @@ console.log('Online Status',state)
 
 var markers = [];
 
+
+
+
+const digitize = ref(true)
+
+
+const handleFlipSwitch = () => {
+
+console.log('Future hide draw')
+}
+
 const handleInputCoordinates = () => {
 
   if (ruleForm.longitude && ruleForm.latitude) {
@@ -458,11 +458,6 @@ const handleInputCoordinates = () => {
 
 }
 
-
-
-
-
-const digitize = ref()
 
 
 

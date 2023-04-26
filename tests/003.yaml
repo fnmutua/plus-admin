@@ -1,0 +1,29 @@
+config:
+  # target: "http://localhost"
+  target: "http://kisip.ags.co.ke"
+  phases:
+    - duration: 60
+      arrivalRate: 100
+      rampTo: 550
+
+  variables:
+    api_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MzQsImlhdCI6MTY4MjM0NDUwMiwiZXhwIjoxNjgyNDMwOTAyfQ.kMwx9NADhAqjHJGn3BiqJPs7PRAkOsljMw8nxPYJwJA"
+ 
+scenarios:
+  - name: "Get Settlements"
+    flow:
+ 
+      - post:
+          url: "/api/v1/data/column/paginated"
+          json:
+              model: "settlement"
+              limit: 5
+              page: 1
+              filters: ["settlement_type"]
+              filterValues: [1,2]
+              associated_multiple_models: ["county"] 
+              nested_models: ["document","document_type"]
+          
+          headers:
+            x-access-token: "{{ api_key }}"
+ 

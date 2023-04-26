@@ -1,0 +1,20 @@
+config:
+  target: "http://localhost"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+  variables:
+    api_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNjgyMzQxNjc4LCJleHAiOjE2ODI0MjgwNzh9.o67cwsFJlgxV6iVf_-fGaWK_VAMlmaneVeCZDmQ8WUw"
+
+scenarios:
+  - name: "Authenticated endpoint test"
+    flow:
+      - get:
+          url: "/api/auth/county"
+          headers:
+            Authorization: "Bearer {{ api_key }}"
+          capture:
+            json: "$.data"
+            as: "response_data"
+
+      - log: "Response data: {{ JSON.stringify($response_data) }}"

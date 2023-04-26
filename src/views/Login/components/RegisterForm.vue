@@ -9,6 +9,7 @@ import { UserType } from '@/api/register/types'
 import { registerApi, getCountyAuth } from '@/api/register'
 import { getCountyListApi } from '@/api/counties'
 import { CountyType } from '@/api/counties/types'
+import { bottom } from '@popperjs/core'
 
 interface Params {
   pageIndex?: number
@@ -114,10 +115,11 @@ const schema = reactive<FormSchema[]>([
     component: 'InputPassword',
     colProps: {
       span: 24
+      
     },
     componentProps: {
       style: {
-        width: '100%'
+        width: '100%',
       },
       strength: true,
       placeholder: t('login.passwordPlaceholder')
@@ -169,9 +171,12 @@ const schema = reactive<FormSchema[]>([
     componentProps: {
       options: countiesOptions,
       filterable: true,
+      value: countiesOptions.value[0], // Set the default value here
 
       style: {
-        width: '100%'
+        width: '100%',
+        paddingTop: '10px'
+
       },
       slots: {
         suffix: true,
@@ -188,11 +193,72 @@ const schema = reactive<FormSchema[]>([
   }
 ])
 
+
+const passwordValidator = async (rule, value) => {
+  console.log('Validate password')
+  if (value === '') {
+    return Promise.reject('Please enter the password.');
+  } else if (value.length < 8 || value.length > 20) {
+    return Promise.reject('The password must be between 8 and 20 characters long.');
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/.test(value)) {
+    return Promise.reject('Required: at least one uppercase letter, one lowercase letter, one digit, and one special character.');
+  } else {
+    return Promise.resolve();
+  }
+};
+
+function validateName(rule: any, value: any, callback: any) {
+  if (value && value.trim().split(/\s+/g).length < 2) {
+    callback(new Error('Name should have at least two names, each at least 3 characters long'))
+  } else {
+    const words = value.trim().split(/\s+/g)
+    const hasInvalidWord = words.some(word => word.length < 3)
+    if (hasInvalidWord) {
+      callback(new Error('Each name should be at least 3 characters long'))
+    } else {
+      callback()
+    }
+  }
+}
+
+function validateEmail(rule, value, callback) {
+  if (!value) {
+    callback(new Error('Email is required'));
+  } else {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
+      callback(new Error('Invalid email format'));
+    } else {
+      callback();
+    }
+  }
+}
+
+
+function validateUsername(rule, value, callback) {
+  if (!value) {
+    callback(new Error('Username is required'));
+  } else {
+    const usernameRegex = /^[a-zA-Z0-9_-]{3,16}$/;
+    if (!usernameRegex.test(value)) {
+      callback(new Error('Invalid username format'));
+    } else {
+      callback();
+    }
+  }
+}
+
+
+
 const rules: FormRules = {
-  name: [required()],
-  username: [required()],
-  email: [required()],
-  password: [required()],
+  name: [
+    { required: true, message: 'Name is required' },
+    { validator: validateName, message: 'Required  at least two names, each at least 3 characters long' }
+  ],
+
+  username:[{ validator: validateUsername, trigger: 'blur' }  ], 
+  email:[{ validator: validateEmail, trigger: 'blur' }  ], 
+  password: [{ validator: passwordValidator, trigger: 'blur' }],
   county_id: [required()]
 }
 
@@ -218,7 +284,7 @@ const loginRegister = async () => {
         formData.username = formData.username.trim()
         formData.name = formData.name.trim()
 
-        formData.role = ['admin']  // remember to change to public // 14 - general user with limited views
+        formData.role = ['public']  // remember to change to public // 14 - general user with limited views
         // formData.role = [formData.role]   // convert the user roles to an array
 
         const res = await registerApi(formData)
