@@ -78,11 +78,20 @@ const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
+const showEditButtons = ref(false)
 
 // flag for admin buttons
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
   showAdminButtons.value = true
 }
+
+// Show Edit buttons 
+if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
+}
+console.log("Show Buttons -->", showAdminButtons)
+
 
 const AddDialogVisible = ref(false)
 const ImportDialogVisible = ref(false)
@@ -101,7 +110,7 @@ var filterValues = [[userInfo.id]]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document']
+const associated_multiple_models = ['document','settlement']
 const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -902,16 +911,15 @@ getInterventionsAll()
 
 //getProjects()
 
+ 
 
 const tableRowClassName = (data) => {
-  console.log('Row Styling --------->', data.row)
-  if (data.row.status === 'Rejected') {
-    return 'danger-row'
+   console.log('Row Styling --------->', data.row)
+  if (data.row.documents.length > 0) {
+    return 'warning-row'
   }
   return ''
 }
-
-
 
 const documentCategory = ref()
 
@@ -1043,8 +1051,7 @@ const DownloadXlsx = async () => {
     thisRecord.indicator = tableDataList.value[i].indicator_category.indicator.name
     thisRecord.quantity = tableDataList.value[i].amount
     thisRecord.settlement = tableDataList.value[i].settlement.name
-    thisRecord.county = tableDataList.value[i].county.name
-    thisRecord.date = tableDataList.value[i].date
+     thisRecord.date = tableDataList.value[i].date
 
 
     dataHolder.push(thisRecord)
@@ -1069,10 +1076,10 @@ const DownloadXlsx = async () => {
 
 <template>
   <ContentWrap :title="t('Monitoring and Evaluation Reports')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
-
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+ 
+    <div style="display: inline-block; margin-left: 0px">
+      <el-select
+v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Filter by Project/Indicator">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -1089,7 +1096,7 @@ const DownloadXlsx = async () => {
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-tooltip content="Add Report " placement="top">
-        <el-button v-if="showAdminButtons" :onClick="AddReport" type="primary" :icon="Plus" />
+        <el-button v-if="showEditButtons" :onClick="AddReport" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
 
@@ -1101,8 +1108,7 @@ const DownloadXlsx = async () => {
 
 
 
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
-    <el-table :data="tableDataList" style="width: 100%" :row-class-name="tableRowClassName">
+     <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border  :row-class-name="tableRowClassName">
       <el-table-column type="expand">
         <template #default="props">
           <div m="4">
@@ -1119,7 +1125,8 @@ const DownloadXlsx = async () => {
                   </el-link>
 
                   <el-tooltip content="Delete" placement="top">
-                    <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                       icon-color="#626AEF" title="Are you sure to delete this document?"
                       @confirm="removeDocument(scope.row)">
                       <template #reference>
@@ -1130,10 +1137,9 @@ const DownloadXlsx = async () => {
                 </template>
               </el-table-column>
             </el-table>
-            <el-button v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+            <el-button
+v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
               style="margin-left: 10px;margin-top: 5px" size="small" />
-
-
           </div>
         </template>
       </el-table-column>
@@ -1151,9 +1157,11 @@ const DownloadXlsx = async () => {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="showAdminButtons" @click="editReport(scope as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showEditButtons" @click="editReport(scope as TableSlotDefault)"
                   :icon="Edit">Edit</el-dropdown-item>
-                <el-dropdown-item v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -1165,12 +1173,14 @@ const DownloadXlsx = async () => {
 
 
             <el-tooltip content="Edit" placement="top">
-              <el-button v-if="showAdminButtons" type="success" :icon="Edit"
+              <el-button
+v-if="showEditButtons" type="success" :icon="Edit"
                 @click="editReport(scope.row as TableSlotDefault)" circle />
             </el-tooltip>
 
             <el-tooltip content="Delete" placement="top">
-              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
                 <template #reference>
                   <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
@@ -1185,7 +1195,8 @@ const DownloadXlsx = async () => {
     </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
@@ -1198,7 +1209,8 @@ const DownloadXlsx = async () => {
         <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
 
           <el-form-item label="Indicator">
-            <el-select filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
+            <el-select
+filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
               placeholder="Select Indicator">
               <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
@@ -1241,9 +1253,11 @@ const DownloadXlsx = async () => {
     </template>
   </el-dialog>
 
-  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
+  <el-dialog
+v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
     draggable>
-    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+    <el-upload
+class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="5" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>
@@ -1284,7 +1298,8 @@ const DownloadXlsx = async () => {
     </el-select>
 
 
-    <el-upload v-model:file-list="morefileList" class="upload-demo"
+    <el-upload
+v-model:file-list="morefileList" class="upload-demo"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
       :on-remove="handleRemove" :before-remove="beforeRemove" :limit="5" :auto-upload="false" :on-exceed="handleExceed">
       <el-button type="primary">Click to upload</el-button>
