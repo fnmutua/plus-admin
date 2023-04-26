@@ -63,9 +63,17 @@ const tabDisabled = ref(true)
 
 // Hide buttons if not admin 
 const showAdminButtons = ref(false)
+const showEditButtons = ref(false)
 
 if (userInfo.roles.includes("admin")) {
   showAdminButtons.value = true
+}
+
+
+// Show Edit buttons 
+if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
 }
 
 const { push } = useRouter()
@@ -1059,13 +1067,12 @@ const DownloadXlsx = async () => {
   // change here !
   for (let i = 0; i < tableDataList.value.length; i++) {
     let thisRecord = {}
-    console.log(tableDataList.value[i].title)
+    console.log(tableDataList.value[i])
     thisRecord.index = i + 1
     thisRecord.title = tableDataList.value[i].title
     thisRecord.settlement = tableDataList.value[i].settlement ? tableDataList.value[i].settlement.name : ''
     thisRecord.county = tableDataList.value[i].county ? tableDataList.value[i].county.name : ''
     thisRecord.component = tableDataList.value[i].component.title
-    thisRecord.programme = tableDataList.value[i].component.programme.title
     thisRecord.female_beneficiaries = tableDataList.value[i].female_beneficiaries
     thisRecord.male_beneficiaries = tableDataList.value[i].male_beneficiaries
     thisRecord.cost = tableDataList.value[i].cost
@@ -1379,7 +1386,8 @@ getActivities()
 
 
           <div style="display: inline-block; margin-bottom: 10px">
-            <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+            <el-select
+v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
               placeholder="Search by Title" style="width: 100%" />
           </div>
 
@@ -1387,7 +1395,7 @@ getActivities()
             <el-button :onClick="handleClear" type="primary" :icon="Filter" />
           </div>
 
-          <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
+          <div v-if="showEditButtons" style="display: inline-block; margin-left: 20px">
             <el-tooltip content="Add Project" placement="top">
               <el-button :onClick="AddProject" type="primary" :icon="Plus" />
             </el-tooltip>
@@ -1424,7 +1432,8 @@ getActivities()
 
 
                       <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+                        <el-popconfirm
+confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
                           icon-color="#626AEF" title="Are you sure to delete this document?"
                           @confirm="removeDocument(scope.row)">
                           <template #reference>
@@ -1436,7 +1445,8 @@ getActivities()
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                <el-button
+v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1467,16 +1477,21 @@ getActivities()
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showAdminButtons" @click="editProject(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="editProject(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item
+@click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
 
-                    <el-dropdown-item @click="viewBen(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" 
+@click="viewBen(scope as TableSlotDefault)"
                       :icon="User">Beneficiaries</el-dropdown-item>
 
 
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1488,20 +1503,24 @@ getActivities()
 
 
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button
+type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
-                <el-tooltip content="View Households" placement="top">
-                  <el-button type="success" size="small" :icon="User" @click="viewBen(scope as TableSlotDefault)"
+                <el-tooltip  content="View Households" placement="top">
+                  <el-button
+v-if="showAdminButtons"   type="success" size="small" :icon="User" @click="viewBen(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm
+confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete this report?"
                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
 
@@ -1519,19 +1538,22 @@ getActivities()
 
         </el-table>
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
 
-      <el-tab-pane :label="beneficiaryTabTitle" name="Beneficiary" :disabled="beneficiaryTabDisabled">
+      <el-tab-pane v-if="showAdminButtons"  :label="beneficiaryTabTitle" name="Beneficiary" :disabled="beneficiaryTabDisabled">
 
 
-        <Table :columns="BeneficiaryColumns" :data="beneficiaryList" :loading="loadingBeneficiaries" :selection="true"
+        <Table
+:columns="BeneficiaryColumns" :data="beneficiaryList" :loading="loadingBeneficiaries" :selection="true"
           :pageSize="pageSizeBen" :currentPage="currentPageBen" />
 
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPageBen="currentPageBen"
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPageBen="currentPageBen"
           v-model:page-size="pageSizeBen" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalBen" :background="true"
           @size-change="onPageSizeChangeBen" @current-change="onPageChangeBen" class="mt-4" />
       </el-tab-pane>
@@ -1549,7 +1571,8 @@ getActivities()
 
 
         <el-form-item label="Location" prop="location_level">
-          <el-select v-model="ruleForm.location_level" filterable placeholder="Select Location"
+          <el-select
+v-model="ruleForm.location_level" filterable placeholder="Select Location"
             @change="handleSelectLocation">
             <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -1605,7 +1628,8 @@ getActivities()
             </el-select>
           </el-form-item>
         </el-col>
-        <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo" multiple
+        <el-form-item label="Documentation"> <el-upload
+v-model:file-list="fileUploadList" class="upload-demo" multiple
             :limit="3" :auto-upload="false">
             <el-button type="primary">Click to upload</el-button>
             <template #tip>
@@ -1637,7 +1661,8 @@ getActivities()
         </el-option-group>
       </el-select>
 
-      <el-upload v-model:file-list="morefileList" class="upload-demo"
+      <el-upload
+v-model:file-list="morefileList" class="upload-demo"
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>

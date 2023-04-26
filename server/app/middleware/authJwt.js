@@ -116,6 +116,10 @@ isStaffOrAdmin = (req, res, next) => {
           next();
           return;
         }
+        if (roles[i].name === "sud_staff") {
+          next();
+          return;
+        }      
         if (roles[i].name === "admin") {
           next();
           return;

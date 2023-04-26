@@ -75,10 +75,19 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 // Hide buttons if not admin 
 const showAdminButtons = ref(false)
+const showEditButtons = ref(false)
 
 if (userInfo.roles.includes("admin")) {
   showAdminButtons.value = true
 }
+
+// Show Edit buttons 
+if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
+}
+
+ 
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -298,10 +307,6 @@ const getSettlementCount = async () => {
   formData.groupField = ['isApproved']
   formData.cache_key = ''
 
- 
-
-
-
   const newSettCount = await getSummarybyField(formData)
   console.log('income_levels---->', newSettCount)
 
@@ -423,13 +428,10 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   total.value = res.total
 
   // filter
-  if (showAdminButtons.value) {
-
+  //if (showAdminButtons.value) {
     getSettlementCount()  // This gets the approved/new/rejecetd counts
  
-
-
-  }
+  //}
 
   // 
 
@@ -1712,6 +1714,13 @@ const handleUploadGeo = async (uploadFile) => {
 
 }
 
+const tableRowClassName = (data) => {
+  // console.log('Row Styling --------->', data.row)
+  if (data.row.documents.length > 0) {
+    return 'warning-row'
+  }
+  return ''
+}
 
 
 </script>
@@ -1732,7 +1741,6 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
         </div>
       </el-col>
         <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
-
           <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
            <el-select
 :disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" :onClear="handleClear" multiple
@@ -1758,8 +1766,8 @@ size="default" v-model="value3" multiple clearable filterable remote :remote-met
           </div>
 
           <div style="display: inline-block; margin-left: 5px">
-            <el-tooltip content="Add Project" placement="top">
-              <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
+            <el-tooltip content="Add Settlement" placement="top">
+              <el-button v-if="showEditButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
             </el-tooltip>
           </div>
 
@@ -1782,7 +1790,7 @@ size="default" v-model="value3" multiple clearable filterable remote :remote-met
           </span>
         </template>
 
-        <el-table :data="tableDataList" style="width: 100%" border>
+        <el-table :data="tableDataList" style="width: 100%" border  :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1814,7 +1822,7 @@ type="danger" v-if="showAdminButtons"
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
                 <el-button
-v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                   style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
@@ -1850,7 +1858,7 @@ v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-
+ 
 
               <div v-else>
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
@@ -1890,7 +1898,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
       
       </el-tab-pane>
 
-      <el-tab-pane name="New" v-if=showAdminButtons>
+      <el-tab-pane name="New" v-if=showEditButtons>
         <template #label>
           <span class="custom-tabs-label">
             <el-badge type="success" :value="totalPending" class="item">
@@ -1899,7 +1907,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
           </span>
         </template>
 
-        <el-table :data="tableDataListNew" style="width: 100%" border>
+        <el-table :data="tableDataListNew" style="width: 100%" border :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1951,7 +1959,7 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+v-if="showEditButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
                     <el-dropdown-item
 @click="viewOnMap(scope as TableSlotDefault)"
@@ -1964,7 +1972,7 @@ v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                 </template>
               </el-dropdown>
               <div v-else>
-                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
                   <el-button
 type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
@@ -1983,7 +1991,7 @@ v-show="showAdminButtons" type="success" size="small" :icon="View"
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
                   <el-popconfirm
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to delete this report?"
+                    title="Are you sure to delete this settlement?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Delete circle />
@@ -2001,7 +2009,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
       
       </el-tab-pane>
 
-      <el-tab-pane name="Rejected" v-if=showAdminButtons :badge="5">
+      <el-tab-pane name="Rejected" v-if=showEditButtons :badge="5">
         <template #label>
           <span class="custom-tabs-label">
             <el-badge :value="totalRejected" class="item">
@@ -2009,7 +2017,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
             </el-badge>
           </span>
         </template>
-        <el-table :data="tableDataListRejected" style="width: 100%" border>
+        <el-table :data="tableDataListRejected" style="width: 100%" border :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
