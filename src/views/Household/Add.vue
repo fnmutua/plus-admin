@@ -229,7 +229,17 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         if (valid) {
             ruleForm.model = model
             ruleForm.code = uuid.v4()
-            await createHousehold(ruleForm)
+            const res = await createHousehold(ruleForm)
+
+                            //   console.log(res)
+                    if (res.code === "0000") {
+                        // code 0000 is successfule
+                        push({
+                    path: '/settlement/hh/all',
+                    name: 'AllHouseholds'
+                    })
+                 }
+      
 
         } else {
             console.log('error submit!', fields)
@@ -407,14 +417,14 @@ const back = () => {
     } else if (active.value == 3) {
         Profile.value = false
         Composition.value = false
-        Ownership.value = true
+        Ownership.value = false
         Structures.value = false
         Services.value = false
         Sanitation.value = false
         Waste.value = false
         Energy.value = false
         Energy.value = false
-        Employment.value = false
+        Employment.value = true
         Disaster.value = false
 
 
@@ -524,23 +534,27 @@ const AddSettlement = () => {
 
         <el-divider />
 
-        <el-form label-position="left" :inline="false" ref="ruleFormRef" :model="ruleForm" :rules="rules"
+        <el-form
+label-position="left" :inline="false" ref="ruleFormRef" :model="ruleForm" :rules="rules"
             label-width="170px" status-icon>
 
             <el-row :gutter="20" v-if="Profile">
                 <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
 
                     <el-form-item label="County" prop="county_id">
-                        <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
+                        <el-select
+v-model="ruleForm.county_id" filterable placeholder="Select County"
                             :onChange="handleSelectCounty">
-                            <el-option v-for="item in countyOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in countyOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                     </el-form-item>
 
                     <el-form-item label="County" prop="subcounty_id">
                         <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select Sub-County">
-                            <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                     </el-form-item>
@@ -548,7 +562,8 @@ const AddSettlement = () => {
 
                     <el-form-item label="Settlement" prop="settlement_id">
                         <el-select v-model="ruleForm.settlement_id" filterable allow-create placeholder="Select Settlement">
-                            <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                         <el-button @click="AddSettlement()" :icon="Plus" />
@@ -560,7 +575,8 @@ const AddSettlement = () => {
 
                     <el-form-item label="Gender" prop="gender">
                         <el-select v-model="ruleForm.gender" filterable placeholder="Select">
-                            <el-option v-for="item in enums.genderOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in enums.genderOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                     </el-form-item>
@@ -577,14 +593,16 @@ const AddSettlement = () => {
                 <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                     <el-form-item label="Marital Status" prop="marital_status">
                         <el-select v-model="ruleForm.marital_status" filterable placeholder="Select">
-                            <el-option v-for="item in enums.maritalStatusOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in enums.maritalStatusOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                     </el-form-item>
 
                     <el-form-item label="Education" prop="marital_status">
                         <el-select v-model="ruleForm.education_level" filterable placeholder="Select">
-                            <el-option v-for="item in enums.educationLevelOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in enums.educationLevelOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                     </el-form-item>
@@ -806,7 +824,8 @@ const AddSettlement = () => {
                 <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                     <el-form-item label="Tenure" prop="residence_type">
                         <el-select v-model="ruleForm.residence_type" filterable placeholder="Select">
-                            <el-option v-for="item in enums.residenceOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in enums.residenceOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                     </el-form-item>
@@ -825,7 +844,8 @@ const AddSettlement = () => {
 
 
                     <el-form-item label="Ownership" prop="ownership_docs">
-                        <el-switch v-model="ruleForm.shared_ownership" class="mb-2"
+                        <el-switch
+v-model="ruleForm.shared_ownership" class="mb-2"
                             style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Shared"
                             inactive-text="Not Shared" />
                     </el-form-item>
@@ -872,7 +892,8 @@ const AddSettlement = () => {
                     </el-form-item>
                     <el-form-item label="Mode of Transport" prop="mode_transport">
                         <el-select v-model="ruleForm.mode_transport" filterable placeholder="Select">
-                            <el-option v-for="item in enums.mode_transportOptions" :key="item" :label="item"
+                            <el-option
+v-for="item in enums.mode_transportOptions" :key="item" :label="item"
                                 :value="item" />
                         </el-select>
                     </el-form-item>
@@ -883,7 +904,8 @@ const AddSettlement = () => {
                     </el-form-item>
                     <el-form-item label="Distance to School" prop="distance_to_sch">
                         <el-select v-model="ruleForm.distance_to_sch" filterable placeholder="Select">
-                            <el-option v-for="item in enums.educationDistanceOptions" :key="item" :label="item"
+                            <el-option
+v-for="item in enums.educationDistanceOptions" :key="item" :label="item"
                                 :value="item" />
                         </el-select>
                     </el-form-item>
@@ -917,10 +939,12 @@ const AddSettlement = () => {
 
 
         </el-form>
-        <el-button style="margin-top: 12px" @click="back">Back</el-button>
-        <el-button style="margin-top: 12px" @click="next">Next</el-button>
-        <el-button style="margin-top: 12px" @click="submitForm(ruleFormRef)">Submit</el-button>
+        <el-row class="mb-4  md-5" :gutter="20" justify="center">
 
+        <el-button  type="warning"  style="margin-top: 12px" @click="back">Back</el-button>
+        <el-button  type="primary" style="margin-top: 12px" @click="next">Next</el-button>
+        <el-button  type="success" v-if="Services" style="margin-top: 12px" @click="submitForm(ruleFormRef)">Submit</el-button>
+        </el-row>
 
     </ContentWrap>
 </template>
