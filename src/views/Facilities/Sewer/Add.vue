@@ -35,11 +35,14 @@ import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
 
 import { useRouter } from 'vue-router'
+import { getOneGeo, getfilteredGeo } from '@/api/settlements'
 
 
 const { push } = useRouter()
 
 
+const geoJson =ref([])
+const bounds =ref()
 
 
 const MapBoxToken =
@@ -382,6 +385,23 @@ onMounted(() => {
 
 
 
+    map.value.addSource('scope', {
+      type: 'geojson',
+      //data: projectPoly.value
+      data: turf.featureCollection(geoJson.value),
+    });
+    
+    map.value.addLayer({
+      'id': 'projectScopeGeo',
+      'type': 'line',
+      'source': 'scope',
+      'layout': {},
+      'paint': {
+        'line-color': '#000',
+        'line-width': 3
+      }
+    });
+
 
 
 
@@ -391,6 +411,70 @@ onMounted(() => {
 })
 
 
+const handleSelectSettlement = async (settlement_id: any) => {
+  console.log(settlement_id)
+
+
+  const formData = {}
+  formData.model = 'settlement'
+  formData.id = settlement_id
+
+  console.log(formData)
+  const res = await getOneGeo(formData)
+
+  if (res.data[0].json_build_object.features) {
+    geoJson.value = res.data[0].json_build_object
+
+     map.value.getSource("scope").setData(geoJson.value);
+    bounds.value = turf.bbox((geoJson.value))
+    console.log("From subcounty", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+
+
+  }
+  else {
+
+    console.log("The settlement has no shapes...")
+    handleSelectSubCounty(ruleForm.subcounty_id)
+}
+
+  console.log('Got settlement geo', res)
+
+ 
+
+}
+
+const handleSelectSubCounty = async (subcounty_id: any) => {
+  console.log(subcounty_id)
+
+
+  const formData = {}
+  formData.model = 'subcounty'
+  formData.id = subcounty_id
+
+  console.log(formData)
+  const res = await getOneGeo(formData)
+
+  if (res.data[0].json_build_object.features) {
+    geoJson.value = res.data[0].json_build_object
+
+     map.value.getSource("scope").setData(geoJson.value);
+    bounds.value = turf.bbox((geoJson.value))
+    console.log("From subcounty", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+
+
+  }
+  else {
+
+console.log("The subcounty has no shapes...")
+}
+
+  console.log('Got subcounty geo', res)
+
+ 
+
+}
 
 </script>
 
@@ -436,7 +520,7 @@ v-for="item in countyOptions" :key="item.value" :label="item.label"
 
                 <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Subcounty" prop="subcounty_id">
-                    <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
+                    <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County"   :onChange="handleSelectSubCounty">
                       <el-option
 v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
@@ -449,7 +533,7 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                 <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
 
                   <el-form-item label="Settlement" prop="settlement_id">
-                    <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
+                    <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement" :onChange="handleSelectSettlement">
                       <el-option
 v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
