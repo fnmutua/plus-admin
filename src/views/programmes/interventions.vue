@@ -277,7 +277,17 @@ const submitMoreDocuments = async () => {
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
-  getFilteredData(filters, filterValues)
+ 
+
+  if (searchString.value) {
+ 
+ getFilteredBySearchData(searchString.value)
+ 
+} else {
+ getFilteredData(filters, filterValues)
+}
+
+
 }
 
 
@@ -286,7 +296,14 @@ const onPageChange = async (selPage: any) => {
 
 const onPageSizeChange = async (size: any) => {
   pSizeBen.value = size
-  getFilteredData(filters, filterValues)
+  if (searchString.value) {
+ 
+ getFilteredBySearchData(searchString.value)
+ 
+} else {
+ getFilteredData(filters, filterValues)
+}
+
 }
 
 

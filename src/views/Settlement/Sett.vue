@@ -247,7 +247,16 @@ else if (activeTab.value === 'Rejected') {
 
 
   console.log(sfilters,sfilterValues)
-  getNewOrRejectedSettlements(activeTab.value)
+
+  if (searchString.value) {
+     getFilteredBySearchData(searchString.value)
+    } else {
+      getNewOrRejectedSettlements(activeTab.value)
+    }
+
+
+
+
 
   //getFilteredData(sfilters, sfilterValues)
 }
@@ -272,8 +281,14 @@ else if (activeTab.value === 'Rejected') {
 
 
   console.log(sfilters,sfilterValues)
-  getNewOrRejectedSettlements(activeTab.value)
 
+  if (searchString.value) {
+     getFilteredBySearchData(searchString.value)
+    } else {
+      getNewOrRejectedSettlements(activeTab.value)
+    }
+
+  
 
 }
 

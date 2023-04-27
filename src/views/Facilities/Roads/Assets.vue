@@ -1112,6 +1112,10 @@ const editForm = async (formEl: FormInstance | undefined) => {
 <template>
   <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Use the filters on the list of view the Map ')">
 
+
+ 
+
+
     <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
       <el-tab-pane label="List" name="list">
         <div style="display: inline-block;">
