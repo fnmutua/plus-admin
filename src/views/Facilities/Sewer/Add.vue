@@ -34,6 +34,14 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
 
+import { useRouter } from 'vue-router'
+
+
+const { push } = useRouter()
+
+
+
+
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 mapboxgl.accessToken = MapBoxToken;
@@ -199,15 +207,27 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
   console.log("submit................", formEl)
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
 
 
 
-      const res = CreateRecord(ruleForm)
+      const res = await CreateRecord(ruleForm)
       //   console.log(res)
+
+              
+      console.log('res>>>', res)
+      if (res.code === "0000") {
+        // code 0000 is successfule
+        push({
+      path: '/facilities/sewer',
+      name: 'Sewer'
+    })
+      }
+
+
       ///
     } else {
       console.log('error submit!', fields)

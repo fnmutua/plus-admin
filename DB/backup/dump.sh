@@ -17,7 +17,7 @@ echo
 # ----------------------------------------------------------------------------------
 
 DEVELOPMENT_SERVER=1
-CLOUD_SERVER=0
+CLOUD_SERVER=1
 
 if [ $DEVELOPMENT_SERVER -eq 1 ]; then
 
@@ -29,6 +29,7 @@ if [ $DEVELOPMENT_SERVER -eq 1 ]; then
   export PGPORT="5432"
   export PGUSER="postgres"
   export PGPASSWORD="Admin@2011"
+  export DB_name="kisip"
 
 fi
 
@@ -38,11 +39,13 @@ if [ $CLOUD_SERVER -eq 1 ]; then
   echo "Setting up cloud host connection details"
   echo
 
-  export PGHOST="localhost"
-  export PGPORT="31392"
-  export PGUSER="postgres"
-  export PGPASSWORD="postgres"
+ 
 
+  export PGHOST="containers-us-west-138.railway.app"
+  export PGPORT="6542"
+  export PGUSER="postgres"
+  export PGPASSWORD="lfqb3md5ixbmn3tam15D"
+  export DB_name="railway"
 fi
 
 
@@ -57,8 +60,8 @@ echo
 now="$(date +'%d%m%Y')"
 
 echo $now.kisip.sql
-pg_dump kisip >  $now.kisip.sql
-pg_dump -Ft kisip >  $now.kisip.sql.tar
+pg_dump $DB_name >  $now.kisip.sql
+pg_dump -Ft $DB_name  >  $now.kisip.sql.tar
  
 
 echo

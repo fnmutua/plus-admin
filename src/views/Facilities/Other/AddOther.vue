@@ -51,7 +51,10 @@ import {
 } from './../common/index.ts'
 import { generalOwnership } from '../common'
 
+import { useRouter } from 'vue-router'
 
+
+const { push } = useRouter()
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
@@ -264,6 +267,20 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
       const res = await CreateRecord(ruleForm)
       console.log('after---->', res)
+
+
+   
+      console.log('res>>>', res)
+      if (res.code === "0000") {
+        // code 0000 is successfule
+        push({
+      path: '/facilities/other',
+      name: 'OtherFacility'
+    })
+      }
+
+
+
       ///
     } else {
       console.log('error submit!', fields)
