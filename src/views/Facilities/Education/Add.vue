@@ -54,6 +54,7 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
 import { useRouter } from 'vue-router'
+import { getOneGeo, getfilteredGeo } from '@/api/settlements'
 
 
 const { push } = useRouter()
@@ -65,6 +66,8 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 
+const geoJson =ref([])
+const bounds =ref()
 
 const parentOptions = ref([])
 const loading = ref(true)
@@ -402,7 +405,22 @@ console.log('Online Status',state)
     ];
     map.value.addControl(new MapboxLayerSwitcherControl(layers));
 
-
+    map.value.addSource('scope', {
+      type: 'geojson',
+      //data: projectPoly.value
+      data: turf.featureCollection(geoJson.value),
+    });
+    
+    map.value.addLayer({
+      'id': 'projectScopeGeo',
+      'type': 'line',
+      'source': 'scope',
+      'layout': {},
+      'paint': {
+        'line-color': '#000',
+        'line-width': 3
+      }
+    });
 
 
 
@@ -471,6 +489,71 @@ const handleInputCoordinates = () => {
 
 }
 
+const handleSelectSettlement = async (settlement_id: any) => {
+  console.log(settlement_id)
+
+
+  const formData = {}
+  formData.model = 'settlement'
+  formData.id = settlement_id
+
+  console.log(formData)
+  const res = await getOneGeo(formData)
+
+  if (res.data[0].json_build_object.features) {
+    geoJson.value = res.data[0].json_build_object
+
+     map.value.getSource("scope").setData(geoJson.value);
+    bounds.value = turf.bbox((geoJson.value))
+    console.log("From subcounty", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+
+
+  }
+  else {
+
+    console.log("The settlement has no shapes...")
+    handleSelectSubCounty(ruleForm.subcounty_id)
+}
+
+  console.log('Got settlement geo', res)
+
+ 
+
+}
+
+const handleSelectSubCounty = async (subcounty_id: any) => {
+  console.log(subcounty_id)
+
+
+  const formData = {}
+  formData.model = 'subcounty'
+  formData.id = subcounty_id
+
+  console.log(formData)
+  const res = await getOneGeo(formData)
+
+  if (res.data[0].json_build_object.features) {
+    geoJson.value = res.data[0].json_build_object
+
+     map.value.getSource("scope").setData(geoJson.value);
+    bounds.value = turf.bbox((geoJson.value))
+    console.log("From subcounty", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+
+
+  }
+  else {
+
+console.log("The subcounty has no shapes...")
+}
+
+  console.log('Got subcounty geo', res)
+
+ 
+
+}
+
 
 
 
@@ -492,7 +575,7 @@ ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="de
             status-icon>
             <el-row v-if="active === 0">
               <el-divider content-position="left" />
-              <el-row>
+              
                 <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Name" prop="name">
                     <el-input v-model="ruleForm.name" />
@@ -504,8 +587,8 @@ ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="de
                     <el-input v-model="ruleForm.school_number" />
                   </el-form-item>
                 </el-col>
-              </el-row>
-              <el-row>
+             
+             
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="County" prop="county_id">
                     <el-select
@@ -519,18 +602,18 @@ v-for="item in countyOptions" :key="item.value" :label="item.label"
                 </el-col>
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Subcounty" prop="subcounty_id">
-                    <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
+                    <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County" :onChange="handleSelectSubCounty">
                       <el-option
 v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
                 </el-col>
-              </el-row>
-              <el-row>
+                
+            
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Settlement" prop="settlement_id">
-                    <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
+                    <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement" :onChange="handleSelectSettlement">
                       <el-option
 v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
@@ -544,9 +627,8 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                     </el-select>
                   </el-form-item>
                 </el-col>
-              </el-row>
-
-              <el-row>
+         
+ 
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Ownership" prop="ownership_type">
                     <el-select v-model="ruleForm.ownership_type" placeholder="Ownership">
@@ -561,19 +643,15 @@ v-for="item in generalOwnership" :key="item.value" :label="item.label"
                     <el-input v-model="ruleForm.owner" />
                   </el-form-item>
                 </el-col>
-              </el-row>
-
-              <el-row>
-                <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
+ 
+                 <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Location" prop="location">
                     <el-switch
 style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" v-model="digitize"
                       @change="handleFlipSwitch" class="mb-2" active-text="Input Coordinates" inactive-text="Digitize" />
                   </el-form-item>
                 </el-col>
-              </el-row>
-              <el-row>
-                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item v-if="digitize" label="Latitude" prop="latitude">
                     <el-input-number
 v-model="ruleForm.latitude" :precision="5" :step="0.01" :min="-4.6" :max="4.64"
@@ -588,8 +666,7 @@ v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
                   </el-form-item>
                 </el-col>
 
-              </el-row>
-            </el-row>
+             </el-row>
             <el-row v-if="active === 1" :gutter="10">
               <el-divider content-position="left" />
 

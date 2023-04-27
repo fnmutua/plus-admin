@@ -48,10 +48,14 @@ import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
 
 import { useRouter } from 'vue-router'
+import { getOneGeo, getfilteredGeo } from '@/api/settlements'
 
 
 const { push } = useRouter()
 
+
+const geoJson =ref([])
+const bounds = ref()
 
 
 const MapBoxToken =
@@ -329,7 +333,22 @@ onMounted(() => {
     map.value.addControl(new MapboxLayerSwitcherControl(layers));
 
 
-
+    map.value.addSource('scope', {
+      type: 'geojson',
+      //data: projectPoly.value
+      data: turf.featureCollection(geoJson.value),
+    });
+    
+    map.value.addLayer({
+      'id': 'projectScopeGeo',
+      'type': 'line',
+      'source': 'scope',
+      'layout': {},
+      'paint': {
+        'line-color': '#000',
+        'line-width': 3
+      }
+    });
 
 
 
@@ -390,6 +409,37 @@ const handleInputCoordinates = () => {
 }
 
 
+const handleSelectRoad = async (settlement_id: any) => {
+  console.log(settlement_id)
+
+
+  const formData = {}
+  formData.model = 'road'
+  formData.id = settlement_id
+
+  console.log(formData)
+  const res = await getOneGeo(formData)
+
+  if (res.data[0].json_build_object.features) {
+    geoJson.value = res.data[0].json_build_object
+
+     map.value.getSource("scope").setData(geoJson.value);
+    bounds.value = turf.bbox((geoJson.value))
+    console.log("From subcounty", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+
+
+  }
+  else {
+
+    console.log("The settlement has no shapes...")
+ }
+
+  console.log('Got settlement geo', res)
+
+ 
+
+}
 
 
 
@@ -408,8 +458,8 @@ ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="de
             <el-row>
               <el-divider content-position="left" />
               <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
-                <el-form-item label="Settlement" prop="road_id">
-                  <el-select v-model="ruleForm.road_id" filterable placeholder="Road">
+                <el-form-item label="Road" prop="road_id">
+                  <el-select v-model="ruleForm.road_id" filterable placeholder="Road"  :onChange="handleSelectRoad">
                     <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
                 </el-form-item>
