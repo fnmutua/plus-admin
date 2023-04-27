@@ -41,8 +41,10 @@ import Fuse from 'fuse.js';
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import { useRouter } from 'vue-router'
 
 
+const { push } = useRouter()
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -703,7 +705,14 @@ const handleSubmitData = async () => {
     if (type.value == 'households') {
         await postBatchHouseholds(formData)
             .then((response: { data: any }) => {
-                loadingPosting.value = false
+              
+                     push({
+                    path: '/settlement/hh/all',
+                    name: 'AllHouseholds'
+                    })   
+             
+                    loadingPosting.value = false
+
             })
             .catch((error) => {
                 console.log('Error------>', error.response.data.message)
@@ -720,6 +729,13 @@ const handleSubmitData = async () => {
                 ElMessage.error(error.response.data.message)
             })
             .then((response: { data: any }) => {
+
+                
+                push({
+                    path: '/data/fuzzy',
+                    name: 'Fuzzy'
+                }) 
+                    
                 loadingPosting.value = false
             })
     }
@@ -734,11 +750,13 @@ const handleSubmitData = async () => {
 </script>
 
 <template>
-    <ContentWrap :title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')"
+    <ContentWrap
+:title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')"
         v-loading.fullscreen.lock="loadingPosting" element-loading-text="Saving the data.. Please wait.......">
 
         <div style="display: inline-block;">
-            <el-select v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Select data to import"
+            <el-select
+v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Select data to import"
                 style=" margin-right: 20px">
                 <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
                     <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
@@ -756,12 +774,14 @@ const handleSubmitData = async () => {
         </div>
 
         <el-divider border-style="dashed" content-position="left">Upload</el-divider>
-        <el-upload v-if="showUploadSpace" class="upload-demo" drag
+        <el-upload
+v-if="showUploadSpace" class="upload-demo" drag
             action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList"
             :auto-upload="false">
             <div class="el-upload__text"> Drop xlsx file here or <em>click to upload</em> </div>
         </el-upload>
-        <el-button v-if="showUploadButton" class="mt-4" style="width: 100%" @click="handleFileUpload" type="primary"
+        <el-button
+v-if="showUploadButton" class="mt-4" style="width: 100%" @click="handleFileUpload" type="primary"
             :disabled="disableDoubeUpload">
             Upload<el-icon class="el-icon--right">
                 <Upload />
@@ -773,13 +793,15 @@ const handleSubmitData = async () => {
             <el-table-column label="From XLSX">
                 <template #default="scope">
                     <el-select v-model="scope.row.key2" @change="updateSelect(scope.row, scope.$index)" clearable>
-                        <el-option v-for="(option, index) in selectOptions" :key="index" :label="option.label"
+                        <el-option
+v-for="(option, index) in selectOptions" :key="index" :label="option.label"
                             :value="option.value" :disabled="option.disabled" />
                     </el-select>
                 </template>
             </el-table-column>
         </el-table>
-        <el-button v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type="success"
+        <el-button
+v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type="success"
             :disabled="DisablePostSubmit">
             Submit<el-icon class="el-icon--right">
                 <CaretRight />

@@ -3,6 +3,9 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty } from '@/api/settlements'
+import {  uploadFilesBatch} from '@/api/settlements'
+
+
 import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
@@ -12,7 +15,7 @@ import {
 import { ElMessage } from 'element-plus'
 import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
 
-import { ref, reactive, h } from 'vue'
+import { ref, reactive,computed, h } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -30,6 +33,7 @@ import {
 
 import { useRoute } from 'vue-router'
 
+import { getFile } from '@/api/summary'
 
 
 import 'element-plus/theme-chalk/display.css'
@@ -61,8 +65,10 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 
+const isMobile = computed(() => appStore.getMobile)
 
 
+const documentCategory = ref()
 
 const searchString = ref()
 
@@ -126,7 +132,7 @@ var filterValues = [intervenComponent]
 var tblData = []
 
 const associated_Model = ''
-const associated_multiple_models = ['settlement']
+const associated_multiple_models = ['settlement','document']
 
 const model = 'households'
 //// ------------------parameters -----------------------////
@@ -182,19 +188,75 @@ const filterBySettlement = async (title: any) => {
 }
 
 
+const DocTypes = ref([])
+const getDocumentTypes = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'document_type',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Document Typest:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+
+    const nestedData = ret.reduce((acc, cur) => {
+      const group = cur.group;
+      if (!acc[group]) {
+      
+        acc[group] = [];
+      }
+
+        if (group =='Other') {
+          acc[group].push(cur); 
+        }
+      return acc;
+    }, {});
+
+    console.log(nestedData.Map)
+    for (let property in nestedData) {
+      let opts = nestedData[property];
+      var doc = {}
+      doc.label = property
+      doc.options = []
+
+      opts.forEach(function (arrayItem) {
+        let opt = {}
+        opt.value = arrayItem.id
+        opt.label = arrayItem.type
+        doc.options.push(opt)
+
+      })
+      DocTypes.value.push(doc)
+
+    }
+    console.log(DocTypes)
+
+  })
+}
+getDocumentTypes()
+
 
 const currentRow = ref()
 const addMoreDocuments = ref()
+
 const addMoreDocs = (data: TableSlotDefault) => {
 
-  currentRow.value = data
+currentRow.value = data
 
-  addMoreDocuments.value = true
+addMoreDocuments.value = true
 
-  console.log('currentRow', currentRow.value)
+console.log('currentRow', currentRow.value)
 
 }
 
+ 
 const submitMoreDocuments = async () => {
   console.log('More files.....', morefileList)
 
@@ -209,22 +271,24 @@ const submitMoreDocuments = async () => {
     fileTypes.push(format)
     // formData.append('file', fileList.value[i])
     // formData.file = fileList.value[i]
+
+    formData.append('model', model)
+
     formData.append('file', morefileList.value[i].raw)
-    formData.append('DocType', format)
+    formData.append('format', morefileList.value[i].name.split('.').pop())
+    formData.append('category', documentCategory.value)
+    formData.append('field_id', 'hh_id')
+
+    formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
+    formData.append('code', uuid.v4())
+    formData.append('hh_id', currentRow.value.id)
+
 
   }
 
 
-  formData.append('parent_code', currentRow.value.id)
-  formData.append('model', model)
-  formData.append('grp', 'Settlement Documentation')
-  formData.append('code', uuid.v4())
-  formData.append('column', 'settlement_id')  //Column to save ID 
-
-
-
-  console.log(formData)
-  await uploadDocuments(formData)
+  console.log(currentRow.value.id)
+  await uploadFilesBatch(formData)
 
 }
 
@@ -785,14 +849,14 @@ const removeDocument = (data: TableSlotDefault) => {
 }
 
 
-
 const tableRowClassName = (data) => {
-  console.log('Row Styling --------->', data.row)
+  // console.log('Row Styling --------->', data.row)
   if (data.row.documents.length > 0) {
     return 'warning-row'
   }
   return ''
 }
+ 
 
 
 const DownloadXlsx = async () => {
@@ -846,25 +910,53 @@ const DownloadXlsx = async () => {
 
 }
 
+
+const downloadFile = async (data) => {
+
+console.log(data.name)
+
+const formData = {}
+formData.filename = data.name
+formData.responseType = 'blob'
+await getFile(formData)
+  .then(response => {
+    console.log(response)
+
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', data.name)
+    document.body.appendChild(link)
+    link.click()
+
+  })
+  .catch(error => {
+    console.error('Error downloading file:', error);
+  });
+
+}
+
+
+
 </script>
 
 <template>
 
   <ContentWrap :title="t('Households')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
-    <el-row>
-      <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-
+     <el-row>
+  <!--     <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
         <div style="display: inline-block; margin-top: 5px">
-          <el-select size="default" v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple
+          <el-select
+size="default" v-model="value4" :onChange="filterBySettlement" :onClear="handleClear" multiple
             clearable filterable collapse-tags placeholder="By Settlement">
             <el-option v-for="item in settOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
-      </el-col>
+      </el-col> -->
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
         <div style="display: inline-block; margin-top: 5px">
-          <el-select size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
+          <el-select
+size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
             reserve-keyword placeholder="Search by Name" />
         </div>
       </el-col>
@@ -895,38 +987,45 @@ const DownloadXlsx = async () => {
 
 
 
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
-
+ 
     <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
       <el-tab-pane label="List" name="list">
 
-        <el-table :data="tableDataList" style="width: 100%" border>
+        <el-table :data="tableDataList" style="width: 100%" border  :row-class-name="tableRowClassName">
+      
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
                 <h3>Documents</h3>
-                <el-table :data="props.row.documents" border>
+                <el-table :data="props.row.documents" border >
                   <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="category" />
-
+                  <el-table-column label="Type" prop="document_type.type" />
+                  <el-table-column label="Size(mb)" prop="size" />
                   <el-table-column label="Actions">
                     <template #default="scope">
-                      <el-link :href="props.row.documents[scope.$index].name" download>
-                        <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
-                      </el-link>
-                      <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                          icon-color="#626AEF" title="Are you sure to delete this document?"
-                          @confirm="removeDocument(scope.row)">
-                          <template #reference>
-                            <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                          </template>
-                        </el-popconfirm>
-                      </el-tooltip>
+                      <el-dropdown v-if="isMobile">
+                        <span class="el-dropdown-link">Actions</span>
+                        <el-dropdown-menu>
+                          <el-dropdown-item @click="downloadFile(scope.row)">Download</el-dropdown-item>
+                          <el-dropdown-item
+v-if="showAdminButtons"
+                            @click="removeDocument(scope.row)">Remove</el-dropdown-item>
+                        </el-dropdown-menu>
+                      </el-dropdown>
+                      <div v-else>
+                        <el-button type="success" @click="downloadFile(scope.row)">Download</el-button>
+                        <el-button
+type="danger" v-if="showAdminButtons"
+                          @click="removeDocument(scope.row)">Remove</el-button>
+                      </div>
                     </template>
+
                   </el-table-column>
                 </el-table>
-                <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button>
+                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
+                <el-button
+v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
+                  style="margin-left: 10px;margin-top: 5px" size="small" />
 
               </div>
             </template>
@@ -945,7 +1044,8 @@ const DownloadXlsx = async () => {
               </el-tooltip>
 
               <el-tooltip content="Delete" placement="top">
-                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                   title="Are you sure to delete this household?" @confirm="DeleteHH(scope.row as TableSlotDefault)">
                   <template #reference>
                     <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
@@ -957,7 +1057,8 @@ const DownloadXlsx = async () => {
 
         </el-table>
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
@@ -1011,7 +1112,13 @@ const DownloadXlsx = async () => {
     </el-dialog>
 
     <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
-      <el-upload v-model:file-list="morefileList" class="upload-demo"
+      <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
+        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
+          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+        </el-option-group>
+      </el-select>
+      <el-upload
+v-model:file-list="morefileList" class="upload-demo"
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
         <el-button type="primary">Click to upload</el-button>
         <template #tip>
@@ -1023,7 +1130,6 @@ const DownloadXlsx = async () => {
       <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
 
     </el-dialog>
-
   </ContentWrap>
 
 
