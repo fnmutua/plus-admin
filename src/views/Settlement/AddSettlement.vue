@@ -95,42 +95,30 @@ const loading = ref(true)
 
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-  name: '',
-  settlement_id: '',
-  county_id: '',
-  subcounty_id: '',
-  settlement_type: '',
+  name: null,
+  type:null,
+  settlement_id: null,
+  county_id: null,
+  subcounty_id: null,
+  settlement_type: null,
   geom: null,
-  area: '',
-  population: '',
-  code: '',
-  description: '',
+  area: null,
+  population: null,
+  code:null,
+  description: null,
+  dist_trunk: null,
+  dist_town: null,
+  parcel_no:null,
+  parcel_owner: null,
+  rim_no:null,
   isApproved: 'Pending'
 })
 
 
 
-
-const subcounties = ref([])
 var bounds = ref()
 
-const getSubcounty = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 500,
-      curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-     var ret = response.data
-    subcounties.value = ret
-  
-  })
-}
+
  
  
 const projectScopeGeo = ref([])
@@ -188,19 +176,27 @@ const handleSelectCounty = async (county_id: any) => {
 
 
 console.log('--> parent options', parentOptions.value)
-const polygons = ref([]) as Ref<[number, number][][]>
-const shp = []
+ 
 const rules = reactive<FormRules>({
   name: [
     { required: true, message: 'Please provide  name', trigger: 'blur' },
     { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
   ],
-
- 
-
-
-
-
+  type: [
+    { required: true, message: 'Required', trigger: 'blur' }
+  ],
+  county_id: [
+    { required: true, message: 'Required', trigger: 'blur' }
+  ],
+  population: [
+    { required: true, message: 'Required', trigger: 'blur' }
+  ] ,
+  parcel_no: [
+    { required: true, message: 'Required', trigger: 'blur' }
+  ] ,
+  parcel_owner: [
+    { required: true, message: 'Required', trigger: 'blur' }
+  ] 
 })
 
 const countries = 'ke'
@@ -260,6 +256,8 @@ const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
     if (valid) {
+
+      console.log('Valid', valid)
       ruleForm.model = 'settlement'
      // ruleForm.code = uuid.v4()
       ruleForm.code = shortid.generate();
@@ -711,24 +709,21 @@ ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="de
             status-icon>
             <el-row v-if="active === 0">
               <el-divider content-position="left" />
-              <el-row>
-                <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
+                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Name" prop="name">
                     <el-input v-model="ruleForm.name" />
                   </el-form-item>
                 </el-col>
 
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
-               
-              <el-form-item label="Type" prop="settlement_type">
+                <el-form-item label="Type" prop="settlement_type"> 
                 <el-select v-model="ruleForm.settlement_type" placeholder="Type">
                   <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
                 </el-col>
-              </el-row>
-              <el-row>
-                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+              
+                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="County" prop="county_id">
                     <el-select v-model="ruleForm.county_id" filterable placeholder="County" :onChange="handleSelectCounty">
                       <el-option
@@ -746,7 +741,26 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                     </el-select>
                   </el-form-item>
                 </el-col>
-              </el-row>
+ 
+                <el-col :span="24" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="Parcel Number" prop="parcel_no">
+                    <el-input v-model="ruleForm.parcel_no" />
+                  </el-form-item>
+                </el-col>
+
+
+                <el-col :span="24" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="Parcel owner" prop="parcel_owner">
+                    <el-input v-model="ruleForm.parcel_owner" />
+                  </el-form-item>
+                </el-col>
+
+                <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24" >
+                  <el-form-item label="Map Reference" prop="rim_no" >
+                    <el-input v-model="ruleForm.rim_no" />
+                  </el-form-item>
+                </el-col>
+              
               <el-row>
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Population">
@@ -760,10 +774,23 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                 </el-col>
               </el-row>
 
-             
+              <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="Distance to Nearest Urban Center(Km.)" prop="dist_town" label-width="270px">
+                    <el-input-number v-model="ruleForm.dist_town" />
+                  </el-form-item>
+                </el-col>
  
-        
+    
+                <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="Distance to Nearest Trunk Road(Km.)" prop="dist_trunk" label-width="270px">
+                    <el-input-number v-model="ruleForm.dist_trunk" />
+                  </el-form-item>
+                </el-col>
             </el-row>
+
+
+         
+
             <el-row v-if="active === 1" :gutter="10">
               <el-divider content-position="left" />
  
@@ -792,6 +819,13 @@ v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto
             </el-upload>
 
           </el-form-item>
+
+          <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="Settlement Description" prop="description"  >
+                    <el-input maxlength="200" type="textarea" v-model="ruleForm.description" />
+                  </el-form-item>
+                </el-col>
+
 
             </el-col>
             </el-row>

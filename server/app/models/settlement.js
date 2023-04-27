@@ -51,6 +51,35 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.DOUBLE,
         allowNull: true
       },
+
+        parcel_no: {
+        type: DataTypes.STRING,
+        allowNull: true
+
+       },   
+       parcel_owner: {
+        type: DataTypes.STRING,
+        allowNull: true
+
+       },   
+       dist_town: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+       },
+       dist_trunk: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+       },
+
+       rim_no: {
+        type: DataTypes.STRING,
+        allowNull: true
+       },
+
+
+
+
+
       isApproved: {
         type: DataTypes.STRING,
         defaultValue: 'Pending'

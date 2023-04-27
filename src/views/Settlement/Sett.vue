@@ -7,10 +7,10 @@ import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElOptionGroup,
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElOptionGroup,ElStep,ElSteps
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, View, Plus, User, Download, Delete, Edit, Filter, InfoFilled, ArrowDown } from '@element-plus/icons-vue'
+import { Position, View, Plus, User, Download, Delete, Edit, Filter, InfoFilled, Location, ArrowDown, Setting, Loading } from '@element-plus/icons-vue'
 
 import { ref, reactive, h, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
@@ -1286,6 +1286,11 @@ const ruleForm = reactive({
   description: null,
   geom: '',
   id: '',
+  dist_trunk: null,
+  dist_town: null,
+  parcel_no:null,
+  parcel_owner: null,
+  rim_no:null,
   isApproved: 'Pending',
   code: ''
 })
@@ -1401,7 +1406,17 @@ const editSettlement = (data: TableSlotDefault) => {
   ruleForm.area = data.row.area
   ruleForm.description = data.row.description
   ruleForm.code = data.row.code
+  ruleForm.dist_town = data.row.dist_town
+  ruleForm.dist_trunk = data.row.dist_trunk
+  ruleForm.parcel_no = data.row.parcel_no
+  ruleForm.parcel_owner = data.row.parcel_owner
+  ruleForm.rim_no = data.row.rim_no
+
+
+
   ruleForm.geom = data.row.geom
+
+
   fileUploadList.value = data.row.documents
 
 
@@ -1722,6 +1737,10 @@ const tableRowClassName = (data) => {
   return ''
 }
 
+const activeStep=ref(0)
+const next = () => {
+  if (activeStep.value++ > 2) activeStep.value = 0
+}
 
 </script>
 
@@ -2135,8 +2154,105 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
     </el-tabs>
 
 
-
     <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
+      <el-steps :active="activeStep" finish-button-center simple style="margin-bottom: 10px;">
+    <el-step description="Basic Info"  :icon="Loading" />
+    <el-step description="Details" :icon="Setting"  />
+    <el-step description="Geometry" :icon="Position"  />
+    
+  </el-steps>
+ 
+  
+
+
+  <el-row :gutter="10">
+    <el-col v-show="activeStep === 0" :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
+        <el-form-item label="County" prop="county_id">
+          <el-select v-model="ruleForm.county_id" filterable placeholder="Select County">
+            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Name">
+          <el-input v-model="ruleForm.name" />
+        </el-form-item>
+        <el-form-item label="Type" prop="settlement_type">
+          <el-select v-model="ruleForm.settlement_type" filterable placeholder="Select type">
+            <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Population">
+          <el-input-number v-model="ruleForm.population" />
+        </el-form-item>
+        <el-form-item label="Area(ha)">
+          <el-input-number v-model="ruleForm.area" />
+        </el-form-item>
+      </el-form>
+    </el-col>
+
+    <el-col v-show="activeStep === 1" :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
+               <el-form-item label="Dist. to Nearest Urban Center(Km.)" prop="dist_town" label-width="240px">
+          <el-input-number v-model="ruleForm.dist_town" />
+          </el-form-item>
+        <el-form-item label="Dist.to Nearest Trunk Road(Km.)" prop="dist_trunk" label-width="240px">
+            <el-input-number v-model="ruleForm.dist_trunk" />
+        </el-form-item>
+
+
+        <el-form-item label="Parcel Number" prop="parcel_no">
+                    <el-input v-model="ruleForm.parcel_no" />
+                  </el-form-item>
+
+                  <el-form-item label="Parcel owner" prop="parcel_owner">
+                    <el-input v-model="ruleForm.parcel_owner" />
+                  </el-form-item>
+
+                  
+                  <el-form-item label="RIM Ref." prop="rim_no">
+                    <el-input v-model="ruleForm.rim_no" />
+                  </el-form-item>
+        <el-form-item label="Description">
+          <el-input maxlength="200" type="textarea" v-model="ruleForm.description" />
+        </el-form-item>
+      </el-form>
+
+    </el-col>
+
+
+
+
+    <el-col v-show="activeStep === 2" :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
+        <el-form-item label="Geometry">
+          <el-upload :on-change="handleUploadGeo" multiple :limit="3" :auto-upload="false">
+            <el-button type="primary">Click to upload</el-button>
+            <template #tip>
+              <div class="el-upload__tip">
+                geojson or zipped shapefile
+              </div>
+            </template>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+    </el-col>
+  </el-row>
+     <template #footer>
+        <span class="dialog-footer space-between">
+          <el-row :gutter="10">
+
+            <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+              <el-button  @click="next">Next</el-button>
+
+              <el-button @click="AddDialogVisible = false">Cancel</el-button>
+              <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+            </el-col>
+          </el-row>
+        </span>
+      </template>
+    </el-dialog>
+
+<!--     <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
       <el-row :gutter="10">
 
         <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
@@ -2161,7 +2277,8 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
               <el-input-number v-model="ruleForm.area" />
             </el-form-item>
             <el-form-item label="Description">
-              <el-input v-model="ruleForm.description" />
+               <el-input maxlength="200"  type="textarea" v-model="ruleForm.description" />
+
             </el-form-item>
             <el-form-item label="Geometry"> <el-upload
 :on-change="handleUploadGeo" multiple :limit="3"
@@ -2188,7 +2305,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
         </span>
       </template>
     </el-dialog>
-
+ -->
     <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
       <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
         <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
