@@ -285,12 +285,24 @@ const handleSelectByName = async (name: any) => {
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected   ', selCounties)
   page.value = selPage
-  getFilteredData(filters, filterValues)
+  if (searchString.value) {
+ 
+ getFilteredBySearchData(searchString.value)
+ 
+} else {
+ getFilteredData(filters, filterValues)
+}
 }
 
 const onPageSizeChange = async (size: any) => {
   pSize.value = size
-  getFilteredData(filters, filterValues)
+  if (searchString.value) {
+ 
+ getFilteredBySearchData(searchString.value)
+ 
+} else {
+ getFilteredData(filters, filterValues)
+}
 }
 
 const getInterventionsAll = async () => {
@@ -1333,18 +1345,10 @@ const tableRowClassName = (data) => {
 <template>
   <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Use the filters on the list of view the Map ')">
 
-    <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
-      <el-tab-pane name="list">
-        <template #label>
-          <span class="custom-tabs-label">
-            <el-badge type="primary" :value="total" class="item">
-              <el-button link>List</el-button>
-            </el-badge>
-          </span>
-        </template>
 
+    <div style="display: inline-block; margin-bottom: 15px">
 
-        <div style="display: inline-block;">
+      <div style="display: inline-block;">
           <el-select
 v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by Settlement">
@@ -1369,6 +1373,19 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
             <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
           </el-tooltip>
         </div>
+      </div>
+      
+    <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
+      <el-tab-pane name="list">
+        <template #label>
+          <span class="custom-tabs-label">
+            <el-badge type="primary" :value="total" class="item">
+              <el-button link>List</el-button>
+            </el-badge>
+          </span>
+        </template>
+
+
 
 
 

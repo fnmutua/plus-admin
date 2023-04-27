@@ -194,38 +194,7 @@ const addMoreDocs = (data: TableSlotDefault) => {
 
 }
 
-const xsubmitMoreDocuments = async () => {
-  console.log('More files.....', morefileList)
-
-  // uploading the documents 
-  const fileTypes = []
-  const formData = new FormData()
-  let files = []
-  for (var i = 0; i < morefileList.value.length; i++) {
-    console.log('------>file', morefileList.value[i])
-    var format = morefileList.value[i].name.split('.').pop() // get file extension
-    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-    fileTypes.push(format)
-    // formData.append('file', fileList.value[i])
-    // formData.file = fileList.value[i]
-    formData.append('file', morefileList.value[i].raw)
-    formData.append('DocType', format)
-
-  }
-
-
-  formData.append('parent_code', currentRow.value.id)
-  formData.append('model', model)
-  formData.append('grp', 'Settlement Documentation')
-  formData.append('code', uuid.v4())
-  formData.append('column', 'settlement_id')  //Column to save ID 
-
-
-
-  console.log(formData)
-  await uploadDocuments(formData)
-
-}
+ 
 
 const submitMoreDocuments = async () => {
   console.log('More files.....', morefileList)
@@ -266,14 +235,34 @@ const documentCategory = ref()
 
 
 const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
+ 
+
   page.value = selPage
-  getFilteredData(filters, filterValues)
+  if (searchString.value) {
+ 
+    getFilteredBySearchData(searchString.value)
+    
+  } else {
+    getFilteredData(filters, filterValues)
+  }
+
+ 
+
+
+
+
 }
 
 const onPageSizeChange = async (size: any) => {
   pSize.value = size
-  getFilteredData(filters, filterValues)
+  if (searchString.value) {
+ 
+ getFilteredBySearchData(searchString.value)
+ 
+} else {
+ getFilteredData(filters, filterValues)
+}
+
 }
 
 const getAllBeneficiaries = async () => {
@@ -471,8 +460,9 @@ const getSettlementsOptions = async () => {
 
 
 const getFilteredBySearchData = async (searchString) => {
+   
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pSize.value // 
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -504,7 +494,6 @@ const getFilteredBySearchData = async (searchString) => {
 
 const searchByName = async (filterString: any) => {
   searchString.value = filterString
-
   getFilteredBySearchData(searchString.value)
 }
 
@@ -538,20 +527,7 @@ const getProgrammeOptions = async () => {
   })
 }
 
-const typeOptions = [
-  {
-    value: 1,
-    label: 'Slum'
-  },
-  {
-    value: 2,
-    label: 'Informal Settlement'
-  },
-  {
-    value: 3,
-    label: 'Project Location'
-  }
-]
+ 
 const settOptions = ref([])
 
 const getCountyNames = async () => {
@@ -776,16 +752,7 @@ const removeDocument = (data: TableSlotDefault) => {
   deleteDocument(formData)
 }
 
-
-
-const tableRowClassName = (data) => {
-  console.log('Row Styling --------->', data.row)
-  if (data.row.documents.length > 0) {
-    return 'warning-row'
-  }
-  return ''
-}
-
+ 
 
 const DownloadXlsx = async () => {
   console.log(tableDataList.value)
@@ -938,6 +905,14 @@ const getDocumentTypes = async () => {
 getDocumentTypes()
 
 
+const tableRowClassName = (data) => {
+  // console.log('Row Styling --------->', data.row)
+  if (data.row.documents.length > 0) {
+    return 'warning-row'
+  }
+  return ''
+}
+
 </script>
 
 <template>
@@ -984,7 +959,7 @@ size="default" v-model="value3" multiple clearable filterable remote :remote-met
     <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
       <el-tab-pane label="List" name="list">
 
-        <el-table :data="tableDataList" style="width: 100%" border>
+        <el-table :data="tableDataList" style="width: 100%" border   :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
