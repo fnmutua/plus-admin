@@ -41,6 +41,10 @@ import type { UploadProps, UploadUserFile } from 'element-plus'
 import readXlsxFile from 'read-excel-file'
 import { useVueFuse } from 'vue-fuse'
 import Fuse from 'fuse.js';
+import { useRouter } from 'vue-router'
+
+
+const { push } = useRouter()
 
 
 
@@ -548,6 +552,14 @@ const handleSubmitData = async () => {
     await uploadFilesBatch(formData)
         .then((response: { data: any }) => {
             loadingPosting.value = false
+            if (response.code === "0000") {
+        // code 0000 is successfule
+                    push({
+                path: '/repository/docs',
+                name: 'RepositoryTagged'
+                })
+                }
+
         })
 
 }
@@ -634,11 +646,13 @@ const handleFileUpload = async () => {
 </script>
 
 <template>
-    <ContentWrap :title="t('Upload Documents')" v-loading.fullscreen.lock="loadingPosting"
+    <ContentWrap
+:title="t('Upload Documents')" v-loading.fullscreen.lock="loadingPosting"
         element-loading-text="Saving the data.. Please wait.......">
 
         <div style="display: inline-block;">
-            <el-select v-model="type" :onChange="handleSelectType" placeholder="Select Model" style=" margin-right: 20px;"
+            <el-select
+v-model="type" :onChange="handleSelectType" placeholder="Select Model" style=" margin-right: 20px;"
                 filterable clearable>
                 <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
                     <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
@@ -652,7 +666,8 @@ const handleFileUpload = async () => {
         </div>
 
         <el-divider border-style="dashed" content-position="left">Upload</el-divider>
-        <el-upload v-if="showUploadSpace" class="upload-demo" drag :auto-upload="false"
+        <el-upload
+v-if="showUploadSpace" class="upload-demo" drag :auto-upload="false"
             action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList">
             <div class="el-upload__text"> Drop files here or <em>click to upload</em> </div>
         </el-upload>
@@ -660,7 +675,8 @@ const handleFileUpload = async () => {
 
 
 
-        <el-button v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload" type="primary"
+        <el-button
+v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload" type="primary"
             :disabled="disableDoubeUpload">
             Upload<el-icon class="el-icon--right">
                 <Upload />
@@ -676,7 +692,8 @@ const handleFileUpload = async () => {
                 <template #default="{ row }">
                     <el-select v-model="row.type" placeholder="Select Type" clearable filterable>
                         <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
-                            <el-option v-for="item in group.options" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in group.options" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-option-group>
                     </el-select>
@@ -686,7 +703,8 @@ const handleFileUpload = async () => {
             <el-table-column prop="type" :label="toTitleCase(theParentModel)">
                 <template #default="{ row }">
                     <el-select v-model="row[document_field]" placeholder="Select" clearable filterable>
-                        <el-option v-for="item in parentOptions" :key="item.value" :label="item.label"
+                        <el-option
+v-for="item in parentOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
                     </el-select>
                 </template>
@@ -695,7 +713,8 @@ const handleFileUpload = async () => {
 
         </el-table>
 
-        <el-button v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type="success"
+        <el-button
+v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type="success"
             :disabled="DisablePostSubmit">
             Submit<el-icon class="el-icon--right">
                 <CaretRight />

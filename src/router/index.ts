@@ -2340,6 +2340,80 @@ export const staffRoutes: AppRouteRecordRaw[] = [
     ]
   }, 
   {
+    path: '/data',
+    component: Layout,
+    redirect: '/data/import',
+    name: 'Data',
+    meta: {
+      title: 'Import Data',
+      icon: 'mdi:database-plus',
+      alwaysShow: false
+    },
+    children: [
+      {
+        path: 'list',
+       // component: 'views/ImportData/list',
+        component: () => import('@/views/ImportData/list.vue'),
+
+        name: 'ImportData',
+        meta: {
+          title: 'List',
+          icon: 'bi:filetype-xlsx',
+          hidden: true
+
+        }
+      },
+      {
+        path: 'xlsx',
+    //    component: 'views/ImportData/excel',
+        component: () => import('@/views/ImportData/excel.vue'),
+
+        name: 'ImportHH',
+        meta: {
+          title: 'Excel',
+          hidden:true,
+          icon: 'bi:filetype-xlsx',
+
+        }
+      },
+      {
+        path: 'fuzzy',
+    //    component: 'views/ImportData/excel',
+        component: () => import('@/views/ImportData/Fuzzy.vue'),
+
+        name: 'Fuzzy',
+        meta: {
+          title: 'List(xlsx)',
+          icon: 'bi:filetype-xlsx',
+
+        }
+      },
+      {
+        path: 'geo',
+        //component: 'views/ImportData/geo',
+        component: () => import('@/views/ImportData/geo.vue'),
+
+        name: 'Importgeo',
+        meta: {
+          title: 'Spatial',
+          icon: 'gis:geojson-file',
+
+        }
+      },
+      {
+        path: 'docs',
+    //    component: 'views/ImportData/excel',
+        component: () => import('@/views/ImportData/Document.vue'),
+        name: 'ImportDocuments',
+        meta: {
+          title: 'Documents',
+          icon: 'mdi:file-upload-outline',
+        }
+      },
+    ]
+  },
+ 
+  {
     path: '/repository',
     component: Layout,
     //redirect: '/settings',

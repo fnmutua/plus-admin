@@ -1846,7 +1846,7 @@ v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(pr
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+v-if="showEditButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
                     <el-dropdown-item
 @click="viewOnMap(scope as TableSlotDefault)"
@@ -1861,7 +1861,7 @@ v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
  
 
               <div v-else>
-                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
                   <el-button
 type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
@@ -2069,7 +2069,7 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+v-if="showEditButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
                     <el-dropdown-item
 @click="viewOnMap(scope as TableSlotDefault)"
