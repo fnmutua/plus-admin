@@ -60,6 +60,11 @@ import { uuid } from 'vue-uuid'
 import { countyOptions, subcountyOptions, WaterFacilitytypeOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index.ts'
 import { generalOwnership } from '../common'
 
+import { useRouter } from 'vue-router'
+
+
+const { push } = useRouter()
+
 
 const model = 'water_point'
 const parentOptions = ref([])
@@ -183,14 +188,23 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
   console.log("submit................", formEl)
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
 
 
-      const res = CreateRecord(ruleForm)
+      const res = await CreateRecord(ruleForm)
       //   console.log(res)
+      if (res.code === "0000") {
+        // code 0000 is successfule
+        push({
+      path: '/facilities/water/wp',
+      name: 'WaterPoint'
+    })
+      }
+
+
       ///
     } else {
       console.log('error submit!', fields)

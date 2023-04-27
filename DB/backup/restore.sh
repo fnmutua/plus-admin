@@ -58,9 +58,10 @@ echo
   echo "Now restoring......"
   psql -c 'CREATE DATABASE  "kisip"';
 
+  now="$(date +'%d%m%Y')"
 
  
-  psql -f 18022023.kisip.sql  kisip
+  psql -f $now.kisip.sql  kisip
 
  
 

@@ -44,6 +44,10 @@ import { CreateRecord } from '@/api/settlements'
 
 import type { FormInstance } from 'element-plus'
 import { uuid } from 'vue-uuid'
+import { useRouter } from 'vue-router'
+
+
+const { push } = useRouter()
 
 const loading = ref(true)
 
@@ -153,15 +157,26 @@ const rules = reactive<FormRules>({
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = 'health_facility'
       ruleForm.code = uuid.v4()
 
 
 
-      const res = CreateRecord(ruleForm)
+      const res = await CreateRecord(ruleForm)
       //   console.log(res)
+
+      
+      console.log('res>>>', res)
+      if (res.code === "0000") {
+        // code 0000 is successfule
+        push({
+      path: '/facilities/health',
+      name: 'Health'
+    })
+      }
+
       ///
     } else {
       console.log('error submit!', fields)

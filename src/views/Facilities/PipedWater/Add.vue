@@ -35,10 +35,6 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
 
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
-mapboxgl.accessToken = MapBoxToken;
-
 
 import {
   ArrowLeft,
@@ -58,6 +54,15 @@ import type { FormInstance } from 'element-plus'
 import { uuid } from 'vue-uuid'
 
 import { countyOptions, settlementOptionsV2, subcountyOptions, generalOwnership } from './../common/index.ts'
+import { useRouter } from 'vue-router'
+
+
+const { push } = useRouter()
+
+
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+mapboxgl.accessToken = MapBoxToken;
 
 
 const model = 'piped_water'
@@ -176,14 +181,25 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
   console.log("submit................", formEl)
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
 
 
-      const res = CreateRecord(ruleForm)
+      const res = await CreateRecord(ruleForm)
       //   console.log(res)
+         
+      console.log('res>>>', res)
+      if (res.code === "0000") {
+        // code 0000 is successfule
+        push({
+      path: '/facilities/pipedwater',
+      name: 'PipedWater'
+    })
+      }
+
+
       ///
     } else {
       console.log('error submit!', fields)

@@ -500,7 +500,7 @@ const readShp = async (file) => {
 
 
       if (geojson.length != 1) {
-        ElMessage.warning('Please uplaod a file with only one feature. This one has ' + geojson.length + ' features')
+        ElMessage.warning('Please upload a file with only one feature. This one has ' + geojson.length + ' features')
 
       }
       else {
@@ -531,7 +531,7 @@ const readShp = async (file) => {
     })
     .catch((error) => {
       console.error(error)
-      ElMessage.error('Invalid shapefiles. Check your zipped file')
+      ElMessage.error('Invalid shapefiles. Check your zipped file to contain (.shp, .dbf and .prj)')
 
 
     })
