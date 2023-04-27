@@ -691,7 +691,8 @@ const updateSelect = async (row, index) => {
 
 
       <div style="display: inline-block; margin-left: 20px">
-        <el-select v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
+        <el-select
+v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
           :onClear="handleClear" clearable filterable collapse-tags placeholder="Filter by Settlement">
           <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -700,7 +701,8 @@ const updateSelect = async (row, index) => {
 
 
       <el-divider v-if="showUploadinput" border-style="dashed" content-position="left">Upload</el-divider>
-      <el-upload v-if="showUploadinput" class="upload-demo" drag
+      <el-upload
+v-if="showUploadinput" class="upload-demo" drag
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList"
         :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="1"
         :on-exceed="handleExceed" :auto-upload="false">
@@ -723,7 +725,8 @@ const updateSelect = async (row, index) => {
 
 
             <el-select v-model="scope.row.match" @change="updateSelect(scope.row, scope.$index)" clearable>
-              <el-option v-for="(option, index) in matchOptions" :key="index" :label="option.label" :value="option.value"
+              <el-option
+v-for="(option, index) in matchOptions" :key="index" :label="option.label" :value="option.value"
                 :disabled="option.disabled" />
             </el-select>
 
