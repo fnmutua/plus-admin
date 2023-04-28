@@ -1426,7 +1426,7 @@ const editSettlement = (data: TableSlotDefault) => {
   ruleForm.parcel_no = data.row.parcel_no
   ruleForm.parcel_owner = data.row.parcel_owner
   ruleForm.rim_no = data.row.rim_no
-
+ 
 
 
   ruleForm.geom = data.row.geom
@@ -1659,6 +1659,8 @@ const readShp = async (file) => {
         }
         console.log(geom)
         ruleForm.geom = geom
+
+        console.log(ruleForm)
       }
 
 

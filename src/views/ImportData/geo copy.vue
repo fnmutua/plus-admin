@@ -42,7 +42,6 @@ import * as shapefile from 'shapefile';
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import * as turf from '@turf/turf'
 
 
 
@@ -502,18 +501,16 @@ const submitFiles = async () => {
     const fileType = fileList.value[0].raw.type;
     const extension = fileList.value[0].raw.name.split('.').pop().toLowerCase();
 
+
     console.log('fileType', fileType, extension)
 
     if (fileType === 'application/x-zip-compressed' || extension === 'zip' || extension === 'rar') {
-      // console.log('Reading Shp file....')
-      // const zip = await JSZip.loadAsync(fileList.value[0].raw);
-      // const shapefileData = await readShapefile(zip);
-      // const geojson = await convertToGeoJSON(shapefileData);
-      // //console.log(geojson)
-      // loadOptions(geojson)
-      var rfile = fileList.value[0].raw
-
-      readShp(rfile)
+      console.log('Reading Shp file....')
+      const zip = await JSZip.loadAsync(fileList.value[0].raw);
+      const shapefileData = await readShapefile(zip);
+      const geojson = await convertToGeoJSON(shapefileData);
+      //console.log(geojson)
+      loadOptions(geojson)
 
     }
     else if (fileType === 'application/json' || extension === 'geojson') {
@@ -544,38 +541,6 @@ const submitFiles = async () => {
 
 
 }
-
-
-
-const readShp = async (file) => {
-  console.log('Reading Shp file....')
-
-  // await getGeoJSON(file)
-  readShapefileAndConvertToGeoJSON(file)
-    .then((geojson) => {
-
-      console.log("Geo>", geojson)
-      console.log("Geo1>", geojson[0])
-
-      var collection = turf.featureCollection(geojson);
-
-      console.log(collection)
-     loadOptions(collection)
-
-   
-
-
-    })
-    .catch((error) => {
-      console.error(error)
-      ElMessage.error('Invalid shapefiles. Check your zipped file')
-
-
-    })
-
-  //uploadPolygon(feat)
-}
-
 
 const readJson = (event) => {
   let str = event.target.result
@@ -726,8 +691,7 @@ const updateSelect = async (row, index) => {
 
 
       <div style="display: inline-block; margin-left: 20px">
-        <el-select
-v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
+        <el-select v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
           :onClear="handleClear" clearable filterable collapse-tags placeholder="Filter by Settlement">
           <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -736,8 +700,7 @@ v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlem
 
 
       <el-divider v-if="showUploadinput" border-style="dashed" content-position="left">Upload</el-divider>
-      <el-upload
-v-if="showUploadinput" class="upload-demo" drag
+      <el-upload v-if="showUploadinput" class="upload-demo" drag
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList"
         :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="1"
         :on-exceed="handleExceed" :auto-upload="false">
@@ -760,8 +723,7 @@ v-if="showUploadinput" class="upload-demo" drag
 
 
             <el-select v-model="scope.row.match" @change="updateSelect(scope.row, scope.$index)" clearable>
-              <el-option
-v-for="(option, index) in matchOptions" :key="index" :label="option.label" :value="option.value"
+              <el-option v-for="(option, index) in matchOptions" :key="index" :label="option.label" :value="option.value"
                 :disabled="option.disabled" />
             </el-select>
 

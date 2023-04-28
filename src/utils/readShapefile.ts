@@ -6,24 +6,8 @@ import wellknown from 'wellknown';
 
 
 async function readShapefileAndConvertToGeoJSON(file) {
-
-// Define the WKT string
-const wkt = 'PROJCS["Arc_1960_UTM_Zone_37S",GEOGCS["GCS_Arc_1960",DATUM["D_Arc_1960",SPHEROID["Clarke_1880_RGS",6378249.145,293.465]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",10000000.0],PARAMETER["Central_Meridian",39.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]';
-
-// Define a temporary projection
-proj4.defs("TEMP", wkt);
-
-// Get the EPSG code
-const defnd = proj4.defs("TEMP") 
  
-  
-const fromProjection = 'PROJCS["NAD83 / Massachusetts Mainland",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],AUTHORITY["EPSG","6269"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.01745329251994328,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4269"]],UNIT["metre",1,AUTHORITY["EPSG","9001"]],PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["standard_parallel_1",42.68333333333333],PARAMETER["standard_parallel_2",41.71666666666667],PARAMETER["latitude_of_origin",41],PARAMETER["central_meridian",-71.5],PARAMETER["false_easting",200000],PARAMETER["false_northing",750000],AUTHORITY["EPSG","26986"],AXIS["X",EAST],AXIS["Y",NORTH]]';
-const toProjection = "+proj=gnom +lat_0=90 +lon_0=0 +x_0=6300000 +y_0=6300000 +ellps=WGS84 +datum=WGS84 +units=m +no_defs";
-//I'm not going to redefine those two in latter examples.
-const projected  = proj4(fromProjection,toProjection,[-122.305887, 58.9465872]);
-
-console.log(projected)
-
+ 
 
 
   const zip = new JSZip();
@@ -38,8 +22,7 @@ console.log(projected)
   const prjName = keys.find(key => /\.prj$/.test(key));
   console.log('prjName', prjName)
  
-  
-  
+    
   if (prjName) {
     const prjText = await zip.file(prjName).async("text");
     const wgs84Proj4Def = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs";
@@ -52,12 +35,19 @@ console.log(projected)
 
   }
 
+  let dbfName = keys.find(key => /\.dbf$/.test(key));
+  if (!dbfName) {
+    dbfName = null;
+  }
+
+  
   return new Promise(async (resolve, reject) => {
     const features = [];
 
     const shpData = await zip.file(shpName).async("ArrayBuffer");
+    const dbfData = await zip.file(dbfName).async("ArrayBuffer");
     try {
-      open(shpData)
+      open(shpData,dbfData)
         .then(function (source) {
           source.read().then(function next(result) {
             if (result.done) {
@@ -66,14 +56,21 @@ console.log(projected)
             };
             const feature = result.value;
             const geometry = feature.geometry;
-
-            // Project each coordinate of the geometry
-            geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
-              return proj4("SOURCE_CRS", "WGS84", coordinate);
-              //return proj4("SOURCE_CRS").inverse(coordinate);
-
-            });
-
+            console.log(geometry)
+              // Check if the geometry type is "Polygon" or "MultiPolygon"
+              if (geometry.type === "Polygon") {
+                // If it's a single polygon, project its coordinates
+                geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
+                  return proj4("SOURCE_CRS", "WGS84", coordinate);
+                });
+              } else if (geometry.type === "MultiPolygon") {
+                // If it's a multi-polygon, loop through all polygons and project their coordinates
+                geometry.coordinates.forEach(polygon => {
+                  polygon[0] = polygon[0].map(coordinate => {
+                    return proj4("SOURCE_CRS", "WGS84", coordinate);
+                  });
+                });
+              }
              // Set the GeoJSON CRS object to GCS WGS84
               feature.crs = {
                 type: "name",
