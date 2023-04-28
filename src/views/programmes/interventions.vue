@@ -30,6 +30,8 @@ import {
 } from '@/api/settlements'
 import { useRoute } from 'vue-router'
 import moment from "moment";
+import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
+import proj4 from 'proj4';
 
 
 ////////////*************Map Imports***************////////
@@ -445,34 +447,24 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
-const viewOnMap = (data: TableSlotDefault) => {
-  console.log('On map.....', data.row)
+ 
 
+const flyTo = (data: TableSlotDefault) => {
+  console.log('On Click.....', data.row.geom.type)
+  var shp = data.row.geom.type   
 
-  if (data.row.geom === null) {
-    // open(msg)
-    ElMessage({
-      message: 'This Project does not have the boundary defined in the database!',
-      type: 'warning',
-    })
-
-  } else {
-
-    push({
-      path: '/interventions/kisip/map/:id',
-      name: 'ProjectMap',
-      params: { id: data.row.id }
-    })
-
-    // push({
-    //     path: '/settlement/map/:id',
-    //     name: 'SettlementMap',
-    //     params: { id: data.row.id }
-    // })
-
+  if (shp =='MultiPolygon' || shp =='Polygon') {
+    facilityGeo.value = data.row.geom
+    var bounds = turf.bbox((data.row.geom));
+console.log(bounds)
   }
-}
+ 
+  loadMap()
+ // loadMap([data.row.geom.coordinates[0], data.row.geom.coordinates[1], data.row.title])
+  activeName.value = 'Map' // Navigate to Beneficiary Tab
 
+
+}
 
 
 const loadMap = () => {
@@ -484,7 +476,7 @@ const loadMap = () => {
 
   })
 
-  console.log("resizing....")
+  console.log("resizing....",facilityGeo.value )
   const nav = new mapboxgl.NavigationControl();
   nmap.addControl(nav, "top-right");
   nmap.on('load', () => {
@@ -561,6 +553,7 @@ const loadMap = () => {
 
 
     var bounds = turf.bbox((facilityGeo.value));
+     console.log(bounds)
     nmap.fitBounds(bounds, { padding: 20 });
 
 
@@ -569,8 +562,7 @@ const loadMap = () => {
       console.log("Onclikc..........")
       // Copy coordinates array.
       const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.asset_type;
-      const condition = e.features[0].properties.asset_condition;
+      const description = e.features[0].properties.title;
 
       // Ensure that if the map is zoomed out such that multiple
       // copies of the feature are visible, the popup appears
@@ -580,7 +572,7 @@ const loadMap = () => {
       }
       new mapboxgl.Popup({ offset: [0, -15] })
         .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .setHTML('<h3>' + description + '</h3><p>' ) // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
         .addTo(nmap);
 
     });
@@ -741,11 +733,11 @@ const filterValuesBen = ref([[], [[component_id.value]]])
 
 
 const viewBen = (data: TableSlotDefault) => {
-  console.log('----->', filterValuesBen.value)
+  
   selected_project.value = data.row.id
   filterValuesBen.value = [[data.row.id], [component_id.value]] // make sure the inner array is array
 
-  //console.log('----->', filtersBen.value.values, filterValuesBen.value)
+  console.log('----->', filtersBen.value.values, filterValuesBen.value)
 
   //console.log(filtersBen, selected_project.value, filterValuesBen)
 
@@ -882,42 +874,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
       console.log('before Updated', ruleForm)
       await updateOneRecord(ruleForm).then(() => { })
 
-
-      const fileTypes = []
-      const updateformData = new FormData()
-
-      for (var i = 0; i < fileUploadList.value.length; i++) {
-        console.log('------>file', fileUploadList.value[i])
-        var format = fileUploadList.value[i].name.split('.').pop() // get file extension
-        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-        fileTypes.push(format)
-        // formData.append('file', fileList.value[i])
-        // formData.file = fileList.value[i]
-        updateformData.append('file', fileUploadList.value[i].raw)
-        updateformData.append('DocType', format)
-
-      }
-
-
-      updateformData.append('parent_code', ruleForm.id)
-      updateformData.append('model', model)
-      updateformData.append('grp', 'Project Documentation')
-      updateformData.append('code', uuid.v4())
-      updateformData.append('column', 'project_id')
-
-
-      // formData.append('DocTypes', fileTypes)
-
-      console.log(updateformData)
-      await uploadDocuments(updateformData)
-
-
-
-
-
-
-
-
+  
 
     } else {
       console.log('error in editiinh!', fields)
@@ -965,6 +922,22 @@ const AddProject = () => {
   })
 
 }
+
+
+
+const AddBeneficiary = () => {
+
+console.log("Adding Beneficiary")
+ 
+
+push({
+  path: '/settlement/beneficiary',
+  name: 'InterventionBeneficiary',
+  
+})
+
+}
+
 
 const AddDialogVisible = ref(false)
 
@@ -1392,6 +1365,192 @@ const getActivities = async () => {
 }
 getDocumentTypes()
 getActivities()
+
+
+const readJson = (event) => {
+  console.log('Reading Josn file....', event)
+  let str = event.target.result
+
+ 
+    let json = JSON.parse(str)
+    console.log('parsed', json.crs)
+
+    const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
+
+    // const sourceProj = '+proj=utm +zone=37 +ellps=WGS84 +datum=WGS84 +units=m +no_defs';
+    let sourceProj
+    let epsgCode
+    let crsProp 
+        try {
+            crsProp = json.crs.properties.name;
+        }
+        catch (error) {
+          console.warn('Error extracting EPSG code:', error); // Log warning message
+          ElMessage.warning('The uploaded file lacks Coordinate system definition')
+          epsgCode = 4326
+      }
+        if (crsProp) {
+            epsgCode = crsProp.match(/EPSG::(\d+)/)[1];
+        }  
+
+
+
+    console.log(epsgCode)
+
+    if (epsgCode == 21037) {
+      // zone 37S
+      sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+    else if (epsgCode == 21097) {
+      // zone 37 N
+      sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
+    }
+    else if (epsgCode == 21036) {
+      // zone 36 S
+      sourceProj = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+    else if (epsgCode == 21096) {
+      // zone 36N
+      sourceProj = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+
+    else {
+      sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
+
+    }
+
+
+    proj4.defs("SOURCE_CRS", sourceProj);
+    proj4.defs("WGS84", targetProj);
+
+
+    if (json.features.length != 1) {
+      ElMessage.warning('Please uplaod a file with only one feature. This one has ' + json.features.length + ' features')
+
+    }
+    else {
+      console.log('ok>>', json.features)
+
+      const geometry = json.features[0].geometry;
+            console.log(geometry)
+              // Check if the geometry type is "Polygon" or "MultiPolygon"
+              if (geometry.type === "Polygon") {
+                // If it's a single polygon, project its coordinates
+                geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
+                  return proj4("SOURCE_CRS", "WGS84", coordinate);
+                });
+              } else if (geometry.type === "MultiPolygon") {
+                // If it's a multi-polygon, loop through all polygons and project their coordinates
+                geometry.coordinates.forEach(polygon => {
+                  polygon[0] = polygon[0].map(coordinate => {
+                    return proj4("SOURCE_CRS", "WGS84", coordinate);
+                  });
+                });
+              }
+
+              console.log('geometry',geometry)
+      let geom = {
+        type: json.features[0].geometry.type,
+        coordinates: geometry.coordinates
+      }
+     console.log(geom)
+      ruleForm.geom = geom
+    }
+
+  }
+  // catch (err) {
+  //   console.log(err)
+
+  //   ElMessage.error('The uploaded file lacks Coordinate system definition')
+
+  // }
+
+
+
+
+
+
+
+ 
+
+const readShp = async (file) => {
+  console.log('Reading Shp file....')
+
+  // await getGeoJSON(file)
+  readShapefileAndConvertToGeoJSON(file)
+    .then((geojson) => {
+
+      console.log("Geo>", geojson.length)
+      console.log("Geo1>", geojson)
+
+      if (geojson.length != 1) {
+        ElMessage.warning('Please upload a file with only one feature. This one has ' + geojson.length + ' features')
+
+      }
+      else {
+        console.log('ok>>', geojson[0])
+      
+
+        var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+
+        let geom = {
+          type: geojson[0].geometry.type,
+           coordinates: geojson[0].geometry.coordinates,
+        //  coordinates:  extractCoordinatesFromMultiPolygon (geojson[0].geometry),
+          crs:crs
+
+        }
+    
+
+        console.log('>>',geom)
+        ruleForm.geom = geom
+ 
+      }
+     
+
+
+    })
+    .catch((error) => {
+      console.error(error)
+      ElMessage.error('Invalid shapefiles. Check your zipped file')
+
+
+    })
+
+  //uploadPolygon(feat)
+}
+
+const handleUploadGeo = async (uploadFile) => {
+  console.log('Upload>>>', uploadFile)
+  //  uploadRef.value!.submit()
+
+  console.log("File type", uploadFile.name.split('.').pop())
+  var fileType = uploadFile.name.split('.').pop()
+  var rfile = uploadFile.raw
+
+  let reader = new FileReader()
+  console.log(reader)
+
+  //var mydata = JSON.parse(uploadFile);
+
+  if (fileType === 'geojson' || fileType === 'json') {
+    reader.onload = readJson
+    reader.readAsText(rfile)
+  }
+  else if (fileType === 'zip') {
+    readShp(rfile)
+
+    // reader.readAsArrayBuffer(rfile)
+  } else {
+    ElMessage.error('Only geojson or zipped shapefiles are supported at the moment')
+
+
+  }
+
+
+}
+
+
 </script>
 
 <template>
@@ -1417,7 +1576,11 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
               <el-button :onClick="AddProject" type="primary" :icon="Plus" />
             </el-tooltip>
           </div>
-
+          <div v-if="showEditButtons" style="display: inline-block; margin-left: 20px">
+            <el-tooltip content="Add Beneficiary" placement="top">
+              <el-button :onClick="AddBeneficiary" type="primary" :icon="User" />
+            </el-tooltip>
+          </div>
           <div style="display: inline-block; margin-left: 20px">
             <el-tooltip content="Download" placement="top">
               <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
@@ -1498,7 +1661,7 @@ v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(pr
 v-if="showAdminButtons" @click="editProject(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
                     <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
+@click="flyTo(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
 
                     <el-dropdown-item
@@ -1526,7 +1689,7 @@ type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotD
                 </el-tooltip>
                 <el-tooltip content="View on Map" placement="top">
                   <el-button
-type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+type="warning" size="small" :icon="Position" @click="flyTo(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip  content="View Households" placement="top">
@@ -1645,16 +1808,16 @@ v-model="ruleForm.location_level" filterable placeholder="Select Location"
             </el-select>
           </el-form-item>
         </el-col>
-        <el-form-item label="Documentation"> <el-upload
-v-model:file-list="fileUploadList" class="upload-demo" multiple
-            :limit="3" :auto-upload="false">
+        <el-form-item label="Geometry">
+          <el-upload :on-change="handleUploadGeo" multiple :limit="3" :auto-upload="false">
             <el-button type="primary">Click to upload</el-button>
             <template #tip>
               <div class="el-upload__tip">
-                pdf/xlsx/csv/jpg/png files with a size less than 20mb.
+                geojson or zipped shapefile
               </div>
             </template>
-          </el-upload></el-form-item>
+          </el-upload>
+        </el-form-item>
 
 
 

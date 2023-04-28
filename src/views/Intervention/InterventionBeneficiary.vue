@@ -72,6 +72,7 @@ const ruleForm = reactive({
   hh_id: '',
   project_id: '',
   settlement_id: '',
+  component_id:null,
   code: '',
 })
 const showSubmitBtn = ref(true)
@@ -391,6 +392,7 @@ const getProjectsOptions = async () => {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
       countyOpt.settlement_id = arrayItem.settlement_id
+      countyOpt.component_id = arrayItem.component_id
       countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
       projectOptions.value.push(countyOpt)
@@ -640,6 +642,8 @@ const handleSelectProject = async (project: any) => {
 
       console.log(result[0].settlement_id)
       ruleForm.settlement_id = result[0].settlement_id
+      ruleForm.component_id = result[0].component_id
+
     });
 }
 

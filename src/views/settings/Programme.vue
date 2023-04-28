@@ -339,7 +339,7 @@ const handleClose = () => {
   showSubmitBtn.value = true
   showEditSaveButton.value = false
 
-  ruleForm.id = ''
+  
   ruleForm.category = ''
   formHeader.value = 'Add Category'
 
@@ -463,10 +463,10 @@ layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-      <el-form-item label="Title">
+      <el-form-item label="Acronym">
         <el-input v-model="ruleForm.title" />
       </el-form-item>
-      <el-form-item label="Acronym">
+      <el-form-item label="Title">
         <el-input v-model="ruleForm.acronym" />
       </el-form-item>
 
