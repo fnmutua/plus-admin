@@ -43,6 +43,7 @@ import * as shapefile from 'shapefile';
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import * as turf from '@turf/turf'
+import proj4 from 'proj4';
 
 
 
@@ -581,7 +582,10 @@ const readJson = (event) => {
   let str = event.target.result
   let json = JSON.parse(str)
 
-  loadOptions(json)
+
+  console.log(json)
+
+ loadOptions(json)
 
 }
 const loadOptions = (json) => {
@@ -589,11 +593,80 @@ const loadOptions = (json) => {
 
   console.log('json ---->', json)
 
+  const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
+
+    let sourceProj
+    let epsgCode
+    let crsProp 
+        try {
+            crsProp = json.crs.properties.name;
+        }
+        catch (error) {
+          console.warn('Error extracting EPSG code:', error); // Log warning message
+          ElMessage.warning('The uploaded file lacks Coordinate system definition. Assuming GCS WGS84')
+          epsgCode = 4326
+      }
+        if (crsProp) {
+            epsgCode = crsProp.match(/EPSG::(\d+)/)[1];
+        }  
+
+
+    if (epsgCode == 21037) {
+      // zone 37S
+      sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+    else if (epsgCode == 21097) {
+      // zone 37 N
+      sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
+    }
+    else if (epsgCode == 21036) {
+      // zone 36 S
+      sourceProj = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+    else if (epsgCode == 21096) {
+      // zone 36N
+      sourceProj = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+
+    else {
+      sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
+
+    }
+
+
+    proj4.defs("SOURCE_CRS", sourceProj);
+    proj4.defs("WGS84", targetProj);
+
+
+
   // makeOptions(fields)
   for (let i = 0; i < json.features.length; i++) {
     var feature = json.features[i]
-    var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
-    feature.geometry.crs = crs
+    console.log('feature b4projectoion',feature)
+
+
+       const geometry = json.features[i].geometry;
+              // Check if the geometry type is "Polygon" or "MultiPolygon"
+              if (geometry.type === "Polygon") {
+                // If it's a single polygon, project its coordinates
+                geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
+                  return proj4("SOURCE_CRS", "WGS84", coordinate);
+                });
+              } else if (geometry.type === "MultiPolygon") {
+                // If it's a multi-polygon, loop through all polygons and project their coordinates
+                geometry.coordinates.forEach(polygon => {
+                  polygon[0] = polygon[0].map(coordinate => {
+                    return proj4("SOURCE_CRS", "WGS84", coordinate);
+                  });
+                });
+              }
+
+              console.log('geometry',geometry)
+            var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+            feature.geometry.crs = crs
+
+    feature.geometry = geometry
+    console.log(feature)
 
     feature.properties['createdBy'] = userInfo.id
     uploadObj.value.push(feature)  // Push to the temporary holder

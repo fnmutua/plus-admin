@@ -145,25 +145,12 @@ const locationOptions = [
 const source_location =ref('')
 
 const showButtons = ref(true)
- const draw = ref(new MapboxDraw({
-    displayControlsDefault: false,
-    // Select which mapbox-gl-draw control buttons to add to the map.
-    controls: {
-      polygon: showButtons.value,
-      line_string: showButtons.value,
-      uncombine_features: showButtons.value,
-      point: showButtons.value,
-      trash: true
-    },
-    // Set mapbox-gl-draw to draw by default.
-    // The user does not have to click the polygon control button first.
-    defaultMode: 'draw_polygon'
-}))
+ 
 
 
 
 
-
+const draw = ref()
 // Load map
 const loadMap = () => {
   mapboxgl.accessToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw';
@@ -180,16 +167,13 @@ const loadMap = () => {
 
   map.value.on('load', () => {
 
-    map.value.addControl(draw.value);
-
+ 
 
     
   map.value.on('mousemove', function (e) {
     document.getElementById('coordinates').innerHTML =
       'Lon: ' + e.lngLat.lng.toFixed(4) + ' Lat: ' + e.lngLat.lat.toFixed(4);
   });
-
-
 
 
     map.value.addLayer({
@@ -211,6 +195,19 @@ const loadMap = () => {
 
   // Set the state of the layer to "draw" to enable drawing on it
   map.value.setFeatureState({'source': 'draw-layer', 'id': 'draw-layer'}, {'draw': true});
+
+
+  draw.value = new MapboxDraw({
+    displayControlsDefault: false,
+    controls: {
+      point: true,
+      line_string: true,
+      polygon: true,
+      trash: true
+    },
+    
+  });
+  map.value.addControl(draw.value, 'top-right');
 
 
 
