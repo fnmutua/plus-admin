@@ -2,8 +2,7 @@ import * as turf from 'turf'
 import JSZip from 'jszip';
 import { open } from 'shapefile';
 import proj4 from 'proj4';
-import wellknown from 'wellknown';
-
+ 
 
 async function readShapefileAndConvertToGeoJSON(file) {
  
@@ -24,11 +23,57 @@ async function readShapefileAndConvertToGeoJSON(file) {
  
     
   if (prjName) {
-    const prjText = await zip.file(prjName).async("text");
-    const wgs84Proj4Def = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs";
+    const prj = await zip.file(prjName).async("text");
 
+    const prjText = prj.replace(/DATUM\["D_.*",SPHEROID.*/, '$&,' + 'TOWGS84[-160,-8.66,188,0,0,0,0]]');
+
+    console.log(prjText)
+
+    const pattern = /"([^"]+)"/; // match anything within double quotes
+
+    const match = prjText.match(pattern);
+    let crs_name 
+    let sourceProj
+    if (match && match.length > 1) {
+        crs_name = match[1];
+      console.log(crs_name); // "Arc_1960_UTM_Zone_37N"
+    } else {
+      console.log("No match found.");
+     }
+      
+    
+     if (crs_name == 'Arc_1960_UTM_Zone_37S') {
+      // zone 37S
+      sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+    else if (crs_name == 'Arc_1960_UTM_Zone_37N') {
+      // zone 37 N
+      sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
+    }
+    else if (crs_name == 'Arc_1960_UTM_Zone_36S') {
+      // zone 36 S
+      crs_name = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+    else if (crs_name == 'Arc_1960_UTM_Zone_36N') {
+      // zone 36N
+      crs_name = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+
+    else {
+      sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
+
+    }
+
+
+        
+
+//+towgs84=-160,-8.66,188,0,0,0,0
+
+
+    const wgs84Proj4Def = "+proj=longlat +datum=WGS84 +no_defs"
+ 
       // Define the temporary projections with the proj4 definition strings
-      proj4.defs("SOURCE_CRS", prjText);
+      proj4.defs("SOURCE_CRS", sourceProj);
       proj4.defs("WGS84", wgs84Proj4Def);
   } else {
     return; // if no *.prj are found 

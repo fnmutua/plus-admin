@@ -52,6 +52,7 @@ import { UserType } from '@/api/register/types'
 
 import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
+import proj4 from 'proj4';
 
 
 
@@ -1679,9 +1680,58 @@ const readJson = (event) => {
   console.log('Reading Josn file....', event)
   let str = event.target.result
 
-  try {
+ 
     let json = JSON.parse(str)
-    console.log('parsed', json)
+    console.log('parsed', json.crs)
+
+    const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
+
+    // const sourceProj = '+proj=utm +zone=37 +ellps=WGS84 +datum=WGS84 +units=m +no_defs';
+    let sourceProj
+    let epsgCode
+    let crsProp 
+        try {
+            crsProp = json.crs.properties.name;
+        }
+        catch (error) {
+          console.warn('Error extracting EPSG code:', error); // Log warning message
+          ElMessage.warning('The uploaded file lacks Coordinate system definition. Assuming GCS WGS84')
+          epsgCode = 4326
+      }
+        if (crsProp) {
+            epsgCode = crsProp.match(/EPSG::(\d+)/)[1];
+        }  
+
+
+
+    console.log(epsgCode)
+
+    if (epsgCode == 21037) {
+      // zone 37S
+      sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+    else if (epsgCode == 21097) {
+      // zone 37 N
+      sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
+    }
+    else if (epsgCode == 21036) {
+      // zone 36 S
+      sourceProj = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+    else if (epsgCode == 21096) {
+      // zone 36N
+      sourceProj = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+    }
+
+    else {
+      sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
+
+    }
+
+
+    proj4.defs("SOURCE_CRS", sourceProj);
+    proj4.defs("WGS84", targetProj);
+
 
     if (json.features.length != 1) {
       ElMessage.warning('Please uplaod a file with only one feature. This one has ' + json.features.length + ' features')
@@ -1689,32 +1739,34 @@ const readJson = (event) => {
     }
     else {
       console.log('ok>>', json.features)
+
+      const geometry = json.features[0].geometry;
+            console.log(geometry)
+              // Check if the geometry type is "Polygon" or "MultiPolygon"
+              if (geometry.type === "Polygon") {
+                // If it's a single polygon, project its coordinates
+                geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
+                  return proj4("SOURCE_CRS", "WGS84", coordinate);
+                });
+              } else if (geometry.type === "MultiPolygon") {
+                // If it's a multi-polygon, loop through all polygons and project their coordinates
+                geometry.coordinates.forEach(polygon => {
+                  polygon[0] = polygon[0].map(coordinate => {
+                    return proj4("SOURCE_CRS", "WGS84", coordinate);
+                  });
+                });
+              }
+
+              console.log('geometry',geometry)
       let geom = {
         type: json.features[0].geometry.type,
-        coordinates: json.features[0].geometry.coordinates
+        coordinates: geometry.coordinates
       }
-      console.log(geom)
+     console.log(geom)
       ruleForm.geom = geom
     }
 
   }
-  catch (err) {
-    console.log(err.message)
-
-    ElMessage.error('Invalid Geojson Format')
-
-  }
-
-
-
-
-
-
-
-
-
-
-}
 
 const handleUploadGeo = async (uploadFile) => {
   console.log('Upload>>>', uploadFile)
