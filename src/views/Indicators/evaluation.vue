@@ -829,7 +829,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         <el-date-picker v-model="ruleForm.end_date" type="date" placeholder="Select date" />
       </el-form-item>
 
-      <el-form-item label="Array Field">
+      <el-form-item label="Findings">
         <el-input v-model="findingsString" type="textarea" placeholder="Enter values, separated by commas" />
       </el-form-item>
 

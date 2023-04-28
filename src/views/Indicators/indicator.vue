@@ -58,7 +58,7 @@ if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
 } else {
-  dialogWidth.value = "25%"
+  dialogWidth.value = "55%"
   actionColumnWidth.value = "160px"
 
 
@@ -536,7 +536,8 @@ const DownloadXlsx = async () => {
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search Indicator">
         <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -572,9 +573,11 @@ const DownloadXlsx = async () => {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="showAdminButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
                   color="green">Edit</el-dropdown-item>
-                <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -582,13 +585,15 @@ const DownloadXlsx = async () => {
           <div v-else>
 
             <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-              <el-button type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
+              <el-button
+type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
                 circle />
             </el-tooltip>
 
 
             <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this record?" width="150"
                 @confirm="DeleteIndicator(scope.row as TableSlotDefault)">
                 <template #reference>
@@ -604,7 +609,8 @@ const DownloadXlsx = async () => {
     </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
@@ -613,7 +619,7 @@ const DownloadXlsx = async () => {
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
       <el-form-item label="Activity">
-        <el-select filterable v-model="ruleForm.activity_id" placeholder="Select Activity">
+        <el-select filterable v-model="ruleForm.activity_id" placeholder="Select Activity"  width="200px">
           <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>

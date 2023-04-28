@@ -532,7 +532,7 @@ const editIndicator = (data: TableSlotDefault) => {
   formHeader.value = 'Review Report'
 
   // make the descriptions dataset 
-  report.value.county = data.row.county.name
+  report.value.county =  data.row.county? data.row.county.name :''
   report.value.indicator = data.row.indicator_category.indicator_name
   report.value.status = data.row.status
   report.value.date = data.row.date
