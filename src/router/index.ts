@@ -615,6 +615,18 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           icon:'fluent:calendar-data-bar-16-regular'
         }
       },
+      
+      {
+        path: 'imagery',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/Imagery.vue'),
+        name: 'DroneImagery',
+        meta: {
+          title: 'Imagery',
+          hidden: false,
+          icon:'mdi:space-station'
+        }
+      },
     ]
   },
 ]
@@ -1142,6 +1154,18 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: 'Data',
           hidden: false,
           icon:'fluent:calendar-data-bar-16-regular'
+        }
+      },
+      
+      {
+        path: 'imagery',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/Imagery.vue'),
+        name: 'DroneImagery',
+        meta: {
+          title: 'Imagery',
+          hidden: false,
+          icon:'mdi:space-station'
         }
       },
     ]
@@ -1697,6 +1721,18 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
           title: 'Data',
           hidden: false,
           icon:'fluent:calendar-data-bar-16-regular'
+        }
+      },
+      
+      {
+        path: 'imagery',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/Imagery.vue'),
+        name: 'DroneImagery',
+        meta: {
+          title: 'Imagery',
+          hidden: false,
+          icon:'mdi:space-station'
         }
       },
     ]
@@ -2445,6 +2481,18 @@ export const staffRoutes: AppRouteRecordRaw[] = [
           title: 'Data',
           hidden: false,
           icon:'fluent:calendar-data-bar-16-regular'
+        }
+      },
+      
+      {
+        path: 'imagery',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/Imagery.vue'),
+        name: 'DroneImagery',
+        meta: {
+          title: 'Imagery',
+          hidden: false,
+          icon:'mdi:space-station'
         }
       },
     ]
@@ -3274,6 +3322,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           icon:'fluent:calendar-data-bar-16-regular'
         }
       },
+
+      {
+        path: 'imagery',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/Imagery.vue'),
+        name: 'DroneImagery',
+        meta: {
+          title: 'Imagery',
+          hidden: false,
+          icon:'mdi:space-station'
+        }
+      },
     ]
   },
 
@@ -4099,6 +4159,18 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
           title: 'Data',
           hidden: false,
           icon:'fluent:calendar-data-bar-16-regular'
+        }
+      },
+      
+      {
+        path: 'imagery',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/Imagery.vue'),
+        name: 'DroneImagery',
+        meta: {
+          title: 'Imagery',
+          hidden: false,
+          icon:'mdi:space-station'
         }
       },
     ]

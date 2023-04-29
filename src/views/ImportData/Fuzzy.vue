@@ -454,6 +454,15 @@ const readXLSX = async (event) => {
         const fields = Object.values(rows[0]) //  get all proterit4s of the first feature
         console.log("fields-->", fields)
 
+        if (!fields.includes('pcode')) {
+            console.log('Has Pcode', fields.includes('pcode')); //true
+            ElMessage.error('The uploaded file is missing "pcode" field. Present: [' +fields +']')
+            handleReset()
+            return 
+            
+       }
+
+ 
 
         for (let j = 1; j < rows.length; j++) {
             var record = {}
@@ -645,6 +654,8 @@ const updateSelect = async (row, index) => {
     console.log('selectedValues', selectedValues)
 }
 const handleReset = async () => {
+    selectedparent.value = null
+    type.value=null
     selectedValues.value = []
     fileList.value = []
     selectOptions.value = []
@@ -655,6 +666,7 @@ const handleReset = async () => {
     showUploadButton.value = false
     showUploadSpace.value = false
     showTable.value = false
+    disableDoubeUpload.value=false
 }
 const loadingPosting = ref(false)
 
