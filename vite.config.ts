@@ -118,15 +118,16 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       }
     },
     server: {
-      host: true,
+      host: false,
       port : 4000,
       proxy: {
-        "/api": {
-          target: "http://127.0.0.1:8084",
+         
+        '/imagery': {
+          target: 'http://localhost:8080/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities',
           changeOrigin: true,
-          secure: false,
-          ws: true,
+          rewrite: (path) => path.replace(/^\/imagery/, '')
         },
+
       },
       hmr: {
         overlay: false
