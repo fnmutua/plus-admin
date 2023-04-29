@@ -377,7 +377,12 @@ module.exports = function (sequelize, DataTypes) {
           name: 'household_pkey',
           unique: true,
           fields: [{ name: 'id' }]
-        }
+        },
+        // {
+        //   name: 'household_nat_id',
+        //   unique: true,
+        //   fields: [{ name: 'national_id' }]
+        // }
       ]
     }
   )

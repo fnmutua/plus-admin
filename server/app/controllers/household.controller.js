@@ -433,41 +433,46 @@ exports.getOneHousehold = (req, res) => {
 
 
   
-exports.batchHouseholdImport = async (req, res) => {
-  var reg_model = req.body.model
-  let data = req.body.data
-
- //console.log('Model upsert----', req.body)
-  let errors = []
-  for (let i = 0; i < data.length; i++) {
-
-    var obj = data[i]
-    let name = data[i].name
-    obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, 'maluini')
-    delete obj.model // or delete person["age"];
+  exports.batchHouseholdImport = async (req, res) => {
+    var reg_model = req.body.model;
+    let data = req.body.data;
+    let errors = [];
   
-
-   // console.log('the hh data', obj)
-    await db.models.households.upsert(obj )
-      .then(data => console.log(data))
-      .catch(err => errors.push(err.original));
-      //.catch(err => console.log(err.original));
-  }
-
-  console.log("Upsert Errors ---->", errors[0])
-  if (errors.length > 0) {
-    let errorCodes = [...new Set(errors)];
-    if (errorCodes.includes("42P10")) {
-      var errorMsg = 'There are one or more duplicate records'
+    for (let i = 0; i < data.length; i++) {
+      var obj = data[i];
+      let name = data[i].name;
+      obj.name = sequelize.fn('PGP_SYM_ENCRYPT', name, 'maluini');
+      delete obj.model;
+  
+      await db.models.households
+        .upsert(obj, { 
+          returning: true, 
+          plain: true, 
+          onDuplicate: 'update',
+         
+        })
+        .then(([row, created]) => {
+          console.log(created ? 'Created' : 'Updated', row.toJSON());
+        })
+        .catch((err) => {
+           
+          errors.push(err.original);
+        });
     }
+  
+    if (errors.length > 0) {
 
-    res.status(500).send({ message: 'Import/Update failed:'+errorMsg})
-  } else {
-    res.status(200).send({
-      message: 'HH import Successful',
-      code: '0000'
-    })
-  }
+      console.log('HH import errors', errors)
 
+      
 
-}
+      res.status(500).send({ message: 'Import/Update failed:' + errors[0] });
+      
+    } else {
+      res.status(200).send({
+        message: 'HH import Successful',
+        code: '0000',
+      });
+    }
+  };
+  

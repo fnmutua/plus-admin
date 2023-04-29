@@ -42,7 +42,9 @@ import Fuse from 'fuse.js';
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { useRouter } from 'vue-router'
+import shortid from 'shortid';
 
+const loadingPosting = ref(false)
 
 const { push } = useRouter()
 
@@ -95,6 +97,7 @@ const disableDoubeUpload = ref(false)
 
 
 
+
 function toTitleCase(str) {
     return str.replace(
         /\w\S*/g,
@@ -116,7 +119,7 @@ const getModeldefinition = async (selModel) => {
         var data = response.data
 
         var fields = data.filter(function (obj) {
-            return (obj.field !== 'id');
+            return (obj.field !== 'id' &&  obj.field !== 'code');
         });
 
         var fields2 = fields.filter(function (obj) {
@@ -445,6 +448,10 @@ const selectedValues = ref()
 
 const readXLSX = async (event) => {
     console.log('on file change.......', event)
+     console.log('loadingPosting.value.......', loadingPosting.value)
+
+
+    
     //file.value = event.target.files ? event.target.files[0] : null;   // Direct upload 
     file.value = event   // called from the uplaod funtion 
 
@@ -515,16 +522,29 @@ const readXLSX = async (event) => {
                 const fuse = new Fuse(parentObj.value, options);
 
                 let results = fuse.search(input);
-                console.log(pfield, results[0].item)
+                console.log(results)
+                if (results.length>0) {
+                    console.log(pfield, results[0].item)
 
-                return {
+                    return {
                     ...obj, // spread existing properties of the object
                     [pfield]: results[0].item.id, // add new property to the object
                     ['county_id']: results[0].item.county_id, // add new property to the object
-                    ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
+                        ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
+                        ['code']:  shortid.generate(),
                     //['settlement_id']: results[0].item.settlement_id  // add new property to the object
 
                 };
+                } else {
+                    ElMessage.error("No parent exists with the provide pcode:" +obj.pcode)
+                    //handleReset()
+                    return {
+                        ...obj
+                    }
+                
+                }
+
+             
             });
         } else {
 
@@ -603,6 +623,7 @@ const readXLSX = async (event) => {
 
         show.value = true
         showTable.value = true
+        loadingPosting.value = false
 
 
     })
@@ -613,14 +634,19 @@ const readXLSX = async (event) => {
 
 
 const handleFileUpload = async () => {
-    disableDoubeUpload.value = true   // Disable the button to prevent double upload
+    loadingPosting.value = true
+
     if (fileList.value.length == 0) {
         ElMessage.error('Select a  File first!')
+ 
+    } else {
+     disableDoubeUpload.value = true   // Disable the button to prevent double upload
+      const rfile = fileList.value[0].raw
+    let reader = new FileReader()
+        reader.onload = readXLSX(rfile)
+    
     }
 
-    const rfile = fileList.value[0].raw
-    let reader = new FileReader()
-    reader.onload = readXLSX(rfile)
 
 
 }
@@ -668,15 +694,14 @@ const handleReset = async () => {
     showTable.value = false
     disableDoubeUpload.value=false
 }
-const loadingPosting = ref(false)
-
+ 
 const DisablePostSubmit = ref(false)
 const handleSubmitData = async () => {
     console.log(tableData.value)
+     loadingPosting.value=true
     console.log(matchedWithParent.value)
     DisablePostSubmit.value = true  // Disable the submti button to avoid double sumbissions 
-    loadingPosting.value = true  // Display saving message.....
-
+ 
 
     function replaceObjectKeys(arr, dict) {
         return arr.map(obj => {
@@ -723,12 +748,19 @@ const handleSubmitData = async () => {
                     name: 'AllHouseholds'
                     })   
              
-                    loadingPosting.value = false
+                    DisablePostSubmit.value=false
 
             })
             .catch((error) => {
                 console.log('Error------>', error.response.data.message)
-                ElMessage.error(error.response.data.message)
+                ElMessage( {
+                    message: error.response.data.message,
+                    type: 'error',
+                    duration: 3000 // the message will be displayed for 3 seconds before closing
+                })
+ 
+                DisablePostSubmit.value=false
+
             })
 
 
@@ -738,7 +770,14 @@ const handleSubmitData = async () => {
         await BatchImportUpsert(formData)
             .catch((error) => {
                 console.log('Error------>', error.response.data.message)
-                ElMessage.error(error.response.data.message)
+              //  ElMessage.error(error.response.data.message)
+                ElMessage( {
+                    message: 'error.response.data.message',
+                    type: 'error',
+                    duration: 3000 // the message will be displayed for 3 seconds before closing
+                })
+ 
+                                 DisablePostSubmit.value = false
             })
             .then((response: { data: any }) => {
 
@@ -748,11 +787,12 @@ const handleSubmitData = async () => {
                     name: 'Fuzzy'
                 }) 
                     
-                loadingPosting.value = false
+                DisablePostSubmit.value=false
+ 
             })
     }
 
-
+    loadingPosting.value=false
 
 
 
@@ -763,10 +803,10 @@ const handleSubmitData = async () => {
 
 <template>
     <ContentWrap
-:title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')"
-        v-loading.fullscreen.lock="loadingPosting" element-loading-text="Saving the data.. Please wait.......">
+:title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')" >
 
-        <div style="display: inline-block;">
+        <div  v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.......">
+            <div style="display: inline-block;">
             <el-select
 v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Select data to import"
                 style=" margin-right: 20px">
@@ -819,6 +859,8 @@ v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type
                 <CaretRight />
             </el-icon>
         </el-button>
+        </div>
+        
     </ContentWrap>
 </template>
 
