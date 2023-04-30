@@ -1,27 +1,10 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
-import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
-import { ElMessage } from 'element-plus'
-import {
-  Position,
-  TopRight,
-  User,
-  Plus,
-  Download,
-  Filter,
-  MessageBox,
-  Edit,
-  InfoFilled,
-  Delete
-} from '@element-plus/icons-vue'
+import { ElSelect } from 'element-plus'
 
-import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption,  ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
+import { ref } from 'vue'
+import { ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -29,13 +12,12 @@ import { onMounted } from 'vue'
 
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
-import * as turf from '@turf/turf'
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
  
  
 import axios from 'axios';
-import * as xmlJs from 'xml-js';
+ import { XMLParser } from 'fast-xml-parser';
 
 
 
@@ -59,39 +41,14 @@ console.log("userInfo--->", userInfo)
 
 
 
-
-
-
-const { push } = useRouter()
-  
+ 
 
  
 
  
  
 const lyr = ref('')
-const options = [
-  {
-    value: 'Option1',
-    label: 'Option1',
-  },
-  {
-    value: 'Option2',
-    label: 'Option2',
-  },
-  {
-    value: 'Option3',
-    label: 'Option3',
-  },
-  {
-    value: 'Option4',
-    label: 'Option4',
-  },
-  {
-    value: 'Option5',
-    label: 'Option5',
-  },
-]
+ 
 
 
 
@@ -105,13 +62,17 @@ const handleSelectLayer = async (lyr: any) => {
   console.log('Layer',lyr)
   layerName.value = lyr;
 
+  console.log(layers)
 
   var filteredLayers = layers.value.filter(function(layer) {
       return layer.name === lyr;
     });
 
-bounds.value=filteredLayers[0].bbox[0]
-console.log('filteredLayers',filteredLayers[0].bbox[0])
+    console.log('filteredLayers',filteredLayers[0].bbox)
+
+
+bounds.value=filteredLayers[0].bbox
+console.log('filteredLayerss',filteredLayers[0].bbox)
 
     loadMap()
 }
@@ -147,8 +108,9 @@ const loadMap = () => {
       'paint': {}
      });
 
-      //console.log(bounds.value._attributes.minx)
-     map.fitBounds([[bounds.value._attributes.minx, bounds.value._attributes.miny],  [bounds.value._attributes.maxx, bounds.value._attributes.maxy]  ]);
+       console.log(bounds.value)
+     map.fitBounds([[bounds.value.westBoundLongitude, bounds.value.southBoundLatitude],  [bounds.value.eastBoundLongitude
+, bounds.value.northBoundLatitude]  ]);
 
 
   })
@@ -158,27 +120,30 @@ const loadMap = () => {
  
 onMounted(() => {
       axios
-      .get('/imagery')
+      .get('http://159.223.109.100:8080/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
       .then((response) => {
         const xml = response.data;
        // console.log(xml)
-          const options = { compact: true, ignoreComment: true, spaces: 4 };
-        const result =  xmlJs.xml2json(xml, options);
 
-        const obj = JSON.parse(result)
-    //    console.log(obj)
 
-   //     console.log(obj.WMS_Capabilities.Capability.Layer);
+       const parser = new XMLParser();
+      const json = parser.parse(xml);
 
-        const glayers = obj.WMS_Capabilities.Capability.Layer.Layer.map(layer => ({
-            name: layer.Name._text,
-            title: layer.Title._text,
-            label: layer.Name._text,
-          value: layer.Name._text,
-            bbox :layer.BoundingBox
-            
+
+
+      const glayers= json.WMS_Capabilities.Capability.Layer.Layer.map(layer => ({
+            name: layer.Name,
+            title: layer.Title,
+            label: layer.Name,
+          value: layer.Name,
+            bbox :layer.EX_GeographicBoundingBox
+
           }));
-            
+
+          console.log(glayers)
+
+       
+
         layers.value = glayers;
 
 
@@ -195,7 +160,7 @@ onMounted(() => {
 
  
         console.log(selOptions)
-
+        lyr.value=selOptions.value[0].value
         handleSelectLayer(selOptions.value[0].value)
         loadMap()
           
