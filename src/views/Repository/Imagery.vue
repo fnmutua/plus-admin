@@ -241,14 +241,15 @@ const loadMap = () => {
       // );
 
  
-
+      var server = 'http://159.223.109.100:8080/geoserver/kisip/wms'
+      var local_server = 'http://localhost:8080/geoserver/kisip/wms'
 
      map.addLayer({
       'id': 'geoserver-wms-layer',
       'type': 'raster',
       'source': {
         'type': 'raster',
-        'tiles': [ 'http://localhost:8080/geoserver/kisip/wms?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=' + layerName.value ],
+        'tiles': [ server+'?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=' + layerName.value ],
           'tileSize': 256
       },
       'paint': {}
