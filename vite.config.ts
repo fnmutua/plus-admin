@@ -123,7 +123,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       proxy: {
          
         '/imagery': {
-          target: 'http://localhost:8080/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities',
+          target: 'http://159.223.109.100:8080/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/imagery/, '')
         },
