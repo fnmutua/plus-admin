@@ -94,7 +94,9 @@ const loadMap = () => {
     map.resize()
  
  
-      var server = 'http://159.223.109.100:8080/geoserver/kisip/wms'
+    var xserver = 'http://159.223.109.100:8080/geoserver/kisip/wms'
+    var server = 'https://cloud.ags.co.ke/geoserver/kisip/wms'
+      
       var local_server = 'http://localhost:8080/geoserver/kisip/wms'
 
      map.addLayer({
@@ -120,7 +122,8 @@ const loadMap = () => {
  
 onMounted(() => {
       axios
-      .get('http://159.223.109.100:8080/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+    //  .get('http://159.223.109.100:8080/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+      .get('https://cloud.ags.co.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
       .then((response) => {
         const xml = response.data;
        // console.log(xml)
@@ -129,7 +132,7 @@ onMounted(() => {
        const parser = new XMLParser();
       const json = parser.parse(xml);
 
-
+  
 
       const glayers= json.WMS_Capabilities.Capability.Layer.Layer.map(layer => ({
             name: layer.Name,
