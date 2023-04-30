@@ -119,7 +119,8 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     },
     server: {
       host: false,
-      port : 4000,
+       port : 4000, //Dev
+    //  port : 80,   // Production
       proxy: {
               '/imagery': {
           target: 'http://159.223.109.100:8080/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities',
