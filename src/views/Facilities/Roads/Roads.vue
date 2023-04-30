@@ -519,6 +519,12 @@ const loadMap = (roadDetails) => {
 
   })
 
+     // When the map fails to load, hide the base map and show only the overlays
+     nmap.on('error', function (e) {
+    console.log('Failed.....', e.error)
+    nmap.setStyle( './style.json');
+          console.log("Failed to load base map. Showing only overlays.");
+      });
 
 
   console.log("resizing....")

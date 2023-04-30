@@ -147,6 +147,12 @@ const loadMap = () => {
     zoom: 5
   });
 
+     // When the map fails to load, hide the base map and show only the overlays
+     map.value.on('error', function (e) {
+    console.log('Failed.....', e.error)
+    map.value.setStyle( './style.json');
+          console.log("Failed to load base map. Showing only overlays.");
+      });
   const nav = new mapboxgl.NavigationControl();
   map.value.addControl(nav, "top-left");
 
@@ -1074,18 +1080,21 @@ const handleSelectCounty = async (county_id: any) => {
             <el-step title="Documentation" :icon="Upload" />
           </el-steps>
           <el-divider />
-          <el-form label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
+          <el-form
+label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
             status-icon>
             <el-col v-if="showForm" :span="24" :lg="24" :md="12" :sm="12" :xs="24">
               <el-form-item label="Location" prop="location_level">
-                <el-select v-model="ruleForm.location_level" filterable placeholder="Select Location"
+                <el-select
+v-model="ruleForm.location_level" filterable placeholder="Select Location"
                   @change="handleSelectLocation">
                   <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
 
               <el-form-item v-if=showSettlement label="Settlement" prop="settlement_id">
-                <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
+                <el-select
+v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
                   @change="handleSelectSettlement">
                   <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
@@ -1093,7 +1102,8 @@ const handleSelectCounty = async (county_id: any) => {
               </el-form-item>
 
               <el-form-item v-if=showCounty label="County" prop="county_id">
-                <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
+                <el-select
+v-model="ruleForm.county_id" filterable placeholder="Select County"
                   @change="handleSelectCounty">
                   <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
@@ -1110,14 +1120,16 @@ const handleSelectCounty = async (county_id: any) => {
                   <el-form-item label="Programme" prop="programme_id">
                     <!-- <el-select v-model="ruleForm.programme_id" filterable placeholder="Select" :onChange="handleChangeProgramme"> -->
                     <el-select v-model="ruleForm.programme_id" filterable placeholder="Select">
-                      <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label"
+                      <el-option
+v-for="item in programmeOptions" :key="item.value" :label="item.label"
                         :value="item.value" />
                     </el-select>
                   </el-form-item>
                 </el-col>
                 <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
                   <el-form-item label="Type" prop="category_id">
-                    <el-cascader v-model="tmp_domain" :options="domainProgrammeOptions" :show-all-levels="false"
+                    <el-cascader
+v-model="tmp_domain" :options="domainProgrammeOptions" :show-all-levels="false"
                       @change="handleChangeComponent" />
                   </el-form-item>
                 </el-col>
@@ -1183,13 +1195,15 @@ const handleSelectCounty = async (county_id: any) => {
 
 
             <el-form-item v-if="showGeoFields" label="Location">
-              <el-switch width="200px" v-model="geoSource"
+              <el-switch
+width="200px" v-model="geoSource"
                 style="--el-switch-on-color: orange; --el-switch-off-color: purple" class="mb-2"
                 active-text="Upload Geojson File" inactive-text="Draw on Map" />
             </el-form-item>
 
 
-            <el-upload v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
+            <el-upload
+v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :on-change="handleUploadGeo">
               <el-icon class="el-icon--upload"><upload-filled /></el-icon>
               <div class="el-upload__text">
@@ -1204,7 +1218,8 @@ const handleSelectCounty = async (county_id: any) => {
 
 
 
-            <el-upload v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" multiple
+            <el-upload
+v-if="showUploadDocuments" v-model:file-list="fileList" class="upload-demo" multiple
               :auto-upload="false" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
               :on-change="handleUploadDocuments">
               <el-button type="primary">Click to upload documentation</el-button>
@@ -1220,9 +1235,11 @@ const handleSelectCounty = async (county_id: any) => {
           <div class="flex justify-between">
             <el-button-group class="flex justify-between items-center ">
               <el-button type="primary" :icon="ArrowRight" @click="next">Next Step</el-button>
-              <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="success"
+              <el-button
+v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="success"
                 :icon="Promotion">Submit</el-button>
-              <el-button v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
+              <el-button
+v-if="showUploadDocuments" @click="submitForm(ruleFormRef)" type="warning"
                 :icon="RefreshLeft">Reset</el-button>
             </el-button-group>
           </div>

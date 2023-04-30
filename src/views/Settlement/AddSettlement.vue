@@ -320,6 +320,17 @@ onMounted(() => {
     zoom: 5
   });
 
+  
+     // When the map fails to load, hide the base map and show only the overlays
+     map.value.on('error', function (e) {
+       console.log('Failed..ADD...', e.error.message)
+     //  if (e.error.message = ! 'Gone') {
+
+        map.value.setStyle( './style.json');
+          console.log("Failed to load base map.Settleemnts  Showing only overlays.");
+     // }
+
+      });
   map.value.addControl(new mapboxgl.NavigationControl());
   // add marker for project location
 
