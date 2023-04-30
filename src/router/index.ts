@@ -644,6 +644,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
       icon: 'ant-design:dashboard-filled',
       alwaysShow: true
     },
+    
     children: [
       {
         path: 'national',
@@ -664,7 +665,8 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: t('Status'),
           noCache: true,
           affix: true,
-          icon:'pajamas:status',
+          icon:'ant-design:dashboard-filled',
+          alwaysShow: true
 
         }
       },
@@ -676,6 +678,8 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: t('Interventions'),
           noCache: true,
           icon:'fa-solid:hands-helping',
+          affix: true,
+          alwaysShow: true
 
         }
       }

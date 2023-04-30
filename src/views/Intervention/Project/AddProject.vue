@@ -161,6 +161,13 @@ const loadMap = () => {
     center: [37.137343, 0.737451], // starting position
     zoom: 5
   });
+  
+     // When the map fails to load, hide the base map and show only the overlays
+     map.value.on('error', function (e) {
+    console.log('Failed.....', e.error)
+    map.value.setStyle( './style.json');
+          console.log("Failed to load base map. Showing only overlays.");
+      });
 
   const nav = new mapboxgl.NavigationControl();
   map.value.addControl(nav, "top-left");

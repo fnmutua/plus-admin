@@ -214,6 +214,13 @@ onMounted(() => {
     zoom: 5
   });
 
+  
+     // When the map fails to load, hide the base map and show only the overlays
+     map.value.on('error', function (e) {
+    console.log('Failed.....', e.error)
+    map.value.setStyle( './style.json');
+          console.log("Failed to load base map. Showing only overlays.");
+      });
   map.value.addControl(new mapboxgl.NavigationControl());
   // add marker for project location 
 

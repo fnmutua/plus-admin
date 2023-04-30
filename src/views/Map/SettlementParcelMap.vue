@@ -24,7 +24,7 @@ import writeShapefile from '@/utils/writeShapefile'
 import * as download from 'downloadjs'
 import { ElMessage } from 'element-plus'
 import { ElCollapse, ElCollapseItem } from 'element-plus';
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, reactive } from 'vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
 
 
@@ -149,175 +149,293 @@ const getAll = async () => {
 
 const nmap = ref()
 
+const countOffline = ref(0)
+
+
 const loadMap = () => {
   nmap.value = new mapboxgl.Map({
     container: "mapContainer",
     style: "mapbox://styles/mapbox/streets-v11",
+  //  style: './style.json',
     center: [37.137343, 1.137451], // starting position
     zoom: 6,
-
   })
 
-  console.log("resizing....")
+               
 
-  const nav = new mapboxgl.NavigationControl();
-  nmap.value.addControl(nav, "top-right");
+  nmap.value.on('error', function (e) {
+
+    countOffline.value++
+     console.log(e.error)
+
+    if (countOffline.value==1) {
+      nmap.value = new mapboxgl.Map({
+      container: 'mapContainer',
+      style: './style.json',
+      center: [37.137343, 1.137451], // starting position
+      zoom: 12
+    });
+     }
+
+   
+
+    nmap.value.on('load', () => {
+     
+              nmap.value.addSource('polygons', {
+                type: 'geojson',
+                // Use a URL for the value for the `data` property.
+                data: turf.featureCollection(facilityGeoPolygons.value),
+                // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+              });
+              nmap.value.addSource('parcels', {
+                type: 'geojson',
+                // Use a URL for the value for the `data` property.
+                data: turf.featureCollection(ParcelGeodata.value),
+                // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+              });
+
+ 
+
+              nmap.value.addLayer({
+                'id': 'Parcels',
+                "type": "fill",
+                'source': 'parcels',
+                'paint': {
+                  'fill-color': [
+                    'case',
+                    ['==', ['get', 'landuse_id'], 0],
+                    '#8C675D',
+                    ['==', ['get', 'landuse_id'], 1],
+                    '#800080',
+                    ['==', ['get', 'landuse_id'], 2],
+                    '#F6C567',
+                    ['==', ['get', 'landuse_id'], 3],
+                    '#6FDC6E',
+                    ['==', ['get', 'landuse_id'], 4],
+                    '#FFFF00',
+                    ['==', ['get', 'landuse_id'], 5],
+                    '#FF1D1E',
+                    ['==', ['get', 'landuse_id'], 6],
+                    '#73B2FF',
+                    ['==', ['get', 'landuse_id'], 7],
+                    '#DCDCDC',
+                    ['==', ['get', 'landuse_id'], 8],
+                    '#FDFD96',
+                    ['==', ['get', 'landuse_id'], 9],
+                    '#FDFD96',
+                    'white'],
+                  'fill-opacity': 0.8,
+                  "fill-outline-color": "white"
+
+                }
+              });
+
+ 
+              nmap.value.addLayer({
+                      'id': 'Boundary',
+                      "type": "line",
+                      'source': 'polygons',
+                      'paint': {
+                        'line-color': 'red',
+                        'line-width': 1
+              }
+            });
+              
+              nmap.value.resize()
+
+              var bounds = turf.bbox((filtergeo.value));
+               nmap.value.fitBounds(bounds, {padding: 20,duration:1000 });
+
+  
+
+              const nav = new mapboxgl.NavigationControl();
+              nmap.value.addControl(nav, "top-right");
+              nmap.value.resize()
+
+  
+
+              // Change the cursor to a pointer when the mouse is over the places layer.
+              nmap.value.on('mouseenter', 'points-layer', () => {
+                nmap.value.getCanvas().style.cursor = 'pointer';
+              });
+              // Change it back to a pointer when it leaves.
+              nmap.value.on('mouseleave', 'points-layer', () => {
+                nmap.value.getCanvas().style.cursor = '';
+              });
+
+
+              nmap.value.on('click', 'Parcels', (e) => {
+                console.log("click line..........")
+                // Copy coordinates array.
+                const coordinates = e.features[0].geometry.coordinates.slice();
+                const parcel_no = e.features[0].properties.parcel_no;
+                const landuse = e.features[0].properties.landuse_id;
+                const area = e.features[0].properties.area_ha;
+
+                // Ensure that if the map is zoomed out such that multiple
+                // copies of the feature are visible, the popup appears
+                // over the copy being pointed to.
+                console.log(coordinates[0][0])
+                var centroid = turf.centroid(e.features[0])
+                console.log(centroid.geometry.coordinates)
+                while (Math.abs(e.lngLat.lng - coordinates[0][0]) > 180) {
+                  coordinates[0][0] += e.lngLat.lng > coordinates[0][0] ? 360 : -360;
+                }
+                new mapboxgl.Popup({ offset: [0, 0] })
+                  .setLngLat(centroid.geometry.coordinates)
+                  .setHTML('<h1><u><strong>Parcel Details</strong></u><h1>' + '<h3><strong> Parcel Number: </strong>' + parcel_no + '</h3><p><strong> Area:  </strong> ' + area.toFixed(4) + '(Ha.)' + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+                  .addTo(nmap.value);
+              });
+
+    })
+
+  });
+
+
 
 
   nmap.value.on('load', () => {
+             nmap.value.addSource('polygons', {
+              type: 'geojson',
+              // Use a URL for the value for the `data` property.
+              data: turf.featureCollection(facilityGeoPolygons.value),
+              // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+            });
+
+            nmap.value.addSource('parcels', {
+              type: 'geojson',
+              // Use a URL for the value for the `data` property.
+              data: turf.featureCollection(ParcelGeodata.value),
+              // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+            });
+
+            nmap.value.addLayer({
+                id: 'Satellite',
+                type: 'raster',
+                source: {
+                  type: 'raster',
+                  tileSize: 256,
+                  url: 'mapbox://mapbox.satellite'
+                },
+                before: 'background'
+              });
+        
 
 
-    nmap.value.addSource('polygons', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(facilityGeoPolygons.value),
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
+            // Load the boundary layer with red outline
+            nmap.value.addLayer({
+                      'id': 'Boundary',
+                      "type": "line",
+                      'source': 'polygons',
+                      'paint': {
+                        'line-color': 'red',
+                        'line-width': 1
+              }
+            });
+
+            nmap.value.addLayer({
+              'id': 'Parcels',
+              "type": "fill",
+              'source': 'parcels',
+              'paint': {
+                'fill-color': [
+                  'case',
+                  ['==', ['get', 'landuse_id'], 0],
+                  '#8C675D',
+                  ['==', ['get', 'landuse_id'], 1],
+                  '#800080',
+                  ['==', ['get', 'landuse_id'], 2],
+                  '#F6C567',
+                  ['==', ['get', 'landuse_id'], 3],
+                  '#6FDC6E',
+                  ['==', ['get', 'landuse_id'], 4],
+                  '#FFFF00',
+                  ['==', ['get', 'landuse_id'], 5],
+                  '#FF1D1E',
+                  ['==', ['get', 'landuse_id'], 6],
+                  '#73B2FF',
+                  ['==', ['get', 'landuse_id'], 7],
+                  '#DCDCDC',
+                  ['==', ['get', 'landuse_id'], 8],
+                  '#FDFD96',
+                  ['==', ['get', 'landuse_id'], 9],
+                  '#FDFD96',
+                  'white'],
+                'fill-opacity': 0.8,
+                "fill-outline-color": "white"
+
+              }
+            });
+
+
+            nmap.value.addLayer({
+              'id': 'Labels',
+              'type': 'symbol',
+              'source': 'parcels',
+              'layout': {
+                'text-field': ['get', 'parcel_no'],
+                'text-size': 14,
+                'text-offset': [0, 1]
+              },
+              'paint': {
+                'text-color': 'white'
+              }
+            });
 
 
 
-    nmap.value.addSource('parcels', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(ParcelGeodata.value),
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
+            // switch it off until the user selects to
+            nmap.value.setLayoutProperty('Satellite', 'visibility', 'none')
 
 
+      
+            nmap.value.resize()
 
-    nmap.value.addLayer({
-      id: 'Satellite',
-      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
-      type: "raster"
-    });
-
-    // switch it off until the user selects to
-    nmap.value.setLayoutProperty('Satellite', 'visibility', 'none')
+            var bounds = turf.bbox((filtergeo.value));
+            nmap.value.fitBounds(bounds, { padding: 20 });
 
 
-    // Load the boundary layer with red outline
-    nmap.value.addLayer({
-      'id': 'Boundary',
-      "type": "line",
-      'source': 'polygons',
-      'paint': {
-        'line-color': 'red',
-        'line-width': 1
-      }
-    });
+            // Change the cursor to a pointer when the mouse is over the places layer.
+            nmap.value.on('mouseenter', 'points-layer', () => {
+              nmap.value.getCanvas().style.cursor = 'pointer';
+            });
+            // Change it back to a pointer when it leaves.
+            nmap.value.on('mouseleave', 'points-layer', () => {
+              nmap.value.getCanvas().style.cursor = '';
+            });
 
 
+            nmap.value.on('click', 'Parcels', (e) => {
+              console.log("click line..........")
+              // Copy coordinates array.
+              const coordinates = e.features[0].geometry.coordinates.slice();
+              const parcel_no = e.features[0].properties.parcel_no;
+              const landuse = e.features[0].properties.landuse_id;
+              const area = e.features[0].properties.area_ha;
 
-    nmap.value.addLayer({
-      'id': 'Parcels',
-      "type": "fill",
-      'source': 'parcels',
-      'paint': {
-        'fill-color': [
-          'case',
-          ['==', ['get', 'landuse_id'], 0],
-          '#8C675D',
-          ['==', ['get', 'landuse_id'], 1],
-          '#800080',
-          ['==', ['get', 'landuse_id'], 2],
-          '#F6C567',
-          ['==', ['get', 'landuse_id'], 3],
-          '#6FDC6E',
-          ['==', ['get', 'landuse_id'], 4],
-          '#FFFF00',
-          ['==', ['get', 'landuse_id'], 5],
-          '#FF1D1E',
-          ['==', ['get', 'landuse_id'], 6],
-          '#73B2FF',
-          ['==', ['get', 'landuse_id'], 7],
-          '#DCDCDC',
-          ['==', ['get', 'landuse_id'], 8],
-          '#FDFD96',
-          ['==', ['get', 'landuse_id'], 9],
-          '#FDFD96',
-          'white'],
-        'fill-opacity': 0.8,
-        "fill-outline-color": "white"
+              // Ensure that if the map is zoomed out such that multiple
+              // copies of the feature are visible, the popup appears
+              // over the copy being pointed to.
+              console.log(coordinates[0][0])
+              var centroid = turf.centroid(e.features[0])
+              console.log(centroid.geometry.coordinates)
+              while (Math.abs(e.lngLat.lng - coordinates[0][0]) > 180) {
+                coordinates[0][0] += e.lngLat.lng > coordinates[0][0] ? 360 : -360;
+              }
+              new mapboxgl.Popup({ offset: [0, 0] })
+                .setLngLat(centroid.geometry.coordinates)
+                .setHTML('<h1><u><strong>Parcel Details</strong></u><h1>' + '<h3><strong> Parcel Number: </strong>' + parcel_no + '</h3><p><strong> Area:  </strong> ' + area.toFixed(4) + '(Ha.)' + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+                .addTo(nmap.value);
+            });
 
-      }
-    });
+            console.log("resizing....")
 
+            const nav = new mapboxgl.NavigationControl();
+            nmap.value.addControl(nav, "top-right");
 
-    nmap.value.addLayer({
-      'id': 'Labels',
-      'type': 'symbol',
-      'source': 'parcels',
-      'layout': {
-        'text-field': ['get', 'parcel_no'],
-        'text-size': 14,
-        'text-offset': [0, 1]
-      },
-      'paint': {
-        'text-color': 'white'
-      }
-    });
-
-
-    const layers: MapboxLayerDefinition[] = [
-      {
-        id: "Boundary",
-        title: "Boundary",
-        visibility: 'visible',
-        type: 'base'
-      },
-      {
-        id: "Parcels",
-        title: "Parcels",
-        visibility: 'visible',
-        type: 'base'
-      },
-
-    ];
-
-    // nmap.value.addControl(new MapboxLayerSwitcherControl(layers));
-
-
-    nmap.value.resize()
-
-    var bounds = turf.bbox((filtergeo.value));
-    nmap.value.fitBounds(bounds, { padding: 20 });
-
-
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.value.on('mouseenter', 'points-layer', () => {
-      nmap.value.getCanvas().style.cursor = 'pointer';
-    });
-    // Change it back to a pointer when it leaves.
-    nmap.value.on('mouseleave', 'points-layer', () => {
-      nmap.value.getCanvas().style.cursor = '';
-    });
-
-
-    nmap.value.on('click', 'Parcels', (e) => {
-      console.log("click line..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const parcel_no = e.features[0].properties.parcel_no;
-      const landuse = e.features[0].properties.landuse_id;
-      const area = e.features[0].properties.area_ha;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      console.log(coordinates[0][0])
-      var centroid = turf.centroid(e.features[0])
-      console.log(centroid.geometry.coordinates)
-      while (Math.abs(e.lngLat.lng - coordinates[0][0]) > 180) {
-        coordinates[0][0] += e.lngLat.lng > coordinates[0][0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, 0] })
-        .setLngLat(centroid.geometry.coordinates)
-        .setHTML('<h1><u><strong>Parcel Details</strong></u><h1>' + '<h3><strong> Parcel Number: </strong>' + parcel_no + '</h3><p><strong> Area:  </strong> ' + area.toFixed(4) + '(Ha.)' + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap.value);
-    });
-
-
-  });
+  })
+  
+ 
 
 
 }
@@ -424,10 +542,29 @@ const isMobile = computed(() => appStore.getMobile)
 
 const showContent = ref(true)
 
+
+
+
+const state = reactive({
+  isOnline: navigator.onLine
+}); 
+
+
 onMounted(() => {
+
+  console.log('Mounted..... Checking status',state.isOnline )
   if (isMobile.value) {
     showContent.value = false;
   }
+  window.addEventListener('online', () => {
+        console.log('App is online')
+        state.isOnline = true;
+      });
+  window.addEventListener('offline', () => {
+    console.log('App is offline')
+        state.isOnline = false;
+      });
+  
 })
 
 console.log(model)
@@ -438,15 +575,7 @@ console.log(model)
     <template #header>
       <div class="card-header">
         <span>{{ toTitleCase(title.replace('_', ' ')) + ' Settlement' }}</span>
-        <!-- 
-                            <el-checkbox-group :onChange="switchLayer" v-model="selectedLayers">
-                              <el-checkbox-button v-for="layer in layers" :key="layer" :name="layer" :label="layer">{{
-                                layer
-                              }}</el-checkbox-button>
-
-                              <el-checkbox-button type="primary" :onClick="downloadMap">Download</el-checkbox-button>
-
-                            </el-checkbox-group>   -->
+    
 
         <div>
           <el-dropdown>

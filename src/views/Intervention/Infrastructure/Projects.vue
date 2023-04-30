@@ -655,6 +655,12 @@ const loadMap = () => {
         zoom: 6,
 
     })
+       // When the map fails to load, hide the base map and show only the overlays
+   nmap.on('error', function (e) {
+    console.log('Failed.....', e.error)
+    nmap.setStyle( './style.json');
+          console.log("Failed to load base map. Showing only overlays.");
+      });
 
     console.log("resizing....")
     const nav = new mapboxgl.NavigationControl();
@@ -1518,7 +1524,8 @@ const handleSelectLocation = async (location: any) => {
         </div>
 
         <div style="display: inline-block; margin-left: 20px">
-            <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+            <el-select
+v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
                 placeholder="Search by Name" />
         </div>
 
@@ -1555,16 +1562,19 @@ const handleSelectLocation = async (location: any) => {
                                     <el-table-column label="Actions">
                                         <template #default="scope">
                                             <el-link :href="props.row.documents[scope.$index].name" download>
-                                                <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a"
+                                                <Icon
+icon="material-symbols:download-for-offline-rounded" color="#46c93a"
                                                     width="36" />
                                             </el-link>
                                             <el-tooltip content="Delete" placement="top">
-                                                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No"
+                                                <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No"
                                                     :icon="InfoFilled" icon-color="#626AEF"
                                                     title="Are you sure to delete this document?"
                                                     @confirm="removeDocument(scope.row)">
                                                     <template #reference>
-                                                        <el-button v-if="showAdminButtons" type="danger" :icon=Delete
+                                                        <el-button
+v-if="showAdminButtons" type="danger" :icon=Delete
                                                             circle />
                                                     </template>
                                                 </el-popconfirm>
@@ -1587,15 +1597,18 @@ const handleSelectLocation = async (location: any) => {
                         <template #default="scope">
 
                             <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                                <el-button type="success" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
+                                <el-button
+type="success" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
                                     circle />
                             </el-tooltip>
                             <el-tooltip content="View on Map" placement="top">
-                                <el-button type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                                <el-button
+type="warning" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                                     circle />
                             </el-tooltip>
                             <el-tooltip content="Delete" placement="top">
-                                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                                <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                                     icon-color="#626AEF" title="Are you sure to delete this report?"
                                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
                                     <template #reference>
@@ -1608,7 +1621,8 @@ const handleSelectLocation = async (location: any) => {
 
                 </el-table>
 
-                <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+                <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                     v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
                     @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
             </el-tab-pane>
@@ -1623,24 +1637,29 @@ const handleSelectLocation = async (location: any) => {
         <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="30%" draggable>
             <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
                 <el-form-item label="Location" prop="location_level">
-                    <el-select v-model="ruleForm.location_level" filterable placeholder="Select Location"
+                    <el-select
+v-model="ruleForm.location_level" filterable placeholder="Select Location"
                         @change="handleSelectLocation">
-                        <el-option v-for="item in locationOptions" :key="item.value" :label="item.label"
+                        <el-option
+v-for="item in locationOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
                     </el-select>
                 </el-form-item>
 
                 <el-form-item v-if=showSettlement label="Settlement" prop="settlement_id">
                     <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement">
-                        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
+                        <el-option
+v-for="item in settlementOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
                     </el-select>
                 </el-form-item>
 
                 <el-form-item v-if=showCounty label="County" prop="county_id">
-                    <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
+                    <el-select
+v-model="ruleForm.county_id" filterable placeholder="Select County"
                         @change="handleSelectCounty">
-                        <el-option v-for="item in countyOptions" :key="item.value" :label="item.label"
+                        <el-option
+v-for="item in countyOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
                     </el-select>
                 </el-form-item>
@@ -1662,7 +1681,8 @@ const handleSelectLocation = async (location: any) => {
                 </el-form-item>
 
                 <el-form-item label="Period" prop="period">
-                    <el-date-picker v-model="ruleForm.period" type="monthrange" range-separator="To"
+                    <el-date-picker
+v-model="ruleForm.period" type="monthrange" range-separator="To"
                         start-placeholder="Start date" end-placeholder="End date" />
                 </el-form-item>
 
@@ -1671,14 +1691,16 @@ const handleSelectLocation = async (location: any) => {
                         <el-form-item label="Programme" prop="programme_id">
                             <!-- <el-select v-model="ruleForm.programme_id" filterable placeholder="Select" :onChange="handleChangeProgramme"> -->
                             <el-select v-model="ruleForm.programme_id" filterable placeholder="Select">
-                                <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label"
+                                <el-option
+v-for="item in programmeOptions" :key="item.value" :label="item.label"
                                     :value="item.value" />
                             </el-select>
                         </el-form-item>
                     </el-col>
                     <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
                         <el-form-item label="Domain" prop="domain_id">
-                            <el-cascader v-model="tmp_domain" :options="componentCategoryOptions" :show-all-levels="false"
+                            <el-cascader
+v-model="tmp_domain" :options="componentCategoryOptions" :show-all-levels="false"
                                 @change="handleChangeComponentCategory" />
                         </el-form-item>
                     </el-col>
@@ -1688,7 +1710,8 @@ const handleSelectLocation = async (location: any) => {
 
 
 
-                <el-form-item label="Documentation"> <el-upload v-model:file-list="fileUploadList" class="upload-demo"
+                <el-form-item label="Documentation"> <el-upload
+v-model:file-list="fileUploadList" class="upload-demo"
                         multiple :limit="3" :auto-upload="false">
                         <el-button type="primary">Click to upload</el-button>
                         <template #tip>
@@ -1708,7 +1731,8 @@ const handleSelectLocation = async (location: any) => {
         </el-dialog>
 
         <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
-            <el-upload v-model:file-list="morefileList" class="upload-demo"
+            <el-upload
+v-model:file-list="morefileList" class="upload-demo"
                 action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5"
                 :auto-upload="false">
                 <el-button type="primary">Click to upload</el-button>
