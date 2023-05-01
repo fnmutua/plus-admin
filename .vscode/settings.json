@@ -27,5 +27,6 @@
     "fontawesome",
     "subcounty",
     "vueuse"
-  ]
+  ],
+  "vue.codeActions.enabled": false
 }
