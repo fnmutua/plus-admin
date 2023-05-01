@@ -294,7 +294,10 @@ exports.modelPaginatedUsersfilterBykeyWord = (req, res) => {
   
   if (req.body.searchField) {
 
-    var searchCond = { [field]: { [op.iLike]: '%' + searchKeyword + '%' } }
+   // var searchCond = { [field]: { [op.iLike]: '%' + searchKeyword + '%' } }
+
+    const searchCond = { [field]: { [op.iLike]: `%${searchKeyword.toLowerCase()}%` } }; // use iLike with lowercase search term
+
     const mergedObject = {
       ...queryFields,
       ...searchCond
