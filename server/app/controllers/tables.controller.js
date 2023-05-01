@@ -388,7 +388,9 @@ exports.xmodelAllDatafilter = (req, res) => {
     .findAndCountAll({
       where: {
         [field]: {
-          [op.iLike]: '%' + searchKeyword + '%' // like = case sensitive, iLike=case insensitve
+         // [op.iLike]: '%' + searchKeyword + '%' // like = case sensitive, iLike=case insensitve
+          [Op.iLike]: `%${searchKeyword.toLowerCase()}%`  // use iLike with lowercase search term
+
         }
       }
     })
@@ -419,7 +421,10 @@ exports.modelAllDatafilter = (req, res) => {
   }
 
   ; (qry.where = {
-    [field]: { [op.iLike]: '%' + searchKeyword + '%' }
+  //   [field]: { [op.iLike]: '%' + searchKeyword + '%' }
+     [field]: { [Op.iLike]: `%${searchKeyword.toLowerCase()}%` }
+
+
   }),
     db.models[reg_model].findAndCountAll(qry).then((list) => {
       //console.log(list.rows)
@@ -1635,7 +1640,9 @@ exports.modelPaginatedDatafilterBykeyWord = (req, res) => {
 
   if (req.body.searchField) {
 
-    var searchCond = { [field]: { [op.iLike]: '%' + searchKeyword + '%' } }
+   // var searchCond = { [field]: { [op.iLike]: '%' + searchKeyword + '%' } }
+    const searchCond = { [field]: { [Op.iLike]: `%${searchKeyword.toLowerCase()}%` } }; // use iLike with lowercase search term
+
     const mergedObject = {
       ...queryCondition,
       ...searchCond
