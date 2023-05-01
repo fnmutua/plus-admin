@@ -5,12 +5,12 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
-  ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
+  ElButton, ElSelect, FormInstance, ElLink,  ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElOptionGroup,ElStep,ElSteps
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, View, Plus, User, Download, Delete, Edit, Filter, InfoFilled, Location, ArrowDown, Setting, Loading } from '@element-plus/icons-vue'
+import { Position, View, Plus, User, Download, Delete, Edit, Filter, InfoFilled, CopyDocument, ArrowDown, Setting, Loading } from '@element-plus/icons-vue'
 
 import { ref, reactive, h, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
@@ -1818,6 +1818,39 @@ const next = () => {
   if (activeStep.value++ > 2) activeStep.value = 0
 }
 
+const copyToClipboard = (code) => {
+       navigator.clipboard.writeText(code)
+        .then(() => {
+          ElMessage({
+            message: 'Code copied to clipboard!',
+            type: 'success'
+          });
+        })
+        .catch((error) => {
+          console.error(error);
+          ElMessage.error('Failed to copy code to clipboard');
+        });
+}
+
+const hoveredRow = ref()
+const showCopyIcon = (row) => {
+       hoveredRow.value = row;
+}
+const hideCopyIcon = (row) => {
+      if (hoveredRow.value === row) {
+        hoveredRow.value = null;
+      }
+    }
+
+    const isCopyIconVisible = (row) => {
+      return hoveredRow.value === row;
+    }
+    const copyTooltip = () => {
+
+      return hoveredRow.value ? 'Copy ' + hoveredRow.value.code : '';
+    }
+    
+
 </script>
 
 <template>
@@ -1929,8 +1962,17 @@ v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(pr
           <el-table-column label="Subcounty" prop="subcounty.name" sortable />
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
-          <el-table-column label="Code" prop="code" sortable />
+          <el-table-column label="Code" prop="code" sortable>
+      <template #default="{ row }">
+        <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+          <span>{{ row.code }}</span>
+          <el-tooltip class="item" effect="dark" content="Copy" placement="top">
+            <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle plain style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;" @click="copyToClipboard(row.code)"/>
 
+          </el-tooltip>
+        </div>
+      </template>
+    </el-table-column>
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
@@ -2043,8 +2085,7 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
           <el-table-column label="Code" prop="code" sortable />
-
-
+ >
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
               <el-dropdown v-if="isMobile">
@@ -2154,6 +2195,7 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
           <el-table-column label="Area(HA)" prop="area" sortable />
           <el-table-column label="Code" prop="code" sortable />
 
+       
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
