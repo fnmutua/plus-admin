@@ -6,7 +6,7 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElDropdown, ElDropdownItem,
+  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElDropdown, ElDropdownItem, ElCheckboxGroup,ElCheckbox,
   ElFormItem, ElForm, ElInput, ElTable, ElTableColumn
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
@@ -543,14 +543,16 @@ const DownloadXlsx = async () => {
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by County">
         <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select
+v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
@@ -590,7 +592,8 @@ const DownloadXlsx = async () => {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="showAdminButtons" @click="activateDeactivate(scope as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="activateDeactivate(scope as TableSlotDefault)"
                   :icon="Edit">Activate</el-dropdown-item>
                 <el-dropdown-item>
                   <el-switch @click="activateDeactivate(scope as TableSlotDefault)" :icon="Edit" />
@@ -604,7 +607,8 @@ const DownloadXlsx = async () => {
           <div v-else>
 
             <el-tooltip content="Activate" placement="top">
-              <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+              <el-switch
+v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
                 class="my-switch" />
             </el-tooltip>
             <el-tooltip content="Edit" placement="top">
@@ -622,7 +626,8 @@ const DownloadXlsx = async () => {
 
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
 
@@ -647,11 +652,16 @@ const DownloadXlsx = async () => {
           </el-select>
         </el-form-item>
 
+     
         <el-form-item label="Roles" :label-width="formLabelWidth">
-          <el-select multiple v-model="form.roles" placeholder="Please select a role">
-            <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
+  <el-checkbox-group v-model="form.roles">
+    <el-checkbox v-for="item in RolesOptions" :key="item.value" :label="item.value">
+      {{ item.label }}
+    </el-checkbox>
+  </el-checkbox-group>
+</el-form-item>
+
+
       </el-form>
       <template #footer>
         <span class="dialog-footer">

@@ -450,18 +450,36 @@ const getFilteredData = async (selFilters, selfilterValues) => {
  
 
 const flyTo = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.geom.type)
-  var shp = data.row.geom.type   
+  console.log('On Click.....', data.row.geom)
 
-  if (shp =='MultiPolygon' || shp =='Polygon') {
-    facilityGeo.value = data.row.geom
-    var bounds = turf.bbox((data.row.geom));
-console.log(bounds)
-  }
- 
-  loadMap()
+  if (data.row.geom === null) {
+    ElMessage({
+        message: 'This Project does not have the boundary defined in the database!',
+      type: 'warning',
+        duration:5000
+    })
+  
+} else {
+  
+    var shp = data.row.geom.type
+
+    if (shp =='MultiPolygon' || shp =='Polygon') {
+        facilityGeo.value = data.row.geom
+        var bounds = turf.bbox((data.row.geom));
+        console.log(bounds)
+    } else if (shp =='Point' ){
+        var bounds = turf.bbox((data.row.geom));
+    } 
+
+    loadMap()
+      //loadMap()
  // loadMap([data.row.geom.coordinates[0], data.row.geom.coordinates[1], data.row.title])
   activeName.value = 'Map' // Navigate to Beneficiary Tab
+
+
+}
+
+ 
 
 
 }

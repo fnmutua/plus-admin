@@ -105,7 +105,12 @@ const schema = reactive<FormSchema[]>([
       span: 24
     },
     componentProps: {
-      placeholder: t('login.usernamePlaceholder')
+      placeholder: t('login.usernamePlaceholder'),
+      style: {
+        width: '100%',
+        paddingTop: '10px'
+
+      },
     }
   },
   {
@@ -171,7 +176,7 @@ const schema = reactive<FormSchema[]>([
     componentProps: {
       options: countiesOptions,
       filterable: true,
-      value: countiesOptions.value[0], // Set the default value here
+      value: countiesOptions.value[47], // Set the default value here
 
       style: {
         width: '100%',
@@ -239,9 +244,9 @@ function validateUsername(rule, value, callback) {
   if (!value) {
     callback(new Error('Username is required'));
   } else {
-    const usernameRegex = /^[a-zA-Z0-9_-]{3,16}$/;
+    const usernameRegex = /^[a-z0-9]{5,}$/i;
     if (!usernameRegex.test(value)) {
-      callback(new Error('Invalid username format'));
+      callback(new Error('Lowercase letters and/or numbers, no special characters,no space and  at least 5 characters long.'));
     } else {
       callback();
     }

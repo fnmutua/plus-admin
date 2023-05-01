@@ -632,7 +632,7 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
 ]
  
 
-
+ 
 export const publicRoutes: AppRouteRecordRaw[] = [
   {
     path: '/dashboard',
@@ -644,7 +644,6 @@ export const publicRoutes: AppRouteRecordRaw[] = [
       icon: 'ant-design:dashboard-filled',
       alwaysShow: true
     },
-    
     children: [
       {
         path: 'national',
@@ -665,8 +664,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: t('Status'),
           noCache: true,
           affix: true,
-          icon:'ant-design:dashboard-filled',
-          alwaysShow: true
+          icon:'pajamas:status',
 
         }
       },
@@ -678,8 +676,6 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: t('Interventions'),
           noCache: true,
           icon:'fa-solid:hands-helping',
-          affix: true,
-          alwaysShow: true
 
         }
       }
@@ -706,7 +702,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           icon:'material-symbols:format-list-bulleted-rounded'
         }
       },
-   
+      
       {
         path: 'map/:id',
       //  component: 'views/Map/SettlementParcelMap',
@@ -735,7 +731,9 @@ export const publicRoutes: AppRouteRecordRaw[] = [
 
     ]
   },
- {
+ 
+  
+  {
     path: '/facilities',
     component: Layout,
     redirect: '/facility/all',
@@ -769,14 +767,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: 'Health'
         }
       },
-      {
-        path: 'health/add',
-     //   component: 'views/Facilities/Health/Add',
-        component: () => import('@/views/Facilities/Health/Add.vue'),
-
-        name: 'Addhealth',
-        meta: { hidden: true, title: 'Add', noCache: true }
-      },
+     
       {
         path: 'health/map/:id',
       //  component: 'views/Facilities/Health/HealthMap',
@@ -814,14 +805,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: 'Education'
         }
       },
-      {
-        path: 'edu/add',
-        //component: 'views/Facilities/Education/Add',
-        component: () => import('@/views/Facilities/Education/Add.vue'),
-
-        name: 'AddEducation',
-        meta: { hidden: true, title: 'Add', noCache: true }
-      },
+   
       {
         path: 'edu/map/:id',
         //component: 'views/Facilities/Education/SchoolMap',
@@ -861,13 +845,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: 'Roads'
         }
       },
-      {
-        path: 'road/add',
-        //component: 'views/Facilities/Roads/Add',
-        component: () => import('@/views/Facilities/Roads/Add.vue'),
-        name: 'AddRoad',
-        meta: { hidden: true, title: 'Add', noCache: true }
-      },
+   
  
       {
         path: 'road/details/:id',
@@ -908,14 +886,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
       title: 'Road Structures'
     }
   },
-  {
-    path: 'roadasset/add',
-   // component: 'views/Facilities/Roads/AddAsset',
-    component: () => import('@/views/Facilities/Roads/AddAsset.vue'),
-    name: 'AddRoadStructure',
- 
-    meta: { hidden: true, title: 'Add', noCache: true }
-      },
+  
   
       {
         path: 'roadasset/map/:id',
@@ -956,14 +927,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
            title: 'Water Points', noCache: true
          }
        },
-       {
-        path: 'wp/add',
-      //  component: 'views/Facilities/Water/Add',
-        component: () => import('@/views/Facilities/Water/Add.vue'),
-        name: 'AddWaterPoint',
-        icon: 'ant-design:plus-square-filled',
-        meta: { hidden: true, title: 'Add', noCache: true }
-       },
+   
 
        {
         path: 'pipedwater',
@@ -975,17 +939,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: 'Piped Water'
         }
       },
-      {
-        path: 'pipedwater/add',
-     //component: 'views/Facilities/Water/Water',
-     component: () => import('@/views/Facilities/PipedWater/Add.vue'),
-        name: 'PipedWaterAdd',
-        meta: {
-          icon: 'ic:sharp-water-drop',
-          title: 'Add Piped Water',
-          hidden:true
-        }
-      },
+    
 
       {
         path: 'pipedwater/details/:id',
@@ -1045,15 +999,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
                 title: 'Sewer'
               }
             },
-            {
-              path: 'sewer/add',
-             // component: 'views/Facilities/Sewer/Add',
-              component: () => import('@/views/Facilities/Sewer/Add.vue'),
-
-              name: 'AddSewer',
-              icon: 'ant-design:plus-square-filled',
-              meta: { hidden: true, title: 'Add', noCache: true }
-            },
+        
             {
               path: 'sewer/map/:id',
             //  component: 'views/Facilities/Sewer/SewerMap',
@@ -1092,13 +1038,7 @@ export const publicRoutes: AppRouteRecordRaw[] = [
       title: 'Others'
     }
   }, 
-  {
-    path: 'other/add',
-  //  component: 'views/Facilities/Other/AddOther',
-    component: () => import('@/views/Facilities/Other/AddOther.vue'),
-    name: 'AddOther',
-    meta: { hidden: true, title: 'Add Facility', noCache: true }
-      },
+ 
       {
         path: 'other/map/:id',
       //  component: 'views/Facilities/Sewer/SewerMap',
@@ -1126,6 +1066,8 @@ export const publicRoutes: AppRouteRecordRaw[] = [
   
     ]
   }, 
+ 
+ 
   {
     path: '/repository',
     component: Layout,
@@ -1174,35 +1116,11 @@ export const publicRoutes: AppRouteRecordRaw[] = [
       },
     ]
   },
-  {
-    path: '/users',
-    component: Layout,
-    redirect: '/mne/indicator',
-    name: 'systemUsers',
-    meta: {
-      title: 'Users',
-      icon: 'wpf:usershield',
-      alwaysShow: true
-    },
-    children: [
-  
-      {
-        path: 'profile',
-      //  component: 'views/Users/County',
-        component: () => import('@/views/Users/Profile.vue'),
-        name: 'userProfile',
-        meta: {
-          title: 'Profile',
-          hidden: false,
-          icon:'gis:map-users'
-        }
-      }, 
+
  
-    ]
-  },
+ 
   
 ]
-
  
 export const countyAdminRoutes: AppRouteRecordRaw[] = [
   {
