@@ -2084,8 +2084,17 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
           <el-table-column label="Subcounty" prop="subcounty.name" sortable />
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
-          <el-table-column label="Code" prop="code" sortable />
- >
+          <el-table-column label="Code" prop="code" sortable>
+      <template #default="{ row }">
+        <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+          <span>{{ row.code }}</span>
+          <el-tooltip class="item" effect="dark" content="Copy" placement="top">
+            <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle plain style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;" @click="copyToClipboard(row.code)"/>
+
+          </el-tooltip>
+        </div>
+      </template>
+    </el-table-column> >
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
               <el-dropdown v-if="isMobile">
@@ -2193,8 +2202,17 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
           <el-table-column label="Subcounty" prop="subcounty.name" sortable />
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
-          <el-table-column label="Code" prop="code" sortable />
+          <el-table-column label="Code" prop="code" sortable>
+      <template #default="{ row }">
+        <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+          <span>{{ row.code }}</span>
+          <el-tooltip class="item" effect="dark" content="Copy" placement="top">
+            <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle plain style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;" @click="copyToClipboard(row.code)"/>
 
+          </el-tooltip>
+        </div>
+      </template>
+    </el-table-column>
        
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
