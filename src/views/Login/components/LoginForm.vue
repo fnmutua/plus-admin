@@ -291,10 +291,8 @@ const reset = () => {
     </template>
   </Form>
 
-  <el-dialog v-model="dialogFormVisible" title="Please enter the Email used during registration">
+  <el-dialog v-model="xdialogFormVisible" title="Please Enter your Email">
     <el-form :model="form">
-
-
       <el-form-item label="Email" :label-width="formLabelWidth">
         <el-input v-model="form.email" autocomplete="off" />
       </el-form-item>
@@ -309,6 +307,28 @@ const reset = () => {
       </span>
     </template>
   </el-dialog>
+
+  <el-dialog
+  title="Please Enter your Email"
+  v-model="dialogFormVisible"
+  width="25%"
+  :center="true"
+>
+  <el-form :model="form">
+    <el-row>
+      <el-col :xs="24" :sm="12">
+        <el-form-item label="Email" prop="email">
+          <el-input v-model="form.email"/>
+        </el-form-item>
+      </el-col>
+    </el-row>
+  </el-form>
+  <div style="text-align: center">
+    <el-button @click="dialogFormVisible = false">Cancel</el-button>
+    <el-button type="primary" @click="reset">Submit</el-button>
+  </div>
+</el-dialog>
+
 
 </template>
 
