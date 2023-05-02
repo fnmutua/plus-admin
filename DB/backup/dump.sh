@@ -16,8 +16,8 @@ echo
 # Connection Details
 # ----------------------------------------------------------------------------------
 
-DEVELOPMENT_SERVER=1
-CLOUD_SERVER=0
+DEVELOPMENT_SERVER=0
+CLOUD_SERVER=1
 
 if [ $DEVELOPMENT_SERVER -eq 1 ]; then
 

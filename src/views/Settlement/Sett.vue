@@ -98,7 +98,7 @@ var value4 = ref([])
 var value5 = ref([])
 
 const morefileList = ref<UploadUserFile[]>([])
-
+ const loadingGetData = ref(false)
 
 const interVentionTypeOptions = ref([])
 const benefitTypeOptions = ref([])
@@ -344,6 +344,7 @@ const getSettlementCount = async () => {
 const getNewOrRejectedSettlements = async (status) => {
 
   console.log('getNewOrRejectedSettlements....', status, page.value)
+  loadingGetData.value=true
 
   if (status === 'New') {
     var filters = ['isApproved']
@@ -387,7 +388,8 @@ const getNewOrRejectedSettlements = async (status) => {
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
- 
+  loadingGetData.value=false
+
 
   if (status === 'New') {
 
@@ -416,7 +418,9 @@ const getNewOrRejectedSettlements = async (status) => {
 
 
 const getFilteredData = async (selFilters, selfilterValues) => {
+  loadingGetData.value = true
 
+  console.log("loadingGetData",loadingGetData.value)
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
@@ -442,6 +446,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('After Querry - associated_multiple_models', res)
   tableDataList.value = res.data
   total.value = res.total
+  loadingGetData.value=false
+  
 
   // filter
   //if (showAdminButtons.value) {
@@ -1845,19 +1851,14 @@ const hideCopyIcon = (row) => {
     const isCopyIconVisible = (row) => {
       return hoveredRow.value === row;
     }
-    const copyTooltip = () => {
-
-      return hoveredRow.value ? 'Copy ' + hoveredRow.value.code : '';
-    }
+   
     
 
 </script>
 
 <template>
-  <ContentWrap :title="t('Settlements')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Settlements')" :message="t('Use the filters to subset')" v-loading="loadingGetData" element-loading-text="Loading the data.. Please wait.......">
 
-
- 
     <el-row>
       <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
         <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
