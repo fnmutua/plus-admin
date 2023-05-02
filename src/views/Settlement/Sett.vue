@@ -9,8 +9,8 @@ import {
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElOptionGroup,ElStep,ElSteps
 } from 'element-plus'
-import { ElMessage } from 'element-plus'
-import { Position, View, Plus, User, Download, Delete, Edit, Filter, InfoFilled, CopyDocument, ArrowDown, Setting, Loading } from '@element-plus/icons-vue'
+import { ElMessage,  } from 'element-plus'
+import { Position, View, Plus, User, Download, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Loading } from '@element-plus/icons-vue'
 
 import { ref, reactive, h, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
@@ -93,7 +93,7 @@ if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff
 const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
-var value3 = ref([])
+const  value3 = ref()
 var value4 = ref([])
 var value5 = ref([])
 
@@ -1083,6 +1083,9 @@ const getFilteredBySearchData = async (searchString) => {
 }
 
 const searchByName = async (filterString: any) => {
+
+  console.log('filterString',filterString)
+  value3.value=filterString
   searchString.value = filterString
 
   getFilteredBySearchData(searchString.value)
@@ -1852,7 +1855,8 @@ const hideCopyIcon = (row) => {
       return hoveredRow.value === row;
     }
    
-    
+    const srchSrtng = ref<string[]>([])
+
 
 </script>
 
@@ -1883,9 +1887,17 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
       </el-col>
       <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
         <div style="display: inline-block; margin-top: 5px">
-          <el-select
-size="default" v-model="value3" multiple clearable filterable remote :remote-method="searchByName"
-            reserve-keyword placeholder="Search by Name" />
+          <!-- <el-select
+size="default" v-model="srchSrtng" multiple clearable filterable remote :remote-method="searchByName"
+            reserve-keyword placeholder="Search by Name" /> -->
+
+            <el-input
+                v-model="srchSrtng"
+                :suffix-icon="Search"
+                placeholder="Enter search text"
+                :onInput="searchByName"
+              />
+  
         </div>
       </el-col>
       <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
