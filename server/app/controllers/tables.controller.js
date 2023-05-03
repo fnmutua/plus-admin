@@ -12,7 +12,8 @@ const Activity = db.activity
 const path = require('path')
 const fs = require('fs');
 const User = db.user;
- 
+const redis = require("redis");
+
 const nodemailer = require('nodemailer')
 const { authJwt } = require("../middleware");
 const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
@@ -28,6 +29,19 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   }
 })
 
+//First, you define the redisClient variable with the value set to undefined. After that,
+ //you define an anonymous self - invoked asynchronous function, which is a function that runs immediately after defining it. 
+
+ let redisClient;
+
+ (async () => {
+  // redisClient = redis.createClient();
+   const url = process.env.REDIS_URL || 'redis://localhost:6379';
+   redisClient = redis.createClient({url});
+   redisClient.on("error", (error) => console.error(`Error : ${error}`));
+   await redisClient.connect();
+ })();
+ 
 
 
 getUser = (token) => {
@@ -1244,7 +1258,7 @@ exports.modelPaginatedData = (req, res) => {
   })
 }
 
-exports.modelPaginatedDatafilterByColumn = (req, res) => {
+exports.modelPaginatedDatafilterByColumn = async (req, res) => {
  console.log('Req-body 002', req.body)
   // console.log('nested filters....>', req.body.nested_filter[0])
 
@@ -1401,15 +1415,106 @@ exports.modelPaginatedDatafilterByColumn = (req, res) => {
 
 //qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only
 
+console.log("req.body.cache_key")
+  if (req.body.cache_key && req.body.cache_key != '') { 
+
+    const cache_key = req.body.cache_key;   
+    const cacheDuration = 3600; // Cache duration in seconds
+
+    
+    // get last time it was modified 
+    const lastRow = await db.models[reg_model].findOne({
+      attributes: ['updatedAt'],
+      order: [['updatedAt', 'DESC']]
+    });
+    
+    const lastModified = lastRow.updatedAt;
+    console.log(lastModified,req.body.cache_key)
+    console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
 
 
-  db.models[reg_model].findAndCountAll(qry).then((list) => {
-    res.status(200).send({
-      data: list.rows,
-      total: list.count,
-      code: '0000'
+    try {
+      const cacheResults = await redisClient.get(cache_key);
+      if (cacheResults) {
+        const result = JSON.parse(cacheResults);
+         if (lastModified && lastModified > result.lastModified) {
+          // If the database was updated after the cached data was generated, update the cache
+          const response = await db.models[reg_model].findAndCountAll(qry);
+          await redisClient.set(cache_key, JSON.stringify({
+            data: response.rows,
+            total: response.count,
+            lastModified: Date.now() // Update the last modified timestamp
+          }), {
+            EX: cacheDuration,
+            NX: true,
+          });
+          res.status(200).send({
+            fromCache: false,
+            cache_key: cache_key,
+            data: response.rows,
+            total: response.count,
+            code: '0000'
+          });
+        } else {
+          // If the cached data is still valid, return it from the cache
+          res.status(200).send({
+            fromCache: true,
+            cache_key: cache_key,
+            data: result.data,
+            total: result.total,
+            code: '0000'
+          });
+        }
+      } else {
+
+        // If no cache data exists, generate new data and store it in the cache
+        const response = await db.models[reg_model].findAndCountAll(qry);
+        await redisClient.set(cache_key, JSON.stringify({
+          data: response.rows,
+          total: response.count,
+          lastModified: Date.now() // Set the last modified timestamp to current time
+        }), {
+          EX: cacheDuration,
+          NX: true,
+        });
+
+          //  return it from the cache
+          res.status(200).send({
+            fromCache: true,
+            cache_key: cache_key,
+            data: result.data,
+            total: result.total,
+            code: '0000'
+          });
+    }
+    }
+    catch(error) {
+      res.status(500).send({
+        message: 'Internal server error',
+        code: 'SERVER_ERROR'
+      });
+    }
+
+
+
+
+  } else {
+
+    console.log("xxxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+
+    db.models[reg_model].findAndCountAll(qry).then((list) => {
+      res.status(200).send({
+        fromCache: false,
+        data: list.rows,
+        total: list.count,
+        code: '0000'
+      })
     })
-  })
+
+  }
+
+
+
 }
 
 exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
@@ -1557,11 +1662,6 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
  
  }
       
- 
- 
- 
- 
- 
  
    db.models[reg_model].findAndCountAll(qry).then((list) => {
      res.status(200).send({

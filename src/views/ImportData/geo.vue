@@ -590,26 +590,45 @@ const readJson = (event) => {
 }
 const loadOptions = (json) => {
 
+  var featureType = json.type
 
-  console.log('json ---->', json)
+  if (featureType === 'FeatureCollection') {
+      console.log('xFeatureCollection:', json)
+  } else if (featureType === 'Features' || featureType === 'Features') {
+
+    console.log("features:",json)
+
+  } else {
+    console.log("Unknwon Features")
+  }
+
+  console.log('json ---->', json.type)
 
   const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
 
     let sourceProj
-    let epsgCode
-    let crsProp 
-        try {
-            crsProp = json.crs.properties.name;
-        }
-        catch (error) {
-          console.warn('Error extracting EPSG code:', error); // Log warning message
-          ElMessage.warning('The uploaded file lacks Coordinate system definition. Assuming GCS WGS84')
-          epsgCode = 4326
-      }
-        if (crsProp) {
-            epsgCode = crsProp.match(/EPSG::(\d+)/)[1];
-        }  
+   // let epsgCode
+     var crsProp = json.crs ? json.crs.properties.name : null;
+    
+  // //       try {
+  // //           crsProp = json.crs.properties.name;
+  // //       }
+  // //       catch (error) {
+  // //         console.warn('Error extracting EPSG code:', error); // Log warning message
+  // //         ElMessage.warning('The uploaded file lacks Coordinate system definition. Assuming GCS WGS84')
+  // //         epsgCode = 4326
+  // // }
+  // if (crsProp !== null) {
+   
+  //         epsgCode = crsProp.match(/EPSG::(\d+)/)[1];
 
+  // } else {
+  //   ElMessage.warning('The uploaded file lacks Coordinate system definition. Assuming GCS WGS84')
+  //         epsgCode = 4326
+  //       }
+
+        const epsgCode = crsProp?crsProp.match(/EPSG::(\d+)/)[1] :4326
+ 
 
     if (epsgCode == 21037) {
       // zone 37S
@@ -638,6 +657,8 @@ const loadOptions = (json) => {
     proj4.defs("WGS84", targetProj);
 
 
+
+    console.log('json.features',json.features)
 
   // makeOptions(fields)
   for (let i = 0; i < json.features.length; i++) {
@@ -679,6 +700,7 @@ const loadOptions = (json) => {
   console.log('rows-uploadObj------>', uploadObj.value)
   console.log('rows-parentObj------>', parentObj.value)
 
+  console.log('rows-uploadObj---PCODE--->', uploadObj.value[0].properties.pcode)
 
 
   uploadObj.value.map((upload, i) => {
@@ -687,7 +709,7 @@ const loadOptions = (json) => {
     var thisFeature = upload.properties
     thisFeature.geom = upload.geometry
 
-    //console.log('------matchedObj------>', i, thisFeature)
+   console.log('------matchedObj------>', i, thisFeature)
 
     if (upload.properties[code.value]) {
       show.value = true // Show the matching table if only any match is observed
@@ -696,6 +718,9 @@ const loadOptions = (json) => {
         return el['code'] === upload.properties[code.value]
       })
 
+      console.log('------filterParent------>',   filterParent)
+
+      if (filterParent.length >0) {
       // here we add a prefix to the parent details to avoid confusion
       let pre = parentModel.value + '_' // a prefix to differential parent and child
       let pfeature = Object.keys(filterParent[0]).reduce(
@@ -703,16 +728,34 @@ const loadOptions = (json) => {
         {}
       )
 
-      const mergedFeature = { ...thisFeature, ...pfeature } // merge the feature with the parent details
 
-      matchedObjwithparent.value.push(mergedFeature)
+ 
+        const mergedFeature = { ...thisFeature, ...pfeature } // merge the feature with the parent details
+
+        matchedObjwithparent.value.push(mergedFeature)
+
+      } 
+      else {
+        console.log('No match......')
+        ElMessage.error(
+        'The parent Code(pcode) did not match any records in the datababase!'
+      )
+        loadingPosting.value = false
+      show.value=false
+
+      return
+
+      }
+ 
+
+
     } else {
       console.log('The parent Code is required')
-      loadingPosting.value = false
 
       ElMessage.error(
-        'The parent Code(pcode) is required in the uploaded Geojson File!'
+        'The parent Code(pcode) is required in the uploaded  File!'
       )
+      loadingPosting.value = false
 
       return
     }
@@ -733,16 +776,7 @@ const loadOptions = (json) => {
 
 }
 
-const handleSelectField = async (selectedOption) => {
-
-  if (selectedOption) {
-    matchOptions.value = matchOptions.value.filter(option => option.value !== selectedOption)
-    console.log(matchOptions.value)
-
-  }
-
-}
-
+ 
 
 const handleClearField = async (row) => {
   console.log('Cleared.......', row)
