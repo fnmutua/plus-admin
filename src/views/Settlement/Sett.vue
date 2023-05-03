@@ -349,17 +349,22 @@ const getNewOrRejectedSettlements = async (status) => {
   if (status === 'New') {
     var filters = ['isApproved']
     var filterValues = [['Pending']]  // make sure the inner array is array
-  
+    var key = "getNewOrRejectedSettlements_new"+value4.value+value5.value
+
   } else  if (status === 'Rejected') {
     var filters = ['isApproved']
     var filterValues = [['Rejected']]  // make sure the inner array is array
- 
+    var key = "getNewOrRejectedSettlements_rejected" +value4.value+value5.value
+
+
    }
 
   else {
     var filters = ['isApproved']
     var filterValues = [['Approved']]  // make sure the inner array is array
- 
+    var key = "getNewOrRejectedSettlements_approved" +value4.value+value5.value
+
+
  
   }
 
@@ -383,6 +388,7 @@ const getNewOrRejectedSettlements = async (status) => {
   formData.filterValues = filterValues
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
+  formData.cache_key = key
 
   //-------------------------
   //console.log(formData)
@@ -438,6 +444,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
+  formData.cache_key = 'ApprovedSettlements'+value4.value+value5.value
+
 
   //-------------------------
   //console.log(formData)
@@ -1068,6 +1076,7 @@ const getFilteredBySearchData = async (searchString) => {
   formData.filterValues = filterValues
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
+  formData.cache_key = 'SeacrchByKey_'+srchSrtng.value
 
   //-------------------------
   console.log(formData)
