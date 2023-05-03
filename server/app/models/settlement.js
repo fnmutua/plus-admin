@@ -22,6 +22,12 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
+
+      ward_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
       settlement_type: {
         type: DataTypes.INTEGER,
         allowNull: false
@@ -76,10 +82,6 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
        },
 
-
-
-
-
       isApproved: {
         type: DataTypes.STRING,
         defaultValue: 'Pending'
@@ -89,7 +91,7 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-   
+  
     },
     {
       sequelize,
@@ -103,10 +105,10 @@ module.exports = function (sequelize, DataTypes) {
           fields: [{ name: 'id' }]
         },
         {
-          name: 'settlement_pcode',
           unique: true,
-          fields: [{ name: 'code' }]
-        }
+          fields: ['name', 'ward_id','subcounty_id', 'county_id']
+        },
+  
       ]
     }
   )

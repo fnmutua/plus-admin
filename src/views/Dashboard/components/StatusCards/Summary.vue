@@ -198,7 +198,8 @@ getAverageIncome()
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
                   t('Average Income of Structure Landlords (KES)')
                 }}</div>
-                <CountTo class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.AverageLengthStay"
+                <CountTo
+class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.AverageLengthStay"
                   :duration="2600" />
               </div>
               <div :class="`${prefixCls}__item--icon ${prefixCls}__item--proportion  p-16px inline-block rounded-6px`">
@@ -220,7 +221,8 @@ getAverageIncome()
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
                   t('Proportion of Absentee Landlords (%)')
                 }}</div>
-                <CountTo class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.proportionOwners"
+                <CountTo
+class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.proportionOwners"
                   :duration="2600" />
               </div>
               <div :class="`${prefixCls}__item--icon ${prefixCls}__item--absent  p-16px inline-block rounded-6px`">
@@ -241,7 +243,8 @@ getAverageIncome()
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-center`">{{
                   t('Households that own structures within slums (%)')
                 }}</div>
-                <CountTo class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.proportionOwners"
+                <CountTo
+class="text-20px font-700 text-center" :start-val="0" :end-val="totalState.proportionOwners"
                   :duration="2600" />
               </div>
               <div :class="`${prefixCls}__item--icon ${prefixCls}__item--structures  p-16px inline-block rounded-6px`">
