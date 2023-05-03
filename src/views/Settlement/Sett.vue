@@ -66,8 +66,34 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 
+//*****************************Create**************************** */
 
-const searchString = ref()
+///----------------------------------------------------------------------------------
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  name: '',
+  county_id: '',
+  settlement_type: '',
+  population: '',
+  area: '',
+  description: null,
+  geom: '',
+  id: '',
+  dist_trunk: null,
+  dist_town: null,
+  parcel_no:null,
+  parcel_owner: null,
+  rim_no:null,
+  isApproved: 'Pending',
+  code: ''
+})
+
+
+const selectedCounty = ref()
+const selectedSubCounty = ref(null)
+
+
+const search_string = ref()
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -132,12 +158,13 @@ let tableDataListNew = ref<UserType[]>([])
 let tableDataListRejected = ref<UserType[]>([])
 
 //// ------------------parameters -----------------------////
-//const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
+ 
+
+const filters = ref(['settlement_type','isApproved'])
+const  filterValues = ref([[1, 2],['Approved']] ) // make sure the inner array is array
 
 
-
-var filters = ['settlement_type']
-var filterValues = [[1, 2]]  // make sure the inner array is array
+ 
 
 var tblData = []
 
@@ -149,14 +176,19 @@ const model = 'settlement'
 //// ------------------parameters -----------------------////
 const fileUploadList = ref<UploadUserFile[]>([])
 
-const facilityGeo = ref([])
-const facilityGeoPoints = ref()
-const facilityGeoLines = ref([])
-const facilityGeoPolygons = ref([])
-const geoLoaded = ref(false)
-
+ 
 
 const { t } = useI18n()
+
+const isMobile = computed(() => appStore.getMobile)
+
+const reviewWindowWidth = ref('40%')
+
+if (isMobile.value) {
+  reviewWindowWidth.value = "100%"
+}
+
+
 
 
 const handleClear = async () => {
@@ -164,8 +196,8 @@ const handleClear = async () => {
   enableSubcounty.value=false
 
   // clear all the fileters -------
-  filterValues = []
-  filters = []
+  filterValues.value = []
+  filters.value = []
   value1.value = ''
   value2.value = ''
   value3.value = ''
@@ -176,7 +208,7 @@ const handleClear = async () => {
   currentPage.value = 1
   tblData.value = []
   //----run the get data--------
-  getAllBeneficiaries()
+  getAllSetllementsInitially()
 }
 
 
@@ -233,33 +265,28 @@ const submitMoreDocuments = async () => {
 const onPageChange = async (selPage: any) => {
    page.value = selPage
   
-  console.log(activeTab.value)
-  if (activeTab.value === 'list') {
-    var sfilters = ['settlement_type','isApproved']
-    var sfilterValues = [[1, 2],['Approved']]  // make sure the inner array is array
-  } else if (activeTab.value === 'New') {
-    var sfilters = ['settlement_type','isApproved']
-    var sfilterValues = [[1, 2],['Pending']]  // make sure the inner array is array
+  //console.log('', activeTab.value)
+  if (activeTab.value == 'list') {
+     filters.value = ['settlement_type','isApproved']
+     filterValues.value = [[1, 2],['Approved']]  // make sure the inner array is array
+  } else if (activeTab.value =='New') {
+     filters.value = ['settlement_type','isApproved']
+     filterValues.value = [[1, 2],['Pending']]  // make sure the inner array is array
 }
-else if (activeTab.value === 'Rejected') {
-    var sfilters = ['settlement_type','isApproved']
-    var sfilterValues = [[1, 2],['Rejected']]  // make sure the inner array is array
+else if (activeTab.value == 'Rejected') {
+     filters.value = ['settlement_type','isApproved']
+     filterValues.value = [[1, 2],['Rejected']]  // make sure the inner array is array
 }
 
+  console.log("Where are we?",activeTab.value, filters.value, filterValues.value )
 
-  console.log(sfilters,sfilterValues)
-
-  if (searchString.value) {
-     getFilteredBySearchData(searchString.value)
+  if (search_string.value) {
+     getFilteredBySearchData(activeTab.value ,search_string.value)
     } else {
       getNewOrRejectedSettlements(activeTab.value)
     }
 
-
-
-
-
-  //getFilteredData(sfilters, sfilterValues)
+ 
 }
 
 const onPageSizeChange = async (size: any) => {
@@ -268,23 +295,21 @@ const onPageSizeChange = async (size: any) => {
 
   console.log(activeTab.value)
   if (activeTab.value === 'list') {
-    var sfilters = ['settlement_type','isApproved']
-    var sfilterValues = [[1, 2],['Approved']]  // make sure the inner array is array
+      filters.value = ['settlement_type','isApproved']
+      filterValues.value = [[1, 2],['Approved']]  // make sure the inner array is array
   } else if (activeTab.value === 'New') {
-    var sfilters = ['settlement_type','isApproved']
-    var sfilterValues = [[1, 2], ['Pending']]  // make sure the inner array is array
+      filters.value = ['settlement_type','isApproved']
+      filterValues.value = [[1, 2], ['Pending']]  // make sure the inner array is array
      
 }
 else if (activeTab.value === 'Rejected') {
-    var sfilters = ['settlement_type','isApproved']
-    var sfilterValues = [[1, 2],['Rejected']]  // make sure the inner array is array
+      filters.value = ['settlement_type','isApproved']
+      filterValues.value = [[1, 2],['Rejected']]  // make sure the inner array is array
 }
 
-
-  console.log(sfilters,sfilterValues)
-
-  if (searchString.value) {
-     getFilteredBySearchData(searchString.value)
+ 
+  if (search_string.value) {
+     getFilteredBySearchData(activeTab.value, search_string.value)
     } else {
       getNewOrRejectedSettlements(activeTab.value)
     }
@@ -293,25 +318,50 @@ else if (activeTab.value === 'Rejected') {
 
 }
 
-const getAllBeneficiaries = async () => {
-  getFilteredData(filters, filterValues)
+const clickTab = async (obj) => {
+
+  page.value = 1
+  activeTab.value = obj.props.name 
+  
+  console.log("Loading tabs.............", obj.props.label)
+  console.log("Loading activeTab.............", activeTab.value)
+  console.log("Loading search_string.............", search_string.value)
+ 
+ 
+  if (obj.props.name  === 'list') {
+      filters.value = ['settlement_type','isApproved']
+      filterValues.value = [[1, 2],['Approved']]  // make sure the inner array is array
+     
+  } else if (obj.props.name === "New") {
+      filters.value = ['settlement_type','isApproved']
+      filterValues.value = [[1, 2], ['Pending']]  // make sure the inner array is array
+     
+}
+else if (obj.props.name === "Rejected") {
+      filters.value = ['settlement_type','isApproved']
+      filterValues.value = [[1, 2],['Rejected']]  // make sure the inner array is array
 }
 
-const destructure = (obj) => {
-  // console.log('deconstructing......')
-  const simpleObj = {}
-  for (let key in obj) {
-    const value = obj[key]
-    const type = typeof value
-    if (['string', 'boolean'].includes(type) || (type === 'number' && !isNaN(value))) {
-      simpleObj[key] = value
-    } else if (type === 'object') {
-      Object.assign(simpleObj, destructure(value))
+console.log('Filters:',  filters.value  )
+console.log('Filters Value:',  filterValues.value )
+ 
+  if (search_string.value) {
+     getFilteredBySearchData(obj.props.name, search_string.value)
+    } else {
+      getNewOrRejectedSettlements(obj.props.name)
     }
-  }
-
-  return simpleObj
 }
+
+
+
+const getAllSetllementsInitially = async () => {
+ // getFilteredData(filters, filterValues)
+ await  getNewOrRejectedSettlements('list')
+  getSettlementCount()  // This gets the approved/new/rejecetd counts
+
+}
+
+ 
 
 
 
@@ -321,10 +371,9 @@ const getSettlementCount = async () => {
   formData.summaryField = 'isApproved'
   formData.summaryFunction = 'count'
   formData.groupField = ['isApproved']
-  formData.cache_key = ''
-
+ 
   const newSettCount = await getSummarybyField(formData)
-  console.log('income_levels---->', newSettCount)
+  console.log('Settleemnt Count---->', newSettCount)
 
   let pending = await filterDataByKeys(newSettCount.Total, ['isApproved'], 'Pending');
   let approved = await filterDataByKeys(newSettCount.Total, ['isApproved'], 'Approved');
@@ -333,44 +382,90 @@ const getSettlementCount = async () => {
   totalApproved.value =parseInt(approved[0].count) 
   totalRejected.value = parseInt(rejected[0].count)
 
-  console.log(totalPending.value)
-  console.log(totalApproved.value)
-  console.log(totalRejected.value)
+  console.log('New:', totalPending.value)
+  console.log('Approved:', totalApproved.value)
+  console.log('Rejecetd:', totalRejected.value)
 
 }
 
 
 
-const getNewOrRejectedSettlements = async (status) => {
+const getNewOrRejectedSettlements = async (tab) => {
 
-  console.log('getNewOrRejectedSettlements....', status, page.value)
   loadingGetData.value=true
-
-  if (status === 'New') {
-    var filters = ['isApproved']
-    var filterValues = [['Pending']]  // make sure the inner array is array
-    var key = "getNewOrRejectedSettlements_new"+value4.value+value5.value
-
-  } else  if (status === 'Rejected') {
-    var filters = ['isApproved']
-    var filterValues = [['Rejected']]  // make sure the inner array is array
-    var key = "getNewOrRejectedSettlements_rejected" +value4.value+value5.value
+ 
 
 
+   
+  if (tab === 'New') {
+      filters.value = ['isApproved']
+      filterValues.value = [['Pending']]  // make sure the inner array is array
+ 
+  } else  if (tab === 'Rejected') {
+      filters.value = ['isApproved']
+      filterValues.value = [['Rejected']]  // make sure the inner array is array
    }
 
   else {
-    var filters = ['isApproved']
-    var filterValues = [['Approved']]  // make sure the inner array is array
-    var key = "getNewOrRejectedSettlements_approved" +value4.value+value5.value
+      filters.value = ['isApproved']
+      filterValues.value = [['Approved']]  // make sure the inner array is array
+  }
+
+  
+  if (selectedCounty.value) {
+      var selectOption = 'county_id'
+        if (!filters.value.includes(selectOption)) {
+          filters.value.push(selectOption)
+        }
+        var index = filters.value.indexOf(selectOption) // 1
+      
+        // clear previously selected
+        if (filterValues[index]) {
+          // filterValues[index].length = 0
+          filterValues.value.splice(index, 1)
+        }
+
+        if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
+          filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+        }
+
+        // expunge the filter if the filter values are null
+        if (selectedCounty.value.length === 0) {
+          filters.value.splice(index, 1)
+        }
+
+ }
 
 
  
-  }
+  // Filter by subcounty  
+  if (selectedSubCounty.value) {
+      var selectOption = 'subcounty_id'
+        if (!filters.value.includes(selectOption)) {
+          filters.value.push(selectOption)
+        }
+        var index = filters.value.indexOf(selectOption) // 1
+      
+        // clear previously selected
+        if (filterValues[index]) {
+          // filterValues[index].length = 0
+          filterValues.value.splice(index, 1)
+        }
+
+        if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
+          filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+        }
+
+        // expunge the filter if the filter values are null
+        if (selectedSubCounty.value.length === 0) {
+          filters.value.splice(index, 1)
+        }
+
+ }
 
 
-
-
+ 
+   
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
@@ -384,38 +479,32 @@ const getNewOrRejectedSettlements = async (status) => {
   formData.assocModel = associated_Model
 
   // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
+  formData.filters = filters.value
+  formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-  formData.cache_key = key
+  //formData.cache_key = key
 
   //-------------------------
-  //console.log(formData)
+  console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
-  loadingGetData.value=false
-
-
-  if (status === 'New') {
-
+      loadingGetData.value=false
+      console.log('filter', res)
+      total.value =res.total
+  if (tab === 'New') {
     tableDataListNew.value = res.data
-
     console.log('New', res.data)
-    total.value = totalPending.value
+  //  total.value = totalPending.value
+  //  console.log('total ---',total.value)
 
-    console.log('total ---',total.value)
-
-
-  } else  if(status === 'Rejected'){
-
+  } else  if(tab === 'Rejected'){
     tableDataListRejected.value = res.data
-    total.value=totalRejected.value
-
+ //   total.value = totalRejected.value
+    
   } else {
-
     tableDataList.value = res.data
-    total.value=totalApproved.value
+  //  total.value=totalApproved.value
   }
 
 
@@ -444,11 +533,10 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-  formData.cache_key = 'ApprovedSettlements'+value4.value+value5.value
-
+ 
 
   //-------------------------
-  //console.log(formData)
+   console.log('FormSubmitted', formData)
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry - associated_multiple_models', res)
@@ -459,214 +547,20 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   // filter
   //if (showAdminButtons.value) {
-    getSettlementCount()  // This gets the approved/new/rejecetd counts
+   // getSettlementCount()  // This gets the approved/new/rejecetd counts
  
   //}
 
   // 
 
-  tblData.value = [] // reset the table data
-  console.log('TBL-b4-', tblData)
-  let filteredIds = []
-  res.data.forEach(function (arrayItem) {
-    console.log(arrayItem)
-    filteredIds.push(arrayItem.id)
-
-    var dd = destructure(arrayItem)
-    delete dd['0']
-    delete dd['1']
-
-    tblData.value.push(dd)
-  })
-  console.log('Now get the filtered Geo for --', filteredIds)
-
-  formData.columnFilterField = 'id'
-  formData.selectedParents = []
-  formData.filtredGeoIds = filteredIds
-
-  if (filteredIds.length > 0) {
-    const fgeo = await getfilteredGeo(formData)
-
-    console.log('the filtred GEO --', fgeo)
 
 
-    if (fgeo.data[0].json_build_object) {
-      var points = []
-      var lines = []
-      var polygons = []
-      facilityGeo.value = fgeo.data[0].json_build_object
-      console.log('Geo Returns---', fgeo.data[0].json_build_object.features)
-      console.log("Facility Geo", facilityGeo)
-
-      if (fgeo.data[0].json_build_object.features) {
-
-        for (let i = 0; i < fgeo.data[0].json_build_object.features.length; i++) {
-        console.log("Geo Type -------->", fgeo.data[0].json_build_object.features[i].geometry.type)
-
-        if (fgeo.data[0].json_build_object.features[i].geometry.type === "Point") {
-
-          points.push(fgeo.data[0].json_build_object.features[i])
-        } else if (fgeo.data[0].json_build_object.features[i].geometry.type === "LineString" || fgeo.data[0].json_build_object.features[i].geometry.type === "MultiLineString") {
-
-          lines.push(fgeo.data[0].json_build_object.features[i])
-
-        } else {
-          polygons.push(fgeo.data[0].json_build_object.features[i])
-
-        }
-
-      }
-
-      console.log('Points ---x-------', points)
-
-      facilityGeoPoints.value = points
-      facilityGeoLines.value = lines
-      facilityGeoPolygons.value = polygons
-
-      console.log('Lines--->', facilityGeoPoints.value)
-
-
-      //markerLatlon.value = res.data[0].json_build_object.features[0].geometry.coordinates
-      geoLoaded.value = true
-      }
-   
-
-
-    }
-
-  }
-
-
-
-  console.log('TBL-4f', tblData)
+ 
 }
 
 
-
-const getInterventionTypes = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'intervention_type',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.type + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      interVentionTypeOptions.value.push(countyOpt)
-    })
-  })
-}
-
-const getBeneficiaryType = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'benefit_type',
-      searchField: 'type',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.type + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      benefitTypeOptions.value.push(opt)
-    })
-  })
-}
-const getHouseholds = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'households',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.name + '| ' + arrayItem.gender + ' | ' + arrayItem.national_id
-      //  console.log(countyOpt)
-      houseHoldOptions.value.push(opt)
-    })
-  })
-}
-
-const getInterventions = async () => {
-  const formData = {}
-
-  formData.model = 'intervention'
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-
-  // - multiple filters -------------------------------------
-
-  formData.associated_multiple_models = ['settlement']
-
-  //-------------------------
-  //console.log(formData)
-  console.log('before Intervention Options')
-
-  //const rxes = await getSettlementListByCounty(formData)
-  //console.log('Inside Intervention Options', rxes)
-
-  const res = await getSettlementListByCounty(formData).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.settlement_id = arrayItem.settlement.id
-
-      opt.label = arrayItem.settlement.name + ' | ' + arrayItem.cluster.contract + ' | ' + arrayItem.id
-      //  console.log(countyOpt)
-      interventionsOptions.value.push(opt)
-    })
-  })
-}
-
-
+ 
+ 
 
 
 const getSettlementsOptions = async () => {
@@ -779,15 +673,6 @@ const confirmReject = async () => {
 }
 
 
-const isMobile = computed(() => appStore.getMobile)
-
-const reviewWindowWidth = ref('40%')
-
-if (isMobile.value) {
-  reviewWindowWidth.value = "100%"
-}
-
-
 
 
 const viewOnMap = (data: TableSlotDefault) => {
@@ -809,255 +694,66 @@ const viewOnMap = (data: TableSlotDefault) => {
   }
 }
 
-
-
-const loadMap = () => {
-  var nmap = new mapboxgl.Map({
-    container: "mapContainer",
-    style: "mapbox://styles/mapbox/streets-v11",
-    center: [37.137343, 1.137451], // starting position
-    zoom: 6,
-
-  })
-
-     // When the map fails to load, hide the base map and show only the overlays
-     nmap.on('error', function (e) {
-    console.log('List Failed.....', e)
-    
-    nmap.setStyle( './style.json');
-          console.log("Failed to load base map. Showing only overlays.");
-      });
-  console.log("resizing....")
-
-  const nav = new mapboxgl.NavigationControl();
-  nmap.addControl(nav, "top-right");
-  nmap.addControl(new MapboxLayerSwitcherControl());
-
-
-  nmap.on('load', () => {
-    nmap.addSource('lines', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(facilityGeoLines.value),
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
-
-    nmap.addSource('points', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(facilityGeoPoints.value),
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
-
-
-    nmap.addSource('polygons', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(facilityGeoPolygons.value),
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
-
-
-    nmap.addLayer({
-      'id': 'points-layer',
-      "type": "circle",
-      'source': 'points',
-      'paint': {
-        "circle-color": 'green'
-      }
-    });
-
-    nmap.addLayer({
-      'id': 'lines',
-      'type': 'line',
-      'source': 'lines',
-      'paint': {
-        'line-width': 12,
-        // Use a get expression (https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-get)
-        // to set the line-color to a feature property value.
-        'line-color': 'red'
-      }
-    });
-
-
-
-
-    nmap.addLayer({
-      'id': 'polygons-layer',
-      "type": "fill",
-      'source': 'polygons',
-      'paint': {
-        'fill-color': '#0080ff', // blue color fill
-        'fill-opacity': 0.2
-      }
-
-    });
-    // Add a black outline around the polygon.
-    // nmap.addLayer({
-    //   'id': 'outline',
-    //   'type': 'line',
-    //   'source': 'polygons',
-    //   'layout': {},
-    //   'paint': {
-    //     'line-color': '#000',
-    //     'line-width': 1
-    //   }
-    // });
-
-    nmap.resize()
-
-
-    var bounds = turf.bbox((facilityGeo.value));
-    nmap.fitBounds(bounds, { padding: 20 });
-
-
-
-    nmap.on('click', 'points-layer', (e) => {
-      console.log("Onclikc..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.asset_type;
-      const condition = e.features[0].properties.asset_condition;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-    });
-
-
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'points-layer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'points-layer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
-
-
-
-    nmap.on('click', 'lines-layer', (e) => {
-      console.log("click line..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.asset_type;
-      const condition = e.features[0].properties.asset_condition;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-
-    });
-
-
-    nmap.on('click', 'polygons-layer', (e) => {
-      console.log("click line..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.title;
-      const condition = e.features[0].properties.programme;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-
-    });
-
-
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'lines-layer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'lines-layer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
-
-
-
-
-
-
-  });
-
-
-}
+ 
 
 
 const showPagination = ref(true)
-const clickTab = async (obj) => {
-  page.value = 1
 
-  console.log("Loading tabs.............", obj.props.label)
-  if (obj.props.label == "Map") {
-    loadMap()
-    //console.log(map.value)
-    //maxBounds.value = turf.bbox(facilityGeo.value);
-    activeTab.value = 'Map'
-    showPagination.value=false
-  }
+ 
 
-  if (obj.props.name == "New") { 
-     activeTab.value='New'
-    showPagination.value=true
+const getFilteredBySearchData = async (tab, searchKey) => {
 
-    getNewOrRejectedSettlements('New')
+    
+  if (selectedCounty.value) {
+      var selectOption = 'county_id'
+        if (!filters.value.includes(selectOption)) {
+          filters.value.push(selectOption)
+        }
+        var index = filters.value.indexOf(selectOption) // 1
+      
+        // clear previously selected
+        if (filterValues[index]) {
+          // filterValues[index].length = 0
+          filterValues.value.splice(index, 1)
+        }
+
+        if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
+          filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+        }
+
+        // expunge the filter if the filter values are null
+        if (selectedCounty.value.length === 0) {
+          filters.value.splice(index, 1)
+        }
+
+ }
+
+  // Filter by subcounty  
+ if (selectedSubCounty.value) {
+      var selectOption = 'subcounty_id'
+        if (!filters.value.includes(selectOption)) {
+          filters.value.push(selectOption)
+        }
+        var index = filters.value.indexOf(selectOption) // 1
+      
+        // clear previously selected
+        if (filterValues[index]) {
+          // filterValues[index].length = 0
+          filterValues.value.splice(index, 1)
+        }
+
+        if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
+          filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+        }
+
+        // expunge the filter if the filter values are null
+        if (selectedSubCounty.value.length === 0) {
+          filters.value.splice(index, 1)
+        }
+
+ }
+
   
-
-  } 
-
-  if (obj.props.name == "Rejected") { 
-     showPagination.value = true
-    activeTab.value='Rejected'
-    getNewOrRejectedSettlements('Rejected')
-
-
-
-  } 
-
-  if (obj.props.name == "list") { 
-
-     showPagination.value = true
-    activeTab.value='list'
-
-    getNewOrRejectedSettlements('list')
- 
-
-
-
-} 
-
-}
-
- 
-
-const getFilteredBySearchData = async (searchString) => {
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
@@ -1066,28 +762,40 @@ const getFilteredBySearchData = async (searchString) => {
 
   //-Search field--------------------------------------------
   formData.searchField = 'name'
-  formData.searchKeyword = searchString
+  formData.searchKeyword = searchKey
   //--Single Filter -----------------------------------------
 
   //formData.assocModel = associated_Model
 
   // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
+  formData.filters = filters.value
+  formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-  formData.cache_key = 'SeacrchByKey_'+srchSrtng.value
+  //formData.cache_key = 'SeacrchByKey_'+search_string.value
 
   //-------------------------
   console.log(formData)
+  console.log('activeTab',tab)
   const res = await searchByKeyWord(formData)
 
-  console.log('After -----x ------Querry', res)
-  tableDataList.value = res.data
+  if (tab === 'list') { 
+
+    tableDataList.value = res.data
+
+  } else if (tab === 'New') {
+    tableDataListNew.value = res.data
+
+  } else {
+    tableDataListRejected.value = res.data
+
+
+  }
+
+
   total.value = res.total
   loading.value = false
 
-  tblData.value = [] // reset the table data
 
 }
 
@@ -1095,55 +803,13 @@ const searchByName = async (filterString: any) => {
 
   console.log('filterString',filterString)
   value3.value=filterString
-  searchString.value = filterString
+  search_string.value = filterString
 
-  getFilteredBySearchData(searchString.value)
+  getFilteredBySearchData(activeTab.value, search_string.value)
 }
 
+ 
 
-const programmeOptions = ref([])
-const getProgrammeOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'programme',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      programmeOptions.value.push(countyOpt)
-    })
-  })
-}
-
-const typeOptions = [
-  {
-    value: 1,
-    label: 'Slum'
-  },
-  {
-    value: 2,
-    label: 'Informal Settlement'
-  },
-  {
-    value: 3,
-    label: 'Project Location'
-  }
-]
 const countiesOptions = ref([])
 
 const getCountyNames = async () => {
@@ -1207,11 +873,6 @@ const getSubCountyNames = async () => {
 }
 
  
-  const onClear = async () => {
-    console.log('Selected value has been cleared.');
-    enableSubcounty.value=false   // allow selection of subcounty 
-
-    }
 
 
 
@@ -1219,33 +880,10 @@ const filterByCounty = async (county_id: any) => {
 
 
   if (county_id) {
-    enableSubcounty.value=true   // allow selection of subcounty 
+    enableSubcounty.value = true   // allow selection of subcounty 
+    selectedCounty.value=county_id
   }
-  var selectOption = 'county_id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('intervention_type_id : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(county_id) && county_id.length > 0) {
-    filterValues.splice(index, 0, county_id) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (county_id.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-  console.log(subcountiesOptions.value)
-
+   
 
 
   var subset = [];
@@ -1258,83 +896,50 @@ const filterByCounty = async (county_id: any) => {
   subcountyfilteredOptions.value = subset
 
 
-  getFilteredData(filters, filterValues)
+ // getFilteredData(filters, filterValues)
+
+ console.log(filters.value)
+ 
+  if (search_string.value) {
+     getFilteredBySearchData(activeTab.value, search_string.value)
+    } else {
+      getNewOrRejectedSettlements(activeTab.value)
+    }
 
 
 }
 
 
 const filterBySubCounty = async (subcounty_id: any) => {
-  var selectOption = 'subcounty_id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('intervention_type_id : index--->', index)
 
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
+  
+  if (subcounty_id) {
+     selectedSubCounty.value=subcounty_id
   }
 
-  if (!filterValues.includes(subcounty_id) && subcounty_id.length > 0) {
-    filterValues.splice(index, 0, subcounty_id) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (subcounty_id.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-  console.log(subcountiesOptions.value)
-
-  getFilteredData(filters, filterValues)
+  if (search_string.value) {
+     getFilteredBySearchData(activeTab.value, search_string.value)
+    } else {
+      getNewOrRejectedSettlements(activeTab.value)
+    }
 
 
 }
 
-getBeneficiaryType()
-getHouseholds()
+ 
 
-getInterventionTypes()
+ 
 getSettlementsOptions()
-getAllBeneficiaries()
-getInterventions()
-getProgrammeOptions()
-//getGeo()
+getAllSetllementsInitially()
+  
 
 getCountyNames()
 getSubCountyNames()
+ 
 
 console.log('Options---->', interVentionTypeOptions)
 
 
-
-
-
-//*****************************Create**************************** */
-
-///----------------------------------------------------------------------------------
-const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
-  name: '',
-  county_id: '',
-  settlement_type: '',
-  population: '',
-  area: '',
-  description: null,
-  geom: '',
-  id: '',
-  dist_trunk: null,
-  dist_town: null,
-  parcel_no:null,
-  parcel_owner: null,
-  rim_no:null,
-  isApproved: 'Pending',
-  code: ''
-})
 
 
 
@@ -1864,7 +1469,7 @@ const hideCopyIcon = (row) => {
       return hoveredRow.value === row;
     }
    
-    const srchSrtng = ref<string[]>([])
+ 
 
 
 </script>
@@ -1896,12 +1501,9 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
       </el-col>
       <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
         <div style="display: inline-block; margin-top: 5px">
-          <!-- <el-select
-size="default" v-model="srchSrtng" multiple clearable filterable remote :remote-method="searchByName"
-            reserve-keyword placeholder="Search by Name" /> -->
-
+ 
             <el-input
-                v-model="srchSrtng"
+                v-model="search_string"
                 :suffix-icon="Search"
                 placeholder="Enter search text"
                 :onInput="searchByName"
@@ -1930,7 +1532,7 @@ size="default" v-model="srchSrtng" multiple clearable filterable remote :remote-
       </el-col>
     </el-row>
 
-    <el-tabs @tab-click="clickTab" v-model="activeName" type="border-card">
+    <el-tabs @tab-click="clickTab" v-model="activeName" class="custom-tab"   >
       <el-tab-pane name="list">
         <template #label>
           <span class="custom-tabs-label">
@@ -2292,17 +1894,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
       </el-tab-pane>
 
-
-
-      <el-tab-pane label="Map" name="Map">
-        <template #label>
-          <span class="custom-tabs-label">
-            <el-button link>Map</el-button>
-          </span>
-        </template>
-
-        <div id="mapContainer" class="basemap"></div>
-      </el-tab-pane>
+ 
 
       <ElPagination
 v-if="showPagination"
@@ -2365,8 +1957,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
                   <el-form-item label="Parcel owner" prop="parcel_owner">
                     <el-input v-model="ruleForm.parcel_owner" />
                   </el-form-item>
-
-                  
+                
                   <el-form-item label="RIM Ref." prop="rim_no">
                     <el-input v-model="ruleForm.rim_no" />
                   </el-form-item>
@@ -2410,60 +2001,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       </template>
     </el-dialog>
 
-<!--     <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
-      <el-row :gutter="10">
-
-        <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-          <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
-            <el-form-item label="County" prop="county_id">
-              <el-select v-model="ruleForm.county_id" filterable placeholder="Select County">
-                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="Name">
-              <el-input v-model="ruleForm.name" />
-            </el-form-item>
-            <el-form-item label="Type" prop="settlement_type">
-              <el-select v-model="ruleForm.settlement_type" filterable placeholder="Select type">
-                <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="Population">
-              <el-input-number v-model="ruleForm.population" />
-            </el-form-item>
-            <el-form-item label="Area(ha)">
-              <el-input-number v-model="ruleForm.area" />
-            </el-form-item>
-            <el-form-item label="Description">
-               <el-input maxlength="200"  type="textarea" v-model="ruleForm.description" />
-
-            </el-form-item>
-            <el-form-item label="Geometry"> <el-upload
-:on-change="handleUploadGeo" multiple :limit="3"
-                :auto-upload="false">
-                <el-button type="primary">Click to upload</el-button>
-                <template #tip>
-                  <div class="el-upload__tip">
-                    geojson or zipped shapefile
-                  </div>
-                </template>
-              </el-upload></el-form-item>
-          </el-form>
-        </el-col>
-      </el-row>
-      <template #footer>
-        <span class="dialog-footer space-between">
-          <el-row :gutter="10">
-
-            <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-              <el-button @click="AddDialogVisible = false">Cancel</el-button>
-              <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-            </el-col>
-          </el-row>
-        </span>
-      </template>
-    </el-dialog>
- -->
+ 
     <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
       <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
         <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
@@ -2560,6 +2098,24 @@ v-model:file-list="morefileList" class="upload-demo "
 .item {
   margin-top: 10px;
   margin-right: 40px;
+}
+
+ 
+.demo-tabs > .el-tabs__content {
+  padding: 32px;
+  color: #6b778c;
+  font-size: 32px;
+  font-weight: 600;
+}
+.demo-tabs .custom-tabs-label .el-icon {
+  vertical-align: middle;
+}
+.demo-tabs .custom-tabs-label span {
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.custom-tab.is-active {
+  color: red;
 }
 </style>
 

@@ -485,7 +485,7 @@ const getSettlementPopPyramid = async () => {
   formData.summaryFields = fields
   formData.groupField = 'gender'
 
-  formData.cache_key = 'getSettlementPopPyramid_by_gender'
+  //formData.cache_key = 'getSettlementPopPyramid_by_gender'
 
   await getSummaryGroupByMultipleFields(formData)
     .then(response => {
@@ -718,7 +718,8 @@ const activeName = ref('Chart')
 <template>
   <PanelGroup />
 
-  <el-tabs v-loading="loading" element-loading-text="Generating maps, charts and tables......." v-model="activeName"
+  <el-tabs
+v-loading="loading" element-loading-text="Generating maps, charts and tables......." v-model="activeName"
     class="demo-tabs">
     <el-tab-pane label="Chart" name="Chart">
       <ElRow :gutter="20" justify="space-between">
@@ -783,7 +784,8 @@ const activeName = ref('Chart')
             </template>
 
             <ElSkeleton :loading="loading" animated>
-              <el-table height="350" stripe border show-summary :data="settlementsPercounty"
+              <el-table
+height="350" stripe border show-summary :data="settlementsPercounty"
                 :default-sort="{ prop: 'NoSlums', order: 'descending' }" style="width: 100%">
                 <el-table-column prop="name" label="Name" sortable />
                 <el-table-column prop="NoSlums" label="Number of Slums/Informal Settlements" sortable />

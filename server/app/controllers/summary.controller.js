@@ -44,10 +44,7 @@ let redisClient;
 exports.SimpleSumModelByColumn= async (req, res) => {
   var reg_model = req.body.model
 
-  if (req.body.cache_key ) {
-
-    var cache_key = req.body.cache_key  
-  }
+ 
   
   var summaryField = req.body.summaryField
   var summaryFunction = req.body.summaryFunction
@@ -73,48 +70,69 @@ exports.SimpleSumModelByColumn= async (req, res) => {
   }
 
 
-
-  let result;
-  let isCached = false;
-
-  try {
-    const cacheResults = await redisClient.get(cache_key);
-    if (cacheResults) {
-      isCached = true;
-      result = JSON.parse(cacheResults);
-    }
-    else {
-        await db.models[reg_model].findAll(qry).then(async (response) => {
-        await redisClient.set(cache_key, JSON.stringify(response), {
-          EX: 3600,  // 1hour 
-          NX: true,
-        });
-        result=(response)
-       })
-
-     
-    }
-    res.status(200).send({
-      fromCache: isCached,
-      cache_key:cache_key,
-      Total: result,
-      code: '0000'
-    });
-  } catch (error) {
-    console.log('Summary Error Failed:',error)
-    res.status(500).send({
-      message: 'Fecthing data failed'
-    });
-  }
+  if (req.body.cache_key && req.body.cache_key != '') {
+    
+    let result;
+    let isCached = false;
   
+    try {
+      const cacheResults = await redisClient.get(req.body.cache_key );
+      if (cacheResults) {
+        isCached = true;
+        result = JSON.parse(cacheResults);
+      }
+      else {
+          await db.models[reg_model].findAll(qry).then(async (response) => {
+          await redisClient.set(req.body.cache_key, JSON.stringify(response), {
+            EX: 3600,  // 1hour 
+            NX: true,
+          });
+          result=(response)
+         })
+       
+      }
+      res.status(200).send({
+        fromCache: isCached,
+        cache_key:req.body.cache_key ,
+        Total: result,
+        code: '0000'
+      });
+    } catch (error) {
+      console.log('Summary Error Failed ---->:',error)
+      res.status(500).send({
+        message: 'Fetching ----> data failed' +req.body.cache_key
+      });
+    }
+    
+   }
+
+  else {
+    console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+
+    db.models[reg_model].findAll(qry).then((list) => {
+      res.status(200).send({
+        Total: list,
+        fromCache: false,
+          code: '0000'
+      })
+    })
+
+}
+
+
+
+
+
+
+
+
 
   
 }
 
 exports.nestedSumModelByColumn= async (req, res) => {
   var reg_model = req.body.model
-  var cache_key = req.body.model + req.body.cache_key 
-
+ 
   var summaryField = req.body.summaryField
   var summaryFunction = req.body.summaryFunction
   var assoc_model = db.models[req.body.assoc_model[0]]
@@ -129,41 +147,56 @@ exports.nestedSumModelByColumn= async (req, res) => {
  
   
   
+
+  if (req.body.cache_key && req.body.cache_key != '') {
+    
     let result;
     let isCached = false;
   
     try {
-      const cacheResults = await redisClient.get(cache_key);
+      const cacheResults = await redisClient.get(req.body.cache_key );
       if (cacheResults) {
         isCached = true;
         result = JSON.parse(cacheResults);
-      } else {
+      }
+      else {
+          await db.models[reg_model].findAll(qry).then(async (response) => {
+          await redisClient.set(req.body.cache_key, JSON.stringify(response), {
+            EX: 3600,  // 1hour 
+            NX: true,
+          });
+          result=(response)
+         })
        
-       await  db.models[reg_model]
-        .findAll(qry)
-        .then(async (response) => {
-          if (response) {
-            // res.status(200).send(result);
-            console.log('KEY---->',cache_key )
-            await redisClient.set(cache_key, JSON.stringify(response), {
-              EX: 3600,  // 1hour 
-              NX: true,
-            });
-            result =  response;
-          }
-        })
       }
       res.status(200).send({
         fromCache: isCached,
+        cache_key:req.body.cache_key ,
         Total: result,
         code: '0000'
       });
     } catch (error) {
+      console.log('Summary Error Failed ---->:',error)
       res.status(500).send({
-        message: 'Fecthing data failed'
+        message: 'Fetching ----> data failed' +req.body.cache_key
       });
     }
     
+   }
+
+  else {
+    console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+
+    db.models[reg_model].findAll(qry).then((list) => {
+      res.status(200).send({
+        Total: list,
+        fromCache: false,
+          code: '0000'
+      })
+    })
+
+}
+
   
 }
 
@@ -173,16 +206,14 @@ exports.nestedSumModelByColumn= async (req, res) => {
 
 exports.sumModelByColumn= async (req, res) => {
   var reg_model = req.body.model
-  var cache_key =  req.body.cache_key 
-
+ 
   var summaryField = req.body.summaryField
   var summaryFunction = req.body.summaryFunction
  // var groupField = req.body.groupField[0]
 
 
   console.log('Summarizing Model by Column:', reg_model, ' by ', summaryField)
-  console.log('Cahcek JKYE',cache_key)
-
+ 
    let groupfields  = []
   if (req.body.groupField.length > 0) {
     
@@ -206,54 +237,55 @@ exports.sumModelByColumn= async (req, res) => {
 
   }
 
-    // db.models[reg_model]
-    // .findAll(qry)
-    // .then((result) => {
-    //   if (result) {
-    //     console.log(result)
-    //     // res.status(200).send(result);
-    //     res.status(200).send({
-    //       Total: result,
-    //       code: '0000'
-    //     })
-    //   }
-    // })
+ 
   
-  
+ 
+  if (req.body.cache_key && req.body.cache_key != '') {
     
-  let result;
-  let isCached = false;
-
-  try {
-    const cacheResults = await redisClient.get(cache_key);
-    if (cacheResults) {
-      isCached = true;
-      result = JSON.parse(cacheResults);
-    } else {
-     
-     await  db.models[reg_model]
-      .findAll(qry)
-      .then(async (response) => {
-        if (response) {
-          // res.status(200).send(result);
-          console.log('KEY---->',cache_key )
-          await redisClient.set(cache_key, JSON.stringify(response), {
-            EX: 3,  // 1hour 
+    let result;
+    let isCached = false;
+  
+    try {
+      const cacheResults = await redisClient.get(req.body.cache_key );
+      if (cacheResults) {
+        isCached = true;
+        result = JSON.parse(cacheResults);
+      }
+      else {
+        await db.models[reg_model].findAll(qry).then(async (response) => {
+          await redisClient.set(req.body.cache_key, JSON.stringify(response), {
+            EX: 3600,  // 1hour 
             NX: true,
           });
-          result =  response;
-        }
-      })
+          result = (response)
+        })
+       
+      }
+      res.status(200).send({
+        fromCache: isCached,
+        cache_key: req.body.cache_key,
+        Total: result,
+        code: '0000'
+      });
+    } catch (error) {
+      console.log('Summary Error Failed ---->:', error)
+      res.status(500).send({
+        message: 'Fetching ----> data failed' + req.body.cache_key
+      });
     }
-    res.status(200).send({
-      fromCache: isCached,
-      Total: result,
-      code: '0000'
-    });
-  } catch (error) {
-    res.status(500).send({
-      message: 'Fetching data failed'
-    });
+    
+  }
+
+  else {
+    console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+
+    db.models[reg_model].findAll(qry).then((list) => {
+      res.status(200).send({
+        Total: list,
+        fromCache: false,
+        code: '0000'
+      })
+    })
   }
   
 
@@ -265,8 +297,7 @@ exports.sumModelByColumn= async (req, res) => {
 
 exports.sumModelByColumnAssociated = async (req, res) => {
   var reg_model = req.body.model
-  var cache_key = req.body.model + req.body.cache_key 
-
+ 
   var assoc_model1 = db.models[req.body.assoc_model[0]]
   var groupField = req.body.groupField[0]
   var childGroupField = req.body.childGroupField
@@ -279,55 +310,126 @@ exports.sumModelByColumnAssociated = async (req, res) => {
 
  
 
-  let result;
-  let isCached = false;
-
-  try {
-    const cacheResults = await redisClient.get(cache_key);
-    if (cacheResults) {
-      isCached = true;
-      result = JSON.parse(cacheResults);
-    } else {
-     
-     await  db.models[reg_model]
-      .findAll({
-        attributes: [ childGroupField,groupField, [Sequelize.fn(summaryFunction, Sequelize.col(childGroupField)), summaryFunction]], 
-        include: [{model: assoc_model1,attributes:['name'],nested: true} ],
-       group : [childGroupField, groupField],
-       order: [['count', 'DESC']],
-        raw: true
-          })
-      .then(async (response) => {
-        if (response) {
-          // res.status(200).send(result);
-          console.log('KEY---->',cache_key )
-          await redisClient.set(cache_key, JSON.stringify(response), {
+  if (req.body.cache_key && req.body.cache_key != '') {
+    
+    let result;
+    let isCached = false;
+  
+    try {
+      const cacheResults = await redisClient.get(req.body.cache_key );
+      if (cacheResults) {
+        isCached = true;
+        result = JSON.parse(cacheResults);
+      }
+      else {
+          await db.models[reg_model].findAll(qry).then(async (response) => {
+          await redisClient.set(req.body.cache_key, JSON.stringify(response), {
             EX: 3600,  // 1hour 
             NX: true,
           });
-          result =  response;
-        }
-      })
+          result=(response)
+         })
+       
+      }
+      res.status(200).send({
+        fromCache: isCached,
+        cache_key:req.body.cache_key ,
+        Total: result,
+        code: '0000'
+      });
+    } catch (error) {
+      console.log('Summary Error Failed ---->:',error)
+      res.status(500).send({
+        message: 'Fetching ----> data failed' +req.body.cache_key
+      });
     }
-    res.status(200).send({
-      fromCache: isCached,
-      Total: result,
-      code: '0000'
-    });
-  } catch (error) {
-    res.status(500).send({
-      message: 'Fecthing data failed'
-    });
-  }
+    
+   }
+
+  else {
+    console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+
+    db.models[reg_model].findAll(qry).then((list) => {
+      res.status(200).send({
+        Total: list,
+        fromCache: false,
+          code: '0000'
+      })
+    })
+
+}
+   
+
+ 
+}
+
+exports.xsumGroupByMultipleColumns = async (req, res) => {
+  var reg_model = req.body.model
+   var groupField = req.body.groupField
+  var assoc_model = db.models[req.body.assoc_model[0]]
+
+  console.log('-------------------------------------------------------------------------------')
+  console.log('----------------------Sum Multiple---------------------------------------------')
+ 
+
+  if (req.body.cache_key && req.body.cache_key != '') {
+    
+    let result;
+    let isCached = false;
+  
+    try {
+      const cacheResults = await redisClient.get(req.body.cache_key );
+      if (cacheResults) {
+        isCached = true;
+        result = JSON.parse(cacheResults);
+      }
+      else {
+          await db.models[reg_model].findAll(qry).then(async (response) => {
+          await redisClient.set(req.body.cache_key, JSON.stringify(response), {
+            EX: 3600,  // 1hour 
+            NX: true,
+          });
+          result=(response)
+         })
+       
+      }
+      res.status(200).send({
+        fromCache: isCached,
+        cache_key:req.body.cache_key ,
+        Total: result,
+        code: '0000'
+      });
+    } catch (error) {
+      console.log('Summary Error Failed ---->:',error)
+      res.status(500).send({
+        message: 'Fetching ----> data failed' +req.body.cache_key
+      });
+    }
+    
+   }
+
+  else {
+    console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+
+    db.models[reg_model].findAll(qry).then((list) => {
+      res.status(200).send({
+        Total: list,
+        fromCache: false,
+          code: '0000'
+      })
+    })
+
+}
   
    
 
  
 }
 
+
+
 exports.sumGroupByMultipleColumns = async (req, res) => {
   var reg_model = req.body.model
-  var cache_key = req.body.model + req.body.cache_key 
   var groupField = req.body.groupField
   var assoc_model = db.models[req.body.assoc_model[0]]
 
@@ -338,36 +440,36 @@ exports.sumGroupByMultipleColumns = async (req, res) => {
   let isCached = false;
  
  
- 
-  try {
-    const cacheResults = await redisClient.get(cache_key);
-    console.log('cahed>>>>>>>>>>>>>>>>>>>>>>>>',cacheResults)
-    if (cacheResults) {
-      isCached = true;
-      result = JSON.parse(cacheResults);
-      console.log('using cached daata{{{{{{{{{{{{{{{{{')
-      res.status(200).send({
-        fromCache: isCached,
-        Total: result,
-        code: '0000'
-      });
-    } else {
+  if (req.body.cache_key && req.body.cache_key != '') {
+    var cache_key = req.body.model + req.body.cache_key 
+
+    try {
+      const cacheResults = await redisClient.get(cache_key);
+      console.log('cahed>>>>>>>>>>>>>>>>>>>>>>>>', cacheResults)
+      if (cacheResults) {
+        isCached = true;
+        result = JSON.parse(cacheResults);
+        console.log('using cached daata{{{{{{{{{{{{{{{{{')
+        res.status(200).send({
+          fromCache: isCached,
+          Total: result,
+          code: '0000'
+        });
+      } else {
      
-      var  query = `SELECT `;
-      req.body.summaryFields.forEach((field, index) => {
+        var query = `SELECT `;
+        req.body.summaryFields.forEach((field, index) => {
           query += `SUM(${field}) as su_${field}`;
           if (index < req.body.summaryFields.length - 1) query += ', ';
-      });
-      query += ` FROM households`;
-      sequelize.query(query, { type: sequelize.QueryTypes.SELECT })
-        .then(async results => {
-             // res.status(200).send(result);
-           // console.log('KEY--hh-898->',results )
+        });
+        query += ` FROM households`;
+        sequelize.query(query, { type: sequelize.QueryTypes.SELECT })
+          .then(async results => {
             await redisClient.set(cache_key, JSON.stringify(results), {
               EX: 3600,  // 1hour 
               NX: true,
             });
-           //  console.log('KEY--hh-899->',results )
+            //  console.log('KEY--hh-899->',results )
 
             res.status(200).send({
               fromCache: isCached,
@@ -376,29 +478,51 @@ exports.sumGroupByMultipleColumns = async (req, res) => {
             });
                   
             
-        });
+          });
       
-    }
-    console.log('Result....................', result)
+      }
+      console.log('Result....................', result)
     
 
    
-  } catch (error) {
-    console.log(error)
-    res.status(500).send({
-      message: 'Fetching data failed'
-    });
+    } catch (error) {
+      console.log(error)
+      res.status(500).send({
+        message: 'Fetching data failed'
+      });
+    }
   }
-  
    
+  else {
+    console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
 
+    var query = `SELECT `;
+    req.body.summaryFields.forEach((field, index) => {
+      query += `SUM(${field}) as su_${field}`;
+      if (index < req.body.summaryFields.length - 1) query += ', ';
+    });
+    query += ` FROM households`;
+
+
+    sequelize.query(query, { type: sequelize.QueryTypes.SELECT })
+      .then(async results => {
+
+        res.status(200).send({
+          fromCache: isCached,
+          Total: results,
+          code: '0000'
+        });
+
+       });
+
+}
  
 }
 
+
 exports.sumModelAssociatedMultipleModels = async (req, res) => {
   
-   var cache_key = req.body.model + req.body.cache_key 
-  
+   
 
  
   var reg_model = req.body.model
@@ -501,42 +625,55 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   console.log("summary Qyerry - the ", qry)
 
      
-  let result;
-  let isCached = false;
-
-  try {
-   const cacheResults = await redisClient.get(cache_key);
-    //const cacheResults =''
-    if (cacheResults) {
-      isCached = true;
-      result = JSON.parse(cacheResults);
-      console.log("using cached results",result )
-    } else {
-     
-      await db.models[reg_model]
-      .findAll(qry)
-      .then(async (response) => {
-        if (response) {
-          // res.status(200).send(result);
-          console.log('KEY---->',cache_key )
-          await redisClient.set(cache_key, JSON.stringify(response), {
+  
+  if (req.body.cache_key && req.body.cache_key != '') {
+    
+    let result;
+    let isCached = false;
+  
+    try {
+      const cacheResults = await redisClient.get(req.body.cache_key );
+      if (cacheResults) {
+        isCached = true;
+        result = JSON.parse(cacheResults);
+      }
+      else {
+          await db.models[reg_model].findAll(qry).then(async (response) => {
+          await redisClient.set(req.body.cache_key, JSON.stringify(response), {
             EX: 3600,  // 1hour 
             NX: true,
           });
-          result =  response;
-        }
-      })
+          result=(response)
+         })
+       
+      }
+      res.status(200).send({
+        fromCache: isCached,
+        cache_key:req.body.cache_key ,
+        Total: result,
+        code: '0000'
+      });
+    } catch (error) {
+      console.log('Summary Error Failed ---->:',error)
+      res.status(500).send({
+        message: 'Fetching ----> data failed' +req.body.cache_key
+      });
     }
-    res.status(200).send({
-      fromCache: isCached,
-      Total: result,
-      code: '0000'
-    });
-  } catch (error) {
-    res.status(500).send({
-      message: error
-    });
-  }
+    
+   }
+
+  else {
+    console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+
+    db.models[reg_model].findAll(qry).then((list) => {
+      res.status(200).send({
+        Total: list,
+        fromCache: false,
+          code: '0000'
+      })
+    })
+
+}
   
 }
 

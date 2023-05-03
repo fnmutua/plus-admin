@@ -44,6 +44,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import * as turf from '@turf/turf'
 import proj4 from 'proj4';
+import shortid from 'shortid';
 
 
 
@@ -355,7 +356,7 @@ const handleProcess = async () => {
         conv_feature[matched_field[0].field] = feature[prop]
       }
       conv_feature.geom = (feature.geom)
-      conv_feature.code = uuid.v4()
+      conv_feature.code = shortid.generate()
     }
     return conv_feature
   })

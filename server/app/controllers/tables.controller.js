@@ -1428,9 +1428,9 @@ console.log("req.body.cache_key")
       order: [['updatedAt', 'DESC']]
     });
     
-    const lastModified = lastRow.updatedAt;
-    console.log(lastModified,req.body.cache_key)
-    console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+    const lastModified = lastRow ? lastRow.updatedAt: Date.now()
+   // console.log(lastModified,req.body.cache_key)
+   // console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
 
 
     try {
