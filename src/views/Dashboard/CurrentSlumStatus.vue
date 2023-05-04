@@ -127,7 +127,7 @@ const getAverageIncome = async () => {
   formData.summaryField = 'income_level'
   formData.summaryFunction = 'count'
   formData.groupField = ['income_level']
-  //formData.cache_key = 'getAverageIncome'
+  formData.cache_key = 'getAverageIncome'
 
 
 
@@ -559,7 +559,7 @@ const getRent = async () => {
   formData.summaryField = 'rent_payable'
   formData.summaryFunction = 'count'
   formData.groupField = ['rent_payable']
-  //formData.cache_key = 'getrent'
+  formData.cache_key = 'getrent'
 
   let categories = []
   let series = []
@@ -654,7 +654,7 @@ const getEmployment = async () => {
   formData.summaryField = 'emp_status'
   formData.summaryFunction = 'count'
   formData.groupField = ['emp_status']
-  //formData.cache_key = 'getEmploymentStatus'
+  formData.cache_key = 'getEmploymentStatus'
 
 
   let series = []
@@ -741,7 +741,7 @@ const getOwnershipStatus = async () => {
   formData.summaryField = 'age_plot_owner'
   formData.summaryFunction = 'count'
   formData.groupField = ['age_plot_owner']
-  //formData.cache_key = 'getOwnershipStatus'
+  formData.cache_key = 'getOwnershipStatus'
 
 
   let series = []
@@ -831,7 +831,7 @@ const getOwnershipStatusByGender = async () => {
   formData.model = 'households'
   formData.summaryFunction = 'count'
 
-  //formData.cache_key = 'getOwnershipStatusByGender'
+  formData.cache_key = 'getOwnershipStatusByGender'
 
   // segregated by the settlement and county// Linking to be done later//
   formData.summaryField = 'ownership_status'
@@ -987,7 +987,7 @@ const getEducationByGender = async () => {
   const formData = {}
   formData.model = 'households'
   formData.summaryFunction = 'count'
-  //formData.cache_key = 'getEducationByGender'
+  formData.cache_key = 'getEducationByGender'
 
 
   // segregated by the settlement and county// Linking to be done later//
@@ -1230,7 +1230,7 @@ const getSanitation = async () => {
   formData.model = 'households'
   formData.summaryFunction = 'count'
 
-  //formData.cache_key = 'getSanitation'
+  formData.cache_key = 'getSanitation'
 
   // segregated by the settlement and county// Linking to be done later//
   formData.summaryField = 'sanitation'
@@ -1473,7 +1473,7 @@ const getWater = async () => {
   formData.model = 'households'
   formData.summaryFunction = 'count'
 
-  //formData.cache_key = 'getWater'
+  formData.cache_key = 'getWater'
 
   // segregated by the settlement and county// Linking to be done later//
   formData.summaryField = 'source_water'
@@ -1714,7 +1714,7 @@ const getTransport = async () => {
   formData.model = 'households'
   formData.summaryField = 'mode_transport'
   formData.summaryFunction = 'count'
-  //formData.cache_key = 'getTransport'
+  formData.cache_key = 'getTransport'
 
   formData.groupField = ['mode_transport']
   transport.value = await getSummarybyField(formData)

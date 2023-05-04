@@ -55,7 +55,7 @@ const getNewReports = async () => {
   formData.summaryFunction = 'count'
   formData.summaryField = 'status'
   formData.summaryFieldValue = 'New'
-  //formData.cache_key = 'xgetNewReports'
+formData.cache_key = 'xgetNewReports'
 
   // Directbeneficisaries 
   await getSummarybyFieldSimple(formData)
