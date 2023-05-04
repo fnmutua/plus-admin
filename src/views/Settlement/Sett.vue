@@ -772,7 +772,7 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-  //formData.cache_key = 'SeacrchByKey_'+search_string.value
+  formData.cache_key = 'SeacrchByKey_'+search_string.value
 
   //-------------------------
   console.log(formData)

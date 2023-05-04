@@ -485,7 +485,7 @@ const getSettlementPopPyramid = async () => {
   formData.summaryFields = fields
   formData.groupField = 'gender'
 
-  //formData.cache_key = 'getSettlementPopPyramid_by_gender'
+  formData.cache_key = 'getSettlementPopPyramid_by_gender'
 
   await getSummaryGroupByMultipleFields(formData)
     .then(response => {
