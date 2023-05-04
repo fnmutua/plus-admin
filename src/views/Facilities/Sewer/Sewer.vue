@@ -1078,7 +1078,7 @@ const ruleForm = reactive({
   settlement_id: '',
   county_id: '',
   subcounty_id: '',
-  geom: '',
+  geom: null,
 })
 
 

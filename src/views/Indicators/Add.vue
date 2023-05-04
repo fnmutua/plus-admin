@@ -51,7 +51,7 @@ const ruleForm = reactive({
   name: '',
   county_id: '',
   settlement_type: '',
-  geom: '',
+  geom: null,
   area: '',
   population: '',
   code: '',
@@ -174,7 +174,8 @@ const mapHeight = '450px'
   <ContentWrap :title="title">
     <el-row :gutter="20">
       <el-col :span="10">
-        <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
+        <el-form
+ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm"
           status-icon>
           <el-form-item label="Name" prop="name">
             <el-input v-model="ruleForm.name" />
@@ -217,7 +218,8 @@ const mapHeight = '450px'
 
       <el-col :span="14">
         <el-card class="box-card">
-          <mapbox-map :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
+          <mapbox-map
+:center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
             mapStyle="mapbox://styles/agspatial/ckd30gjyt3h8l1io35ve1fso4">
             <mapbox-geocoder-control :countries="countries" />
             <mapbox-geolocate-control />

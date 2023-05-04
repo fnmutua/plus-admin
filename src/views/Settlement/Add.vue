@@ -51,7 +51,7 @@ const ruleForm = reactive({
   name: '',
   county_id: '',
   settlement_type: '',
-  geom: '',
+  geom: null,
   area: '',
   population: '',
   code: '',

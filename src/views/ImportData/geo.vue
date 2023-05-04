@@ -609,7 +609,7 @@ const loadOptions = (json) => {
 
     let sourceProj
      let epsgCode
-     var crsProp = json.crs ? json.crs.properties.name : null;
+     let crsProp = json.crs ? json.crs.properties.name : null;
     
   // //       try {
   // //           crsProp = json.crs.properties.name;
@@ -632,7 +632,8 @@ const loadOptions = (json) => {
   //       }
 
   // Using includes() method
-  if (crsProp.includes('EPSG')) {
+
+  if (crsProp && crsProp.includes('EPSG')) {
     console.log('The string contains the character "EPSG"');
     epsgCode = crsProp.match(/EPSG::(\d+)/)[1] 
 } else {
@@ -678,7 +679,15 @@ const loadOptions = (json) => {
 
   // makeOptions(fields)
   for (let i = 0; i < json.features.length; i++) {
+
+
     var feature = json.features[i]
+
+      // Check if the properties field exists
+  if (!feature.hasOwnProperty('properties')) {
+    // Add the properties field
+    Object.assign(feature, { properties: {} });
+  }
     console.log('feature b4projectoion',feature)
 
 

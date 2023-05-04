@@ -1055,7 +1055,7 @@ const ruleForm = reactive({
   road_id: '',
   asset_type: '',
   asset_condition: '',
-  geom: '',
+  geom: null,
 })
 
 

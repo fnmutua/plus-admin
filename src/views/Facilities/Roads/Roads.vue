@@ -1123,7 +1123,7 @@ const ruleForm = reactive({
   drainageCondition: '',
   settlement_id: '',
   width: 0,
-  geom: '',
+  geom: null,
 })
 
 

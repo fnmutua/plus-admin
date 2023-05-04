@@ -111,7 +111,7 @@ const ruleForm = reactive({
   male_beneficiaries: 0,
   female_beneficiaries: 0,
   description: '',
-  geom: '',
+  geom: null,
   code: ''
 })
 
