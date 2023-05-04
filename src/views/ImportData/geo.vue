@@ -608,7 +608,7 @@ const loadOptions = (json) => {
   const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
 
     let sourceProj
-   // let epsgCode
+     let epsgCode
      var crsProp = json.crs ? json.crs.properties.name : null;
     
   // //       try {
@@ -620,15 +620,30 @@ const loadOptions = (json) => {
   // //         epsgCode = 4326
   // // }
   // if (crsProp !== null) {
-   
-  //         epsgCode = crsProp.match(/EPSG::(\d+)/)[1];
+  //   console.log('crs >>>',crsProp)
+  //   epsgCode = crsProp.match(/EPSG::(\d+)/)[1]?crsProp.match(/EPSG::(\d+)/)[1]: 4326
+  //   if (!epsgCode) {
+  //     epsgCode=4326
+  //           }
 
   // } else {
   //   ElMessage.warning('The uploaded file lacks Coordinate system definition. Assuming GCS WGS84')
-  //         epsgCode = 4326
+  //          epsgCode = 4326
   //       }
 
-        const epsgCode = crsProp?crsProp.match(/EPSG::(\d+)/)[1] :4326
+  // Using includes() method
+  if (crsProp.includes('EPSG')) {
+    console.log('The string contains the character "EPSG"');
+    epsgCode = crsProp.match(/EPSG::(\d+)/)[1] 
+} else {
+    epsgCode = 4326
+  }
+
+
+
+//const epsgCode = crsProp? crsProp.match(/EPSG::(\d+)/)[1]:4326
+
+        
  
 
     if (epsgCode == 21037) {
