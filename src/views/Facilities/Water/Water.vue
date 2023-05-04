@@ -1130,7 +1130,7 @@ const ruleForm = reactive({
   owner: '',
   ownership_type: '',
   depth: 0,
-  geom: '',
+  geom: null,
 })
 
 

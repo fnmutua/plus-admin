@@ -1005,7 +1005,7 @@ const ruleForm = reactive({
   cost: 0,
   male_beneficiaries: 0,
   female_beneficiaries: 0,
-  geom: '',
+  geom: null,
   id: '',
   code: ''
 })

@@ -77,7 +77,7 @@ const ruleForm = reactive({
   population: '',
   area: '',
   description: null,
-  geom: '',
+  geom: null,
   id: '',
   dist_trunk: null,
   dist_town: null,

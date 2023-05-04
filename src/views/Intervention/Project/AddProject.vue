@@ -113,7 +113,7 @@ const ruleForm = reactive({
   female_beneficiaries: 0,
   description: '',
   activities: '',
-  geom: '',
+  geom: null,
   latitude: null,
   logitude:null,
   code: ''
