@@ -70,6 +70,7 @@ const uploadRef = ref<UploadInstance>()
 const { push } = useRouter()
 const projectPoly = ref([])
 const projectScopeGeo = ref([])
+const router = useRouter();
 
 const fileList = ref([])
 
@@ -162,13 +163,7 @@ const loadMap = () => {
     zoom: 5
   });
   
-     // When the map fails to load, hide the base map and show only the overlays
-     map.value.on('error', function (e) {
-    console.log('Failed.....', e.error)
-    map.value.setStyle( './style.json');
-          console.log("Failed to load base map. Showing only overlays.");
-      });
-
+    
   const nav = new mapboxgl.NavigationControl();
   map.value.addControl(nav, "top-left");
 
@@ -328,7 +323,13 @@ if (ruleForm.longitude && ruleForm.latitude) {
 
   };
 
+  var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
   var feature = turf.feature(geometry);
+
+  feature.geometry.crs = crs
+
+
+
   ruleForm.geom = feature.geometry
 
 
@@ -633,35 +634,22 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
+   //   let feature ={}
+      var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+          // Using reactive function
+  const updatedGeo = reactive({ ...geoJson.value, crs});
+  geoJson.value = updatedGeo;
+ 
+
       ruleForm.geom = geoJson.value
 
-      console.log("Shp----->", geoJson.value)
-      const report = await CreateRecord(ruleForm)
+ const res = await CreateRecord(ruleForm)
 
-
-
-      const fileTypes = []
-      const filesFormData = new FormData()
-      for (var i = 0; i < fileList.value.length; i++) {
-        console.log('------>file', fileList.value[i])
-        var format = fileList.value[i].name.split('.').pop() // get file extension
-        fileTypes.push(format)
-
-        filesFormData.append('file', fileList.value[i].raw)
-        filesFormData.append('DocType', format)
-
+   ///
+   if (res.code === "0000") {
+    router.go(-1);
       }
-      filesFormData.append('parent_code', report.data.id)
-      filesFormData.append('model', model)
-      filesFormData.append('grp', 'Project Documentation')
-      filesFormData.append('code', uuid.v4())
-      filesFormData.append('column', 'project_id')
 
-      console.log('Upload starting ')
-      // await uploadDocuments(formData)
-      await uploadDocuments(filesFormData)
-
-      console.log('uploading complete')
 
     } else {
       console.log('error submit!', fields)
@@ -705,6 +693,8 @@ const uploadPolygon = (poly) => {
   console.log('OBJ-TYPE', poly.features[0].geometry.type)
 
   var multiPoly = turf.multiPolygon(polygons);
+
+  
   console.log(multiPoly)
 
   geoJson.value.type = poly.features[0].geometry.type
