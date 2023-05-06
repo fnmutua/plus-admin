@@ -1396,27 +1396,24 @@ const readJson = (event) => {
 
  
     let json = JSON.parse(str)
-    console.log('parsed', json.crs)
-
+  console.log('parsed', json.crs)
+    
     const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
 
     // const sourceProj = '+proj=utm +zone=37 +ellps=WGS84 +datum=WGS84 +units=m +no_defs';
     let sourceProj
     let epsgCode
-    let crsProp 
-        try {
-            crsProp = json.crs.properties.name;
-        }
-        catch (error) {
-          console.warn('Error extracting EPSG code:', error); // Log warning message
-          ElMessage.warning('The uploaded file lacks Coordinate system definition')
-          epsgCode = 4326
+  let crsProp = json.crs ? json.crs.properties.name : null;
+    
+    if (crsProp && crsProp.includes('EPSG')) {
+        console.log('The string contains the character "EPSG"');
+        epsgCode = crsProp.match(/EPSG::(\d+)/)[1] 
+    } else {
+        epsgCode = 4326
       }
-        if (crsProp) {
-            epsgCode = crsProp.match(/EPSG::(\d+)/)[1];
-        }  
+   
 
-
+    console.log(epsgCode)
 
     console.log(epsgCode)
 
@@ -1474,7 +1471,9 @@ const readJson = (event) => {
               console.log('geometry',geometry)
       let geom = {
         type: json.features[0].geometry.type,
-        coordinates: geometry.coordinates
+        coordinates: geometry.coordinates,
+          crs : { type: 'name', properties: { name: 'EPSG:4326' } }
+
       }
      console.log(geom)
       ruleForm.geom = geom
