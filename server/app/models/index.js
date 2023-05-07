@@ -84,6 +84,28 @@ db.models.settlement.belongsTo(db.models.subcounty, {
 })
 
 
+// subcounty  and ward associations
+db.models.subcounty.hasMany(db.models.ward, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.ward.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+
+// Ward  and settlemnt associations
+db.models.ward.hasMany(db.models.settlement, {
+  foreignKey: 'ward_id'
+})
+
+db.models.settlement.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
+
+
+
 // Parcels and settlements associations
 db.models.settlement.hasMany(db.models.parcel, {
   foreignKey: 'settlement_id'

@@ -362,35 +362,50 @@ exports.modelAllData = (req, res) => {
 
 
 exports.modelAllDataNoGeo = (req, res) => {
-  var reg_model = req.query.model
-  // var ass_model = req.query.assocModel
-  // console.log("All Data----->")
-  var ass_model = db.models[req.query.assocModel]
+  var reg_model = req.query.model;
+  var field = req.query.searchField;
+  var searchKeyword = req.query.searchKeyword;
+
+  var ass_model = db.models[req.query.assocModel];
 
   //console.log('All Model Data-----> 30/10', req)
 
+  var includeQuery = {};
   if (ass_model) {
-    var includeQuerry = {
-      include: [{ model: ass_model }]
-    }
+    includeQuery.include = [{ model: ass_model }];
   } else {
-    var includeQuerry = {}
-    console.log('No Associated Model')
+    console.log('No Associated Model');
   }
-  console.log('the Querry', includeQuerry)
-  includeQuerry.attributes = { exclude: ['geom'] } // will be applciable to users only 
+  console.log('the Query', includeQuery);
+  includeQuery.attributes = { exclude: ['geom'] }; // will be applicable to users only
 
-  db.models[reg_model].findAndCountAll(includeQuerry).then((list) => {
-    //db.models[reg_model].findAndCountAll({}).then(list => {
+  if (field && searchKeyword && searchKeyword !== '' && field !== '') {
+    console.log('Filtered with no GEO');
 
-    //console.log(list.rows)
-    res.status(200).send({
-      data: list.rows,
-      total: list.count,
-      code: '0000'
-    })
-  })
-}
+    includeQuery.where = {
+      [field]: Number.isInteger(parseInt(searchKeyword)) ? parseInt(searchKeyword) : { [Op.iLike]: `%${searchKeyword.toLowerCase()}%` }
+    };
+
+    db.models[reg_model]
+      .findAndCountAll(includeQuery)
+      .then((list) => {
+        //console.log(list.rows);
+        res.status(200).send({
+          data: list.rows,
+          total: list.count,
+          code: '0000'
+        });
+      });
+  } else {
+    db.models[reg_model].findAndCountAll(includeQuery).then((list) => {
+      res.status(200).send({
+        data: list.rows,
+        total: list.count,
+        code: '0000'
+      });
+    });
+  }
+};
 
 
 
@@ -807,49 +822,51 @@ exports.modelOneRecord = (req, res) => {
 }
 
 exports.modelEditOneRecord = (req, res) => {
-  var reg_model = req.body.model
-  // get this one  record and update it by replacing the whole docuemnt
+  var reg_model = req.body.model;
+
+  // Get the record and update it by replacing the whole document
   db.models[reg_model].findOne({ where: { id: req.body.id } })
-      .then(async  (result) => {
-    //  .then(async function (result) {
-
-
-  //  .then(async function (item) {
-      // Special for projects where we store the project-activty relation 
-      if (reg_model ==='project') {
-        var activity_list =req.body.activities
-         const list_activities = await db.models.activity.findAll({
+    .then(async (result) => {
+      // Special for projects where we store the project-activity relation
+      if (reg_model === 'project') {
+        var activity_list = req.body.activities;
+        const list_activities = await db.models.activity.findAll({
           where: {
             id: activity_list
           }
-         });
-        
-         console.log(result)
-         console.log(list_activities)
-        
-        await result.setActivities(list_activities)
-      
+        });
 
-        //const modelA = await ModelA.findByPk(1);
-        //const modelBs = await ModelB.findAll({ where: { id: [2, 3] } });
-        //await modelA.setModelBs(modelBs);
-        
+        console.log(result);
+        console.log(list_activities);
+
+        await result.setActivities(list_activities);
       }
 
-    
+      console.log("Edit", result);
+      if (result) {
+        result.set(req.body);
+        await result.save(); // Wait for the record to be saved
+        res.status(200).send({
+          message: "Update successful",
+          code: "0000",
+          data: result // Include the updated record in the response
+        });
+      } else {
+        res.status(404).send({
+          message: "Record not found",
+          code: "0001"
+        });
+      }
+    })
+    .catch(error => {
+      console.error(error);
+      res.status(500).send({
+        message: "Internal server error",
+        code: "0002"
+      });
+    });
+};
 
-    console.log("Edit", result)
-    if (result) {
-      // Result is array because we have used findAll. We can use findOne as well if you want one row and update that.
-      result.set(req.body)
-      result.save() // This is a promise
-      res.status(200).send({
-        message: "Update successful",
-        code: "0000"
-      })
-    }
-  })
-}
 
 exports.modelActivateUser = (req, res) => {
   var reg_model = req.query.model
@@ -1394,19 +1411,48 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
               }
     
               let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('household.name'), 'bytea'),'maluini'),'name']
-      attributes.push(encrytpedField)
+              attributes.push(encrytpedField)
       
-      console.log('these attributes', attributes)
+          console.log('these attributes', attributes)
       
               
       qry.attributes = attributes
-      qry.attributes.exclude = ['password', 'resetPasswordExpires', 'resetPasswordToken'] 
-     }
-  }
+      qry.attributes.exclude = ['password', 'resetPasswordExpires', 'resetPasswordToken','geom'] 
+    } else {
+
+      console.log('Not hosuehdols.....')
+
+      var attributes = []
+         
+      for( let key in db.models[reg_model].rawAttributes ){
+        attributes.push(key)
+      }
+      
+      console.log('excluding.........>>' )
   
+      qry.attributes = attributes
+      qry.attributes.exclude = ['geom'] 
+
+      
+    }
+    
+
+
+
+  }
 
   else {
     
+    var attributes = []
+         
+    for( let key in db.models[reg_model].rawAttributes ){
+      attributes.push(key)
+    }
+    
+    console.log('excluding.........>>' )
+
+    qry.attributes = attributes
+    qry.attributes.exclude = ['geom'] 
 
 }
      
@@ -1500,7 +1546,8 @@ console.log("req.body.cache_key")
 
   } else {
 
-    console.log("xxxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+    console.log("123xxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+    console.log(qry)
 
     db.models[reg_model].findAndCountAll(qry).then((list) => {
       res.status(200).send({

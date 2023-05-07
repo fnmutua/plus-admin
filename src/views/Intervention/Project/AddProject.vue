@@ -692,10 +692,10 @@ const uploadPolygon = (poly) => {
 
   console.log('OBJ-TYPE', poly.features[0].geometry.type)
 
-  var multiPoly = turf.multiPolygon(polygons);
+ // var multiPoly = turf.multiPolygon(polygons);
 
   
-  console.log(multiPoly)
+ // console.log(multiPoly)
 
   geoJson.value.type = poly.features[0].geometry.type
   //geoJson.value.type = 'MultiPolygon'

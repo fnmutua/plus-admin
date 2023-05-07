@@ -523,11 +523,19 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
       <el-form-item label="Title">
-        <el-input v-model="ruleForm.title" />
+
+        <el-tooltip content="The title that will appear on your side navigation"  class="gray-tooltip" placement="top">
+          <el-input v-model="ruleForm.title" />
+          </el-tooltip>
+
+
       </el-form-item>
 
       <el-form-item label="Acronym">
-        <el-input v-model="ruleForm.acronym" />
+        <el-tooltip content="short text that will be appended on the url for navigating to this component" class="gray-tooltip"  placement="top">
+          <el-input v-model="ruleForm.acronym" />
+          </el-tooltip>
+
       </el-form-item>
 
       <el-form-item label="Intervention Area" prop="domain">
@@ -543,7 +551,12 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       </el-form-item>
 
       <el-form-item label="Icon">
+        <el-tooltip content="Get icons from https://icon-sets.iconify.design/" placement="top">
+
         <el-input v-model="ruleForm.icon" />
+
+      </el-tooltip>
+
       </el-form-item>
 
     </el-form>
@@ -557,3 +570,8 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
     </template>
   </el-dialog>
 </template>
+<style>
+.gray-tooltip .el-tooltip__popper {
+  background-color: gray;
+}
+</style>

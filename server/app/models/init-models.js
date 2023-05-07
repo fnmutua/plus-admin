@@ -51,6 +51,7 @@ var _activity= require('./activity')
 var _project_activity= require('./project_activity')
 var _evaluation_type= require('./evaluation_type')
 var _evaluation= require('./evaluation')
+var _ward= require('./ward')
 
 
 
@@ -111,7 +112,8 @@ function initModels(sequelize) {
   var project_activity = _project_activity(sequelize, DataTypes)
   var evaluation_type = _evaluation_type(sequelize, DataTypes)
   var evaluation = _evaluation(sequelize, DataTypes)
-
+  var ward = _ward(sequelize, DataTypes)
+  
   
   
   
@@ -167,6 +169,7 @@ function initModels(sequelize) {
     project_activity,
     evaluation_type,
     evaluation,
+    ward,
     settlement_uploads
   }
 }

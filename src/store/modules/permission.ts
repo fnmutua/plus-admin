@@ -65,7 +65,7 @@ const getProgrameComponents = async () => {
 
         // meta 
         const child_meta_d = {}
-        child_meta_d.title = compon.acronym 
+        child_meta_d.title = compon.title 
         child_meta_d.hidden = false
         child_meta_d.component_id = compon.id 
         child_meta_d.icon = compon.icon
@@ -194,7 +194,7 @@ export const usePermissionStore = defineStore('permission', {
           //redirect: '/settings',
           name: 'Slum_Programmes',
           meta: {
-            title: 'Programmes',
+            title: 'Interventions',
             icon: 'icon-park-solid:love-and-help',
             alwaysShow: true
           },

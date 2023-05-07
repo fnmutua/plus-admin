@@ -1413,7 +1413,7 @@ const readJson = (event) => {
       }
    
 
-    console.log(epsgCode)
+  
 
     console.log(epsgCode)
 

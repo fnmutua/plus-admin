@@ -101,6 +101,10 @@ const uploadOptions = [
       {
         value: 'county',
         label: 'Counties'
+      },
+      {
+        value: 'ward',
+        label: 'Wards'
       }
     ]
   },
@@ -252,8 +256,8 @@ const handleSelectType = async (type: any) => {
 
   if (type === 'settlement') {
     model.value = 'settlement'
-    parentModel.value = 'county'
-    parent_key.value = 'county_id'
+    parentModel.value = 'ward'
+    parent_key.value = 'ward_id'
     code.value = 'pcode'
     // fieldSet.value = settlement_fields
 
@@ -324,7 +328,15 @@ const handleSelectType = async (type: any) => {
     getParentOptions()
   }
 
-
+  else if (type === 'ward') {
+    // fieldSet.value = beneficiary_parcels
+    model.value = 'ward'
+    parentModel.value = 'subcounty'
+    parent_key.value = 'subcounty_id'
+    code.value = 'pcode'
+    console.log('subcounty_id------>', fieldSet.value)
+    getParentOptions()
+  }
 
 
 
@@ -348,6 +360,7 @@ const handleProcess = async () => {
   matchedObj.value = matchedObjwithparent.value.map((feature) => {
     let conv_feature = {}
     console.log(feature)
+
     for (var prop in feature) {
       var matched_field = fieldSet.value.filter((obj) => {
         return obj.match === prop
@@ -356,8 +369,13 @@ const handleProcess = async () => {
         conv_feature[matched_field[0].field] = feature[prop]
       }
       conv_feature.geom = (feature.geom)
-      conv_feature.code = shortid.generate()
+ 
     }
+    console.log(conv_feature)
+    if (!conv_feature.code) {
+        conv_feature.code = shortid.generate()
+  
+      }
     return conv_feature
   })
 
@@ -891,7 +909,7 @@ v-if="showUploadinput" class="upload-demo" drag
           <template #default="scope">
 
 
-            <el-select v-model="scope.row.match" @change="updateSelect(scope.row, scope.$index)" clearable>
+            <el-select v-model="scope.row.match" @change="updateSelect(scope.row, scope.$index)" filterable clearable>
               <el-option
 v-for="(option, index) in matchOptions" :key="index" :label="option.label" :value="option.value"
                 :disabled="option.disabled" />
