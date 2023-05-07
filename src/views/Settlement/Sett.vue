@@ -12,7 +12,7 @@ import {
 import { ElMessage,  } from 'element-plus'
 import { Position, View, Plus, User, Download, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Loading } from '@element-plus/icons-vue'
 
-import { ref, reactive, h, computed } from 'vue'
+import { ref, reactive, h, toRef, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
@@ -122,6 +122,7 @@ const value2 = ref([])
 const  value3 = ref()
 var value4 = ref([])
 var value5 = ref([])
+var value6 = ref([])
 
 const morefileList = ref<UploadUserFile[]>([])
  const loadingGetData = ref(false)
@@ -153,7 +154,8 @@ const showAddSaveButton = ref(true)
 const formheader = ref('Edit Settlement')
 
 
-let tableDataList = ref<UserType[]>([])
+//let tableDataList = ref<UserType[]>([])
+  const tableDataList = ref([])
 let tableDataListNew = ref<UserType[]>([])
 let tableDataListRejected = ref<UserType[]>([])
 
@@ -169,7 +171,7 @@ const  filterValues = ref([[1, 2],['Approved']] ) // make sure the inner array i
 var tblData = []
 
 const associated_Model = ''
-const associated_multiple_models = ['county', 'subcounty', 'users']
+const associated_multiple_models = ['county', 'subcounty', 'ward', 'users']
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
 const model = 'settlement'
@@ -378,9 +380,14 @@ const getSettlementCount = async () => {
   let pending = await filterDataByKeys(newSettCount.Total, ['isApproved'], 'Pending');
   let approved = await filterDataByKeys(newSettCount.Total, ['isApproved'], 'Approved');
   let rejected = await filterDataByKeys(newSettCount.Total, ['isApproved'], 'Rejected');
-  totalPending.value = parseInt( pending[0].count)
-  totalApproved.value =parseInt(approved[0].count) 
-  totalRejected.value = parseInt(rejected[0].count)
+  
+  console.log(pending)
+  console.log(approved)
+  console.log(rejected)
+  
+  totalPending.value = pending.length>0 ? parseInt(pending[0].count):0
+  totalApproved.value = approved.length>0 ? parseInt(approved[0].count):0
+  totalRejected.value =rejected.length>0 ? parseInt(rejected[0].count):0
 
   console.log('New:', totalPending.value)
   console.log('Approved:', totalApproved.value)
@@ -389,7 +396,7 @@ const getSettlementCount = async () => {
 }
 
 
-
+const selectedWard=ref()
 const getNewOrRejectedSettlements = async (tab) => {
 
   loadingGetData.value=true
@@ -464,6 +471,31 @@ const getNewOrRejectedSettlements = async (tab) => {
  }
 
 
+  // Filter by ward  
+  if (selectedWard.value) {
+      var selectOption = 'ward_id'
+        if (!filters.value.includes(selectOption)) {
+          filters.value.push(selectOption)
+        }
+        var index = filters.value.indexOf(selectOption) // 1
+      
+        // clear previously selected
+        if (filterValues[index]) {
+          // filterValues[index].length = 0
+          filterValues.value.splice(index, 1)
+        }
+
+        if (!filterValues.value.includes(selectedWard.value) && selectedWard.value.length > 0) {
+          filterValues.value.splice(index, 0, selectedWard.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+        }
+
+        // expunge the filter if the filter values are null
+        if (selectedWard.value.length === 0) {
+          filters.value.splice(index, 1)
+        }
+
+ }
+
  
    
   const formData = {}
@@ -487,10 +519,11 @@ const getNewOrRejectedSettlements = async (tab) => {
 
   //-------------------------
   console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
+   const res = await getSettlementListByCounty(formData)
+  //const res = await getListWithoutGeo(formData)
+  
       loadingGetData.value=false
-      console.log('filter', res)
+      console.log('found data..', res)
       total.value =res.total
   if (tab === 'New') {
     tableDataListNew.value = res.data
@@ -819,12 +852,12 @@ const getCountyNames = async () => {
       limit: 100,
       curUser: 1, // Id for logged in user
       model: 'county',
-      searchField: 'name',
+      searchField: '',
       searchKeyword: '',
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received response:', response)
+    console.log('Received countiess:', response)
     //tableDataList.value = response.data
     var ret = response.data
 
@@ -839,6 +872,37 @@ const getCountyNames = async () => {
     })
   })
 }
+
+const wardOptions = ref([])
+
+const getWardNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'ward',
+      searchField: 'subcounty_id',
+      searchKeyword: selectedSubCounty.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received Wards:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      wardOptions.value.push(opt)
+    })
+  })
+}
+
 
 const subcountiesOptions = ref([])
 const subcountyfilteredOptions = ref([])
@@ -884,7 +948,8 @@ const filterByCounty = async (county_id: any) => {
     selectedCounty.value=county_id
   }
    
-
+  value5.value = null // clear the subcounty 
+  value6.value=null   // clear the ward sr
 
   var subset = [];
   for (let i = 0; i < subcountiesOptions.value.length; i++) {
@@ -912,9 +977,12 @@ const filterByCounty = async (county_id: any) => {
 
 const filterBySubCounty = async (subcounty_id: any) => {
 
-  
+  value6.value=null   // clear the ward sr
+
+
   if (subcounty_id) {
      selectedSubCounty.value=subcounty_id
+     getWardNames()
   }
 
   if (search_string.value) {
@@ -922,14 +990,25 @@ const filterBySubCounty = async (subcounty_id: any) => {
     } else {
       getNewOrRejectedSettlements(activeTab.value)
     }
-
-
 }
 
- 
+
+const filterByWard = async (ward_id: any) => {
+
+if (ward_id) {
+  selectedWard.value=ward_id
+}
+
+if (search_string.value) {
+   getFilteredBySearchData(activeTab.value, search_string.value)
+  } else {
+    getNewOrRejectedSettlements(activeTab.value)
+  }
+}
+
 
  
-getSettlementsOptions()
+//getSettlementsOptions()
 getAllSetllementsInitially()
   
 
@@ -943,7 +1022,17 @@ console.log('Options---->', interVentionTypeOptions)
 
 
 
-
+const typeOptions = [
+  {
+    value: 1,
+    label: 'Slum'
+  },
+  {
+    value: 2,
+    label: 'Informal Settlement'
+  },
+ 
+]
 
 
 const documentCategory = ref()
@@ -953,49 +1042,28 @@ const editForm = async (formEl: FormInstance | undefined) => {
   await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
-      await updateOneRecord(ruleForm).then(() => { })
+      const result = await updateOneRecord(ruleForm) 
+      console.log(result.data)
+      console.log(activeTab.value)
+
+      var updatedObject = result.data
 
 
-      const fileTypes = []
-      const updateformData = new FormData()
-
-      for (var i = 0; i < fileUploadList.value.length; i++) {
-        console.log('------>file', fileUploadList.value[i])
-        var format = fileUploadList.value[i].name.split('.').pop() // get file extension
-        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-        fileTypes.push(format)
-        // formData.append('file', fileList.value[i])
-        // formData.file = fileList.value[i]
-        updateformData.append('file', fileUploadList.value[i].raw)
-        updateformData.append('DocType', format)
-
-
-
-
-        updateformData.append('file', fileUploadList.value[i].raw)
-        updateformData.append('format', fileUploadList.value[i].name.split('.').pop())
-        updateformData.append('category', documentCategory.value)
-        updateformData.append('field_id', 'road_asset_id')
-        updateformData.append('size', (fileUploadList.value[i].raw.size / 1024 / 1024).toFixed(2))
-        updateformData.append('code', uuid.v4())
-        updateformData.append('road_asset_id', currentRow.value.id)
-
-
-
+      if (activeTab.value ==='list') {
+  // get the index of the updated object
+  const index = tableDataList.value.findIndex(obj => obj.id === updatedObject.id);
+ 
+ // Get the updatedobjetc keys and updated the old data 
+    const updatedKeys = Object.keys(updatedObject);
+        for (const key of updatedKeys) {
+          tableDataList.value[index][key] = updatedObject[key];
+       //   tableDataListNew.value[index_new][key] = updatedObject[key];
+        //  tableDataListRejected.value[index_rej][key] = updatedObject[key];
+        }
       }
+  
+     
 
-
-      updateformData.append('parent_code', ruleForm.id)
-      updateformData.append('model', model)
-      updateformData.append('grp', 'Settlement Documentation')
-      updateformData.append('code', uuid.v4())
-      updateformData.append('column', 'settlement_id')
-
-
-      // formData.append('DocTypes', fileTypes)
-
-      console.log(updateformData)
-      await uploadDocuments(updateformData)
 
 
 
@@ -1057,6 +1125,7 @@ const editSettlement = (data: TableSlotDefault) => {
   ruleForm.parcel_no = data.row.parcel_no
   ruleForm.parcel_owner = data.row.parcel_owner
   ruleForm.rim_no = data.row.rim_no
+  ruleForm.isApproved = data.row.isApproved
  
 
 
@@ -1477,7 +1546,7 @@ const hideCopyIcon = (row) => {
   <ContentWrap :title="t('Settlements')" :message="t('Use the filters to subset')" v-loading="loadingGetData" element-loading-text="Loading the data.. Please wait.......">
 
     <el-row>
-      <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+      <el-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
         <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
           <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
@@ -1486,10 +1555,10 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
           </el-select>
         </div>
       </el-col>
-        <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+        <el-col :xs="24" :sm="24" :md="6" :lg="4" :xl="4">
           <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
            <el-select
-:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" :onClear="handleClear" multiple
+:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty"  multiple
             clearable filterable collapse-tags placeholder="By Subcounty">
             <el-option
 v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
@@ -1498,7 +1567,22 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
         </div>
 
       </el-col>
-      <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+
+      <el-col :xs="12" :sm="12" :md="12" :lg="4" :xl="4">
+          <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+           <el-select
+:disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard"   multiple
+            clearable filterable collapse-tags placeholder="By Ward">
+            <el-option
+v-for="item in wardOptions" :key="item.value" :label="item.label"
+              :value="item.value" />
+          </el-select>
+        </div>
+
+      </el-col>
+
+
+      <el-col :xs="24" :sm="24" :md="6" :lg="4" :xl="4">
         <div style="display: inline-block; margin-top: 5px">
  
             <el-input
@@ -1583,6 +1667,7 @@ v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(pr
           <el-table-column label="Name" width="200" prop="name" sortable />
           <el-table-column label="County" prop="county.name" sortable />
           <el-table-column label="Subcounty" prop="subcounty.name" sortable />
+          <el-table-column label="Ward" prop="ward.name" sortable />
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
           <el-table-column label="Code" prop="code" sortable>
@@ -1705,6 +1790,8 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
           <el-table-column label="Name" width="200" prop="name" sortable />
           <el-table-column label="County" prop="county.name" sortable />
           <el-table-column label="Subcounty" prop="subcounty.name" sortable />
+          <el-table-column label="Ward" prop="ward.name" sortable />
+
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
           <el-table-column label="Code" prop="code" sortable>
@@ -1823,6 +1910,8 @@ type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
           <el-table-column label="Name" width="200" prop="name" sortable />
           <el-table-column label="County" prop="county.name" sortable />
           <el-table-column label="Subcounty" prop="subcounty.name" sortable />
+          <el-table-column label="Ward" prop="ward.name" sortable />
+
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
           <el-table-column label="Code" prop="code" sortable>
@@ -1855,18 +1944,15 @@ v-if="showEditButtons" @click="editSettlement(scope as TableSlotDefault)"
                     <el-dropdown-item
 v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
-
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
               <div v-else>
-
                 <el-tooltip content="View on Map" placement="top">
                   <el-button
 type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
-
                 <el-tooltip content="Review" placement="top">
                   <el-button
 v-show="showAdminButtons" type="success" size="small" :icon="View"
@@ -1882,15 +1968,10 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                     </template>
                   </el-popconfirm>
                 </el-tooltip>
-
               </div>
             </template>
-
           </el-table-column>
-
         </el-table>
- 
-
       </el-tab-pane>
 
  
@@ -1901,8 +1982,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </el-tabs>
-
-
     <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
       <el-steps :active="activeStep" finish-button-center simple style="margin-bottom: 10px;">
     <el-step description="Basic Info"  :icon="Loading" />

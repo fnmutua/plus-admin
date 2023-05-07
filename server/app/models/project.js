@@ -104,8 +104,11 @@ module.exports = function(sequelize, DataTypes) {
         fields: [
           { name: "id" },
           { name: "title" },
+          { name: "start_date" },
+          { name: "end_date" },
+          { name: "component_id" },
+          { name: "geom" },
           { name: "county_id" },
-
         ]
       },
      

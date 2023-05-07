@@ -48,8 +48,7 @@ import { CreateRecord } from '@/api/settlements'
 import type { FormInstance } from 'element-plus'
 import { uuid } from 'vue-uuid'
 import {
-  countyOptions, SchoolLevelOptions, settlementOptionsV2, subcountyOptions,
-  regOptions, mhmOptions, tenancyOptions, generalOwnership,
+  countyOptions, settlementOptionsV2, subcountyOptions,wardOptions
 } from './common/index.ts'
 
 
@@ -101,6 +100,7 @@ const ruleForm = reactive({
   settlement_id: null,
   county_id: null,
   subcounty_id: null,
+  ward_id: null,
   settlement_type: null,
   geom: null,
   area: null,
@@ -140,38 +140,6 @@ const typeOptions = [
   },
 ]
 
-const subcountyfilteredOptions = ref([])
-const settlementfilteredOptions = ref([])
-
-
-const handleSelectCounty = async (county_id: any) => {
-  console.log(county_id)
-
-  // Reset the subounty on changing the county 
-  ruleForm.subcounty_id=null
-
-  var subset = [];
-  for (let i = 0; i < subcountyOptions.value.length; i++) {
-    if (subcountyOptions.value[i].county_id == county_id) {
-      subset.push(subcountyOptions.value[i]);
-    }
-  }
-  console.log(subset)
-  subcountyfilteredOptions.value = subset
-
-  // filter settleemnts 
-  var subset_settlements = [];
-  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
-    if (settlementOptionsV2.value[i].county_id == county_id) {
-      subset_settlements.push(settlementOptionsV2.value[i]);
-    }
-  }
-  console.log("Subset Setts", subset_settlements)
-  settlementfilteredOptions.value = subset_settlements
-
-
-  // Get the select subcoites GEO
-}
 
 
 
@@ -320,17 +288,7 @@ onMounted(() => {
     zoom: 5
   });
 
-  
-     // When the map fails to load, hide the base map and show only the overlays
-     map.value.on('error', function (e) {
-       console.log('Failed..ADD...', e.error.message)
-     //  if (e.error.message = ! 'Gone') {
-
-        map.value.setStyle( './style.json');
-          console.log("Failed to load base map.Settleemnts  Showing only overlays.");
-     // }
-
-      });
+ 
   map.value.addControl(new mapboxgl.NavigationControl());
   // add marker for project location
 
@@ -736,8 +694,47 @@ const handleUploadGeo = async (uploadFile) => {
 
 
 
+const subcountyfilteredOptions = ref([])
+const settlementfilteredOptions = ref([])
+
+
+const handleSelectCounty = async (county_id: any) => {
+  console.log(county_id)
+
+  // Reset the subounty on changing the county 
+  ruleForm.subcounty_id=null
+
+  var subset = [];
+  for (let i = 0; i < subcountyOptions.value.length; i++) {
+    if (subcountyOptions.value[i].county_id == county_id) {
+      subset.push(subcountyOptions.value[i]);
+    }
+  }
+  console.log(subset)
+  subcountyfilteredOptions.value = subset
+
+  // filter settleemnts 
+  var subset_settlements = [];
+  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
+    if (settlementOptionsV2.value[i].county_id == county_id) {
+      subset_settlements.push(settlementOptionsV2.value[i]);
+    }
+  }
+  console.log("Subset Setts", subset_settlements)
+  settlementfilteredOptions.value = subset_settlements
+
+
+  // Get the select subcoites GEO
+}
+
+
+ const wardFilteredOptions = ref([])
+
 const handleSelectSubCounty = async (subcounty_id: any) => {
   console.log(subcounty_id)
+
+    // Reset the subounty on changing the county 
+    ruleForm.ward_id=null
 
 
   const formData = {}
@@ -746,7 +743,6 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
 
   console.log(formData)
   const res = await getOneGeo(formData)
-
   if (res.data[0].json_build_object.features) {
     geoJson.value = res.data[0].json_build_object
 
@@ -754,44 +750,57 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
     bounds.value = turf.bbox((geoJson.value))
     console.log("From subcounty", bounds.value)
     map.value.fitBounds(bounds.value, { padding: 20 })
-
-
   }
   else {
 
 console.log("The subcounty has no shapes...")
-}
+  }
+
+  var subset = [];
+  for (let i = 0; i < wardOptions.value.length; i++) {
+    if (wardOptions.value[i].subcounty_id == subcounty_id) {
+      subset.push(wardOptions.value[i]);
+    }
+  }
+  console.log('wards', subset)
+  wardFilteredOptions.value = subset
+
 
   console.log('Got subcounty geo', res)
-
-  // Get the select subcoites GEO 
-
-  // var newArray = await subcounties.value.filter(function (subcounty) {
-  //   return subcounty.id == subcounty_id;
-  // }
-  // );
-  // console.log(newArray[0].geom)
-  // if (newArray[0].geom != null) {
-  //   console.log(newArray[0].geom)
-  //   let geom = {
-  //     type: newArray[0].geom.type,
-  //     coordinates: newArray[0].geom.coordinates
-
-  //   }
-  //   console.log(geom)
-
-  //   geoJson.value = geom
-  //   map.value.getSource("scope").setData(geoJson.value);
-  //   bounds.value = turf.bbox((geoJson.value))
-  //   console.log("From subcounty", bounds.value)
-  //   map.value.fitBounds(bounds.value, { padding: 20 })
-
-  // } else {
-
-  //   console.log("The subcounty has no shapes...")
-  // }
+ 
 
 }
+
+
+const handleSelectWard= async (ward_id: any) => {
+  console.log(ward_id)
+
+    // Reset the subounty on changing the county 
+ 
+
+  const formData = {}
+  formData.model = 'ward'
+  formData.id = ward_id
+
+  console.log(formData)
+  const res = await getOneGeo(formData)
+  if (res.data[0].json_build_object.features) {
+    geoJson.value = res.data[0].json_build_object
+
+     map.value.getSource("scope").setData(geoJson.value);
+    bounds.value = turf.bbox((geoJson.value))
+    console.log("From ward", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+  }
+  else {
+
+console.log("The ward has no shapes...")
+  }
+ 
+ 
+}
+
+
 
 const toggleSwitch = async () => { 
 
@@ -853,19 +862,33 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                     </el-select>
                   </el-form-item>
                 </el-col>
- 
-                <el-col :span="24" :lg="12" :md="24" :sm="24" :xs="24">
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="Ward" prop="ward_id">
+                    <el-select v-model="ruleForm.ward_id" filterable placeholder="Ward"  :onChange="handleSelectWard">
+                      <el-option
+v-for="item in wardFilteredOptions" :key="item.value" :label="item.label"
+                        :value="item.value" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+
+                <el-row>
+
+                  <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Parcel Number" prop="parcel_no">
                     <el-input v-model="ruleForm.parcel_no" />
                   </el-form-item>
                 </el-col>
 
 
-                <el-col :span="24" :lg="12" :md="24" :sm="24" :xs="24">
+                <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Parcel owner" prop="parcel_owner">
                     <el-input v-model="ruleForm.parcel_owner" />
                   </el-form-item>
                 </el-col>
+                </el-row>
+
+                
 
                 <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24" >
                   <el-form-item label="Map Reference" prop="rim_no" >

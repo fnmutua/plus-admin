@@ -70,8 +70,7 @@ const getRoads = async () => {
   const res = await getListWithoutGeo({
     params: {
       pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
+       curUser: 1, // Id for logged in user
       model: 'county',
       searchField: 'name',
       searchKeyword: '',
@@ -120,6 +119,38 @@ const getSubCounties = async () => {
     })
   })
 }
+
+
+
+const wardOptions = ref([])
+const wards = ref([])
+const getWards = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 2000,
+      curUser: 1, // Id for logged in user
+      model: 'ward',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+   
+    const ret = response.data
+    wards.value = ret
+ 
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      const parentOpt = {}
+      parentOpt.value = arrayItem.id
+      parentOpt.subcounty_id = arrayItem.subcounty_id
+      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      wardOptions.value.push(parentOpt)
+    })
+  })
+}
+
 
 
 const regOptions = [
@@ -780,11 +811,11 @@ getSettlements()
 getCounties()
 getSubCounties()
  
-
+getWards()
 
 
 export {
-  countyOptions, settlementOptionsV2, subcountyOptions, regOptions,WaterFacilitytypeOptions,cascadeOptions,phase_options,frequencyOptions,wasteOptions,FacilityConditionOptions,
+  countyOptions, settlementOptionsV2, subcountyOptions,wardOptions, regOptions,WaterFacilitytypeOptions,cascadeOptions,phase_options,frequencyOptions,wasteOptions,FacilityConditionOptions,
   SchoolLevelOptions, HCFTypeOptions, LevelOptions, generalOwnership, roadOptions,AssetConditionOptions,AssetTypeOptions,
   ownsershipOptions, mhmOptions, tenancyOptions, drainageTypeOtions, SurfaceTypeOtions, RdClassOptions,pipeOptions,sewerTypes
 };

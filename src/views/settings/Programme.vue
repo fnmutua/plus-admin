@@ -292,9 +292,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.id = data.row.id
   ruleForm.title = data.row.title
   ruleForm.description = data.row.description
-  ruleForm.start_date = data.row.start_date
-  ruleForm.end_date = data.row.end_date
-  ruleForm.icon = data.row.icon
+    ruleForm.icon = data.row.icon
   ruleForm.acronym = data.row.acronym
 
 
@@ -350,9 +348,7 @@ const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
   description: '',
-  start_date: null,
-  end_date: null,
-  icon: null,
+   icon: null,
   acronym: null
 
 })
@@ -473,13 +469,8 @@ layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:
       <el-form-item label="Description">
         <el-input v-model="ruleForm.description" />
       </el-form-item>
-      <el-form-item label="Start">
-        <el-date-picker v-model="ruleForm.start_date" type="date" format="YYYY-MM-DD" />
-      </el-form-item>
-
-      <el-form-item label="End">
-        <el-date-picker v-model="ruleForm.end_date" type="date" format="YYYY-MM-DD" />
-      </el-form-item>
+    
+ 
 
       <el-form-item label="Icon">
         <el-input v-model="ruleForm.icon" />
