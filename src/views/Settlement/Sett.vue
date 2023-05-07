@@ -1050,19 +1050,39 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
       if (activeTab.value ==='list') {
-  // get the index of the updated object
-  const index = tableDataList.value.findIndex(obj => obj.id === updatedObject.id);
- 
- // Get the updatedobjetc keys and updated the old data 
-    const updatedKeys = Object.keys(updatedObject);
-        for (const key of updatedKeys) {
-          tableDataList.value[index][key] = updatedObject[key];
-       //   tableDataListNew.value[index_new][key] = updatedObject[key];
-        //  tableDataListRejected.value[index_rej][key] = updatedObject[key];
-        }
+      // get the index of the updated object
+      const index = tableDataList.value.findIndex(obj => obj.id === updatedObject.id);
+    
+    // Get the updatedobjetc keys and updated the old data 
+        const updatedKeys = Object.keys(updatedObject);
+            for (const key of updatedKeys) {
+              tableDataList.value[index][key] = updatedObject[key];
+          //   tableDataListNew.value[index_new][key] = updatedObject[key];
+            //  tableDataListRejected.value[index_rej][key] = updatedObject[key];
+            }
+      } else if (activeTab.value ==='New') {
+
+        // get the index of the updated object
+        const index = tableDataListNew.value.findIndex(obj => obj.id === updatedObject.id);
+        
+             const updatedKeys = Object.keys(updatedObject);
+                for (const key of updatedKeys) {
+                  tableDataListNew.value[index][key] = updatedObject[key];
+          
+                }
       }
-  
-     
+   
+      else if (activeTab.value ==='Rejected') {
+            const index = tableDataListRejected.value.findIndex(obj => obj.id === updatedObject.id);
+        
+             const updatedKeys = Object.keys(updatedObject);
+                for (const key of updatedKeys) {
+                  tableDataListRejected.value[index][key] = updatedObject[key];
+         
+                }
+
+}
+
 
 
 
