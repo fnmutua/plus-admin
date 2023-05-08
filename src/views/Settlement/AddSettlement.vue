@@ -821,7 +821,7 @@ const toggleSwitch = async () => {
     <el-row :gutter="5">
       <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
         <el-card class="box-card">
-          <el-steps :active="active" finish-status="success" simple>
+          <el-steps :active="active" finish-status="success" direction="vertical" simple>
             <el-step title="Profile" />
             <el-step title="Location" />
           </el-steps>

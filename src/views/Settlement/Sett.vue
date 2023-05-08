@@ -1162,8 +1162,8 @@ const editSettlement = (data: TableSlotDefault) => {
   selectedCounty.value=data.row.county_id
   selectedSubCounty.value=data.row.subcounty_id
   selectedWard.value = data.row.ward_id
-  //getSubCountyNames()
-  filterByCounty(selectedCounty.value)
+   getSubCountyNames()
+  //filterByCounty(selectedCounty.value)
   getWardNames()
 
 
