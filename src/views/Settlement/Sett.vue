@@ -73,6 +73,8 @@ const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   name: '',
   county_id: '',
+  subcounty_id: '',
+  ward_id: '',
   settlement_type: '',
   population: '',
   area: '',
@@ -890,6 +892,7 @@ const getWardNames = async () => {
     console.log('Received Wards:', response)
     //tableDataList.value = response.data
     var ret = response.data
+    wardOptions.value=[]
 
     loading.value = false
 
@@ -914,15 +917,15 @@ const getSubCountyNames = async () => {
       limit: 100,
       curUser: 1, // Id for logged in user
       model: 'subcounty',
-      searchField: 'name',
-      searchKeyword: '',
+      searchField: 'county_id',
+      searchKeyword: selectedCounty.value,
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received response:', response)
+    console.log('Received subcounties response:', response)
     //tableDataList.value = response.data
     var ret = response.data
-
+    subcountiesOptions.value=[]
     loading.value = false
 
     ret.forEach(function (arrayItem: { id: string; type: string }) {
@@ -942,23 +945,26 @@ const getSubCountyNames = async () => {
 
 const filterByCounty = async (county_id: any) => {
 
-
   if (county_id) {
     enableSubcounty.value = true   // allow selection of subcounty 
-    selectedCounty.value=county_id
+    selectedCounty.value = county_id
+    getSubCountyNames()
   }
    
   value5.value = null // clear the subcounty 
   value6.value=null   // clear the ward sr
 
-  var subset = [];
-  for (let i = 0; i < subcountiesOptions.value.length; i++) {
-    if (subcountiesOptions.value[i].county_id == county_id) {
-      subset.push(subcountiesOptions.value[i]);
-    }
-  }
-  console.log('Subset--->', subset)
-  subcountyfilteredOptions.value = subset
+
+ 
+
+  // var subset = [];
+  // for (let i = 0; i < subcountiesOptions.value.length; i++) {
+  //   if (subcountiesOptions.value[i].county_id == county_id) {
+  //     subset.push(subcountiesOptions.value[i]);
+  //   }
+  // }
+  // console.log('Subset--->', subset)
+  // subcountyfilteredOptions.value = subset
 
 
  // getFilteredData(filters, filterValues)
@@ -1146,13 +1152,19 @@ const editSettlement = (data: TableSlotDefault) => {
   ruleForm.parcel_owner = data.row.parcel_owner
   ruleForm.rim_no = data.row.rim_no
   ruleForm.isApproved = data.row.isApproved
- 
-
-
+  ruleForm.subcounty_id = data.row.subcounty_id
+  ruleForm.ward_id = data.row.ward_id
+  ruleForm.isApproved = data.row.isApproved
   ruleForm.geom = data.row.geom
-
-
   fileUploadList.value = data.row.documents
+
+  //  poulate the selected fields 
+  selectedCounty.value=data.row.county_id
+  selectedSubCounty.value=data.row.subcounty_id
+  selectedWard.value = data.row.ward_id
+  //getSubCountyNames()
+  filterByCounty(selectedCounty.value)
+  getWardNames()
 
 
 
@@ -1556,9 +1568,28 @@ const hideCopyIcon = (row) => {
     const isCopyIconVisible = (row) => {
       return hoveredRow.value === row;
     }
-   
+  
+    
+
+ const handleSelectCounty = async (county_id: any) => {
+  selectedCounty.value=county_id
+  ruleForm.subcounty_id=''
+  ruleForm.ward_id=''
+  getSubCountyNames()
+  
+}
+
+const handleSelectSubCounty = async (subcounty_id: any) => {
+  selectedSubCounty.value=subcounty_id
+  ruleForm.ward_id=''
+
+  getWardNames()
+  
+}
  
 
+
+ 
 
 </script>
 
@@ -1581,7 +1612,7 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
 :disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty"  multiple
             clearable filterable collapse-tags placeholder="By Subcounty">
             <el-option
-v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
               :value="item.value" />
           </el-select>
         </div>
@@ -2017,10 +2048,24 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
     <el-col v-show="activeStep === 0" :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
       <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
         <el-form-item label="County" prop="county_id">
-          <el-select v-model="ruleForm.county_id" filterable placeholder="Select County">
+          <el-select v-model="ruleForm.county_id" filterable placeholder="Select County" :onChange="handleSelectCounty">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
+
+        <el-form-item label="Sub County" prop="subcounty_id">
+          <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty" :onChange="handleSelectSubCounty">
+            <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Ward" prop="ward_id">
+          <el-select v-model="ruleForm.ward_id" filterable placeholder="Select ward">
+            <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+
         <el-form-item label="Name">
           <el-input v-model="ruleForm.name" />
         </el-form-item>
