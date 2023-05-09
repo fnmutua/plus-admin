@@ -658,6 +658,8 @@ const Review = (data: TableSlotDefault) => {
   ruleForm.id = data.row.id
   ruleForm.name = data.row.name
   ruleForm.county_id = data.row.county_id
+  ruleForm.subcounty_id = data.row.subcounty_id
+  ruleForm.ward_id = data.row.ward_id
   ruleForm.settlement_type = data.row.settlement_type
   ruleForm.population = data.row.population
   ruleForm.area = data.row.area
