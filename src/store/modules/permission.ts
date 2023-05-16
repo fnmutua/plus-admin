@@ -194,7 +194,7 @@ export const usePermissionStore = defineStore('permission', {
           //redirect: '/settings',
           name: 'Slum_Programmes',
           meta: {
-            title: 'Interventions',
+            title: 'Programmes',
             icon: 'icon-park-solid:love-and-help',
             alwaysShow: true
           },

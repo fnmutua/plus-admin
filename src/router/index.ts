@@ -135,6 +135,17 @@ export const asyncRouterMap: AppRouteRecordRaw[] = [
           title: t('Interventions'),
           noCache: true,
           icon:'fa-solid:hands-helping',
+          hidden:true
+        }
+      },
+      {
+        path: 'dynamic',
+        component: () => import('@/views/Dashboard/Dynamic.vue'),
+        name: 'DynamicDashboard',
+        meta: {
+           title: t('Interventions'),
+          noCache: true,
+          icon:'material-symbols:dashboard-outline-rounded',
 
         }
       }
@@ -676,6 +687,17 @@ export const publicRoutes: AppRouteRecordRaw[] = [
           title: t('Interventions'),
           noCache: true,
           icon:'fa-solid:hands-helping',
+          hidden:true
+        }
+      },
+      {
+        path: 'dynamic',
+        component: () => import('@/views/Dashboard/Dynamic.vue'),
+        name: 'DynamicDashboard',
+        meta: {
+           title: t('Interventions'),
+          noCache: true,
+          icon:'material-symbols:dashboard-outline-rounded',
 
         }
       }
@@ -1165,6 +1187,17 @@ export const countyAdminRoutes: AppRouteRecordRaw[] = [
           title: t('Interventions'),
           noCache: true,
           icon:'fa-solid:hands-helping',
+          hidden:true
+        }
+      },
+      {
+        path: 'dynamic',
+        component: () => import('@/views/Dashboard/Dynamic.vue'),
+        name: 'DynamicDashboard',
+        meta: {
+           title: t('Interventions'),
+          noCache: true,
+          icon:'material-symbols:dashboard-outline-rounded',
 
         }
       }
@@ -2546,7 +2579,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: t('Interventions'),
           noCache: true,
           icon:'fa-solid:hands-helping',
-
+          hidden: true,
         }
       },
       {
@@ -2554,7 +2587,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         component: () => import('@/views/Dashboard/Dynamic.vue'),
         name: 'DynamicDashboard',
         meta: {
-          title: t('Dynamic'),
+           title: t('Interventions'),
           noCache: true,
           icon:'material-symbols:dashboard-outline-rounded',
 
@@ -3658,6 +3691,17 @@ export const countyUserRoutes: AppRouteRecordRaw[] = [
           title: t('Interventions'),
           noCache: true,
           icon:'fa-solid:hands-helping',
+          hidden:true
+        }
+      },
+      {
+        path: 'dynamic',
+        component: () => import('@/views/Dashboard/Dynamic.vue'),
+        name: 'DynamicDashboard',
+        meta: {
+           title: t('Interventions'),
+          noCache: true,
+          icon:'material-symbols:dashboard-outline-rounded',
 
         }
       }
