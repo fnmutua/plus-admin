@@ -213,7 +213,7 @@ const getKisipTenureSettlementsCountByCounty = async () => {
   MapgeopointOptions.value = {
     title: {
       text: tenureSupportedTitle,
-      subtext: 'National Slum Mapping, 2023',
+      subtext: 'National Slum Database, 2023',
       sublink: "http://kisip.go.ke",
       left: "right",
       textStyle: {
@@ -417,7 +417,7 @@ const getKisipInfSettlementsCountByCounty = async () => {
   InfrastructureSettlementsMap.value = {
     title: {
       text: infrastructureSupportedTitle,
-      subtext: 'National Slum Mapping, 2023',
+      subtext: 'National Slum Database, 2023',
       sublink: "http://kisip.go.ke",
       left: "right",
       textStyle: {
@@ -617,7 +617,7 @@ const getKisipInclusionSettlementsCountByCounty = async () => {
   InclusionSettlementsMapOptions.value = {
     title: {
       text: inclusionSupportedTitle,
-      subtext: 'National Slum Mapping, 2023',
+      subtext: 'National Slum Database, 2023',
       sublink: "http://kisip.go.ke",
       left: "right",
       textStyle: {
@@ -729,7 +729,7 @@ const getCountyGeo = async () => {
     tenureSettlementsByCountiesMap.value = {
       title: {
         text: tenureSupportedTitle,
-        subtext: 'National Slum Mapping, 2023',
+        subtext: 'National Slum Database, 2023',
         sublink: 'https://kisip.go.ke/',
         left: 'right',
         textStyle: {
@@ -796,7 +796,7 @@ const getCountyGeo = async () => {
     InfrastructureSettlementsByCountiesMap.value = {
       title: {
         text: infrastructureSupportedTitle,
-        subtext: 'National Slum Mapping, 2023',
+        subtext: 'National Slum Database, 2023',
         sublink: 'https://kisip.go.ke/',
         left: 'right',
         textStyle: {
@@ -863,7 +863,7 @@ const getCountyGeo = async () => {
     InclusionSettlementsByCountiesMap.value = {
       title: {
         text: inclusionSupportedTitle,
-        subtext: 'National Slum Mapping, 2023',
+        subtext: 'National Slum Database, 2023',
         sublink: 'https://kisip.go.ke/',
         left: 'right',
         textStyle: {
@@ -979,7 +979,7 @@ const getBeneficiariesByCounty = async () => {
       countOfSettlementbeneficiary.value = {
         title: {
           text: TenureSupportedBeneficiaryTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
@@ -1161,7 +1161,7 @@ const getRoadsConstructed = async () => {
   sumOfGravelRoadsConstructed.value = {
     title: {
       text: RoadsImprovedTitle,
-      subtext: 'National Slum Mapping, 2023',
+      subtext: 'National Slum Database, 2023',
       left: 'center',
       textStyle: {
         fontSize: 14
@@ -1234,7 +1234,7 @@ const getRoadsConstructed = async () => {
   FootPathsConstructed.value = {
     title: {
       text: footPathsConstructedTitle,
-      subtext: 'National Slum Mapping, 2023',
+      subtext: 'National Slum Database, 2023',
       left: 'center',
       textStyle: {
         fontSize: 14
@@ -1307,7 +1307,7 @@ const getRoadsConstructed = async () => {
   HighMastsConstructed.value = {
     title: {
       text: highmastsConstructedTitle,
-      subtext: 'National Slum Mapping, 2023',
+      subtext: 'National Slum Database, 2023',
       left: 'center',
       textStyle: {
         fontSize: 14
@@ -1405,7 +1405,7 @@ const getInclusionBeneficiaries = async () => {
   DPWBeneficiariesv2.value = {
     title: {
       text: DPWTraineesTitle,
-      subtext: 'National Slum Mapping, 2023',
+      subtext: 'National Slum Database, 2023',
       left: 'center',
       textStyle: {
         fontSize: 14,

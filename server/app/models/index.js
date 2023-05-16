@@ -996,5 +996,87 @@ db.models.users.hasMany(db.models.road, {
 
 })
 
+
+// Dashbaord - Cardss
+db.models.dashboard_card.belongsTo(db.models.dashboard, {
+  foreignKey: 'dashboard_id',
+ 
+})
+
+db.models.dashboard.hasMany(db.models.dashboard_card, {
+  foreignKey: 'dashboard_id',
+ 
+})
+
+
+// Dashbaord - Cardss
+db.models.dashboard_card.belongsTo(db.models.indicator, {
+  foreignKey: 'indicator_id',
+ 
+})
+
+db.models.indicator.hasMany(db.models.dashboard_card, {
+  foreignKey: 'indicator_id',
+ 
+})
+
+
+
+// Dashbaord - Sections
+db.models.dashboard_section.belongsTo(db.models.dashboard, {
+  foreignKey: 'dashboard_id',
+ 
+})
+
+db.models.dashboard.hasMany(db.models.dashboard_section, {
+  foreignKey: 'dashboard_id',
+ 
+})
+
+
+
+// section  - Programmes
+db.models.dashboard_section.belongsTo(db.models.programme, {
+  foreignKey: 'programme_id',
+ 
+})
+
+db.models.programme.hasMany(db.models.dashboard_section, {
+  foreignKey: 'programme_id',
+ 
+})
+
+
+// section  - Chart
+db.models.dashboard_section_chart.belongsTo(db.models.dashboard_section, {
+  foreignKey: 'dashboard_section_id',
+ 
+})
+
+db.models.dashboard_section.hasMany(db.models.dashboard_section_chart, {
+  foreignKey: 'dashboard_section_id',
+ 
+})
+
+
+
+//dashboard_section_chart    - indicator_category 
+db.models.dashboard_section_chart.belongsToMany(db.models.indicator, {
+  through: 'chart_indicator',
+  foreignKey: 'dashboard_section_chart_id',
+  otherKey: 'indicator_id'
+})
+db.models.indicator.belongsToMany(db.models.dashboard_section_chart, {
+  through: 'chart_indicator',
+  foreignKey: 'indicator_id',
+  otherKey: 'dashboard_section_chart_id',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+})
+
+
+
+
+
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

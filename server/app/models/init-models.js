@@ -52,7 +52,12 @@ var _project_activity= require('./project_activity')
 var _evaluation_type= require('./evaluation_type')
 var _evaluation= require('./evaluation')
 var _ward= require('./ward')
+var _dashboard= require('./dashboard')
+var _dashboard_card= require('./dashboard_card')
+var _dashboard_section= require('./dashboard_section')
+var _dashboard_section_chart= require('./dashboard_section_chart')
 
+var _chart_indicator= require('./chart_indicator')
 
 
 var _settlement_uploads = require('./settlement_uploads')
@@ -113,6 +118,11 @@ function initModels(sequelize) {
   var evaluation_type = _evaluation_type(sequelize, DataTypes)
   var evaluation = _evaluation(sequelize, DataTypes)
   var ward = _ward(sequelize, DataTypes)
+  var dashboard = _dashboard(sequelize, DataTypes)
+  var dashboard_card = _dashboard_card(sequelize, DataTypes)
+  var dashboard_section = _dashboard_section(sequelize, DataTypes)
+  var dashboard_section_chart = _dashboard_section_chart(sequelize, DataTypes)
+  var chart_indicator = _chart_indicator(sequelize, DataTypes)
   
   
   
@@ -170,6 +180,11 @@ function initModels(sequelize) {
     evaluation_type,
     evaluation,
     ward,
+    dashboard,
+    dashboard_card,
+    dashboard_section,
+    dashboard_section_chart,
+    chart_indicator,
     settlement_uploads
   }
 }
