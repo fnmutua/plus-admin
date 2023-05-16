@@ -98,7 +98,7 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['indicator', 'project', 'category']
+const associated_multiple_models = ['indicator', 'project', 'activity', 'category']
 const model = 'indicator_category'
 const nested_models = ['indicator', 'activity'] // The mother, then followed by the child
 
@@ -317,7 +317,7 @@ const makeSettlementOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.category + '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.category   //+ '(' + arrayItem.id + ')'
 
     //  console.log(countyOpt)
     categoryOptions.value.push(countyOpt)
@@ -702,13 +702,15 @@ const DownloadXlsx = async () => {
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value2" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value2" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by Indicator">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by Category">
         <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -735,7 +737,8 @@ const DownloadXlsx = async () => {
       <el-table-column label="Id" prop="id" width="50px" sortable />
       <el-table-column label="Project" prop="project.title" sortable />
       <el-table-column label="Indicator" prop="indicator.name" sortable />
-      <el-table-column label="Reporting" prop="frequency" sortable />
+      <!-- <el-table-column label="Reporting" prop="frequency" sortable /> -->
+      <el-table-column label="Activity" prop="activity.title" sortable />
       <el-table-column label="Category" prop="category.category" sortable />
 
 
@@ -747,9 +750,11 @@ const DownloadXlsx = async () => {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="showAdminButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
                   color="green">Edit</el-dropdown-item>
-                <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -759,7 +764,8 @@ const DownloadXlsx = async () => {
           <div v-else>
 
             <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-              <el-button type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
+              <el-button
+type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
                 circle />
             </el-tooltip>
 
@@ -767,7 +773,8 @@ const DownloadXlsx = async () => {
 
 
             <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this record?" width="150"
                 @confirm="DeleteIndicator(scope as TableSlotDefault)">
                 <template #reference>
@@ -784,7 +791,8 @@ const DownloadXlsx = async () => {
 
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
@@ -801,15 +809,18 @@ const DownloadXlsx = async () => {
         </el-form-item>
         <el-form-item label="Activity">
           <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" placeholder="Select Activity">
-            <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
+            <el-option
+v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
               :value="item.value" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="Indicator">
-          <el-select filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
+          <el-select
+filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
             placeholder="Select Indicator">
-            <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
+            <el-option
+v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
               :value="item.value" />
           </el-select>
         </el-form-item>

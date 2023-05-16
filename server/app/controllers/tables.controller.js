@@ -652,7 +652,16 @@ exports.modelCreateOneRecord = (req, res) => {
         
         item.addActivities(list_activities)
       }
-
+      else if (reg_model === 'dashboard_section_chart') {
+        var indicator_list =req.body.indicator_id
+         const list_indicators = await db.models.indicator.findAll({
+          where: {
+            id: indicator_list
+          }
+        });
+        
+        item.addIndicators(list_indicators)
+      }
 
       res.status(200).send({
         message: 'Import Successful',

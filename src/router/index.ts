@@ -2548,6 +2548,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           icon:'fa-solid:hands-helping',
 
         }
+      },
+      {
+        path: 'dynamic',
+        component: () => import('@/views/Dashboard/Dynamic.vue'),
+        name: 'DynamicDashboard',
+        meta: {
+          title: t('Dynamic'),
+          noCache: true,
+          icon:'material-symbols:dashboard-outline-rounded',
+
+        }
       }
     ]
   },
@@ -3557,6 +3568,50 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       }, 
+      {
+        path: 'dash',
+        component: () => import('@/views/settings/Dashboard.vue'),
+        name: 'DynamicDashboards',
+        meta: {
+          title: 'Dynamic Dashboards',
+          hidden: false,
+          icon:'material-symbols:settings'
+        }
+      }, 
+      {
+        path: 'cards',
+        component: () => import('@/views/settings/DashboardCard.vue'),
+        name: 'DashboardCards',
+        meta: {
+          title: 'Dashboard Cards',
+          hidden: false,
+          icon:'wpf:statistics'
+        }
+      }, 
+      {
+        path: 'sections',
+        component: () => import('@/views/settings/DashboardSection.vue'),
+        name: 'DashboardSections',
+        meta: {
+          title: 'Dashboard Sections',
+          hidden: false,
+          icon:'mdi:file-document-edit-outline'
+        }
+      }, 
+
+      {
+        path: 'charts',
+        component: () => import('@/views/settings/SectionChart.vue'),
+        name: 'DashboardSectionCharts',
+        meta: {
+          title: 'Dashboard Charts',
+          hidden: false,
+          icon:'material-symbols:bar-chart-4-bars'
+        }
+      }, 
+
+
+
     ]
   }
 ]

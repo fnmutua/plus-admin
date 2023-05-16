@@ -151,7 +151,7 @@ var filterValues = [[component_id.value]]  // make sure the inner array is array
 var tblData = []
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
+const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document','activity']
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
@@ -991,6 +991,16 @@ const editProject = (data: TableSlotDefault) => {
   //ruleForm.activities = data.row.activities
   // ruleForm.activities = data.row.activities.map(a => a.id); Felix Revisit
   ruleForm.component_id = data.row.component_id
+
+
+  let activities =[]
+  data.row.activities.forEach(function (arrayItem) {
+    activities.push(arrayItem.id)
+  })
+
+  ruleForm.activities = activities
+
+
 
   fileUploadList.value = data.row.documents
 

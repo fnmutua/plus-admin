@@ -110,7 +110,7 @@ var filterValues = [[userInfo.id]]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document','settlement']
+const associated_multiple_models = ['document','settlement', 'county']
 const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -294,7 +294,7 @@ const getIndicatorNames = async () => {
   // - multiple filters -------------------------------------
   formData.filters = []
   formData.filterValues = []
-  formData.associated_multiple_models = ['project', 'category']
+  formData.associated_multiple_models = ['project', 'category', 'activity']
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
@@ -304,7 +304,7 @@ const getIndicatorNames = async () => {
     var opt = {}
     console.log(arrayItem)
     opt.value = arrayItem.id
-    opt.label = arrayItem.indicator_name + ' | ' + arrayItem.project.title + ' | ' + arrayItem.category.category
+    opt.label = arrayItem.indicator_name + ' | '  +arrayItem.activity.title + '|' + arrayItem.project.title + ' | ' + arrayItem.category.category
     opt.title = arrayItem.category.title
     opt.project_id = arrayItem.project.id
     opt.county_id = arrayItem.project.county_id
@@ -1028,6 +1028,7 @@ const DownloadXlsx = async () => {
   let fields = [
     { label: "S/No", value: "index" }, // Top level data
     { label: "Indicator", value: "indicator" }, // Top level data
+    { label: "Category", value: "category" }, // Top level data
     { label: "Quantity", value: "quantity" }, // Custom format
     { label: "Settlement", value: "settlement" }, // Custom format
     { label: "County", value: "county" }, // Custom format
@@ -1049,8 +1050,10 @@ const DownloadXlsx = async () => {
     tableDataList.value[i]
     thisRecord.index = i + 1
     thisRecord.indicator = tableDataList.value[i].indicator_category.indicator.name
+    thisRecord.category = tableDataList.value[i].indicator_category.category_title
     thisRecord.quantity = tableDataList.value[i].amount
     thisRecord.settlement = tableDataList.value[i].settlement.name
+    thisRecord.county = tableDataList.value[i].county.name
      thisRecord.date = tableDataList.value[i].date
 
 
@@ -1145,8 +1148,9 @@ v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(pr
       </el-table-column>
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
       <el-table-column label="Settlement" prop="settlement.name" sortable />
-      <el-table-column label="County" prop="county.name" sortable />
-      <el-table-column label="Unit" prop="indicator_category.indicator.unit" sortable />
+      <!-- <el-table-column label="County" prop="county.name" sortable /> -->
+      <!-- <el-table-column label="Unit" prop="indicator_category.indicator.unit" sortable /> -->
+      <el-table-column label="Category" prop="indicator_category.category_title" sortable />
       <el-table-column label="Amount" prop="amount" sortable />
       <el-table-column label="Status" prop="status" sortable />
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">

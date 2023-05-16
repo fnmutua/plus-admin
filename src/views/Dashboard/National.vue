@@ -163,7 +163,7 @@ const getSettlementsCountyMap = async () => {
   settlementCountMap.value = {
     title: {
       text: informalSettlementpercountyMapTitle,
-      subtext: 'National Slum Mapping, 202323',
+      subtext: 'National Slum Database, 202323',
       sublink: 'https://kisip.go.ke/',
       left: 'right',
       textStyle: {
@@ -279,7 +279,7 @@ const getSettlementPopulation = async () => {
   settlementPopulationMap.value = {
     title: {
       text: informalSettlementPopMapTitle,
-      subtext: 'National Slum Mapping, 202323',
+      subtext: 'National Slum Database, 202323',
       sublink: 'https://kisip.go.ke/',
       left: 'right',
       textStyle: {
@@ -399,7 +399,7 @@ const getTopSettlementCountByCounty = async () => {
   countofSlumsByCountyOptions.value = {
     title: {
       text: topSlumCountiesTitle,
-      subtext: 'National Slum Mapping, 2023',
+      subtext: 'National Slum Database, 2023',
       left: 'center',
       textStyle: {
         fontSize: 14
@@ -513,7 +513,7 @@ const getSettlementPopPyramid = async () => {
         pyramidOptions.value = {
           title: {
             text: pyramidChartTitle,
-            subtext: 'National Slum Mapping, 2023',
+            subtext: 'National Slum Database, 2023',
             left: 'center',
             textStyle: {
               fontSize: 14,

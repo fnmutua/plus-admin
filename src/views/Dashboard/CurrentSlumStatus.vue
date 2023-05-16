@@ -211,7 +211,7 @@ const getAccessTohealth = async () => {
       stackedHealthBygender.value = {
         title: {
           text: AccesTohealthTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
@@ -314,7 +314,7 @@ const getAccessTohealth = async () => {
       healthGauge.value = {
         title: {
           text: AccesTohealthPrimarcyFacilityTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
@@ -458,7 +458,7 @@ const getGender = async () => {
           align: 'center'
         },
         subtitle: {
-          text: 'National Slum Mapping, 2023',
+          text: 'National Slum Database, 2023',
           align: 'center'
         },
         dataLabels: {
@@ -492,7 +492,7 @@ const getGender = async () => {
   echartOptionsGender.value = {
     title: {
       text: PopByGenderTitle,
-      subtext: 'National Slum Mapping, 2023',
+      subtext: 'National Slum Database, 2023',
       left: 'center',
       textStyle: {
         fontSize: 14
@@ -589,7 +589,7 @@ const getRent = async () => {
   rentEchart.value = {
     title: {
       text: RentPayableTitle,
-      subtext: 'National Slum Mapping, 2023',
+      subtext: 'National Slum Database, 2023',
       left: 'center',
       textStyle: {
         fontSize: 14
@@ -677,7 +677,7 @@ const getEmployment = async () => {
       employment_chartOptions.value = {
         title: {
           text: EmploymentTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
@@ -766,7 +766,7 @@ const getOwnershipStatus = async () => {
       stackedOwnershipByAge.value = {
         title: {
           text: StructureOwnershipAgeTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
@@ -880,7 +880,7 @@ const getOwnershipStatusByGender = async () => {
       stackedOwnershipBygender.value = {
         title: {
           text: StructureOwnershipGenderTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
@@ -1046,7 +1046,7 @@ const getEducationByGender = async () => {
       stackedEducationBygender.value = {
         title: {
           text: EducationGenderTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
@@ -1147,7 +1147,7 @@ const getEducationByGender = async () => {
       educationGauge.value = {
         title: {
           text: EducationSecPlusTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
@@ -1288,7 +1288,7 @@ const getSanitation = async () => {
       stackedSanitationBygender.value = {
         title: {
           text: SanitationByGenderTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
@@ -1390,7 +1390,7 @@ const getSanitation = async () => {
       SanitationGauge.value = {
         title: {
           text: SafelyMangedSanitationByGenderTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
@@ -1531,7 +1531,7 @@ const getWater = async () => {
       stackedWaterBygender.value = {
         title: {
           text: AccesstoWaterByGenderTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
@@ -1633,7 +1633,7 @@ const getWater = async () => {
       waterGauge.value = {
         title: {
           text: AccesstoSafeWaterByGenderTitle,
-          subtext: 'National Slum Mapping, 2023',
+          subtext: 'National Slum Database, 2023',
           left: 'center',
           textStyle: {
             fontSize: 14
