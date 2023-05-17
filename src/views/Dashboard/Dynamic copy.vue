@@ -94,7 +94,7 @@ const getIndicatorConfigurations = async (indicator_id) => {
   return ind_config_arr
 }
 
-
+ 
 
 ///// ----------------Pocess the statistics card---------------------------------------
 ////-----------------------------------------------------------------------------------
@@ -128,10 +128,10 @@ const getSummary = async (indicator) => {
   };
 
   // get the indicator_catoergy ids given the Indicator ID
-
+ 
   var ids = await getIndicatorConfigurations(indicator)
 
-  console.log('Found Indicator_cateory_ids', ids, indicator)
+  console.log('Found Indicator_cateory_ids',ids, indicator)
 
   const formData = {}
   formData.model = 'indicator_category_report'
@@ -144,12 +144,12 @@ const getSummary = async (indicator) => {
 
 
   try {
-    const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
+    const response01 =   await getSummarybyFieldFromMultipleIncludes(formData);
     console.log("Cards sumamrye", response01.Total[0].sum)
-    console.log('ids', ids)
-
+     console.log('ids',ids)
+  
     const response = await getSumFilter(sumQuery);
-    const amount = response01.Total[0].sum ? parseInt(response01.Total[0].sum) : 0
+    const amount = response01.Total[0].sum? parseInt(response01.Total[0].sum) :0
     //console.log('Cumulative Data', response.data)
 
     return amount;
@@ -160,9 +160,6 @@ const getSummary = async (indicator) => {
     return 0; // or any default value you prefer
   }
 };
-
-
-
 
 const getSummaryMultipleParents = async (indicator_categories) => {
   const formData = {}
@@ -199,8 +196,6 @@ const getSummaryMultipleParents = async (indicator_categories) => {
 
 
 }
-
-
 
 
 function xtransformData(data, chartType) {
@@ -251,66 +246,65 @@ function xtransformData(data, chartType) {
   return transformedData;
 }
 
-
 function transformData(data, chartType) {
+ 
+
+          // Create array of unique names (categories)
+          const uniqueNames = [...new Set(data.map(item => item.name))];
+          uniqueNames.sort();
+
+          console.log('uniqueNames', uniqueNames)
+
+          const uniqueCategoryTitles = [...new Set(data.map(item => item.category_title))];
+          uniqueCategoryTitles.sort();
+
+          console.log('uniqueCategoryTitles', uniqueCategoryTitles)
+
+          // Loop through categories and create the resulting object, padding as needed
+          const result = uniqueCategoryTitles.map(category => {
+
+            const  dataArr =[]
+            uniqueNames.map(name => {
+              const filteredData = data.filter(item => item.category_title === category && item.name === name); 
+
+              console.log("Filtred", filteredData)
+              let arr =filteredData.length>0? filteredData.map(item => (item.sum ? parseInt(item.sum) : 0)):[0]
+              console.log("arr", arr)
+              dataArr.push(arr[0])
 
 
-  // Create array of unique names (categories)
-  const uniqueNames = [...new Set(data.map(item => item.name))];
-  uniqueNames.sort();
+            })
 
-  console.log('uniqueNames', uniqueNames)
+            let objChart = {}
+            objChart.name = category
+            objChart.type = 'bar'
+            objChart.data = dataArr
 
-  const uniqueCategoryTitles = [...new Set(data.map(item => item.category_title))];
-  uniqueCategoryTitles.sort();
+            if (chartType == 4) { //4-stackhed bar chart
+              objChart.stack = 'total'
+              objChart.label = {
+                show: true
+              }
+            }
+            else if (chartType == 3) { //3 pie bar chart
+              objChart.value = dataArr
+              objChart.name = category
 
-  console.log('uniqueCategoryTitles', uniqueCategoryTitles)
-
-  // Loop through categories and create the resulting object, padding as needed
-  const result = uniqueCategoryTitles.map(category => {
-
-    const dataArr = []
-    uniqueNames.map(name => {
-      const filteredData = data.filter(item => item.category_title === category && item.name === name);
-
-      console.log("Filtred", filteredData)
-      let arr = filteredData.length > 0 ? filteredData.map(item => (item.sum ? parseInt(item.sum) : 0)) : [0]
-      console.log("arr", arr)
-      dataArr.push(arr[0])
+            }
 
 
-    })
+            if (category == 'Female') {
+              objChart.color = colorPalette[0];
+            } else if (category == 'Female') {
+              objChart.color = colorPalette[1];
+            }
 
-    let objChart = {}
-    objChart.name = category
-    objChart.type = 'bar'
-    objChart.data = dataArr
+ 
 
-    if (chartType == 4) { //4-stackhed bar chart
-      objChart.stack = 'total'
-      objChart.label = {
-        show: true
-      }
-    }
-    else if (chartType == 3) { //3 pie bar chart
-      objChart.value = dataArr
-      objChart.name = category
-
-    }
-
-
-    if (category == 'Female') {
-      objChart.color = colorPalette[0];
-    } else if (category == 'Female') {
-      objChart.color = colorPalette[1];
-    }
-
-
-
-    return objChart
-
-
-  });
+            return objChart
+    
+             
+          });
 
 
 
@@ -319,18 +313,17 @@ function transformData(data, chartType) {
 
 const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType) => {
 
-  if (chartType == 3) { // pie chart remove county 
+  if (chartType == 3  ) { // pie chart//linechart remove county 
     var groupingFields = ['indicator_category.category_title']
   }
-
-
-  else if (chartType == 5) {
+  
+  else if (chartType == 5  ) {
     var groupingFields = ['indicator_category_report.createdAt']
 
 
-  } else {
+  }
 
-
+  else {
     var groupingFields = ['county.name', 'indicator_category.category_title']
 
   }
@@ -347,48 +340,38 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
   formData.filterValue = indicator_categories  // Bitumen
 
   try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const amount = response.Total;
-    console.log('Data county', amount)
+          const response = await getSummarybyFieldFromMultipleIncludes(formData);
+          const amount = response.Total;
+          console.log('Data county:  chart type',chartType,  amount)
 
 
-    let categoryArray = [];
-    let seriesData = [];
-    amount.forEach(obj => {
-      if (!categoryArray.includes(obj.name)) {
-        categoryArray.push(obj.name);
-      }
-    });
+          let categoryArray = [];
+          let seriesData = [];
 
+            if (chartType == 5) {
 
+              const keys = amount.reduce((allKeys, obj) => {
+                      return allKeys.concat(Object.keys(obj));
+                  }, []);
 
+                  const uniqueKeys = [...new Set(keys)];
+                  const values = {};
+                  uniqueKeys.forEach(key => {
+                      values[key] = amount.map(obj => obj[key] || null);
+                  });
+              categoryArray = values.createdAt   
+              seriesData = values.sum
 
+ 
+                  }
+            else {
 
-    if (chartType == 5) {
+                        //  const valuesArray = amount.map(obj => obj.sum);
+                          seriesData = transformData(amount, chartType);
+                  }
 
-      const keys = amount.reduce((allKeys, obj) => {
-        return allKeys.concat(Object.keys(obj));
-      }, []);
-
-      const uniqueKeys = [...new Set(keys)];
-      const values = {};
-      uniqueKeys.forEach(key => {
-        values[key] = amount.map(obj => obj[key] || null);
-      });
-      categoryArray = values.createdAt
-      seriesData = values.sum
-
-
-    }
-    else {
-
-      //  const valuesArray = amount.map(obj => obj.sum);
-      seriesData = transformData(amount, chartType);
-      categoryArray.sort();
-    }
-
-
-
+         // categoryArray.sort();
+ 
 
 
     //   return amount;
@@ -423,7 +406,7 @@ const getCardData = async () => {
   // cards.value = res.data
 
   res.data.forEach(function async(arrayItem) {
-    console.log('arrayItem.indicator_id', arrayItem.indicator_id)
+    console.log('arrayItem.indicator_id',arrayItem.indicator_id)
     var result = getSummary(arrayItem.indicator_id)
 
     result.then((result) => {
@@ -638,7 +621,7 @@ const getCharts = async (section_id) => {
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("bar", ids)
             var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
-            console.log(cdata)
+            console.log('male-female', cdata)
 
             const UpdatedBarOptionsMultiple = {
               ...barMaleFemaleOptions,
@@ -650,7 +633,7 @@ const getCharts = async (section_id) => {
                 ...barMaleFemaleOptions.xAxis,
                 data: cdata[0]  // categories as recieved 
               },
-
+              
             };
 
             console.log(UpdatedBarOptionsMultiple)
@@ -676,8 +659,8 @@ const getCharts = async (section_id) => {
         // Continue with the rest of your code here
       }
 
-      // function to process processMultiBarChart charts 
-      async function processLineChart() {
+   // function to process processMultiBarChart charts 
+   async function processLineChart() {
         const promises = thisChart.indicators.map(async function (indicator) {
           console.log('This processLineChart:', indicator)
 
@@ -688,7 +671,7 @@ const getCharts = async (section_id) => {
             console.log("bar", ids)
             var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
             console.log('lichecrt data', cdata)
-
+ 
             const UpdatedBarOptionsMultiple = {
               ...lineOptions,
               title: {
@@ -708,7 +691,7 @@ const getCharts = async (section_id) => {
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
-          } catch (error) {
+           } catch (error) {
             // Handle any errors that occurred during the process
           }
         });
@@ -724,6 +707,9 @@ const getCharts = async (section_id) => {
         charts.push(thisChart)
         // Continue with the rest of your code here
       }
+
+
+
 
 
 
@@ -744,10 +730,10 @@ const getCharts = async (section_id) => {
       else if (thisChart.type == 4) {
         processStackedBarChart();
       }
-
       else if (thisChart.type == 5) {
         processLineChart();
       }
+
 
 
     })
