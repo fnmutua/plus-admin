@@ -525,6 +525,11 @@ const chartOptions = [
     value: 6,
     label: 'Stacked Line Chart'
   },
+
+  {
+    value: 7,
+    label: 'Map Chart'
+  },
 ]
 
 

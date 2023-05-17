@@ -148,9 +148,10 @@ export const stacklineOptions: EChartsOption = {
     //  show: ShowLegend,
       orient: 'horizontal',
       type: 'scroll',
-      left: 'left',
+      center: 'center',
       itemWidth: 20,
-      itemHeight: 20,
+    itemHeight: 20,
+      bottom:'20'
    
     },
   toolbox: {
@@ -548,3 +549,67 @@ export const  barMaleFemaleOptions: EChartsOption = {
   ]
 }
  
+
+
+export const  mapChartOptions: EChartsOption = {
+  title: {
+    text: 'map',
+    subtext: 'National Slum Database, 2023',
+    sublink: 'https://kisip.go.ke/',
+    left: 'left',
+    textStyle: {
+      fontSize: 14
+    },
+  },
+  tooltip: {
+    trigger: 'item',
+    showDelay: 0,
+    transitionDuration: 0.2
+  },
+  visualMap: {
+    left: 'right',
+    min: 0,  // remeber to adjust max and min
+    max: 1000,
+    inRange: {
+      color: [
+        '#313695',
+        '#4575b4',
+        '#74add1',
+        '#abd9e9',
+        '#e0f3f8',
+        '#ffffbf',
+        '#fee090',
+        '#fdae61',
+        '#f46d43',
+        '#d73027',
+        '#a50026'
+      ]
+    },
+    text: ['High', 'Low'],
+    calculable: true
+  },
+  toolbox: {
+    show: true,
+    feature: {
+      mark: { show: true },
+      dataView: { show: true, readOnly: true },
+      restore: { show: true },
+      saveAsImage: { show: true, pixelRatio: 4 }
+    }
+  },
+  series: [
+    {
+      name: '',
+      type: 'map',
+      roam: true,
+      map: 'KE',
+      aspectScale: 0.999, 
+      emphasis: {
+        label: {
+          show: true
+        }
+      },
+      data: []
+    }
+  ]
+};
