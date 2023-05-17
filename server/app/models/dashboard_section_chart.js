@@ -53,7 +53,7 @@ module.exports = function(sequelize, DataTypes) {
       },
       {
         unique: true,
-        fields: ['title', 'dashboard_section_id','description' ]
+        fields: ['title', 'dashboard_section_id','type', 'description' ]
       },
     ]
   });

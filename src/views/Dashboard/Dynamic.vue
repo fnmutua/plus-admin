@@ -10,7 +10,7 @@ import { use } from "echarts/core";
 
 import { Icon } from '@iconify/vue';
 
-import { pieOptions, simpleBarChart, multipleBarChart, barOptions, barOptionsMultiple, lineOptions, barMaleFemaleOptions } from './chart-types'
+import { pieOptions, simpleBarChart, multipleBarChart,stacklineOptions, barOptions, barOptionsMultiple, lineOptions, barMaleFemaleOptions } from './chart-types'
 import { EChartsOption, registerMap } from 'echarts'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
@@ -203,54 +203,6 @@ const getSummaryMultipleParents = async (indicator_categories) => {
 
 
 
-function xtransformData(data, chartType) {
-  const uniqueCategoryTitles = [...new Set(data.map(obj => obj.category_title))];
-  const transformedData = uniqueCategoryTitles.map(title => {
-    const categoryData = data.filter(obj => obj.category_title === title);
-    const values = categoryData.map(obj => parseInt(obj.sum));
-
-
-    let objChart = {}
-    objChart.name = title
-    objChart.type = 'bar'
-    objChart.data = values
-
-    if (chartType == 4) { //4-stackhed bar chart
-      objChart.stack = 'total'
-      objChart.label = {
-        show: true
-      }
-    }
-    else if (chartType == 3) { //4-stackhed bar chart
-      objChart.value = values[0]
-      objChart.name = title
-
-    }
-
-
-    if (title == 'Female') {
-      objChart.color = colorPalette[0];
-    } else if (title == 'Female') {
-      objChart.color = colorPalette[1];
-    }
-
-
-    // return {
-    //   name: title,
-    //   type: 'bar',
-    //   color: colorPalette[1],
-    //   data: values
-    // };
-
-    return objChart
-  });
-
-
-
-
-  return transformedData;
-}
-
 
 function transformData(data, chartType) {
 
@@ -325,10 +277,18 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
 
 
   else if (chartType == 5) {
-    var groupingFields = ['indicator_category_report.createdAt']
+    var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
 
 
-  } else {
+  }
+
+
+  else if (chartType == 6) {
+    var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
+
+
+  }
+  else {
 
 
     var groupingFields = ['county.name', 'indicator_category.category_title']
@@ -365,6 +325,7 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
 
 
     if (chartType == 5) {
+      console.log('Data line chart ', indicator_categories, amount)
 
       const keys = amount.reduce((allKeys, obj) => {
         return allKeys.concat(Object.keys(obj));
@@ -377,9 +338,75 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
       });
       categoryArray = values.createdAt
       seriesData = values.sum
+    }
 
+
+    else if (chartType == 6) {
+      console.log('Multi-line chart ', indicator_categories, amount)
+    //  Step 1: Extract and sort unique dates in ascending order
+      const dates = [...new Set(amount.map(item => item.createdAt))].sort();
+
+       // Step 2: Rearrange the data
+       const result = {};
+ 
+        for (const item of amount) {
+          const { createdAt, category_title, sum } = item;
+          
+          if (!result[category_title]) {
+            result[category_title] = {
+              name: category_title,
+              type: 'line',
+              stack: 'Total',
+              data: [] 
+            };
+          }
+          
+          const dateIndex = dates.indexOf(createdAt);
+          result[category_title].data.push([dateIndex, Number(sum)]);
+
+      }
+ 
+      
+          // // Step 1: Extract and sort unique dates in ascending order
+          // const dates = [...new Set(amount.map(item => item.createdAt))].sort();
+
+          // // Step 2: Rearrange the data
+          // const result = {};
+
+          // for (const item of amount) {
+          //   const { createdAt, category_title, sum } = item;
+
+          //   if (!result[category_title]) {
+          //     result[category_title] = {
+          //       name: category_title,
+          //       type: 'line',
+          //       stack: 'Total',
+          //       data: [] 
+          //     };
+          //   }
+
+          //   const dateIndex = dates.indexOf(createdAt);
+          //   result[category_title].data.push({ dateIndex, sum });
+          // }
+
+          // // Step 3: Sort the data array within each category based on the dateIndex
+          // for (const category in result) {
+          //   result[category].data.sort((a, b) => a.dateIndex - b.dateIndex);
+          // }
+
+
+
+
+        seriesData = Object.values(result);
+        categoryArray =dates 
+      console.log('seriesData>>>>', seriesData); 
+
+     
 
     }
+
+
+
     else {
 
       //  const valuesArray = amount.map(obj => obj.sum);
@@ -685,7 +712,7 @@ const getCharts = async (section_id) => {
             //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
-            console.log("bar", ids)
+            console.log("line-IDS", ids)
             var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
             console.log('lichecrt data', cdata)
 
@@ -705,6 +732,63 @@ const getCharts = async (section_id) => {
               },
             };
 
+
+            thisChart.chart = UpdatedBarOptionsMultiple
+
+          } catch (error) {
+            // Handle any errors that occurred during the process
+          }
+        });
+
+        await Promise.all(promises);
+        // The loop has completed and all promises have been resolved/rejected
+        console.log('Loop completed');
+
+
+
+
+
+        charts.push(thisChart)
+        // Continue with the rest of your code here
+      }
+      // function to process processMultiBarChart charts 
+      async function processStackLineChart() {
+        const promises = thisChart.indicators.map(async function (indicator) {
+          console.log('This processLineChart:', indicator)
+
+          try {
+            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
+            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
+            var ids = await getIndicatorConfigurations(indicator.id)
+            console.log("line-IDS", ids)
+            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
+            console.log('lichecrt data', cdata)
+
+
+            // sort the data such that the graphs start and end proper
+            
+                       
+            cdata[1].forEach(obj => {
+              obj.data.sort((a, b) => a[0] - b[0]); // theres a nested data array 
+          });
+ 
+            const UpdatedBarOptionsMultiple = {
+              ...stacklineOptions,
+              title: {
+                ...stacklineOptions.title,
+                text: thisChart.title
+              },
+             xAxis: {
+                 ...stacklineOptions.xAxis,
+                  data: cdata[0]  // categories as recieved 
+                },
+           
+            };
+            UpdatedBarOptionsMultiple.series=cdata[1]
+
+
+            console.log("old chart",stacklineOptions)
+            console.log("New chart",UpdatedBarOptionsMultiple)
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
@@ -749,7 +833,9 @@ const getCharts = async (section_id) => {
         processLineChart();
       }
 
-
+      else if (thisChart.type == 6) {
+        processStackLineChart();
+      }
     })
 
 

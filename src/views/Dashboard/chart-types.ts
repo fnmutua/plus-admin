@@ -93,6 +93,15 @@ export const lineOptions: EChartsOption = {
       fontSize: 12
     }
   },
+  legend: {
+    //  show: ShowLegend,
+      orient: 'horizontal',
+      type: 'scroll',
+      left: 'left',
+      itemWidth: 20,
+      itemHeight: 20,
+   
+    },
   toolbox: {
     show: true,
     feature: {
@@ -116,10 +125,74 @@ export const lineOptions: EChartsOption = {
   series: [
     {
       data: [150, 230, 224, 218, 135, 147, 260],
-      type: 'line'
+      type: 'line',
+     // name:'title'
     }
   ]
 };
+
+
+export const stacklineOptions: EChartsOption = {
+  title: {
+    text: 'stacked line',
+    subtext: 'National Slum Database, 2023',
+    left: 'center',
+    textStyle: {
+      fontSize: 14
+    },
+    subtextStyle: {
+      fontSize: 12
+    }
+  },
+  legend: {
+    //  show: ShowLegend,
+      orient: 'horizontal',
+      type: 'scroll',
+      left: 'left',
+      itemWidth: 20,
+      itemHeight: 20,
+   
+    },
+  toolbox: {
+    show: true,
+    feature: {
+      mark: { show: true },
+      dataView: { show: true, readOnly: false },
+      restore: { show: true },
+      saveAsImage: { show: true, pixelRatio: 4 }
+    }
+  },
+  tooltip: {
+    trigger: 'item',
+    formatter: '{a} <br/>{b} : {c} ({d}%)'
+  },
+  xAxis: {
+    type: 'category',
+    boundaryGap: false,
+    data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  },
+  yAxis: {
+    type: 'value'
+  },
+  series: [
+    {
+      name: 'test',
+      type: 'line',
+      data: [
+        [0, 150], [1, 230], [2, 224], [3, 218], [4, 135], [5, 147], [6, 260]
+      ],
+    },
+    {
+      name: 'ewn',
+      type: 'line',
+      data: [
+        [0, 32], [1, 145], [2, 123], [5, 116], [6, 123], [8, 116]
+      ],
+    }
+  ]
+};
+
+
 
 export const pieOptions  = reactive({
   title: {
