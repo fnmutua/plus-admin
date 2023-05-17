@@ -516,6 +516,11 @@ const chartOptions = [
     value: 4,
     label: 'Stacked Bar'
   },
+
+  {
+    value: 5,
+    label: 'Line Chart'
+  },
 ]
 
 
