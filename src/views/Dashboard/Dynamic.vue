@@ -10,7 +10,7 @@ import { use } from "echarts/core";
 
 import { Icon } from '@iconify/vue';
 
-import { pieOptions, simpleBarChart, multipleBarChart,stacklineOptions, barOptions, barOptionsMultiple, lineOptions, barMaleFemaleOptions } from './chart-types'
+import { pieOptions, simpleBarChart, multipleBarChart,stacklineOptions, mapChartOptions, barOptionsMultiple, lineOptions, barMaleFemaleOptions } from './chart-types'
 import { EChartsOption, registerMap } from 'echarts'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
@@ -18,6 +18,9 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
 import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
+ 
+import * as turf from '@turf/turf'
+import { getAllGeo } from '@/api/settlements'
 
 
 const colorPalette = ['#ff007f', '#0000ff'];  // Male-Female
@@ -96,6 +99,28 @@ const getIndicatorConfigurations = async (indicator_id) => {
 
 
 
+const countyGeo = ref([])
+const  aspect = ref()
+const getCountyGeo = async () => {
+  const formData = {}
+  formData.model = 'county'
+  const res = await getAllGeo(formData)
+  //  console.log(res.data[0].json_build_object)
+  if (res.data[0].json_build_object.features) {
+    countyGeo.value = res.data[0].json_build_object
+    //  console.log("County-geo", countyGeo.value)
+
+    var bbox = turf.bbox(countyGeo.value);
+    const y_coord = (bbox[1] + bbox[3]) / 2;
+    aspect.value = Math.cos(y_coord * Math.PI / 180);
+    //   console.log(aspect.value)
+    registerMap('KE', countyGeo.value);
+
+
+  }
+
+  // getSettlementCountByCounty() // This is only called the first time for the first graph
+}
 ///// ----------------Pocess the statistics card---------------------------------------
 ////-----------------------------------------------------------------------------------
 const xgetSummary = async (indicator) => {
@@ -285,11 +310,13 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
 
   else if (chartType == 6) {
     var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
-
-
   }
-  else {
 
+  else if (chartType == 7) {
+    var groupingFields = ['county.name']
+  }
+
+  else {
 
     var groupingFields = ['county.name', 'indicator_category.category_title']
 
@@ -366,45 +393,55 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
 
       }
  
-      
-          // // Step 1: Extract and sort unique dates in ascending order
-          // const dates = [...new Set(amount.map(item => item.createdAt))].sort();
-
-          // // Step 2: Rearrange the data
-          // const result = {};
-
-          // for (const item of amount) {
-          //   const { createdAt, category_title, sum } = item;
-
-          //   if (!result[category_title]) {
-          //     result[category_title] = {
-          //       name: category_title,
-          //       type: 'line',
-          //       stack: 'Total',
-          //       data: [] 
-          //     };
-          //   }
-
-          //   const dateIndex = dates.indexOf(createdAt);
-          //   result[category_title].data.push({ dateIndex, sum });
-          // }
-
-          // // Step 3: Sort the data array within each category based on the dateIndex
-          // for (const category in result) {
-          //   result[category].data.sort((a, b) => a.dateIndex - b.dateIndex);
-          // }
-
-
-
-
+       
         seriesData = Object.values(result);
         categoryArray =dates 
-      console.log('seriesData>>>>', seriesData); 
+       console.log('seriesData>>>>', seriesData); 
 
      
 
     }
 
+
+    else if (chartType == 7) {
+      console.log('Map chart ', indicator_categories, amount)
+
+      
+              let maxSum = Number.MIN_SAFE_INTEGER;
+              let minSum = Number.MAX_SAFE_INTEGER;
+
+              for (const item of amount) {
+                const values = Object.values(item);
+                for (const value of values) {
+                  if (!isNaN(value)) {
+                    const numValue = parseInt(value);
+                    maxSum = Math.max(maxSum, numValue);
+                    minSum = Math.min(minSum, numValue);
+                  }
+                }
+              }
+
+              console.log("Maximum sum:", maxSum);
+              console.log("Minimum sum:", minSum);
+
+              // Rename the property to value 
+              const newPropertyName = "value";
+
+              for (let i = 0; i < amount.length; i++) {
+                const keys = Object.keys(amount[i]);
+                if (keys.length > 1) {
+                  const oldValue = keys[1];
+                  amount[i][newPropertyName] = amount[i][oldValue];
+                  delete amount[i][oldValue];
+                }
+      }
+      categoryArray = [minSum, maxSum]
+      seriesData=amount
+
+      console.log('Map chart2 ', indicator_categories, amount)
+
+
+    }
 
 
     else {
@@ -809,6 +846,75 @@ const getCharts = async (section_id) => {
         // Continue with the rest of your code here
       }
 
+   // function to process processMultiBarChart charts 
+   async function processMapChart() {
+        const promises = thisChart.indicators.map(async function (indicator) {
+          console.log('This processLineChart:', indicator)
+
+          try {
+            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
+            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
+            var ids = await getIndicatorConfigurations(indicator.id)
+            console.log("line-IDS", ids)
+            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
+            console.log('map data', cdata)
+            var MaxMin = cdata[0]
+            await getCountyGeo()
+            console.log('apsect',aspect.value)
+
+
+            const UpdatedMapOtions = {
+              ...mapChartOptions,
+              title: {
+                ...mapChartOptions.title,
+                text: thisChart.title
+              },
+              visualMap: {
+                ...mapChartOptions.visualMap,
+                min: MaxMin[0],
+                max: MaxMin[1]
+
+              },
+              // visualMap: {
+              //   ...mapChartOptions.visualMap,
+              //   max: MaxMin[1]
+              // },
+
+              series: {
+                ...mapChartOptions.series[0],
+                data: cdata[1],  // categories as recieved ,
+                aspectScale: aspect.value
+              },
+              // series: {
+              //   ...mapChartOptions.series[0],
+              //   aspectScale: 0.88  // categories as recieved 
+              // },
+             
+
+            };
+         //   UpdatedMapOtions.series[0].aspectScale=aspect.value
+
+            // sort the data such that the graphs start and end proper
+  
+            thisChart.chart = UpdatedMapOtions
+
+
+          } catch (error) {
+            // Handle any errors that occurred during the process
+          }
+        });
+
+        await Promise.all(promises);
+        // The loop has completed and all promises have been resolved/rejected
+        console.log('Loop completed');
+
+
+
+
+
+        charts.push(thisChart)
+        // Continue with the rest of your code here
+      }
 
 
       // Run the approriate funtion 
@@ -836,6 +942,12 @@ const getCharts = async (section_id) => {
       else if (thisChart.type == 6) {
         processStackLineChart();
       }
+
+      else if (thisChart.type == 7) {
+        processMapChart();
+      }
+
+
     })
 
 
@@ -905,12 +1017,13 @@ const getTabs = async () => {
 }
 
 
+
+
 ////-----------------------------------------------------------------------------------
 
 
 
-
-getCards()
+ getCards()
 getTabs()
 
 
