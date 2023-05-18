@@ -20,18 +20,18 @@ import {
   FormRules
 } from 'element-plus'
 
-import {
-  MapboxMap,
-  MapboxGeocoderControl,
-  MapboxAttributionControl,
-  MapboxDrawControl,
-  MapboxGeolocateControl,
-  MapboxGeogeometryPolygon,
-  MapboxNavigationControl,
-  MapboxSourceGeoJson,
-  MapboxScaleControl,
-  MapboxMarker
-} from 'vue-mapbox-ts'
+// import {
+//   MapboxMap,
+//   MapboxGeocoderControl,
+//   MapboxAttributionControl,
+//   MapboxDrawControl,
+//   MapboxGeolocateControl,
+//   MapboxGeogeometryPolygon,
+//   MapboxNavigationControl,
+//   MapboxSourceGeoJson,
+//   MapboxScaleControl,
+//   MapboxMarker
+// } from 'vue-mapbox-ts'
 
 
 
@@ -229,14 +229,14 @@ const mapHeight = '450px'
 
       <el-col :span="14">
         <el-card class="box-card">
-          <mapbox-map
+          <!-- <mapbox-map
 :center="[37.817, 0.606]" :zoom="5" :height="mapHeight" :accessToken="MapBoxToken"
             mapStyle="mapbox://styles/agspatial/clamkcjwx000b14mmgzyx86vv">
             <mapbox-geocoder-control :countries="countries" />
             <mapbox-geolocate-control />
             <mapbox-draw-control @create="addPolygon" />
             <mapbox-navigation-control position="bottom-right" />
-          </mapbox-map>
+          </mapbox-map> -->
         </el-card>
       </el-col>
     </el-row>

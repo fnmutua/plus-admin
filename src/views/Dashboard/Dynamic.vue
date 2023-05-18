@@ -17,6 +17,7 @@ import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { getCountyListApi,getListWithoutGeo } from '@/api/counties'
+import {   getfilteredGeo } from '@/api/settlements'
 
 import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
  
@@ -131,12 +132,13 @@ const getIndicatorConfigurations = async (indicator_id) => {
 
 
 const countyGeo = ref([])
+const subCountyGeo = ref([])
 const  aspect = ref()
 const getCountyGeo = async () => {
   const formData = {}
   formData.model = 'county'
   const res = await getAllGeo(formData)
-  //  console.log(res.data[0].json_build_object)
+     console.log('county geo', res.data[0].json_build_object)
   if (res.data[0].json_build_object.features) {
     countyGeo.value = res.data[0].json_build_object
     //  console.log("County-geo", countyGeo.value)
@@ -152,6 +154,33 @@ const getCountyGeo = async () => {
 
   // getSettlementCountByCounty() // This is only called the first time for the first graph
 }
+
+
+const getSubsetGeo = async (model,filterFields, filterValues) => {
+  console.log('Get all parcels for this settlement ')
+  
+  const formData = {}
+  formData.model = model
+  formData.columnFilterField =filterFields
+  formData.selectedParents = filterValues
+  formData.id = filterValues
+
+  console.log(formData)
+  const res = await getfilteredGeo(formData)
+
+  console.log('filtered Geo:', res.data[0].json_build_object.features)
+  var collection = turf.featureCollection(res.data[0].json_build_object.features);
+  console.log('collection Geo:', collection)
+  subCountyGeo.value = collection
+  var bbox = turf.bbox(subCountyGeo.value);
+    const y_coord = (bbox[1] + bbox[3]) / 2;
+  aspect.value = Math.cos(y_coord * Math.PI / 180);
+
+  console.log('collection aspect:', aspect.value)
+  registerMap('KE', subCountyGeo.value);
+
+}
+
 ///// ----------------Pocess the statistics card---------------------------------------
 ////-----------------------------------------------------------------------------------
  
@@ -214,44 +243,7 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
 };
 
 
-
-
-const getSummaryMultipleParents = async (indicator_categories) => {
-  const formData = {}
-  formData.model = 'indicator_category_report'
-  formData.summaryField = 'amount'
-  formData.summaryFunction = 'sum'
-  formData.assoc_models = ['county']
-  formData.groupFields = ['county.name']
-  formData.filterField = 'indicator_category_id'
-  formData.filterValue = indicator_categories  // Bitumen
-
-  try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const amount = response.Total;
-    //   console.log('Data  per county', amount, indicator_categories)
-
-
-
-    const categoryArray = [];
-    amount.forEach(obj => {
-      if (!categoryArray.includes(obj.name)) {
-        categoryArray.push(obj.name);
-      }
-    });
-    const valuesArray = amount.map(obj => obj.sum);
-    //   return amount;
-    return [categoryArray, valuesArray];
-  } catch (error) {
-    // Handle any errors that occur during the asynchronous operation
-    console.error(error);
-    //return null; // or any default value you prefer
-    return []; // or any default value you prefer
-  }
-
-
-}
-
+ 
 
 
 
@@ -362,15 +354,27 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
 
   }
  
-  else if (chartType == 7 && filterLevel.value === 'national' ) {
+  else if (chartType == 7 && filterLevel.value == 'national' ) {
    // var groupingFields = ['county.name']
+   
     groupFields.push('county.name')
+    const index = groupFields.indexOf('indicator_category.category_title');
+    if (index !== -1) {
+      groupFields.splice(index, 1);
+    }
 
   }
 
   else if (chartType == 7 && filterLevel.value == 'county' ) {
   //  var groupingFields = ['subcounty.name']
     groupFields.push('subcounty.name')
+
+    const index = groupFields.indexOf('indicator_category.category_title');
+    if (index !== -1) {
+      groupFields.splice(index, 1);
+    }
+
+ 
 
   }
 
@@ -485,10 +489,15 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
                     minSum = Math.min(minSum, numValue);
                   }
                 }
-              }
+      }
+              // if only one value then use min=0
+              if (minSum === maxSum) {
+                minSum=0
+                      }
 
               console.log("Maximum sum:", maxSum);
               console.log("Minimum sum:", minSum);
+              
 
               // Rename the property to value 
               const newPropertyName = "value";
@@ -656,7 +665,9 @@ const getCharts = async (section_id) => {
               text: 'No data  available',
               fill: '#999',
               fontSize: 16
-            }
+                },
+                z: 100 // Higher z value to place it on top
+
           }]
             }
 
@@ -723,7 +734,9 @@ const getCharts = async (section_id) => {
               text: 'No data  available',
               fill: '#999',
               fontSize: 16
-            }
+                },
+                z: 100 // Higher z value to place it on top
+
           }]
             }
         
@@ -787,7 +800,9 @@ const getCharts = async (section_id) => {
               text: 'No data  available',
               fill: '#999',
               fontSize: 16
-            }
+                },
+                z: 100 // Higher z value to place it on top
+
           }]
             }
         
@@ -855,7 +870,9 @@ const getCharts = async (section_id) => {
               text: 'No data  available',
               fill: '#999',
               fontSize: 16
-            }
+                },
+                z: 100 // Higher z value to place it on top
+
           }]
             }
           } catch (error) {
@@ -917,7 +934,9 @@ const getCharts = async (section_id) => {
               text: 'No data  available',
               fill: '#999',
               fontSize: 16
-            }
+                },
+                z: 100 // Higher z value to place it on top
+
           }]
             }
 
@@ -988,7 +1007,9 @@ const getCharts = async (section_id) => {
               text: 'No data  available',
               fill: '#999',
               fontSize: 16
-            }
+                },
+                z: 100 // Higher z value to place it on top
+
           }]
             }
 
@@ -1023,6 +1044,14 @@ const getCharts = async (section_id) => {
             console.log('map data', cdata)
             var MaxMin = cdata[0]
             await getCountyGeo()
+            //await getSubsetGeo(model,filterFields, filterValues)
+            if (selectedCounties.value.length>0) {
+              await getSubsetGeo('subcounty',['county_id'], selectedCounties.value)
+
+            }
+
+
+
             console.log('apsect',aspect.value)
 
 
@@ -1069,9 +1098,11 @@ const getCharts = async (section_id) => {
             top: 'middle',
             style: {
               text: 'No data  available',
-              fill: '#999',
+              fill: 'red',
               fontSize: 16
-            }
+                },
+                z: 100 // Higher z value to place it on top
+
           }]
             }
 

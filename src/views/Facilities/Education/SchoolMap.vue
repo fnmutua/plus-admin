@@ -10,19 +10,19 @@ import { nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 
 
-import {
-  MapboxMap,
-  MapboxGeocoderControl,
-  MapboxAttributionControl,
-  MapboxDrawControl,
-  MapboxGeolocateControl,
-  MapboxGeogeometryPolygon,
-  MapboxNavigationControl,
-  MapboxSourceGeoJson,
-  MapboxScaleControl,
-  MapboxMarker,
-  MapboxPopup
-} from 'vue-mapbox-ts'
+// import {
+//   MapboxMap,
+//   MapboxGeocoderControl,
+//   MapboxAttributionControl,
+//   MapboxDrawControl,
+//   MapboxGeolocateControl,
+//   MapboxGeogeometryPolygon,
+//   MapboxNavigationControl,
+//   MapboxSourceGeoJson,
+//   MapboxScaleControl,
+//   MapboxMarker,
+//   MapboxPopup
+// } from 'vue-mapbox-ts'
 
 
 
@@ -135,14 +135,14 @@ const mapHeight = '480px'
   <ContentWrap :title="toTitleCase(facilityName)">
 
 
-    <mapbox-map :height="mapHeight" :zoom="17" :center="mapCenter" :accessToken="MapBoxToken">
+    <!-- <mapbox-map :height="mapHeight" :zoom="17" :center="mapCenter" :accessToken="MapBoxToken">
       <mapbox-marker v-if="geoLoaded" :lngLat="mapCenter">
         <mapbox-popup>
           <div v-if="geoLoaded">{{ facilityName }}</div>
         </mapbox-popup>
       </mapbox-marker>
 
-    </mapbox-map>
+    </mapbox-map> -->
 
 
   </ContentWrap>
