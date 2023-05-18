@@ -1630,7 +1630,9 @@ onMounted(() => {
     <el-tabs v-model="activeTab">
       <el-tab-pane v-for="(tab, index) in tabs" :name="tab.name" :key="index" :label="tab.label">
         <el-row :gutter="20">
-          <el-col v-for="(card, cardIndex) in tab.cards" :key="cardIndex" :span="8">
+
+ 
+          <el-col v-for="(card, cardIndex) in tab.cards" :key="cardIndex" :span="8" :xl="8" :lg="8" :md="12" :sm="24" :xs="24">
             <div class="tabs-container">
               <el-card>
 
@@ -1648,7 +1650,7 @@ onMounted(() => {
   </div>
 </template>
  
-<style scoped>
+<!-- <style scoped> -->
 .chart {
   height: 40vh;
 }
