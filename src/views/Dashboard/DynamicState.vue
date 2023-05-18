@@ -1650,7 +1650,7 @@ onMounted(() => {
   </div>
 </template>
  
-<!-- <style scoped> -->
+<style scoped>
 .chart {
   height: 40vh;
 }
