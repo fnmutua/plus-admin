@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton
+  ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton,ElCascader,ElCascaderPanel,ElCascaderPanelContext
 } from 'element-plus'
 
 import { ref, reactive, onMounted } from 'vue'
@@ -16,6 +16,7 @@ import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { getCountyListApi,getListWithoutGeo } from '@/api/counties'
 
 import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
  
@@ -68,6 +69,284 @@ const cardLoading = ref(true)
 const cards = ref([])
 const tabs = ref([])
 
+
+const value = ref([])
+
+const props = {
+  expandTrigger: 'hover' as const,
+}
+const handleChange = (value) => {
+  console.log(value)
+}
+
+const options = [
+  {
+    value: 'guide',
+    label: 'Guide',
+    children: [
+      {
+        value: 'disciplines',
+        label: 'Disciplines',
+        children: [
+          {
+            value: 'consistency',
+            label: 'Consistency',
+          },
+          {
+            value: 'feedback',
+            label: 'Feedback',
+          },
+          {
+            value: 'efficiency',
+            label: 'Efficiency',
+          },
+          {
+            value: 'controllability',
+            label: 'Controllability',
+          },
+        ],
+      },
+      {
+        value: 'navigation',
+        label: 'Navigation',
+        children: [
+          {
+            value: 'side nav',
+            label: 'Side Navigation',
+          },
+          {
+            value: 'top nav',
+            label: 'Top Navigation',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    value: 'component',
+    label: 'Component',
+    children: [
+      {
+        value: 'basic',
+        label: 'Basic',
+        children: [
+          {
+            value: 'layout',
+            label: 'Layout',
+          },
+          {
+            value: 'color',
+            label: 'Color',
+          },
+          {
+            value: 'typography',
+            label: 'Typography',
+          },
+          {
+            value: 'icon',
+            label: 'Icon',
+          },
+          {
+            value: 'button',
+            label: 'Button',
+          },
+        ],
+      },
+      {
+        value: 'form',
+        label: 'Form',
+        children: [
+          {
+            value: 'radio',
+            label: 'Radio',
+          },
+          {
+            value: 'checkbox',
+            label: 'Checkbox',
+          },
+          {
+            value: 'input',
+            label: 'Input',
+          },
+          {
+            value: 'input-number',
+            label: 'InputNumber',
+          },
+          {
+            value: 'select',
+            label: 'Select',
+          },
+          {
+            value: 'cascader',
+            label: 'Cascader',
+          },
+          {
+            value: 'switch',
+            label: 'Switch',
+          },
+          {
+            value: 'slider',
+            label: 'Slider',
+          },
+          {
+            value: 'time-picker',
+            label: 'TimePicker',
+          },
+          {
+            value: 'date-picker',
+            label: 'DatePicker',
+          },
+          {
+            value: 'datetime-picker',
+            label: 'DateTimePicker',
+          },
+          {
+            value: 'upload',
+            label: 'Upload',
+          },
+          {
+            value: 'rate',
+            label: 'Rate',
+          },
+          {
+            value: 'form',
+            label: 'Form',
+          },
+        ],
+      },
+      {
+        value: 'data',
+        label: 'Data',
+        children: [
+          {
+            value: 'table',
+            label: 'Table',
+          },
+          {
+            value: 'tag',
+            label: 'Tag',
+          },
+          {
+            value: 'progress',
+            label: 'Progress',
+          },
+          {
+            value: 'tree',
+            label: 'Tree',
+          },
+          {
+            value: 'pagination',
+            label: 'Pagination',
+          },
+          {
+            value: 'badge',
+            label: 'Badge',
+          },
+        ],
+      },
+      {
+        value: 'notice',
+        label: 'Notice',
+        children: [
+          {
+            value: 'alert',
+            label: 'Alert',
+          },
+          {
+            value: 'loading',
+            label: 'Loading',
+          },
+          {
+            value: 'message',
+            label: 'Message',
+          },
+          {
+            value: 'message-box',
+            label: 'MessageBox',
+          },
+          {
+            value: 'notification',
+            label: 'Notification',
+          },
+        ],
+      },
+      {
+        value: 'navigation',
+        label: 'Navigation',
+        children: [
+          {
+            value: 'menu',
+            label: 'Menu',
+          },
+          {
+            value: 'tabs',
+            label: 'Tabs',
+          },
+          {
+            value: 'breadcrumb',
+            label: 'Breadcrumb',
+          },
+          {
+            value: 'dropdown',
+            label: 'Dropdown',
+          },
+          {
+            value: 'steps',
+            label: 'Steps',
+          },
+        ],
+      },
+      {
+        value: 'others',
+        label: 'Others',
+        children: [
+          {
+            value: 'dialog',
+            label: 'Dialog',
+          },
+          {
+            value: 'tooltip',
+            label: 'Tooltip',
+          },
+          {
+            value: 'popover',
+            label: 'Popover',
+          },
+          {
+            value: 'card',
+            label: 'Card',
+          },
+          {
+            value: 'carousel',
+            label: 'Carousel',
+          },
+          {
+            value: 'collapse',
+            label: 'Collapse',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    value: 'resource',
+    label: 'Resource',
+    children: [
+      {
+        value: 'axure',
+        label: 'Axure Components',
+      },
+      {
+        value: 'sketch',
+        label: 'Sketch Templates',
+      },
+      {
+        value: 'docs',
+        label: 'Design Documentation',
+      },
+    ],
+  },
+]
 
 
 const getIndicatorConfigurations = async (indicator_id) => {
@@ -1016,14 +1295,41 @@ const getTabs = async () => {
 
 }
 
+const getCountySubcounty = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+   //   pageIndex: 1,
+    //  limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      assocModel:'county',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    const ret = response.data
 
+    console.log('select county/subcounty',  response.data)
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      const parentOpt = {}
+      parentOpt.value = arrayItem.id
+      parentOpt.county_id = arrayItem.county_id
+      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+     // settlementOptionsV2.value.push(parentOpt)
+    })
+  })
+}
 
 
 ////-----------------------------------------------------------------------------------
 
 
-
- getCards()
+getCountySubcounty()
+getCards()
 getTabs()
 
 
@@ -1041,6 +1347,13 @@ onMounted(() => {
 </script>
 
 <template>
+    <el-cascader
+      v-model="value"
+      placeholder="Select County/Constituency"
+      :options="options"
+      :props="props"
+      @change="handleChange"
+    />
   <el-row :gutter="20">
     <el-col v-for="(card, index) in cards" :key="index" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
       <div class="tabs-container">

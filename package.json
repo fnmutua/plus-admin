@@ -97,7 +97,7 @@
     "url": "^0.11.0",
     "uuid": "^9.0.0",
     "v-mapbox": "^3.3.1",
-    "vue": "3.2.37",
+    "vue": "3.3.0",
     "vue-csv-import": "^4.1.2",
     "vue-echarts": "^6.2.3",
     "vue-excel-xlsx": "^1.2.2",
