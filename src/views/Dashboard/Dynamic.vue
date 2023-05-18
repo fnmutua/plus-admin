@@ -69,284 +69,36 @@ const cardLoading = ref(true)
 const cards = ref([])
 const tabs = ref([])
 
-
-const value = ref([])
+const filterLevel = ref('national')
+const selectedCounties = ref([])
+const selectedSubCounties = ref([])
+const selectedWards = ref([])
+const options = ref([])
 
 const props = {
   expandTrigger: 'hover' as const,
+  multiple: true,
 }
 const handleChange = (value) => {
   console.log(value)
-}
 
-const options = [
-  {
-    value: 'guide',
-    label: 'Guide',
-    children: [
-      {
-        value: 'disciplines',
-        label: 'Disciplines',
-        children: [
-          {
-            value: 'consistency',
-            label: 'Consistency',
-          },
-          {
-            value: 'feedback',
-            label: 'Feedback',
-          },
-          {
-            value: 'efficiency',
-            label: 'Efficiency',
-          },
-          {
-            value: 'controllability',
-            label: 'Controllability',
-          },
-        ],
-      },
-      {
-        value: 'navigation',
-        label: 'Navigation',
-        children: [
-          {
-            value: 'side nav',
-            label: 'Side Navigation',
-          },
-          {
-            value: 'top nav',
-            label: 'Top Navigation',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    value: 'component',
-    label: 'Component',
-    children: [
-      {
-        value: 'basic',
-        label: 'Basic',
-        children: [
-          {
-            value: 'layout',
-            label: 'Layout',
-          },
-          {
-            value: 'color',
-            label: 'Color',
-          },
-          {
-            value: 'typography',
-            label: 'Typography',
-          },
-          {
-            value: 'icon',
-            label: 'Icon',
-          },
-          {
-            value: 'button',
-            label: 'Button',
-          },
-        ],
-      },
-      {
-        value: 'form',
-        label: 'Form',
-        children: [
-          {
-            value: 'radio',
-            label: 'Radio',
-          },
-          {
-            value: 'checkbox',
-            label: 'Checkbox',
-          },
-          {
-            value: 'input',
-            label: 'Input',
-          },
-          {
-            value: 'input-number',
-            label: 'InputNumber',
-          },
-          {
-            value: 'select',
-            label: 'Select',
-          },
-          {
-            value: 'cascader',
-            label: 'Cascader',
-          },
-          {
-            value: 'switch',
-            label: 'Switch',
-          },
-          {
-            value: 'slider',
-            label: 'Slider',
-          },
-          {
-            value: 'time-picker',
-            label: 'TimePicker',
-          },
-          {
-            value: 'date-picker',
-            label: 'DatePicker',
-          },
-          {
-            value: 'datetime-picker',
-            label: 'DateTimePicker',
-          },
-          {
-            value: 'upload',
-            label: 'Upload',
-          },
-          {
-            value: 'rate',
-            label: 'Rate',
-          },
-          {
-            value: 'form',
-            label: 'Form',
-          },
-        ],
-      },
-      {
-        value: 'data',
-        label: 'Data',
-        children: [
-          {
-            value: 'table',
-            label: 'Table',
-          },
-          {
-            value: 'tag',
-            label: 'Tag',
-          },
-          {
-            value: 'progress',
-            label: 'Progress',
-          },
-          {
-            value: 'tree',
-            label: 'Tree',
-          },
-          {
-            value: 'pagination',
-            label: 'Pagination',
-          },
-          {
-            value: 'badge',
-            label: 'Badge',
-          },
-        ],
-      },
-      {
-        value: 'notice',
-        label: 'Notice',
-        children: [
-          {
-            value: 'alert',
-            label: 'Alert',
-          },
-          {
-            value: 'loading',
-            label: 'Loading',
-          },
-          {
-            value: 'message',
-            label: 'Message',
-          },
-          {
-            value: 'message-box',
-            label: 'MessageBox',
-          },
-          {
-            value: 'notification',
-            label: 'Notification',
-          },
-        ],
-      },
-      {
-        value: 'navigation',
-        label: 'Navigation',
-        children: [
-          {
-            value: 'menu',
-            label: 'Menu',
-          },
-          {
-            value: 'tabs',
-            label: 'Tabs',
-          },
-          {
-            value: 'breadcrumb',
-            label: 'Breadcrumb',
-          },
-          {
-            value: 'dropdown',
-            label: 'Dropdown',
-          },
-          {
-            value: 'steps',
-            label: 'Steps',
-          },
-        ],
-      },
-      {
-        value: 'others',
-        label: 'Others',
-        children: [
-          {
-            value: 'dialog',
-            label: 'Dialog',
-          },
-          {
-            value: 'tooltip',
-            label: 'Tooltip',
-          },
-          {
-            value: 'popover',
-            label: 'Popover',
-          },
-          {
-            value: 'card',
-            label: 'Card',
-          },
-          {
-            value: 'carousel',
-            label: 'Carousel',
-          },
-          {
-            value: 'collapse',
-            label: 'Collapse',
-          },
-        ],
-      },
-    ],
-  },
-  {
-    value: 'resource',
-    label: 'Resource',
-    children: [
-      {
-        value: 'axure',
-        label: 'Axure Components',
-      },
-      {
-        value: 'sketch',
-        label: 'Sketch Templates',
-      },
-      {
-        value: 'docs',
-        label: 'Design Documentation',
-      },
-    ],
-  },
-]
+  selectedCounties.value  = Array.from(new Set(value.map(item => item[0])));
+  selectedSubCounties.value= value.map(item => item[1]);
+
+  console.log(selectedCounties.value);  // [1]
+  console.log(selectedSubCounties.value); // [1, 2, 3, 4, 5, 6]
+  if (selectedCounties.value.length==0) {
+    filterLevel.value='national'
+  } else {
+    filterLevel.value = 'county'
+    getCards()
+    getTabs()
+
+  }
+  console.log('filterLevel.value',filterLevel.value)
+
+ 
+}
 
 
 const getIndicatorConfigurations = async (indicator_id) => {
@@ -402,57 +154,53 @@ const getCountyGeo = async () => {
 }
 ///// ----------------Pocess the statistics card---------------------------------------
 ////-----------------------------------------------------------------------------------
-const xgetSummary = async (indicator) => {
-  const sumQuery = {
-    filterFields: ['indicator_category_id'],
-    criteria: [indicator],
-    model: 'indicator_category_report',
-    sumField: 'amount'
-  };
-  try {
-    const response = await getSumFilter(sumQuery);
-    const amount = parseInt(response.data);
-    //console.log('Cumulative Data', response.data)
-
-    return amount;
-  } catch (error) {
-    // Handle any errors that occur during the asynchronous operation
-    console.error(error);
-    //return null; // or any default value you prefer
-    return 0; // or any default value you prefer
-  }
-};
+ 
 
 const getSummary = async (indicator) => {
-  const sumQuery = {
-    filterFields: ['indicator_category_id'],
-    criteria: [indicator],
-    model: 'indicator_category_report',
-    sumField: 'amount'
-  };
 
-  // get the indicator_catoergy ids given the Indicator ID
+ 
+ var ids = await getIndicatorConfigurations(indicator)
 
-  var ids = await getIndicatorConfigurations(indicator)
+console.log('Found Indicator_cateory_ids', ids, indicator)
 
-  console.log('Found Indicator_cateory_ids', ids, indicator)
+  // set admin level filtering
+  let associated_Models = []
+  let filterFields = ['indicator_category_id'] 
+  let filterValues = [ids] 
+   
+  if (filterLevel.value === 'county') {
+      associated_Models.push('subcounty')
+      filterFields.push('county_id')
+      filterValues.push([selectedCounties.value])
+ 
+
+  } else if (filterLevel.value === 'national') {
+    associated_Models.push('county')
+
+ 
+  } 
+
+ 
+
 
   const formData = {}
   formData.model = 'indicator_category_report'
   formData.summaryField = 'amount'
   formData.summaryFunction = 'sum'
-  formData.assoc_models = ['county']
+  //formData.assoc_models = ['county']
+  formData.assoc_models = associated_Models
   formData.groupFields = []
-  formData.filterField = 'indicator_category_id'
-  formData.filterValue = ids  //  
-
+  // formData.filterField =['indicator_category_id']
+  // formData.filterValue = [ids]    
+  formData.filterField =filterFields
+  formData.filterValue =filterValues 
 
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
     console.log("Cards sumamrye", response01.Total[0].sum)
     console.log('ids', ids)
 
-    const response = await getSumFilter(sumQuery);
+   // const response = await getSumFilter(sumQuery);
     const amount = response01.Total[0].sum ? parseInt(response01.Total[0].sum) : 0
     //console.log('Cumulative Data', response.data)
 
@@ -575,31 +323,69 @@ function transformData(data, chartType) {
 
 const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType) => {
 
+  
+  // set admin level filtering
+  let associated_Models = ['indicator_category']
+  let filterFields = ['indicator_category_id'] 
+  let filterValues = [indicator_categories] 
+  let groupFields = ['indicator_category.category_title'] 
+   
+  if (filterLevel.value === 'county') {
+      associated_Models.push('subcounty')
+      filterFields.push('county_id')
+      filterValues.push([selectedCounties.value])
+      groupFields.push('subcounty.name')
+  } else if (filterLevel.value === 'national') {
+      associated_Models.push('county')
+      groupFields.push('county.name')
+
+  } 
+
+
+
   if (chartType == 3) { // pie chart remove county 
-    var groupingFields = ['indicator_category.category_title']
+    //var groupingFields = ['indicator_category.category_title']
+  //  groupFields.push('indicator_category.category_title')
   }
 
 
   else if (chartType == 5) {
-    var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
-
+   // var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
+    groupFields.push('indicator_category_report.createdAt' )
 
   }
 
 
   else if (chartType == 6) {
-    var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
+   // var groupingFields = ['indicator_category_report.createdAt', 'indicator_category.category_title']
+      groupFields.push('indicator_category_report.createdAt')
+
+  }
+ 
+  else if (chartType == 7 && filterLevel.value === 'national' ) {
+   // var groupingFields = ['county.name']
+    groupFields.push('county.name')
+
   }
 
-  else if (chartType == 7) {
-    var groupingFields = ['county.name']
+  else if (chartType == 7 && filterLevel.value == 'county' ) {
+  //  var groupingFields = ['subcounty.name']
+    groupFields.push('subcounty.name')
+
   }
+
 
   else {
 
-    var groupingFields = ['county.name', 'indicator_category.category_title']
+ //   var groupingFields = ['county.name', 'indicator_category.category_title']
+  //  groupFields.push('county.name')
+
 
   }
+
+
+  console.log('groupFields',groupFields)
+  console.log('associated_Models',associated_Models)
 
 
 
@@ -607,11 +393,12 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
   formData.model = 'indicator_category_report'
   formData.summaryField = 'amount'
   formData.summaryFunction = 'sum'
-  formData.assoc_models = ['county', 'indicator_category']
-  formData.groupFields = groupingFields //['county.name','indicator_category.category_title']
-  formData.filterField = 'indicator_category_id'
-  formData.filterValue = indicator_categories  // Bitumen
-
+  formData.assoc_models = associated_Models // ['county', 'indicator_category'] 
+  formData.groupFields = groupFields //['county.name','indicator_category.category_title']
+ // formData.filterField = ['indicator_category_id']
+ // formData.filterValue = [indicator_categories]  // Bitumen
+  formData.filterField = filterFields
+  formData.filterValue = filterValues  // Bitumen
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const amount = response.Total;
@@ -749,6 +536,8 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
 
 
 const getCardData = async () => {
+
+  cards.value=[]
   const formData = {}
   // formData.limit = 10
   // formData.page = 1
@@ -854,6 +643,26 @@ const getCharts = async (section_id) => {
 
             thisChart.chart = UpdatedPieOptionsMultiple
 
+           
+            
+              
+            // show no data 
+            if (cdata[1].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+            }
+          }]
+            }
+
+
+
+
           } catch (error) {
             // Handle any errors that occurred during the process
           }
@@ -872,9 +681,9 @@ const getCharts = async (section_id) => {
       }
 
 
-
-      // function to process Barcharts charts 
-      async function processSimpleBarChart() {
+ 
+           // function to process processMultiBarChart charts 
+           async function processSimpleBarChart() {
         const promises = thisChart.indicators.map(async function (indicator) {
           console.log('This category:', indicator)
 
@@ -883,29 +692,44 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("bar", ids)
-            var cdata = await getSummaryMultipleParents(ids)   // first array is the categories // second is the data
+            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
             console.log(cdata)
 
             const UpdatedBarOptionsMultiple = {
-              ...simpleBarChart,
+              ...multipleBarChart,
               title: {
-                ...simpleBarChart.title,
+                ...multipleBarChart.title,
                 text: thisChart.title
               },
               xAxis: {
-                ...simpleBarChart.xAxis,
+                ...multipleBarChart.xAxis,
                 data: cdata[0]  // categories as recieved 
               },
-              series: {
-                ...simpleBarChart.series[0],
-                data: cdata[1]    // data 
-              },
+
             };
 
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
+            thisChart.chart.series = cdata[1]
 
+            // show no data 
+            if (cdata[1].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+            }
+          }]
+            }
+        
+           
+
+            
           } catch (error) {
             // Handle any errors that occurred during the process
           }
@@ -919,11 +743,9 @@ const getCharts = async (section_id) => {
 
 
 
-        console.log('Modified chart:', thisChart)
         charts.push(thisChart)
         // Continue with the rest of your code here
       }
-
       // function to process processMultiBarChart charts 
       async function processMultiBarChart() {
         const promises = thisChart.indicators.map(async function (indicator) {
@@ -954,6 +776,24 @@ const getCharts = async (section_id) => {
             thisChart.chart = UpdatedBarOptionsMultiple
 
             thisChart.chart.series = cdata[1]
+
+            // show no data 
+            if (cdata[0].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+            }
+          }]
+            }
+        
+           
+
+            
           } catch (error) {
             // Handle any errors that occurred during the process
           }
@@ -1002,6 +842,22 @@ const getCharts = async (section_id) => {
             thisChart.chart = UpdatedBarOptionsMultiple
 
             thisChart.chart.series = cdata[1]
+
+
+            
+            // show no data 
+            if (cdata[0].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+            }
+          }]
+            }
           } catch (error) {
             // Handle any errors that occurred during the process
           }
@@ -1050,6 +906,20 @@ const getCharts = async (section_id) => {
 
 
             thisChart.chart = UpdatedBarOptionsMultiple
+            
+            // show no data 
+            if (cdata[1].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+            }
+          }]
+            }
 
           } catch (error) {
             // Handle any errors that occurred during the process
@@ -1107,6 +977,20 @@ const getCharts = async (section_id) => {
             console.log("New chart",UpdatedBarOptionsMultiple)
 
             thisChart.chart = UpdatedBarOptionsMultiple
+            
+            // show no data 
+            if (cdata[1].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+            }
+          }]
+            }
 
           } catch (error) {
             // Handle any errors that occurred during the process
@@ -1176,7 +1060,20 @@ const getCharts = async (section_id) => {
             // sort the data such that the graphs start and end proper
   
             thisChart.chart = UpdatedMapOtions
-
+            
+            // show no data 
+            if (cdata[1].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+            }
+          }]
+            }
 
           } catch (error) {
             // Handle any errors that occurred during the process
@@ -1242,6 +1139,8 @@ const getCharts = async (section_id) => {
 
 
 }
+
+
 const getSectionsData = async () => {
   const formData = {}
   formData.curUser = 1 // Id for logged in user
@@ -1301,8 +1200,8 @@ const getCountySubcounty = async () => {
    //   pageIndex: 1,
     //  limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      assocModel:'county',
+      model: 'county',
+      assocModel:'subcounty',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
@@ -1312,15 +1211,30 @@ const getCountySubcounty = async () => {
     //tableDataList.value = response.data
     const ret = response.data
 
-    console.log('select county/subcounty',  response.data)
 
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      const parentOpt = {}
-      parentOpt.value = arrayItem.id
-      parentOpt.county_id = arrayItem.county_id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-     // settlementOptionsV2.value.push(parentOpt)
-    })
+          const coptions = [];
+          ret.forEach((data) => {
+          const option = {
+            value: data.id,
+            label: data.name,
+            children: data.subcounties.map((subcounty) => ({
+              value: subcounty.id,
+              label: subcounty.name
+            }))
+          };
+          coptions.push(option);
+        });
+
+                  // Sort the options array by value
+          coptions.sort((a, b) => a.value - b.value);
+
+        // Sort the children array within each option
+        coptions.forEach((option) => {
+          option.children.sort((a, b) => a.value - b.value);
+        });
+    console.log('select county/subcounty', coptions)
+
+    options.value=coptions 
   })
 }
 
@@ -1348,12 +1262,17 @@ onMounted(() => {
 
 <template>
     <el-cascader
-      v-model="value"
-      placeholder="Select County/Constituency"
+    :style="{ width: '100% '}"
+
+      v-model="selectedAdminId"
+      placeholder="Filter by County/Constituency"
       :options="options"
       :props="props"
       @change="handleChange"
-    />
+
+     />
+     <!-- @expand-change="handleChange" -->
+
   <el-row :gutter="20">
     <el-col v-for="(card, index) in cards" :key="index" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
       <div class="tabs-container">

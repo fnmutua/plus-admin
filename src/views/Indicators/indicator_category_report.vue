@@ -308,6 +308,7 @@ const getIndicatorNames = async () => {
     opt.title = arrayItem.category.title
     opt.project_id = arrayItem.project.id
     opt.county_id = arrayItem.project.county_id
+    opt.subcounty_id = arrayItem.project.subcounty_id
     opt.settlement_id = arrayItem.project.settlement_id
 
     indicatorsOptions.value.push(opt)
@@ -362,6 +363,8 @@ const editReport = (data: TableSlotDefault) => {
   console.log(data)
   ruleForm.id = data.id
   ruleForm.county_id = data.county_id
+  ruleForm.subcounty_id = data.subcounty_id
+
   ruleForm.settlement_id = data.settlement_id
   ruleForm.project_id = data.project_id
   ruleForm.date = data.date
@@ -501,6 +504,7 @@ const changeIndicator = async (indicator: any) => {
   ruleForm.project_id = filtredOptions[0].project_id
   ruleForm.settlement_id = filtredOptions[0].settlement_id
   ruleForm.county_id = filtredOptions[0].county_id
+  ruleForm.subcounty_id = filtredOptions[0].subcounty_id
 
 
   console.log("Filtered Indicators", filtredOptions[0])
@@ -519,6 +523,7 @@ const ruleForm = reactive({
   indicator_category_id: '',
   project_id: '',
   settlement_id: '',
+  subcounty_id: '',
   county_id: '',
   period: getQuarter,
   date: new Date(),

@@ -531,15 +531,32 @@ db.models.project.hasMany(db.models.indicator_category_report, {
   foreignKey: 'project_id'
 })
 
-// county  - indicator_category_report
+// subcounty  - indicator_category_report
+db.models.indicator_category_report.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.indicator_category_report, {
+  foreignKey: 'subcounty_id'
+})
+
+
+
+
+// settlement  - indicator_category_report
 db.models.indicator_category_report.belongsTo(db.models.county, {
   foreignKey: 'county_id'
 })
 
-// county  - indicator_category_report
+// settlement  - indicator_category_report
 db.models.indicator_category_report.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
 })
+
+
+
+
+
 
 
 
