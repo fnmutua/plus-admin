@@ -751,7 +751,7 @@ exports.modelOneGeo = async (req, res) => {
   } 
 }
 
-exports.modelSelectGeo = async (req, res) => {
+exports.xxmodelSelectGeo = async (req, res) => {
 
   console.log('Geoid arrays ----------------------------------->',  req.body)
 
@@ -802,6 +802,71 @@ exports.modelSelectGeo = async (req, res) => {
     code: '0000'
   })
 }
+
+exports.modelSelectGeo = async (req, res) => {
+  console.log('Geoid arrays ----------------------------------->', req.body);
+
+  const reg_model = req.body.model;
+  const columnFilterField = req.body.columnFilterField;
+  let arr;
+
+  if (req.body.selectedParents.length > 0) {
+    arr = req.body.selectedParents;
+  } else if (req.body.filtredGeoIds.length > 0) {
+    arr = [req.body.filtredGeoIds];
+  } else {
+    arr = [req.body.id];
+  }
+
+  let qry2;
+
+  if (!arr[0] || arr[0].length === 0) {
+    qry2 = `SELECT row_to_json(fc) AS json_build_object
+            FROM (
+              SELECT 'FeatureCollection' AS type,
+                     array_to_json(array_agg(f)) AS features
+              FROM (
+                SELECT 'Feature' AS type,
+                       ST_AsGeoJSON(geom)::json AS geometry,
+                       (
+                         SELECT json_strip_nulls(row_to_json(${reg_model}))
+                         FROM (SELECT id) t
+                       ) AS properties
+                FROM ${reg_model}
+                WHERE geom IS NOT NULL
+              ) AS f
+            ) AS fc`;
+  } else {
+    const filterValues = Array.isArray(columnFilterField) ? columnFilterField : [columnFilterField];
+    const filterClause = filterValues.map((value) => `(${value} IN (${arr}))`).join(' OR ');
+    qry2 = `SELECT row_to_json(fc) AS json_build_object
+            FROM (
+              SELECT 'FeatureCollection' AS type,
+                     array_to_json(array_agg(f)) AS features
+              FROM (
+                SELECT 'Feature' AS type,
+                       ST_AsGeoJSON(geom)::json AS geometry,
+                       (
+                         SELECT json_strip_nulls(row_to_json(${reg_model}))
+                         FROM (SELECT id) t
+                       ) AS properties
+                FROM ${reg_model}
+                WHERE geom IS NOT NULL
+                  AND (${filterClause})
+              ) AS f
+            ) AS fc`;
+  }
+
+  const result_geo = await sequelize.query(qry2, {
+    model: db.models[reg_model],
+    mapToModel: false // pass true here if you have any mapped fields
+  });
+
+  res.status(200).send({
+    data: result_geo,
+    code: '0000'
+  });
+};
 
 exports.modelOneRecord = (req, res) => {
   var reg_model = req.body.model
