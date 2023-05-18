@@ -22,6 +22,7 @@ function toTitleCase(str) {
  
 
 const programmeComponentOptions = ref([])
+const dynamicDashbaordOptions = ref([])
 
 const getProgrameComponents = async () => {
   const formData = {}
@@ -81,8 +82,60 @@ console.log("programmeComponentOptions", programmeComponentOptions.value)
 
 
 }
- getProgrameComponents()
+getProgrameComponents()
 
+ const getDynamicDashboards = async () => {
+  const formData = {}
+  formData.limit = 100
+  formData.page = 1
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'dashboard'
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+ 
+  // - multiple filters -------------------------------------
+  formData.associated_multiple_models = []
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getRoutesList(formData)
+  console.log("dynamo",res)
+
+   
+  res.data.forEach(function (arrayItem) {
+    const prog = {}
+    if (arrayItem.type==='intervention') {
+      prog.component = () => import('@/views/Dashboard/Dynamic.vue') // This is a template to hold info on interventions
+      prog.path = 'intervention_' + arrayItem.title.toLowerCase()
+
+    }
+    else {
+      prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
+      prog.path = 'status_' + arrayItem.title.toLowerCase()
+
+    }
+    
+  //  prog.component =  Layout
+    prog.name = 'Dynamic'+toTitleCase(arrayItem.title)  
+
+    const meta = {}
+    meta.title = arrayItem.title 
+    meta.hidden = false
+    meta.icon = arrayItem.icon
+    meta.dashboard_id = arrayItem.id
+    prog.meta = meta
+ 
+      dynamicDashbaordOptions.value.push(prog)
+
+    console.log("dynamo", dynamicDashbaordOptions.value)
+  })
+
+
+}
+ getDynamicDashboards()
 
 
 
@@ -131,19 +184,12 @@ export const usePermissionStore = defineStore('permission', {
           // 模拟后端过滤菜单
          // routerMap = generateRoutesFn2(routers as AppCustomRouteRecordRaw[])
           
-
-          
        routerMap = cloneDeep(adminRoutes)
 
     
         //   routerMap= cloneDeep(adminRoutes).concat(routerMap)
 
        
-
-
-
-
-
           console.log('routerMap--',routerMap)
         } else if (type === 'county_admin') {
           console.log("generating routes.....county_admin")
@@ -169,6 +215,7 @@ export const usePermissionStore = defineStore('permission', {
           //routerMap = cloneDeep(asyncRouterMap)
           console.log('Public Routes......')
           routerMap = cloneDeep(publicRoutes)
+
         }
         // 动态路由，404一定要放到最后面
         // this.addRouters = routerMap.concat([
@@ -183,6 +230,7 @@ export const usePermissionStore = defineStore('permission', {
           // },
         
         // ])
+
  
         this.addRouters = routerMap          
   
@@ -202,9 +250,19 @@ export const usePermissionStore = defineStore('permission', {
 
         } ]
  
-          this.addRouters.splice(2, 0, ...subprograms );  // Push the routes to position no.4 after settlements 
+          this.addRouters.splice(2, 0, ...subprograms );  // Push the routes to position no.4 after settlements
+
+        // Add the dynamic Dashboards......
+     this.addRouters[0].children.push(...dynamicDashbaordOptions.value);
+
+    // this.addRouters.splice(0, 0, ...dashbaodAdd );  // Push the routes to position no.4 after settlements
+
+     console.log('routerMap',routerMap)
 
 
+
+        
+        
         // merge the programmes to the outer root. Will be reconsidered wheer to
         this.routers = cloneDeep(constantRouterMap).concat(this.addRouters)
  

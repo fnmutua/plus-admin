@@ -330,6 +330,24 @@ db.models.settlement.hasMany(db.models.road, {
 })
 
 
+db.models.road.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+db.models.county.hasMany(db.models.road, {
+  foreignKey: 'county_id'
+})
+
+
+db.models.road.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.subcounty.hasMany(db.models.road, {
+  foreignKey: 'subcounty_id'
+})
+
+
 
 
 /// water points
@@ -437,17 +455,7 @@ db.models.road_asset.hasMany(db.models.document, {
   foreignKey: 'road_asset_id'
 })
 
-
-
-
-
-
-
-
-
-
-
-
+ 
 
 
 /// Road Assets  

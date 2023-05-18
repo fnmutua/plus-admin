@@ -25,7 +25,26 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
    
-  
+    aggregation: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+
+    card_model: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    card_model_field: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    categorized: {
+      type: DataTypes.BOOLEAN,
+       defaultValue: false
+
+    },
     code: {
       type: DataTypes.STRING,
       allowNull: false

@@ -358,7 +358,7 @@ const AddRole = (data: TableSlotDefault) => {
 
   ElMessage.warning("Coming soon...")
   // push({
-  //   path: '/settlement/add',
+  //   path: '/data/settlement/add',
   //   name: 'AddRole'
   // })
 }

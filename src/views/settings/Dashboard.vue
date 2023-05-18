@@ -90,6 +90,17 @@ const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
 
 
+const typeOptions = [
+  {
+    value: 'intervention',
+    label: 'Intervention'
+  },
+  {
+    value: 'status',
+    label: 'Status'
+  },
+ 
+]
 
 const columns: TableColumn[] = [
   {
@@ -293,6 +304,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.title = data.row.title
   ruleForm.icon = data.row.icon
   ruleForm.description = data.row.description
+  ruleForm.type = data.row.type
  
 
   formHeader.value = 'Edit Dashboard'
@@ -345,6 +357,7 @@ const handleClose = () => {
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
+  type:'',
   icon: null,
   description:null
  
@@ -458,7 +471,14 @@ layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:
         <el-input v-model="ruleForm.title" />
       </el-form-item>
 
-     
+      <el-form-item label="Type">
+        <el-select
+v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags
+          placeholder="Select Type of dashboard">
+          <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="Icon">
         <el-input v-model="ruleForm.icon" />
       </el-form-item>

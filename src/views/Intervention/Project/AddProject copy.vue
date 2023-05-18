@@ -942,7 +942,7 @@ const geoSource = ref(false)
 const AddSettlement = () => {
   console.log('Adding settlement')
   push({
-    path: '/settlement/add',
+    path: '/data/settlement/add',
     name: 'AddSettlement'
   })
 }

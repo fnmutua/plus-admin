@@ -56,12 +56,23 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
  
-
     settlement_id: {
       type: DataTypes.INTEGER,
       allowNull: false
     },
+   
+    
+    county_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
 
+
+    subcounty_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+ 
     createdBy: {
       type: DataTypes.INTEGER,
       allowNull: true
@@ -71,6 +82,12 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       defaultValue: 'Pending'
     },
+
+    length: {
+      type: DataTypes.DOUBLE,
+      allowNull: false,
+     },
+
     code: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -81,6 +98,8 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.GEOMETRY('Geometry', 4326),
       allowNull: true
     },
+
+
   }, {
     sequelize,
     tableName: 'road',

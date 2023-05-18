@@ -1,3 +1,4 @@
+const { truncateSync } = require('fs');
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('dashboard_card', {
@@ -27,6 +28,15 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
 
+    card_model: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    card_model_field: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     code: {
       type: DataTypes.STRING,
       allowNull: false
