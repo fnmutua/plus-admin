@@ -21,7 +21,7 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,ElCheckbox, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -29,6 +29,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
+import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 
 const { wsCache } = useCache()
@@ -48,6 +49,7 @@ const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
+var value4 = ref([])
 
 const componentOptions = ref([])
 const categories = ref([])
@@ -72,6 +74,55 @@ console.log("Show Buttons -->", showAdminButtons)
 
 
 
+const showStatusExtras =ref(false)
+const ModelOptions = [
+  {
+    value: 'settlement',
+    label: 'Settlement'
+  },
+  {
+    value: 'households',
+    label: 'Household'
+  },
+  {
+    value: 'education_facility',
+    label: 'Schools'
+  },
+  {
+    value: 'health_facility',
+    label: 'Hospitals'
+  },
+  {
+    value: 'road',
+    label: 'Roads'
+  },
+
+  
+]
+
+
+const aggregationOptionsFiltered = ref([])
+
+const aggregationOptions = [
+  {
+    value: 'sum',
+    label: 'Sum'
+  },
+  {
+    value: 'count',
+    label: 'Count'
+  },
+  {
+    value: 'AVG',
+    label: 'Average'
+  }
+]
+
+aggregationOptionsFiltered.value=aggregationOptions
+
+
+
+
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
@@ -79,7 +130,9 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['dashboard_section','indicator']
+const associated_multiple_models = ['dashboard_section', 'indicator']
+const nested = ['dashboard_section','dashboard' ]
+
 const model = 'dashboard_section_chart'
 //// ------------------parameters -----------------------////
 
@@ -195,6 +248,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
+  formData.nested_models = nested
 
   //-------------------------
   //console.log(formData)
@@ -263,7 +317,41 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
+
+const DashBoardOptions = ref([])
+const selectDashboard = ref()
+
+const getDashboardOptions = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'dashboard',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      DashBoardOptions.value.push(opt)
+    })
+  })
+}
+
 const DashBoardSectionOptions = ref([])
+const DashBoardSectionFilterdOptions = ref([])
+
 const getDashSectionOptions = async () => {
   const res = await getCountyListApi({
     params: {
@@ -283,11 +371,15 @@ const getDashSectionOptions = async () => {
     loading.value = false
 
     ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      opt.dashboard_id = arrayItem.dashboard_id
+
       //  console.log(countyOpt)
-      DashBoardSectionOptions.value.push(countyOpt)
+      DashBoardSectionOptions.value.push(opt)
+      DashBoardSectionFilterdOptions.value.push(opt)
+      
     })
   })
 }
@@ -325,7 +417,7 @@ const getStrategicFocusAreas = async () => {
 const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
   showEditSaveButton.value = true
-  console.log('Editing', data)
+  console.log('Editing', data.row.dashboard_section)
   ruleForm.id = data.row.id
   ruleForm.title = data.row.title
   ruleForm.dashboard_section_id = data.row.dashboard_section_id
@@ -341,6 +433,18 @@ const editIndicator = (data: TableSlotDefault) => {
   })
 
   ruleForm.indicator_id = indicators
+
+  ruleForm.card_model = data.row.card_model
+  ruleForm.card_model_field = data.row.card_model_field
+  ruleForm.categorized = data.row.categorized
+
+   if (data.row.dashboard_section.dashboard_id==2) {
+    showStatusExtras.value=true
+   } else {
+    showStatusExtras.value=false
+
+  }
+
 
 
 
@@ -383,7 +487,10 @@ const ruleForm = reactive({
   icon: '',
   aggregation: '',
   type: null,
-  indicator_id:''
+  indicator_id: '',
+  card_model_field: '',
+  card_model:'',
+  categorized: false,
 
 
 
@@ -493,7 +600,9 @@ const getIndicatorCategories = async ( ) => {
 
 getIndicatorOptions()
 getInterventionsAll()
+getDashboardOptions()
 getDashSectionOptions()
+
 getStrategicFocusAreas()
 getIndicatorCategories()
 
@@ -521,24 +630,102 @@ const chartOptions = [
     value: 5,
     label: 'Line Chart'
   },
-  {
+  /* {
     value: 6,
     label: 'Stacked Line Chart'
   },
-
+ */
   {
     value: 7,
     label: 'Map Chart'
   },
 ]
 
+const handleFilterSections = async (dashboard_id) => {
+  console.log('filtreing teh aggregators.....', dashboard_id)
+
+  if (dashboard_id == 2) {
+    showStatusExtras.value=true
+  } else {
+    showStatusExtras.value=false
+
+  }
+    
+     DashBoardSectionFilterdOptions.value = DashBoardSectionOptions.value.filter(option => option.dashboard_id  == dashboard_id);
+   
+ }
 
 
+ const fieldSet = ref([])
+const getModeldefinition = async (selModel) => {
+console.log(selModel)
+var formData = {}
+formData.model = selModel
+
+
+await getModelSpecs(formData).then((response) => {
+
+  var data = response.data
+
+  var fieldsToFilter = ['title', 'name', 'geom', 'code','createdBy','updatedAt',"description",'createdAt']; // Specify the fields you want to filter out
+
+var fields = data.filter(function (obj) {
+  return !fieldsToFilter.includes(obj.field);
+});
+
+  console.log("fields:", fields)
+  //health_facility_fields.value = response.data
+  //fieldSet.value = fields2
+
+
+  fields.forEach(function (arrayItem) {
+   // console.log(arrayItem)
+    var opt = {}
+    opt.value = arrayItem.field
+    opt.label = arrayItem.field 
+    opt.type = arrayItem.type  
+    //  console.log(countyOpt)
+    fieldSet.value.push(opt)
+  })
+
+
+})
+
+console.log("getting fields fields",fieldSet.value)
+
+
+}
+
+ const handleSelectModel = async (selModel) => {
+  console.log('specs.....')
+  getModeldefinition(selModel)
+}
+
+ 
+const handleFilterAggregators = async (selModel) => {
+   console.log('filtreing teh aggregators.....',selModel )
+  
+   
+   let selectedField = fieldSet.value.filter(option => option.value  == selModel);
+   console.log('selectedField', selectedField[0].type)
+  let selFieldType = selectedField[0].type
+
+   if (selFieldType==="STRING") {
+    aggregationOptionsFiltered.value = aggregationOptions.filter(option => option.value === 'count');
+
+   } else {
+    aggregationOptionsFiltered.value =aggregationOptions
+  }
+
+
+ }
 </script>
 
 <template>
   <ContentWrap :title="t('Dashboard Section Charts')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+
+    
 
     <div style="display: inline-block; margin-left: 20px">
       <el-select
@@ -547,6 +734,9 @@ v-model="value3" :onChange="handleSelectDashboardSection" :onClear="handleClear"
         <el-option v-for="item in DashBoardSectionOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
+
+
+
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleDownload" type="primary" :icon="Download" />
     </div>
@@ -590,9 +780,17 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="40%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="150px">
 
+
+      <el-form-item label="Dashboard" prop="dashboard">
+        <el-select v-model="value4" filterable placeholder="Select" :onChange="handleFilterSections">
+          <el-option v-for="item in DashBoardOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>  
+
+
       <el-form-item label="Dashboard Section" prop="dashboard_section_id">
         <el-select v-model="ruleForm.dashboard_section_id" filterable placeholder="Select">
-          <el-option v-for="item in DashBoardSectionOptions" :key="item.value" :label="item.label" :value="item.value" />
+          <el-option v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
 
@@ -605,7 +803,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         <el-input v-model="ruleForm.description" />
       </el-form-item>
 
-      <el-form-item label="Type">
+      
+      
+      <el-form-item label="Chart Type">
         <el-select
 v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags
           placeholder="Select Type of Chart">
@@ -613,14 +813,49 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
         </el-select>
       </el-form-item>
 
-      <el-form-item label="Indicators">
+
+       <el-form-item label="Entity" v-if="showStatusExtras">
+        <el-select
+v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags  :onChange="handleSelectModel"
+          placeholder="Select Entity to summarize">
+          <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+
+ 
+
+       
+       <el-form-item label="Field" v-if="showStatusExtras">
+        <el-select
+v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags :onChange="handleFilterAggregators"
+          placeholder="Field to summarize">
+          <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item  v-if="showStatusExtras">
+        <el-checkbox v-model="ruleForm.categorized"  >Categorized  by selected field</el-checkbox>
+
+      </el-form-item>
+
+
+
+      <el-form-item label="Indicators" v-if="!showStatusExtras">
             <el-select v-model="ruleForm.indicator_id" filterable multiple placeholder="Select" style="width: 100%;">
               <el-option v-for="item in IndicatorCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
 
-
+          <el-form-item label="Aggregation">
+            <el-select
+size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"  
+            clearable filterable collapse-tags placeholder="Select">
+            <el-option v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+       </el-form-item>
+    
 
     </el-form>
     <template #footer>

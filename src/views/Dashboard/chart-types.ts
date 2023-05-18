@@ -126,7 +126,7 @@ export const lineOptions: EChartsOption = {
     {
       data: [150, 230, 224, 218, 135, 147, 260],
       type: 'line',
-     // name:'title'
+      name:''
     }
   ]
 };

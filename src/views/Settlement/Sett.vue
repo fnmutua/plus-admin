@@ -1127,7 +1127,7 @@ const handleClose = () => {
 const activeName = ref('list')
 const AddSettlement = () => {
   push({
-    path: '/settlement/add',
+    path: '/data/settlement/add',
     name: 'AddSettlement'
   })
 }

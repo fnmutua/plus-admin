@@ -30,6 +30,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 
+import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -40,7 +41,18 @@ console.log("userInfo--->", userInfo)
 
 
 
-
+const showStatusExtras =ref(false)
+const ModelOptions = [
+  {
+    value: 'settlement',
+    label: 'Settlement'
+  },
+  {
+    value: 'households',
+    label: 'Household'
+  },
+ 
+]
 
 
 
@@ -69,6 +81,53 @@ if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) 
 
 
 console.log("Show Buttons -->", showAdminButtons)
+
+
+
+const fieldSet = ref([])
+const getModeldefinition = async (selModel) => {
+console.log(selModel)
+var formData = {}
+formData.model = selModel
+
+
+await getModelSpecs(formData).then((response) => {
+
+  var data = response.data
+
+  var fieldsToFilter = ['title', 'name', 'geom', 'code','createdBy','updatedAt',"description",'createdAt']; // Specify the fields you want to filter out
+
+var fields = data.filter(function (obj) {
+  return !fieldsToFilter.includes(obj.field);
+});
+
+  console.log("fields:", fields)
+  //health_facility_fields.value = response.data
+  //fieldSet.value = fields2
+
+
+  fields.forEach(function (arrayItem) {
+   // console.log(arrayItem)
+    var opt = {}
+    opt.value = arrayItem.field
+    opt.label = arrayItem.field 
+    opt.type = arrayItem.type  
+    //  console.log(countyOpt)
+    fieldSet.value.push(opt)
+  })
+
+
+})
+
+console.log("getting fields fields",fieldSet.value)
+
+
+}
+
+
+
+
+
 
 
 
@@ -359,7 +418,17 @@ const getStrategicFocusAreas = async () => {
   ruleForm.icon = data.row.icon
   ruleForm.aggregation = data.row.aggregation
   ruleForm.indicator_id = data.row.indicator_id
+  ruleForm.card_model = data.row.card_model
+  ruleForm.card_model_field = data.row.card_model_field
 
+   if (data.row.dashboard_id==2) {
+    showStatusExtras.value=true
+   } else {
+    showStatusExtras.value=false
+
+  }
+  
+  
 
   formHeader.value = 'Edit Card'
 
@@ -399,7 +468,9 @@ const ruleForm = reactive({
   iconColor: '',
   icon: '',
   aggregation: '',
-  indicator_id:null
+  indicator_id: null,
+  card_model_field: '',
+  card_model:''
   
 
 
@@ -416,21 +487,26 @@ const handleClose = () => {
 
 }
 
+
+const aggregationOptionsFiltered = ref([])
+
 const aggregationOptions = [
   {
-    value: 'Sum',
+    value: 'sum',
     label: 'Sum'
   },
   {
-    value: 'Count',
+    value: 'count',
     label: 'Count'
   },
   {
-    value: 'Average',
+    value: 'AVG',
     label: 'Average'
   }
 ]
 
+aggregationOptionsFiltered.value=aggregationOptions
+ 
 
 const rules = reactive<FormRules>({
   title: [
@@ -521,6 +597,38 @@ getProgrammeOptions()
 getStrategicFocusAreas()
 getIndicatorNames()
 
+const handleSelectType = async (dashboard_id) => {
+  if (dashboard_id===2) {  // status dashabords 
+showStatusExtras.value=true
+  } else {
+    showStatusExtras.value=false
+
+  }
+}
+ 
+const handleSelectModel = async (selModel) => {
+  console.log('specs.....')
+  getModeldefinition(selModel)
+}
+ 
+ const handleFilterAggregators = async (selModel) => {
+   console.log('filtreing teh aggregators.....',selModel )
+  
+   
+   let selectedField = fieldSet.value.filter(option => option.value  == selModel);
+   console.log('selectedField', selectedField[0].type)
+  let selFieldType = selectedField[0].type
+
+   if (selFieldType==="STRING") {
+    aggregationOptionsFiltered.value = aggregationOptions.filter(option => option.value === 'count');
+
+   } else {
+    aggregationOptionsFiltered.value =aggregationOptions
+  }
+
+
+ }
+
 
 
 </script>
@@ -576,11 +684,11 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
+  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="40%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
       <el-form-item label="Dashboard" prop="dashboard">
-        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select">
+        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select"   :onChange="handleSelectType">
           <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
@@ -604,17 +712,25 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
            <el-input v-model="ruleForm.description" />
        </el-form-item>
  
+       <el-form-item label="Type" v-if="showStatusExtras">
+        <el-select
+v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags  :onChange="handleSelectModel"
+          placeholder="Select Entity to summarize">
+          <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
 
-       <el-form-item label="Aggregation">
-            <el-select
-size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"  
-            clearable filterable collapse-tags placeholder="Select">
-            <el-option v-for="item in aggregationOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-       </el-form-item>
+       
+       <el-form-item label="Field" v-if="showStatusExtras">
+        <el-select
+v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags :onChange="handleFilterAggregators"
+          placeholder="Field to summarize">
+          <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
 
 
-       <el-form-item label="Indicator">
+       <el-form-item label="Indicator" v-if="!showStatusExtras">
         <el-select
 v-model="ruleForm.indicator_id" :onClear="handleClear"   clearable
         filterable collapse-tags placeholder="Filter by Project/Indicator">
@@ -622,7 +738,13 @@ v-model="ruleForm.indicator_id" :onClear="handleClear"   clearable
       </el-select>
        </el-form-item>
 
-
+       <el-form-item label="Aggregation">
+            <el-select
+size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"  
+            clearable filterable collapse-tags placeholder="Select">
+            <el-option v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+       </el-form-item>
     
 
 

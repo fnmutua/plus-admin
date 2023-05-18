@@ -551,6 +551,13 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
 
   }
 
+  
+  
+
+
+
+
+
   var includeModels = []
   if ( typeof req.body.nested_models !== 'undefined' && Array.isArray(req.body.nested_models) && req.body.nested_models.length > 0 ) {
      var child_model = db.models[req.body.nested_models[0]]
@@ -584,13 +591,7 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   qry.include=includeModels
  
   
-  // if (req.body.filterField) {
-  //   let filterCol = req.body.filterField
-  //   let filterValue = req.body.filterValue
-  //  // qry.where = { [filterCol]: { [op.in]:  req.body.filterValue } }  
-  //   qry.where = { [filterCol]: { [op.in]:  req.body.filterValue } }  
-
-  // }
+  
   
   
   if (req.body.filterField && req.body.filterValue) {
@@ -623,24 +624,8 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   
 
 
-
-
-
-  // db.models[reg_model]
-  // .findAll(qry)
-  // .then((result) => {
-  //   if (result) {
-  //     console.log(result)
-  //     // res.status(200).send(result);
-  //     res.status(200).send({
-  //       Total: result,
-  //       code: '0000'
-  //     })
-  //   }
-  // })
-
-  console.log("summary Qyerry - the ", qry)
-
+ 
+ 
      
   
   if (req.body.cache_key && req.body.cache_key != '') {
