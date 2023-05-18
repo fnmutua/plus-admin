@@ -124,6 +124,7 @@ const ruleForm = reactive({
   indicator_category_id: '',
   location: [],
   county_id: '',
+  subcounty_id:'',
   settlement_id: null,
   period: getQuarter,
   date: new Date(),
@@ -470,6 +471,7 @@ const makeSettlementOptions = (list) => {
     settOpt.value = arrayItem.id
     settOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
     settOpt.county_id = arrayItem.county_id
+    settOpt.subcounty_id = arrayItem.subcounty_id
     //  console.log(countyOpt)
     settlementOptions.value.push(settOpt)
   })
@@ -519,6 +521,7 @@ const editIndicator = (data: TableSlotDefault) => {
 
   ruleForm.id = data.row.id
   ruleForm.county_id = data.row.county_id
+  ruleForm.subcounty_id = data.row.subcounty_id
   ruleForm.settlement_id = data.row.settlement_id
   ruleForm.date = data.row.date
   ruleForm.amount = data.row.amount
@@ -577,6 +580,7 @@ const handleClose = () => {
   showEditSaveButton.value = false
   ruleForm.settlement_id = null
   ruleForm.county_id = null
+  ruleForm.subcounty_id = null
   ruleForm.indicator_category_id = null
   ruleForm.date = null
   ruleForm.amount = null

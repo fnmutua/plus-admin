@@ -372,7 +372,7 @@ exports.modelAllDataNoGeo = (req, res) => {
 
   var includeQuery = {};
   if (ass_model) {
-    includeQuery.include = [{ model: ass_model }];
+    includeQuery.include = [{ model: ass_model, attributes: { exclude: ['geom'] } }];
   } else {
     console.log('No Associated Model');
   }

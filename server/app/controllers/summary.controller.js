@@ -521,17 +521,10 @@ exports.sumGroupByMultipleColumns = async (req, res) => {
 
 
 exports.sumModelAssociatedMultipleModels = async (req, res) => {
-  
    
-
- 
   var reg_model = req.body.model
   var summaryField = req.body.summaryField
   var summaryFunction = req.body.summaryFunction
-
-
-
-
 
   let groupfields = []
   
@@ -540,9 +533,6 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
       let field = req.body.groupFields[i]
       groupfields.push(field)
     }
-
-
-
     
     console.log("groupfields, ",groupfields)
     console.log("summaryFunction, ",summaryFunction)
@@ -575,10 +565,6 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
     var nestedModels =[]
  }
 
-
-
-
-
   console.log("Checking included models",req.body.assoc_models.length)
   if (req.body.assoc_models.length > 0) {
     // loop through the include models
@@ -598,13 +584,44 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   qry.include=includeModels
  
   
-  if (req.body.filterField) {
-    let filterCol = req.body.filterField
-    let filterValue = req.body.filterValue
-   // qry.where = { [filterCol]: { [op.in]:  req.body.filterValue } }  
-    qry.where = { [filterCol]: { [op.in]:  req.body.filterValue } }  
+  // if (req.body.filterField) {
+  //   let filterCol = req.body.filterField
+  //   let filterValue = req.body.filterValue
+  //  // qry.where = { [filterCol]: { [op.in]:  req.body.filterValue } }  
+  //   qry.where = { [filterCol]: { [op.in]:  req.body.filterValue } }  
 
+  // }
+  
+  
+  if (req.body.filterField && req.body.filterValue) {
+    let filterCols = req.body.filterField;
+    let filterValues = req.body.filterValue;
+  
+    if (!Array.isArray(filterCols)) {
+      filterCols = [filterCols];
+      filterValues = [filterValues];
+    }
+  
+    const filterConditions = [];
+  
+    for (let i = 0; i < filterCols.length; i++) {
+      const filterCol = filterCols[i];
+      const filterVal = filterValues[i];
+  
+      if (Array.isArray(filterVal)) {
+        const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
+        filterConditions.push({ [op.or]: nestedConditions });
+      } else {
+        filterConditions.push({ [filterCol]: filterVal });
+      }
+    }
+  
+    if (filterConditions.length > 0) {
+      qry.where = { [op.and]: filterConditions };
+    }
   }
+  
+
 
 
 
