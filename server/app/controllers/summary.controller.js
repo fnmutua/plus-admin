@@ -427,97 +427,101 @@ exports.xsumGroupByMultipleColumns = async (req, res) => {
 }
 
 
-
 exports.sumGroupByMultipleColumns = async (req, res) => {
-  var reg_model = req.body.model
-  var groupField = req.body.groupField
-  var assoc_model = db.models[req.body.assoc_model[0]]
+  console.log('-------------------------------------------------------------------------------');
+  console.log('----------------------Sum Multiple---------------------------------------------');
 
-  console.log('-------------------------------------------------------------------------------')
-  console.log('----------------------Sum Multiple---------------------------------------------')
- 
   let result;
   let isCached = false;
- 
- 
-  if (req.body.cache_key && req.body.cache_key != '') {
-    var cache_key = req.body.model + req.body.cache_key 
+  var filters = req.body.filters || [];
+  var values = req.body.filterValues || [];
+
+  if (req.body.cache_key && req.body.cache_key !== '') {
+    var cache_key = req.body.model + req.body.cache_key;
 
     try {
       const cacheResults = await redisClient.get(cache_key);
-      console.log('cahed>>>>>>>>>>>>>>>>>>>>>>>>', cacheResults)
+      console.log('cached >>>>>>>>>>>>>>>>>>>>>>>>', cacheResults);
       if (cacheResults) {
         isCached = true;
         result = JSON.parse(cacheResults);
-        console.log('using cached daata{{{{{{{{{{{{{{{{{')
+        console.log('using cached data {{{{{{{{{{{{{{{{{');
         res.status(200).send({
           fromCache: isCached,
           Total: result,
           code: '0000'
         });
       } else {
-     
         var query = `SELECT `;
         req.body.summaryFields.forEach((field, index) => {
           query += `SUM(${field}) as su_${field}`;
           if (index < req.body.summaryFields.length - 1) query += ', ';
         });
-        query += ` FROM households`;
+
+        if (filters.length > 0 && values.length > 0) {
+          query += ` FROM households WHERE `;
+
+          filters.forEach((filter, index) => {
+            query += `${filter} IN (${values[index].join(', ')})`;
+            if (index < filters.length - 1) query += ' AND ';
+          });
+        } else {
+          query += ` FROM households `;
+        }
+
         sequelize.query(query, { type: sequelize.QueryTypes.SELECT })
           .then(async results => {
             await redisClient.set(cache_key, JSON.stringify(results), {
-              EX: 3600,  // 1hour 
+              EX: 3600,  // 1 hour
               NX: true,
             });
-            //  console.log('KEY--hh-899->',results )
 
             res.status(200).send({
               fromCache: isCached,
               Total: results,
               code: '0000'
             });
-                  
-            
           });
-      
       }
-      console.log('Result....................', result)
-    
 
-   
+      console.log('Result....................', result);
     } catch (error) {
-      console.log(error)
+      console.log(error);
       res.status(500).send({
         message: 'Fetching data failed'
       });
     }
-  }
-   
-  else {
-    console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+  } else {
+    console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....");
 
     var query = `SELECT `;
     req.body.summaryFields.forEach((field, index) => {
       query += `SUM(${field}) as su_${field}`;
       if (index < req.body.summaryFields.length - 1) query += ', ';
     });
-    query += ` FROM households`;
 
+    if (filters.length > 0 && values.length > 0) {
+      query += ` FROM households WHERE `;
+
+      filters.forEach((filter, index) => {
+        query += `${filter} IN (${values[index].join(', ')})`;
+        if (index < filters.length - 1) query += ' AND ';
+      });
+    } else {
+      query += ` FROM households `;
+    }
 
     sequelize.query(query, { type: sequelize.QueryTypes.SELECT })
       .then(async results => {
-
         res.status(200).send({
           fromCache: isCached,
           Total: results,
           code: '0000'
         });
+      });
+  }
+};
 
-       });
-
-}
- 
-}
 
 
 exports.sumModelAssociatedMultipleModels = async (req, res) => {

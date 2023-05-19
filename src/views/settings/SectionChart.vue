@@ -606,40 +606,8 @@ getDashSectionOptions()
 getStrategicFocusAreas()
 getIndicatorCategories()
 
+const chartOptions = ref([])
 
-const chartOptions = [
-  {
-    value: 1,
-    label: 'Simple Bar'
-  },
-  {
-    value: 2,
-    label: 'Multiple Bar'
-  },
-  {
-    value: 3,
-    label: 'Pie'
-  },
-
-  {
-    value: 4,
-    label: 'Stacked Bar'
-  },
-
-  {
-    value: 5,
-    label: 'Line Chart'
-  },
-  /* {
-    value: 6,
-    label: 'Stacked Line Chart'
-  },
- */
-  {
-    value: 7,
-    label: 'Map Chart'
-  },
-]
 
 const handleFilterSections = async (dashboard_id) => {
   console.log('filtreing teh aggregators.....', dashboard_id)
@@ -699,6 +667,83 @@ console.log("getting fields fields",fieldSet.value)
  const handleSelectModel = async (selModel) => {
   console.log('specs.....')
   getModeldefinition(selModel)
+
+  if (selModel==="households") {
+    
+    chartOptions.value = [
+          {
+            value: 1,
+            label: 'Simple Bar'
+          },
+          {
+            value: 2,
+            label: 'Multiple Bar'
+          },
+          {
+            value: 3,
+            label: 'Pie'
+          },
+
+          {
+            value: 4,
+            label: 'Stacked Bar'
+          },
+
+          {
+            value: 5,
+            label: 'Line Chart'
+          },
+         
+          {
+            value: 7,
+            label: 'Map Chart'
+          },
+
+          {
+            value: 8,
+            label: 'Population Pyramid'
+          },
+
+        ]
+   } else {
+              chartOptions.value = [
+          {
+            value: 1,
+            label: 'Simple Bar'
+          },
+          {
+            value: 2,
+            label: 'Multiple Bar'
+          },
+          {
+            value: 3,
+            label: 'Pie'
+          },
+
+          {
+            value: 4,
+            label: 'Stacked Bar'
+          },
+
+          {
+            value: 5,
+            label: 'Line Chart'
+          },
+          /* {
+            value: 6,
+            label: 'Stacked Line Chart'
+          },
+        */
+          {
+            value: 7,
+            label: 'Map Chart'
+          },
+ 
+
+        ]
+  }
+
+
 }
 
  
@@ -802,17 +847,8 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       <el-form-item label="Description">
         <el-input v-model="ruleForm.description" />
       </el-form-item>
-
-      
-      
-      <el-form-item label="Chart Type">
-        <el-select
-v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags
-          placeholder="Select Type of Chart">
-          <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-
+    
+ 
 
        <el-form-item label="Entity" v-if="showStatusExtras">
         <el-select
@@ -823,7 +859,15 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
       </el-form-item>
 
 
- 
+      
+      <el-form-item label="Chart Type">
+        <el-select
+v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags
+          placeholder="Select Type of Chart">
+          <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+
 
        
        <el-form-item label="Field" v-if="showStatusExtras">
