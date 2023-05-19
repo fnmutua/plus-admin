@@ -2489,3 +2489,35 @@ exports.RemoveDocument = (req, res) => {
 
 }
 
+
+exports.getFieldQUnique = async (req, res) => {
+  var reg_model = req.body.model;
+  var selField = req.body.selectedField;
+
+  try {
+    const Model = db.models[reg_model];
+    
+    // Find all unique values in the specified field
+    const uniqueValues = await Model.findAll({
+      attributes: [
+        [sequelize.fn('DISTINCT', sequelize.col(selField)), selField],
+      ],
+    });
+
+    // Extract the unique values from the Sequelize result
+    const data = uniqueValues.map(value => value.dataValues[selField]);
+
+    res.status(200).send({
+      data,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('Error executing query:', error);
+    res.status(500).send({
+      error: 'An error occurred',
+      code: '5000',
+    });
+  }
+};
+
+

@@ -24,3 +24,5 @@ then(arg0: (response: { data: any }) => void): unknown
     list: CountyType[]
   }>({ url: prod + '/api/v1/data/all/nogeo', params })
 }
+
+ 

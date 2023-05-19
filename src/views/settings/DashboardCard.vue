@@ -21,12 +21,13 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElPopconfirm } from 'element-plus'
+import { ElPagination, ElCol, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,ElRow, ElPopconfirm } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
+import { getUniqueFieldValues} from '@/api/households'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 
@@ -125,8 +126,10 @@ console.log("getting fields fields",fieldSet.value)
 }
 
 
+const functionOptions = ref([])
 
 
+ 
 
 
 
@@ -201,7 +204,7 @@ const handleClear = async () => {
 }
 
 
-const handleSeleectDashboard = async (indicator: any) => {
+const handleSelectDashboard = async (indicator: any) => {
   var selectOption = 'dashboard_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
@@ -347,7 +350,7 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
-const programmeOptions = ref([])
+const DashboardOptions = ref([])
 const getProgrammeOptions = async () => {
   const res = await getCountyListApi({
     params: {
@@ -367,11 +370,12 @@ const getProgrammeOptions = async () => {
     loading.value = false
 
     ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      opt.type = arrayItem.type
       //  console.log(countyOpt)
-      programmeOptions.value.push(countyOpt)
+      DashboardOptions.value.push(opt)
     })
   })
 }
@@ -406,7 +410,7 @@ const getStrategicFocusAreas = async () => {
   })
 }
 
- const editIndicator = (data: TableSlotDefault) => {
+ const editIndicator = async (data: TableSlotDefault) => {
   showSubmitBtn.value = false
   showEditSaveButton.value = true
   console.log(data)
@@ -420,9 +424,29 @@ const getStrategicFocusAreas = async () => {
   ruleForm.indicator_id = data.row.indicator_id
   ruleForm.card_model = data.row.card_model
   ruleForm.card_model_field = data.row.card_model_field
+  ruleForm.filter_value = data.row.filter_value
+  ruleForm.computation = data.row.computation
+  ruleForm.filter_function = data.row.filter_function
 
-   if (data.row.dashboard_id==2) {
-    showStatusExtras.value=true
+  
+
+   
+
+   await handleSelectModel(data.row.card_model)
+   await handleFilterAggregators(data.row.card_model_field)
+  
+   if (data.row.filter_value) {
+    fieldSelected.value=true
+   } else {
+    fieldSelected.value=false
+
+  }
+  
+
+  
+   if (data.row.dashboard.type=='status') {
+     showStatusExtras.value = true
+     fieldSelected.value=true
    } else {
     showStatusExtras.value=false
 
@@ -470,8 +494,11 @@ const ruleForm = reactive({
   aggregation: '',
   indicator_id: null,
   card_model_field: '',
-  card_model:''
-  
+  filter_value:null,
+  filter_function:null,
+  card_model:'',
+  computation:null,
+
 
 
 })
@@ -598,7 +625,10 @@ getStrategicFocusAreas()
 getIndicatorNames()
 
 const handleSelectType = async (dashboard_id) => {
-  if (dashboard_id===2) {  // status dashabords 
+    let selDashboard = DashboardOptions.value.filter(item => item.value === dashboard_id);
+
+
+  if (selDashboard[0].type==='status') {  // status dashabords 
 showStatusExtras.value=true
   } else {
     showStatusExtras.value=false
@@ -607,27 +637,91 @@ showStatusExtras.value=true
 }
  
 const handleSelectModel = async (selModel) => {
+  fieldOptions.value=[]
+
   console.log('specs.....')
   getModeldefinition(selModel)
 }
+
+
+const fieldSelected = ref(false)
+const fieldOptions = ref([])
+const disabledoptions=ref(false)
  
- const handleFilterAggregators = async (selModel) => {
-   console.log('filtreing teh aggregators.....',selModel )
-  
+const handleFilterAggregators = async (selField) => {
+ 
    
-   let selectedField = fieldSet.value.filter(option => option.value  == selModel);
+  
+  fieldSelected.value=true   // show filter field 
+  fieldOptions.value=[]
+   console.log('filtreing teh aggregators.....',selField )
+   
+   let selectedField = fieldSet.value.filter(option => option.value  == selField);
    console.log('selectedField', selectedField[0].type)
   let selFieldType = selectedField[0].type
 
    if (selFieldType==="STRING") {
     aggregationOptionsFiltered.value = aggregationOptions.filter(option => option.value === 'count');
 
+    functionOptions.value =[
+   
+          {
+            value: 'eq',
+            label: 'Equal'
+          },
+        
+          
+        ]
    } else {
-    aggregationOptionsFiltered.value =aggregationOptions
+     aggregationOptionsFiltered.value = aggregationOptions
+
+     functionOptions.value = [
+          {
+            value: 'lt',
+            label: 'Less Than'
+          },
+          {
+            value: 'lte',
+            label: 'Less than or equal to'
+          },
+          
+          {
+            value: 'eq',
+            label: 'Equal'
+          },
+          {
+            value: 'gte',
+            label: 'Greater than or equal to'
+          },
+          
+        ]
   }
 
 
+  console.log('Filter Fields 1.....', selField)
+  const formData = {}
+   formData.model = ruleForm.card_model
+  //-Search field--------------------------------------------
+  formData.selectedField = selField
+  //--Single Filter -----------------------------------------
+  const res = await getUniqueFieldValues(formData)
+  console.log('Filter Fields 2:',res.data)
+   
+
+  res.data.forEach(function (arrayItem: { }) {
+    var opt = {}
+    console.log(arrayItem)
+    opt.value = arrayItem
+    opt.label = arrayItem
+   // opt.title = arrayItem.category.title
+  
+   fieldOptions.value.push(opt)
+  })
+
  }
+
+ 
+
 
 
 
@@ -639,9 +733,9 @@ const handleSelectModel = async (selModel) => {
 
     <div style="display: inline-block; margin-left: 20px">
       <el-select
-v-model="value3" :onChange="handleSeleectDashboard" :onClear="handleClear" multiple clearable filterable
+v-model="value3" :onChange="handleSelectDashboard" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search Dashboard">
-        <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-option v-for="item in DashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
@@ -689,7 +783,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
       <el-form-item label="Dashboard" prop="dashboard">
         <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select"   :onChange="handleSelectType">
-          <el-option v-for="item in programmeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          <el-option v-for="item in DashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
 
@@ -723,11 +817,39 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
        
        <el-form-item label="Field" v-if="showStatusExtras">
         <el-select
-v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags :onChange="handleFilterAggregators"
+v-model="ruleForm.card_model_field"   :onClear="handleClear" clearable filterable collapse-tags :onChange="handleFilterAggregators"
           placeholder="Field to summarize">
           <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
+
+      <el-row>
+       
+
+    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+      <el-form-item label="Filter" v-if="showStatusExtras && fieldSelected">
+        <el-select v-model="ruleForm.filter_function" :onClear="handleClear" clearable   filterable collapse-tags placeholder="">
+          <el-option v-for="item in functionOptions" :key="item.value" :label="item.label" :value="item.value"  :disabled="disabledoptions"/>
+        </el-select>
+      </el-form-item>
+    </el-col>
+
+
+    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+         <el-select v-if="showStatusExtras && fieldSelected" v-model="ruleForm.filter_value" :onClear="handleClear" clearable multiple filterable collapse-tags placeholder="Filter values">
+          <el-option v-for="item in fieldOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+     </el-col>
+
+      </el-row>
+   
+
+
+
+
+
+
+
 
 
        <el-form-item label="Indicator" v-if="!showStatusExtras">
@@ -746,7 +868,13 @@ size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"
           </el-select>
        </el-form-item>
     
-
+       <el-form-item label="Computation">
+            <el-select
+size="default" v-model="ruleForm.computation"  :onClear="handleClear"  
+            clearable filterable collapse-tags placeholder="Select">
+            <el-option label="Proportion(%)" value="proportion"/>
+      <el-option label="Absolute" value="absolute"/>          </el-select>
+       </el-form-item>
 
  
     </el-form>
