@@ -19,7 +19,7 @@ import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { getCountyListApi,getListWithoutGeo } from '@/api/counties'
 import {   getfilteredGeo } from '@/api/settlements'
 
-import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
+import { getSummarybyField, getSummaryGroupByMultipleFields, getSummarybyFieldNested } from '@/api/summary'
  
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
@@ -120,33 +120,12 @@ const handleChange = (value) => {
  
 }
 
+const mArray = ref([])
+const fArray = ref([])
+const pyramidOptions = ref()
 
-const getIndicatorConfigurations = async (indicator_id) => {
-  const formData = {}
-
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'indicator_category'
-  //-Search field--------------------------------------------
-  formData.searchField = ''
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  formData.assocModel = ''
-
-  // - multiple filters -------------------------------------
-  formData.filters = ['indicator_id']
-  formData.filterValues = [[indicator_id]]
-  formData.associated_multiple_models = []
-  //-------------------------
-  const res = await getSettlementListByCounty(formData)
-  console.log('indicator configs >>>>', res)
-  let ind_config_arr = []
-  res.data.forEach(function (arrayItem) {
-    ind_config_arr.push(arrayItem.id)
-  })
-
-  return ind_config_arr
-}
+ 
+ 
 
 
 
@@ -1411,7 +1390,247 @@ const getCharts = async (section_id) => {
         charts.push(thisChart)
         // Continue with the rest of your code here
       }
+   // function to process processMultiBarChart charts 
+   async function processPyramid() {
+    const promises = [async function () {
+ 
+            try {
+              
+              const formData = {}
+                formData.model = 'households'
+                formData.summaryFunction = 'sum'
 
+                let males = ['age_00_04m', 'age_05_09m', 'age_10_14m', 'age_15_19m', 'age_20_24m', 'age_24_29m',
+                  'age_30_34m', 'age_35_39m', 'age_40_44m', 'age_45_49m', 'age_50_54m', 'age_55_59m', 'age_60_64m',
+                  'age_65_69m', 'age_70_plusm']
+
+                let females = ['age_00_04f', 'age_05_09f', 'age_10_14f', 'age_15_19f', 'age_20_24f', 'age_24_29f',
+                  'age_30_34f', 'age_35_39f', 'age_40_44f', 'age_45_49f', 'age_50_54f', 'age_55_59f', 'age_60_64f',
+                  'age_65_69f', 'age_70_plusf']
+
+                const fields = females.concat(males);
+
+                      // set admin level filtering
+                      let filterFields = [] 
+                      let filterValues = [] 
+                      
+                      if (filterLevel.value === 'county') {
+                          filterFields.push('county_id')
+                          filterValues.push([selectedCounties.value])
+                    
+
+                      } else if (filterLevel.value === 'national') {
+
+                    
+                      } 
+
+                // Asccoiated models 
+                formData.assoc_model = ['settlement']
+                formData.summaryFields = fields
+                formData.groupField = 'gender'
+   
+                formData.filters =filterFields
+                formData.filterValues =filterValues
+
+              
+
+
+
+
+  //formData.cache_key = 'getSettlementPopPyramid_by_gender'
+
+      await getSummaryGroupByMultipleFields(formData)
+        .then(response => {
+          if (response.Total) {
+                  var results = response.Total
+                  let keys = Object.keys(results[0]);
+
+                  // Males
+                  let maleKeys = keys.filter(key => key.includes("m"));
+                  let males = maleKeys.map(key => parseInt(results[0][key]))
+                  // console.log('pyramid---m-->', males)
+
+                  mArray.value.push(males)
+
+
+                  // females
+                  let femaleKeys = keys.filter(key => key.includes("f"));
+                  let females = femaleKeys.map(key => parseInt(results[0][key]))
+                  //console.log('pyramid---f-->', femaleKeys, females)
+                  fArray.value.push(females)
+
+
+              var pyOptions= {
+                title: {
+                  text: thisChart.title,
+                  subtext: 'National Slum Database, 2023',
+                  left: 'center',
+                  textStyle: {
+                    fontSize: 14,
+                  },
+                  subtextStyle: {
+                    fontSize: 12
+                  }
+                },
+                tooltip: {
+                  trigger: 'axis',
+                  axisPointer: {
+                    type: 'shadow'
+                  },
+                  valueFormatter: (value) => Math.abs(value)
+                },
+                legend: {
+                   itemWidth: 20,
+                  itemHeight: 20,
+                  orient: 'horizontal',
+                  type: 'scroll',
+                  left: 'left',
+                  top: 10,
+                  data: [
+                    {
+                      name: 'Male',
+                      icon: 'path://m 146.41936,238.8034 c -5.21101,-1.43402 -7.51545,-6.79358 -6.6619,-11.76943 -0.0588,-45.10952 -0.11757,-90.21905 -0.17635,-135.328563 -5.3022,-1.61412 -3.06375,4.34199 -3.52464,7.58816 -0.0576,14.697923 -0.11511,29.395843 -0.17266,44.093773 -1.72718,6.61806 -12.15586,7.45944 -14.19605,0.88682 -1.42909,-4.98857 -0.22146,-10.60033 -0.62062,-15.83232 0.10773,-15.18837 -0.21551,-30.437173 0.16059,-45.587893 1.91842,-11.228608 12.80383,-20.22421 24.26927,-18.689786 10.60777,1.558898 0.0755,-3.65768 -0.79236,-8.596161 -4.23852,-8.688715 0.80002,-20.073014 9.72708,-23.421847 8.82591,-4.162774 20.30103,1.001172 23.52581,10.108188 2.28945,5.67583 1.4368,12.853955 -2.76118,17.571486 -5.15831,4.024926 -3.94241,5.010805 1.85043,4.362909 13.58742,-1.603119 25.03585,11.840701 23.9554,24.967141 -0.0691,18.213333 -0.13818,36.426673 -0.20726,54.640013 -1.5351,4.55905 -7.30638,6.71543 -11.30858,3.96578 -4.81473,-2.8888 -2.73019,-9.20279 -3.19227,-13.88869 -0.0523,-14.05586 -0.10469,-28.11173 -0.15704,-42.167583 -4.85271,-1.54237 -3.37467,3.24601 -3.51022,6.4208 V 231.02616 c -1.3114,6.77368 -9.29063,10.3384 -15.13544,6.61747 -6.62075,-3.7866 -4.17124,-12.04397 -4.62011,-18.29166 v -70.84935 c -4.85175,-1.54283 -3.39102,3.24111 -3.53094,6.42079 -0.0578,25.5528 -0.11553,51.1056 -0.17329,76.65839 -1.7387,5.48439 -7.13811,8.77105 -12.74767,7.2216 z',
+                    },
+                    {
+                      name: 'Female',
+                      icon: 'path://m 39.7122,238.0264 c -5.604205,-1.49359 -5.822698,-7.32898 -5.431108,-11.96235 -0.05932,-18.97406 -0.118632,-37.94813 -0.177948,-56.92219 -7.401109,0.0507 -14.802279,0.16954 -22.203547,0.1438 8.050221,-26.97466 15.83106,-54.03787 24.0791,-80.948455 -6.246873,-1.537447 -5.103818,6.332986 -7.12857,10.198179 -4.203419,12.783656 -7.28462,25.995046 -12.31951,38.467156 C 6.215777,147.43407 -0.93895389,129.58252 6.2279437,121.52707 11.709639,105.71684 15.006783,88.999576 22.521999,73.9779 25.487431,65.143259 38.425956,64.174487 43.879817,63.247984 35.242261,58.307767 32.195248,46.181151 37.843175,37.985287 c 5.35176,-7.73122 16.727442,-10.988636 24.757146,-5.16531 11.321083,6.562216 10.452089,25.024381 -1.135269,30.670395 9.830628,-0.28155 20.086569,3.623662 24.845207,12.765524 3.87086,7.45858 5.12438,16.169298 8.137928,24.037484 2.906124,10.26421 6.922833,20.35157 9.297803,30.70045 1.06345,4.17564 -1.66552,9.02385 -6.181687,9.2796 -7.686885,1.11419 -8.783192,-8.80355 -10.70406,-14.18732 -3.87502,-12.5653 -7.681429,-25.15172 -11.575988,-37.711005 -8.798872,-0.113812 1.949333,13.898795 1.781574,19.941085 6.048408,20.20812 12.13493,40.40517 18.089502,60.64114 -7.392371,0.35953 -14.803078,0.14681 -22.203496,0.20388 -0.06597,21.22546 -0.131933,42.45093 -0.1979,63.67639 -2.103142,7.13406 -13.415648,7.74398 -15.969932,0.84281 -1.418088,-4.77754 -0.245017,-10.18282 -0.655178,-15.20454 l -0.156843,-49.31466 c -4.44248,-1.05339 -5.844521,0.93365 -4.913879,5.25338 -0.162881,19.18788 0.325808,38.44483 -0.244801,57.58947 -0.334387,5.03435 -6.719798,7.8699 -11.101102,6.02234 z',
+                    }
+                  ]
+                },
+                toolbox: {
+                  show: true,
+                  feature: {
+                    mark: { show: true },
+                    dataView: { show: true, readOnly: true },
+                    restore: { show: true },
+                    saveAsImage: { show: true, pixelRatio: 4 }
+                  }
+                },
+                grid: {
+                  left: '3%',
+                  right: '4%',
+                  bottom: '3%',
+                  containLabel: true
+                },
+                xAxis: [
+                  {
+                    type: 'value',
+                    show: true,
+                    axisLabel: {
+                      formatter: function (params) {
+                        return Math.abs(params);
+                      }
+                    }
+                  }
+                ],
+                yAxis: [
+                  {
+                    type: 'category',
+                    axisTick: {
+                      show: false
+                    },
+                    nameTextStyle: {
+                      fontStyle: 'oblique',
+                      fontWeight: 'bold'
+                    },
+                    data: [
+                      '00-04',
+                      '05-09',
+                      '10-14',
+                      '15-19',
+                      '20-24',
+                      '25-29',
+                      '30-34',
+                      '35-39',
+                      '40-44',
+                      '45-49',
+                      '50-54',
+                      '55-59',
+                      '60-64',
+                      '65-69',
+                      '70+',
+                    ]
+                  }
+                ],
+                series: [
+                  {
+                    name: 'Female',
+                    type: 'bar',
+                    color: '#ff007f',
+                    stack: 'Total',
+                    label: {
+                      show: false,
+                      position: 'right'
+                    },
+                    emphasis: {
+                      focus: 'none'
+                    },
+                    data: males 
+                  },
+                  {
+                    name: 'Male',
+                    type: 'bar',
+                    color: '#0000ff',
+                    stack: 'Total',
+                    label: {
+                      show: false,
+                      position: 'left',
+                      formatter: function (params) {
+                        return Math.abs(params.value);
+                      }
+                    },
+                    emphasis: {
+                      focus: 'none'
+                    },
+                    data: females 
+                  }
+                ]
+              };
+
+              console.log('pyOptions', pyOptions)
+
+              thisChart.chart = pyOptions
+            }
+
+
+          });
+
+
+
+
+
+
+       
+
+
+           
+         //   UpdatedMapOtions.series[0].aspectScale=aspect.value
+
+            // sort the data such that the graphs start and end proper
+  
+            
+            
+            
+
+
+            } catch (error) {
+              // Handle any errors that occurred during the process
+            }
+          }];
+
+   //     await Promise.all(promises);
+        await promises[0]();
+
+        // The loop has completed and all promises have been resolved/rejected
+        console.log('Loop completed');
+
+
+
+
+
+        charts.push(thisChart)
+        // Continue with the rest of your code here
+      }
 
       // Run the approriate funtion 
       if (thisChart.type == 1) {
@@ -1442,6 +1661,11 @@ const getCharts = async (section_id) => {
       else if (thisChart.type == 7) {
         processMapChart();
       }
+
+      else if (thisChart.type == 8) {
+        processPyramid();
+      }
+
 
 
     })
