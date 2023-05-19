@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton,ElCascader,ElCascaderPanel,ElCascaderPanelContext
+  ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton,ElCascader,ElCascaderPanel,ElCascaderPanelContext, ElSelect, ElOption
 } from 'element-plus'
 
 import { ref, reactive,watch, onMounted } from 'vue'
@@ -1301,7 +1301,60 @@ const getCountySubcounty = async () => {
 
 ////-----------------------------------------------------------------------------------
 
+const countyList = ref([])
+const subCountyList = ref([])
+const filteredSubCountyList = ref([])
 
+
+const getCountySubcountySep = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      //   pageIndex: 1,
+      //  limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'county',
+      assocModel: 'subcounty',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    const ret = response.data
+
+
+
+    ret.forEach((data) => {
+      const option = {
+        value: data.id,
+        label: data.name,
+      };
+      countyList.value.push(option);
+
+      data.subcounties.forEach((subc) => {
+        const soption = {
+          value: subc.id,
+          label: subc.name,
+          county_id: data.id
+        };
+        subCountyList.value.push(soption);
+        filteredSubCountyList.value.push(soption);
+
+      })
+
+
+    });
+
+
+
+  })
+
+  console.log('countyOptions', countyList)
+  console.log('filteredSubCountyList', filteredSubCountyList)
+}
+
+getCountySubcountySep()
 getCountySubcounty()
 getCards()
 getTabs()
@@ -1316,11 +1369,54 @@ onMounted(() => {
 
 
 
+const selectCounty = ref([])
+const selectSubCounty = ref([])
+const handleClear = async () => { 
+  selectSubCounty.value=null
+  selectCounty.value = null
+  getCards()
+  getTabs()
+  
+}
+
+
+const filterSubcounty = async (county_id) => {
+  //selectSubCounty.value=null
+  filteredSubCountyList.value = subCountyList.value.filter(option => county_id.includes(option.county_id));
+ 
+
+  console.log('xyz', filteredSubCountyList.value)
+
+selectedCounties.value = county_id;
+ 
+console.log(selectedCounties.value);  // [1]
+ if (selectedCounties.value.length == 0) {
+  filterLevel.value = 'national'
+} else {
+  filterLevel.value = 'county'
+  getCards()
+  getTabs()
+
+}
+console.log('filterLevel.value', selectedCounties.value)
+
+     
+}
 
 
 </script>
 
 <template>
+
+<el-select :style="{ width: '25% ', marginRight: '10px'  }"   @change="filterSubcounty"   :onClear="handleClear"  v-model="selectCounty"  multiple clearable filterable collapse-tags placeholder="Select County">
+  <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
+</el-select>
+
+<el-select :style="{ width: '25% ' }"  v-model="selectSubCounty" clearable filterable collapse-tags placeholder="Select Constituency">
+  <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
+</el-select>
+
+<!-- 
     <el-cascader
     :style="{ width: '100% '}"
 
@@ -1330,7 +1426,7 @@ onMounted(() => {
       :props="props"
       @change="handleChange"
 
-     />
+     /> -->
      <!-- @expand-change="handleChange" -->
 
   <el-row :gutter="20">
