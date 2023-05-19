@@ -254,7 +254,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
+  console.log('After cards', res)
   tableDataList.value = res.data
   total.value = res.total
 
@@ -344,6 +344,8 @@ const getDashboardOptions = async () => {
       opt.value = arrayItem.id
       opt.label = arrayItem.title + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
+      opt.type = arrayItem.type
+
       DashBoardOptions.value.push(opt)
     })
   })
@@ -417,7 +419,7 @@ const getStrategicFocusAreas = async () => {
 const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
   showEditSaveButton.value = true
-  console.log('Editing', data.row.dashboard_section)
+  console.log('Editing', data)
   ruleForm.id = data.row.id
   ruleForm.title = data.row.title
   ruleForm.dashboard_section_id = data.row.dashboard_section_id
@@ -426,6 +428,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.icon = data.row.icon
   ruleForm.aggregation = data.row.aggregation
   ruleForm.type = data.row.type
+  value4.value =  data.row.dashboard_section.dashboard.id
 
   let indicators =[]
   data.row.indicators.forEach(function (arrayItem) {
@@ -438,7 +441,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.card_model_field = data.row.card_model_field
   ruleForm.categorized = data.row.categorized
 
-   if (data.row.dashboard_section.dashboard_id==2) {
+   if (data.row.dashboard_section.dashboard.type==='status') {
     showStatusExtras.value=true
    } else {
     showStatusExtras.value=false
@@ -446,6 +449,80 @@ const editIndicator = (data: TableSlotDefault) => {
   }
 
 
+  if ( data.row.card_model==="households") {
+    
+    chartOptions.value = [
+          {
+            value: 1,
+            label: 'Simple Bar'
+          },
+          {
+            value: 2,
+            label: 'Multiple Bar'
+          },
+          {
+            value: 3,
+            label: 'Pie'
+          },
+
+          {
+            value: 4,
+            label: 'Stacked Bar'
+          },
+
+          {
+            value: 5,
+            label: 'Line Chart'
+          },
+         
+          {
+            value: 7,
+            label: 'Map Chart'
+          },
+
+          {
+            value: 8,
+            label: 'Population Pyramid'
+          },
+
+        ]
+   } else {
+              chartOptions.value = [
+          {
+            value: 1,
+            label: 'Simple Bar'
+          },
+          {
+            value: 2,
+            label: 'Multiple Bar'
+          },
+          {
+            value: 3,
+            label: 'Pie'
+          },
+
+          {
+            value: 4,
+            label: 'Stacked Bar'
+          },
+
+          {
+            value: 5,
+            label: 'Line Chart'
+          },
+          /* {
+            value: 6,
+            label: 'Stacked Line Chart'
+          },
+        */
+          {
+            value: 7,
+            label: 'Map Chart'
+          },
+ 
+
+        ]
+  }
 
 
   formHeader.value = 'Edit Section'
@@ -486,7 +563,7 @@ const ruleForm = reactive({
   iconColor: '',
   icon: '',
   aggregation: '',
-  type: null,
+  type: '',
   indicator_id: '',
   card_model_field: '',
   card_model:'',
@@ -611,9 +688,10 @@ const chartOptions = ref([])
 
 const handleFilterSections = async (dashboard_id) => {
   console.log('filtreing teh aggregators.....', dashboard_id)
+  let selDashboard = DashBoardOptions.value.filter(item => item.value === dashboard_id);
 
-  if (dashboard_id == 2) {
-    showStatusExtras.value=true
+  if (selDashboard[0].type==='status') {  // status dashabords 
+showStatusExtras.value=true
   } else {
     showStatusExtras.value=false
 

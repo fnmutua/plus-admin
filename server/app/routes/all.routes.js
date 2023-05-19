@@ -116,6 +116,9 @@ module.exports = function (app) {
     "/api/v1/download", [authJwt.verifyToken], controller.downloadFile
   );
 
-  
+  app.post(
+    "/api/v1/fields/options",   controller.getFieldQUnique
+  );
+
 }
 

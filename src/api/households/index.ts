@@ -48,3 +48,8 @@ export const postBatchHouseholds = (data: UserType): Promise<IResponse<UserType>
   return request.post({ url: prod + '/api/v1/hh/batch', data })
 }
  
+
+export const getUniqueFieldValues = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/fields/options', data })
+}

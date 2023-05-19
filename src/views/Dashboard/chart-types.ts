@@ -136,7 +136,7 @@ export const stacklineOptions: EChartsOption = {
   title: {
     text: 'stacked line',
     subtext: 'National Slum Database, 2023',
-    left: 'center',
+    left: 'left',
     textStyle: {
       fontSize: 14
     },
@@ -356,7 +356,7 @@ export const multipleBarChart: EChartsOption = {
     orient: 'horizontal',
      type: 'scroll',
       bottom:'-10',
-   //  left :'left',
+      left :'left',
     itemWidth: 20,
     itemHeight: 20,
   },
@@ -400,7 +400,16 @@ export const barOptionsMultiple: EChartsOption = {
       type: 'shadow'
     }
   },
-  legend: {},
+  legend: {
+    //  show: ShowLegend,
+      orient: 'horizontal',
+      type: 'scroll',
+      center: 'left',
+      itemWidth: 20,
+    itemHeight: 20,
+      bottom:'20'
+   
+    },
    grid: {
     left: '3%',
     right: '4%',
@@ -549,7 +558,87 @@ export const  barMaleFemaleOptions: EChartsOption = {
   ]
 }
  
+export const  stackedbarOptions: EChartsOption = {
+  title: {
+    text: '',
+    subtext: 'National Slum Database, 2023',
+    left: 'center',
+    textStyle: {
+      fontSize: 14
+    },
+    subtextStyle: {
+      fontSize: 12
+    }
+  },
 
+  toolbox: {
+    show: true,
+    feature: {
+      mark: { show: true },
+      dataView: { show: true, readOnly: true },
+      restore: { show: true },
+      saveAsImage: { show: true, pixelRatio: 4 }
+    }
+  },
+  grid: {
+    left: 30,
+    right: 30,
+    bottom: 20
+  },
+  xAxis: {
+    type: 'category',
+    data: [],
+    axisTick: {
+      alignWithLabel: true
+    }
+  },
+  yAxis: {
+    type: 'value',
+    position: 'right', // Position the y-axis labels on the right
+
+  },
+  legend: {
+    //  show: ShowLegend,
+      orient: 'vertical',
+      type: 'scroll',
+      left: 'left',
+      itemWidth: 20,
+      itemHeight: 20,
+      
+    },
+ 
+
+  series: [
+    {
+      name: 'Male',
+      type: 'bar',
+      stack: 'total',
+      label: {
+        show: true
+      },
+      emphasis: {
+        focus: 'series'
+      },
+      color: colorPalette[1],
+      data: []
+    },
+    {
+      name: 'Female',
+      type: 'bar',
+      stack: 'total',
+      color: colorPalette[0],
+
+      label: {
+        show: true
+      },
+      emphasis: {
+        focus: 'series'
+      },
+      data: []
+    },
+
+  ]
+}
 
 export const  mapChartOptions: EChartsOption = {
   title: {
@@ -615,3 +704,4 @@ export const  mapChartOptions: EChartsOption = {
 };
 
  
+

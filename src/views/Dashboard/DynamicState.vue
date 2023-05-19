@@ -10,7 +10,7 @@ import { use } from "echarts/core";
 
 import { Icon } from '@iconify/vue';
 
-import { pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions, barOptionsMultiple, lineOptions, barMaleFemaleOptions } from './chart-types'
+import { pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions, barOptionsMultiple, lineOptions, stackedbarOptions,  barMaleFemaleOptions } from './chart-types'
 import { EChartsOption, registerMap } from 'echarts'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
@@ -183,7 +183,17 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
 ////-----------------------------------------------------------------------------------
 
 
-const getSummary = async (selectModel, cmodelField, aggregMethod) => {
+const getSummary = async (card) => {
+
+    //  var result = getSummary(card.card_model, arrayItem.card_model_field, arrayItem.aggregation)
+
+    var selectModel = card.card_model
+    var cmodelField = card.card_model_field
+    var aggregMethod = card.aggregation
+    var filter_value = card.filter_value
+    var computation = card.computation
+    var filter_function = card.filter_function
+  
   // getSummary(arrayItem.card_model,arrayItem.card_model_field)
 
   //var ids = await getIndicatorConfigurations(indicator)
@@ -194,11 +204,19 @@ const getSummary = async (selectModel, cmodelField, aggregMethod) => {
   let associated_Models = []
   let filterFields = []
   let filterValues = []
+  let filterOperator =[]
+
+  if (filter_value) { 
+    filterFields.push(cmodelField)
+    filterValues.push([filter_value])
+    filterOperator.push(filter_function)
+  }
 
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
     filterFields.push('county_id')
     filterValues.push([selectedCounties.value])
+    filterOperator.push('eq')
 
 
   } else if (filterLevel.value === 'national') {
@@ -221,6 +239,11 @@ const getSummary = async (selectModel, cmodelField, aggregMethod) => {
   // formData.filterValue = [ids]    
   formData.filterField = filterFields
   formData.filterValue = filterValues
+  formData.calculationType = computation
+  formData.filter_function = filter_function
+  formData.filterOperator = filterOperator
+
+  console.log('foxrmData',formData)
 
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
@@ -378,236 +401,23 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
 
   return result;
 }
-const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType) => {
-
-
-  // set admin level filtering
-  let associated_Models = ['indicator_category']
-  let filterFields = ['indicator_category_id']
-  let filterValues = [indicator_categories]
-  let groupFields = ['indicator_category.category_title']
-
-  if (filterLevel.value === 'county') {
-    associated_Models.push('subcounty')
-    filterFields.push('county_id')
-    filterValues.push([selectedCounties.value])
-    groupFields.push('subcounty.name')
-  } else if (filterLevel.value === 'national') {
-    associated_Models.push('county')
-    groupFields.push('county.name')
-
-  }
-
-
-
-  if (chartType == 3) { // pie chart remove county 
-    //var groupingFields = ['indicator_category.category_title']
-    //  groupFields.push('indicator_category.category_title')
-  }
-
-
-  else if (chartType == 5) {
-    // var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
-    groupFields.push('indicator_category_report.createdAt')
-
-  }
-
-
-  else if (chartType == 6) {
-    // var groupingFields = ['indicator_category_report.createdAt', 'indicator_category.category_title']
-    groupFields.push('indicator_category_report.createdAt')
-
-  }
-
-  else if (chartType == 7 && filterLevel.value == 'national') {
-    // var groupingFields = ['county.name']
-
-    groupFields.push('county.name')
-    const index = groupFields.indexOf('indicator_category.category_title');
-    if (index !== -1) {
-      groupFields.splice(index, 1);
-    }
-
-  }
-
-  else if (chartType == 7 && filterLevel.value == 'county') {
-    //  var groupingFields = ['subcounty.name']
-    groupFields.push('subcounty.name')
-
-    const index = groupFields.indexOf('indicator_category.category_title');
-    if (index !== -1) {
-      groupFields.splice(index, 1);
-    }
-
-
-
-  }
-
-
-  else {
-
-    //   var groupingFields = ['county.name', 'indicator_category.category_title']
-    //  groupFields.push('county.name')
-
-
-  }
-
-
-  console.log('groupFields', groupFields)
-  console.log('associated_Models', associated_Models)
-
-
-
-  const formData = {}
-  formData.model = 'indicator_category_report'
-  formData.summaryField = 'amount'
-  formData.summaryFunction = 'sum'
-  formData.assoc_models = associated_Models // ['county', 'indicator_category'] 
-  formData.groupFields = groupFields //['county.name','indicator_category.category_title']
-  // formData.filterField = ['indicator_category_id']
-  // formData.filterValue = [indicator_categories]  // Bitumen
-  formData.filterField = filterFields
-  formData.filterValue = filterValues  // Bitumen
-  try {
-    const response = await getSummarybyFieldFromMultipleIncludes(formData);
-    const amount = response.Total;
-    console.log('Data county', amount)
-
-
-    let categoryArray = [];
-    let seriesData = [];
-    amount.forEach(obj => {
-      if (!categoryArray.includes(obj.name)) {
-        categoryArray.push(obj.name);
-      }
-    });
-
-
-
-
-
-    if (chartType == 5) {
-      console.log('Data line chart ', indicator_categories, amount)
-
-      const keys = amount.reduce((allKeys, obj) => {
-        return allKeys.concat(Object.keys(obj));
-      }, []);
-
-      const uniqueKeys = [...new Set(keys)];
-      const values = {};
-      uniqueKeys.forEach(key => {
-        values[key] = amount.map(obj => obj[key] || null);
-      });
-      categoryArray = values.createdAt
-      seriesData = values.sum
-    }
-
-
-    else if (chartType == 6) {
-      console.log('Multi-line chart ', indicator_categories, amount)
-      //  Step 1: Extract and sort unique dates in ascending order
-      const dates = [...new Set(amount.map(item => item.createdAt))].sort();
-
-      // Step 2: Rearrange the data
-      const result = {};
-
-      for (const item of amount) {
-        const { createdAt, category_title, sum } = item;
-
-        if (!result[category_title]) {
-          result[category_title] = {
-            name: category_title,
-            type: 'line',
-            stack: 'Total',
-            data: []
-          };
-        }
-
-        const dateIndex = dates.indexOf(createdAt);
-        result[category_title].data.push([dateIndex, Number(sum)]);
-
-      }
-
-
-      seriesData = Object.values(result);
-      categoryArray = dates
-      console.log('seriesData>>>>', seriesData);
-
-
-
-    }
-
-
-    else if (chartType == 7) {
-      console.log('Map chart ', indicator_categories, amount)
-
-
-      let maxSum = Number.MIN_SAFE_INTEGER;
-      let minSum = Number.MAX_SAFE_INTEGER;
-
-      for (const item of amount) {
-        const values = Object.values(item);
-        for (const value of values) {
-          if (!isNaN(value)) {
-            const numValue = parseInt(value);
-            maxSum = Math.max(maxSum, numValue);
-            minSum = Math.min(minSum, numValue);
-          }
-        }
-      }
-      // if only one value then use min=0
-      if (minSum === maxSum) {
-        minSum = 0
-      }
-
-      console.log("Maximum sum:", maxSum);
-      console.log("Minimum sum:", minSum);
-
-
-      // Rename the property to value 
-      const newPropertyName = "value";
-
-      for (let i = 0; i < amount.length; i++) {
-        const keys = Object.keys(amount[i]);
-        if (keys.length > 1) {
-          const oldValue = keys[1];
-          amount[i][newPropertyName] = amount[i][oldValue];
-          delete amount[i][oldValue];
-        }
-      }
-      categoryArray = [minSum, maxSum]
-      seriesData = amount
-
-      console.log('Map chart2 ', indicator_categories, amount)
-
-
-    }
-
-
-    else {
-
-      //  const valuesArray = amount.map(obj => obj.sum);
-      seriesData = transformData(amount, chartType);
-      categoryArray.sort();
-    }
-
-
-
-
-
-    //   return amount;
-    return [categoryArray, seriesData];
-  } catch (error) {
-    // Handle any errors that occur during the asynchronous operation
-    console.error(error);
-    //return null; // or any default value you prefer
-    return []; // or any default value you prefer
-  }
-
-
-}
-
-const xgetSummaryMultipleParentsGrouped = async (cmodel, cfield, cAggregation, chartType, categorizedField) => {
+ 
+
+const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
+  
+  //var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+
+  let associated_Models = []
+  let filterFields = []
+  let filterValues = []
+  let groupFields = []
+
+  var cmodel = thisChart.card_model
+  var cfield = thisChart.card_model_field
+  var cAggregation = thisChart.aggregation
+  var chartType = thisChart.type
+  var categorizedField =thisChart.categorized
+  
   // thisChart.card_model,thisChart.card_model_field,thisChart.aggregation,  thisChart.type);
 
   // set admin level filtering
@@ -615,10 +425,7 @@ const xgetSummaryMultipleParentsGrouped = async (cmodel, cfield, cAggregation, c
 
 
 
-  let associated_Models = []
-  let filterFields = []
-  let filterValues = []
-  let groupFields = []
+
 
   if (categorizedField) {
     groupFields.push(cmodel + '.' + cfield)
@@ -803,7 +610,7 @@ const xgetSummaryMultipleParentsGrouped = async (cmodel, cfield, cAggregation, c
 
 }
 
-
+const cardSymbol = ref()
 const getCardData = async () => {
 
   var filters = ['dashboard_id']
@@ -834,15 +641,22 @@ const getCardData = async () => {
 
   res.data.forEach(function async(arrayItem) {
     console.log('getting teh card', arrayItem)
+    if (arrayItem.computation === 'proportion') {
+      cardSymbol.value='%'
+    } else {
+      cardSymbol.value=''
+    }
 
 
 
-    var result = getSummary(arrayItem.card_model, arrayItem.card_model_field, arrayItem.aggregation)
+    var result = getSummary(arrayItem)
+  //  var result = getSummary(arrayItem.card_model, arrayItem.card_model_field, arrayItem.aggregation)
 
     result.then((result) => {
       console.log(result); // "Promise resolved!"
       let card = arrayItem
       card.value = result
+      card.symbol=cardSymbol.value 
       cards.value.push(card)
     });
 
@@ -900,7 +714,7 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
             console.log(cdata);
 
 
@@ -972,7 +786,7 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
             console.log(cdata);
 
             const UpdatedBarOptionsMultiple = {
@@ -1031,7 +845,7 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
             console.log('Multi[e]', cdata);
 
             const UpdatedBarOptionsMultiple = {
@@ -1090,17 +904,17 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
             console.log('Multi[e]', cdata);
 
             const UpdatedBarOptionsMultiple = {
-              ...barMaleFemaleOptions,
+              ...stackedbarOptions,
               title: {
-                ...barMaleFemaleOptions.title,
+                ...stackedbarOptions.title,
                 text: thisChart.title
               },
               xAxis: {
-                ...barMaleFemaleOptions.xAxis,
+                ...stackedbarOptions.xAxis,
                 data: cdata[0]  // categories as recieved 
               },
 
@@ -1158,7 +972,7 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
             console.log('Multi[e]', cdata);
 
 
@@ -1226,7 +1040,7 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
             console.log('Multi[e]', cdata);
 
 
@@ -1305,7 +1119,7 @@ const getCharts = async (section_id) => {
 
           try {
 
-            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
             console.log('map data', cdata)
             var MaxMin = cdata[0]
             await getCountyGeo()
@@ -1596,12 +1410,7 @@ const getCharts = async (section_id) => {
               });
 
 
-
-
-
-
-
-
+ 
 
 
             //   UpdatedMapOtions.series[0].aspectScale=aspect.value
@@ -1930,7 +1739,7 @@ console.log('filterLevel.value', selectedCounties.value)
 
               <el-divider direction="vertical" />
               <div class="card-value">
-                <p class="value-text">{{ card.value }}</p>
+                <p class="value-text">{{ card.value }} {{ card.symbol }}</p>
                 <p class="value-label">{{ card.description }}</p>
               </div>
 
@@ -1949,7 +1758,7 @@ console.log('filterLevel.value', selectedCounties.value)
 
 
           <el-col
-v-for="(card, cardIndex) in tab.cards" :key="cardIndex" :span="8" :xl="8" :lg="8" :md="12" :sm="24"
+v-for="(card, cardIndex) in tab.cards" :key="cardIndex" :span="12" :xl="12" :lg="12" :md="12" :sm="24"
             :xs="24">
             <div class="tabs-container">
               <el-card>

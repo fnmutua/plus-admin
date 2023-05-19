@@ -4,6 +4,7 @@ const config = require('../config/db.config.js')
 const Sequelize = require('sequelize')
 const { QueryTypes } = require('sequelize')
 const op = Sequelize.Op
+const Op = Sequelize.Op
 const { authJwt } = require("../middleware");
 
 const redis = require("redis");
@@ -529,6 +530,7 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   var reg_model = req.body.model
   var summaryField = req.body.summaryField
   var summaryFunction = req.body.summaryFunction
+  var calculationType = req.body.calculationType; // 'absolute' or 'proportion'
 
   let groupfields = []
   
@@ -556,12 +558,6 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   }
 
   
-  
-
-
-
-
-
   var includeModels = []
   if ( typeof req.body.nested_models !== 'undefined' && Array.isArray(req.body.nested_models) && req.body.nested_models.length > 0 ) {
      var child_model = db.models[req.body.nested_models[0]]
@@ -596,41 +592,108 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
  
   
   
+  // old code without GT filiters 
   
+  // if (req.body.filterField && req.body.filterValue) {
+  //   let filterCols = req.body.filterField;
+  //   let filterValues = req.body.filterValue;
   
-  if (req.body.filterField && req.body.filterValue) {
+  //   if (!Array.isArray(filterCols)) {
+  //     filterCols = [filterCols];
+  //     filterValues = [filterValues];
+  //   }
+  
+  //   const filterConditions = [];
+  
+  //   for (let i = 0; i < filterCols.length; i++) {
+  //     const filterCol = filterCols[i];
+  //     const filterVal = filterValues[i];
+  
+  //     if (Array.isArray(filterVal)) {
+  //       const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
+  //       filterConditions.push({ [op.or]: nestedConditions });
+  //     } else {
+  //       filterConditions.push({ [filterCol]: filterVal });
+  //     }
+  //   }
+  
+  //   if (filterConditions.length > 0) {
+  //     qry.where = { [op.and]: filterConditions };
+  //   }
+  // }
+
+   // testing new filters
+  if (req.body.filterField && req.body.filterValue&& req.body.filterOperator) {
     let filterCols = req.body.filterField;
     let filterValues = req.body.filterValue;
+    let filterOperators = req.body.filterOperator;
   
     if (!Array.isArray(filterCols)) {
       filterCols = [filterCols];
       filterValues = [filterValues];
+      filterOperators = [filterOperators];
     }
   
+    const comparisonOperators = {
+      eq: op.eq,
+      gt: op.gt,
+      lt: op.lt,
+      lte: op.lte,
+      gte: op.gte,
+      // Add other operators and their corresponding Sequelize operators here
+    };
+
     const filterConditions = [];
   
     for (let i = 0; i < filterCols.length; i++) {
       const filterCol = filterCols[i];
       const filterVal = filterValues[i];
+      const filterOp = filterOperators[i];
+    //  console.log(operator)
+
+      const operator = comparisonOperators[filterOp];
+
   
+      // if (Array.isArray(filterVal)) {
+      //   const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
+      //   filterConditions.push({ [op.or]: nestedConditions });
+      // } else {
+      //   filterConditions.push({ [filterCol]: filterVal });
+      // }
       if (Array.isArray(filterVal)) {
-        const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
-        filterConditions.push({ [op.or]: nestedConditions });
+        // const nestedConditions = filterVal.map((nestedVal) => ({
+
+        //   [filterCol]: { [operator]: nestedVal[0] },
+        // }));
+
+        for (const nestedVal of filterVal) {
+          if (Array.isArray(nestedVal)  && nestedVal.length>1) {
+            filterConditions.push({ [filterCol]: { [op.or]: nestedVal} });
+          }
+          else if (Array.isArray(nestedVal)  && nestedVal.length<2) {
+            filterConditions.push({ [filterCol]: { [operator]: nestedVal[0]} });
+          }
+          else {
+            filterConditions.push({ [filterCol]: { [operator]: nestedVal } });
+          }
+        }
+
+      //  filterConditions.push({ [op.or]: nestedConditions });
       } else {
-        filterConditions.push({ [filterCol]: filterVal });
+        filterConditions.push({ [filterCol]: { [operator]: filterVal } });
       }
+
     }
   
     if (filterConditions.length > 0) {
       qry.where = { [op.and]: filterConditions };
     }
   }
+
+
   
 
-
- 
- 
-     
+   
   
   if (req.body.cache_key && req.body.cache_key != '') {
     
@@ -644,12 +707,26 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
         result = JSON.parse(cacheResults);
       }
       else {
-          await db.models[reg_model].findAll(qry).then(async (response) => {
-          await redisClient.set(req.body.cache_key, JSON.stringify(response), {
+        await db.models[reg_model].findAll(qry).then(async (response) => {
+            
+          let totalValue;
+          if (calculationType === 'proportion') {
+            const totalCount = response.reduce((acc, item) => acc + item[summaryFunction], 0);
+            totalValue = response.map((item) => ({
+              ...item,
+              [summaryFunction]: item[summaryFunction] / totalCount * 100,
+            }));
+          } else {
+            totalValue = response;
+          }
+
+
+
+          await redisClient.set(req.body.cache_key, JSON.stringify(totalValue), {
             EX: 3600,  // 1hour 
             NX: true,
           });
-          result=(response)
+          result=(totalValue)
          })
        
       }
@@ -669,11 +746,24 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
    }
 
   else {
-    console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+    console.log("Summary Caching.......................1...")
 
-    db.models[reg_model].findAll(qry).then((list) => {
+    db.models[reg_model].findAll(qry).then(async (list) => {
+
+      let totalValue;
+      if (calculationType === 'proportion') {
+        const totalCount = await db.models[reg_model].count();
+        totalValue = list.map((item) => ({
+          ...item,
+          [summaryFunction]: item[summaryFunction] / totalCount * 100,
+        }));
+      } else {
+        totalValue = list;
+      }
+
+
       res.status(200).send({
-        Total: list,
+        Total: totalValue,
         fromCache: false,
           code: '0000'
       })
