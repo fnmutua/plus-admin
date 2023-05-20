@@ -228,8 +228,7 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
  
   } 
 
- 
-
+  
 
   const formData = {}
   formData.model = 'indicator_category_report'
@@ -343,15 +342,26 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
   let groupFields = ['indicator_category.category_title'] 
    
   if (filterLevel.value === 'county') {
-      associated_Models.push('subcounty')
-      filterFields.push('county_id')
-      filterValues.push([selectedCounties.value])
-      groupFields.push('subcounty.name')
-  } else if (filterLevel.value === 'national') {
-      associated_Models.push('county')
-      groupFields.push('county.name')
+    associated_Models.push('subcounty')
+    filterFields.push('county_id')
+    filterValues.push([selectedCounties.value])
+    groupFields.push('subcounty.name')
+  }
+  else if (filterLevel.value === 'subcounty') { 
+    // filter by subcounty 
+    associated_Models.push('ward')
+    filterFields.push('subcounty_id')
+    filterValues.push([selectedSubCounties.value])
+    groupFields.push('ward.name')
+  }
+  else if (filterLevel.value === 'national') {
+    associated_Models.push('county')
+    groupFields.push('county.name')
 
-  } 
+  }
+
+
+
 
 
 
@@ -423,6 +433,8 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
  // formData.filterValue = [indicator_categories]  // Bitumen
   formData.filterField = filterFields
   formData.filterValue = filterValues  // Bitumen
+  formData.filterOperator = ['eq' ] // Bitumen
+
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const amount = response.Total;
@@ -1075,8 +1087,14 @@ const getCharts = async (section_id) => {
             var MaxMin = cdata[0]
             await getCountyGeo()
             //await getSubsetGeo(model,filterFields, filterValues)
-            if (selectedCounties.value.length>0) {
-              await getSubsetGeo('subcounty',['county_id'], selectedCounties.value)
+            if (selectedCounties.value.length > 0 && filterLevel.value === 'county') {
+              await getSubsetGeo('subcounty', ['county_id'], selectedCounties.value)
+
+
+              
+            }
+            if (selectedSubCounties.value.length > 0 && filterLevel.value === 'subcounty') {
+              await getSubsetGeo('ward', ['subcounty_id'], selectedSubCounties.value)
 
             }
 
@@ -1413,6 +1431,25 @@ console.log('filterLevel.value', selectedCounties.value)
      
 }
 
+const filterSubCounty = async (subcountyId) => {
+  //selectSubCounty.value=null
+ 
+selectedSubCounties.value = subcountyId;
+ 
+  console.log('selectedSubCounties',selectedSubCounties.value);  // [1]
+
+
+  if (selectedSubCounties.value.length == 0) {
+  filterLevel.value = 'county'
+} else {
+  filterLevel.value = 'subcounty'
+  getCards()
+  getTabs()
+
+}  
+     
+}
+
 
 </script>
 
@@ -1422,10 +1459,9 @@ console.log('filterLevel.value', selectedCounties.value)
   <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
 </el-select>
 
-<el-select :style="{ width: '25% ' }"  v-model="selectSubCounty" clearable filterable collapse-tags placeholder="Select Constituency">
-  <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
-</el-select>
-
+<el-select :style="{ width: '25% ' }"  @change="filterSubCounty"  :onClear="handleClear"  v-model="selectSubCounty" clearable multiple filterable collapse-tags placeholder="Select Constituency">
+    <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
+  </el-select>
 <!-- 
     <el-cascader
     :style="{ width: '100% '}"

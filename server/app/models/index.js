@@ -142,6 +142,14 @@ db.models.households.belongsTo(db.models.subcounty, {
 })
 
 
+db.models.ward.hasMany(db.models.households, {
+  foreignKey: 'ward_id'
+})
+
+db.models.households.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
 
 
 
@@ -289,6 +297,13 @@ db.models.subcounty.hasMany(db.models.health_facility, {
 })
 
 
+db.models.health_facility.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
+db.models.ward.hasMany(db.models.health_facility, {
+  foreignKey: 'ward_id'
+})
 
 
 
@@ -319,6 +334,17 @@ db.models.subcounty.hasMany(db.models.education_facility, {
 })
 
 
+db.models.education_facility.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
+db.models.ward.hasMany(db.models.education_facility, {
+  foreignKey: 'ward_id'
+})
+
+
+
+
 
 /// Roads
 db.models.road.belongsTo(db.models.settlement, {
@@ -347,6 +373,14 @@ db.models.subcounty.hasMany(db.models.road, {
   foreignKey: 'subcounty_id'
 })
 
+
+db.models.road.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
+db.models.ward.hasMany(db.models.road, {
+  foreignKey: 'ward_id'
+})
 
 
 
@@ -379,6 +413,13 @@ db.models.subcounty.hasMany(db.models.water_point, {
 
 
 
+db.models.water_point.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
+db.models.ward.hasMany(db.models.water_point, {
+  foreignKey: 'ward_id'
+})
 
 
 
@@ -406,6 +447,15 @@ db.models.sewer.belongsTo(db.models.subcounty, {
 
 db.models.subcounty.hasMany(db.models.sewer, {
   foreignKey: 'subcounty_id'
+})
+
+
+db.models.water_point.belongsTo(db.models.sewer, {
+  foreignKey: 'ward_id'
+})
+
+db.models.sewer.hasMany(db.models.water_point, {
+  foreignKey: 'ward_id'
 })
 
 
@@ -437,6 +487,18 @@ db.models.subcounty.hasMany(db.models.piped_water, {
 })
 
  
+
+db.models.water_point.belongsTo(db.models.piped_water, {
+  foreignKey: 'ward_id'
+})
+
+db.models.piped_water.hasMany(db.models.water_point, {
+  foreignKey: 'ward_id'
+})
+
+
+
+
 db.models.document.belongsTo(db.models.piped_water, {
   foreignKey: 'piped_water_id',
 })
@@ -495,6 +557,14 @@ db.models.subcounty.hasMany(db.models.other_facility, {
 })
 
 
+db.models.water_point.belongsTo(db.models.other_facility, {
+  foreignKey: 'ward_id'
+})
+
+db.models.other_facility.hasMany(db.models.water_point, {
+  foreignKey: 'ward_id'
+})
+
 
 
 
@@ -548,6 +618,16 @@ db.models.subcounty.hasMany(db.models.indicator_category_report, {
   foreignKey: 'subcounty_id'
 })
 
+
+
+// subcounty  - indicator_category_report
+db.models.indicator_category_report.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
+db.models.ward.hasMany(db.models.indicator_category_report, {
+  foreignKey: 'ward_id'
+})
 
 
 
