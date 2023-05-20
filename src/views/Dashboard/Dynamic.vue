@@ -242,6 +242,7 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
   // formData.filterValue = [ids]    
   formData.filterField =filterFields
   formData.filterValue =filterValues 
+  formData.filterOperator = []
 
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);

@@ -61,7 +61,7 @@ echo
   now="$(date +'%d%m%Y')"
 
  
-  psql -f 03052023.kisip.sql  kisip
+  psql -f 20052023.kisip.sql  kisip
 
  
 

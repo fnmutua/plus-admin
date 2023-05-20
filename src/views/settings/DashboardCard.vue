@@ -664,7 +664,10 @@ const handleFilterAggregators = async (selField) => {
     aggregationOptionsFiltered.value = aggregationOptions.filter(option => option.value === 'count');
 
     functionOptions.value =[
-   
+    {
+            value: 'all',
+            label: 'All'
+          },
           {
             value: 'eq',
             label: 'Equal'
@@ -676,6 +679,10 @@ const handleFilterAggregators = async (selField) => {
      aggregationOptionsFiltered.value = aggregationOptions
 
      functionOptions.value = [
+         {
+            value: 'all',
+            label: 'All'
+          },
           {
             value: 'lt',
             label: 'Less Than'
@@ -720,8 +727,18 @@ const handleFilterAggregators = async (selField) => {
 
  }
 
- 
+ const showFilterValues=ref(true)
+const handleFilterFunction = async (val) => { 
+  if (val=='all') {
+    showFilterValues.value = false
+    ruleForm.filter_value=[]
+  } else {
+    showFilterValues.value=true
 
+  }
+
+}
+ 
 
 
 
@@ -828,7 +845,7 @@ v-model="ruleForm.card_model_field"   :onClear="handleClear" clearable filterabl
 
     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
       <el-form-item label="Filter" v-if="showStatusExtras && fieldSelected">
-        <el-select v-model="ruleForm.filter_function" :onClear="handleClear" clearable   filterable collapse-tags placeholder="">
+        <el-select v-model="ruleForm.filter_function" :onClear="handleClear" clearable   filterable collapse-tags placeholder="" :onChange="handleFilterFunction">
           <el-option v-for="item in functionOptions" :key="item.value" :label="item.label" :value="item.value"  :disabled="disabledoptions"/>
         </el-select>
       </el-form-item>
@@ -836,7 +853,7 @@ v-model="ruleForm.card_model_field"   :onClear="handleClear" clearable filterabl
 
 
     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-         <el-select v-if="showStatusExtras && fieldSelected" v-model="ruleForm.filter_value" :onClear="handleClear" clearable multiple filterable collapse-tags placeholder="Filter values">
+         <el-select v-if="showStatusExtras && fieldSelected && showFilterValues" v-model="ruleForm.filter_value" :onClear="handleClear" clearable multiple filterable collapse-tags placeholder="Filter values">
           <el-option v-for="item in fieldOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
      </el-col>

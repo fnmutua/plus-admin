@@ -198,7 +198,7 @@ const getSummary = async (card) => {
 
   //var ids = await getIndicatorConfigurations(indicator)
 
-  //console.log('Found Indicator_cateory_ids', ids, indicator)
+  console.log('thisCard',card)
 
   // set admin level filtering
   let associated_Models = []
@@ -208,7 +208,7 @@ const getSummary = async (card) => {
 
   if (filter_value) { 
     filterFields.push(cmodelField)
-    filterValues.push([filter_value])
+    filterValues = [filter_value]
     filterOperator.push(filter_function)
   }
 
@@ -216,7 +216,7 @@ const getSummary = async (card) => {
     associated_Models.push('subcounty')
     filterFields.push('county_id')
     filterValues.push([selectedCounties.value])
-    filterOperator.push('eq')
+    filterOperator.push(['eq'])
 
 
   } else if (filterLevel.value === 'national') {
@@ -231,6 +231,7 @@ const getSummary = async (card) => {
   const formData = {}
   formData.model = selectModel
   formData.summaryField = selectModel + '.' + cmodelField  // concatenating to avoid abiguity
+  //formData.summaryField =  cmodelField  // concatenating to avoid abiguity
   formData.summaryFunction = aggregMethod
   //formData.assoc_models = ['county']
   formData.assoc_models = associated_Models
@@ -247,7 +248,7 @@ const getSummary = async (card) => {
 
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
-    console.log("Cards sumamrye", response01.Total[0][aggregMethod])
+    console.log("Cards sumamrye", response01)
     // console.log('ids', ids)
 
     // const response = await getSumFilter(sumQuery);
@@ -266,73 +267,7 @@ const getSummary = async (card) => {
 
 
 
-
-
-
-function transformData(data, chartType) {
-
-
-  // Create array of unique names (categories)
-  const uniqueNames = [...new Set(data.map(item => item.name))];
-  uniqueNames.sort();
-
-  console.log('uniqueNames', uniqueNames)
-
-  const uniqueCategoryTitles = [...new Set(data.map(item => item.category_title))];
-  uniqueCategoryTitles.sort();
-
-  console.log('uniqueCategoryTitles', uniqueCategoryTitles)
-
-  // Loop through categories and create the resulting object, padding as needed
-  const result = uniqueCategoryTitles.map(category => {
-
-    const dataArr = []
-    uniqueNames.map(name => {
-      const filteredData = data.filter(item => item.category_title === category && item.name === name);
-
-      console.log("Filtred", filteredData)
-      let arr = filteredData.length > 0 ? filteredData.map(item => (item.sum ? parseInt(item.sum) : 0)) : [0]
-      console.log("arr", arr)
-      dataArr.push(arr[0])
-
-
-    })
-
-    let objChart = {}
-    objChart.name = category
-    objChart.type = 'bar'
-    objChart.data = dataArr
-
-    if (chartType == 4) { //4-stackhed bar chart
-      objChart.stack = 'total'
-      objChart.label = {
-        show: true
-      }
-    }
-    else if (chartType == 3) { //3 pie bar chart
-      objChart.value = dataArr
-      objChart.name = category
-
-    }
-
-
-    if (category == 'Female') {
-      objChart.color = colorPalette[0];
-    } else if (category == 'Female') {
-      objChart.color = colorPalette[1];
-    }
-
-
-
-    return objChart
-
-
-  });
-
-
-
-  return result;
-}
+ 
 
 
 function xtransformData(data, chartType, aggregationMethod, cfield) {
@@ -466,7 +401,9 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   // formData.filterField = ['indicator_category_id']
   // formData.filterValue = [indicator_categories]  // Bitumen
   formData.filterField = filterFields
-  formData.filterValue = filterValues  // Bitumen
+  formData.filterOperator = ['eq' ] // Bitumen
+  formData.filterValue = filterValues
+
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const amount = response.Total;
@@ -1684,7 +1621,7 @@ const handleClear = async () => {
 }
 
 
-const filterSubcounty = async (county_id) => {
+const filterCounty = async (county_id) => {
   //selectSubCounty.value=null
   filteredSubCountyList.value = subCountyList.value.filter(option => county_id.includes(option.county_id));
  
@@ -1712,7 +1649,7 @@ console.log('filterLevel.value', selectedCounties.value)
 </script>
 
 <template>
-  <el-select :style="{ width: '25% ', marginRight: '10px' }"   @change="filterSubcounty"   :onClear="handleClear"  v-model="selectCounty"  multiple clearable filterable collapse-tags placeholder="Select County">
+  <el-select :style="{ width: '25% ', marginRight: '10px' }"   @change="filterCounty"   :onClear="handleClear"  v-model="selectCounty"  multiple clearable filterable collapse-tags placeholder="Select County">
     <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
   </el-select>
 
@@ -1734,7 +1671,7 @@ console.log('filterLevel.value', selectedCounties.value)
           <el-card shadow="always">
             <div class="card-content">
               <div class="icon-container">
-                <Icon :icon=card.icon width="80" :color=card.iconColor />
+                <Icon :icon=card.icon width="60" :color=card.iconColor />
               </div>
 
               <el-divider direction="vertical" />
