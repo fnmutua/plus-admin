@@ -575,7 +575,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
            <el-input v-model="ruleForm.title" />
        </el-form-item>
  
-      <el-form-item label="Icon">
+      <!-- <el-form-item label="Icon">
         <el-tooltip content="Get icons from https://icon-sets.iconify.design/" placement="top">
         <el-input v-model="ruleForm.icon" />
       </el-tooltip>
@@ -602,7 +602,7 @@ v-model="ruleForm.programme_id" :onClear="handleClear"   clearable
        </el-form-item>
 
 
-    
+     -->
 
 
  

@@ -523,9 +523,213 @@ exports.sumGroupByMultipleColumns = async (req, res) => {
   }
 };
 
-
-
 exports.sumModelAssociatedMultipleModels = async (req, res) => {
+
+
+ // -------------------------------------------------------------------------------
+  if (req.body.model == 'settlement') {
+    console.log('---------------------Sum sumModelAssociatedMultipleModels-----4---',req.body.model,  req.body.summaryField,req.body.filterOperator, '-------------------------------------')
+
+  }
+ 
+  var reg_model = req.body.model;
+  var summaryField = req.body.summaryField;
+  var summaryFunction = req.body.summaryFunction;
+  var calculationType = req.body.calculationType; // 'absolute' or 'proportion'
+  var assoc_models = req.body.assoc_models;
+  var groupFields = req.body.groupFields;
+  var nested_models = req.body.nested_models;
+  let operator = req.body.filterOperator?req.body.filterOperator:[];
+
+
+  // Build the query based on the parameters
+  var qry = {
+    attributes: [],
+    include: [],
+    group: [],
+    where: {},
+  };
+
+
+  let groupfields = []
+  
+  if (req.body.groupFields) {
+    for (let i = 0; i < req.body.groupFields.length; i++) {
+      let field = req.body.groupFields[i]
+      groupfields.push(field)
+    }
+  }
+
+
+  // Add group fields to the query if provided
+  if (groupFields && Array.isArray(groupFields)) {
+    qry.attributes= [...groupfields],
+    qry.group= [...groupfields],
+    qry.raw=true
+    
+
+
+  }
+  else {
+    
+  //    qry.attributes= [...groupfields,[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+      qry.raw=true
+   
+
+  }
+
+
+
+
+  // Add summary calculation to the query attributes
+  if (summaryField && summaryFunction) {
+    qry.attributes.push([Sequelize.fn(summaryFunction, Sequelize.col(summaryField)), summaryFunction]);
+  }
+
+  // Add associated models to the query
+  if (assoc_models &&  req.body.assoc_models.length > 0 && Array.isArray(assoc_models) ) {
+    assoc_models.forEach(assocModel => {
+      qry.include.push({
+        model: db.models[assocModel],
+        attributes: [],
+      });
+    });
+  }
+
+  // Add nested include models to the query
+  if (nested_models &&  req.body.nested_models.length > 0  && Array.isArray(nested_models)) {
+    nested_models.forEach(nestedModel => {
+      qry.include.push({
+        model: db.models[nestedModel.model],
+        as: nestedModel.alias,
+        attributes: [],
+      });
+    });
+  }
+
+ 
+
+// // Add filter conditions to the query
+// if (req.body.filterField && req.body.filterValue && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
+//   let filterCols = req.body.filterField;
+//   let filterValues = req.body.filterValue;
+
+//   if (!Array.isArray(filterCols)) {
+//     filterCols = [filterCols];
+//     filterValues = [filterValues];
+//   }
+
+//   const operatorMappings = {
+//     eq: op.eq,
+//     gt: op.gt,
+//     lt: op.lt,
+//     // Add more operator mappings as needed
+//   };
+
+//   const filterConditions = [];
+
+//   for (let i = 0; i < filterCols.length; i++) {
+//     const filterCol = filterCols[i];
+//     const filterVal = filterValues[i];
+
+//     if (Array.isArray(filterVal)) {
+//     //  const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
+// 	        const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
+
+//       filterConditions.push({ [op.or]: nestedConditions });
+//     } else if (operator != "all") {
+//       filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
+//     }
+//   }
+
+//   if (operator != "all" && filterConditions.length > 0) {
+//     qry.where = { [op.and]: filterConditions };
+//   }
+//   }
+ 
+if (req.body.filterField && req.body.filterValue   &&req.body.filterOperator && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
+  let filterCols = req.body.filterField;
+  let filterValues = req.body.filterValue;
+  let filterOperators = req.body.filterOperator; // Array of filter operators
+
+  if (!Array.isArray(filterCols)) {
+    filterCols = [filterCols];
+    filterValues = [filterValues];
+    filterOperators = [filterOperators];
+  }
+
+  const operatorMappings = {
+    eq: op.eq,
+    gt: op.gt,
+    lt: op.lt,
+    // Add more operator mappings as needed
+  };
+
+  const filterConditions = [];
+  console.log('-----------------------------x--------------------------------',filterCols)
+
+  for (let i = 0; i < filterCols.length; i++) {
+    const filterCol = filterCols[i];
+    const filterVal = filterValues[i];
+    const operator = filterOperators[i]; // Get the operator corresponding to the filter field
+    if (operator === "all" ) {
+      // No filter, retrieve all records for this field
+      continue; // Skip adding any condition for this field
+    } else {
+
+      if (Array.isArray(filterVal)) {
+        const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
+  
+        filterConditions.push({ [op.or]: nestedConditions });
+      } else if (operator !== "all" && operator) {
+        filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
+      }
+    }
+
+   
+  }
+
+  if (filterConditions.length > 0) {
+    qry.where = { [op.and]: filterConditions };
+  }
+  }
+  
+ 
+  
+
+  // if (operator === "all") {
+  //   // No filters, retrieve all records
+  //   qry.where = {}; // or qry.where = true;
+  // }
+  
+db.models[reg_model].findAll(qry).then(async (list) => {
+
+  let totalValue;
+  if (calculationType === 'proportion') {
+    const totalCount = await db.models[reg_model].count();
+    totalValue = list.map((item) => ({
+      ...item,
+      [summaryFunction]: item[summaryFunction] / totalCount * 100,
+    }));
+  } else {
+    totalValue = list;
+  }
+
+
+  res.status(200).send({
+    Total: totalValue,
+    fromCache: false,
+      code: '0000'
+  })
+})
+
+};
+
+
+
+
+
+exports.dsumModelAssociatedMultipleModels = async (req, res) => {
    
   var reg_model = req.body.model
   var summaryField = req.body.summaryField
@@ -594,101 +798,101 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   
   // old code without GT filiters 
   
-  // if (req.body.filterField && req.body.filterValue) {
-  //   let filterCols = req.body.filterField;
-  //   let filterValues = req.body.filterValue;
-  
-  //   if (!Array.isArray(filterCols)) {
-  //     filterCols = [filterCols];
-  //     filterValues = [filterValues];
-  //   }
-  
-  //   const filterConditions = [];
-  
-  //   for (let i = 0; i < filterCols.length; i++) {
-  //     const filterCol = filterCols[i];
-  //     const filterVal = filterValues[i];
-  
-  //     if (Array.isArray(filterVal)) {
-  //       const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
-  //       filterConditions.push({ [op.or]: nestedConditions });
-  //     } else {
-  //       filterConditions.push({ [filterCol]: filterVal });
-  //     }
-  //   }
-  
-  //   if (filterConditions.length > 0) {
-  //     qry.where = { [op.and]: filterConditions };
-  //   }
-  // }
-
-   // testing new filters
-  if (req.body.filterField && req.body.filterValue&& req.body.filterOperator) {
+  if (req.body.filterField && req.body.filterValue) {
     let filterCols = req.body.filterField;
     let filterValues = req.body.filterValue;
-    let filterOperators = req.body.filterOperator;
   
     if (!Array.isArray(filterCols)) {
       filterCols = [filterCols];
       filterValues = [filterValues];
-      filterOperators = [filterOperators];
     }
   
-    const comparisonOperators = {
-      eq: op.eq,
-      gt: op.gt,
-      lt: op.lt,
-      lte: op.lte,
-      gte: op.gte,
-      // Add other operators and their corresponding Sequelize operators here
-    };
-
     const filterConditions = [];
   
     for (let i = 0; i < filterCols.length; i++) {
       const filterCol = filterCols[i];
       const filterVal = filterValues[i];
-      const filterOp = filterOperators[i];
-    //  console.log(operator)
-
-      const operator = comparisonOperators[filterOp];
-
   
-      // if (Array.isArray(filterVal)) {
-      //   const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
-      //   filterConditions.push({ [op.or]: nestedConditions });
-      // } else {
-      //   filterConditions.push({ [filterCol]: filterVal });
-      // }
       if (Array.isArray(filterVal)) {
-        // const nestedConditions = filterVal.map((nestedVal) => ({
-
-        //   [filterCol]: { [operator]: nestedVal[0] },
-        // }));
-
-        for (const nestedVal of filterVal) {
-          if (Array.isArray(nestedVal)  && nestedVal.length>1) {
-            filterConditions.push({ [filterCol]: { [op.or]: nestedVal} });
-          }
-          else if (Array.isArray(nestedVal)  && nestedVal.length<2) {
-            filterConditions.push({ [filterCol]: { [operator]: nestedVal[0]} });
-          }
-          else {
-            filterConditions.push({ [filterCol]: { [operator]: nestedVal } });
-          }
-        }
-
-      //  filterConditions.push({ [op.or]: nestedConditions });
+        const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
+        filterConditions.push({ [op.or]: nestedConditions });
       } else {
-        filterConditions.push({ [filterCol]: { [operator]: filterVal } });
+        filterConditions.push({ [filterCol]: filterVal });
       }
-
     }
   
     if (filterConditions.length > 0) {
       qry.where = { [op.and]: filterConditions };
     }
   }
+
+   // testing new filters
+  // if (req.body.filterField && req.body.filterValue&& req.body.filterOperator) {
+  //   let filterCols = req.body.filterField;
+  //   let filterValues = req.body.filterValue;
+  //   let filterOperators = req.body.filterOperator;
+  
+  //   if (!Array.isArray(filterCols)) {
+  //     filterCols = [filterCols];
+  //     filterValues = [filterValues];
+  //     filterOperators = [filterOperators];
+  //   }
+  
+  //   const comparisonOperators = {
+  //     eq: op.eq,
+  //     gt: op.gt,
+  //     lt: op.lt,
+  //     lte: op.lte,
+  //     gte: op.gte,
+  //     // Add other operators and their corresponding Sequelize operators here
+  //   };
+
+  //   const filterConditions = [];
+  
+  //   for (let i = 0; i < filterCols.length; i++) {
+  //     const filterCol = filterCols[i];
+  //     const filterVal = filterValues[i];
+  //     const filterOp = filterOperators[i];
+  //   //  console.log(operator)
+
+  //     const operator = comparisonOperators[filterOp];
+
+  
+  //     // if (Array.isArray(filterVal)) {
+  //     //   const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
+  //     //   filterConditions.push({ [op.or]: nestedConditions });
+  //     // } else {
+  //     //   filterConditions.push({ [filterCol]: filterVal });
+  //     // }
+  //     if (Array.isArray(filterVal)) {
+  //       // const nestedConditions = filterVal.map((nestedVal) => ({
+
+  //       //   [filterCol]: { [operator]: nestedVal[0] },
+  //       // }));
+
+  //       for (const nestedVal of filterVal) {
+  //         if (Array.isArray(nestedVal)  && nestedVal.length>1) {
+  //           filterConditions.push({ [filterCol]: { [op.or]: nestedVal} });
+  //         }
+  //         else if (Array.isArray(nestedVal)  && nestedVal.length<2) {
+  //           filterConditions.push({ [filterCol]: { [operator]: nestedVal[0]} });
+  //         }
+  //         else {
+  //           filterConditions.push({ [filterCol]: { [operator]: nestedVal } });
+  //         }
+  //       }
+
+  //     //  filterConditions.push({ [op.or]: nestedConditions });
+  //     } else {
+  //       filterConditions.push({ [filterCol]: { [operator]: filterVal } });
+  //     }
+
+  //   }
+  
+  //   if (filterConditions.length > 0) {
+  //     qry.where = { [op.and]: filterConditions };
+  //   }
+  // }
 
 
   

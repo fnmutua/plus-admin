@@ -244,10 +244,12 @@ export const pieOptions  = reactive({
     {
       name: '',
       type: 'pie',
-      radius: '70%',
+   //   radius: '70%',
       center: ['50%', '50%'],
+      radius: ['10%', '70%'],
+
       roseType: 'area',
-      color: colorPalette,
+  //    color: colorPalette,
       // itemStyle: {
       //   borderRadius: 1,
       //   borderColor: '#fff',

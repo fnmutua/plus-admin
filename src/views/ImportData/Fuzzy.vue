@@ -520,29 +520,36 @@ const readXLSX = async (event) => {
             matchedWithParent.value = uploadObj.value.map(obj => {
                 let input = obj.pcode
                 const fuse = new Fuse(parentObj.value, options);
+                console.log('Running fuse')
 
-                let results = fuse.search(input);
-                console.log(results)
-                if (results.length>0) {
-                    console.log(pfield, results[0].item)
+                        //      let results = fuse.search(input);
+                         let results;
+                        try {
+                        results = fuse.search(input);
+                        console.log(results);
+                        } catch (error) {
+                        console.error("An error occurred during Fuse search:", error);
+                        // Handle the error case if needed
+                        results = [];
+                        }
 
-                    return {
-                    ...obj, // spread existing properties of the object
-                    [pfield]: results[0].item.id, // add new property to the object
-                    ['county_id']: results[0].item.county_id, // add new property to the object
-                        ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
-                        ['code']:  shortid.generate(),
-                    //['settlement_id']: results[0].item.settlement_id  // add new property to the object
-
-                };
-                } else {
-                    ElMessage.error("No parent exists with the provide pcode:" +obj.pcode)
-                    //handleReset()
-                    return {
-                        ...obj
-                    }
-                
-                }
+                        if (results.length > 0) {
+                        console.log(pfield, results[0].item);
+                        return {
+                            ...obj, // spread existing properties of the object
+                            [pfield]: results[0].item.id, // add new property to the object
+                            ['county_id']: results[0].item.county_id, // add new property to the object
+                            ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
+                            ['code']: shortid.generate(),
+                            //['settlement_id']: results[0].item.settlement_id  // add new property to the object
+                        };
+                        } else {
+                        ElMessage.error("No parent exists with the provided pcode: " + obj.pcode);
+                        //handleReset()
+                        return {
+                            ...obj
+                        };
+                        }
 
              
             });
