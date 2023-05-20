@@ -2559,7 +2559,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           noCache: true,
           icon:'ic:round-bubble-chart',
           affix: true,
-          hidden: true,
+          hidden: false,
 
         }
       },
@@ -2572,7 +2572,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           noCache: true,
           affix: true,
           icon:'pajamas:status',
-          hidden: false,
+          hidden: true,
 
         }
       },

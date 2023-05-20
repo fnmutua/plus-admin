@@ -16,6 +16,13 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
+
+      ward_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
+
+      
       project_id: {
         type: DataTypes.INTEGER,
         allowNull: true

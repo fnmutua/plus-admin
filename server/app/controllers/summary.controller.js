@@ -647,7 +647,7 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
 //   }
 //   }
  
-if (req.body.filterField && req.body.filterValue   &&req.body.filterOperator && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
+if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
   let filterCols = req.body.filterField;
   let filterValues = req.body.filterValue;
   let filterOperators = req.body.filterOperator; // Array of filter operators
@@ -666,7 +666,7 @@ if (req.body.filterField && req.body.filterValue   &&req.body.filterOperator && 
   };
 
   const filterConditions = [];
-  console.log('-----------------------------x--------------------------------',filterCols)
+  console.log('-----------------------------x--------------------------------',req.body.filterField)
 
   for (let i = 0; i < filterCols.length; i++) {
     const filterCol = filterCols[i];

@@ -99,26 +99,7 @@ const props = {
   expandTrigger: 'hover' as const,
   multiple: true,
 }
-const handleChange = (value) => {
-  console.log(value)
-
-  selectedCounties.value = Array.from(new Set(value.map(item => item[0])));
-  selectedSubCounties.value = value.map(item => item[1]);
-
-  console.log(selectedCounties.value);  // [1]
-  console.log(selectedSubCounties.value); // [1, 2, 3, 4, 5, 6]
-  if (selectedCounties.value.length == 0) {
-    filterLevel.value = 'national'
-  } else {
-    filterLevel.value = 'county'
-    getCards()
-    getTabs()
-
-  }
-  console.log('filterLevel.value', filterLevel.value)
-
-
-}
+ 
 
 const mArray = ref([])
 const fArray = ref([])
@@ -132,6 +113,7 @@ const pyramidOptions = ref()
 const countyGeo = ref([])
 const subCountyGeo = ref([])
 const aspect = ref()
+
 const getCountyGeo = async () => {
   const formData = {}
   formData.model = 'county'
@@ -217,9 +199,15 @@ const getSummary = async (card) => {
     filterFields.push('county_id')
     filterValues.push([selectedCounties.value])
     filterOperator.push(['eq'])
+  }
 
-
-  } else if (filterLevel.value === 'national') {
+  else if (filterLevel.value === 'subcounty') { 
+    // filter by subcounty 
+    associated_Models.push('ward')
+    filterFields.push('subcounty_id')
+    filterValues.push([selectedSubCounties.value])
+   }
+  else if (filterLevel.value === 'national') {
     associated_Models.push('county')
 
 
@@ -379,7 +367,15 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
     filterFields.push('county_id')
     filterValues.push([selectedCounties.value])
     groupFields.push('subcounty.name')
-  } else if (filterLevel.value === 'national') {
+  }
+  else if (filterLevel.value === 'subcounty') { 
+    // filter by subcounty 
+    associated_Models.push('ward')
+    filterFields.push('subcounty_id')
+    filterValues.push([selectedSubCounties.value])
+    groupFields.push('ward.name')
+  }
+  else if (filterLevel.value === 'national') {
     associated_Models.push('county')
     groupFields.push('county.name')
 
@@ -1061,11 +1057,16 @@ const getCharts = async (section_id) => {
             var MaxMin = cdata[0]
             await getCountyGeo()
             //await getSubsetGeo(model,filterFields, filterValues)
-            if (selectedCounties.value.length > 0) {
+            if (selectedCounties.value.length > 0 && filterLevel.value === 'county') {
               await getSubsetGeo('subcounty', ['county_id'], selectedCounties.value)
 
-            }
 
+              
+            }
+            if (selectedSubCounties.value.length > 0 && filterLevel.value === 'subcounty') {
+              await getSubsetGeo('ward', ['subcounty_id'], selectedSubCounties.value)
+
+            }
 
 
             console.log('apsect', aspect.value)
@@ -1170,7 +1171,14 @@ const getCharts = async (section_id) => {
               filterValues.push([selectedCounties.value])
 
 
-            } else if (filterLevel.value === 'national') {
+            }
+            else if (filterLevel.value === 'subcounty') { 
+              // filter by subcounty 
+               filterFields.push('subcounty_id')
+              filterValues.push([selectedSubCounties.value])
+             }
+
+            else if (filterLevel.value === 'national') {
 
 
             }
@@ -1624,9 +1632,7 @@ const handleClear = async () => {
 const filterCounty = async (county_id) => {
   //selectSubCounty.value=null
   filteredSubCountyList.value = subCountyList.value.filter(option => county_id.includes(option.county_id));
- 
-
-  console.log('xyz', filteredSubCountyList.value)
+   console.log('xyz', filteredSubCountyList.value)
 
 selectedCounties.value = county_id;
  
@@ -1640,10 +1646,28 @@ console.log(selectedCounties.value);  // [1]
 
 }
 console.log('filterLevel.value', selectedCounties.value)
-
      
 }
 
+
+const filterSubCounty = async (subcountyId) => {
+  //selectSubCounty.value=null
+ 
+selectedSubCounties.value = subcountyId;
+ 
+  console.log('selectedSubCounties',selectedSubCounties.value);  // [1]
+
+
+  if (selectedSubCounties.value.length == 0) {
+  filterLevel.value = 'county'
+} else {
+  filterLevel.value = 'subcounty'
+  getCards()
+  getTabs()
+
+}  
+     
+}
 
 
 </script>
@@ -1653,7 +1677,7 @@ console.log('filterLevel.value', selectedCounties.value)
     <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
   </el-select>
 
-  <el-select :style="{ width: '25% ' }"  v-model="selectSubCounty" clearable filterable collapse-tags placeholder="Select Constituency">
+  <el-select :style="{ width: '25% ' }"  @change="filterSubCounty"  :onClear="handleClear"  v-model="selectSubCounty" clearable multiple filterable collapse-tags placeholder="Select Constituency">
     <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
   </el-select>
 
