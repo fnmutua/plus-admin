@@ -87,6 +87,11 @@ module.exports = function (sequelize, DataTypes) {
         defaultValue: 'Pending'
       },
 
+      isActive: {
+        type: DataTypes.STRING,
+        defaultValue: 'true'
+      },
+
       createdBy: {
         type: DataTypes.INTEGER,
         allowNull: true

@@ -43,6 +43,7 @@ import { useRouter } from 'vue-router'
 
 //import  shapefile   from 'shapefile';
 import * as turf from '@turf/turf'
+import { getOneGeo, getfilteredGeo } from '@/api/settlements'
 
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
@@ -59,6 +60,14 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 
 import "mapbox-layer-switcher/styles.css";
 
+
+import {
+   settlementOptionsV2, subcountyOptions,wardOptions
+} from './common/index.ts'
+
+
+
+
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import { useRoute } from 'vue-router'
 import { rule } from 'postcss'
@@ -72,24 +81,14 @@ const projectPoly = ref([])
 const projectScopeGeo = ref([])
 const router = useRouter();
 
-const fileList = ref([])
-
+ 
 const model = 'project'
 const parentOptions = ref([])
 const loading = ref(true)
-const tmpSel = ref([])
-const tmp_domain = ref([])
+ 
 
 ///--------switches to enable fields on form based on selected feature --------------
-const rating = ref(false)
-const phase = ref(false)
-const height = ref(false)
-const date_install = ref(false)
-const stances = ref(false)
-const cost = ref(false)
-const waste = ref(false)
-const security = ref(false)
-const hazards = ref(false)
+ 
 var bounds = ref()
 const map = ref()
 
@@ -102,6 +101,8 @@ const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   location_level: null,
   settlement_id: null,
+  ward_id: null,
+  subcounty_id: null,
   county_id: null,
   title: '',
   type: '',
@@ -113,10 +114,11 @@ const ruleForm = reactive({
   male_beneficiaries: 0,
   female_beneficiaries: 0,
   description: '',
-  activities: '',
+  activities:[],
   geom: null,
   latitude: null,
-  logitude:null,
+  longitude: null,
+  
   code: ''
 })
 
@@ -127,18 +129,18 @@ const locationOptions = [
     value: 1
   },
   {
-    label: "County",
+    label: "County/subcounty/ward/settlement",
     value: 2
   },
-  {
-    label: "Settlement",
-    value: 3
-  },
+  // {
+  //   label: "Settlement",
+  //   value: 3
+  // },
 
-  {
-    label: "Other",
-    value: 4
-  },
+  // {
+  //   label: "Other",
+  //   value: 4
+  // },
 ]
 
 
@@ -1005,6 +1007,12 @@ const handleSelectSettlement = async (settlement_id: any) => {
 
 }
 
+
+
+
+const subcountyfilteredOptions = ref([])
+const settlementfilteredOptions = ref([])
+
 const handleSelectCounty = async (county_id: any) => {
   console.log('County', county_id)
   console.log(countyRefList.value)
@@ -1035,12 +1043,127 @@ const handleSelectCounty = async (county_id: any) => {
   }
 
 
+  // setup the subcounty options
+
+  console.log(county_id)
+
+// Reset the subounty on changing the county 
+ruleForm.subcounty_id=null
+
+var subset = [];
+for (let i = 0; i < subcountyOptions.value.length; i++) {
+  if (subcountyOptions.value[i].county_id == county_id) {
+    subset.push(subcountyOptions.value[i]);
+  }
+}
+console.log(subset)
+subcountyfilteredOptions.value = subset
+
+// filter settleemnts 
+var subset_settlements = [];
+for (let i = 0; i < settlementOptionsV2.value.length; i++) {
+  if (settlementOptionsV2.value[i].county_id == county_id) {
+    subset_settlements.push(settlementOptionsV2.value[i]);
+  }
+}
+console.log("Subset Setts", subset_settlements)
+settlementfilteredOptions.value = subset_settlements
+
+
+// Get the select subcoites GEO
+
 
   // geom: { type: 'Polygon', coordinates: [ [Array] ] },
 
 
 }
 
+
+
+
+const wardFilteredOptions = ref([])
+
+const handleSelectSubCounty = async (subcounty_id: any) => {
+  console.log(subcounty_id)
+
+    // Reset the subounty on changing the county 
+    ruleForm.ward_id=null
+
+
+  const formData = {}
+  formData.model = 'subcounty'
+  formData.id = subcounty_id
+
+  console.log(formData)
+  const res = await getOneGeo(formData)
+  if (res.data[0].json_build_object.features) {
+    geoJson.value = res.data[0].json_build_object
+
+     map.value.getSource("scope").setData(geoJson.value);
+    bounds.value = turf.bbox((geoJson.value))
+    console.log("From subcounty", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+  }
+  else {
+
+console.log("The subcounty has no shapes...")
+  }
+
+  var subset = [];
+  for (let i = 0; i < wardOptions.value.length; i++) {
+    if (wardOptions.value[i].subcounty_id == subcounty_id) {
+      subset.push(wardOptions.value[i]);
+    }
+  }
+  console.log('wards', subset)
+  wardFilteredOptions.value = subset
+
+
+  console.log('Got subcounty geo', res)
+ 
+
+}
+
+
+const handleSelectWard= async (ward_id: any) => {
+  console.log(ward_id)
+
+    // Reset the subounty on changing the county 
+ 
+
+  const formData = {}
+  formData.model = 'ward'
+  formData.id = ward_id
+
+  console.log(formData)
+  const res = await getOneGeo(formData)
+  if (res.data[0].json_build_object.features) {
+    geoJson.value = res.data[0].json_build_object
+
+     map.value.getSource("scope").setData(geoJson.value);
+    bounds.value = turf.bbox((geoJson.value))
+    console.log("From ward", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+  }
+  else {
+
+console.log("The ward has no shapes...")
+  }
+ 
+  console.log('settlementOptionsV2', settlementOptionsV2)
+
+
+  var subset = [];
+  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
+    if (settlementOptionsV2.value[i].ward_id == ward_id) {
+      subset.push(settlementOptionsV2.value[i]);
+    }
+  }
+  console.log('settlementOptionsV2-filtered', subset)
+  settlementfilteredOptions.value = subset
+
+
+}
 
 
 const showNext=ref(true)
@@ -1095,6 +1218,25 @@ const back = () => {
     showSubmit.value=false
 
   }
+  if (active.value == 0) {
+    showForm.value = true
+    showGeoFields.value = false
+    showActivityList.value = false
+    showUploadDocuments.value = false
+
+  }
+  else if (active.value == 1) {
+    showForm.value = false
+    showGeoFields.value = true
+    showActivityList.value = false
+    showUploadDocuments.value = false
+  }
+  else if (active.value == 2) {
+    showForm.value = false
+    showGeoFields.value = false
+    showActivityList.value = true
+    showUploadDocuments.value = false
+  }
 }
 
 const handleChangeSource = async (source: any) => {
@@ -1115,25 +1257,6 @@ console.log(controls); // [NavigationControl, GeolocateControl]
 
  
     
-
-
-  // if (source == 'digitize') {
-      
-  
-      
-  //       map.value.addControl(draw);
-  //      drawId.value = draw.getAll().features[0].id 
-
- 
-   
-
-     
-
-
-  //  }  
- 
- 
-
 
 
  
@@ -1168,34 +1291,71 @@ console.log(controls); // [NavigationControl, GeolocateControl]
 label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px"
             status-icon>
             <el-col v-if="showForm" :span="24" :lg="24" :md="12" :sm="12" :xs="24">
-              <el-form-item label="Location" prop="location_level">
-                <el-select
-v-model="ruleForm.location_level" filterable placeholder="Select Location"
+              <el-form-item label="Context" prop="location_level">
+                <el-select 
+v-model="ruleForm.location_level" filterable placeholder="Select Location" class="full-width"
                   @change="handleSelectLocation">
                   <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
-
-              <el-form-item v-if=showSettlement label="Settlement" prop="settlement_id">
-                <el-select
-v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
-                  @change="handleSelectSettlement">
-                  <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
-                </el-select>
-                <el-button type="succcess" @click="AddSettlement()" :icon="Plus" />
-              </el-form-item>
-
-              <el-form-item v-if=showCounty label="County" prop="county_id">
-                <el-select
-v-model="ruleForm.county_id" filterable placeholder="Select County"
-                  @change="handleSelectCounty">
-                  <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-                </el-select>
-              </el-form-item>
+              
               <el-form-item label="Title" prop="title">
                 <el-input v-model="ruleForm.title" />
               </el-form-item>
               <el-row>
+
+                <el-col v-if="showForm"   :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item v-if=showCounty label="County" prop="county_id">
+                    <el-select
+                  v-model="ruleForm.county_id" filterable placeholder="Select County"
+                      @change="handleSelectCounty">
+                      <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-select>
+                  </el-form-item>
+                  </el-col>
+                  <el-col  v-if="showCounty"   :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="Subcounty" prop="subcounty_id">
+                    <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County"  :onChange="handleSelectSubCounty">
+                      <el-option
+v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                        :value="item.value" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+             
+              <el-row >
+                <el-col  v-if="showCounty"  :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+                  <el-form-item label="Ward" prop="ward_id">
+                    <el-select v-model="ruleForm.ward_id" filterable placeholder="Ward"  :onChange="handleSelectWard">
+                      <el-option
+v-for="item in wardFilteredOptions" :key="item.value" :label="item.label"
+                        :value="item.value" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col  v-if="showCounty"  :span="10" :lg="10" :md="24" :sm="24" :xs="24">
+
+                <el-form-item v-if=showCounty label="Settlement" prop="settlement_id">
+                <el-select
+v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement"
+                  @change="handleSelectSettlement">
+                  <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
+
+            </el-col>
+            <el-col  v-if="showCounty"  :span="2" :lg="2" :md="24" :sm="24" :xs="24">
+            <el-button type="succcess" @click="AddSettlement()" :icon="Plus" />
+          </el-col>
+
+
+              </el-row>
+
+               
+
+           
+              <el-row >
                 <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
 
                   <el-form-item label="Start" prop="start_date">
@@ -1210,53 +1370,56 @@ v-model="ruleForm.county_id" filterable placeholder="Select County"
               </el-row>
 
               <el-row>
+                <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
                 <el-form-item label="Status" prop="status">
                   <el-select v-model="ruleForm.status" filterable placeholder="Select">
                     <el-option v-for="item in status_options" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
                 </el-form-item>
+              </el-col>
+
+              <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
+
                 <el-form-item label="Cost (USD)" prop="cost">
-                  <el-input-number v-model="ruleForm.cost" />
+                  <el-input-number :controls="false" v-model="ruleForm.cost" />
                 </el-form-item>
+              </el-col>
+
               </el-row>
             </el-col>
 
             <el-row v-if="showForm">
               <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
                 <el-form-item label="Beneficiary(#M)" prop="male_beneficiaries">
-                  <el-input-number v-model="ruleForm.male_beneficiaries" />
+                  <el-input-number :controls="false"  v-model="ruleForm.male_beneficiaries" />
                 </el-form-item>
               </el-col>
               <el-col :span="12" :lg="12" :md="12" :sm="12" :xs="24">
                 <el-form-item label="Beneficiary(#F)" prop="female_beneficiaries">
-                  <el-input-number v-model="ruleForm.female_beneficiaries" />
+                  <el-input-number :controls="false" v-model="ruleForm.female_beneficiaries" />
                 </el-form-item>
               </el-col>
 
             </el-row>
 
-          
+            <el-row v-if="showActivityList">
+              <el-col :span="24">
+                <el-form-item v-if="showActivityList" label="Activities">
+                                  <el-select v-model="ruleForm.activities" filterable multiple placeholder="Select" style="width: 100%;">
+              <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
 
 
-            <el-row v-if="showForm">
+                </el-form-item>
+              </el-col>
+
+
               <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
 
                 <el-form-item label="Description" prop="description">
                   <el-input type="textarea" v-model="ruleForm.description" />
                 </el-form-item>
-              </el-col>
-
-            </el-row>
-            <el-row v-if="showActivityList">
-              <el-col :span="24">
-                <el-form-item v-if="showActivityList" label="Activities">
-                  <el-select v-model="ruleForm.activities" filterable multiple placeholder="Select" style="width: 100%;">
-                    <el-option
-v-for="item in activityOptions" :key="item.value" :label="item.label"
-                      :value="item.value" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
+                </el-col>
             </el-row>
     
 
@@ -1274,7 +1437,7 @@ v-for="item in activityOptions" :key="item.value" :label="item.label"
               </el-row>
 
  
-              <el-row v-if="source_location=='coordinates'">
+              <el-row v-if="showGeoFields &&source_location=='coordinates'">
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item v-if="!digitize" label="Latitude" prop="latitude">
                     <el-input-number
@@ -1292,7 +1455,7 @@ v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
 
               </el-row>
             <el-upload
-v-if="source_location=='upload'" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
+v-if="source_location=='upload' && showGeoFields" class="upload-demo" drag ref="uploadRef" :auto-upload="false"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :on-change="handleUploadGeo">
               <el-icon class="el-icon--upload"><upload-filled /></el-icon>
               <div class="el-upload__text">
@@ -1363,5 +1526,11 @@ v-if="source_location=='upload'" class="upload-demo" drag ref="uploadRef" :auto-
   z-index: 10;
   border-radius: 5px;
 
+}
+</style>
+
+<style>
+.full-width {
+  width: 100%;
 }
 </style>

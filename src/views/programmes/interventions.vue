@@ -4,8 +4,8 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getHHsByCounty, getRoutesList, uploadFilesBatch } from '@/api/settlements'
 import { getListManyToMany } from '@/api/settlements'
+import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 
-import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCol, FormRules, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
@@ -33,6 +33,9 @@ import moment from "moment";
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
 
+import {
+  countyOptions, settlementOptionsV2, subcountyOptions
+} from './common/index.ts'
 
 ////////////*************Map Imports***************////////
 
@@ -73,9 +76,9 @@ if (userInfo.roles.includes("admin")) {
 
 
 // Show Edit buttons 
-if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
-  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
-    showEditButtons.value = true;
+if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff") || userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") || userInfo.roles.includes("national_monitoring")) {
+  showEditButtons.value = true;
 }
 
 const { push } = useRouter()
@@ -146,12 +149,12 @@ let tableDataList_orig = ref<UserType[]>([])
 
 // - -----Model configs ------------
 const model = 'project'
-var filters = ['component_id']
-var filterValues = [[component_id.value]]  // make sure the inner array is array
+let  filters =  ['component_id'] 
+let  filterValues =  [[component_id.value]]   // make sure the inner array is array
 var tblData = []
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document','activity']
+const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document', 'activity']
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
@@ -203,8 +206,8 @@ const handleClear = async () => {
   console.log('cleared....')
 
   // clear all the fileters -------
-  filterValues = []
-  filters = []
+  filterValues.value = []
+  filters.value = []
   value1.value = ''
   value2.value = ''
   value3.value = ''
@@ -279,15 +282,15 @@ const submitMoreDocuments = async () => {
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
- 
+
 
   if (searchString.value) {
- 
- getFilteredBySearchData(searchString.value)
- 
-} else {
- getFilteredData(filters, filterValues)
-}
+
+    getFilteredBySearchData(searchString.value)
+
+  } else {
+    getFilteredData(filters, filterValues)
+  }
 
 
 }
@@ -299,12 +302,12 @@ const onPageChange = async (selPage: any) => {
 const onPageSizeChange = async (size: any) => {
   pSizeBen.value = size
   if (searchString.value) {
- 
- getFilteredBySearchData(searchString.value)
- 
-} else {
- getFilteredData(filters, filterValues)
-}
+
+    getFilteredBySearchData(searchString.value)
+
+  } else {
+    getFilteredData(filters, filterValues)
+  }
 
 }
 
@@ -447,39 +450,39 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
- 
+
 
 const flyTo = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.geom)
 
   if (data.row.geom === null) {
     ElMessage({
-        message: 'This Project does not have the boundary defined in the database!',
+      message: 'This Project does not have the boundary defined in the database!',
       type: 'warning',
-        duration:5000
+      duration: 5000
     })
-  
-} else {
-  
+
+  } else {
+
     var shp = data.row.geom.type
 
-    if (shp =='MultiPolygon' || shp =='Polygon') {
-        facilityGeo.value = data.row.geom
-        var bounds = turf.bbox((data.row.geom));
-        console.log(bounds)
-    } else if (shp =='Point' ){
-        var bounds = turf.bbox((data.row.geom));
-    } 
+    if (shp == 'MultiPolygon' || shp == 'Polygon') {
+      facilityGeo.value = data.row.geom
+      var bounds = turf.bbox((data.row.geom));
+      console.log(bounds)
+    } else if (shp == 'Point') {
+      var bounds = turf.bbox((data.row.geom));
+    }
 
     loadMap()
-      //loadMap()
- // loadMap([data.row.geom.coordinates[0], data.row.geom.coordinates[1], data.row.title])
-  activeName.value = 'Map' // Navigate to Beneficiary Tab
+    //loadMap()
+    // loadMap([data.row.geom.coordinates[0], data.row.geom.coordinates[1], data.row.title])
+    activeName.value = 'Map' // Navigate to Beneficiary Tab
 
 
-}
+  }
 
- 
+
 
 
 }
@@ -493,13 +496,13 @@ const loadMap = () => {
     zoom: 6,
 
   })
-   // When the map fails to load, hide the base map and show only the overlays
-   nmap.on('error', function (e) {
+  // When the map fails to load, hide the base map and show only the overlays
+  nmap.on('error', function (e) {
     console.log('Failed.....', e.error)
-    nmap.setStyle( './style.json');
-          console.log("Failed to load base map. Showing only overlays.");
-      });
-  console.log("resizing....",facilityGeo.value )
+    nmap.setStyle('./style.json');
+    console.log("Failed to load base map. Showing only overlays.");
+  });
+  console.log("resizing....", facilityGeo.value)
   const nav = new mapboxgl.NavigationControl();
   nmap.addControl(nav, "top-right");
   nmap.on('load', () => {
@@ -576,7 +579,7 @@ const loadMap = () => {
 
 
     var bounds = turf.bbox((facilityGeo.value));
-     console.log(bounds)
+    console.log(bounds)
     nmap.fitBounds(bounds, { padding: 20 });
 
 
@@ -595,7 +598,7 @@ const loadMap = () => {
       }
       new mapboxgl.Popup({ offset: [0, -15] })
         .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' ) // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .setHTML('<h3>' + description + '</h3><p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
         .addTo(nmap);
 
     });
@@ -756,7 +759,7 @@ const filterValuesBen = ref([[], [[component_id.value]]])
 
 
 const viewBen = (data: TableSlotDefault) => {
-  
+
   selected_project.value = data.row.id
   filterValuesBen.value = [[data.row.id], [component_id.value]] // make sure the inner array is array
 
@@ -866,6 +869,8 @@ const ruleForm = reactive({
   component_id: '',
   settlement_id: '',
   county_id: '',
+  subcounty_id: null,
+  ward_id: null,
   location_level: '',
   title: '',
   type: '',
@@ -897,7 +902,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
       console.log('before Updated', ruleForm)
       await updateOneRecord(ruleForm).then(() => { })
 
-  
+
 
     } else {
       console.log('error in editiinh!', fields)
@@ -950,14 +955,14 @@ const AddProject = () => {
 
 const AddBeneficiary = () => {
 
-console.log("Adding Beneficiary")
- 
+  console.log("Adding Beneficiary")
 
-push({
-  path: '/settlement/beneficiary',
-  name: 'InterventionBeneficiary',
-  
-})
+
+  push({
+    path: '/settlement/beneficiary',
+    name: 'InterventionBeneficiary',
+
+  })
 
 }
 
@@ -991,9 +996,11 @@ const editProject = (data: TableSlotDefault) => {
   //ruleForm.activities = data.row.activities
   // ruleForm.activities = data.row.activities.map(a => a.id); Felix Revisit
   ruleForm.component_id = data.row.component_id
+  ruleForm.subcounty_id = data.row.subcounty_id
+  ruleForm.ward_id = data.row.ward_id
 
 
-  let activities =[]
+  let activities = []
   data.row.activities.forEach(function (arrayItem) {
     activities.push(arrayItem.id)
   })
@@ -1006,7 +1013,7 @@ const editProject = (data: TableSlotDefault) => {
 
 
   if (data.row.settlement_id) {
-    showSettlement.value = true
+    showCountySettlement.value = true
   }
   if (data.row.county_id) {
     showCounty.value = true
@@ -1127,43 +1134,40 @@ const locationOptions = [
     value: 1
   },
   {
-    label: "County",
+    label: "County/subcounty/ward/settlement",
     value: 2
   },
-  {
-    label: "Settlement",
-    value: 3
-  },
+  // {
+  //   label: "Settlement",
+  //   value: 3
+  // },
 
-  {
-    label: "Other",
-    value: 4
-  },
+  // {
+  //   label: "Other",
+  //   value: 4
+  // },
 ]
 
 const showCounty = ref(false)
-const showSettlement = ref(false)
+const showCountySettlement = ref(false)
 
 const handleSelectLocation = async (location: any) => {
   if (location == 2) {
     // county 
     showCounty.value = true
-    showSettlement.value = false
+    showCountySettlement.value = false
+    ruleForm.county_id = null
+    ruleForm.subcounty_id = null
     ruleForm.settlement_id = null
+    ruleForm.ward_id = null
     ruleForm.geom = null
 
   }
-  else if (location == 3) {
-    //settlement 
-    showCounty.value = false
-    showSettlement.value = true
-    ruleForm.county_id = null
-    ruleForm.geom = null
 
-  } else {
+  else {
     // National 
     showCounty.value = false
-    showSettlement.value = false
+    showCountySettlement.value = false
     ruleForm.geom = null
 
   }
@@ -1206,73 +1210,7 @@ const filterTableData = () => {
 
 
 const documentCategory = ref()
-const documentOptions = [
-  {
-    label: 'Reports',
-    options: [
-      {
-        value: 'socio_economic',
-        label: 'Socio Economic Report'
-      },
-      {
-        value: 'stakeholder_report',
-        label: 'Stakeholder Report'
-      },
-      {
-        value: 'planning_report',
-        label: 'Planning Report'
-      },
 
-      {
-        value: 'basemap_report',
-        label: 'Basemap Report'
-      },
-      {
-        value: 'esia_report',
-        label: 'Environmental Screening Report'
-      }
-    ]
-  },
-  {
-    label: 'Plans',
-    options: [
-      {
-        value: 'ldpdp',
-        label: 'Local Development Plan'
-      },
-      {
-        value: 'pdp',
-        label: 'Part Development Plan'
-      }
-    ]
-  },
-  {
-    label: 'Maps',
-    options: [
-      {
-        value: 'survey_plan',
-        label: 'Survey Plan'
-      },
-      {
-        value: 'rim',
-        label: 'Registry Index Map'
-      }
-    ]
-  },
-  {
-    label: 'Drawings',
-    options: [
-      {
-        value: 'design',
-        label: 'Design Proposals'
-      },
-      {
-        value: 'built',
-        label: 'As Built Designs'
-      }
-    ]
-  }
-]
 const downloadFile = async (data) => {
 
   console.log(data.name)
@@ -1404,106 +1342,106 @@ const readJson = (event) => {
   console.log('Reading Josn file....', event)
   let str = event.target.result
 
- 
-    let json = JSON.parse(str)
+
+  let json = JSON.parse(str)
   console.log('parsed', json.crs)
-    
-    const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
 
-    // const sourceProj = '+proj=utm +zone=37 +ellps=WGS84 +datum=WGS84 +units=m +no_defs';
-    let sourceProj
-    let epsgCode
+  const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
+
+  // const sourceProj = '+proj=utm +zone=37 +ellps=WGS84 +datum=WGS84 +units=m +no_defs';
+  let sourceProj
+  let epsgCode
   let crsProp = json.crs ? json.crs.properties.name : null;
-    
-    if (crsProp && crsProp.includes('EPSG')) {
-        console.log('The string contains the character "EPSG"');
-        epsgCode = crsProp.match(/EPSG::(\d+)/)[1] 
-    } else {
-        epsgCode = 4326
-      }
-   
 
-  
-
-    console.log(epsgCode)
-
-    if (epsgCode == 21037) {
-      // zone 37S
-      sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-    }
-    else if (epsgCode == 21097) {
-      // zone 37 N
-      sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
-    }
-    else if (epsgCode == 21036) {
-      // zone 36 S
-      sourceProj = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-    }
-    else if (epsgCode == 21096) {
-      // zone 36N
-      sourceProj = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-    }
-
-    else {
-      sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
-
-    }
+  if (crsProp && crsProp.includes('EPSG')) {
+    console.log('The string contains the character "EPSG"');
+    epsgCode = crsProp.match(/EPSG::(\d+)/)[1]
+  } else {
+    epsgCode = 4326
+  }
 
 
-    proj4.defs("SOURCE_CRS", sourceProj);
-    proj4.defs("WGS84", targetProj);
 
 
-    if (json.features.length != 1) {
-      ElMessage.warning('Please uplaod a file with only one feature. This one has ' + json.features.length + ' features')
+  console.log(epsgCode)
 
-    }
-    else {
-      console.log('ok>>', json.features)
+  if (epsgCode == 21037) {
+    // zone 37S
+    sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+  }
+  else if (epsgCode == 21097) {
+    // zone 37 N
+    sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
+  }
+  else if (epsgCode == 21036) {
+    // zone 36 S
+    sourceProj = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+  }
+  else if (epsgCode == 21096) {
+    // zone 36N
+    sourceProj = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+  }
 
-      const geometry = json.features[0].geometry;
-            console.log(geometry)
-              // Check if the geometry type is "Polygon" or "MultiPolygon"
-              if (geometry.type === "Polygon") {
-                // If it's a single polygon, project its coordinates
-                geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
-                  return proj4("SOURCE_CRS", "WGS84", coordinate);
-                });
-              } else if (geometry.type === "MultiPolygon") {
-                // If it's a multi-polygon, loop through all polygons and project their coordinates
-                geometry.coordinates.forEach(polygon => {
-                  polygon[0] = polygon[0].map(coordinate => {
-                    return proj4("SOURCE_CRS", "WGS84", coordinate);
-                  });
-                });
-              }
-
-              console.log('geometry',geometry)
-      let geom = {
-        type: json.features[0].geometry.type,
-        coordinates: geometry.coordinates,
-          crs : { type: 'name', properties: { name: 'EPSG:4326' } }
-
-      }
-     console.log(geom)
-      ruleForm.geom = geom
-    }
+  else {
+    sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
 
   }
-  // catch (err) {
-  //   console.log(err)
-
-  //   ElMessage.error('The uploaded file lacks Coordinate system definition')
-
-  // }
 
 
+  proj4.defs("SOURCE_CRS", sourceProj);
+  proj4.defs("WGS84", targetProj);
+
+
+  if (json.features.length != 1) {
+    ElMessage.warning('Please uplaod a file with only one feature. This one has ' + json.features.length + ' features')
+
+  }
+  else {
+    console.log('ok>>', json.features)
+
+    const geometry = json.features[0].geometry;
+    console.log(geometry)
+    // Check if the geometry type is "Polygon" or "MultiPolygon"
+    if (geometry.type === "Polygon") {
+      // If it's a single polygon, project its coordinates
+      geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
+        return proj4("SOURCE_CRS", "WGS84", coordinate);
+      });
+    } else if (geometry.type === "MultiPolygon") {
+      // If it's a multi-polygon, loop through all polygons and project their coordinates
+      geometry.coordinates.forEach(polygon => {
+        polygon[0] = polygon[0].map(coordinate => {
+          return proj4("SOURCE_CRS", "WGS84", coordinate);
+        });
+      });
+    }
+
+    console.log('geometry', geometry)
+    let geom = {
+      type: json.features[0].geometry.type,
+      coordinates: geometry.coordinates,
+      crs: { type: 'name', properties: { name: 'EPSG:4326' } }
+
+    }
+    console.log(geom)
+    ruleForm.geom = geom
+  }
+
+}
+// catch (err) {
+//   console.log(err)
+
+//   ElMessage.error('The uploaded file lacks Coordinate system definition')
+
+// }
 
 
 
 
 
- 
+
+
+
 
 const readShp = async (file) => {
   console.log('Reading Shp file....')
@@ -1521,24 +1459,24 @@ const readShp = async (file) => {
       }
       else {
         console.log('ok>>', geojson[0])
-      
+
 
         var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
 
         let geom = {
           type: geojson[0].geometry.type,
-           coordinates: geojson[0].geometry.coordinates,
-        //  coordinates:  extractCoordinatesFromMultiPolygon (geojson[0].geometry),
-          crs:crs
+          coordinates: geojson[0].geometry.coordinates,
+          //  coordinates:  extractCoordinatesFromMultiPolygon (geojson[0].geometry),
+          crs: crs
 
         }
-    
 
-        console.log('>>',geom)
+
+        console.log('>>', geom)
         ruleForm.geom = geom
- 
+
       }
-     
+
 
 
     })
@@ -1583,45 +1521,410 @@ const handleUploadGeo = async (uploadFile) => {
 }
 
 
+
+const subcountyfilteredOptions = ref([])
+const settlementfilteredOptions = ref([])
+
+const handleSelectCounty = async (county_id: any) => {
+  console.log('County', county_id)
+
+
+  // setup the subcounty options
+
+  console.log(county_id)
+
+  // Reset the subounty on changing the county 
+  ruleForm.subcounty_id = null
+
+  var subset = [];
+  for (let i = 0; i < subcountyOptions.value.length; i++) {
+    if (subcountyOptions.value[i].county_id == county_id) {
+      subset.push(subcountyOptions.value[i]);
+    }
+  }
+  console.log(subset)
+  subcountyfilteredOptions.value = subset
+
+  // filter settleemnts 
+  var subset_settlements = [];
+  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
+    if (settlementOptionsV2.value[i].county_id == county_id) {
+      subset_settlements.push(settlementOptionsV2.value[i]);
+    }
+  }
+  console.log("Subset Setts", subset_settlements)
+  settlementfilteredOptions.value = subset_settlements
+
+
+  // Get the select subcoites GEO
+
+
+  // geom: { type: 'Polygon', coordinates: [ [Array] ] },
+
+
+}
+
+
+
+
+const wardFilteredOptions = ref([])
+
+const handleSelectSubCounty = async (subcounty_id: any) => {
+  console.log(subcounty_id)
+
+  // Reset the subounty on changing the county 
+  ruleForm.ward_id = null
+
+
+  const formData = {}
+  formData.model = 'subcounty'
+  formData.id = subcounty_id
+
+
+
+  var subset = [];
+  for (let i = 0; i < wardOptions.value.length; i++) {
+    if (wardOptions.value[i].subcounty_id == subcounty_id) {
+      subset.push(wardOptions.value[i]);
+    }
+  }
+  console.log('wards', subset)
+  wardFilteredOptions.value = subset
+
+
+
+
+}
+
+
+const handleSelectWard = async (ward_id: any) => {
+  console.log(ward_id)
+
+  // Reset the subounty on changing the county 
+
+
+  const formData = {}
+  formData.model = 'ward'
+  formData.id = ward_id
+
+  console.log(formData)
+
+  console.log('settlementOptionsV2', settlementOptionsV2)
+
+
+  var subset = [];
+  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
+    if (settlementOptionsV2.value[i].ward_id == ward_id) {
+      subset.push(settlementOptionsV2.value[i]);
+    }
+  }
+  console.log('settlementOptionsV2-filtered', subset)
+  settlementfilteredOptions.value = subset
+
+
+}
+
+
+
+const selectedCounty = ref()
+const selectedSubCounty = ref(null)
+
+
+const search_string = ref()
+const enableSubcounty = ref(false)
+
+const subcountiesOptions = ref([])
+
+const wardOptions = ref([])
+const settlementOptionsFil = ref([])
+
+const getWardNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'ward',
+      searchField: 'subcounty_id',
+      searchKeyword: selectedSubCounty.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received Wards:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    wardOptions.value = []
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      wardOptions.value.push(opt)
+    })
+  })
+}
+
+const getSettlementNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'settlement',
+      searchField: 'ward_id',
+      searchKeyword: selectedWard.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received settls:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    settlementOptionsFil.value = []
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      settlementOptionsFil.value.push(opt)
+    })
+  })
+}
+
+
+
+
+
+
+
+const getSubCountyNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      searchField: 'county_id',
+      searchKeyword: selectedCounty.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received subcounties response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    subcountiesOptions.value = []
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var subcountyOpt = {}
+      subcountyOpt.value = arrayItem.id
+      subcountyOpt.county_id = arrayItem.county_id
+      subcountyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      subcountiesOptions.value.push(subcountyOpt)
+    })
+  })
+}
+
+const value6 = ref()
+const value7 = ref()
+
+
+
+
+const filterByCounty = async (county_id: any) => {
+
+  if (county_id) {
+    enableSubcounty.value = true   // allow selection of subcounty 
+    selectedCounty.value = county_id
+    getSubCountyNames()
+  }
+
+  value5.value = '' // clear the subcounty 
+  value6.value = null   // clear the ward sr
+
+
+
+  if (county_id.length > 0) {
+     filters.push('county_id')
+     filterValues.push(county_id)
+
+     getFilteredData(filters, filterValues)
+  } else {
+    filters.splice(filters.indexOf('county_id'), 1);
+    filterValues.splice(filterValues.indexOf(county_id), 1);
+     getFilteredData(filters, filterValues)
+  }
+
+
+
+}
+
+
+const filterBySubCounty = async (subcounty_id: any) => {
+
+  value6.value = null   // clear the ward sr
+
+
+  if (subcounty_id) {
+    selectedSubCounty.value = subcounty_id
+    getWardNames()
+  }
+
+
+
+  if (subcounty_id.length > 0) {
+     filters.push('subcounty_id')
+     filterValues.push(subcounty_id)
+
+     getFilteredData(filters, filterValues)
+  } else {
+    filters.splice(filters.indexOf('subcounty_id'), 1);
+    filterValues.splice(filterValues.indexOf(subcounty_id), 1);
+     getFilteredData(filters, filterValues)
+  }
+
+}
+
+const selectedWard = ref()
+const filterByWard = async (ward_id: any) => {
+
+  if (ward_id) {
+    selectedWard.value = ward_id
+    getSettlementNames()
+
+  }
+
+
+  if (ward_id.length > 0) {
+     filters.push('ward_id')
+     filterValues.push(ward_id)
+
+     getFilteredData(filters, filterValues)
+  } else {
+    filters.splice(filters.indexOf('ward_id'), 1);
+    filterValues.splice(filterValues.indexOf(ward_id), 1);
+     getFilteredData(filters, filterValues)
+  }
+}
+
+
+const selectedSettlement = ref()
+const filterBySettlement = async (settlement_id: any) => {
+
+  if (settlement_id) {
+    selectedSettlement.value = settlement_id
+    getSettlementNames()
+
+  }
+
+
+ 
+
+  if (settlement_id.length > 0) {
+     filters.push('settlement_id')
+     filterValues.push(settlement_id)
+
+     getFilteredData(filters, filterValues)
+  } else {
+    filters.splice(filters.indexOf('settlement_id'), 1);
+    filterValues.splice(filterValues.indexOf(settlement_id), 1);
+     getFilteredData(filters, filterValues)
+  }
+
+
+}
+
 </script>
 
 <template>
   <ContentWrap :title="page_title" :message="t(' The list of intervention beneficiaries. Use the filters to subset')">
     <el-row>
-      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-
-        <div style="display: inline-block;margin-bottom: 10px">
 
 
-          <div style="display: inline-block; margin-bottom: 10px">
-            <el-select
+      <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+        <el-select
+size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
+          filterable collapse-tags placeholder="By County">
+          <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </div>
+
+
+
+      <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+        <el-select
+:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
+          clearable filterable collapse-tags placeholder="By Subcounty">
+          <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </div>
+
+      <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+        <el-select
+:disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
+          clearable filterable collapse-tags placeholder="By Ward">
+          <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </div>
+
+      <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+        <el-select
+:disabled="!enableSubcounty" size="default" v-model="value7" :onChange="filterBySettlement" multiple
+          clearable filterable collapse-tags placeholder="By Settlement">
+          <el-option v-for="item in settlementOptionsFil" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </div>
+
+
+      <div style="display: inline-block; margin-bottom: 5px">
+        <el-select
 v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-              placeholder="Search by Title" style="width: 100%" />
-          </div>
+          placeholder="Search by Title" style="width: 100%" />
+      </div>
 
-          <div style="display: inline-block; margin-left: 20px">
-            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-          </div>
+ 
 
-          <div v-if="showEditButtons" style="display: inline-block; margin-left: 20px">
-            <el-tooltip content="Add Project" placement="top">
-              <el-button :onClick="AddProject" type="primary" :icon="Plus" />
-            </el-tooltip>
-          </div>
-          <div v-if="showEditButtons" style="display: inline-block; margin-left: 20px">
-            <el-tooltip content="Add Beneficiary" placement="top">
-              <el-button :onClick="AddBeneficiary" type="primary" :icon="User" />
-            </el-tooltip>
-          </div>
-          <div style="display: inline-block; margin-left: 20px">
-            <el-tooltip content="Download" placement="top">
-              <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-            </el-tooltip>
-          </div>
 
-        </div>
-      </el-col>
+      <div v-if="showEditButtons" style="display: inline-block; margin-left: 5px">
+        <el-tooltip content="Add Project" placement="top">
+          <el-button :onClick="AddProject" type="primary" :icon="Plus" />
+        </el-tooltip>
+      </div>
+
+
+      <div v-if="showEditButtons" style="display: inline-block; margin-left: 5px">
+        <el-tooltip content="Add Beneficiary" placement="top">
+          <el-button :onClick="AddBeneficiary" type="primary" :icon="User" />
+        </el-tooltip>
+      </div>
+
+      <div style="display: inline-block; margin-left: 5px">
+        <el-tooltip content="Download" placement="top">
+          <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+        </el-tooltip>
+      </div>
+
+
     </el-row>
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
       <el-tab-pane label="Interventions" name="list">
@@ -1692,13 +1995,10 @@ v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(pr
                     <el-dropdown-item
 v-if="showAdminButtons" @click="editProject(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item
-@click="flyTo(scope as TableSlotDefault)"
-                      :icon="Position">Map</el-dropdown-item>
+                    <el-dropdown-item @click="flyTo(scope as TableSlotDefault)" :icon="Position">Map</el-dropdown-item>
 
                     <el-dropdown-item
-v-if="showAdminButtons" 
-@click="viewBen(scope as TableSlotDefault)"
+v-if="showAdminButtons" @click="viewBen(scope as TableSlotDefault)"
                       :icon="User">Beneficiaries</el-dropdown-item>
 
 
@@ -1724,10 +2024,10 @@ type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotD
 type="warning" size="small" :icon="Position" @click="flyTo(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
-                <el-tooltip  content="View Households" placement="top">
+                <el-tooltip content="View Households" placement="top">
                   <el-button
-v-if="showAdminButtons"   type="success" size="small" :icon="User" @click="viewBen(scope as TableSlotDefault)"
-                    circle />
+v-if="showAdminButtons" type="success" size="small" :icon="User"
+                    @click="viewBen(scope as TableSlotDefault)" circle />
                 </el-tooltip>
 
                 <el-tooltip content="Delete" placement="top">
@@ -1756,7 +2056,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
 
-      <el-tab-pane v-if="showAdminButtons"  :label="beneficiaryTabTitle" name="Beneficiary" :disabled="beneficiaryTabDisabled">
+      <el-tab-pane
+v-if="showAdminButtons" :label="beneficiaryTabTitle" name="Beneficiary"
+        :disabled="beneficiaryTabDisabled">
 
 
         <Table
@@ -1790,17 +2092,38 @@ v-model="ruleForm.location_level" filterable placeholder="Select Location"
           </el-select>
         </el-form-item>
 
-        <el-form-item v-if=showSettlement label="Settlement" prop="settlement_id">
-          <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement">
-            <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
 
         <el-form-item v-if=showCounty label="County" prop="county_id">
           <el-select v-model="ruleForm.county_id" filterable placeholder="Select County" @change="handleSelectCounty">
             <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
+
+        <el-form-item v-if=showCountySettlement label="Sub County" prop="subcounty_id">
+          <el-select
+v-model="ruleForm.subcounty_id" filterable placeholder="Sub County"
+            :onChange="handleSelectSubCounty">
+            <el-option
+v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+              :value="item.value" /> </el-select>
+        </el-form-item>
+
+        <el-form-item v-if=showCountySettlement label="Ward" prop="ward_id">
+          <el-select v-model="ruleForm.ward_id" filterable placeholder="Ward" :onChange="handleSelectWard">
+            <el-option v-for="item in wardFilteredOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+
+
+        <el-form-item v-if=showCountySettlement label="Settlement" prop="settlement_id">
+          <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement">
+            <el-option
+v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+              :value="item.value" />
+          </el-select>
+        </el-form-item>
+
 
 
         <el-form-item label="Title">

@@ -28,6 +28,11 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
+    ward_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
     title: {
       type: DataTypes.STRING,
       allowNull: false,
