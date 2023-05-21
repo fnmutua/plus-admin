@@ -21,7 +21,10 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElCol, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,ElRow, ElPopconfirm } from 'element-plus'
+import {
+  ElPagination, ElCol, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElRow,ElCheckbox,
+  ElPopconfirm
+} from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -52,7 +55,10 @@ const ModelOptions = [
     value: 'households',
     label: 'Household'
   },
- 
+  {
+    value: 'project',
+    label: 'Interve'
+  },
 ]
 
 
@@ -92,33 +98,33 @@ var formData = {}
 formData.model = selModel
 
 
-await getModelSpecs(formData).then((response) => {
+      await getModelSpecs(formData).then((response) => {
 
-  var data = response.data
+        var data = response.data
 
-  var fieldsToFilter = ['title', 'name', 'geom', 'code','createdBy','updatedAt',"description",'createdAt']; // Specify the fields you want to filter out
+        var fieldsToFilter = ['title', 'name', 'geom', 'code','createdBy','updatedAt',"description",'createdAt']; // Specify the fields you want to filter out
 
-var fields = data.filter(function (obj) {
-  return !fieldsToFilter.includes(obj.field);
-});
+      var fields = data.filter(function (obj) {
+        return !fieldsToFilter.includes(obj.field);
+      });
 
-  console.log("fields:", fields)
-  //health_facility_fields.value = response.data
-  //fieldSet.value = fields2
+        console.log("fields:", fields)
+        //health_facility_fields.value = response.data
+        //fieldSet.value = fields2
+
+        var opts = []
+        fields.forEach(function (arrayItem) {
+        // console.log(arrayItem)
+          var opt = {}
+          opt.value = arrayItem.field
+          opt.label = arrayItem.field 
+          opt.type = arrayItem.type  
+          //  console.log(countyOpt)
+          fieldSet.value.push(opt)
+        })
 
 
-  fields.forEach(function (arrayItem) {
-   // console.log(arrayItem)
-    var opt = {}
-    opt.value = arrayItem.field
-    opt.label = arrayItem.field 
-    opt.type = arrayItem.type  
-    //  console.log(countyOpt)
-    fieldSet.value.push(opt)
-  })
-
-
-})
+      })
 
 console.log("getting fields fields",fieldSet.value)
 
@@ -427,13 +433,19 @@ const getStrategicFocusAreas = async () => {
   ruleForm.filter_value = data.row.filter_value
   ruleForm.computation = data.row.computation
   ruleForm.filter_function = data.row.filter_function
+  ruleForm.unique = data.row.unique
 
   
 
    
 
-   await handleSelectModel(data.row.card_model)
-   await handleFilterAggregators(data.row.card_model_field)
+   if (data.row.card_model_field) {
+    console.log('data.row.card_model_field',data.row.card_model_field)
+    await handleSelectModel(data.row.card_model)
+    await handleFilterAggregators(data.row.card_model_field)
+
+    
+   }
   
    if (data.row.filter_value) {
     fieldSelected.value=true
@@ -498,6 +510,7 @@ const ruleForm = reactive({
   filter_function:null,
   card_model:'',
   computation:null,
+  unique:false
 
 
 
@@ -640,7 +653,7 @@ const handleSelectModel = async (selModel) => {
   fieldOptions.value=[]
 
   console.log('specs.....')
-  getModeldefinition(selModel)
+ await  getModeldefinition(selModel)
 }
 
 
@@ -657,7 +670,7 @@ const handleFilterAggregators = async (selField) => {
    console.log('filtreing teh aggregators.....',selField )
    
    let selectedField = fieldSet.value.filter(option => option.value  == selField);
-   console.log('selectedField', selectedField[0].type)
+   console.log('selectedField', selectedField)
   let selFieldType = selectedField[0].type
 
    if (selFieldType==="STRING") {
@@ -727,7 +740,12 @@ const handleFilterAggregators = async (selField) => {
 
  }
 
- const showFilterValues=ref(true)
+
+
+
+
+
+ const showFilterValues=ref(false)
 const handleFilterFunction = async (val) => { 
   if (val=='all') {
     showFilterValues.value = false
@@ -851,6 +869,7 @@ v-model="ruleForm.card_model_field"   :onClear="handleClear" clearable filterabl
       </el-form-item>
     </el-col>
 
+    <el-checkbox v-model="ruleForm.unique" label="Unique" size="small" border />
 
     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
          <el-select v-if="showStatusExtras && fieldSelected && showFilterValues" v-model="ruleForm.filter_value" :onClear="handleClear" clearable multiple filterable collapse-tags placeholder="Filter values">
@@ -860,13 +879,6 @@ v-model="ruleForm.card_model_field"   :onClear="handleClear" clearable filterabl
 
       </el-row>
    
-
-
-
-
-
-
-
 
 
        <el-form-item label="Indicator" v-if="!showStatusExtras">
