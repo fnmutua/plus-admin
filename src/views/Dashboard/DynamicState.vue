@@ -175,7 +175,9 @@ const getSummary = async (card) => {
     var filter_value = card.filter_value
     var computation = card.computation
     var filter_function = card.filter_function
-  
+    var unique = card.unique?card.unique:false 
+
+  console.log('unique',unique)
   // getSummary(arrayItem.card_model,arrayItem.card_model_field)
 
   //var ids = await getIndicatorConfigurations(indicator)
@@ -231,6 +233,7 @@ const getSummary = async (card) => {
   formData.calculationType = computation
   formData.filter_function = filter_function
   formData.filterOperator = filterOperator
+  formData.uniqueCounts =unique
 
   console.log('foxrmData',formData)
 
@@ -340,7 +343,10 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   var cAggregation = thisChart.aggregation
   var chartType = thisChart.type
   var categorizedField =thisChart.categorized
-  
+  var unique = thisChart.unique?thisChart.unique:false 
+
+  console.log('unique',unique)
+
   // thisChart.card_model,thisChart.card_model_field,thisChart.aggregation,  thisChart.type);
 
   // set admin level filtering
@@ -399,6 +405,9 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   formData.filterField = filterFields
   formData.filterOperator = ['eq' ] // Bitumen
   formData.filterValue = filterValues
+
+  // added for unique couts 
+  formData.uniqueCounts =unique
 
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);

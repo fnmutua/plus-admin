@@ -51,7 +51,12 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: true
     },
- 
+
+    unique: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    
     code: {
       type: DataTypes.STRING,
       allowNull: false

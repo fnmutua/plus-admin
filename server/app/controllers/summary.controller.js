@@ -526,11 +526,6 @@ exports.sumGroupByMultipleColumns = async (req, res) => {
 exports.sumModelAssociatedMultipleModels = async (req, res) => {
 
 
- // -------------------------------------------------------------------------------
-  if (req.body.model == 'settlement') {
-    console.log('---------------------Sum sumModelAssociatedMultipleModels-----4---',req.body.model,  req.body.summaryField,req.body.filterOperator, '-------------------------------------')
-
-  }
  
   var reg_model = req.body.model;
   var summaryField = req.body.summaryField;
@@ -540,8 +535,18 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   var groupFields = req.body.groupFields;
   var nested_models = req.body.nested_models;
   let operator = req.body.filterOperator?req.body.filterOperator:[];
+  let unique_counts = req.body.uniqueCounts?req.body.uniqueCounts:false;
+  let operators = [] // to be used to check for unik results
 
+  
+  
+ // -------------------------------------------------------------------------------
+// if (req.body.model == 'settlement') {
+  console.log('---------------------Sum unique_counts-----4---',req.body.model,  unique_counts ,'-------------------------------------')
 
+//}
+
+  
   // Build the query based on the parameters
   var qry = {
     attributes: [],
@@ -583,7 +588,22 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
 
   // Add summary calculation to the query attributes
   if (summaryField && summaryFunction) {
-    qry.attributes.push([Sequelize.fn(summaryFunction, Sequelize.col(summaryField)), summaryFunction]);
+
+
+    // generate querry that has disticnt/unique results 
+    if (summaryFunction =='count' && unique_counts ) {
+        qry.attributes.push([
+        Sequelize.fn(summaryFunction, Sequelize.fn('DISTINCT', Sequelize.col(summaryField))),summaryFunction
+      ]);
+
+    } else {
+      qry.attributes.push([Sequelize.fn(summaryFunction, Sequelize.col(summaryField)), summaryFunction]);
+
+
+    }
+
+
+      
   }
 
   // Add associated models to the query
@@ -672,6 +692,9 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     const filterCol = filterCols[i];
     const filterVal = filterValues[i];
     const operator = filterOperators[i]; // Get the operator corresponding to the filter field
+    // keep a record of the ops in ths querry 
+    operators.push(operator)
+
     if (operator === "all" ) {
       // No filter, retrieve all records for this field
       continue; // Skip adding any condition for this field
@@ -695,13 +718,23 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
   }
   
  
+  // console.log('operators',summaryFunction,unique_counts)
+  // if (summaryFunction =='count' && unique_counts ) {
+  //   console.log("The array contains the string.");
+  //   qry.distinct = true; // Add the distinct option to the query
+
+  // } else {
+  //   console.log("The array does not contain the string.");
+  // }
+
   
 
   // if (operator === "all") {
   //   // No filters, retrieve all records
   //   qry.where = {}; // or qry.where = true;
   // }
-  
+  console.log("The array contains the string.",qry);
+
 db.models[reg_model].findAll(qry).then(async (list) => {
 
   let totalValue;
