@@ -11,74 +11,7 @@ const maleIcon = 'path://m 146.41936,238.8034 c -5.21101,-1.43402 -7.51545,-6.79
 const femaleIcon = 'path://m 39.7122,238.0264 c -5.604205,-1.49359 -5.822698,-7.32898 -5.431108,-11.96235 -0.05932,-18.97406 -0.118632,-37.94813 -0.177948,-56.92219 -7.401109,0.0507 -14.802279,0.16954 -22.203547,0.1438 8.050221,-26.97466 15.83106,-54.03787 24.0791,-80.948455 -6.246873,-1.537447 -5.103818,6.332986 -7.12857,10.198179 -4.203419,12.783656 -7.28462,25.995046 -12.31951,38.467156 C 6.215777,147.43407 -0.93895389,129.58252 6.2279437,121.52707 11.709639,105.71684 15.006783,88.999576 22.521999,73.9779 25.487431,65.143259 38.425956,64.174487 43.879817,63.247984 35.242261,58.307767 32.195248,46.181151 37.843175,37.985287 c 5.35176,-7.73122 16.727442,-10.988636 24.757146,-5.16531 11.321083,6.562216 10.452089,25.024381 -1.135269,30.670395 9.830628,-0.28155 20.086569,3.623662 24.845207,12.765524 3.87086,7.45858 5.12438,16.169298 8.137928,24.037484 2.906124,10.26421 6.922833,20.35157 9.297803,30.70045 1.06345,4.17564 -1.66552,9.02385 -6.181687,9.2796 -7.686885,1.11419 -8.783192,-8.80355 -10.70406,-14.18732 -3.87502,-12.5653 -7.681429,-25.15172 -11.575988,-37.711005 -8.798872,-0.113812 1.949333,13.898795 1.781574,19.941085 6.048408,20.20812 12.13493,40.40517 18.089502,60.64114 -7.392371,0.35953 -14.803078,0.14681 -22.203496,0.20388 -0.06597,21.22546 -0.131933,42.45093 -0.1979,63.67639 -2.103142,7.13406 -13.415648,7.74398 -15.969932,0.84281 -1.418088,-4.77754 -0.245017,-10.18282 -0.655178,-15.20454 l -0.156843,-49.31466 c -4.44248,-1.05339 -5.844521,0.93365 -4.913879,5.25338 -0.162881,19.18788 0.325808,38.44483 -0.244801,57.58947 -0.334387,5.03435 -6.719798,7.8699 -11.101102,6.02234 z'
 
 
-export const xlineOptions: EChartsOption = {
-  title: {
-    text: 'LineChart',
-    left: 'center'
-  },
-  xAxis: {
-    data: [
-      t('analysis.january'),
-      t('analysis.february'),
-      t('analysis.march'),
-      t('analysis.april'),
-      t('analysis.may'),
-      t('analysis.june'),
-      t('analysis.july'),
-      t('analysis.august'),
-      t('analysis.september'),
-      t('analysis.october'),
-      t('analysis.november'),
-      t('analysis.december')
-    ],
-    boundaryGap: false,
-    axisTick: {
-      show: false
-    }
-  },
-  grid: {
-    left: 20,
-    right: 20,
-    bottom: 20,
-    top: 80,
-    containLabel: true
-  },
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: {
-      type: 'cross'
-    },
-    padding: [5, 10]
-  },
-  yAxis: {
-    axisTick: {
-      show: false
-    }
-  },
-  legend: {
-    data: [t('analysis.estimate'), t('analysis.actual')],
-    top: 50
-  },
-  series: [
-    {
-      name: t('analysis.estimate'),
-      smooth: true,
-      type: 'line',
-      data: [100, 120, 161, 134, 105, 160, 165, 114, 163, 185, 118, 123],
-      animationDuration: 2800,
-      animationEasing: 'cubicInOut'
-    },
-    {
-      name: t('analysis.actual'),
-      smooth: true,
-      type: 'line',
-      itemStyle: {},
-      data: [120, 82, 91, 154, 162, 140, 145, 250, 134, 56, 99, 123],
-      animationDuration: 2800,
-      animationEasing: 'quadraticOut'
-    }
-  ]
-}
+ 
 
 
 export const lineOptions: EChartsOption = {
@@ -120,7 +53,9 @@ export const lineOptions: EChartsOption = {
     data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   },
   yAxis: {
-    type: 'value'
+    type: 'value',
+    name:'Number',
+
   },
   series: [
     {
@@ -173,7 +108,9 @@ export const stacklineOptions: EChartsOption = {
     data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   },
   yAxis: {
-    type: 'value'
+    type: 'value',
+    name:'Number',
+
   },
   series: [
     {
@@ -310,7 +247,9 @@ export const simpleBarChart: EChartsOption = {
   },
 
   yAxis: {
-    type: 'value'
+    type: 'value',
+    name:'Number',
+
   },
   series: [
     {
@@ -374,6 +313,7 @@ export const multipleBarChart: EChartsOption = {
   },
   xAxis: {
     type: 'category',
+    name:'Number',
     data: ['Brazil', 'Indonesia', 'USA', 'India', 'China', 'World']
   },
   series: [
@@ -420,6 +360,8 @@ export const barOptionsMultiple: EChartsOption = {
   },
   yAxis: {
     type: 'value',
+    name:'Number',
+
     boundaryGap: [0, 0.01]
   },
   xAxis: {
@@ -459,7 +401,9 @@ export const barOptions: EChartsOption = {
     }
   },
   yAxis: {
-    type: 'value'
+    type: 'value',
+    name:'Number',
+
   },
   series: [
     {

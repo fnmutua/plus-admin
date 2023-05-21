@@ -205,63 +205,137 @@ exports.nestedSumModelByColumn= async (req, res) => {
 
 
 
-exports.sumModelByColumn= async (req, res) => {
-  var reg_model = req.body.model
+// exports.sumModelByColumn= async (req, res) => {
+//   var reg_model = req.body.model
  
-  var summaryField = req.body.summaryField
-  var summaryFunction = req.body.summaryFunction
- // var groupField = req.body.groupField[0]
+//   var summaryField = req.body.summaryField
+//   var summaryFunction = req.body.summaryFunction
+//  // var groupField = req.body.groupField[0]
 
 
-  console.log('Summarizing Model by Column:', reg_model, ' by ', summaryField)
+//   console.log('Summarizing Model by Column:', reg_model, ' by ', summaryField)
  
-   let groupfields  = []
-  if (req.body.groupField.length > 0) {
+//    let groupfields  = []
+//   if (req.body.groupField.length > 0) {
     
-    for (let i = 0; i < req.body.groupField.length; i++) {
-      let field = req.body.groupField[i]
-      groupfields.push(field)
-    }
+//     for (let i = 0; i < req.body.groupField.length; i++) {
+//       let field = req.body.groupField[i]
+//       groupfields.push(field)
+//     }
     
-    console.log("groupfields, ",groupfields)
+//     console.log("groupfields, ",groupfields)
 
-    var qry = {
-      attributes: [...groupfields, [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-      group: [...groupfields],
-      raw: true
-    }
-  } else {
-    var qry = {
-      attributes: [[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
-      raw: true
-    }
+//     var qry = {
+//       attributes: [...groupfields, [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+//       group: [...groupfields],
+//       raw: true
+//     }
+//   } else {
+//     var qry = {
+//       attributes: [[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+//       raw: true
+//     }
 
+//   }
+
+ 
+  
+ 
+//   if (req.body.cache_key && req.body.cache_key != '') {
+    
+//     let result;
+//     let isCached = false;
+  
+//     try {
+//       const cacheResults = await redisClient.get(req.body.cache_key );
+//       if (cacheResults) {
+//         isCached = true;
+//         result = JSON.parse(cacheResults);
+//       }
+//       else {
+//         await db.models[reg_model].findAll(qry).then(async (response) => {
+//           await redisClient.set(req.body.cache_key, JSON.stringify(response), {
+//             EX: 3600,  // 1hour 
+//             NX: true,
+//           });
+//           result = (response)
+//         })
+       
+//       }
+//       res.status(200).send({
+//         fromCache: isCached,
+//         cache_key: req.body.cache_key,
+//         Total: result,
+//         code: '0000'
+//       });
+//     } catch (error) {
+//       console.log('Summary Error Failed ---->:', error)
+//       res.status(500).send({
+//         message: 'Fetching ----> data failed' + req.body.cache_key
+//       });
+//     }
+    
+//   }
+
+//   else {
+//     console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+
+//     db.models[reg_model].findAll(qry).then((list) => {
+//       res.status(200).send({
+//         Total: list,
+//         fromCache: false,
+//         code: '0000'
+//       })
+//     })
+//   }
+  
+
+
+
+// }
+exports.sumModelByColumn = async (req, res) => {
+  const reg_model = req.body.model;
+  const summaryField = req.body.summaryField;
+  const summaryFunction = req.body.summaryFunction;
+  const groupField = req.body.groupField;
+  const filterColumn = req.body.filterColumn;
+  const filterValue = req.body.filterValue;
+
+  console.log('Summarizing Model by Column:', reg_model, ' by ', summaryField);
+
+  let qry = {
+    attributes: [[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+    raw: true
+  };
+
+  if (groupField && groupField.length > 0) {
+    qry.attributes = [...groupField, [sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]];
+    qry.group = [...groupField];
   }
 
- 
-  
- 
-  if (req.body.cache_key && req.body.cache_key != '') {
-    
+  if (filterColumn && filterValue) {
+    qry.where = {
+      [filterColumn]: filterValue
+    };
+  }
+
+  if (req.body.cache_key && req.body.cache_key !== '') {
     let result;
     let isCached = false;
-  
+
     try {
-      const cacheResults = await redisClient.get(req.body.cache_key );
+      const cacheResults = await redisClient.get(req.body.cache_key);
       if (cacheResults) {
         isCached = true;
         result = JSON.parse(cacheResults);
+      } else {
+        result = await db.models[reg_model].findAll(qry);
+        await redisClient.set(req.body.cache_key, JSON.stringify(result), {
+          EX: 3600, // 1 hour
+          NX: true
+        });
       }
-      else {
-        await db.models[reg_model].findAll(qry).then(async (response) => {
-          await redisClient.set(req.body.cache_key, JSON.stringify(response), {
-            EX: 3600,  // 1hour 
-            NX: true,
-          });
-          result = (response)
-        })
-       
-      }
+
       res.status(200).send({
         fromCache: isCached,
         cache_key: req.body.cache_key,
@@ -269,29 +343,29 @@ exports.sumModelByColumn= async (req, res) => {
         code: '0000'
       });
     } catch (error) {
-      console.log('Summary Error Failed ---->:', error)
+      console.log('Summary Error Failed ---->:', error);
       res.status(500).send({
-        message: 'Fetching ----> data failed' + req.body.cache_key
+        message: 'Fetching data failed' + req.body.cache_key
       });
     }
-    
-  }
+  } else {
+    console.log("Summary Caching...");
 
-  else {
-    console.log("Summary Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
-
-    db.models[reg_model].findAll(qry).then((list) => {
-      res.status(200).send({
-        Total: list,
-        fromCache: false,
-        code: '0000'
+    db.models[reg_model].findAll(qry)
+      .then((list) => {
+        res.status(200).send({
+          Total: list,
+          fromCache: false,
+          code: '0000'
+        });
       })
-    })
+      .catch((error) => {
+        console.log('Summary Error Failed ---->:', error);
+        res.status(500).send({
+          message: 'Fetching data failed'
+        });
+      });
   }
-  
-
-
-
 }
 
 

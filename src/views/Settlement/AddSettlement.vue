@@ -899,26 +899,26 @@ v-for="item in wardFilteredOptions" :key="item.value" :label="item.label"
               <el-row>
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Population">
-                <el-input-number v-model="ruleForm.population" />
+                <el-input-number  :precision="0" v-model="ruleForm.population" />
               </el-form-item>
                 </el-col>
                 <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Area(Ha.)">
-                <el-input-number :precision="2" v-model="ruleForm.area" />
+                <el-input-number   :precision="2"  v-model="ruleForm.area" />
               </el-form-item>
                 </el-col>
               </el-row>
 
               <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Distance to Nearest Urban Center(Km.)" prop="dist_town" label-width="270px">
-                    <el-input-number v-model="ruleForm.dist_town" />
+                    <el-input-number   :precision="0"   v-model="ruleForm.dist_town" />
                   </el-form-item>
                 </el-col>
  
     
                 <el-col :span="24" :lg="24" :md="24" :sm="24" :xs="24">
                   <el-form-item label="Distance to Nearest Trunk Road(Km.)" prop="dist_trunk" label-width="270px">
-                    <el-input-number v-model="ruleForm.dist_trunk" />
+                    <el-input-number  :precision="0" v-model="ruleForm.dist_trunk" />
                   </el-form-item>
                 </el-col>
             </el-row>

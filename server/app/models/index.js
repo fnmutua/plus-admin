@@ -667,6 +667,15 @@ db.models.settlement.hasMany(db.models.project, {
   foreignKey: 'settlement_id'
 })
 
+// Proejct   - ward
+
+db.models.project.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
+db.models.ward.hasMany(db.models.project, {
+  foreignKey: 'ward_id'
+})
 
  
 db.models.project.belongsTo(db.models.county, {

@@ -2653,7 +2653,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     
             name: 'AddSettlement',
             meta: {
-              hidden: false,
+              hidden: true,
               title: 'Add',
               icon:'material-symbols:add-location-rounded',
               noCache: true

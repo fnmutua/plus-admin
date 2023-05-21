@@ -10,7 +10,7 @@ import {
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElOptionGroup,ElStep,ElSteps
 } from 'element-plus'
 import { ElMessage,  } from 'element-plus'
-import { Position, View, Plus, User, Download, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Loading } from '@element-plus/icons-vue'
+import { Position, View, Plus, User, Download, Briefcase, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Loading } from '@element-plus/icons-vue'
 
 import { ref, reactive, h, toRef, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
@@ -87,6 +87,7 @@ const ruleForm = reactive({
   parcel_owner: null,
   rim_no:null,
   isApproved: 'Pending',
+  isActive:true,
   code: ''
 })
 
@@ -130,12 +131,7 @@ const morefileList = ref<UploadUserFile[]>([])
  const loadingGetData = ref(false)
 
 const interVentionTypeOptions = ref([])
-const benefitTypeOptions = ref([])
-const houseHoldOptions = ref([])
-const interventionsOptions = ref([])
-
-
-
+ 
 
 const settlementOptions = ref([])
 const page = ref(1)
@@ -164,8 +160,8 @@ let tableDataListRejected = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
  
 
-const filters = ref(['settlement_type','isApproved'])
-const  filterValues = ref([[1, 2],['Approved']] ) // make sure the inner array is array
+const filters = ref(['settlement_type','isApproved','isActive'])
+const  filterValues = ref([[1, 2],['Approved'],['true']] ) // make sure the inner array is array
 
 
  
@@ -271,15 +267,15 @@ const onPageChange = async (selPage: any) => {
   
   //console.log('', activeTab.value)
   if (activeTab.value == 'list') {
-     filters.value = ['settlement_type','isApproved']
-     filterValues.value = [[1, 2],['Approved']]  // make sure the inner array is array
+     filters.value = ['settlement_type','isApproved', 'isActive']
+     filterValues.value = [[1, 2],['Approved'],]  // make sure the inner array is array
   } else if (activeTab.value =='New') {
-     filters.value = ['settlement_type','isApproved']
-     filterValues.value = [[1, 2],['Pending']]  // make sure the inner array is array
+     filters.value = ['settlement_type','isApproved', 'isActive']
+     filterValues.value = [[1, 2],['Pending'], ['true']]  // make sure the inner array is array
 }
 else if (activeTab.value == 'Rejected') {
-     filters.value = ['settlement_type','isApproved']
-     filterValues.value = [[1, 2],['Rejected']]  // make sure the inner array is array
+     filters.value = ['settlement_type','isApproved', 'isActive']
+     filterValues.value = [[1, 2],['Rejected'], ['true']]  // make sure the inner array is array
 }
 
   console.log("Where are we?",activeTab.value, filters.value, filterValues.value )
@@ -299,16 +295,16 @@ const onPageSizeChange = async (size: any) => {
 
   console.log(activeTab.value)
   if (activeTab.value === 'list') {
-      filters.value = ['settlement_type','isApproved']
-      filterValues.value = [[1, 2],['Approved']]  // make sure the inner array is array
+      filters.value = ['settlement_type','isApproved', 'isActive']
+      filterValues.value = [[1, 2],['Approved'],['true']]  // make sure the inner array is array
   } else if (activeTab.value === 'New') {
-      filters.value = ['settlement_type','isApproved']
-      filterValues.value = [[1, 2], ['Pending']]  // make sure the inner array is array
+      filters.value = ['settlement_type','isApproved', 'isActive']
+      filterValues.value = [[1, 2], ['Pending'],['true']]  // make sure the inner array is array
      
 }
 else if (activeTab.value === 'Rejected') {
-      filters.value = ['settlement_type','isApproved']
-      filterValues.value = [[1, 2],['Rejected']]  // make sure the inner array is array
+      filters.value = ['settlement_type','isApproved', 'isActive']
+      filterValues.value = [[1, 2],['Rejected'],['true']]  // make sure the inner array is array
 }
 
  
@@ -333,17 +329,17 @@ const clickTab = async (obj) => {
  
  
   if (obj.props.name  === 'list') {
-      filters.value = ['settlement_type','isApproved']
-      filterValues.value = [[1, 2],['Approved']]  // make sure the inner array is array
+      filters.value = ['settlement_type','isApproved','isActive']
+      filterValues.value = [[1, 2],['Approved'],['true']]  // make sure the inner array is array
      
   } else if (obj.props.name === "New") {
-      filters.value = ['settlement_type','isApproved']
-      filterValues.value = [[1, 2], ['Pending']]  // make sure the inner array is array
+      filters.value = ['settlement_type','isApproved','isActive']
+      filterValues.value = [[1, 2], ['Pending'],['true']]  // make sure the inner array is array
      
 }
 else if (obj.props.name === "Rejected") {
-      filters.value = ['settlement_type','isApproved']
-      filterValues.value = [[1, 2],['Rejected']]  // make sure the inner array is array
+      filters.value = ['settlement_type','isApproved','isActive']
+      filterValues.value = [[1, 2],['Rejected'],['true']]  // make sure the inner array is array
 }
 
 console.log('Filters:',  filters.value  )
@@ -375,13 +371,19 @@ const getSettlementCount = async () => {
   formData.summaryField = 'isApproved'
   formData.summaryFunction = 'count'
   formData.groupField = ['isApproved']
+
+  formData.filterColumn = 'isActive'
+  formData.filterValue = 'true'
+ 
+
+
  
   const newSettCount = await getSummarybyField(formData)
   console.log('Settleemnt Count---->', newSettCount)
 
-  let pending = await filterDataByKeys(newSettCount.Total, ['isApproved'], 'Pending');
-  let approved = await filterDataByKeys(newSettCount.Total, ['isApproved'], 'Approved');
-  let rejected = await filterDataByKeys(newSettCount.Total, ['isApproved'], 'Rejected');
+  let pending = await filterDataByKeys(newSettCount.Total, ['isApproved' ],[ 'Pending' ]);
+  let approved = await filterDataByKeys(newSettCount.Total, ['isApproved' ], ['Approved' ]);
+  let rejected = await filterDataByKeys(newSettCount.Total, ['isApproved' ], ['Rejected' ]);
   
   console.log(pending)
   console.log(approved)
@@ -407,17 +409,17 @@ const getNewOrRejectedSettlements = async (tab) => {
 
    
   if (tab === 'New') {
-      filters.value = ['isApproved']
-      filterValues.value = [['Pending']]  // make sure the inner array is array
+      filters.value = ['isApproved','isActive']
+      filterValues.value = [['Pending'],['true']]  // make sure the inner array is array
  
   } else  if (tab === 'Rejected') {
-      filters.value = ['isApproved']
-      filterValues.value = [['Rejected']]  // make sure the inner array is array
+      filters.value = ['isApproved','isActive']
+      filterValues.value = [['Rejected'],['true']]  // make sure the inner array is array
    }
 
   else {
-      filters.value = ['isApproved']
-      filterValues.value = [['Approved']]  // make sure the inner array is array
+      filters.value = ['isApproved','isActive']
+      filterValues.value = [['Approved'],['true']]  // make sure the inner array is array
   }
 
   
@@ -1218,6 +1220,78 @@ const DeleteSettlement = (data: TableSlotDefault) => {
 
 
 
+
+
+const decommisionSettlement = async (data: TableSlotDefault) => {
+    
+  console.log(data)
+  ruleForm.id = data.id
+  ruleForm.name = data.name
+  ruleForm.county_id = data.county_id
+  ruleForm.settlement_type = data.settlement_type
+  ruleForm.population = data.population
+  ruleForm.area = data.area
+  ruleForm.description = data.description
+  ruleForm.code = data.code
+  ruleForm.dist_town = data.dist_town
+  ruleForm.dist_trunk = data.dist_trunk
+  ruleForm.parcel_no = data.parcel_no
+  ruleForm.parcel_owner = data.parcel_owner
+  ruleForm.rim_no = data.rim_no
+  ruleForm.isApproved = data.isApproved
+  ruleForm.subcounty_id = data.subcounty_id
+  ruleForm.ward_id = data.ward_id
+  ruleForm.isApproved = data.isApproved
+  ruleForm.geom = data.geom
+
+  // keep  decommision here !
+  ruleForm.isActive = 'false'
+
+       ruleForm.model = model
+      const result = await updateOneRecord(ruleForm) 
+      console.log('archving data', result.data)
+      console.log(activeTab.value)
+
+      var updatedObject = result.data
+
+
+      if (activeTab.value ==='list') {
+      // get the index of the updated object
+      const index = tableDataList.value.findIndex(obj => obj.id === updatedObject.id);
+    
+    // Get the updatedobjetc keys and updated the old data 
+        const updatedKeys = Object.keys(updatedObject);
+            for (const key of updatedKeys) {
+              tableDataList.value[index][key] = updatedObject[key];
+          //   tableDataListNew.value[index_new][key] = updatedObject[key];
+            //  tableDataListRejected.value[index_rej][key] = updatedObject[key];
+            }
+      } else if (activeTab.value ==='New') {
+
+        // get the index of the updated object
+        const index = tableDataListNew.value.findIndex(obj => obj.id === updatedObject.id);
+        
+             const updatedKeys = Object.keys(updatedObject);
+                for (const key of updatedKeys) {
+                  tableDataListNew.value[index][key] = updatedObject[key];
+          
+                }
+      }
+   
+      else if (activeTab.value ==='Rejected') {
+            const index = tableDataListRejected.value.findIndex(obj => obj.id === updatedObject.id);
+        
+             const updatedKeys = Object.keys(updatedObject);
+                for (const key of updatedKeys) {
+                  tableDataListRejected.value[index][key] = updatedObject[key];
+         
+                }
+
+}
+
+}
+
+
 const DownloadXlsx = async () => {
   console.log(tableDataList.value)
 
@@ -1310,10 +1384,10 @@ const actionColumnWidth = ref()
 
 if (isMobile.value) {
   dialogWidth.value = "90%"
-  actionColumnWidth.value = "75px"
+  actionColumnWidth.value = "80px"
 } else {
   dialogWidth.value = "25%"
-  actionColumnWidth.value = "160px"
+  actionColumnWidth.value = "200px"
 
 }
 
@@ -1596,7 +1670,7 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Settlements')" :message="t('Use the filters to subset')" v-loading="loadingGetData" element-loading-text="Loading the data.. Please wait.......">
+  <ContentWrap :title="t('Settlements')" :message="t('Use the county, subcounty and ward filters to subset')" v-loading="loadingGetData" element-loading-text="Loading the data.. Please wait.......">
 
     <el-row>
       <el-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
@@ -1785,7 +1859,16 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                     </template>
                   </el-popconfirm>
                 </el-tooltip>
-
+                <el-tooltip v-if="showAdminButtons" content="Decommision" placement="top">
+                <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                    title="Are you sure to decommision this settlement??"
+                    @confirm="decommisionSettlement   (scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button type="danger" size="small" :icon=Briefcase circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
               </div>
             </template>
 
@@ -1906,7 +1989,16 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                     </template>
                   </el-popconfirm>
                 </el-tooltip>
-
+                <el-tooltip v-if="showAdminButtons" content="Decommision" placement="top">
+                <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                    title="Are you sure to decommision this settlement??"
+                    @confirm="decommisionSettlement   (scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button type="danger" size="small" :icon=Briefcase circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
               </div>
             </template>
 
@@ -2011,13 +2103,24 @@ type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlo
 v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
-                <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
+                <el-tooltip  content="Delete" placement="top">
                   <el-popconfirm
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                     title="Are you sure to delete this report?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
-                      <el-button type="danger" size="small" :icon=Delete circle />
+                      <el-button  v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+
+                <el-tooltip  content="Decommision" placement="top">
+                <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                    title="Are you sure to decommision this settlement??"
+                    @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Briefcase circle />
                     </template>
                   </el-popconfirm>
                 </el-tooltip>

@@ -650,7 +650,10 @@ exports.modelCreateOneRecord = (req, res) => {
           }
         });
         
-        item.addActivities(list_activities)
+    //   await item.addActivities(list_activities)
+      await item .setActivities(list_activities);
+
+        
       }
       else if (reg_model === 'dashboard_section_chart') {
         var indicator_list =req.body.indicator_id
