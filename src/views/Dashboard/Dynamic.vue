@@ -95,30 +95,6 @@ const selectedSubCounties = ref([])
 const selectedWards = ref([])
 const options = ref([])
 
-const props = {
-  expandTrigger: 'hover' as const,
-  multiple: true,
-}
-const handleChange = (value) => {
-  console.log(value)
-
-  selectedCounties.value  = Array.from(new Set(value.map(item => item[0])));
-  selectedSubCounties.value= value.map(item => item[1]);
-
-  console.log(selectedCounties.value);  // [1]
-  console.log(selectedSubCounties.value); // [1, 2, 3, 4, 5, 6]
-  if (selectedCounties.value.length==0) {
-    filterLevel.value='national'
-  } else {
-    filterLevel.value = 'county'
-    getCards()
-    getTabs()
-
-  }
-  console.log('filterLevel.value',filterLevel.value)
-
- 
-}
 
 
 const getIndicatorConfigurations = async (indicator_id) => {
@@ -222,7 +198,16 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
       filterValues.push([selectedCounties.value])
  
 
-  } else if (filterLevel.value === 'national') {
+  }
+
+  else if (filterLevel.value === 'subcounty') { 
+    // filter by subcounty 
+    associated_Models.push('ward')
+    filterFields.push('subcounty_id')
+    filterValues.push([selectedSubCounties.value])
+   }
+
+  else if (filterLevel.value === 'national') {
     associated_Models.push('county')
 
  
@@ -1399,7 +1384,7 @@ onMounted(() => {
 
 const selectCounty = ref([])
 const selectSubCounty = ref([])
-const handleClear = async () => { 
+const handleClearCounty = async () => { 
   selectSubCounty.value=null
   selectCounty.value = null
   getCards()
@@ -1407,27 +1392,34 @@ const handleClear = async () => {
   
 }
 
+const handleClearSubCounty = async () => { 
+  selectSubCounty.value=null
+   getCards()
+  getTabs()
+  
+}
 
-const filterSubcounty = async (county_id) => {
+ 
+ 
+const filterCounty = async (county_id) => {
   //selectSubCounty.value=null
   filteredSubCountyList.value = subCountyList.value.filter(option => county_id.includes(option.county_id));
- 
-
-  console.log('xyz', filteredSubCountyList.value)
+   console.log('xyz', filteredSubCountyList.value)
 
 selectedCounties.value = county_id;
  
-console.log(selectedCounties.value);  // [1]
+  console.log(selectedCounties.value);  // [1]
+
  if (selectedCounties.value.length == 0) {
   filterLevel.value = 'national'
 } else {
   filterLevel.value = 'county'
+  }
   getCards()
   getTabs()
 
-}
-console.log('filterLevel.value', selectedCounties.value)
 
+console.log('filterLevel.value', selectedCounties.value)
      
 }
 
@@ -1443,23 +1435,23 @@ selectedSubCounties.value = subcountyId;
   filterLevel.value = 'county'
 } else {
   filterLevel.value = 'subcounty'
-  getCards()
-  getTabs()
+ 
 
 }  
-     
-}
+getCards()
+  getTabs()
 
+}
 
 </script>
 
 <template>
 
-<el-select :style="{ width: '25% ', marginRight: '10px'  }"   @change="filterSubcounty"   :onClear="handleClear"  v-model="selectCounty"  multiple clearable filterable collapse-tags placeholder="Select County">
+<el-select :style="{ width: '25% ', marginRight: '10px'  }"   @change="filterCounty"   :onClear="handleClearCounty"  v-model="selectCounty"  multiple clearable filterable collapse-tags placeholder="Select County">
   <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
 </el-select>
 
-<el-select :style="{ width: '25% ' }"  @change="filterSubCounty"  :onClear="handleClear"  v-model="selectSubCounty" clearable multiple filterable collapse-tags placeholder="Select Constituency">
+<el-select :style="{ width: '25% ' }"  @change="filterSubCounty"  :onClear="handleClearSubCounty"  v-model="selectSubCounty" clearable multiple filterable collapse-tags placeholder="Select Constituency">
     <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
   </el-select>
 <!-- 
