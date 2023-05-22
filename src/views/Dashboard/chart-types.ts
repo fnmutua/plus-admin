@@ -409,7 +409,7 @@ export const barOptions: EChartsOption = {
     {
       name: 'chart title',
       data: [13253, 34235, 26321 ],
-      type: 'bar'
+      type: 'bar',
     }
   ]
 }
@@ -478,7 +478,7 @@ export const  barMaleFemaleOptions: EChartsOption = {
       type: 'bar',
       stack: 'total',
       label: {
-        show: true
+        show: false
       },
       emphasis: {
         focus: 'series'
@@ -493,7 +493,7 @@ export const  barMaleFemaleOptions: EChartsOption = {
       color: colorPalette[0],
 
       label: {
-        show: true
+        show: false
       },
       emphasis: {
         focus: 'series'
@@ -556,27 +556,19 @@ export const  stackedbarOptions: EChartsOption = {
 
   series: [
     {
-      name: 'Male',
+      name: '',
       type: 'bar',
       stack: 'total',
-      label: {
-        show: true
-      },
+     
       emphasis: {
         focus: 'series'
       },
-      color: colorPalette[1],
       data: []
     },
     {
-      name: 'Female',
+      name: '',
       type: 'bar',
       stack: 'total',
-      color: colorPalette[0],
-
-      label: {
-        show: true
-      },
       emphasis: {
         focus: 'series'
       },
