@@ -10,7 +10,7 @@ import { use } from "echarts/core";
 
 import { Icon } from '@iconify/vue';
 
-import { pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions, barOptionsMultiple, lineOptions, stackedbarOptions,  barMaleFemaleOptions } from './chart-types'
+import { pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,  lineOptions, stackedbarOptions,  barMaleFemaleOptions } from './chart-types'
 import { EChartsOption, registerMap } from 'echarts'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
@@ -444,7 +444,7 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
     }
 
 
-    else if (chartType == 6) {
+    else if (chartType == 6 ) {
       console.log('Multi-line chart ', amount)
       //  Step 1: Extract and sort unique dates in ascending order
       const dates = [...new Set(amount.map(item => item.createdAt))].sort();
@@ -859,15 +859,26 @@ const getCharts = async (section_id) => {
                 ...stackedbarOptions.xAxis,
                 data: cdata[0]  // categories as recieved 
               },
-
+              // series: {
+              //   ...stackedbarOptions.series,
+              //   data: cdata[1]  // categories as recieved 
+              // },
             };
 
-            console.log(UpdatedBarOptionsMultiple)
+            console.log('UpdatedBarOptionsMultiple >>>>',  cdata[1])
 
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
-            thisChart.chart.series = cdata[1]
+
+            for (var i = 0; i < cdata[1].length; i++) {
+              cdata[1][i].label = {
+                show: false,
+                position: 'inside'
+              };
+            }
+
+           thisChart.chart.series = cdata[1]
 
 
 
