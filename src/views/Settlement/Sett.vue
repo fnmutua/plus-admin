@@ -288,7 +288,7 @@ const clickTab = async (obj) => {
   console.log("Loading tabs.............", obj.props.label)
   console.log("Loading activeTab.............", activeTab.value)
   console.log("Loading search_string.............", search_string.value)
-
+  dynamicDocumentComponent.value=null
 
   if (obj.props.name === 'list') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
@@ -1658,7 +1658,7 @@ const dynamicDocumentComponent = ref();
 const DocumentComponentProps = ref({
   message: 'documents',
   data: rowData.value,
-  model: model,
+  DocModel: model,
 
 });
 
@@ -1784,12 +1784,7 @@ v-model="search_string" :suffix-icon="Search" placeholder="Enter search text"
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                  :icon="Plus" circle @click="toggleComponent(props.row)" />
-
-
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -1899,34 +1894,10 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
             <template #default="props">
               <div m="4">
                 <h3>Documents</h3>
-                <el-table :data="props.row.documents" border>
-                  <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="document_type.type" />
-                  <el-table-column label="Size(mb)" prop="size" />
-                  <el-table-column label="Actions">
-                    <template #default="scope">
-                      <el-dropdown v-if="isMobile">
-                        <span class="el-dropdown-link">Actions</span>
-                        <el-dropdown-menu>
-                          <el-dropdown-item @click="downloadFile(scope.row)">Download</el-dropdown-item>
-                          <el-dropdown-item @click="removeDocument(scope.row)">Remove</el-dropdown-item>
-                        </el-dropdown-menu>
-                      </el-dropdown>
-                      <div v-else>
-                        <el-button type="success" @click="downloadFile(scope.row)">Download</el-button>
-                        <el-button type="danger" @click="removeDocument(scope.row)">Remove</el-button>
-                      </div>
-                    </template>
-
-                  </el-table-column>
-                </el-table>
-                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-
-
-                <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                  :icon="Plus" circle @click="toggleComponent(props.row)" />
-
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -2033,33 +2004,10 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
             <template #default="props">
               <div m="4">
                 <h3>Documents</h3>
-                <el-table :data="props.row.documents" border>
-                  <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="document_type.type" />
-                  <el-table-column label="Size(mb)" prop="size" />
-                  <el-table-column label="Actions">
-                    <template #default="scope">
-                      <el-dropdown v-if="isMobile">
-                        <span class="el-dropdown-link">Actions</span>
-                        <el-dropdown-menu>
-                          <el-dropdown-item @click="downloadFile(scope.row)">Download</el-dropdown-item>
-                          <el-dropdown-item @click="removeDocument(scope.row)">Remove</el-dropdown-item>
-                        </el-dropdown-menu>
-                      </el-dropdown>
-                      <div v-else>
-                        <el-button type="success" @click="downloadFile(scope.row)">Download</el-button>
-                        <el-button type="danger" @click="removeDocument(scope.row)">Remove</el-button>
-                      </div>
-                    </template>
-
-                  </el-table-column>
-                </el-table>
-                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                  :icon="Plus" circle @click="toggleComponent(props.row)" />
-
-
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
