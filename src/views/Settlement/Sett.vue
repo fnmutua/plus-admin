@@ -56,10 +56,7 @@ import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 import proj4 from 'proj4';
 
-
-import UploadComponent from '@/views/components/UploadComponent.vue';
-import ListDocuments from '@/views/components/ListDocuments.vue';
-
+ 
 
 
 const MapBoxToken =
@@ -1626,7 +1623,7 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
 
 /// Uplaod docuemnts from a central component 
 const mfield = 'settlement_id'
-const ChildComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const dynamicComponent = ref();
 const componentProps = ref({
   message: 'Hello from parent',
@@ -1635,7 +1632,6 @@ const componentProps = ref({
   model: model,
   field: mfield
 });
-
 
 
 function toggleComponent(row) {
@@ -1653,7 +1649,7 @@ function toggleComponent(row) {
 
 // component for docuemnts 
 const rowData = ref()
-const documentComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const documentComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const dynamicDocumentComponent = ref();
 const DocumentComponentProps = ref({
   message: 'documents',

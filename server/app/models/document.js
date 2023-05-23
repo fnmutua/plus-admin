@@ -42,7 +42,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: false
     },
-  
+    protectedFile: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
     createdBy: {
       type: DataTypes.INTEGER,
       allowNull: true

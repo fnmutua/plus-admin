@@ -75,7 +75,7 @@ import { geojsonType } from '@turf/turf'
 import proj4 from 'proj4';
 
 
-import UploadComponent from '@/views/components/UploadComponent.vue';
+import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 
 
@@ -167,7 +167,7 @@ const loadMap = () => {
     // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
     style: 'mapbox://styles/mapbox/streets-v12',
     center: [37.137343, 0.737451], // starting position
-    zoom: 5
+    zoom: 10
   });
   
     
@@ -175,10 +175,7 @@ const loadMap = () => {
   map.value.addControl(nav, "top-left");
 
   map.value.on('load', () => {
-
  
-
-    
   map.value.on('mousemove', function (e) {
     document.getElementById('coordinates').innerHTML =
       'Lon: ' + e.lngLat.lng.toFixed(4) + ' Lat: ' + e.lngLat.lat.toFixed(4);

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, toRefs, onMounted } from 'vue'
- import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElOption, ElOptionGroup  } from 'element-plus';
+import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElOption, ElOptionGroup, ElCheckbox  } from 'element-plus';
 import {
   Position, View, Plus, User, Download, Briefcase, Delete, Edit,
   Filter, InfoFilled, CopyDocument, Search, Setting, Loading
@@ -171,6 +171,7 @@ for (var i = 0; i < files.length; i++) {
 }
 }
 
+const protectedFile =ref(false)
 
 
 const submitMoreDocuments = async () => {
@@ -187,7 +188,7 @@ console.log('loadingPosting.value.......', morefileList.value.length)
   // uploading the documents 
   loadingPosting.value=true
 
-  const fileTypes = []
+    const fileTypes = []
   const formData = new FormData()
   let files = []
   for (var i = 0; i < morefileList.value.length; i++) {
@@ -205,6 +206,7 @@ console.log('loadingPosting.value.......', morefileList.value.length)
     formData.append('format', morefileList.value[i].name.split('.').pop())
     formData.append('category', documentCategory.value)
     formData.append('field_id', field_id.value)
+    formData.append('protected', protectedFile.value)
 
     formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
     formData.append('code', uuid.v4())
@@ -264,7 +266,10 @@ const onExceeed = async () => {
         <el-button :style="{ width: '100% ', marginBottom: '10px' }"  type="primary">Select File(s)</el-button>
       </el-upload>
      
-  
+      <el-form-item label="Checkbox">
+      <el-checkbox v-model="protectedFile">Protected File</el-checkbox>
+    </el-form-item>
+
 <template #footer>
       <span class="dialog-footer">
         <el-button @click="addMoreDocuments = false">Cancel</el-button>

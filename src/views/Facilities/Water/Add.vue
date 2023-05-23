@@ -245,7 +245,7 @@ onMounted(() => {
     container: 'mapContainer',
     style: 'mapbox://styles/mapbox/streets-v11',
     center: [37.137343, 1.137451],
-    zoom: 5
+    zoom: 8
   });
   
     //  // When the map fails to load, hide the base map and show only the overlays

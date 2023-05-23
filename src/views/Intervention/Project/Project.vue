@@ -41,14 +41,7 @@ const MapBoxToken =
 mapboxgl.accessToken = MapBoxToken;
 
 
-
-
-
-
-const searchString = ref()
-
-const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
+yconst appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 
