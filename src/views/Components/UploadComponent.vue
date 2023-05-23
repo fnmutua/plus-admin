@@ -102,7 +102,7 @@ getDocumentTypes()
 
  
 const addMoreDocuments = ref(props.showDialog)
-const model = ref(props.model)
+const xmodel = ref(props.model)
 const currentRow = ref(props.data)
 const field_id = ref(props.field)
 
@@ -198,7 +198,7 @@ console.log('loadingPosting.value.......', morefileList.value.length)
     // formData.append('file', fileList.value[i])
     // formData.file = fileList.value[i]
 
-    formData.append('model', model)
+    formData.append('model', xmodel)
     formData.append('createdBy', userInfo.id)
 
     formData.append('file', morefileList.value[i].raw)
