@@ -72,6 +72,7 @@ console.log(data.name)
 
 const formData = {}
 formData.filename = data.name
+formData.doc_id = data.id
 formData.responseType = 'blob'
 await getFile(formData)
   .then(response => {
@@ -86,8 +87,7 @@ await getFile(formData)
 
   })
   .catch(error => {
-    console.error('Error downloading file:', error);
-  });
+    ElMessage.error('Failed')  });
 
 }
 

@@ -2209,27 +2209,47 @@ exports.batchDocumentsUpload = async (req, res) => {
 
 
 
+ 
 exports.downloadFile = (req, res) => {
-  console.log("Received files:", req.body )
+  console.log("Received files:", req.body);
 
-   const uploadedFile = path.join(__dirname, '../../../..', 'uploads', req.body.filename);
+  const uploadedFile = path.join(__dirname, '../../../..', 'uploads', req.body.filename);
 
-  console.log(uploadedFile)
-  //console.log(path.join(__dirname, filePath))
+  console.log(uploadedFile);
 
- // res.send('Message to send along with the file');
-
-  //res.sendFile(uploadedFile);
-
-  res.status(200).sendFile(uploadedFile, function(err){
+  // Check if the file exists
+  fs.access(uploadedFile, fs.constants.F_OK, (err) => {
     if (err) {
       console.log(err);
-      res.status(500).send(err);
+      res.status(404).send({
+        message: 'File not found.',
+        code: '0000'
+      });
+
+      db.models.document.destroy({ where: { id: req.body.doc_id } })
+      .then((result) => {
+     console.log('succeed')
+    }) 
+
+      
+    } else {
+      // File exists, send it
+      res.sendFile(uploadedFile, function(err) {
+        if (err) {
+          console.log(err);
+          res.status(500).send({
+            message: 'Download failed. Error occurred.',
+            code: '0000'
+          });
+        } else {
+          // File sent successfully
+          // Handle success logic here if needed
+        }
+      });
     }
   });
+};
 
- }
- 
 
 exports.xReportDocumentationUpload = (req, res) => {
   console.log(req.files)
