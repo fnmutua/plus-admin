@@ -41,8 +41,11 @@ onMounted(() => {
 
 })
 
- const tableDocuments = ref(props.data.documents?props.data.documents:[])
-//const model = ref(props.data.model)
+const tableDocuments = ref([])
+  tableDocuments.value = props.data.documents ? props.data.documents : []
+
+console.log('tableDocuments',tableDocuments)
+ const model = ref(props.data.DocModel)
  
 // // Hide buttons if not admin 
 const userIsAdmin = ref(false)
@@ -55,6 +58,7 @@ if (userInfo.roles.includes("admin")) {
   showEditButtons.value = true
 }
 
+ 
 if (tableDocuments.value.length>0) {
   if (userInfo.id==tableDocuments.value[0].createdBy) {
   documentOwner.value = true

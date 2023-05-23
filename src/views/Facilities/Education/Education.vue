@@ -13,7 +13,7 @@ import { computed, onMounted } from 'vue'
 import xlsx from "json-as-xlsx"
 import { getFile } from '@/api/summary'
 
-import UploadComponent from '@/views/components/UploadComponent.vue';
+ 
 import { defineAsyncComponent } from 'vue';
 
 import {
@@ -72,6 +72,9 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 import "mapbox-layer-switcher/styles.css";
 
 import { countyOptions, SchoolLevelOptions, settlementOptionsV2, subcountyOptions, regOptions, mhmOptions, tenancyOptions, generalOwnership, } from './../common/index.ts'
+
+import UploadComponent from '@/views/components/UploadComponent.vue';
+import ListDocuments from '@/views/components/ListDocuments.vue';
 
 
 
