@@ -1241,7 +1241,7 @@ const dynamicComponent = ref();
       message: 'Hello from parent',
       showDialog:addMoreDocuments,
       data:currentRow.value,
-      model:model,
+      umodel:model,
       field:mfield
     });
 

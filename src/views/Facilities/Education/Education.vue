@@ -1361,7 +1361,7 @@ const dynamicComponent = ref();
       message: 'Hello from parent',
       showDialog:addMoreDocuments,
       data:currentRow.value,
-      docmodel:model,
+      umodel:model,
       field:mfield
     });
 
@@ -1388,7 +1388,7 @@ const dynamicDocumentComponent = ref();
 const DocumentComponentProps = ref({
   message: 'documents',
   data: rowData.value,
-  DocModel: model,
+  docmodel: model,
 
 });
 

@@ -52,6 +52,7 @@ import { getFile } from '@/api/summary'
 
 import UploadComponent from '@/views/components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
+import ListDocuments from '@/views/components/ListDocuments.vue';
 
 
 
@@ -1859,7 +1860,7 @@ const dynamicComponent = ref();
       message: 'Hello from parent',
       showDialog:addMoreDocuments,
       data:currentRow.value,
-      model:model,
+      umodel:model,
       field:mfield
     });
 
@@ -1879,7 +1880,26 @@ function toggleComponent(row) {
     }
 
 
+// component for docuemnts 
+const rowData = ref()
+const documentComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const dynamicDocumentComponent = ref();
+const DocumentComponentProps = ref({
+  message: 'documents',
+  data: rowData.value,
+  docmodel: model,
 
+});
+
+
+function handleExpand(row) {
+   dynamicDocumentComponent.value = null; // Unload the component
+    rowData.value = row
+    DocumentComponentProps.value.data = row
+    setTimeout(() => {
+      dynamicDocumentComponent.value = documentComponent; // Load the component
+    }, 100); // 0.1 seconds
+}
 
 </script>
 
@@ -1976,40 +1996,17 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
     <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
       <el-tab-pane label="Interventions" name="list">
-        <el-table :data="tableDataList" style="width: 100%" :row-class-name="tableRowClassName" fit>
+
+
+        <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border   :row-class-name="tableRowClassName" @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
                 <h3>Documents</h3>
-                <el-table :data="props.row.documents">
-                  <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="document_type.type" />
-                  <el-table-column label="Size(mb)" prop="size" />
-
-                  <el-table-column label="Actions">
-                    <template #default="scope">
-
-                      <el-link :href="null" @click="downloadFile(scope.row)">
-                        <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
-                      </el-link>
-
-
-                      <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm
-confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
-                          icon-color="#626AEF" title="Are you sure to delete this document?"
-                          @confirm="removeDocument(scope.row)">
-                          <template #reference>
-                            <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                          </template>
-                        </el-popconfirm>
-                      </el-tooltip>
-                    </template>
-                  </el-table-column>
-                </el-table>
-                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
-
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>

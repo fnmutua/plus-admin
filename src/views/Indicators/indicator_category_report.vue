@@ -39,6 +39,15 @@ import { getFile } from '@/api/summary'
 import xlsx from "json-as-xlsx"
 
 
+import UploadComponent from '@/views/components/UploadComponent.vue';
+import { defineAsyncComponent } from 'vue';
+import ListDocuments from '@/views/components/ListDocuments.vue';
+import {
+  countyOptions, settlementOptionsV2, subcountyOptions,wardOptions
+} from './common/index.ts'
+
+
+
 //import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
 
 
@@ -310,6 +319,7 @@ const getIndicatorNames = async () => {
     opt.county_id = arrayItem.project.county_id
     opt.subcounty_id = arrayItem.project.subcounty_id
     opt.settlement_id = arrayItem.project.settlement_id
+    opt.ward_id = arrayItem.project.ward_id
 
     indicatorsOptions.value.push(opt)
   })
@@ -370,6 +380,7 @@ const editReport = (data: TableSlotDefault) => {
   ruleForm.date = data.date
   ruleForm.amount = data.amount
   ruleForm.indicator_category_id = data.indicator_category_id
+  ruleForm.ward_id = data.ward_id
 
   ruleForm.code = data.code
 
@@ -449,6 +460,7 @@ const handleClose = () => {
   ruleForm.indicator_category_id = null
   ruleForm.date = null
   ruleForm.amount = null
+  ruleForm.ward_id = null
   ruleForm.location = []
 
   formHeader.value = 'Add Report'
@@ -505,6 +517,7 @@ const changeIndicator = async (indicator: any) => {
   ruleForm.settlement_id = filtredOptions[0].settlement_id
   ruleForm.county_id = filtredOptions[0].county_id
   ruleForm.subcounty_id = filtredOptions[0].subcounty_id
+  ruleForm.ward_id = filtredOptions[0].ward_id
 
 
   console.log("Filtered Indicators", filtredOptions[0])
@@ -524,6 +537,7 @@ const ruleForm = reactive({
   project_id: '',
   settlement_id: '',
   subcounty_id: '',
+  ward_id:'',
   county_id: '',
   period: getQuarter,
   date: new Date(),
@@ -919,7 +933,7 @@ getInterventionsAll()
  
 
 const tableRowClassName = (data) => {
-   console.log('Row Styling --------->', data.row)
+  // console.log('Row Styling --------->', data.row)
   if (data.row.documents.length > 0) {
     return 'warning-row'
   }
@@ -1080,11 +1094,72 @@ const DownloadXlsx = async () => {
 
 }
 
+
+/// Uplaod docuemnts from a central component 
+const mfield = 'report_id'
+const ChildComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const selectedRow = ref([])
+const dynamicComponent = ref();
+ const componentProps = ref({
+      message: 'Hello from parent',
+      showDialog:addMoreDocuments,
+      data:currentRow.value,
+      umodel:model,
+      field:mfield
+    });
+
+ 
+ 
+function toggleComponent(row) {
+  console.log('Compnnent data', row)
+      componentProps.value.data=row
+      dynamicComponent.value = null; // Unload the component
+      addMoreDocuments.value = true; // Set any additional props
+
+      setTimeout(() => {
+        dynamicComponent.value = ChildComponent; // Load the component
+  }, 100); // 0.1 seconds
+
+
+    }
+
+
+// component for docuemnts 
+const rowData = ref()
+const documentComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const dynamicDocumentComponent = ref();
+const DocumentComponentProps = ref({
+  message: 'documents',
+  data: rowData.value,
+  docmodel: model,
+
+});
+
+
+function handleExpand(row) {
+   dynamicDocumentComponent.value = null; // Unload the component
+    rowData.value = row
+    DocumentComponentProps.value.data = row
+    setTimeout(() => {
+      dynamicDocumentComponent.value = documentComponent; // Load the component
+    }, 100); // 0.1 seconds
+}
+
+
+
 </script>
 
 <template>
   <ContentWrap :title="t('Monitoring and Evaluation Reports')" :message="t('Use the filters to subset')">
  
+
+
+
+    <div v-if="dynamicComponent">
+      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
+    </div>
+
+
     <div style="display: inline-block; margin-left: 0px">
       <el-select
 v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
@@ -1116,41 +1191,18 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
 
 
 
-     <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border  :row-class-name="tableRowClassName">
-      <el-table-column type="expand">
-        <template #default="props">
-          <div m="4">
-            <h3>Documents</h3>
-            <el-table :data="props.row.documents" class="mb-4">
-              <el-table-column label="Name" prop="name" />
-              <el-table-column label="Type" prop="document_type.type" />
-              <el-table-column label="Size(mb)" prop="size" />
-
-              <el-table-column label="Operations">
-                <template #default="scope">
-                  <el-link :href="null" @click="downloadFile(scope.row)">
-                    <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
-                  </el-link>
-
-                  <el-tooltip content="Delete" placement="top">
-                    <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                      icon-color="#626AEF" title="Are you sure to delete this document?"
-                      @confirm="removeDocument(scope.row)">
-                      <template #reference>
-                        <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                      </template>
-                    </el-popconfirm>
-                  </el-tooltip>
-                </template>
-              </el-table-column>
-            </el-table>
-            <el-button
-v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
-              style="margin-left: 10px;margin-top: 5px" size="small" />
-          </div>
-        </template>
-      </el-table-column>
+    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+          <el-table-column type="expand">
+            <template #default="props">
+              <div m="4">
+                <h3>Documents</h3>
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+              </div>
+            </template>
+          </el-table-column>
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
       <el-table-column label="Settlement" prop="settlement.name" sortable />
       <!-- <el-table-column label="County" prop="county.name" sortable /> -->
@@ -1298,29 +1350,7 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
   </el-dialog>
 
 
-  <el-dialog v-model="addMoreDocuments" title="Upload More Documents" :width="dialogWidth">
-
-    <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
-      <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
-        <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-      </el-option-group>
-    </el-select>
-
-
-    <el-upload
-v-model:file-list="morefileList" class="upload-demo"
-      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
-      :on-remove="handleRemove" :before-remove="beforeRemove" :limit="5" :auto-upload="false" :on-exceed="handleExceed">
-      <el-button type="primary">Click to upload</el-button>
-      <template #tip>
-        <div class="el-upload__tip">
-          jpg/png files with a size less than 500KB.
-        </div>
-      </template>
-    </el-upload>
-    <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
-
-  </el-dialog>
+ 
 </template>
 
 <style>
