@@ -2,7 +2,6 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import UploadComponent from '@/views/components/UploadComponent.vue';
 
 import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
@@ -58,6 +57,8 @@ import "mapbox-layer-switcher/styles.css";
 import proj4 from 'proj4';
 
 
+import UploadComponent from '@/views/components/UploadComponent.vue';
+import ListDocuments from '@/views/components/ListDocuments.vue';
 
 
 
@@ -219,51 +220,9 @@ const handleClear = async () => {
 
 const currentRow = ref()
 const addMoreDocuments = ref(false)
-const addMoreDocs = (data: TableSlotDefault) => {
+ 
 
-  currentRow.value = data
-
-  addMoreDocuments.value = true
-
-  console.log('currentRow', currentRow.value)
-
-}
-
-const submitMoreDocuments = async () => {
-  console.log('More files.....', morefileList)
-
-  // uploading the documents 
-  const fileTypes = []
-  const formData = new FormData()
-  let files = []
-  for (var i = 0; i < morefileList.value.length; i++) {
-    console.log('------>file', morefileList.value[i])
-    var format = morefileList.value[i].name.split('.').pop() // get file extension
-    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-    fileTypes.push(format)
-    // formData.append('file', fileList.value[i])
-    // formData.file = fileList.value[i]
-
-    formData.append('model', model)
-
-    formData.append('file', morefileList.value[i].raw)
-    formData.append('format', morefileList.value[i].name.split('.').pop())
-    formData.append('category', documentCategory.value)
-    formData.append('field_id', 'settlement_id')
-
-    formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
-    formData.append('code', uuid.v4())
-    formData.append('settlement_id', currentRow.value.id)
-
-
-  }
-
-
-  console.log(currentRow.value.id)
-  await uploadFilesBatch(formData)
-
-}
-
+ 
 
 const onPageChange = async (selPage: any) => {
    page.value = selPage
@@ -1661,7 +1620,6 @@ const hideCopyIcon = (row) => {
 const handleSelectSubCounty = async (subcounty_id: any) => {
   selectedSubCounty.value=subcounty_id
   ruleForm.ward_id=''
-
   getWardNames()
   
 }
@@ -1669,8 +1627,7 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
 /// Uplaod docuemnts from a central component 
 const mfield = 'settlement_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
-const selectedRow = ref([])
-const dynamicComponent = ref();
+ const dynamicComponent = ref();
  const componentProps = ref({
       message: 'Hello from parent',
       showDialog:addMoreDocuments,
@@ -1691,10 +1648,35 @@ function toggleComponent(row) {
         dynamicComponent.value = ChildComponent; // Load the component
   }, 100); // 0.1 seconds
 
-
     }
  
+
+    // component for docuemnts 
+ const rowData = ref()
+const documentComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const dynamicDocumentComponent = ref();
+ const DocumentComponentProps = ref({
+      message: 'documents',
+       data:rowData.value,
+      model:model 
+    });
+
+
+    function handleExpand(row) {
+      console.log('expanded', row)
+      rowData.value=row
+
+
+      DocumentComponentProps.value.data=row
+      dynamicDocumentComponent.value = null; // Unload the component
  
+      setTimeout(() => {
+        dynamicDocumentComponent.value = documentComponent; // Load the component
+  }, 100); // 0.1 seconds
+
+
+
+    } 
     
 
 </script>
@@ -1702,10 +1684,7 @@ function toggleComponent(row) {
 <template>
   <ContentWrap :title="t('Settlements')" :message="t('Use the county, subcounty and ward filters to subset')" v-loading="loadingGetData" element-loading-text="Loading the data.. Please wait.......">
 
-    <!-- <el-button  @click="loadComponent">Load Component</el-button>
-    <div>
-       <upload-component v-if="dynamicComponent" v-bind="componentProps"  />
-    </div> -->
+   
     
     <div>
     <!-- <el-button @click="toggleComponent([])">{{ dynamicComponent ? 'Load Component' : 'Load Component' }}</el-button> -->
@@ -1785,7 +1764,7 @@ v-for="item in wardOptions" :key="item.value" :label="item.label"
       </el-col>
     </el-row>
 
-    <el-tabs @tab-click="clickTab" v-model="activeName" class="custom-tab"   >
+    <el-tabs @tab-click="clickTab" v-model="activeName" class="custom-tab"    >
       <el-tab-pane name="list">
         <template #label>
           <span class="custom-tabs-label">
@@ -1795,36 +1774,16 @@ v-for="item in wardOptions" :key="item.value" :label="item.label"
           </span>
         </template>
 
-        <el-table :data="tableDataList" style="width: 100%" border  :row-class-name="tableRowClassName">
-          <el-table-column type="expand">
+        <el-table :data="tableDataList" style="width: 100%" border  :row-class-name="tableRowClassName" @expand-change="handleExpand"  >
+ 
+    
+          <el-table-column type="expand" >
             <template #default="props">
               <div m="4">
                 <h3>Documents</h3>
-                <el-table :data="props.row.documents" border>
-                  <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="document_type.type" />
-                  <el-table-column label="Size(mb)" prop="size" />
-                  <el-table-column label="Actions">
-                    <template #default="scope">
-                      <el-dropdown v-if="isMobile">
-                        <span class="el-dropdown-link">Actions</span>
-                        <el-dropdown-menu>
-                          <el-dropdown-item @click="downloadFile(scope.row)">Download</el-dropdown-item>
-                          <el-dropdown-item
-v-if="showAdminButtons"
-                            @click="removeDocument(scope.row)">Remove</el-dropdown-item>
-                        </el-dropdown-menu>
-                      </el-dropdown>
-                      <div v-else>
-                        <el-button type="success" @click="downloadFile(scope.row)">Download</el-button>
-                        <el-button
-type="danger" v-if="showAdminButtons"
-                          @click="removeDocument(scope.row)">Remove</el-button>
-                      </div>
-                    </template>
-
-                  </el-table-column>
-                </el-table>
+                <div >
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"/>
+                </div>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
                 <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
 
