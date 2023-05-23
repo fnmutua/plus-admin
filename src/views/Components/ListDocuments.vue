@@ -25,7 +25,7 @@ const props = defineProps({
   message: String,
   showDialog: Boolean,
   data: Array,
-  model: String,
+  docmodel: String,
   field: String
 })
 const { show } = toRefs(props)
@@ -42,10 +42,11 @@ onMounted(() => {
 })
 
 const tableDocuments = ref([])
-  tableDocuments.value = props.data.documents ? props.data.documents : []
+//tableDocuments.value = []
+tableDocuments.value = props.data.documents ? props.data.documents : []
 
 console.log('tableDocuments',tableDocuments)
- const model = ref(props.data.DocModel)
+ const cmodel = ref(props.data.docmodel)
  
 // // Hide buttons if not admin 
 const userIsAdmin = ref(false)
@@ -127,7 +128,7 @@ const removeDocument = (data) => {
   console.log('----->', data)
   let formData = {}
   formData.id = data.id
-  formData.model = model.value
+  formData.model = cmodel.value
   formData.filesToDelete = [data.name]
   deleteDocument(formData)
 

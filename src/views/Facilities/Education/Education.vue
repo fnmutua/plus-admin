@@ -1361,7 +1361,7 @@ const dynamicComponent = ref();
       message: 'Hello from parent',
       showDialog:addMoreDocuments,
       data:currentRow.value,
-      model:model,
+      docmodel:model,
       field:mfield
     });
 
@@ -1381,6 +1381,31 @@ function toggleComponent(row) {
     }
  
     
+// component for docuemnts 
+const rowData = ref()
+const documentComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const dynamicDocumentComponent = ref();
+const DocumentComponentProps = ref({
+  message: 'documents',
+  data: rowData.value,
+  DocModel: model,
+
+});
+
+
+function handleExpand(row) {
+   dynamicDocumentComponent.value = null; // Unload the component
+    rowData.value = row
+    DocumentComponentProps.value.data = row
+    setTimeout(() => {
+      dynamicDocumentComponent.value = documentComponent; // Load the component
+    }, 100); // 0.1 seconds
+}
+
+
+
+
+
 
 
 </script>
@@ -1434,44 +1459,16 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
 
 
 
-        <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" >
+        <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"  @expand-change="handleExpand">
+      
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
                 <h3>Documents</h3>
-                <el-table :data="props.row.documents" border>
-                  <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="document_type.type" />
-                  <el-table-column label="Size(mb)" prop="size" />
-                  <el-table-column label="Actions">
-                    <!-- <template #default="scope"> -->
-                    <template #default="scope">
-
-                      <el-dropdown v-if="isMobile">
-                        <span class="el-dropdown-link">
-                          <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                        </span>
-                        <el-dropdown-menu>
-                          <el-dropdown-item @click="downloadFile(scope.row)" :icon="Download" color="green" />
-                          <el-dropdown-item
-v-if=showAdminButtons @click="removeDocument(scope.row)" :icon="Delete"
-                            color="red" />
-                        </el-dropdown-menu>
-                      </el-dropdown>
-                      <div v-else>
-                        <el-button
-type="success" @click="downloadFile(scope.row)"
-                          :icon="Download" />
-                        <el-button v-if=showAdminButtons  type="danger" @click="removeDocument(scope.row)" :icon="Delete" />
-                      </div>
-                    </template>
-
-                  </el-table-column>
-                </el-table>
-                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
-
-
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -1559,43 +1556,16 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           </span>
         </template>
 
-        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName">
+        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+    
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
                 <h3>Documents</h3>
-                <el-table :data="props.row.documents" border>
-                  <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="document_type.type" />
-                  <el-table-column label="Size(mb)" prop="size" />
-                  <el-table-column label="Actions">
-                    <!-- <template #default="scope"> -->
-                    <template #default="scope">
-
-                      <el-dropdown v-if="isMobile">
-                        <span class="el-dropdown-link">
-                          <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                        </span>
-                        <el-dropdown-menu>
-                          <el-dropdown-item @click="downloadFile(scope.row)" :icon="Download" color="green" />
-                          <el-dropdown-item
-v-if=showAdminButtons @click="removeDocument(scope.row)" :icon="Delete"
-                            color="red" />
-                        </el-dropdown-menu>
-                      </el-dropdown>
-                      <div v-else>
-                        <el-button type="success" @click="downloadFile(scope.row)" :icon="Download" />
-                        <el-button
-v-if=showAdminButtons type="danger" @click="removeDocument(scope.row)"
-                          :icon="Delete" />
-                      </div>
-                    </template>
-
-                  </el-table-column>
-                </el-table>
-                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
-
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -1669,39 +1639,16 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
             </el-badge>
           </span>
         </template>
-        <el-table :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border>
+        <el-table :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"  @expand-change="handleExpand">
+    
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
                 <h3>Documents</h3>
-                <el-table :data="props.row.documents" border>
-                  <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="document_type.type" />
-                  <el-table-column label="Size(mb)" prop="size" />
-                  <el-table-column label="Actions">
-                    <!-- <template #default="scope"> -->
-                    <template #default="scope">
-
-                      <el-dropdown v-if="isMobile">
-                        <span class="el-dropdown-link">
-                          <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                        </span>
-                        <el-dropdown-menu>
-                          <el-dropdown-item @click="downloadFile(scope.row)" :icon="Download" color="green" />
-                          <el-dropdown-item @click="removeDocument(scope.row)" :icon="Delete" color="red" />
-                        </el-dropdown-menu>
-                      </el-dropdown>
-                      <div v-else>
-                        <el-button type="success" @click="downloadFile(scope.row)" :icon="Download" />
-                        <el-button type="danger" @click="removeDocument(scope.row)" :icon="Delete" />
-                      </div>
-                    </template>
-
-                  </el-table-column>
-                </el-table>
-                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
-
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
