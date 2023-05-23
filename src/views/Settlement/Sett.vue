@@ -1658,27 +1658,18 @@ const dynamicDocumentComponent = ref();
 const DocumentComponentProps = ref({
   message: 'documents',
   data: rowData.value,
-  DocModel: model,
+  docmodel: model,
 
 });
 
 
 function handleExpand(row) {
    dynamicDocumentComponent.value = null; // Unload the component
-
- 
     rowData.value = row
-
     DocumentComponentProps.value.data = row
-
     setTimeout(() => {
       dynamicDocumentComponent.value = documentComponent; // Load the component
     }, 100); // 0.1 seconds
-
- 
-
-
-
 }
 
 
@@ -1772,11 +1763,7 @@ v-model="search_string" :suffix-icon="Search" placeholder="Enter search text"
           </span>
         </template>
 
-        <el-table
-:data="tableDataList" style="width: 100%" border :row-class-name="tableRowClassName"
-          @expand-change="handleExpand">
-
-
+        <el-table :data="tableDataList" style="width: 100%" border :row-class-name="tableRowClassName"    @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1889,7 +1876,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
           </span>
         </template>
 
-        <el-table :data="tableDataListNew" style="width: 100%" border :row-class-name="tableRowClassName">
+        <el-table :data="tableDataListNew" style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1999,7 +1986,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
             </el-badge>
           </span>
         </template>
-        <el-table :data="tableDataListRejected" style="width: 100%" border :row-class-name="tableRowClassName">
+        <el-table :data="tableDataListRejected" style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
