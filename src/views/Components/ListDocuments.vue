@@ -42,7 +42,7 @@ onMounted(() => {
 })
 
  const tableDocuments = ref(props.data.documents?props.data.documents:[])
-const model = ref(props.data.model)
+//const model = ref(props.data.model)
  
 // // Hide buttons if not admin 
 const userIsAdmin = ref(false)

@@ -777,6 +777,15 @@ db.models.indicator_category_report.hasMany(db.models.document, {
 })
 
 
+// Docuemntation  - indicator_category_report
+db.models.document_type.belongsTo(db.models.document_category, {
+  foreignKey: 'category_id',
+})
+
+db.models.document_category.hasMany(db.models.document_type, {
+  foreignKey: 'category_id'
+})
+
 
 
 

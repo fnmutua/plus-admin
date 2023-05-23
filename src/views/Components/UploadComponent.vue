@@ -1,6 +1,6 @@
 <script setup>
 import { ref, toRefs, onMounted } from 'vue'
- import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElOption, ElOptionGroup } from 'element-plus';
+ import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElOption, ElOptionGroup  } from 'element-plus';
 import {
   Position, View, Plus, User, Download, Briefcase, Delete, Edit,
   Filter, InfoFilled, CopyDocument, Search, Setting, Loading
@@ -114,14 +114,79 @@ const addMoreDocs = () => {
 }
 const loadingPosting = ref(false)
 
+
+const beforeUpload = (files) => {
+
+
+for (var i = 0; i < files.length; i++) {
+
+
+  var isPng = false;
+  var isJPG = false;
+  var isXls = false;
+  var isXlsx = false;
+  var isPdf = false;
+  var isDoc = false;
+  var isZip = false;
+  var isDocx = false;
+  if (documentCategory.value === 21) {   // Photos
+    console.log('Photos', documentCategory.value, files[i].raw.type)
+    isPng = files[i].raw.type === 'image/png'
+    isJPG = files[i].raw.type === 'image/jpeg'
+
+    if (!isPng && !isJPG) {
+      //this.$message.error('Upload only Excel files')
+      ElMessage.error('Use png/jpg  formats for photos')
+
+    }
+
+  }
+  else {
+
+    isXls = files[i].raw.type === 'application/vnd.ms-excel'
+    isXlsx = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    isPdf = files[i].raw.type === 'application/pdf'
+    isZip = files[i].raw.type === 'application/zip'
+    isZip = files[i].raw.type === 'application/x-zip-compressed'
+    isDoc = files[i].raw.type === 'application/msword'
+    isDocx = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
+    if (!isXls && !isXlsx && !isPdf && !isZip && !isDoc && !isDocx) {
+      //this.$message.error('Upload only Excel files')
+      ElMessage.error('Upload only pdf/xls/xlsx/zip/doc/docx files')
+
+    }
+
+  }
+
+
+  const isLt5M = files[i].raw.size / 1024 / 1024 < 20
+
+
+  if (!isLt5M) {
+    // this.$message.error('File size should not exceed 5MB')
+    ElMessage.error('File size should not exceed 20MB')
+  }
+  return (isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG) && isLt5M
+}
+}
+
+
+
 const submitMoreDocuments = async () => {
-  loadingPosting.value=true
  
-console.log('loadingPosting.value.......', loadingPosting.value)
+console.log('loadingPosting.value.......', morefileList.value.length)
+ 
+ 
+  if (morefileList.value.length == 0) {
+    ElMessage.error('Select atleast one file!')
+  }
 
-  console.log('More files.....', morefileList)
-
+ 
+  else {
   // uploading the documents 
+  loadingPosting.value=true
+
   const fileTypes = []
   const formData = new FormData()
   let files = []
@@ -156,6 +221,10 @@ console.log('loadingPosting.value.......', loadingPosting.value)
  if (res.code === "0000") {
   loadingPosting.value=false
       }
+
+  }
+
+
 
 }
 

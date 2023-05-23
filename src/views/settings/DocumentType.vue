@@ -79,7 +79,7 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = []
+const associated_multiple_models = ['document_category']
 const model = 'document_type'
 //// ------------------parameters -----------------------////
 
@@ -132,7 +132,7 @@ const handleClear = async () => {
 
 
 const handleSelectIndicator = async (indicator: any) => {
-  var selectOption = 'component_id'
+  var selectOption = 'category_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -278,8 +278,58 @@ const handleDownload = () => {
 }
 
 
+const DocCategories = ref([])
+const DocCategoriesFiltered = ref([])
+
+const getDocumentCategories = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 1000,
+      curUser: 1, // Id for logged in user
+      model: 'document_category',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Document Typest:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    response.data.forEach(function (arrayItem) {
+        let opt = {}
+        opt.value = arrayItem.id
+        opt.label = arrayItem.title
+        opt.group = arrayItem.title
+        DocCategories.value.push(opt)
+       
+      })
+     
+ 
+ 
+
+  })
+}
+
+getDocumentCategories()
+
+
+
+
 getIndicatorOptions()
 getInterventionsAll()
+
+
+
+const handleSelectCategory = async (category_id: any) => {
+  console.log(category_id)
+
+  const filteredObjects = DocCategories.value.filter(obj => obj.value == category_id);
+  console.log(filteredObjects)
+
+  ruleForm.group = filteredObjects[0].group
+}
+
 
 console.log('Options---->', indicatorsOptions)
 const editIndicator = (data: TableSlotDefault) => {
@@ -289,6 +339,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.id = data.row.id
   ruleForm.group = data.row.group
   ruleForm.type = data.row.type
+  ruleForm.category_id = data.row.category_id
 
 
   formHeader.value = 'Edit Type'
@@ -317,6 +368,7 @@ const DeleteIndicator = (data: TableSlotDefault) => {
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   group: '',
+  category_id:null,
   type: null,
 })
 
@@ -329,6 +381,7 @@ const handleClose = () => {
   ruleForm.id = ''
   ruleForm.group = ''
   ruleForm.type = ''
+  ruleForm.category_id = null
 
   formHeader.value = 'Add Type'
 
@@ -338,10 +391,9 @@ const handleClose = () => {
 
 
 const rules = reactive<FormRules>({
-  group: [
+  category_id: [
     { required: true, message: 'Please select a group', trigger: 'blur' },
-    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
-  ],
+   ],
 
   type: [
     { required: true, message: 'Please provide a type', trigger: 'blur' },
@@ -418,9 +470,10 @@ const groupOptions = [
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search Category">
-        <el-option v-for="item in groupOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-option v-for="item in DocCategories" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
@@ -437,7 +490,8 @@ const groupOptions = [
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+    <Table
+:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="Edit" placement="top">
@@ -445,7 +499,8 @@ const groupOptions = [
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+          <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
             title="Are you sure to delete this indicator?" @confirm="DeleteIndicator(data as TableSlotDefault)">
             <template #reference>
               <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
@@ -455,16 +510,17 @@ const groupOptions = [
 
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-      <el-form-item label="Category" prop="component_id">
-        <el-select v-model="ruleForm.group" filterable placeholder="Select">
-          <el-option v-for="item in groupOptions" :key="item.value" :label="item.label" :value="item.value" />
+      <el-form-item label="Category" prop="group">
+        <el-select v-model="ruleForm.category_id" filterable placeholder="Select" :onChange="handleSelectCategory">
+          <el-option v-for="item in DocCategories" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
 
