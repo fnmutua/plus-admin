@@ -42,6 +42,7 @@ onMounted(() => {
 })
 
 const tableDocuments = ref([])
+const tableDocumentsFiltered = ref([])
 //tableDocuments.value = []
 tableDocuments.value = props.data.documents ? props.data.documents : []
 
@@ -59,13 +60,31 @@ if (userInfo.roles.includes("admin")) {
   showEditButtons.value = true
 }
 
+
+const protectedFile = ref(false)
+
  
+
 if (tableDocuments.value.length>0) {
   if (userInfo.id==tableDocuments.value[0].createdBy) {
   documentOwner.value = true
-  console.log("Document owner is logged in")
+  console.log("Document owner is logged in", )
  
-}
+  }
+  if (userIsAdmin.value) {
+    tableDocumentsFiltered.value  = tableDocuments.value
+  } else {
+    //tableDocumentsFiltered.value = tableDocuments.value.filter(obj => obj.protectedFile == false);
+    tableDocumentsFiltered.value = tableDocuments.value.filter(obj => obj.protectedFile === false || obj.createdBy === userInfo.id);
+
+
+ }
+ 
+
+
+  console.log(tableDocumentsFiltered)
+
+
 }
 
 if (userInfo.roles.includes("public")) {
@@ -148,7 +167,7 @@ const removeDocument = (data) => {
 
 <template>
   
-  <el-table :data="tableDocuments" border style="width: 100%">
+  <el-table :data="tableDocumentsFiltered" border style="width: 100%">
   <el-table-column label="Name" prop="name" />
   <el-table-column label="Type" prop="document_type.type" />
   <el-table-column label="Size(mb)" prop="size" />
@@ -163,12 +182,10 @@ const removeDocument = (data) => {
         </el-dropdown-menu>
       </el-dropdown>
       <div v-else>
-      
+    
         <el-button type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
         <el-button type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
         <el-button type="danger"  v-if="userIsAdmin || documentOwner" @click="removeDocument(scope.row)"  :icon="Delete" circle />
-
-
        </div>
     </template>
   </el-table-column>

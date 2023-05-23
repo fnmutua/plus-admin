@@ -39,7 +39,7 @@ import { getFile } from '@/api/summary'
 import xlsx from "json-as-xlsx"
 
 
-import UploadComponent from '@/views/components/UploadComponent.vue';
+import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/components/ListDocuments.vue';
 import {
@@ -1097,7 +1097,7 @@ const DownloadXlsx = async () => {
 
 /// Uplaod docuemnts from a central component 
 const mfield = 'report_id'
-const ChildComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const selectedRow = ref([])
 const dynamicComponent = ref();
  const componentProps = ref({
@@ -1126,7 +1126,7 @@ function toggleComponent(row) {
 
 // component for docuemnts 
 const rowData = ref()
-const documentComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const documentComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const dynamicDocumentComponent = ref();
 const DocumentComponentProps = ref({
   message: 'documents',
