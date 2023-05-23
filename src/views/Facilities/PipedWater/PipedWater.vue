@@ -1263,7 +1263,7 @@ function toggleComponent(row) {
  
 // component for docuemnts 
 const rowData = ref()
-const documentComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
+const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
 const dynamicDocumentComponent = ref();
 const DocumentComponentProps = ref({
   message: 'documents',
