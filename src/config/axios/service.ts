@@ -81,7 +81,8 @@ service.interceptors.response.use(
 
       return response.data
     } else {
-      ElMessage.error(response.data.message)
+      console.log(response.data.message)
+     // ElMessage.error(response.data.message)
       if (response.data.message='Unauthorized'){
         router.push({
           path: '/login',
@@ -90,9 +91,11 @@ service.interceptors.response.use(
       }
     }
   },
-  (error: any) => {
-    console.log('the Error-->' + error) // for debug
-     ElMessage.error(error.response.data.message)   /// Revist Felix 
+  (error) => {
+    console.log('the Error-->', error.response.statusText    ); // Log the error message to the console for debugging
+    console.log(error.response.data.message); // Log any specific message from the response (if available)
+  
+     ElMessage.error(error.response.statusText )   /// Revist Felix 
     return Promise.reject(error)
   }
 )
