@@ -3581,7 +3581,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
               },
               
-          }, 
+          },
+          {
+            path: 'doccat',
+            component: () => import('@/views/settings/DocumentCategory.vue'),
+            name: 'DocumentCategory',
+            meta: {
+              title: 'Document Categories',
+              hidden: false,
+              icon:'material-symbols:settings'
+    
+            }
+          },  
           {
             path: 'doctype',
             component: () => import('@/views/settings/DocumentType.vue'),
