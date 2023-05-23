@@ -49,6 +49,13 @@ import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { UserType } from '@/api/register/types'
 import { getFile } from '@/api/summary'
+
+import UploadComponent from '@/views/components/UploadComponent.vue';
+import { defineAsyncComponent } from 'vue';
+
+
+
+
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 mapboxgl.accessToken = MapBoxToken;
@@ -1840,14 +1847,55 @@ const filterBySettlement = async (settlement_id: any) => {
 
 }
 
+
+
+
+/// Uplaod docuemnts from a central component 
+const mfield = 'project_id'
+const ChildComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const selectedRow = ref([])
+const dynamicComponent = ref();
+ const componentProps = ref({
+      message: 'Hello from parent',
+      showDialog:addMoreDocuments,
+      data:currentRow.value,
+      model:model,
+      field:mfield
+    });
+
+ 
+ 
+function toggleComponent(row) {
+  console.log('Compnnent data', row)
+      componentProps.value.data=row
+      dynamicComponent.value = null; // Unload the component
+      addMoreDocuments.value = true; // Set any additional props
+
+      setTimeout(() => {
+        dynamicComponent.value = ChildComponent; // Load the component
+  }, 100); // 0.1 seconds
+
+
+    }
+
+
+
+
 </script>
 
 <template>
   <ContentWrap :title="page_title" :message="t(' The list of intervention beneficiaries. Use the filters to subset')">
-    <el-row>
+    
+    
 
+    <div v-if="dynamicComponent">
+      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
+    </div>
 
-      <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+    
+    
+    <el-row> 
+       <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
         <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
           filterable collapse-tags placeholder="By County">
@@ -1960,9 +2008,7 @@ confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
-                  style="margin-left: 10px;margin-top: 5px" size="small" />
+                <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
 
               </div>
             </template>
@@ -2187,29 +2233,7 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     </el-dialog>
 
 
-    <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
-
-
-      <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
-        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
-          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-        </el-option-group>
-      </el-select>
-
-      <el-upload
-v-model:file-list="morefileList" class="upload-demo"
-        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
-        <el-button type="primary">Click to upload</el-button>
-        <template #tip>
-          <div class="el-upload__tip">
-            jpg/png files with a size less than 500KB.
-          </div>
-        </template>
-      </el-upload>
-      <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
-
-    </el-dialog>
-
+    
   </ContentWrap>
 </template>
  

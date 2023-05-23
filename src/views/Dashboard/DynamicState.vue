@@ -1661,10 +1661,10 @@ console.log(selectedCounties.value);  // [1]
   filterLevel.value = 'national'
 } else {
   filterLevel.value = 'county'
+ 
+  }
   getCards()
   getTabs()
-
-}
 console.log('filterLevel.value', selectedCounties.value)
      
 }
@@ -1682,11 +1682,11 @@ selectedSubCounties.value = subcountyId;
   filterLevel.value = 'county'
 } else {
   filterLevel.value = 'subcounty'
-  getCards()
-  getTabs()
+
 
 }  
-     
+getCards()
+  getTabs()    
 }
 
 
@@ -1708,7 +1708,7 @@ selectedSubCounties.value = subcountyId;
   -->
 
   <el-row :gutter="20">
-    <el-col v-for="(card, index) in cards" :key="index" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
+    <el-col v-for="(card) in cards" :key="card.id" :span="24 / cards.length" :xs="24" :sm="12" :md="8" :lg="6">
       <div class="tabs-container">
         <ElSkeleton :loading="cardLoading" animated>
 
@@ -1734,12 +1734,12 @@ selectedSubCounties.value = subcountyId;
   </el-row>
   <div class="tabs-container">
     <el-tabs v-model="activeTab">
-      <el-tab-pane v-for="(tab, index) in tabs" :name="tab.name" :key="index" :label="tab.label">
+      <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
         <el-row :gutter="20">
 
 
           <el-col
-v-for="(card, cardIndex) in tab.cards" :key="cardIndex" :span="12" :xl="12" :lg="12" :md="12" :sm="24"
+v-for="(card) in tab.cards" :key="card.id" :span="12" :xl="12" :lg="12" :md="12" :sm="24"
             :xs="24">
             <div class="tabs-container">
               <el-card>

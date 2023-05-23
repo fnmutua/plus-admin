@@ -89,6 +89,7 @@ const ruleForm = reactive({
   drainageCondition: '',
   settlement_id: '',
   width: 0,
+  length:0,
   geom: null
 })
 
@@ -166,6 +167,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
+      ruleForm.length = turf.length(ruleForm.geom, { units: 'meters' });
 
 
       const res = await CreateRecord(ruleForm)

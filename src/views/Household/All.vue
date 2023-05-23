@@ -53,6 +53,10 @@ import "mapbox-layer-switcher/styles.css";
 import * as enums from '@/utils/enums'
 
 import { getFilteredHouseholdsByColumn, getFilteredHouseholdsBykeyword, updateHousehold } from '@/api/households'
+import UploadComponent from '@/views/components/UploadComponent.vue';
+import { defineAsyncComponent } from 'vue';
+
+
 
 
 
@@ -74,9 +78,11 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 // Hide buttons if not admin 
 const showAdminButtons = ref(false)
+const showEditButtons = ref(false)
 
 if (userInfo.roles.includes("admin")) {
   showAdminButtons.value = true
+  showEditButtons.value = true
 }
 
 const { push } = useRouter()
@@ -913,10 +919,53 @@ const tableRowClassName = (data) => {
   return ''
 }
 
+
+
+
+
+/// Uplaod docuemnts from a central component 
+const mfield = 'hh_id'
+const ChildComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const selectedRow = ref([])
+const dynamicComponent = ref();
+ const componentProps = ref({
+      message: 'Hello from parent',
+      showDialog:addMoreDocuments,
+      data:currentRow.value,
+      model:model,
+      field:mfield
+    });
+
+ 
+ 
+function toggleComponent(row) {
+  console.log('Compnnent data', row)
+      componentProps.value.data=row
+      dynamicComponent.value = null; // Unload the component
+      addMoreDocuments.value = true; // Set any additional props
+
+      setTimeout(() => {
+        dynamicComponent.value = ChildComponent; // Load the component
+  }, 100); // 0.1 seconds
+
+
+    }
+
+
+
+
 </script>
 
 <template>
   <ContentWrap :title="t('Households')" :message="t('Use the filters to subset')">
+
+    
+    <div v-if="dynamicComponent">
+      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
+    </div>
+
+
+
      <el-row>
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <div style="display: inline-block; margin-right: 5px">
@@ -990,9 +1039,7 @@ type="danger" v-if="showAdminButtons"
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-v-if="showAdminButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
-                  style="margin-left: 10px;margin-top: 5px" size="small" />
+               <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
 
               </div>
             </template>
@@ -1104,25 +1151,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       </template>
     </el-dialog>
 
-    <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
-      <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
-        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
-          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-        </el-option-group>
-      </el-select>
-      <el-upload
-v-model:file-list="morefileList" class="upload-demo"
-        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
-        <el-button type="primary">Click to upload</el-button>
-        <template #tip>
-          <div class="el-upload__tip">
-            jpg/png files with a size less than 500KB.
-          </div>
-        </template>
-      </el-upload>
-      <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
-
-    </el-dialog>
+  
 
   </ContentWrap>
 </template>

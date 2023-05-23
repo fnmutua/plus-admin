@@ -115,9 +115,27 @@ export const uploadDocuments = (data: SettlementType): Promise<IResponse<Settlem
 
 
 export const uploadFilesBatch = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  // console.log('....', data)
-   return request.post({ url: prod + '/api/v1/upload/batch', data })
- }
+  console.log('Upload uploadFilesBatch:');
+
+  return request.post({
+    url: prod + '/api/v1/upload/batch',
+    data,
+    onUploadProgress: function (progressEvent) {
+      const uploadPercentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+      console.log('Upload Progress:', uploadPercentage);
+      // You can handle the upload progress here, e.g., update a progress bar
+    },
+  });
+};
+
+
+
+
+
+
+
+
+
 
 export const deleteDocument = (data: SettlementType): Promise<IResponse<SettlementType>> => {
   // console.log('....', data)
