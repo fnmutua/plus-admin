@@ -10,6 +10,14 @@ import { ElMessage,  } from 'element-plus'
 import { uuid } from 'vue-uuid'
 import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
 
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
+
+
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
 
 
 const props = defineProps({
@@ -126,6 +134,7 @@ console.log('loadingPosting.value.......', loadingPosting.value)
     // formData.file = fileList.value[i]
 
     formData.append('model', model)
+    formData.append('createdBy', userInfo.id)
 
     formData.append('file', morefileList.value[i].raw)
     formData.append('format', morefileList.value[i].name.split('.').pop())

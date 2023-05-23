@@ -2123,6 +2123,7 @@ exports.batchDocumentsUpload = async (req, res) => {
       obj.category = req.body.category[i]
       obj.format = req.body.format[i]
       obj.size = req.body.size[i]
+      obj.createdBy = req.body.createdBy[i]
 
 
     } else {
@@ -2131,6 +2132,7 @@ exports.batchDocumentsUpload = async (req, res) => {
       obj.category = req.body.category
       obj.format = req.body.format
       obj.size = req.body.size
+      obj.createdBy = req.body.createdBy 
 
       console.log("KEY>>>",column, obj[column])
 
