@@ -24,7 +24,7 @@ const props = defineProps({
   message: String,
   showDialog: Boolean,
   data: Array,
-  model: String,
+  umodel: String,
   field: String
 })
 const { show } = toRefs(props)
@@ -44,7 +44,7 @@ onMounted(() => {
   console.log(props.message)
   console.log(props.showDialog)
   console.log('data----x', props.data)
-  console.log('props----x', props.model)
+  console.log('umodel----x', props.umodel)
 
 
 })
@@ -102,7 +102,7 @@ getDocumentTypes()
 
  
 const addMoreDocuments = ref(props.showDialog)
-const xmodel = ref(props.model)
+const xmodel = ref(props.umodel)
 const currentRow = ref(props.data)
 const field_id = ref(props.field)
 
