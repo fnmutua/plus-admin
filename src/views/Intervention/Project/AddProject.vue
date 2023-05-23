@@ -75,6 +75,11 @@ import { geojsonType } from '@turf/turf'
 import proj4 from 'proj4';
 
 
+import UploadComponent from '@/views/components/UploadComponent.vue';
+import { defineAsyncComponent } from 'vue';
+
+
+
 const uploadRef = ref<UploadInstance>()
 const { push } = useRouter()
 const projectPoly = ref([])

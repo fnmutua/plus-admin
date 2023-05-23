@@ -26,31 +26,42 @@ service.interceptors.request.use(
       config.method === 'post' &&
       (config.headers as any)['Content-Type'] === 'application/x-www-form-urlencoded'
     ) {
-      console.log('config.headers-->',config.headers)
-      config.data = qs.stringify(config.data)
+      console.log('config.headers-->', config.headers);
+      config.data = qs.stringify(config.data);
     }
     // get参数编码
     if (config.method === 'get' && config.params) {
-      let url = config.url as string
-      url += '?'
-      const keys = Object.keys(config.params)
+      let url = config.url as string;
+      url += '?';
+      const keys = Object.keys(config.params);
       for (const key of keys) {
         if (config.params[key] !== void 0 && config.params[key] !== null) {
-          url += `${key}=${encodeURIComponent(config.params[key])}&`
+          url += `${key}=${encodeURIComponent(config.params[key])}&`;
         }
       }
-      url = url.substring(0, url.length - 1)
-      config.params = {}
-      config.url = url
+      url = url.substring(0, url.length - 1);
+      config.params = {};
+      config.url = url;
     }
-    return config
+
+    // Add onUploadProgress to the request config
+    if (config.method === 'post' && config.onUploadProgress) {
+      config.onUploadProgress = function (progressEvent) {
+        const uploadPercentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+        console.log('Upload Progress:', uploadPercentage);
+        // You can handle the upload progress here, e.g., update a progress bar
+      };
+    }
+
+    return config;
   },
   (error: AxiosError) => {
     // Do something with request error
-    console.log(error) // for debug
-    Promise.reject(error)
+    console.log(error); // for debug
+    return Promise.reject(error);
   }
-)
+);
+
 
 // response 拦截器
 service.interceptors.response.use(
@@ -59,10 +70,15 @@ service.interceptors.response.use(
       // 如果是文件流，直接过
       return response
     } else if (response.data.code === result_code) {
-      ElMessage({
-        message: response.data.message,
-        type: 'success'
-      })    // felix - show message on success request 
+
+      if ( response.data.message) {
+        ElMessage({
+          message: response.data.message,
+          type: 'success'
+        })    // felix - show message on success request 
+
+      }
+
       return response.data
     } else {
       ElMessage.error(response.data.message)

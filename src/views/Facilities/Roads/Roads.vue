@@ -71,6 +71,10 @@ import "mapbox-layer-switcher/styles.css";
 import { countyOptions, SchoolLevelOptions, settlementOptionsV2, subcountyOptions, drainageTypeOtions, SurfaceTypeOtions, RdClassOptions } from './../common/index.ts'
 
 
+import UploadComponent from '@/views/components/UploadComponent.vue';
+import { defineAsyncComponent } from 'vue';
+
+
 
 
 
@@ -1276,12 +1280,48 @@ const tableRowClassName = (data) => {
   return ''
 }
 
+
+
+/// Uplaod docuemnts from a central component 
+const mfield = 'road_id'
+const ChildComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const selectedRow = ref([])
+const dynamicComponent = ref();
+ const componentProps = ref({
+      message: 'Hello from parent',
+      showDialog:addMoreDocuments,
+      data:currentRow.value,
+      model:model,
+      field:mfield
+    });
+
+ 
+ 
+function toggleComponent(row) {
+  console.log('Compnnent data', row)
+      componentProps.value.data=row
+      dynamicComponent.value = null; // Unload the component
+      addMoreDocuments.value = true; // Set any additional props
+
+      setTimeout(() => {
+        dynamicComponent.value = ChildComponent; // Load the component
+  }, 100); // 0.1 seconds
+
+
+    }
+
+    
+
 </script>
 
 <template>
   <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Use the filters on the list of view the Map ')">
 
 
+
+    <div v-if="dynamicComponent">
+      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
+    </div>
 
     <div style="display: inline-block; margin-bottom: 15px">
 
@@ -1370,9 +1410,7 @@ v-if=showEditButtons type="success" @click="downloadFile(scope.row)"
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-v-if=showEditButtons type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
-                  style="margin-left: 10px;margin-top: 5px" size="small" />
+                <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
 
               </div>
             </template>
@@ -1499,9 +1537,7 @@ v-if=showAdminButtons type="danger" @click="removeDocument(scope.row)"
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-v-if=showEditButtons type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
-                  style="margin-left: 10px;margin-top: 5px" size="small" />
+                <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
 
               </div>
             </template>
@@ -1610,9 +1646,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
-                  style="margin-left: 10px;margin-top: 5px" size="small" />
+                <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
 
               </div>
             </template>

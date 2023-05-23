@@ -13,6 +13,9 @@ const path = require('path')
 const fs = require('fs');
 const User = db.user;
 const redis = require("redis");
+const Progress = require('progress');
+const { v4: uuidv4 } = require('uuid');
+
 
 const nodemailer = require('nodemailer')
 const { authJwt } = require("../middleware");
@@ -680,7 +683,7 @@ exports.modelCreateOneRecord = (req, res) => {
       if (err.name == 'SequelizeUniqueConstraintError') {
         var message = 'One or more table constraints are violated. Check your id columns'
       } else {
-        var message = 'The uploaded file does not match the required fields'
+        var message = 'The submitted record does not match the required fields'
       }
       return res.status(500).send({ message: message })
     })
@@ -2090,10 +2093,6 @@ exports.modelUpload = (req, res) => {
 
 exports.batchDocumentsUpload = async (req, res) => {
 
-
-  //const uploadsDir = path.join( './../../../../', 'uploads'); // path to the uploads folder outside the app directory
-  //const uploadsDir = './../../../../'; // path to the uploads folder outside the app directory
-
   const uploadsDir = path.join(__dirname, '../../../..', 'uploads');
 
   if (!req.files) {
@@ -2113,8 +2112,6 @@ exports.batchDocumentsUpload = async (req, res) => {
   
   }
  
-
-    
   var errors = []
 
   for (let i = 0; i < myFiles.length; i++) {
@@ -2205,7 +2202,10 @@ exports.batchDocumentsUpload = async (req, res) => {
     })
   }
 }
-  
+ 
+ 
+
+
 
 exports.downloadFile = (req, res) => {
   console.log("Received files:", req.body )
@@ -2329,6 +2329,8 @@ exports.xReportDocumentationUpload = (req, res) => {
     //   })
   }
 }
+
+
 exports.ReportDocumentationUpload = async (req, res) => {
   console.log(req.files)
   var column = req.body.column
@@ -2455,7 +2457,7 @@ exports.RemoveDocument = (req, res) => {
      // var filePath = './public/' + req.body.filesToDelete[i];
       const filePath = path.join(__dirname, '../../../..', 'uploads', req.body.filesToDelete[i]);
 
-      fs.unlinkSync(filePath);
+      //fs.unlinkSync(filePath);
     
       db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i] } })
         .then((result) => {
@@ -2469,10 +2471,7 @@ exports.RemoveDocument = (req, res) => {
       })
 
     }
-
-
-
-
+ 
 
     if (errors.length ===0) {
       res.status(200).send({

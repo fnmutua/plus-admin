@@ -2,6 +2,8 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
+import UploadComponent from '@/views/components/UploadComponent.vue';
+
 import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
@@ -21,6 +23,7 @@ import { getFile } from '@/api/summary'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { uuid } from 'vue-uuid'
+import { defineAsyncComponent } from 'vue';
 
 import xlsx from "json-as-xlsx"
 import { getAllGeo } from '@/api/settlements'
@@ -215,7 +218,7 @@ const handleClear = async () => {
 
 
 const currentRow = ref()
-const addMoreDocuments = ref()
+const addMoreDocuments = ref(false)
 const addMoreDocs = (data: TableSlotDefault) => {
 
   currentRow.value = data
@@ -1662,16 +1665,56 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
   getWardNames()
   
 }
+
+/// Uplaod docuemnts from a central component 
+const mfield = 'settlement_id'
+const ChildComponent = defineAsyncComponent(() => import('@/views/components/UploadComponent.vue'));
+const selectedRow = ref([])
+const dynamicComponent = ref();
+ const componentProps = ref({
+      message: 'Hello from parent',
+      showDialog:addMoreDocuments,
+      data:currentRow.value,
+      model:model,
+      field:mfield
+    });
+
  
+ 
+function toggleComponent(row) {
+  console.log('Compnnent data', row)
+      componentProps.value.data=row
+      dynamicComponent.value = null; // Unload the component
+      addMoreDocuments.value = true; // Set any additional props
+
+      setTimeout(() => {
+        dynamicComponent.value = ChildComponent; // Load the component
+  }, 100); // 0.1 seconds
 
 
+    }
  
+ 
+    
 
 </script>
 
 <template>
   <ContentWrap :title="t('Settlements')" :message="t('Use the county, subcounty and ward filters to subset')" v-loading="loadingGetData" element-loading-text="Loading the data.. Please wait.......">
 
+    <!-- <el-button  @click="loadComponent">Load Component</el-button>
+    <div>
+       <upload-component v-if="dynamicComponent" v-bind="componentProps"  />
+    </div> -->
+    
+    <div>
+    <!-- <el-button @click="toggleComponent([])">{{ dynamicComponent ? 'Load Component' : 'Load Component' }}</el-button> -->
+    <div v-if="dynamicComponent">
+      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
+    </div>
+  </div>
+
+    
     <el-row>
       <el-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
         <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
@@ -1783,9 +1826,8 @@ type="danger" v-if="showAdminButtons"
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-v-if="showEditButtons" type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
-                  style="margin-left: 10px;margin-top: 5px" size="small" />
+                <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
+
 
               </div>
             </template>
@@ -1915,9 +1957,9 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
-                  style="margin-left: 10px;margin-top: 5px" size="small" />
+ 
+ 
+                  <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
 
               </div>
             </template>
@@ -2044,9 +2086,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                   </el-table-column>
                 </el-table>
                 <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
-                  style="margin-left: 10px;margin-top: 5px" size="small" />
+                <el-button  style="margin-left: 10px;margin-top: 5px" size="small"  v-if="showEditButtons" type="success"  :icon="Plus" circle   @click="toggleComponent(props.row)"/>
+
 
               </div>
             </template>
@@ -2250,7 +2291,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="page"
     </el-dialog>
 
  
-    <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
+    <!-- <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
       <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
         <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
@@ -2267,7 +2308,7 @@ v-model:file-list="morefileList" class="upload-demo "
         </template>
       </el-upload>
       <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
-    </el-dialog>
+    </el-dialog> -->
 
 
     <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
@@ -2286,6 +2327,7 @@ v-model:file-list="morefileList" class="upload-demo "
         </span>
       </template>
     </el-dialog>
+
     <el-dialog v-model="RejectDialog" title="Reason for rejection" width="20%">
       <el-input v-model="rejectReason" placeholder="" />
       <template #footer>
