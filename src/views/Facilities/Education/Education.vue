@@ -74,7 +74,7 @@ import "mapbox-layer-switcher/styles.css";
 import { countyOptions, SchoolLevelOptions, settlementOptionsV2, subcountyOptions, regOptions, mhmOptions, tenancyOptions, generalOwnership, } from './../common/index.ts'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
-import ListDocuments from '@/views/components/ListDocuments.vue';
+import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 
 
