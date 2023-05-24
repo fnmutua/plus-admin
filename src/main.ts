@@ -40,6 +40,7 @@ import JsonExcel from "vue-json-excel3";
 /* import the fontawesome core */
 import { library } from '@fortawesome/fontawesome-svg-core'
 
+ 
 /* import font awesome icon component */
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { FontAwesomeLayers, FontAwesomeLayersText } from '@fortawesome/vue-fontawesome'

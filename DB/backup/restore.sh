@@ -53,15 +53,15 @@ echo
 
 
  
-  psql -c 'DROP DATABASE  "kisip" WITH (FORCE)';
+  psql -c 'DROP DATABASE  "xkisip" WITH (FORCE)';
 
   echo "Now restoring......"
-  psql -c 'CREATE DATABASE  "kisip"';
+  psql -c 'CREATE DATABASE  "xkisip"';
 
   now="$(date +'%d%m%Y')"
 
  
-  psql -f 20052023.kisip.sql  kisip
+  psql -f 20052023.kisip.sql  xkisip
 
  
 
