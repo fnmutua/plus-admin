@@ -58,6 +58,14 @@ import proj4 from 'proj4';
 
  
 
+import UploadComponent from '@/views/Components/UploadComponent.vue';
+ 
+
+ import ListDocuments from '@/views/Components/ListDocuments.vue';
+
+
+
+
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
@@ -1624,29 +1632,33 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
 /// Uplaod docuemnts from a central component 
 const mfield = 'settlement_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
+const selectedRow = ref([])
 const dynamicComponent = ref();
-const componentProps = ref({
-  message: 'Hello from parent',
-  showDialog: addMoreDocuments,
-  data: currentRow.value,
-  model: model,
-  field: mfield
-});
+ const componentProps = ref({
+      message: 'Hello from parent',
+      showDialog:addMoreDocuments,
+      data:currentRow.value,
+      umodel:model,
+      field:mfield
+    });
 
-
+ 
+ 
 function toggleComponent(row) {
   console.log('Compnnent data', row)
-  componentProps.value.data = row
-  dynamicComponent.value = null; // Unload the component
-  addMoreDocuments.value = true; // Set any additional props
+      componentProps.value.data=row
+      dynamicComponent.value = null; // Unload the component
+      addMoreDocuments.value = true; // Set any additional props
 
-  setTimeout(() => {
-    dynamicComponent.value = ChildComponent; // Load the component
+      setTimeout(() => {
+        dynamicComponent.value = ChildComponent; // Load the component
   }, 100); // 0.1 seconds
 
-}
+
+    }
 
 
+    
 // component for docuemnts 
 const rowData = ref()
 const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
@@ -1678,11 +1690,8 @@ function handleExpand(row) {
 
 
 
-    <div>
-      <!-- <el-button @click="toggleComponent([])">{{ dynamicComponent ? 'Load Component' : 'Load Component' }}</el-button> -->
-      <div v-if="dynamicComponent">
-        <upload-component :is="dynamicComponent" v-bind="componentProps" />
-      </div>
+    <div v-if="dynamicComponent">
+      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
     </div>
 
 
