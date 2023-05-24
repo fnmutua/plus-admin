@@ -77,7 +77,7 @@ import { countyOptions, settlementOptionsV2, subcountyOptions, generalOwnership 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 
-import ListDocuments from '@/views/components/ListDocuments.vue';
+import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 
 
