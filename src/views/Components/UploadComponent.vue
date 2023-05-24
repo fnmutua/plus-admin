@@ -12,8 +12,9 @@ import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/a
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
+import axios from 'axios';
 
-
+ 
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -173,6 +174,7 @@ for (var i = 0; i < files.length; i++) {
 
 const protectedFile =ref(false)
 
+const uploadProgress = ref()
 
 const submitMoreDocuments = async () => {
  
@@ -216,13 +218,43 @@ console.log('loadingPosting.value.......', morefileList.value.length)
 
   }
 
-  addMoreDocuments.value = false
+ // addMoreDocuments.value = false
 
-  const res = await uploadFilesBatch(formData)
+  //const res = await uploadFilesBatch(formData)
 
- if (res.code === "0000") {
-  loadingPosting.value=false
-      }
+  axios.post('http://localhost/api/v1/upload/batch', formData, {
+        headers: {
+      'Content-Type': 'multipart/form-data',
+      'x-access-token': `${userInfo.data}`    // felix - add auth token 
+
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentage = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          uploadProgress.value = percentage;
+          console.log(percentage)
+          setTimeout(trackFileAvailability(percentage), 1); // Check again after 0.011 second (adjust as needed)
+
+        },
+      })
+      .then(() => {
+        console.log('File uploaded successfully');
+        addMoreDocuments.value = false
+        loadingPosting.value=false
+
+      })
+      .catch((error) => {
+        console.log('File upload failed:', error);
+        addMoreDocuments.value = false
+        loadingPosting.value=false
+
+      });
+
+ 
+
+
+//  if (res.code === "0000") {
+//   loadingPosting.value=false
+//       }
 
   }
 
@@ -234,12 +266,24 @@ const onExceeed = async () => {
  ElMessage.warning("Maximum number of files exceeded")
 }
 
+const trackFileAvailability = async (progress) => {
+       console.log('prgress', progress)
+}
 
+const handleFileChange = async (file, fileList) => {
+      // Handle the file change event
+      console.log('File selected:', file);
+      console.log('File list:', fileList[0].status);
+
+      // Start tracking the file availability
+      trackFileAvailability();
+    }
 
 </script>
 
 <template>
-  <div  v-loading.fullscreen.lock="loadingPosting" element-loading-text="Uploading the files. Please wait.......">
+  <!-- <div  v-loading.fullscreen.lock="loadingPosting" element-loading-text="Uploading the files. Please wait......."> -->
+    <div >
     
 
     <!-- <el-button type="success" :icon="Plus" circle @click="addMoreDocs()" style="margin-left: 10px;margin-top: 5px" size="small" /> -->
@@ -269,6 +313,10 @@ const onExceeed = async () => {
       <el-form-item label="Checkbox">
       <el-checkbox v-model="protectedFile">Protected File</el-checkbox>
     </el-form-item>
+
+    <div>
+    <el-progress  :stroke-width="26" status="exception" :percentage="uploadProgress" :text-inside="true"/>
+  </div>
 
 <template #footer>
       <span class="dialog-footer">
