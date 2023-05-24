@@ -51,6 +51,7 @@ module.exports = defineConfig({
     'vue/attribute-hyphenation': 'off',
     'vue/require-default-prop': 'off',
     'vue/require-explicit-emits': 'off',
+    "vue/no-dupe-keys": "off",
     'vue/html-self-closing': [
       'error',
       {
