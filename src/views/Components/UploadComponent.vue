@@ -13,6 +13,8 @@ import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/a
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import axios from 'axios';
+import state from '@/config/axios'
+
 const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
  
@@ -217,46 +219,89 @@ console.log('loadingPosting.value.......', morefileList.value.length)
 
     console.log('formData',field_id.value)
 
-  } 
+  }
 
  // addMoreDocuments.value = false
 
-  //const res = await uploadFilesBatch(formData)
+ const res = await uploadFilesBatch(formData)
 
-//  axios.post('http://localhost/api/v1/upload/batch', formData, {
-    axios.post(prod+'/api/v1/upload/batch', formData, {
-        headers: {
-      'Content-Type': 'multipart/form-data',
-      'x-access-token': `${userInfo.data}`    // felix - add auth token 
 
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentage = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          uploadProgress.value = percentage;
-          console.log(percentage)
-          setTimeout(trackFileAvailability(percentage), 1); // Check again after 0.011 second (adjust as needed)
+//   // const res = await uploadFilesBatch(formData, (progressEvent) => {
+//   //   const uploadPercentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+//   //   console.log('Upload xPercentage:', uploadPercentage);
+//   //   // You can handle the upload percentage here, e.g., update a progress bar
+//   //   console.log('Upload Percentage:', state.uploadPercentage);
 
-        },
-      })
-      .then(() => {
-        console.log('File uploaded successfully');
-        addMoreDocuments.value = false
-        loadingPosting.value=false
-
-      })
-      .catch((error) => {
-        console.log('File upload failed:', error);
-        addMoreDocuments.value = false
-        loadingPosting.value=false
-
-      });
+//   // });
 
  
+//   const postFiles = async () => {
+//    await  axios.post('http://localhost/api/v1/upload/batch', formData, {
+//  //    axios.post(prod+'/api/v1/upload/batch', formData, {
+//         headers: {
+//       'Content-Type': 'multipart/form-data',
+//       'x-access-token': `${userInfo.data}`    // felix - add auth token 
+
+//         },
+//         onUploadProgress: (progressEvent) => {
+//           const percentage = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+//           uploadProgress.value = percentage;
+//           console.log(percentage)
+//       //    setTimeout(trackFileAvailability(percentage), 1); // Check again after 0.011 second (adjust as needed)
+
+//         },
+//       })
+//       .then((response) => {
+//         console.log('File uploaded successfully', response);
+//      //   addMoreDocuments.value = false
+//     //    loadingPosting.value=false
+
+//       })
+//       .catch((error) => {
+//         console.log('File upload failed:', error);
+//        // addMoreDocuments.value = false
+//       //  loadingPosting.value = false
+//         ElMessage.error(error)
+
+//       });
+
+//     };
+
+//     postFiles();
+
+//  const samplePostRequest = async () => {
+//   try {
+//     const response =    await  axios.post('http://localhost/api/v1/upload/batch', formData, {
+//  //    axios.post(prod+'/api/v1/upload/batch', formData, {
+//         headers: {
+//       'Content-Type': 'multipart/form-data',
+//       'x-access-token': `${userInfo.data}`    // felix - add auth token 
+
+//         },
+//         onUploadProgress: (progressEvent) => {
+//           const percentage = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+//           uploadProgress.value = percentage;
+//           console.log(percentage)
+//       //    setTimeout(trackFileAvailability(percentage), 1); // Check again after 0.011 second (adjust as needed)
+
+//         },
+//       })
+//     console.log("Sucess",response)
+//     ElMessage.success( response.data.title);
+//   } catch (error) {
+//     console.error('Error:', error);
+//     ElMessage.error( response.data);
+
+//   }
+// };
+
+//     samplePostRequest();
 
 
-//  if (res.code === "0000") {
-//   loadingPosting.value=false
-//       }
+ if (res.code === "0000") {
+   loadingPosting.value = false
+   addMoreDocuments.value = false
+      }
 
   }
 
@@ -309,16 +354,14 @@ const handleFileChange = async (file, fileList) => {
         :limit="5"
         :on-exceed="onExceeed"
         :auto-upload="false">
-        <el-button :style="{ width: '100% ', marginBottom: '10px' }"  type="primary">Select File(s)</el-button>
+        <el-button class="full-width" :style="{ width: '100% ', marginBottom: '10px' }"  type="primary">Select File(s)</el-button>
       </el-upload>
      
-      <el-form-item label="Checkbox">
-      <el-checkbox v-model="protectedFile">Protected File</el-checkbox>
-    </el-form-item>
-
+       <el-checkbox v-model="protectedFile">Protected File</el-checkbox>
+ 
     <div>
-    <el-progress  :stroke-width="26" status="exception" :percentage="uploadProgress" :text-inside="true"/>
-  </div>
+     <el-progress  :stroke-width="20"  :show-text="false" :percentage="loadingPosting ? '50' : ''" :format="format" :indeterminate="true" />
+   </div>
 
 <template #footer>
       <span class="dialog-footer">
@@ -344,4 +387,10 @@ const handleFileChange = async (file, fileList) => {
 }
 
 
+</style>
+
+<style>
+.el-upload--multiple .el-upload__input {
+  width: 100%;
+}
 </style>
