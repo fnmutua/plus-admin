@@ -19,8 +19,7 @@ import {
     ElTable,
     ElIcon,
     ElTableColumn,
-    ElInput,
-    ElSwitch,
+     ElSwitch,
     ElOptionGroup,
     ElOption
 } from 'element-plus'
@@ -88,6 +87,14 @@ const showTable = ref(false)
 const showUploadSpace = ref(false)
 const showUploadButton = ref(false)
 const disableDoubeUpload = ref(false)
+
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
+
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
 
 
 
@@ -541,6 +548,8 @@ const handleSubmitData = async () => {
         formData.append('field_id', fileList.value[i].field_id)
         formData.append(column, fileList.value[i][column])
         formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
+        formData.append('createdBy', userInfo.id)
+        formData.append('protected', fileList.value[i].protected)
 
     }
 
@@ -685,6 +694,7 @@ v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload
 
 
 
+        <div class="table-container">
 
         <el-table v-if="showTable" :data="fileList">
             <el-table-column prop="name" label="Name" />
@@ -709,10 +719,14 @@ v-for="item in parentOptions" :key="item.value" :label="item.label"
                     </el-select>
                 </template>
             </el-table-column>
-
+            <el-table-column label="Protected">
+            <template #default="{ row }">
+                <el-switch v-model="row.protected"  />
+            </template>
+            </el-table-column>
 
         </el-table>
-
+    </div>
         <el-button
 v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type="success"
             :disabled="DisablePostSubmit">
@@ -733,4 +747,13 @@ v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type
 .custom-icon {
     font-size: 2rem;
 }
+
+.table-container {
+    height: 400px; /* Adjust the height as needed */
+    overflow-y: auto;
+  }
 </style>
+
+
+
+  
