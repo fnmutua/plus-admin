@@ -153,9 +153,9 @@ const removeDocument = (data) => {
 
 
    // remove the deleted object from array list 
-   let index = tableDocuments.value.indexOf(data);
+   let index = tableDocumentsFiltered.value.indexOf(data);
   if (index !== -1) {
-    tableDocuments.value.splice(index, 1);
+    tableDocumentsFiltered.value.splice(index, 1);
   }
 
 }

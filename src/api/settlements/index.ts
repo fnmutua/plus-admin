@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import state from '@/config/axios'
 import type { SettlementType } from '../settlements/types'
 
 const dev = import.meta.env.VITE_APP_HOST + ':4000' // Add the port for local Dev
@@ -115,21 +116,23 @@ export const uploadDocuments = (data: SettlementType): Promise<IResponse<Settlem
 
 
 export const uploadFilesBatch = (data: SettlementType): Promise<IResponse<SettlementType>> => {
-  console.log('Upload uploadFilesBatch:');
+  console.log('1Upload uploadFilesBatch:', state.uploadPercentage);
 
   return request.post({
     url: prod + '/api/v1/upload/batch',
-    data,
-    onUploadProgress: function (progressEvent) {
-      const uploadPercentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-      console.log('Upload Progress:', uploadPercentage);
-      // You can handle the upload progress here, e.g., update a progress bar
-    },
+    data    
   });
+  
+
 };
 
 
 
+// const response = await service.post('/upload', formData, {
+//   uploadProgressCallback: (uploadPercentage: number) => {
+//     console.log('Upload Percentage:', uploadPercentage);
+//    },
+// });
 
 
 

@@ -8,6 +8,7 @@ const config: {
   result_code: number | string
   default_headers: AxiosHeaders
   request_timeout: number
+  uploadPercentage:number
 } = {
   /**
    * api请求基础路径
@@ -30,8 +31,7 @@ const config: {
    * 接口成功返回状态码
    */
   result_code: '0000',
-
-  /**
+   /**
    * 接口请求超时时间
    */
   request_timeout: 60000,
