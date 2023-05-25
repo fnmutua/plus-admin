@@ -13,6 +13,7 @@ import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/a
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import axios from 'axios';
+const prod = import.meta.env.VITE_APP_HOST // remove the port for production
 
  
 
@@ -222,7 +223,8 @@ console.log('loadingPosting.value.......', morefileList.value.length)
 
   //const res = await uploadFilesBatch(formData)
 
-  axios.post('http://localhost/api/v1/upload/batch', formData, {
+//  axios.post('http://localhost/api/v1/upload/batch', formData, {
+    axios.post(prod+'/api/v1/upload/batch', formData, {
         headers: {
       'Content-Type': 'multipart/form-data',
       'x-access-token': `${userInfo.data}`    // felix - add auth token 
