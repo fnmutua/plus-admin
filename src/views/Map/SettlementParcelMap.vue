@@ -155,7 +155,7 @@ const countOffline = ref(0)
 const loadMap = () => {
   nmap.value = new mapboxgl.Map({
     container: "mapContainer",
-    style: "mapbox://styles/mapbox/streets-v11",
+    style: "mapbox://styles/mapbox/streets-v12",
   //  style: './style.json',
     center: [37.137343, 1.137451], // starting position
     zoom: 6,

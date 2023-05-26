@@ -54,7 +54,8 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 
-
+import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
+import "mapbox-layer-switcher/styles.css";
 
 
 const MapBoxToken =
@@ -239,51 +240,8 @@ const handleClear = async () => {
 
 const currentRow = ref()
 const addMoreDocuments = ref()
-const addMoreDocs = (data: TableSlotDefault) => {
-
-  currentRow.value = data
-
-  addMoreDocuments.value = true
-
-  //  console.log('currentRow', currentRow.value)
-
-}
-
-
-const submitMoreDocuments = async () => {
-  console.log('More files.....', morefileList)
-
-  // uploading the documents 
-  const fileTypes = []
-  const formData = new FormData()
-  let files = []
-  for (var i = 0; i < morefileList.value.length; i++) {
-    // console.log('------>file', morefileList.value[i])
-    var format = morefileList.value[i].name.split('.').pop() // get file extension
-    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-    fileTypes.push(format)
-    // formData.append('file', fileList.value[i])
-    // formData.file = fileList.value[i]
-
-    formData.append('model', model)
-
-    formData.append('file', morefileList.value[i].raw)
-    formData.append('format', morefileList.value[i].name.split('.').pop())
-    formData.append('category', documentCategory.value)
-    formData.append('field_id', 'project_id')
-
-    formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
-    formData.append('code', uuid.v4())
-    formData.append('project_id', currentRow.value.id)
-
-
-  }
-
-
-  console.log(currentRow.value.id)
-  await uploadFilesBatch(formData)
-
-}
+ 
+ 
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
@@ -499,17 +457,12 @@ const flyTo = (data: TableSlotDefault) => {
 const loadMap = () => {
   var nmap = new mapboxgl.Map({
     container: "mapContainer",
-    style: "mapbox://styles/mapbox/streets-v11",
+    style: "mapbox://styles/mapbox/streets-v12",
     center: [37.137343, 1.137451], // starting position
     zoom: 6,
 
   })
-  // When the map fails to load, hide the base map and show only the overlays
-  nmap.on('error', function (e) {
-    console.log('Failed.....', e.error)
-    nmap.setStyle('./style.json');
-    console.log("Failed to load base map. Showing only overlays.");
-  });
+  
 
   console.log("resizing....", facilityGeo.value)
   const nav = new mapboxgl.NavigationControl();
@@ -586,6 +539,44 @@ const loadMap = () => {
     });
 
     nmap.resize()
+
+
+    
+    nmap.addLayer({
+      id: 'Satellite',
+      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+      type: "raster"
+    }, 'polygons-layer');
+
+    nmap.addLayer({
+       id: 'Streets',
+      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
+      type: "raster"
+    },'polygons-layer' );
+
+    // switch it off until the user selects to
+    nmap.setLayoutProperty('Satellite', 'visibility', 'none')
+
+
+    const layers: MapboxLayerDefinition[] = [
+
+      {
+        id: "Satellite",
+        title: "Satellite",
+        visibility: 'none',
+        type: 'base'
+      },
+
+      {
+        id: "Streets",
+        title: "Streets",
+        visibility: 'none',
+        type: 'base'
+      },
+
+    ];
+    nmap.addControl(new MapboxLayerSwitcherControl(layers));
+
 
 
     var localBounds = turf.bbox((facilityGeo.value));
@@ -700,7 +691,7 @@ const loadMap = () => {
 
 }
 
-
+ 
 const onClickTab = async (obj) => {
   console.log("Loading map....cs.........", obj.props.label)
   console.log(facilityGeoLines.value.length, facilityGeoPoints.value.length, facilityGeoPolygons.value.length)

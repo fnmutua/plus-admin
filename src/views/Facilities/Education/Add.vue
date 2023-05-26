@@ -282,7 +282,7 @@ console.log('Online Status',state)
 
    map.value = new mapboxgl.Map({
     container: 'mapContainer',
-    style: 'mapbox://styles/mapbox/streets-v11',
+    style: 'mapbox://styles/mapbox/streets-v12',
     center: [37.137343, 1.137451],
     zoom: 8
   });

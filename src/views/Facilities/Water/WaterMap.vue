@@ -72,7 +72,7 @@ const getAll = async () => {
     // 0ms seems enough to execute resize after tab opens.
     var nmap = new mapboxgl.Map({
       container: "mapContainer",
-      style: "mapbox://styles/mapbox/streets-v11",
+      style: "mapbox://styles/mapbox/streets-v12",
       center: mapCenter.value, // starting position
       zoom: 15,
 
