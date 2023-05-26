@@ -261,6 +261,15 @@ db.models.component.hasMany(db.models.beneficiary, {
 })
 
 
+db.models.beneficiary.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.beneficiary, {
+  foreignKey: 'settlement_id'
+})
+
+
 
 
 db.models.settlement_status.belongsTo(db.models.settlement, {

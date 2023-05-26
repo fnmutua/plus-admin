@@ -52,6 +52,9 @@ import "mapbox-layer-switcher/styles.css";
 
 import * as enums from '@/utils/enums'
 
+import {
+   settlementOptionsV2,countyOptions, subcountyOptions,wardOptions
+} from './common/index.ts'
 
 
 
@@ -98,6 +101,10 @@ const value2 = ref([])
 var value3 = ref([])
 var value4 = ref([])
 var value5 = ref([])
+var value6 = ref([])
+var county = ref([])
+var subcounty = ref([])
+var settlement = ref([])
 
 const morefileList = ref<UploadUserFile[]>([])
 
@@ -130,7 +137,7 @@ var filterValues = []
 
 var tblData = []
 
-const associated_multiple_models = ['households']
+const associated_multiple_models = ['households','settlement']
 
 const nested_models = ['project', 'settlement'] // The mother, then followed by the child
 
@@ -152,6 +159,7 @@ const handleClear = async () => {
   value3.value = ''
   value4.value = ''
   value5.value = ''
+  value6.value = ''
 
   pSize.value = 5
   currentPage.value = 1
@@ -189,6 +197,33 @@ const filterByProject = async (title: any) => {
 }
 
 
+
+const filterBySettlement= async (title: any) => {
+  var selectOption = 'settlement_id'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
+  }
+  var index = filters.indexOf(selectOption) // 1
+ 
+  // clear previously selected
+  if (filterValues[index]) {
+    // filterValues[index].length = 0
+    filterValues.splice(index, 1)
+  }
+
+  if (!filterValues.includes(title) && title.length > 0) {
+    filterValues.splice(index, 0, title) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (title.length === 0) {
+    filters.splice(index, 1)
+  }
+
+  console.log('FilterValues:', filterValues)
+
+  getFilteredData(filters, filterValues)
+}
 
 
 const filterByHousehold = async (title: any) => {
@@ -431,6 +466,7 @@ const getHouseholdOptions = async () => {
       ret.forEach(function (arrayItem: { id: string; type: string }) {
         var opt = {}
         opt.value = arrayItem.id
+        opt.settlement_id = arrayItem.settlement_id
         opt.label = arrayItem.name + '(' + arrayItem.id + ')'
         //  console.log(countyOpt)
         householdOptions.value.push(opt)
@@ -665,6 +701,69 @@ if (isMobile.value) {
 
 }
 
+ const settlementfilteredOptions = ref([])
+
+
+const showSubcountyEditField = ref(false)
+const handleSelectCounty = async (county_id: any) => {
+  console.log(county_id)
+  showSubcountyEditField.value = true
+
+
+  // filter settleemnts 
+  var subset_settlements = [];
+  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
+    if (settlementOptionsV2.value[i].county_id == county_id) {
+      subset_settlements.push(settlementOptionsV2.value[i]);
+    }
+  }
+  console.log("Subset Setts", subset_settlements)
+  settlementfilteredOptions.value = subset_settlements
+
+
+  // Get the select subcoites GEO
+}
+
+const filteredProjects = ref([])
+const filteredHH = ref([])
+
+const handleSelectSettlement = async (settlement_id: any) => {
+    // filter settleemnts 
+  var subset_projects = [];
+  for (let i = 0; i < projectOptions.value.length; i++) {
+    if (projectOptions.value[i].settlement_id == settlement_id) {
+      subset_projects.push(projectOptions.value[i]);
+    }
+  }
+  console.log("Subset subset_projects", subset_projects)
+  filteredProjects.value = subset_projects
+
+
+
+   // filter settleemnts 
+   var subset_hhs = [];
+  for (let i = 0; i < householdOptions.value.length; i++) {
+    if (householdOptions.value[i].settlement_id == settlement_id) {
+      subset_hhs.push(householdOptions.value[i]);
+    }
+  }
+  console.log("Subset subset_projects", subset_hhs)
+  filteredHH.value = subset_hhs
+
+
+
+
+  // Get the select subcoites GEO
+}
+
+
+
+
+
+
+
+
+
 
 </script>
 
@@ -673,14 +772,23 @@ if (isMobile.value) {
      <el-row>
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <div style="display: inline-block; margin-top: 5px">
-          <div style="display: inline-block; margin-right: 5px">
+ 
+
+            <el-select
+size="default" v-model="value6" :onChange="filterBySettlement" :onClear="handleClear" multiple clearable
+            filterable collapse-tags placeholder="By Settlement">
+            <el-option v-for="item in settlementOptionsV2" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+     
+
+
 
           <el-select
 size="default" v-model="value4" :onChange="filterByProject" :onClear="handleClear" multiple clearable
             filterable collapse-tags placeholder="By Project">
             <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
-        </div>
+        
 
           <el-select
 size="default" v-model="value5" :onChange="filterByHousehold" :onClear="handleClear" multiple
@@ -729,6 +837,7 @@ size="default" v-model="value5" :onChange="filterByHousehold" :onClear="handleCl
           <el-table-column label="Name" width="200" prop="name" sortable />
           <el-table-column label="Gender" prop="household.gender" sortable />
           <el-table-column label="Project" prop="project.title" sortable />
+          <el-table-column label="Settlement" prop="settlement.name" sortable />
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
 
@@ -756,7 +865,7 @@ v-if="showAdminButtons" @click="DeleteBeneficiary(scope.row as TableSlotDefault)
 
 
 
-                <el-tooltip ontent="Edit" placement="top">
+                <el-tooltip content="Edit" placement="top">
                   <el-button
 v-if="showAdminButtons" type="success" :icon="Edit"
                     @click="editHH(scope as TableSlotDefault)" circle />
@@ -795,16 +904,31 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
     <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
       <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
-        <el-form-item label="Beneficiary" prop="hh_id">
-          <el-select v-model="ruleForm.hh_id" filterable placeholder="Select">
-            <el-option v-for="item in householdOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-form-item label="County" prop="hh_id">
+          <el-select v-model="county" filterable placeholder="Select" :onChange="handleSelectCounty">
+            <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Settlement" prop="hh_id">
+          <el-select v-model="settlement" filterable placeholder="Select"  :onChange="handleSelectSettlement">
+            <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+        
+
+        <el-form-item label="Project" prop="project_id">
+          <el-select v-model="ruleForm.project_id" filterable placeholder="Select" :onChange="handleSelectProject">
+            <el-option v-for="item in filteredProjects" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
 
 
-        <el-form-item label="Project" prop="project_id">
-          <el-select v-model="ruleForm.project_id" filterable placeholder="Select" :onChange="handleSelectProject">
-            <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
+
+        <el-form-item label="Beneficiary" prop="hh_id">
+          <el-select v-model="ruleForm.hh_id" filterable placeholder="Select">
+            <el-option v-for="item in filteredHH" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
 

@@ -15,6 +15,12 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       },
      
+      settlement_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+     
+
       project_id: {
         type: DataTypes.INTEGER,
         allowNull: true
@@ -44,7 +50,11 @@ module.exports = function (sequelize, DataTypes) {
           name: 'benf_pkey',
           unique: true,
           fields: [{ name: 'id' }]
-        }
+        },
+        {
+          unique: true,
+          fields: ['hh_id', 'settlement_id','project_id', 'component_id']
+        },
       ]
     }
   )

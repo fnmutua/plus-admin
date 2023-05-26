@@ -193,17 +193,16 @@ const removeDocument = (data) => {
         <el-button type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
 
       </el-tooltip>
-
+      <el-tooltip content="Delete" placement="top">
         <el-popconfirm
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="290px" icon-color="#626AEF"
               title="Are you sure to delete this document?" @confirm="removeDocument(scope.row)">
               <template #reference>
-                <el-tooltip content="Delete" placement="top">
                 <el-button type="danger"  v-if="userIsAdmin || documentOwner"   :icon="Delete" circle />
-              </el-tooltip>
 
                </template>
             </el-popconfirm>
+          </el-tooltip>
 
        </div>
     </template>
