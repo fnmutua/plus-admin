@@ -47,10 +47,10 @@ exports.createHousehold = (req, res) => {
       })
       .catch(function (err) {
         // handle error;
-        console.log('error0---------->', err)
+        console.log('error0---------->', err.parent)
   
         if (err.name == 'SequelizeUniqueConstraintError') {
-          var message = 'One or more table constraints are violated. Check your id columns'
+          var message = 'xOne or more table constraints are violated. Check your id columns'
         } else {
           var message = 'The uploaded file does not match the required fields'
         }

@@ -488,7 +488,7 @@ exports.xmodelImportData = (req, res) => {
     })
     .catch(function (err) {
       // handle error;
-      console.log('error0---------->', err)
+      console.log('error0----1------>', err)
 
       if (err.name == 'SequelizeUniqueConstraintError') {
         var msg = 'One or more table constraints are violated. Check your unique columns'
@@ -678,10 +678,11 @@ exports.modelCreateOneRecord = (req, res) => {
     })
     .catch(function (err) {
       // handle error;
-      console.log('error0---------->', err)
+      console.log('error0-----2----->', err.parent.detail)
 
       if (err.name == 'SequelizeUniqueConstraintError') {
-        var message = 'One or more table constraints are violated. Check your id columns'
+        var message = err.parent.detail
+        var xmessage = 'One or more table constraints are violated. Check your id columns'
       } else {
         var message = 'The submitted record does not match the required fields'
       }
@@ -2418,7 +2419,7 @@ exports.ReportDocumentationUpload = async (req, res) => {
       })
       .catch(function (err) {
         // handle error;
-        console.log('error0---------->', err)
+        console.log('error0---3------->', err)
         errors.push(err)
 
         if (err.name == 'SequelizeUniqueConstraintError') {
