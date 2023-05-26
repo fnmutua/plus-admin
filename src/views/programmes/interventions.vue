@@ -99,12 +99,11 @@ var value5 = ref([])
 const morefileList = ref<UploadUserFile[]>([])
 
 
-const interVentionTypeOptions = ref([])
-
+ 
 
 const component_id = ref()
 const page_title = ref()
-
+const bounds =ref([])
 
 watch(
   route,
@@ -124,8 +123,7 @@ const tmp_domain = ref()
 
 
 
-const settlementOptions = ref([])
-const page = ref(1)
+ const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
 const loading = ref(true)
@@ -162,7 +160,7 @@ let  filterValues =  [[component_id.value]]   // make sure the inner array is ar
 var tblData = []
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document', 'activity']
+const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document' ]
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
@@ -411,7 +409,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
       facilityGeoPolygons.value = []
     }
     else {
-      tabDisabled.value = false
+      tabDisabled.value = true
 
       for (let i = 0; i < fgeo.data[0].json_build_object.features.length; i++) {
         console.log("Geo Type -------->", fgeo.data[0].json_build_object.features[i].geometry.type)
@@ -459,7 +457,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
-
 const flyTo = (data: TableSlotDefault) => {
   console.log('On Click.....', data.row.geom)
 
@@ -473,14 +470,17 @@ const flyTo = (data: TableSlotDefault) => {
   } else {
 
     var shp = data.row.geom.type
+ //   facilityGeo.value=data.row.geom
 
     if (shp == 'MultiPolygon' || shp == 'Polygon') {
-      facilityGeo.value = data.row.geom
-      var bounds = turf.bbox((data.row.geom));
-      console.log(bounds)
+      facilityGeoPolygons.value = data.row.geom
+    //  var bounds = turf.bbox((data.row.geom));
+      bounds.value=turf.bbox((data.row.geom));
     } else if (shp == 'Point') {
-      var bounds = turf.bbox((data.row.geom));
+        bounds.value = turf.bbox((data.row.geom));
     }
+
+    console.log(bounds.value)
 
     loadMap()
     //loadMap()
@@ -510,6 +510,7 @@ const loadMap = () => {
     nmap.setStyle('./style.json');
     console.log("Failed to load base map. Showing only overlays.");
   });
+
   console.log("resizing....", facilityGeo.value)
   const nav = new mapboxgl.NavigationControl();
   nmap.addControl(nav, "top-right");
@@ -532,7 +533,8 @@ const loadMap = () => {
     nmap.addSource('polygons', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(facilityGeoPolygons.value),
+    //  data: turf.featureCollection(facilityGeoPolygons.value),
+      data:  facilityGeoPolygons.value,
       // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
     });
 
@@ -571,24 +573,40 @@ const loadMap = () => {
       }
 
     });
-    // Add a black outline around the polygon.
-    // nmap.addLayer({
-    //   'id': 'outline',
-    //   'type': 'line',
-    //   'source': 'polygons',
-    //   'layout': {},
-    //   'paint': {
-    //     'line-color': '#000',
-    //     'line-width': 1
-    //   }
-    // });
+  // Add a black outline around the polygon.
+    nmap.addLayer({
+      'id': 'outline',
+      'type': 'line',
+      'source': 'polygons',
+      'layout': {},
+      'paint': {
+        'line-color': '#000',
+        'line-width': 1
+      }
+    });
 
     nmap.resize()
 
 
-    var bounds = turf.bbox((facilityGeo.value));
-    console.log(bounds)
-    nmap.fitBounds(bounds, { padding: 20 });
+    var localBounds = turf.bbox((facilityGeo.value));
+    console.log(localBounds)
+
+    if (bounds.value) {
+      console.log(bounds.value) 
+
+    
+
+      if (bounds.value[0]==bounds.value[2]) {
+
+        // for points where the extent x1=x2
+        nmap.fitBounds(bounds.value, { maxZoom: 15,padding: 20 });
+      } else {
+        nmap.fitBounds(bounds.value, { padding: 20 });
+
+      }
+
+    
+    }
 
 
 
@@ -683,7 +701,7 @@ const loadMap = () => {
 }
 
 
-const onMap = async (obj) => {
+const onClickTab = async (obj) => {
   console.log("Loading map....cs.........", obj.props.label)
   console.log(facilityGeoLines.value.length, facilityGeoPoints.value.length, facilityGeoPolygons.value.length)
 
@@ -701,6 +719,15 @@ const onMap = async (obj) => {
       //console.log(map.value)
       //maxBounds.value = turf.bbox(facilityGeo.value);
     }
+
+  } else {
+    console.log('Disable Map')
+    tabDisabled.value=true
+
+  }
+  if (obj.props.label != "Beneficiary") { 
+    beneficiaryTabDisabled.value = true
+    tabDisabled.value=true
 
   }
 
@@ -962,54 +989,74 @@ const AddProject = () => {
 
 
 const AddBeneficiary = () => {
-
   console.log("Adding Beneficiary")
-
-
   push({
     path: '/settlement/beneficiary',
     name: 'InterventionBeneficiary',
-
   })
-
 }
 
 
-const AddDialogVisible = ref(false)
+const editProject =async (data: TableSlotDefault ) => {
 
-const editProject = (data: TableSlotDefault) => {
+  const formData = {}
+ 
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'project'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = ['id']
+  formData.filterValues = [[data.row.id]]
+  formData.associated_multiple_models = ['activity', ]
+
+  //------------------------- 
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+  console.log(res.data)
+  var project = res.data[0]
+
+  
+  handleSelectCounty(project.county_id)
+  handleSelectSubCounty(project.subcounty_id)
+  handleSelectWard(project.ward_id)
+
 
   showEditSaveButton.value = true
 
   console.log(data)
-  ruleForm.id = data.row.id
+  ruleForm.id = project.id
 
-  ruleForm.location_level = data.row.location_level
+  ruleForm.location_level = project.location_level
 
-  ruleForm.title = data.row.title
-  ruleForm.programme_id = data.row.programme_id
-  ruleForm.status = data.row.status
-  ruleForm.domain_id = data.row.domain_id
-  ruleForm.category_id = data.row.category_id
-  tmp_domain.value = [data.row.component_id, data.row.category_id]
-  ruleForm.male_beneficiaries = data.row.male_beneficiaries
-  ruleForm.female_beneficiaries = data.row.female_beneficiaries
-  ruleForm.cost = data.row.cost
-  ruleForm.settlement_id = data.row.settlement_id
-  ruleForm.county_id = data.row.county_id
-  ruleForm.code = data.row.code
-  ruleForm.geom = data.row.geom
-  ruleForm.start_date = data.row.start_date
-  ruleForm.end_date = data.row.end_date
-  //ruleForm.activities = data.row.activities
-  // ruleForm.activities = data.row.activities.map(a => a.id); Felix Revisit
-  ruleForm.component_id = data.row.component_id
-  ruleForm.subcounty_id = data.row.subcounty_id
-  ruleForm.ward_id = data.row.ward_id
+  ruleForm.title = project.title
+  ruleForm.programme_id = project.programme_id
+  ruleForm.status = project.status
+  ruleForm.domain_id = project.domain_id
+  ruleForm.category_id = project.category_id
+  tmp_domain.value = [project.component_id, project.category_id]
+  ruleForm.male_beneficiaries = project.male_beneficiaries
+  ruleForm.female_beneficiaries = project.female_beneficiaries
+  ruleForm.cost = project.cost
+  ruleForm.settlement_id = project.settlement_id
+  ruleForm.county_id = project.county_id
+  ruleForm.code = project.code
+  ruleForm.geom = project.geom
+  ruleForm.start_date = project.start_date
+  ruleForm.end_date = project.end_date
+ 
+  ruleForm.component_id = project.component_id
+  ruleForm.subcounty_id = project.subcounty_id
+  ruleForm.ward_id = project.ward_id
 
 
   let activities = []
-  data.row.activities.forEach(function (arrayItem) {
+  project.activities.forEach(function (arrayItem) {
     activities.push(arrayItem.id)
   })
 
@@ -1017,21 +1064,29 @@ const editProject = (data: TableSlotDefault) => {
 
 
 
-  fileUploadList.value = data.row.documents
+  fileUploadList.value = project.documents
 
 
-  if (data.row.settlement_id) {
+  if (project.settlement_id) {
     showCountySettlement.value = true
   }
-  if (data.row.county_id) {
+  if (project.county_id) {
     showCounty.value = true
 
   }
 
-  console.log(data.row.domain_id)
+  console.log(project.domain_id)
 
   AddDialogVisible.value = true
-}
+
+  
+} 
+
+
+
+const AddDialogVisible = ref(false)
+
+ 
 
 const removeDocument = (data: TableSlotDefault) => {
   console.log('----->', data)
@@ -1543,6 +1598,8 @@ const handleSelectCounty = async (county_id: any) => {
 
   // Reset the subounty on changing the county 
   ruleForm.subcounty_id = null
+  ruleForm.ward_id = null
+  ruleForm.settlement_id = null
 
   var subset = [];
   for (let i = 0; i < subcountyOptions.value.length; i++) {
@@ -1582,12 +1639,12 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
 
   // Reset the subounty on changing the county 
   ruleForm.ward_id = null
+  ruleForm.settlement_id = null
 
-
-  const formData = {}
-  formData.model = 'subcounty'
-  formData.id = subcounty_id
-
+  if (subcounty_id) {
+    selectedSubCounty.value = subcounty_id
+   await  getWardNames()
+  }
 
 
   var subset = [];
@@ -1596,7 +1653,7 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
       subset.push(wardOptions.value[i]);
     }
   }
-  console.log('wards', subset)
+  console.log('wardsss', wardFilteredOptions)
   wardFilteredOptions.value = subset
 
 
@@ -1670,6 +1727,8 @@ const getWardNames = async () => {
       opt.value = arrayItem.id
       opt.label = arrayItem.name + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
+      opt.subcounty_id = arrayItem.subcounty_id
+
       wardOptions.value.push(opt)
     })
   })
@@ -1854,8 +1913,7 @@ const filterBySettlement = async (settlement_id: any) => {
 /// Uplaod docuemnts from a central component 
 const mfield = 'project_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
-const selectedRow = ref([])
-const dynamicComponent = ref();
+ const dynamicComponent = ref();
  const componentProps = ref({
       message: 'Hello from parent',
       showDialog:addMoreDocuments,
@@ -1982,22 +2040,11 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
     </el-row>
 
 
+ 
 
 
-
-
-
-
-
-
-
-
-
-
-    <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
+    <el-tabs @tab-click="onClickTab" v-model="activeName" type="border-card">
       <el-tab-pane label="Interventions" name="list">
-
-
         <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border   :row-class-name="tableRowClassName" @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
@@ -2142,7 +2189,7 @@ v-model="ruleForm.location_level" filterable placeholder="Select Location"
           </el-select>
         </el-form-item>
 
-        <el-form-item v-if=showCountySettlement label="Sub County" prop="subcounty_id">
+        <el-form-item v-if=showCountySettlement label="Sub County" prop="subcounty_id" >
           <el-select
 v-model="ruleForm.subcounty_id" filterable placeholder="Sub County"
             :onChange="handleSelectSubCounty">
