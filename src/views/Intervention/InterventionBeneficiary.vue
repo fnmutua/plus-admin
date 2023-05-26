@@ -122,11 +122,11 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const showEditSaveButton = ref(false)
-const formheader = ref('Edit Household')
+const formheader = ref('Edit Beneficary')
 
+const tableDataList = ref([]);
 
-let tableDataList = ref<UserType[]>([])
-//// ------------------parameters -----------------------////
+ //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 
 
@@ -522,10 +522,23 @@ const editForm = async (formEl: FormInstance | undefined) => {
   await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
-      await updateOneRecord(ruleForm).then(() => { })
+     //   updateOneRecord(ruleForm).then(() => { })
 
-      AddDialogVisible.value = false
       formheader.value = "Edit Beneficiary"
+
+ 
+
+      ruleForm.hh_id.forEach(function (arrayItem ) {
+
+            var household = ruleForm
+            household.hh_id = arrayItem  
+            const res =   updateOneRecord(household);
+
+            console.log('res', res);
+            })
+            AddDialogVisible.value = false
+
+
 
     } else {
       console.log('error in editing!', fields)
@@ -565,8 +578,8 @@ const AddHH = () => {
 }
 
 
-
-const editHH = (data: TableSlotDefault) => {
+ 
+const editHH = async (data: TableSlotDefault) => {
   formheader.value = 'Edit Household'
   showEditSaveButton.value = true
   showSubmitBtn.value = false
@@ -574,37 +587,53 @@ const editHH = (data: TableSlotDefault) => {
 
 
   ruleForm.id = data.row.id
-  ruleForm.hh_id = data.row.hh_id
+  ruleForm.hh_id =[data.row.hh_id] 
   ruleForm.project_id = data.row.project_id
+  ruleForm.settlement_id = data.row.settlement_id
 
+  await handleSelectSettlement(data.row.settlement_id)
+
+  handleSelectCounty(county.value)
 
   AddDialogVisible.value = true
+
+
+
 }
 
-const removeDocument = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-  formData.filesToDelete = [data.name]
-  deleteDocument(formData)
-}
+ 
 
 
-
-const submitForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate((valid, fields) => {
+const submitForm = async (formEl) => {
+  if (!formEl) return;
+  await formEl.validate(async (valid, fields) => {
     if (valid) {
-      ruleForm.model = model
-      ruleForm.code = uuid.v4()
-      const res = CreateRecord(ruleForm)
+      ruleForm.model = model;
+      ruleForm.code = uuid.v4();
 
+   
+      ruleForm.hh_id.forEach(function (arrayItem ) {
+
+        var household = ruleForm
+        household.hh_id = arrayItem  
+        const res =   CreateRecord(household);
+       
+      console.log('res', res);
+    })
+      
+ 
+        
+      
+
+      setTimeout(() => {
+          // Push the response record to the reactive list
+          tableDataList.value.push(res.data);
+        }, 1000); // Adjust the timeout value as needed
     } else {
-      console.log('error submit!', fields)
+      console.log('error submit!', fields);
     }
-  })
-}
+  });
+};
 
 const DownloadXlsx = async () => {
   console.log(tableDataList.value)
@@ -728,7 +757,21 @@ const filteredProjects = ref([])
 const filteredHH = ref([])
 
 const handleSelectSettlement = async (settlement_id: any) => {
-    // filter settleemnts 
+    // filter settleemnts
+    settlement.value=settlement_id
+
+  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
+      if (settlementOptionsV2.value[i].value == settlement_id) {
+        county.value = settlementOptionsV2.value[i].county_id
+        console.log(settlementOptionsV2.value[i] )
+
+     }
+    console.log(settlementOptionsV2.value[i].value )
+  }
+
+
+
+    
   var subset_projects = [];
   for (let i = 0; i < projectOptions.value.length; i++) {
     if (projectOptions.value[i].settlement_id == settlement_id) {
@@ -737,6 +780,7 @@ const handleSelectSettlement = async (settlement_id: any) => {
   }
   console.log("Subset subset_projects", subset_projects)
   filteredProjects.value = subset_projects
+  
 
 
 
@@ -828,7 +872,7 @@ size="default" v-model="value5" :onChange="filterByHousehold" :onClear="handleCl
 
 
  
-    <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
+    <el-tabs  v-model="activeName" type="border-card">
       <el-tab-pane label="List" name="list">
 
         <el-table :data="tableDataList" style="width: 100%" border>
@@ -927,7 +971,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 
         <el-form-item label="Beneficiary" prop="hh_id">
-          <el-select v-model="ruleForm.hh_id" filterable placeholder="Select">
+          <el-select v-model="ruleForm.hh_id"  multiple filterable placeholder="Select">
             <el-option v-for="item in filteredHH" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>

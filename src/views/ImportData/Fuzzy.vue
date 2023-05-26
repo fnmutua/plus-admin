@@ -847,7 +847,7 @@ v-if="showUploadButton" class="mt-4" style="width: 100%" @click="handleFileUploa
             </el-icon>
         </el-button>
 
-        <el-table v-if="showTable" :data="tableData" :size="small">
+        <el-table v-if="showTable" :data="tableData" :size="small" style="height: 200px; overflow-y: scroll;">
             <el-table-column prop="key1" label="Database Field" />
             <el-table-column label="From XLSX">
                 <template #default="scope">

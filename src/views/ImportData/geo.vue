@@ -26,6 +26,7 @@ import {
   Share,
   Delete,
   RefreshLeft,
+  UploadFilled,
   ArrowRightBold,
   Tools
 } from '@element-plus/icons-vue'
@@ -894,12 +895,14 @@ v-if="showUploadinput" class="upload-demo" drag
         <div class="el-upload__text"> Drop file here or <em>click to upload</em> </div>
       </el-upload>
 
-      <el-button v-if="showUploadinput" class="mt-4" style="width: 100%" @click="submitFiles" type="primary">
+      <el-button v-if="showUploadinput" class="mb-2" style="width: 20%" @click="submitFiles" type="primary">
         Upload<el-icon class="el-icon--right">
           <Upload />
         </el-icon>
       </el-button>
-      <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe">
+
+ 
+      <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 200px; overflow-y: scroll;">
         <el-table-column prop="column" label="Field">
           <template #default="scope">
             <el-input v-model="scope.row.field" controls-position="left" disabled />
@@ -918,16 +921,28 @@ v-for="(option, index) in matchOptions" :key="index" :label="option.label" :valu
           </template>
         </el-table-column>
       </el-table>
-
-      <div class="button-group-container">
-        <el-button-group v-if="show" class="mt-4" style="width: 100%">
-          <el-button type="primary" :icon="Tools" @click="handleProcess" />
-          <el-button type="primary" :icon="RefreshLeft" @click="handleClearField" />
-        </el-button-group>
-
-      </div>
     </div>
 
+      <div class="button-group-container">
+        <el-button-group v-if="show" class="mt-1" style="width: 100%">
+          <!-- <el-button type="primary" :icon="Tools" @click="handleProcess" />
+          <el-button type="primary" :icon="RefreshLeft" @click="handleClearField" /> -->
+
+          <el-button v-if="showUploadinput" class="mt-2" style="width: 10%" @click="handleProcess" type="primary">
+        Submit Data<el-icon class="el-icon--right">
+          <UploadFilled />
+        </el-icon>
+      </el-button>
+
+
+      <el-button v-if="showUploadinput" class="mt-2" style="width: 10%" @click="handleClearField" type="warning">
+        Reset<el-icon class="el-icon--right">
+          <RefreshLeft />
+        </el-icon>
+      </el-button>
+        </el-button-group>
+      </div>
+ 
 
 
 
@@ -948,4 +963,10 @@ v-for="(option, index) in matchOptions" :key="index" :label="option.label" :valu
   display: flex;
   justify-content: space-between;
 }
+
+
+.table-container {
+    height: 200px; /* Adjust the height as needed */
+    overflow-y: auto;
+  }
 </style>
