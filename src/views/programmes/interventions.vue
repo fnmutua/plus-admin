@@ -918,23 +918,26 @@ const ruleForm = reactive({
 
 
 
-
 const editForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate(async (valid, fields) => {
+  if (!formEl) return;
+
+  formEl.validate((valid, fields) => {
     if (valid) {
-      ruleForm.model = model
-
-      console.log('before Updated', ruleForm)
-      await updateOneRecord(ruleForm).then(() => { })
-
-
-
+      ruleForm.model = model;
+      console.log('before Updated', ruleForm);
+      updateOneRecord(ruleForm)
+        .then(() => {
+          // Further logic after updating record
+        })
+        .catch(() => {
+          // Error handling for updateOneRecord
+        });
     } else {
-      console.log('error in editiinh!', fields)
+      console.log('error in editing!', fields);
     }
-  })
-}
+  });
+};
+
 
 const handleClose = () => {
 
