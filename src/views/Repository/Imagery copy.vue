@@ -163,7 +163,7 @@ const map =ref( )
 const loadMap = () => {
   var map = new mapboxgl.Map({
     container: "mapContainer",
-    style: "mapbox://styles/mapbox/streets-v11",
+    style: "mapbox://styles/mapbox/streets-v12",
     center: [37.137343, 1.137451], // starting position
     zoom: 6,
 
