@@ -37,6 +37,8 @@
     "@mapbox/mapbox-gl-draw-static-mode": "^1.0.1",
     "@mapbox/mapbox-gl-geocoder": "^5.0.1",
     "@turf/turf": "^6.5.0",
+    "@vuelidate/core": "^2.0.2",
+    "@vuelidate/validators": "^2.0.2",
     "@vueuse/core": "^9.13.0",
     "@wangeditor/editor": "^5.1.14",
     "@wangeditor/editor-for-vue": "^5.1.10",
@@ -99,6 +101,7 @@
     "url": "^0.11.0",
     "uuid": "^9.0.0",
     "v-mapbox": "^3.3.1",
+    "vee-validate": "^4.9.5",
     "vue": "3.3.0",
     "vue-csv-import": "^4.1.2",
     "vue-echarts": "^6.2.3",
@@ -119,7 +122,8 @@
     "web-storage-cache": "^1.1.1",
     "xlsx": "^0.18.5",
     "xml-js": "^1.6.11",
-    "xml2js": "^0.5.0"
+    "xml2js": "^0.5.0",
+    "yup": "^1.2.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",
