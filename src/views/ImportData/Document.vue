@@ -694,9 +694,8 @@ v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload
 
 
 
-        <div class="table-container">
-
-        <el-table v-if="showTable" :data="fileList">
+ 
+        <el-table v-if="showTable" :data="fileList" style="height: 200px; overflow-y: scroll;">
             <el-table-column prop="name" label="Name" />
             <el-table-column prop="type" label="Type">
                 <template #default="{ row }">
@@ -726,8 +725,7 @@ v-for="item in parentOptions" :key="item.value" :label="item.label"
             </el-table-column>
 
         </el-table>
-    </div>
-        <el-button
+         <el-button
 v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type="success"
             :disabled="DisablePostSubmit">
             Submit<el-icon class="el-icon--right">
