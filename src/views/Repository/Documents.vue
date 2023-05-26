@@ -21,7 +21,10 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm } from 'element-plus'
+import {
+  ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,
+  ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm
+} from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -41,7 +44,15 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 console.log("userInfo--->", userInfo)
 
 
+const userIsAdmin = ref(false)
 
+const documentOwner = ref(false)
+const denyDownload = ref(false)
+
+
+if (userInfo.roles.includes("admin")) {
+  userIsAdmin.value = true
+ }
 
 
 
@@ -53,10 +64,8 @@ const value3 = ref([])
 const value4 = ref([])
 const value5 = ref([])
 
-const indicatorsOptions = ref([])
-const componentOptions = ref([])
-const categories = ref([])
-const filteredIndicators = ref([])
+ const componentOptions = ref([])
+ 
 const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
@@ -64,12 +73,12 @@ const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
-const downloadLoading = ref(false)
-const showAdminButtons = ref(false)
+ const showAdminButtons = ref(false)
 
 // flag for admin buttons
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
   showAdminButtons.value = true
+  userIsAdmin.value=true
 }
 
 
@@ -631,7 +640,8 @@ getDocumentTypes()
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectReportType" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value3" :onChange="handleSelectReportType" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by Type">
         <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
@@ -640,16 +650,19 @@ getDocumentTypes()
     </div>
 
     <div style="display: inline-block; margin-left: 5px">
-      <el-select v-model="value4" multiple clearable filterable :onChange="handleSettlement"
+      <el-select
+v-model="value4" multiple clearable filterable :onChange="handleSettlement"
         placeholder="Filter by Settlement">
-        <el-option v-for="(option, index) in settlementOptions" :key="index" :label="option.label" :value="option.value"
+        <el-option
+v-for="(option, index) in settlementOptions" :key="index" :label="option.label" :value="option.value"
           :disabled="option.disabled" />
       </el-select>
     </div>
 
     <div style="display: inline-block; margin-left: 5px">
       <el-select v-model="value5" multiple clearable filterable :onChange="handleproject" placeholder="Filter by Project">
-        <el-option v-for="(option, index) in projectOptions" :key="index" :label="option.label" :value="option.value"
+        <el-option
+v-for="(option, index) in projectOptions" :key="index" :label="option.label" :value="option.value"
           :disabled="option.disabled" />
       </el-select>
     </div>
@@ -671,7 +684,8 @@ getDocumentTypes()
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="false" :pageSize="pageSize"
+    <Table
+:columns="columns" :data="tableDataList" :loading="loading" :selection="false" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
 
@@ -682,9 +696,11 @@ getDocumentTypes()
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item @click="downloadFile(data as TableSlotDefault)"
+              <el-dropdown-item
+@click="downloadFile(data as TableSlotDefault)"
                 :icon="Download">Download</el-dropdown-item>
-              <el-dropdown-item v-if="showAdminButtons" @click="DeleteFile(data as TableSlotDefault)" :icon="Delete"
+              <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteFile(data as TableSlotDefault)" :icon="Delete"
                 color="red">Delete</el-dropdown-item>
 
             </el-dropdown-menu>
@@ -701,7 +717,8 @@ getDocumentTypes()
           </el-tooltip>
 
           <el-tooltip content="Delete" placement="top">
-            <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+            <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
               title="Are you sure to delete this record?" @confirm="DeleteFile(data as TableSlotDefault)">
               <template #reference>
                 <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
@@ -714,7 +731,8 @@ getDocumentTypes()
 
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>

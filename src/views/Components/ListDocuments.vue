@@ -1,6 +1,9 @@
 <script setup>
 import { ref, toRefs, onMounted } from 'vue'
- import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElOption, ElTable, ElTableColumn, ElDropdown, ElDropdownItem } from 'element-plus';
+import {
+  ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElOption, ElTable, ElTableColumn, ElDropdown,
+  ElDropdownItem,ElPopconfirm, ElTooltip
+} from 'element-plus';
 import {
   Position, View, Plus, User, TopRight, Briefcase, Download, Delete, Edit,
   Filter, InfoFilled, CopyDocument, Search, Setting, Loading
@@ -182,10 +185,26 @@ const removeDocument = (data) => {
         </el-dropdown-menu>
       </el-dropdown>
       <div v-else>
-    
+        <el-tooltip content="Download" placement="top">
         <el-button type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
+      </el-tooltip>
+
+      <el-tooltip content="View" placement="top">
         <el-button type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
-        <el-button type="danger"  v-if="userIsAdmin || documentOwner" @click="removeDocument(scope.row)"  :icon="Delete" circle />
+
+      </el-tooltip>
+
+        <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="290px" icon-color="#626AEF"
+              title="Are you sure to delete this document?" @confirm="removeDocument(scope.row)">
+              <template #reference>
+                <el-tooltip content="Delete" placement="top">
+                <el-button type="danger"  v-if="userIsAdmin || documentOwner"   :icon="Delete" circle />
+              </el-tooltip>
+
+               </template>
+            </el-popconfirm>
+
        </div>
     </template>
   </el-table-column>

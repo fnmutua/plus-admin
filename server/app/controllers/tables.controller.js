@@ -2124,7 +2124,7 @@ exports.batchDocumentsUpload = async (req, res) => {
       obj.format = req.body.format[i]
       obj.size = req.body.size[i]
       obj.createdBy = req.body.createdBy[i]
-      obj.protected = req.body.protected[i]
+      obj.protectedFile = req.body.protected[i]
 
 
     } else {
@@ -2134,7 +2134,7 @@ exports.batchDocumentsUpload = async (req, res) => {
       obj.format = req.body.format
       obj.size = req.body.size
       obj.createdBy = req.body.createdBy 
-      obj.protected = req.body.protected 
+      obj.protectedFile = req.body.protected 
 
       console.log("KEY>>>",column, obj[column])
 
