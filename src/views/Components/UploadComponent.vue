@@ -1,9 +1,9 @@
 <script setup>
 import { ref, toRefs, onMounted } from 'vue'
-import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElOption, ElOptionGroup, ElCheckbox  } from 'element-plus';
+import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElTooltip, ElOption, ElOptionGroup, ElCheckbox  } from 'element-plus';
 import {
   Position, View, Plus, User, Download, Briefcase, Delete, Edit,
-  Filter, InfoFilled, CopyDocument, Search, Setting, Loading
+  Filter, InfoFilled, CopyDocument, Search, Setting, Loading, UploadFilled, CircleCloseFilled
 } from '@element-plus/icons-vue'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { ElMessage,  } from 'element-plus'
@@ -326,71 +326,95 @@ const handleFileChange = async (file, fileList) => {
       trackFileAvailability();
     }
 
+    const dialogWidth = '30%'
 </script>
-
 <template>
-  <!-- <div  v-loading.fullscreen.lock="loadingPosting" element-loading-text="Uploading the files. Please wait......."> -->
-    <div >
-    
-
-    <!-- <el-button type="success" :icon="Plus" circle @click="addMoreDocs()" style="margin-left: 10px;margin-top: 5px" size="small" /> -->
-
-    <el-dialog  v-model="addMoreDocuments" title="Upload More Documents" width="25%">
- 
-      <el-select :style="{ width: '100% ', marginBottom: '10px' }" v-model="documentCategory" placeholder="Select Type" clearable filterable >
+  <div class="responsive-container">
+    <el-dialog v-model="addMoreDocuments" title="Upload More Documents"  >
+      <el-select
+        class="dialog-select"
+        v-model="documentCategory"
+        placeholder="Select Type"
+        clearable
+        filterable
+      >
         <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
         </el-option-group>
       </el-select>
- 
-      <div>
 
-  </div>
-      <el-upload
-        ref="upload"
-        v-model:file-list="morefileList"
-        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-        multiple
-        :limit="5"
-        :on-exceed="onExceeed"
-        :auto-upload="false">
-        <el-button class="full-width" :style="{ width: '100% ', marginBottom: '10px' }"  type="primary">Select File(s)</el-button>
-      </el-upload>
-     
-       <el-checkbox v-model="protectedFile">Protected File</el-checkbox>
- 
-    <div>
-     <el-progress  :stroke-width="20"  :show-text="false" :percentage="loadingPosting ? '50' : ''" :format="format" :indeterminate="true" />
-   </div>
+      <div class="dialog-upload">
+        <el-upload
+          ref="upload"
+          v-model:file-list="morefileList"
+          action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+          multiple
+          :limit="5"
+          :on-exceed="onExceeed"
+          :auto-upload="false"
+        >
+          <el-button class="full-width" type="primary">Select File(s)</el-button>
+        </el-upload>
+      </div>
 
-<template #footer>
-      <span class="dialog-footer">
-        <el-button @click="addMoreDocuments = false">Cancel</el-button>
-        <el-button type="primary" @click="submitMoreDocuments()" >
-          Confirm
-        </el-button>
-      </span>
-    </template>
+      <el-checkbox v-model="protectedFile">Protected File</el-checkbox>
+
+      <div class="dialog-progress">
+        <el-progress
+          :stroke-width="20"
+          :show-text="false"
+          :percentage="loadingPosting ? '50' : ''"
+          :format="format"
+          :indeterminate="true"
+        />
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <!-- <el-button @click="addMoreDocuments = false">
+            <i class="el-icon-close"></i>
+          </el-button> -->
+          <el-row class="mb-4">
+
+          <el-tooltip content="Cancel" placement="top">
+          <el-button type="danger"   :icon="CircleCloseFilled"  @click="addMoreDocuments = false"  circle />
+        </el-tooltip>
+
+          <!-- <el-button type="primary" @click="submitMoreDocuments()">
+            <i class="el-icon-check"></i>
+          </el-button> -->
+          <el-tooltip content="Submit" placement="top">
+          <el-button type="success"   :icon="UploadFilled" @click="submitMoreDocuments()"   circle />
+        </el-tooltip>
+      </el-row >
+    </span>
+      </template>
     </el-dialog>
-
-
-
   </div>
 </template>
 
-<style>
-
-.centered-div {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+<style scoped>
+.responsive-container {
+  max-width: 100%;
+  padding: 10px;
 }
 
-
-</style>
-
-<style>
-.el-upload--multiple .el-upload__input {
+.dialog-select {
   width: 100%;
+  margin-bottom: 10px;
+}
+
+.dialog-upload {
+  margin-bottom: 10px;
+}
+
+.dialog-progress {
+  margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+  .dialog-select {
+    width: 100% !important;
+  }
 }
 </style>
