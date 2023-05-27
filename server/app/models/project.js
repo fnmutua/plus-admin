@@ -8,10 +8,6 @@ module.exports = function(sequelize, DataTypes) {
       primaryKey: true
     },
    
-    location_level: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
     
     settlement_id: {
       type: DataTypes.INTEGER,

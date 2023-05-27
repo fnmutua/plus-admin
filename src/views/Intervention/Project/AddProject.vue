@@ -1358,13 +1358,7 @@ const back = () => {
         <el-divider />
         <el-form label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="150px" status-icon>
           <el-col v-if="showForm" :span="24" :lg="24" :md="12" :sm="12" :xs="24">
-            <el-form-item label="Context" prop="location_level">
-              <el-select
-v-model="ruleForm.location_level" filterable placeholder="Select Location" class="full-width"
-                @change="handleSelectLocation">
-                <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
+          
 
             <el-form-item label="Title" prop="title">
               <el-input v-model="ruleForm.title" />
@@ -1372,7 +1366,7 @@ v-model="ruleForm.location_level" filterable placeholder="Select Location" class
             <el-row>
 
               <el-col v-if="showForm" :span="12" :lg="12" :md="24" :sm="24" :xs="24">
-                <el-form-item v-if=showCounty label="County" prop="county_id">
+                <el-form-item label="County" prop="county_id">
                   <el-select
 v-model="ruleForm.county_id" filterable placeholder="Select County"
                     @change="handleSelectCounty">
@@ -1380,7 +1374,7 @@ v-model="ruleForm.county_id" filterable placeholder="Select County"
                   </el-select>
                 </el-form-item>
               </el-col>
-              <el-col v-if="showCounty" :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+              <el-col  :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Subcounty" prop="subcounty_id">
                   <el-select
 v-model="ruleForm.subcounty_id" filterable placeholder="Sub County"
@@ -1394,7 +1388,7 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
             </el-row>
 
             <el-row>
-              <el-col v-if="showCounty" :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+              <el-col   :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Ward" prop="ward_id">
                   <el-select v-model="ruleForm.ward_id" filterable placeholder="Ward" :onChange="handleSelectWard">
                     <el-option
@@ -1403,7 +1397,7 @@ v-for="item in wardFilteredOptions" :key="item.value" :label="item.label"
                   </el-select>
                 </el-form-item>
               </el-col>
-              <el-col v-if="showCounty" :span="10" :lg="10" :md="24" :sm="24" :xs="24">
+              <el-col  :span="10" :lg="10" :md="24" :sm="24" :xs="24">
 
                 <el-form-item v-if=showCounty label="Settlement" prop="settlement_id">
                   <el-select
@@ -1416,7 +1410,7 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                 </el-form-item>
 
               </el-col>
-              <el-col v-if="showCounty" :span="2" :lg="2" :md="24" :sm="24" :xs="24">
+              <el-col  :span="2" :lg="2" :md="24" :sm="24" :xs="24">
                 <el-button type="succcess" @click="AddSettlement()" :icon="Plus" />
               </el-col>
 
@@ -1424,14 +1418,7 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
             </el-row>
 
 
-            <!-- 
-              <el-form-item label="Location" prop="source_location">
-                  <el-select v-model="source_location" filterable placeholder="Select"  @change="toggleDrawToolbox">
-                    <el-option   label="Coordinates" value="coordinates" />
-                    <el-option   label="Digitize" value="digitize" />
-                    <el-option   label="Upload" value="upload" />
-                  </el-select>
-                </el-form-item>  -->
+     
 
 
 
@@ -1499,18 +1486,11 @@ v-model="ruleForm.activities" filterable multiple placeholder="Select" style="wi
 
           </el-row>
 
-          
+
 
           <el-row v-if="showGeoFields">
             <el-form-item label="Project Location" prop="source_location">
-              <!-- <el-select
-v-model="source_location" filterable placeholder="Select geometry option"
-                @change="toggleDrawToolbox">
-                <el-option label="Coordinates" value="Coordinates" />
-                <el-option label="Digitize" value="Digitize" />
-                <el-option label="Upload" value="Upload" />
-              </el-select> -->
-              <el-checkbox-group v-model="checkList" size="large" max="1" @change="toggleDrawToolbox">
+                            <el-checkbox-group v-model="checkList" size="large" max="1" @change="toggleDrawToolbox">
               <el-checkbox-button v-for="opt in opt" :key="opt" :label="opt">
                 {{ opt }}
               </el-checkbox-button>
@@ -1600,7 +1580,7 @@ v-if="checkList == 'Upload' && showGeoFields" class="upload-demo" drag ref="uplo
 <style scoped>
 .basemap {
   width: 100%;
-  height: 500px;
+  height: 450px;
 }
 
 .coordinates {
