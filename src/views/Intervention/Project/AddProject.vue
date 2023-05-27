@@ -608,7 +608,7 @@ const rules = reactive<FormRules>({
   end_date: [{ required: true, message: 'End Date is required', trigger: 'blur' }],
   status: [{ required: true, message: 'Status is required', trigger: 'blur' }],
   activities: [
-     { required: true, message: 'Activity   is required', trigger: 'blur' },
+    { required: true, message: 'Activity   is required', trigger: 'blur' },
     {
       validator: (rule, value, callback) => {
         if (value && value.length > 0) {
@@ -1337,10 +1337,7 @@ const back = () => {
   }
 }
 
-
-
 </script>
-
 <template>
   <el-row :gutter="5">
     <el-col :xl="14" :lg="14" :md="24" :sm="24" :xs="24">
@@ -1352,19 +1349,14 @@ const back = () => {
           <el-step
 :title="active === 1 ? 'Location' : ''" :icon="Location" :description="active === 1 ? 'Step 2' : ''"
             :status="active === 1 ? 'process' : ''" :style="{ fontSize: '14px' }" />
-
-
         </el-steps>
         <el-divider />
         <el-form label-position="left" ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="150px" status-icon>
           <el-col v-if="showForm" :span="24" :lg="24" :md="12" :sm="12" :xs="24">
-          
-
             <el-form-item label="Title" prop="title">
               <el-input v-model="ruleForm.title" />
             </el-form-item>
             <el-row>
-
               <el-col v-if="showForm" :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="County" prop="county_id">
                   <el-select
@@ -1374,7 +1366,7 @@ v-model="ruleForm.county_id" filterable placeholder="Select County"
                   </el-select>
                 </el-form-item>
               </el-col>
-              <el-col  :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+              <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Subcounty" prop="subcounty_id">
                   <el-select
 v-model="ruleForm.subcounty_id" filterable placeholder="Sub County"
@@ -1388,7 +1380,7 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
             </el-row>
 
             <el-row>
-              <el-col   :span="12" :lg="12" :md="24" :sm="24" :xs="24">
+              <el-col :span="12" :lg="12" :md="24" :sm="24" :xs="24">
                 <el-form-item label="Ward" prop="ward_id">
                   <el-select v-model="ruleForm.ward_id" filterable placeholder="Ward" :onChange="handleSelectWard">
                     <el-option
@@ -1397,7 +1389,7 @@ v-for="item in wardFilteredOptions" :key="item.value" :label="item.label"
                   </el-select>
                 </el-form-item>
               </el-col>
-              <el-col  :span="10" :lg="10" :md="24" :sm="24" :xs="24">
+              <el-col :span="10" :lg="10" :md="24" :sm="24" :xs="24">
 
                 <el-form-item v-if=showCounty label="Settlement" prop="settlement_id">
                   <el-select
@@ -1410,7 +1402,7 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                 </el-form-item>
 
               </el-col>
-              <el-col  :span="2" :lg="2" :md="24" :sm="24" :xs="24">
+              <el-col :span="2" :lg="2" :md="24" :sm="24" :xs="24">
                 <el-button type="succcess" @click="AddSettlement()" :icon="Plus" />
               </el-col>
 
@@ -1418,7 +1410,7 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
             </el-row>
 
 
-     
+
 
 
 
@@ -1455,7 +1447,7 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
             </el-row>
           </el-col>
 
-      
+
 
           <el-row v-if="showForm">
             <el-col :span="24">
@@ -1490,15 +1482,15 @@ v-model="ruleForm.activities" filterable multiple placeholder="Select" style="wi
 
           <el-row v-if="showGeoFields">
             <el-form-item label="Project Location" prop="source_location">
-                            <el-checkbox-group v-model="checkList" size="large" max="1" @change="toggleDrawToolbox">
-              <el-checkbox-button v-for="opt in opt" :key="opt" :label="opt">
-                {{ opt }}
-              </el-checkbox-button>
-            </el-checkbox-group>
+              <el-checkbox-group v-model="checkList" size="large" max="1" @change="toggleDrawToolbox">
+                <el-checkbox-button v-for="opt in opt" :key="opt" :label="opt">
+                  {{ opt }}
+                </el-checkbox-button>
+              </el-checkbox-group>
             </el-form-item>
           </el-row>
 
-      
+
 
 
 
@@ -1536,7 +1528,7 @@ v-if="checkList == 'Upload' && showGeoFields" class="upload-demo" drag ref="uplo
           </el-upload>
 
 
-    <el-row v-if="showGeoFields">
+          <el-row v-if="showGeoFields">
             <el-form-item label="Description" prop="description" class="full-width">
               <el-input type="textarea" v-model="ruleForm.description" />
             </el-form-item>

@@ -32,6 +32,7 @@ import { useRoute } from 'vue-router'
 import moment from "moment";
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
+import { getAllHouseholds, getFilteredHouseholdsBykeyword, updateHousehold } from '@/api/households'
 
 import {
   countyOptions, settlementOptionsV2, subcountyOptions
@@ -56,8 +57,7 @@ import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
-
-
+ 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 mapboxgl.accessToken = MapBoxToken;
@@ -100,11 +100,11 @@ var value5 = ref([])
 const morefileList = ref<UploadUserFile[]>([])
 
 
- 
+
 
 const component_id = ref()
 const page_title = ref()
-const bounds =ref([])
+const bounds = ref([])
 
 watch(
   route,
@@ -124,7 +124,7 @@ const tmp_domain = ref()
 
 
 
- const page = ref(1)
+const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
 const loading = ref(true)
@@ -156,12 +156,12 @@ let tableDataList_orig = ref<UserType[]>([])
 
 // - -----Model configs ------------
 const model = 'project'
-let  filters =  ['component_id'] 
-let  filterValues =  [[component_id.value]]   // make sure the inner array is array
+let filters = ['component_id']
+let filterValues = [[component_id.value]]   // make sure the inner array is array
 var tblData = []
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document' ]
+const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
@@ -240,8 +240,8 @@ const handleClear = async () => {
 
 const currentRow = ref()
 const addMoreDocuments = ref()
- 
- 
+
+
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
@@ -428,14 +428,14 @@ const flyTo = (data: TableSlotDefault) => {
   } else {
 
     var shp = data.row.geom.type
- //   facilityGeo.value=data.row.geom
+    //   facilityGeo.value=data.row.geom
 
     if (shp == 'MultiPolygon' || shp == 'Polygon') {
       facilityGeoPolygons.value = data.row.geom
-    //  var bounds = turf.bbox((data.row.geom));
-      bounds.value=turf.bbox((data.row.geom));
+      //  var bounds = turf.bbox((data.row.geom));
+      bounds.value = turf.bbox((data.row.geom));
     } else if (shp == 'Point') {
-        bounds.value = turf.bbox((data.row.geom));
+      bounds.value = turf.bbox((data.row.geom));
     }
 
     console.log(bounds.value)
@@ -462,7 +462,7 @@ const loadMap = () => {
     zoom: 6,
 
   })
-  
+
 
   console.log("resizing....", facilityGeo.value)
   const nav = new mapboxgl.NavigationControl();
@@ -486,8 +486,8 @@ const loadMap = () => {
     nmap.addSource('polygons', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
-    //  data: turf.featureCollection(facilityGeoPolygons.value),
-      data:  facilityGeoPolygons.value,
+      //  data: turf.featureCollection(facilityGeoPolygons.value),
+      data: facilityGeoPolygons.value,
       // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
     });
 
@@ -526,7 +526,7 @@ const loadMap = () => {
       }
 
     });
-  // Add a black outline around the polygon.
+    // Add a black outline around the polygon.
     nmap.addLayer({
       'id': 'outline',
       'type': 'line',
@@ -541,7 +541,7 @@ const loadMap = () => {
     nmap.resize()
 
 
-    
+
     nmap.addLayer({
       id: 'Satellite',
       source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
@@ -549,10 +549,10 @@ const loadMap = () => {
     }, 'polygons-layer');
 
     nmap.addLayer({
-       id: 'Streets',
+      id: 'Streets',
       source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
       type: "raster"
-    },'polygons-layer' );
+    }, 'polygons-layer');
 
     // switch it off until the user selects to
     nmap.setLayoutProperty('Satellite', 'visibility', 'none')
@@ -583,20 +583,20 @@ const loadMap = () => {
     console.log(localBounds)
 
     if (bounds.value) {
-      console.log(bounds.value) 
+      console.log(bounds.value)
 
-    
 
-      if (bounds.value[0]==bounds.value[2]) {
+
+      if (bounds.value[0] == bounds.value[2]) {
 
         // for points where the extent x1=x2
-        nmap.fitBounds(bounds.value, { maxZoom: 15,padding: 20 });
+        nmap.fitBounds(bounds.value, { maxZoom: 15, padding: 20 });
       } else {
         nmap.fitBounds(bounds.value, { padding: 20 });
 
       }
 
-    
+
     }
 
 
@@ -691,7 +691,7 @@ const loadMap = () => {
 
 }
 
- 
+
 const onClickTab = async (obj) => {
   console.log("Loading map....cs.........", obj.props.label)
   console.log(facilityGeoLines.value.length, facilityGeoPoints.value.length, facilityGeoPolygons.value.length)
@@ -713,12 +713,12 @@ const onClickTab = async (obj) => {
 
   } else {
     console.log('Disable Map')
-    tabDisabled.value=true
+    tabDisabled.value = true
 
   }
-  if (obj.props.label != "Beneficiary") { 
+  if (obj.props.label != "Beneficiary") {
     beneficiaryTabDisabled.value = true
-    tabDisabled.value=true
+    tabDisabled.value = true
 
   }
 
@@ -982,19 +982,13 @@ const AddProject = () => {
 
 
 
-const AddBeneficiary = () => {
-  console.log("Adding Beneficiary")
-  push({
-    path: '/settlement/beneficiary',
-    name: 'InterventionBeneficiary',
-  })
-}
 
 
-const editProject =async (data: TableSlotDefault ) => {
+
+const editProject = async (data: TableSlotDefault) => {
 
   const formData = {}
- 
+
   formData.curUser = 1 // Id for logged in user
   formData.model = 'project'
   //-Search field--------------------------------------------
@@ -1007,7 +1001,7 @@ const editProject =async (data: TableSlotDefault ) => {
   // - multiple filters -------------------------------------
   formData.filters = ['id']
   formData.filterValues = [[data.row.id]]
-  formData.associated_multiple_models = ['activity', ]
+  formData.associated_multiple_models = ['activity',]
 
   //------------------------- 
   //console.log(formData)
@@ -1015,7 +1009,7 @@ const editProject =async (data: TableSlotDefault ) => {
   console.log(res.data)
   var project = res.data[0]
 
-  
+
   handleSelectCounty(project.county_id)
   handleSelectSubCounty(project.subcounty_id)
   handleSelectWard(project.ward_id)
@@ -1043,7 +1037,7 @@ const editProject =async (data: TableSlotDefault ) => {
   ruleForm.geom = project.geom
   ruleForm.start_date = project.start_date
   ruleForm.end_date = project.end_date
- 
+
   ruleForm.component_id = project.component_id
   ruleForm.subcounty_id = project.subcounty_id
   ruleForm.ward_id = project.ward_id
@@ -1073,14 +1067,14 @@ const editProject =async (data: TableSlotDefault ) => {
 
   AddDialogVisible.value = true
 
-  
-} 
+
+}
 
 
 
 const AddDialogVisible = ref(false)
 
- 
+
 
 const removeDocument = (data: TableSlotDefault) => {
   console.log('----->', data)
@@ -1306,7 +1300,7 @@ if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
 } else {
-  dialogWidth.value = "40%"
+  dialogWidth.value = "28%"
   actionColumnWidth.value = "160px"
 
 }
@@ -1637,7 +1631,7 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
 
   if (subcounty_id) {
     selectedSubCounty.value = subcounty_id
-   await  getWardNames()
+    await getWardNames()
   }
 
 
@@ -1759,10 +1753,6 @@ const getSettlementNames = async () => {
 
 
 
-
-
-
-
 const getSubCountyNames = async () => {
   const res = await getListWithoutGeo({
     params: {
@@ -1797,7 +1787,6 @@ const value7 = ref()
 
 
 
-
 const filterByCounty = async (county_id: any) => {
 
   if (county_id) {
@@ -1812,14 +1801,14 @@ const filterByCounty = async (county_id: any) => {
 
 
   if (county_id.length > 0) {
-     filters.push('county_id')
-     filterValues.push(county_id)
+    filters.push('county_id')
+    filterValues.push(county_id)
 
-     getFilteredData(filters, filterValues)
+    getFilteredData(filters, filterValues)
   } else {
     filters.splice(filters.indexOf('county_id'), 1);
     filterValues.splice(filterValues.indexOf(county_id), 1);
-     getFilteredData(filters, filterValues)
+    getFilteredData(filters, filterValues)
   }
 
 
@@ -1840,14 +1829,14 @@ const filterBySubCounty = async (subcounty_id: any) => {
 
 
   if (subcounty_id.length > 0) {
-     filters.push('subcounty_id')
-     filterValues.push(subcounty_id)
+    filters.push('subcounty_id')
+    filterValues.push(subcounty_id)
 
-     getFilteredData(filters, filterValues)
+    getFilteredData(filters, filterValues)
   } else {
     filters.splice(filters.indexOf('subcounty_id'), 1);
     filterValues.splice(filterValues.indexOf(subcounty_id), 1);
-     getFilteredData(filters, filterValues)
+    getFilteredData(filters, filterValues)
   }
 
 }
@@ -1863,14 +1852,14 @@ const filterByWard = async (ward_id: any) => {
 
 
   if (ward_id.length > 0) {
-     filters.push('ward_id')
-     filterValues.push(ward_id)
+    filters.push('ward_id')
+    filterValues.push(ward_id)
 
-     getFilteredData(filters, filterValues)
+    getFilteredData(filters, filterValues)
   } else {
     filters.splice(filters.indexOf('ward_id'), 1);
     filterValues.splice(filterValues.indexOf(ward_id), 1);
-     getFilteredData(filters, filterValues)
+    getFilteredData(filters, filterValues)
   }
 }
 
@@ -1885,17 +1874,17 @@ const filterBySettlement = async (settlement_id: any) => {
   }
 
 
- 
+
 
   if (settlement_id.length > 0) {
-     filters.push('settlement_id')
-     filterValues.push(settlement_id)
+    filters.push('settlement_id')
+    filterValues.push(settlement_id)
 
-     getFilteredData(filters, filterValues)
+    getFilteredData(filters, filterValues)
   } else {
     filters.splice(filters.indexOf('settlement_id'), 1);
     filterValues.splice(filterValues.indexOf(settlement_id), 1);
-     getFilteredData(filters, filterValues)
+    getFilteredData(filters, filterValues)
   }
 
 
@@ -1907,29 +1896,29 @@ const filterBySettlement = async (settlement_id: any) => {
 /// Uplaod docuemnts from a central component 
 const mfield = 'project_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
- const dynamicComponent = ref();
- const componentProps = ref({
-      message: 'Hello from parent',
-      showDialog:addMoreDocuments,
-      data:currentRow.value,
-      umodel:model,
-      field:mfield
-    });
+const dynamicComponent = ref();
+const componentProps = ref({
+  message: 'Hello from parent',
+  showDialog: addMoreDocuments,
+  data: currentRow.value,
+  umodel: model,
+  field: mfield
+});
 
- 
- 
+
+
 function toggleComponent(row) {
   console.log('Compnnent data', row)
-      componentProps.value.data=row
-      dynamicComponent.value = null; // Unload the component
-      addMoreDocuments.value = true; // Set any additional props
+  componentProps.value.data = row
+  dynamicComponent.value = null; // Unload the component
+  addMoreDocuments.value = true; // Set any additional props
 
-      setTimeout(() => {
-        dynamicComponent.value = ChildComponent; // Load the component
+  setTimeout(() => {
+    dynamicComponent.value = ChildComponent; // Load the component
   }, 100); // 0.1 seconds
 
 
-    }
+}
 
 
 // component for docuemnts 
@@ -1945,37 +1934,217 @@ const DocumentComponentProps = ref({
 
 
 function handleExpand(row) {
-   dynamicDocumentComponent.value = null; // Unload the component
-    rowData.value = row
-    DocumentComponentProps.value.data = row
-    setTimeout(() => {
-      dynamicDocumentComponent.value = documentComponent; // Load the component
-    }, 100); // 0.1 seconds
+  dynamicDocumentComponent.value = null; // Unload the component
+  rowData.value = row
+  DocumentComponentProps.value.data = row
+  setTimeout(() => {
+    dynamicDocumentComponent.value = documentComponent; // Load the component
+  }, 100); // 0.1 seconds
 }
+
+
+
+//// Module foe adding benefiicair
+
+const AddBeneficiaryDialogVisible = ref(false)
+const disableBeneficiaryInputs =ref(false)
+const AddBeneficiary = () => {
+  // console.log("Adding Beneficiary")
+  // push({
+  //   path: '/settlement/beneficiary',
+  //   name: 'InterventionBeneficiary',
+  // })
+  AddBeneficiaryDialogVisible.value = true
+}
+
+const BeneficaryFormRef = ref<FormInstance>()
+const BeneficaryForm = reactive({
+  hh_id: '',
+  project_id: '',
+  settlement_id: '',
+  county_id: '',
+  component_id: component_id.value,
+  code: '',
+})
+
+
+const projectOptions = ref([])
+const settlementHHoptions = ref([])
+
+const getSettlementProjects = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 1000,
+      curUser: 1, // Id for logged in user
+      model: 'project',
+      searchField: 'settlement_id',
+      searchKeyword: BeneficaryForm.settlement_id,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received proejcts :', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    projectOptions.value = []
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      // opt.subcounty_id = arrayItem.subcounty_id
+
+      projectOptions.value.push(opt)
+    })
+  })
+
+  // get households within those settleemnts
+  // Get Households 
+  const formData = {}
+  formData.limit = pSize.value // 
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'households'
+
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = ['settlement_id']
+  formData.filterValues = [[BeneficaryForm.settlement_id]]
+  formData.associated_multiple_models = []
+
+  //-------------------------
+  console.log(formData)
+  const hh_res = await getFilteredHouseholdsBykeyword(formData)
+    .then((response) => {
+      console.log('Received HHs :', response)
+      //tableDataList.value = response.data
+      var ret = response.data
+      settlementHHoptions.value = []
+
+      loading.value = false
+
+      ret.forEach(function (arrayItem: { id: string; type: string }) {
+        var opt = {}
+        opt.value = arrayItem.id
+        opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+        //  console.log(countyOpt)
+        // opt.subcounty_id = arrayItem.subcounty_id
+
+        settlementHHoptions.value.push(opt)
+      })
+    })
+
+}
+
+const submitBeneficiaryForm = async (formEl) => {
+  if (!formEl) return;
+  await formEl.validate(async (valid, fields) => {
+    if (valid) {
+      BeneficaryForm.model = 'beneficiary';
+      BeneficaryForm.code = uuid.v4();
+
+
+      BeneficaryForm.hh_id.forEach(function (arrayItem) {
+
+        var household = BeneficaryForm
+        household.hh_id = arrayItem
+        const res = CreateRecord(household);
+
+        console.log('res', res);
+      })
+
+
+
+
+      // Adjust the timeout value as needed
+    } else {
+      console.log('error submit!', fields);
+    }
+  });
+};
+
+
+
+const thisProject = ref([])
+const getThisProject = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 1000,
+      curUser: 1, // Id for logged in user
+      model: 'project',
+      searchField: 'id',
+      searchKeyword: selected_project.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received proejcts :', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    projectOptions.value = []
+    loading.value = false
+    thisProject.value=response.data
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      projectOptions.value.push(opt)
+    })
+
+  })
+
+  console.log(res)
+ // return res
+   
+
+}
+
+const AddBeneficiaryFromWithin = async () => {
+  console.log(selected_project.value)
+    await getThisProject()
+  console.log(thisProject.value)
+ 
+  BeneficaryForm.project_id=thisProject.value[0].id
+  BeneficaryForm.settlement_id=thisProject.value[0].settlement_id
+  BeneficaryForm.county_id=thisProject.value[0].county_id
+  BeneficaryForm.component_id=thisProject.value[0].component_id
+  
+  handleSelectCounty(thisProject.value[0].county_id) // this will populate the subcounty widnoe
+  console.log(BeneficaryForm)
+  getSettlementProjects()
+  disableBeneficiaryInputs.value=true
+  AddBeneficiaryDialogVisible.value = true
+
+}
+
+
 
 </script>
 
 <template>
   <ContentWrap :title="page_title" :message="t(' The list of intervention beneficiaries. Use the filters to subset')">
-    
-    
 
     <div v-if="dynamicComponent">
-      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
+      <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
-    
-    
-    <el-row> 
-       <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+    <el-row>
+      <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
         <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
           filterable collapse-tags placeholder="By County">
           <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </div>
-
-
 
       <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
         <el-select
@@ -1992,7 +2161,6 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
           <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </div>
-
       <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
         <el-select
 :disabled="!enableSubcounty" size="default" v-model="value7" :onChange="filterBySettlement" multiple
@@ -2001,45 +2169,36 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
         </el-select>
       </div>
 
-
       <div style="display: inline-block; margin-bottom: 5px">
         <el-select
 v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
           placeholder="Search by Title" style="width: 100%" />
       </div>
 
- 
-
-
       <div v-if="showEditButtons" style="display: inline-block; margin-left: 5px">
         <el-tooltip content="Add Project" placement="top">
           <el-button :onClick="AddProject" type="primary" :icon="Plus" />
         </el-tooltip>
       </div>
-
-
       <div v-if="showEditButtons" style="display: inline-block; margin-left: 5px">
         <el-tooltip content="Add Beneficiary" placement="top">
           <el-button :onClick="AddBeneficiary" type="primary" :icon="User" />
         </el-tooltip>
       </div>
-
       <div style="display: inline-block; margin-left: 5px">
         <el-tooltip content="Download" placement="top">
           <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         </el-tooltip>
       </div>
 
-
     </el-row>
-
-
- 
 
 
     <el-tabs @tab-click="onClickTab" v-model="activeName" type="border-card">
       <el-tab-pane label="Interventions" name="list">
-        <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border   :row-class-name="tableRowClassName" @expand-change="handleExpand">
+        <el-table
+:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+          @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -2047,28 +2206,24 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+                <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+                  :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
           <el-table-column label="Title" prop="title" width="400" sortable />
           <el-table-column label="County" prop="county.name" sortable />
-
           <el-table-column label="Settlement" prop="settlement.name" sortable />
           <el-table-column label="Status" prop="status" sortable />
           <el-table-column label="Start" prop="start_date" :formatter="formatStartDate" sortable />
           <el-table-column label="End" prop="end_date" :formatter="formatEndDate" sortable />
-
-
-
           <el-table-column fixed="right" label="Operations" :width="actionColumnWidth">
             <template #header>
               <span v-if="isMobile">Actions</span>
-
               <el-input v-else v-model="search" placeholder="Filter" :onInput="filterTableData" />
             </template>
             <template #default="scope">
-
 
               <el-dropdown v-if="isMobile">
                 <span class="el-dropdown-link">
@@ -2080,12 +2235,9 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 v-if="showAdminButtons" @click="editProject(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
                     <el-dropdown-item @click="flyTo(scope as TableSlotDefault)" :icon="Position">Map</el-dropdown-item>
-
                     <el-dropdown-item
 v-if="showAdminButtons" @click="viewBen(scope as TableSlotDefault)"
                       :icon="User">Beneficiaries</el-dropdown-item>
-
-
                     <el-dropdown-item
 v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
@@ -2093,11 +2245,7 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-
-
               <div v-else>
-
-
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
                   <el-button
 type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
@@ -2113,25 +2261,19 @@ type="warning" size="small" :icon="Position" @click="flyTo(scope as TableSlotDef
 v-if="showAdminButtons" type="success" size="small" :icon="User"
                     @click="viewBen(scope as TableSlotDefault)" circle />
                 </el-tooltip>
-
                 <el-tooltip content="Delete" placement="top">
                   <el-popconfirm
 confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete this report?"
                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
-
-
                     <template #reference>
                       <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete circle />
                     </template>
                   </el-popconfirm>
                 </el-tooltip>
-
               </div>
-
             </template>
           </el-table-column>
-
         </el-table>
 
         <ElPagination
@@ -2139,15 +2281,25 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
-
       <el-tab-pane
 v-if="showAdminButtons" :label="beneficiaryTabTitle" name="Beneficiary"
         :disabled="beneficiaryTabDisabled">
-
-
         <Table
 :columns="BeneficiaryColumns" :data="beneficiaryList" :loading="loadingBeneficiaries" :selection="true"
           :pageSize="pageSizeBen" :currentPage="currentPageBen" />
+
+          <el-tooltip content="Add Beneficiary" placement="top">
+              <el-button
+              style="margin-left: 10px; margin-top: 5px"
+               v-if="showEditButtons"
+              type="success"
+              circle
+              @click="AddBeneficiaryFromWithin()"
+            >
+              <Icon icon="octicon:person-add-24" />
+            </el-button>
+         </el-tooltip>
+
 
 
         <ElPagination
@@ -2157,17 +2309,13 @@ layout="sizes, prev, pager, next, total" v-model:currentPageBen="currentPageBen"
       </el-tab-pane>
 
 
+
       <el-tab-pane label="Map" name="Map" :disabled="tabDisabled">
         <div id="mapContainer" class="basemap"></div>
       </el-tab-pane>
     </el-tabs>
-
-
-
     <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
       <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-
-
         <el-form-item label="Location" prop="location_level">
           <el-select
 v-model="ruleForm.location_level" filterable placeholder="Select Location"
@@ -2175,15 +2323,12 @@ v-model="ruleForm.location_level" filterable placeholder="Select Location"
             <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-
-
         <el-form-item v-if=showCounty label="County" prop="county_id">
           <el-select v-model="ruleForm.county_id" filterable placeholder="Select County" @change="handleSelectCounty">
             <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-
-        <el-form-item v-if=showCountySettlement label="Sub County" prop="subcounty_id" >
+        <el-form-item v-if=showCountySettlement label="Sub County" prop="subcounty_id">
           <el-select
 v-model="ruleForm.subcounty_id" filterable placeholder="Sub County"
             :onChange="handleSelectSubCounty">
@@ -2197,9 +2342,6 @@ v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
             <el-option v-for="item in wardFilteredOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-
-
-
         <el-form-item v-if=showCountySettlement label="Settlement" prop="settlement_id">
           <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement">
             <el-option
@@ -2207,20 +2349,14 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
               :value="item.value" />
           </el-select>
         </el-form-item>
-
-
-
         <el-form-item label="Title">
           <el-input v-model="ruleForm.title" />
         </el-form-item>
-
         <el-form-item label="Component" prop="component_id">
           <el-select v-model="ruleForm.component_id" filterable placeholder="Select Component">
             <el-option v-for="item in componentOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-
-
         <el-form-item label="Beneficiaries (M)">
           <el-input-number v-model="ruleForm.male_beneficiaries" />
         </el-form-item>
@@ -2271,7 +2407,55 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     </el-dialog>
 
 
-    
+    <el-dialog
+v-model="AddBeneficiaryDialogVisible" @close="handleClose"  title="Add Beneficiary" :width="dialogWidth"
+      draggable>
+      <el-form ref="BeneficaryFormRef" :model="BeneficaryForm" :rules="rules" label-width="120px">
+
+        <el-form-item label="County" prop="hh_id">
+          <el-select v-model="BeneficaryForm.county_id" filterable placeholder="Select" :disabled ="disableBeneficiaryInputs" :onChange="handleSelectCounty">
+            <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="Settlement" prop="hh_id">
+          <el-select
+v-model="BeneficaryForm.settlement_id" filterable  :disabled ="disableBeneficiaryInputs" placeholder="Select" :onChange="getSettlementProjects">
+            <el-option
+v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+              :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+
+
+        <el-form-item label="Project" prop="project_id">
+          <el-select v-model="BeneficaryForm.project_id" filterable placeholder="Select" :onChange="handleSelectProject" :disabled ="disableBeneficiaryInputs">
+            <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+
+
+        <el-form-item label="Beneficiary" prop="hh_id">
+          <el-select v-model="BeneficaryForm.hh_id" multiple filterable placeholder="Select">
+            <el-option v-for="item in settlementHHoptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+
+
+
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="AddBeneficiaryDialogVisible = false">Cancel</el-button>
+          <el-button type="primary" @click="submitBeneficiaryForm(BeneficaryFormRef)">Submit</el-button>
+
+        </span>
+      </template>
+    </el-dialog>
+
+
   </ContentWrap>
 </template>
  
