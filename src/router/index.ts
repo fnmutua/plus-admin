@@ -2711,7 +2711,20 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               icon:'bi:house-add',
               title: 'Add HH'
             }
-          },   
+          },  
+          {
+            path: 'hh/addx',
+            component: () => import('@/views/Household/AddX.vue'),
+            name: 'AddHouseholdx',
+            props: {
+              name: String
+            },
+            meta: {
+              hidden: false,
+              icon:'bi:house-add',
+              title: 'Add HHx'
+            }
+          },        
           {
             path: 'beneficiary',
             name: 'InterventionBeneficiary',

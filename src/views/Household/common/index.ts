@@ -1,3 +1,9 @@
+import {
+  getOneGeo,
+  getOneSettlement,
+  getSettlementListByCounty,
+  getfilteredGeo
+} from '@/api/settlements'
 
 import { getCountyListApi,getListWithoutGeo } from '@/api/counties'
 import { Form, FormExpose } from '@/components/Form'
@@ -86,7 +92,7 @@ const getRoads = async () => {
       opt.value = arrayItem.id
       opt.label = arrayItem.name + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
-      roadOptions.value.push(county)
+      roadOptions.value.push(opt)
     })
   })
 }
@@ -121,6 +127,111 @@ const getSubCounties = async () => {
   })
 }
 
+const wardOptions = ref([])
+ const getWards = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    //console.log('Received response:', response)
+    //tableDataList.value = response.data
+    const ret = response.data
+  
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      const parentOpt = {}
+      parentOpt.value = arrayItem.id
+      parentOpt.county_id = arrayItem.county_id
+      parentOpt.subcounty_id = arrayItem.subcounty_id
+       parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      wardOptions.value.push(parentOpt)
+    })
+  })
+}
+
+const cascadedAdminOptions = ref([])
+
+const getCountySubcountySep = async () => {
+  cascadedAdminOptions.value=[] // initialize every time its called
+  const  nested =['subcounty','ward','settlement']
+  const res = await getListWithoutGeo({
+  
+    params: {
+      //   pageIndex: 1,
+      //  limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'county',
+      assocModel: 'subcounty',
+      searchField: 'name',
+      nested_models:nested,
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received  cascaded response:', response)
+    //tableDataList.value = response.data
+    const ret = response.data
+
+
+
+    ret.forEach((data) => {
+      const coption = {
+        value: data.id,
+        label: data.name +' county',
+        children:[]
+          };
+ 
+            data.subcounties.forEach((subc) => {
+              const soption = {
+                value: subc.id,
+                label: subc.name +' subcounty',
+                county_id: data.id,
+                children:[]
+              };
+              subc.wards.forEach((ward) => {
+                      const woption = {
+                        value: ward.id,
+                        label: ward.name,
+                        subcounty_id: ward.subcounty_id,
+                        county_id: ward.county_id,
+                        children:[]
+                      };
+                       ward.settlements.forEach((settlement) => {
+                            const sett_option = {
+                              value: settlement.id,
+                              label: settlement.name+' settlement',
+                              subcounty_id: settlement.subcounty_id,
+                              county_id: settlement.county_id,
+                              ward_id: settlement.ward_id,
+                  
+                            };
+                            
+                            woption.children.push(sett_option)
+              
+                            })
+                            soption.children.push(woption)
+              })
+              coption.children.push(soption)
+              })
+
+              cascadedAdminOptions.value.push(coption)
+    });
+
+    console.log('Received  cascaded cascadedAdminOptions:', cascadedAdminOptions.value)
+
+  })
+
+  // console.log('countyOptions', countyList)
+  // console.log('filteredSubCountyList', filteredSubCountyList)
+}
+getCountySubcountySep()
 
 const regOptions = [
   {
@@ -780,11 +891,12 @@ getSettlements()
 getCounties()
 getSubCounties()
 getRoads()
+getWards()
 
 
 
 export {
   countyOptions, settlementOptionsV2, subcountyOptions, regOptions,WaterFacilitytypeOptions,cascadeOptions,phase_options,frequencyOptions,wasteOptions,FacilityConditionOptions,
   SchoolLevelOptions, HCFTypeOptions, LevelOptions, generalOwnership, roadOptions,AssetConditionOptions,AssetTypeOptions,
-  ownsershipOptions, mhmOptions, tenancyOptions, drainageTypeOtions, SurfaceTypeOtions, RdClassOptions,pipeOptions,sewerTypes
+  ownsershipOptions, mhmOptions, tenancyOptions, drainageTypeOtions, SurfaceTypeOtions, RdClassOptions,pipeOptions,sewerTypes,wardOptions,cascadedAdminOptions
 };

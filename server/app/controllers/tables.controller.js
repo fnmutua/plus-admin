@@ -364,14 +364,14 @@ exports.modelAllData = (req, res) => {
 }
 
 
-exports.modelAllDataNoGeo = (req, res) => {
+exports.xmodelAllDataNoGeo = (req, res) => {
   var reg_model = req.query.model;
   var field = req.query.searchField;
   var searchKeyword = req.query.searchKeyword;
 
   var ass_model = db.models[req.query.assocModel];
 
-  //console.log('All Model Data-----> 30/10', req)
+  console.log('All Model Data-----> 30/10', req.query)
 
   var includeQuery = {};
   if (ass_model) {
@@ -409,6 +409,81 @@ exports.modelAllDataNoGeo = (req, res) => {
     });
   }
 };
+
+exports.modelAllDataNoGeo = (req, res) => {
+  var reg_model = req.query.model;
+  var field = req.query.searchField;
+  var searchKeyword = req.query.searchKeyword;
+
+  var nestedModels = req.query.nested_models; // Comma-separated list of nested models
+   var includeQuery = {};
+  var modelsToInclude = [];
+
+  if (req.query.assocModel) {
+    var assocModelObject = {
+      model: db.models[req.query.assocModel],
+      attributes: { exclude: ['geom'] }
+    };
+    modelsToInclude.push(assocModelObject);
+  }
+
+
+  if (nestedModels && nestedModels !== '') {
+    var nestedModelList = nestedModels.split(',');
+
+    nestedModelList.forEach((nestedModel) => {
+      var nestedModelObject = {
+        model: db.models[nestedModel],
+        attributes: { exclude: ['geom'] }
+      };
+     // modelsToInclude.push(nestedModelObject);
+      if (!modelsToInclude.some((model) => model.model === nestedModelObject.model)) {
+        modelsToInclude.push(nestedModelObject);
+      }
+    });
+
+    modelsToInclude.reduceRight((prevModel, nestedModelObject) => {
+      nestedModelObject.include = [prevModel];
+      return nestedModelObject;
+    });
+
+    includeQuery.include = [modelsToInclude[0]];
+  } else {
+    console.log('No Nested Models');
+  }
+
+  includeQuery.attributes = { exclude: ['geom'] };
+
+  //includeQuery.order = [['name', 'ASC'], ['title', 'ASC']]; //sort either by title or name 
+
+  if (field && searchKeyword && searchKeyword !== '' && field !== '') {
+    console.log('Filtered with no GEO');
+
+    includeQuery.where = {
+      [field]: Number.isInteger(parseInt(searchKeyword)) ? parseInt(searchKeyword) : { [Op.iLike]: `%${searchKeyword.toLowerCase()}%` }
+    };
+
+    db.models[reg_model]
+      .findAndCountAll(includeQuery)
+      .then((list) => {
+        res.status(200).send({
+          data: list.rows,
+          total: list.count,
+          code: '0000'
+        });
+      });
+  } else {
+    db.models[reg_model].findAndCountAll(includeQuery).then((list) => {
+      res.status(200).send({
+        data: list.rows,
+        total: list.count,
+        code: '0000'
+      });
+    });
+  }
+};
+
+
 
 
 
