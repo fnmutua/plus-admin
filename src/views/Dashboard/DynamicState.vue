@@ -1172,13 +1172,9 @@ const getCharts = async (section_id) => {
             formData.model = 'households'
             formData.summaryFunction = 'sum'
 
-            let males = ['age_00_04m', 'age_05_09m', 'age_10_14m', 'age_15_19m', 'age_20_24m', 'age_24_29m',
-              'age_30_34m', 'age_35_39m', 'age_40_44m', 'age_45_49m', 'age_50_54m', 'age_55_59m', 'age_60_64m',
-              'age_65_69m', 'age_70_plusm']
+            let males = ['age_00_04f',  'age_05_09f',  'age_10_14f','age_15_19f', 'age_20_24f', 'age_25_29f',  'age_30_34f',  'age_35_39f',  'age_40_44f', 'age_45_49f', 'age_50_54f',  'age_55_59f', 'age_60_64f', 'age_65_69f', 'age_gt_70f'  ]
 
-            let females = ['age_00_04f', 'age_05_09f', 'age_10_14f', 'age_15_19f', 'age_20_24f', 'age_24_29f',
-              'age_30_34f', 'age_35_39f', 'age_40_44f', 'age_45_49f', 'age_50_54f', 'age_55_59f', 'age_60_64f',
-              'age_65_69f', 'age_70_plusf']
+            let females = [ 'age_00_04m', 'age_05_09m', 'age_10_14m',  'age_15_19m', 'age_20_24m','age_25_29m','age_30_34m','age_35_39m','age_40_44m', 'age_45_49m', 'age_50_54m','age_55_59m',  'age_60_64m', 'age_65_69m','age_gt_70m']
 
             const fields = females.concat(males);
 

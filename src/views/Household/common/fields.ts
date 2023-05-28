@@ -11,7 +11,8 @@ import {
 
 const steps = [
   { title: "Profile" },
-   { title: "Composition" },
+  { title: "Income" },
+  { title: "Composition" },
   { title: "Structures" },
   { title: "Waste" },
   { title: "Services" },
@@ -143,7 +144,7 @@ const formFields: Field[][] = [
     },
     {
       name: "owner_tenant",
-      label: "Ownership",
+      label: "Tenure",
       type: "select",
       multiselect: 'false',
       options: [
@@ -208,8 +209,8 @@ const formFields: Field[][] = [
       options: [],
     },
     {
-      name: "age",
-      label: "Owner Age",
+      name: "household_head_age",
+      label: "Household Head Age",
       type: "select",
       multiselect: 'false',
       options: [
@@ -300,30 +301,6 @@ const formFields: Field[][] = [
           },
       
           {
-            name: "occupation",
-            label: "Occupation",
-            type: "select",
-             multiselect: 'false',
-            options: [
-              { label: "Civil Servant", value: "civil_servant" },
-              { label: "In private sector", value: "private_sector" },
-              { label: "Casual Laborer", value: "casual_laborer" },
-              { label: " Self-employed", value: "self_employed" },
-              { label: "Unemployed", value: "unemployed" },
-              { label: "Student", value: "student" },
-              { label: "Other", value: "other" },
-              { label: "N/A", value: "not_applicable" },
-            ],
-          },
-          {
-            name: "years",
-            label: "Years Lived in Settlement",
-            type: "number",
-            multiselect: 'false',
-            options: [],
-          },
-      
-          {
             name: "prev_residence",
             label: "Previous Residence",
             type: "select",
@@ -336,6 +313,55 @@ const formFields: Field[][] = [
             ],
           },
   ],
+  [
+    
+    {
+      name: "occupation",
+      label: "Occupation",
+      type: "select",
+       multiselect: 'false',
+      options: [
+        { label: "Civil Servant", value: "civil_servant" },
+        { label: "In private sector", value: "private_sector" },
+        { label: "Casual Laborer", value: "casual_laborer" },
+        { label: " Self-employed", value: "self_employed" },
+        { label: "Unemployed", value: "unemployed" },
+        { label: "Student", value: "student" },
+        { label: "Other", value: "other" },
+        { label: "N/A", value: "not_applicable" },
+      ],
+    },
+    {
+      name: "years_in_settlement",
+      label: "Years Lived in Settlement",
+      type: "number",
+      multiselect: 'false',
+      options: [],
+    },
+
+    {
+      name: 'place_work', label: 'Place of Work', type: 'select', multiselect: 'false',
+      options:residence
+  }, 
+  {
+      name: 'income_monthly', label: 'Monthly Income', type: 'select', multiselect: 'false',
+      options:moneyRange
+          },
+  
+          {
+              name: 'monthly_rent', label: 'Rent', type: 'select', multiselect: 'false',
+              options:moneyRange
+          },
+  {
+      name: 'food_expenses', label: 'Monthly Expenses(Food)', type: 'select',multiselect: 'false',
+      options:moneyRange
+  },
+  {
+      name: 'clothing_expenses', label: 'Monthly Expenses(Clothes)', type: 'select',multiselect: 'false',
+      options:moneyRange
+    },
+
+  ],
   // Fields for 3. Composition
   [
     {
@@ -347,203 +373,203 @@ const formFields: Field[][] = [
     },
     {
       label: "Number of Boys (0-4)yrs",
-      name: "00_04m",
+      name: "age_00_04m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Girls (5-9)yrs",
-      name: "05_09f",
+      name: "age_05_09f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Boys (5-9)yrs",
-      name: "05_09m",
+      name: "age_05_09m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Girls (10-14)yrs",
-      name: "10_14f",
+      name: "age_10_14f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Boys (10-14)yrs",
-      name: "10_14m",
+      name: "age_10_14m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (15-19)yrs",
-      name: "15_19f",
+      name: "age_15_19f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (15-19)yrs",
-      name: "15_19m",
+      name: "age_15_19m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (20-14)yrs",
-      name: "20_24f",
+      name: "age_20_24f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (20-14)yrs",
-      name: "20_24m",
+      name: "age_20_24m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (25-29)yrs",
-      name: "25_29f",
+      name: "age_25_29f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (25-29)yrs",
-      name: "25_29m",
+      name: "age_25_29m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (30-34)yrs",
-      name: "30_34f",
+      name: "age_30_34f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (30-34)yrs",
-      name: "30_34m",
+      name: "age_30_34m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (35-39)yrs",
-      name: "35_39f",
+      name: "age_35_39f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (35-39)yrs",
-      name: "35_39m",
+      name: "age_35_39m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (40-44)yrs",
-      name: "40_44f",
+      name: "age_40_44f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (40-44)yrs",
-      name: "40_44m",
+      name: "age_40_44m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (45-49)yrs",
-      name: "45_49f",
+      name: "age_45_49f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (45-49)yrs",
-      name: "45_49m",
+      name: "age_45_49m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (50-54)yrs",
-      name: "50_54f",
+      name: "age_50_54f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (50-54)yrs",
-      name: "50_54m",
+      name: "age_50_54m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (55-59)yrs",
-      name: "55_59f",
+      name: "age_55_59f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (55-59)yrs",
-      name: "55_59m",
+      name: "age_55_59m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (60-64)yrs",
-      name: "60_64f",
+      name: "age_60_64f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (60-64)yrs",
-      name: "60_64m",
+      name: "age_60_64m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (65-69)yrs",
-      name: "65_69f",
+      name: "age_65_69f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (65-69)yrs",
-      name: "65_69m",
+      name: "age_65_69m",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Females (70+)yrs",
-      name: "gt_70f",
+      name: "age_gt_70f",
       type: "number",
       multiselect: 'false',
       options: [],
     },
     {
       label: "Number of Males (70+)yrs",
-      name: "gt_70m",
+      name: "age_gt_70m",
       type: "number",
       multiselect: 'false',
       options: [],
@@ -563,15 +589,15 @@ const formFields: Field[][] = [
                   { label: 'Semi-permanent ', value: 'semi_permanent' },
                   { label: 'Temporary', value: 'temporary' }]
               },
-          { name: 'floor', label: 'StructureFloorMaterial', type: 'select',  multiselect: 'false', options: [{ label: 'Cement', value: 'cement' }, { label: 'Earth ', value: 'earth' }, { label: 'Tiled', value: 'tiled' }] },
-          { name: 'material', label: 'Wall Material', type: 'select', multiselect: 'false', options: material },
-          { name: 'roof', label: 'Roof Material', type: 'select', multiselect: 'false', options: material },
+          { name: 'structure_floor_material', label: 'StructureFloorMaterial', type: 'select',  multiselect: 'false', options: [{ label: 'Cement', value: 'cement' }, { label: 'Earth ', value: 'earth' }, { label: 'Tiled', value: 'tiled' }] },
+          { name: 'structure_wall_material', label: 'Wall Material', type: 'select', multiselect: 'false', options: material },
+          { name: 'structure_roof_material', label: 'Roof Material', type: 'select', multiselect: 'false', options: material },
           { name: 'structure_width', label: 'Structure Width(m)', type: 'number',multiselect: 'false', options: [] },
           { name: 'structure_length', label: 'Structure Length(m)', type: 'number',multiselect: 'false', options: [] },
-          { name: 'water', label: 'Mains Water', type: 'select', multiselect: 'false', options: water },
+          { name: 'water_main', label: 'Mains Water', type: 'select', multiselect: 'false', options: water },
           { name: 'water_cost_20l', label: 'Average cost of water for 20L', type: 'number',multiselect: 'false', options: [] },
           {
-              name: 'water_usage_day', label: 'Water used per day in liters', type: 'select',  multiselect: 'false',
+          name: 'water_usage_day', label: 'Water used per day in liters', type: 'select',  multiselect: 'false',
               options: [
                   { label: '0-10L', value:  '0_10' },
                   { label: '11-20L', value: '11_20' },
@@ -581,8 +607,8 @@ const formFields: Field[][] = [
                   { label: 'Above 50L', value: 'gt_50' },
                ]
           },
-          { name: 'bathroom', label: 'Average cost Bathroom',type: 'select', multiselect: 'false', options: bathroom  },
-          { name: 'toilet', label: 'Average to Toilet',type: 'select', multiselect: 'false', options: toilet  },
+          { name: 'access_bathroom', label: 'Average cost Bathroom',type: 'select', multiselect: 'false', options: bathroom  },
+          { name: 'access_toilet', label: 'Average to Toilet',type: 'select', multiselect: 'false', options: toilet  },
           { name: 'toilet_fee_use', label: 'Cost for Paid Toilets per use', type: 'number',multiselect: 'false', options: [] },
 
           {
@@ -599,7 +625,7 @@ const formFields: Field[][] = [
   //     // 5: Solid Waste
   [
     {
-      name: "wdisposal",
+      name: "waste_disposal",
       label: "Waste Disposal",
       type: "select",
       multiselect: 'false',
@@ -864,7 +890,7 @@ const formFields: Field[][] = [
   ],
   [
     {
-      name: "cost_electricity_permon",
+      name: "cost_electricity_per_mon",
       label: "Cost of Electricity Per Month",
       type: "number",
       multiselect: 'false',
@@ -887,7 +913,7 @@ const formFields: Field[][] = [
     },
 
     {
-      name: "energy_prov",
+      name: "energy_provider",
       label: "provider",
       type: "select",
       multiselect: 'false',
@@ -916,7 +942,7 @@ const formFields: Field[][] = [
     },
 
     {
-      name: "transport",
+      name: "transport_mode",
       label: "Transport",
       type: "select",
       multiselect: 'false',
@@ -1040,28 +1066,38 @@ const formData: FormData = reactive({});
 const formRules: FormRules = reactive({
   // Validation rules for each step
   step1: {
-    // name: [
-    //     { required: true, message: 'Name is required', trigger: 'blur' }
-    // ],
+    name: [
+        { required: true, message: 'Name is required', trigger: 'blur' }
+    ],
     // // age: [
     //     { required: true, message: 'Age is required', trigger: 'blur' },
     //     { type: 'number', message: 'Age must be a number', trigger: 'blur' }
     // ],
-    // location: [
-    //     { required: true, message: 'Location is required', trigger: 'blur' }
-    // ],
-    // gender: [
-    //     { required: true, message: 'Gender is required', trigger: 'blur' }
-    // ],
-    // national_id: [
-    //     { required: true, message: 'ID is required', trigger: 'blur' }
-    // ],
-    // owner_tenant: [
-    //     { required: true, message: 'Tenancy is required', trigger: 'blur' }
-    // ],
-    // owner_type: [
-    //     { required: true, message: 'This is required', trigger: 'blur' }
-    // ],
+    location: [
+      { required: true, message: 'Location is required', trigger: 'blur' },
+      {
+        validator: (rule, value, callback) => {
+          if (Array.isArray(value) && value.length === 4) {
+            callback();
+          } else {
+            callback(new Error('Location must include Settlement'));
+          }
+        }, 
+        trigger: 'blur'
+      }
+    ],
+    gender: [
+        { required: true, message: 'Gender is required', trigger: 'blur' }
+    ],
+    national_id: [
+        { required: true, message: 'ID is required', trigger: 'blur' }
+    ],
+    owner_tenant: [
+        { required: true, message: 'Tenancy is required', trigger: 'blur' }
+    ],
+    owner_type: [
+        { required: true, message: 'This is required', trigger: 'blur' }
+    ],
   },
 
   step2: {

@@ -47,7 +47,7 @@ exports.createHousehold = (req, res) => {
       })
       .catch(function (err) {
         // handle error;
-        console.log('error0---------->', err.parent)
+        console.log('error0---------->', err)
   
         if (err.name == 'SequelizeUniqueConstraintError') {
           var message = 'xOne or more table constraints are violated. Check your id columns'

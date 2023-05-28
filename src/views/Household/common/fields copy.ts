@@ -6,10 +6,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { ElCard } from 'element-plus'
  
 import { countyOptions,settlementOptionsV2, subcountyOptions,wardOptions,cascadedAdminOptions } from './index.ts' 
-
  
- 
-
 const steps = [
     { title: 'Profile' },
     { title: 'Income' },

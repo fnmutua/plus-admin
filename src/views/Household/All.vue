@@ -725,7 +725,7 @@ const activeName = ref('list')
 const AddHH = () => {
   push({
     path: '/settlement/hh/add',
-    name: 'AddHousehold'
+    name: 'AddHouseholdx'
   })
 }
 
@@ -741,13 +741,26 @@ const editHH = (data: TableSlotDefault) => {
   ruleForm.id = data.row.id
   for (const key in ruleForm) {
     ruleForm[key] = data.row[key]
-    console.log(key, ruleForm[key])
+   // console.log(key, ruleForm[key])
   }
 
+
+  // push({
+  //   path: '/settlement/hh/add',
+  //   name: 'AddHousehold'
+  // })
+console.log('pasising', data.row.id)
+  push({
+  name: 'AddHouseholdx',
+    query: { id: data.row.id }
+  
+});
 
 
 
   AddDialogVisible.value = true
+
+  
 }
 
 const removeDocument = (data: TableSlotDefault) => {
@@ -1045,7 +1058,7 @@ size="default" v-model="value3" multiple clearable filterable remote :remote-met
           </el-table-column>
           <el-table-column label="Name" width="200" prop="name" sortable />
           <el-table-column label="Gender" prop="gender" sortable />
-          <el-table-column label="Ownership Status" prop="ownership_status" sortable />
+          <el-table-column label="Ownership Status" prop="owner_tenant" sortable />
           <el-table-column label="Settlement" prop="settlement.name" sortable />
 
 
