@@ -2716,11 +2716,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             path: 'hh/addx',
             component: () => import('@/views/Household/AddX.vue'),
             name: 'AddHouseholdx',
-            props: {
-              name: String
-            },
             meta: {
               hidden: false,
+              props: true,
               icon:'bi:house-add',
               title: 'Add HHx'
             }
