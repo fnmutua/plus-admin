@@ -66,7 +66,7 @@ v-for="option in field.options" :key="option.value" :label="option.label"
                         <el-button type="primary" @click="nextStep" v-if="currentStep < totalSteps - 1">Next</el-button>
                         <el-button type="success" @click="submitForm" v-else>Submit</el-button>
                     </div>
-                    <pre>{{ JSON.stringify(formData, null, 2) }}</pre>
+                    <!-- <pre>{{ JSON.stringify(formData, null, 2) }}</pre> -->
 
                 </el-card>
             </div>
