@@ -2720,7 +2720,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               hidden: false,
               props: true,
               icon:'bi:house-add',
-              title: 'Add HHx'
+              title: 'Add Household'
             }
           },        
           {
