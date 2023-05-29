@@ -1096,8 +1096,7 @@ const handleClose = () => {
 const activeName = ref('list')
 const AddSettlement = () => {
   push({
-    path: '/data/settlement/add',
-    name: 'AddSettlement'
+     name: 'AddSettlementX'
   })
 }
 
@@ -1105,6 +1104,13 @@ const AddDialogVisible = ref(false)
 const formHeader = ref('Edit Settlement')
 
 const editSettlement = (data: TableSlotDefault) => {
+
+  push({
+  name: 'AddSettlementX',
+    query: { id: data.row.id }
+  
+  });
+
 
   showEditSaveButton.value = true
 

@@ -780,7 +780,7 @@ const flyTo = (data: TableSlotDefault) => {
 const AddFacility = (data: TableSlotDefault) => {
   push({
     path: '/facilities/eud/add',
-    name: 'AddEducation'
+    name: 'AddEducationX'
   })
 }
 
@@ -1184,40 +1184,47 @@ const showAddSaveButton = ref(true)
 
 const AddDialogVisible = ref(false)
 const editFacility = (data: TableSlotDefault) => {
-  handleSelectCounty(data.county_id)
 
-  showEditSaveButton.value = true
-  console.log(data)
-  currentRow.value = data.id
-  ruleForm.id = data.id
-  ruleForm.name = data.name
-  ruleForm.settlement_id = data.settlement_id
-  ruleForm.county_id = data.county_id
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.school_number = data.school_number
-  ruleForm.category = data.category
-  ruleForm.male_enrollment = data.male_enrollment
-  ruleForm.female_enrollment = data.female_enrollment
-  ruleForm.number_teachers = data.number_teachers
-  ruleForm.number_classrooms = data.number_classrooms
-  ruleForm.number_male_toilets = data.number_male_toilets
-  ruleForm.number_female_toilets = data.number_female_toilets
-  ruleForm.avg_fees_term = data.avg_fees_term
-  ruleForm.mhm = data.mhm
-  ruleForm.tenancy = data.tenancy
-  ruleForm.parcel_tenure = data.parcel_tenure
-  ruleForm.facility_number = data.facility_number
-  ruleForm.reg_status = data.reg_status
-  ruleForm.level = data.level
-  ruleForm.owner = data.owner
-  ruleForm.number_handwashing_stns = data.number_handwashing_stns
-  ruleForm.ownership_type = data.ownership_type
-  ruleForm.geom = data.geom
+ push({
+  name: 'AddEducationX',
+    query: { id: data.id }
+  
+  });
+
+  // handleSelectCounty(data.county_id)
+
+  // showEditSaveButton.value = true
+  // console.log(data)
+  // currentRow.value = data.id
+  // ruleForm.id = data.id
+  // ruleForm.name = data.name
+  // ruleForm.settlement_id = data.settlement_id
+  // ruleForm.county_id = data.county_id
+  // ruleForm.subcounty_id = data.subcounty_id
+  // ruleForm.school_number = data.school_number
+  // ruleForm.category = data.category
+  // ruleForm.male_enrollment = data.male_enrollment
+  // ruleForm.female_enrollment = data.female_enrollment
+  // ruleForm.number_teachers = data.number_teachers
+  // ruleForm.number_classrooms = data.number_classrooms
+  // ruleForm.number_male_toilets = data.number_male_toilets
+  // ruleForm.number_female_toilets = data.number_female_toilets
+  // ruleForm.avg_fees_term = data.avg_fees_term
+  // ruleForm.mhm = data.mhm
+  // ruleForm.tenancy = data.tenancy
+  // ruleForm.parcel_tenure = data.parcel_tenure
+  // ruleForm.facility_number = data.facility_number
+  // ruleForm.reg_status = data.reg_status
+  // ruleForm.level = data.level
+  // ruleForm.owner = data.owner
+  // ruleForm.number_handwashing_stns = data.number_handwashing_stns
+  // ruleForm.ownership_type = data.ownership_type
+  // ruleForm.geom = data.geom
 
 
 
-  morefileList.value = data.documents
-  AddDialogVisible.value = true
+  // morefileList.value = data.documents
+  // AddDialogVisible.value = true
 }
 
 

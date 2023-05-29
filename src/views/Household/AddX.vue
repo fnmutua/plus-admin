@@ -83,16 +83,20 @@
                   </el-select>
   
                   <el-cascader
-                    v-else-if="field.type === 'cascade'"
+                    v-else-if="field.type === 'cascade' && !isMobile"
                     v-model="formData[field.name]"
                     :filterable="true"
                     clearable
                     :options="field.options"
                     :props="props"
+                    
                     @change="getFieldChangeHandler(field.name)"
-                    :popper-class="isMobile ? 'cascader-popper-mobile' : ''"
-
+                    popper placement="bottom-end" width="10px" height="10px"
                   />
+
+                  <el-button type="primary" @click="showOnMobile(field.options)" v-else-if="field.type === 'cascade' && isMobile">
+              Select
+            </el-button>
                 </el-form-item>
               </el-col>
             </el-row>
@@ -112,6 +116,23 @@
           <!-- <pre>{{ JSON.stringify(formData, null, 2) }}</pre> -->
         </el-card>
       </div>
+
+      <el-dialog
+    v-model="showDialog"
+    title="Tips"
+    width="100%"
+   >
+   <el-cascader-panel size="small" :options="cascadeOptions" popper-class="custom-cascader-popper" />
+
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showDialog = false">Cancel</el-button>
+        <el-button type="primary" @click="showDialog = false">
+          Confirm
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
     </ContentWrap>
   </template>
 
@@ -120,7 +141,7 @@
     import { ref, reactive,onMounted,   computed, Ref } from 'vue';
     import { ContentWrap } from '@/components/ContentWrap'
     import { useI18n } from '@/hooks/web/useI18n'
-    import { ElCard, ElCascader,     } from 'element-plus'
+    import { ElCard, ElCascader, ElCascaderPanel,  ElDialog  } from 'element-plus'
     import { useRouter } from 'vue-router'
 
     import { steps, formFields, formData, formRules } from './common/fields.ts'
@@ -170,8 +191,7 @@ if (isMobile.value) {
 
 
 const newRecord = ref(true)
-const withValidationErrors = ref(false)
- 
+  
 onMounted( async () => {
  
     //formData.value = JSON.parse(route.query.formData);
@@ -207,7 +227,14 @@ onMounted( async () => {
  })
 
 
- 
+const showDialog = ref(false)
+const cascadeOptions =ref([])
+const showOnMobile = (options) => {
+    console.log(options)
+    cascadeOptions.value=options
+
+     showDialog.value = true
+    };
  
 
     const currentStep = ref(0);
@@ -257,8 +284,7 @@ onMounted( async () => {
         }
     };
 
-const validationErrors = ref([]) 
- 
+  
   
     const submitForm = async () => {
         const formInstance = dynamicFormRef
@@ -410,5 +436,12 @@ const computeHHSize = () => {
   }
 }
  
+.custom-cascader-popper .el-cascader__dropdown {
+  /* Position the popper below instead of on the right */
+  top: auto;
+  left: 0;
+  right: auto;
+  bottom: -10px;
+}
 
 </style>
