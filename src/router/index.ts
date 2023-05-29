@@ -2660,6 +2660,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             }
           },
           {
+            path: 'addx',
+            component: () => import('@/views/Settlement/AddX.vue'),
+            name: 'AddSettlementX',
+            meta: {
+              hidden: false,
+              props: true,
+              icon:'bi:house-add',
+              title: 'AddSettX'
+            }
+          }, 
+          {
             path: 'parcel',
            // component: 'views/Parcel/index',
             component: () => import('@/views/Parcel/index.vue'),
@@ -2852,6 +2863,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'AddEducation',
             meta: { hidden: true, title: 'Add', noCache: true }
           },
+
+          {
+            path: 'edu/addX',
+            //component: 'views/Facilities/Education/Add',
+            component: () => import('@/views/Facilities/Education/AddX.vue'),
+    
+            name: 'AddEducationX',
+            meta: { hidden: true, title: 'Add', noCache: true }
+          },
+
+
+
           {
             path: 'edu/map/:id',
             //component: 'views/Facilities/Education/SchoolMap',

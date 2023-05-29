@@ -753,10 +753,10 @@ exports.modelCreateOneRecord = (req, res) => {
     })
     .catch(function (err) {
       // handle error;
-      console.log('error0-----2----->', err.parent.detail)
+      console.log('error0-----2----->', err)
 
       if (err.name == 'SequelizeUniqueConstraintError') {
-        var message = err.parent.detail
+        var message = err
         var xmessage = 'One or more table constraints are violated. Check your id columns'
       } else {
         var message = 'The submitted record does not match the required fields'
