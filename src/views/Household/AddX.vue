@@ -1,91 +1,139 @@
-    <template>
-        <ContentWrap title="Add Household">
-            <div>
+<template>
+    <ContentWrap title="Add Household">
+      <div>
+        <el-card class="box-card">
+            <el-steps
+                :active="currentStep"
+                finish-status="success"
+                align-center
+                class="small-steps"
+            >
+                <el-step
+                v-for="(step, index) in steps"
+                :key="index"
+                :title="isMobile ?  '': step.title"
+                @click="handleStepClick(index)"
+ 
+                />
+            </el-steps>
+          <el-divider />
+  
+          <el-form
+            :model="formData"
+            :rules="currentStepRules"
+            label-width="200px"
+            :label-position="labelPosition"
+            ref="dynamicFormRef"
+          >
+            <el-row :gutter="16">
+              <el-col
+                v-for="(field, index) in currentStepFields"
+                :key="index"
+                :span="24"
+                :xs="24"
+                :sm="24"
+                :md="12"
+                :lg="8"
+                :xl="8"
+              >
+                <el-form-item :label="field.label" :prop="field.name" >
+                  <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
+                  <el-input-number
+                    v-else-if="field.type === 'number'"
+                    v-model="formData[field.name]"
+                    @change="getFieldChangeHandler(field.name)"
+                  />
+                  <el-date-picker
+                    v-else-if="field.type === 'date'"
+                    type="date"
+                    v-model="formData[field.name]"
+                  />
+                  <!-- Add more conditions for other field types as needed -->
+                  <el-select
+                    v-else-if="field.type === 'select' && field.multiselect === 'false'"
+                    v-model="formData[field.name]"
+                    :filterable="true"
+                    collapse-tags
+                    placeholder="Select"
+                    @change="getFieldChangeHandler(field.name)"
+                  >
+                    <el-option
+                      v-for="option in field.options"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+  
+                  <el-select
+                    v-else-if="field.type === 'select' && field.multiselect === 'true'"
+                    v-model="formData[field.name]"
+                    :filterable="true"
+                    multiple
+                    collapse-tags
+                    placeholder="Select"
+                    @change="getFieldChangeHandler(field.name)"
+                  >
+                    <el-option
+                      v-for="option in field.options"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+  
+                  <el-cascader
+                    v-else-if="field.type === 'cascade'"
+                    v-model="formData[field.name]"
+                    :filterable="true"
+                    clearable
+                    :options="field.options"
+                    :props="props"
+                    @change="getFieldChangeHandler(field.name)"
+                    :popper-class="isMobile ? 'cascader-popper-mobile' : ''"
 
-
-    <el-card class="box-card">
-        <el-steps :active="currentStep" finish-status="success"  align-center class="small-steps" >
-            <el-step v-for="(step, index) in steps" :key="index" :title="step.title" />
-        </el-steps>
-        <el-divider />
-
-        <el-form :model="formData" :rules="currentStepRules" label-width="200px" ref="dynamicFormRef">
-            <el-row>
-                <el-col v-for="(field, index) in currentStepFields" :key="index" :xs="24" :sm="24" :md="8" :lg="8" :xl="8" >
-                    <el-form-item   :label="field.label" :prop="field.name">
-                        <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
-                        <el-input-number
-v-else-if="field.type === 'number'" 
-                        v-model="formData[field.name]"  
-                        @change="getFieldChangeHandler(field.name)"
-                        />
-                        <el-date-picker
-v-else-if="field.type === 'date'" type="date"
-                            v-model="formData[field.name]" />
-                        <!-- Add more conditions for other field types as needed -->
-                        <el-select
-v-else-if="field.type === 'select'  && field.multiselect ==='false' " v-model="formData[field.name]"
-                            :filterable="true"  
-                             collapse-tags
-                            placeholder="Select"
-                            @change="getFieldChangeHandler(field.name)">
-                            <el-option
-v-for="option in field.options" :key="option.value" :label="option.label"
-                                :value="option.value" />
-                        </el-select>
-                         
-
-                        <el-select
-v-else-if="field.type === 'select'  && field.multiselect ==='true' " v-model="formData[field.name]"
-                            :filterable="true"  
-                             multiple  
-                            collapse-tags
-                            placeholder="Select"
-                            @change="getFieldChangeHandler(field.name)">
-                            <el-option
-v-for="option in field.options" :key="option.value" :label="option.label"
-                                :value="option.value" />
-                        </el-select>
-                         
-
-                        <el-cascader
-                            v-else-if="field.type === 'cascade'"
-                                v-model="formData[field.name]"
-                                :filterable="true"
-                                clearable
-                                :options="field.options"
-                                :props="props"
-                                @change="getFieldChangeHandler(field.name)"
-                                 />
-                    </el-form-item>
-                </el-col>
+                  />
+                </el-form-item>
+              </el-col>
             </el-row>
-        </el-form>
-                    <div>
-                        <el-button type="primary" @click="prevStep" v-if="currentStep > 0">Previous</el-button>
-                        <el-button type="primary" @click="nextStep" v-if="currentStep < totalSteps - 1">Next</el-button>
-                        <el-button type="success" @click="submitForm" v-else>Submit</el-button>
-                    </div>
-                    <!-- <pre>{{ JSON.stringify(formData, null, 2) }}</pre> -->
+          </el-form>
+  
+          <div class="button-container">
+            <el-button type="primary" @click="prevStep" v-if="currentStep > 0">
+              Previous
+            </el-button>
+            <el-button type="primary" @click="nextStep" v-if="currentStep < totalSteps - 1">
+              Next
+            </el-button>
+            <el-button type="success" @click="submitForm" v-else>
+              Submit
+            </el-button>
+          </div>
+          <!-- <pre>{{ JSON.stringify(formData, null, 2) }}</pre> -->
+        </el-card>
+      </div>
+    </ContentWrap>
+  </template>
 
-                </el-card>
-            </div>
-        </ContentWrap>
-    </template>
 
 <script lang="ts" setup>
     import { ref, reactive,onMounted,   computed, Ref } from 'vue';
     import { ContentWrap } from '@/components/ContentWrap'
     import { useI18n } from '@/hooks/web/useI18n'
-    import { ElCard, ElCascader  } from 'element-plus'
+    import { ElCard, ElCascader,     } from 'element-plus'
     import { useRouter } from 'vue-router'
 
     import { steps, formFields, formData, formRules } from './common/fields.ts'
     import { createHousehold,getOneHousehold , updateHousehold} from '@/api/households'
     import shortid from 'shortid';
     import { useRoute } from 'vue-router'
+    import { useAppStoreWithOut } from '@/store/modules/app'
+    import { useCache } from '@/hooks/web/useCache'
 
-  
+        const { wsCache } = useCache()
+    const appStore = useAppStoreWithOut()
+    const userInfo = wsCache.get(appStore.getUserInfo)
+
 
     import {
         ElButton,
@@ -102,6 +150,9 @@ v-for="option in field.options" :key="option.value" :label="option.label"
     } from 'element-plus';
 
 
+    const isMobile = computed(() => appStore.getMobile)
+
+
     const route = useRoute()
     const { push } = useRouter()
 
@@ -111,9 +162,16 @@ const props = {
    
 };
 
+const labelPosition = ref('left')
+if (isMobile.value) {
+    labelPosition.value = 'top'
+  
+}  
+
 
 const newRecord = ref(true)
-
+const withValidationErrors = ref(false)
+ 
 onMounted( async () => {
  
     //formData.value = JSON.parse(route.query.formData);
@@ -171,6 +229,19 @@ onMounted( async () => {
         }
     };
 
+    const   handleStepClick = (index)=>  {
+    // // Perform actions when a step is clicked
+    // // You can update the current step or execute other logic
+    //     hasValidationErrors(index)
+    //     if (validationErrors[index] ==='Error' ) {
+    //         console.log('errors')
+    //     } else {
+    //         currentStep.value = index;
+    // }
+    currentStep.value = index;
+  }
+
+
     const nextStep = () => {
         console.log('xxxxx',steps[currentStep.value], totalSteps.value)
         if (currentStep.value < totalSteps.value - 1 && dynamicFormRef) {
@@ -186,6 +257,9 @@ onMounted( async () => {
         }
     };
 
+const validationErrors = ref([]) 
+ 
+  
     const submitForm = async () => {
         const formInstance = dynamicFormRef
         formInstance.value.validate( async(valid: boolean) => {
@@ -303,3 +377,38 @@ const computeHHSize = () => {
 
     }
     </style>
+
+
+  
+<style scoped>
+
+.small-steps .el-step__title {
+  display: none;
+}
+
+
+@media (max-width: 768px) {
+  .box-card {
+    padding: 10px;
+  }
+  .small-steps .el-step__title {
+    display: none;
+  }
+
+  .cascader-popper-mobile {
+    width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+  }
+ 
+  .button-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 10px;
+  }
+}
+ 
+
+</style>
