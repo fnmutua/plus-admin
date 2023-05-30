@@ -44,7 +44,7 @@ v-for="option in field.options" :key="option.value" :label="option.label"
                  
               <el-cascader
 v-else-if="field.type === 'cascade'  " v-model="formData[field.name]"
-                :filterable="true" clearable :options="field.options" :props="props"
+                :filterable="true" clearable :options="field.options"   
                 @change="getFieldChangeHandler(field.name)"/>
               
 
