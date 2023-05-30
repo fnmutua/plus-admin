@@ -18,6 +18,7 @@ v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm
             <el-form-item :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
               <el-input-number
+:min="field.min" 
 v-else-if="field.type === 'number'" v-model="formData[field.name]"
                 @change="getFieldChangeHandler(field.name)" />
               <el-date-picker v-else-if="field.type === 'date'" type="date" v-model="formData[field.name]" />
@@ -44,7 +45,7 @@ v-for="option in field.options" :key="option.value" :label="option.label"
               <el-cascader
 v-else-if="field.type === 'cascade'  " v-model="formData[field.name]"
                 :filterable="true" clearable :options="field.options" :props="props"
-                @change="getFieldChangeHandler(field.name)" popper placement="bottom-end" width="10px" height="10px" />
+                @change="getFieldChangeHandler(field.name)"/>
               
 
               <el-upload
@@ -82,7 +83,7 @@ v-else-if="field.type === 'cascade'  " v-model="formData[field.name]"
       </div>
       <!-- <pre>{{ JSON.stringify(formData, null, 2) }}</pre> -->
       <div v-if="currentStep == totalSteps - 1" id="mapContainer" class="basemap"></div>
-        <div id='coordinates' class='coordinates'></div>
+        <div v-if="currentStep == totalSteps - 1"  id='coordinates' class='coordinates'></div>
     
 
     </el-card>
@@ -188,7 +189,7 @@ onMounted( async () => {
              // Handle the successful response here
              console.log(res.data)
              var curData = res.data
-           curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id]
+           curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id, curData.settlement_id]
             curData.geom = curData.geom 
 
            console.log('curData',curData)
@@ -340,7 +341,7 @@ const readJson = (event) => {
       map.value.getSource("scope").setData(projectScopeGeo.value);
       bounds.value = turf.bbox((projectScopeGeo.value))
       console.log("From geo", bounds.value)
-      map.value.fitBounds(bounds.value, { padding: 20 })
+      map.value.fitBounds(bounds, { padding: 20, maxZoom: 18})
 
     }
 
@@ -383,7 +384,7 @@ const readShp = async (file) => {
     map.value.getSource("scope").setData(projectScopeGeo.value);
     bounds.value = turf.bbox((projectScopeGeo.value))
     console.log("From shp", bounds.value)
-    map.value.fitBounds(bounds.value, { padding: 20 })
+    map.value.fitBounds(bounds.value , { padding: 20, maxZoom: 15})
       }
 
 
@@ -613,7 +614,21 @@ const loadMap = async () => {
       data: (projectScopeGeo.value),
     });
     
-    map.value.addLayer({
+    if (newRecord.value) { 
+      map.value.addLayer({
+      'id': 'projectScopeGeo',
+      'type': 'line',
+      'source': 'scope',
+      'layout': {},
+      'paint': {
+        'line-color': '#000',
+        'line-width': 3
+      }
+    });
+
+    }
+    else {
+      map.value.addLayer({
         id: 'projectScopeGeo',
         type: 'circle',
         source: 'scope',
@@ -625,8 +640,12 @@ const loadMap = async () => {
         }
       });
 
+    }
+ 
+
     var bounds = turf.bbox((projectScopeGeo.value));
-    map.value.fitBounds(bounds, {padding: 20,duration:1000 });
+    //map.value.fitBounds(bounds, {padding: 20,duration:1000 });
+    map.value.fitBounds(bounds, { padding: 20, maxZoom: 15})
 
 
 
@@ -687,11 +706,12 @@ const submitForm = async () => {
      
       formData.model = model
       formData.code = shortid.generate()
-      formData.isApproved = 'Pending'
       formData.createdBy = userInfo.id
 
 
       if (newRecord.value) {
+        formData.isApproved = 'Pending'
+
         await CreateRecord(formData)
  
         console.log('New form', formData);
