@@ -1,4 +1,4 @@
-﻿id,settlement_id,name,gender,national_id,kra_pin,marital_status,education_level,residence_type,length_stay,ownership_status,photo,hh_size_03,hh_size_414,hh_size_1520,hh_size_2125,hh_size_2655,hh_size_gt55,over_80,terminally_ill,ph_disabled,orphans,ment_disabled,hearing_disabled,visual_disabled,emp_status,income_level,type_structure,struct_owner,rent_payable,address
+﻿id,settlement_id,name,gender,national_id,kra_pin,marital_status,education_level,residence_type,length_stay,owner_tenant,photo,hh_size_03,hh_size_414,hh_size_1520,hh_size_2125,hh_size_2655,hh_size_gt55,over_80,terminally_ill,ph_disabled,orphans,ment_disabled,hearing_disabled,visual_disabled,emp_status,income_level,type_structure,struct_owner,rent_payable,address
 1,55,Julia Wanjeri Wandimi ,Female,3183390,A011267269A ,,,,,,,,,,,,,,,,,,,,,,,,,
 2,55,Evah Wangui Kimamo ,Male,24531050,A006198147X ,,,,,,,,,,,,,,,,,,,,,,,,,
 3,55,Samwel Mwaniki Ndegea ,Male,11806101,A003044320X ,,,,,,,,,,,,,,,,,,,,,,,,,

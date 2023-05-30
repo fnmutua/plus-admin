@@ -1064,23 +1064,30 @@ const showAddSaveButton = ref(true)
 
 const AddDialogVisible = ref(false)
 const editFacility = (data: TableSlotDefault) => {
-  handleSelectCounty(data.county_id)
 
-  showEditSaveButton.value = true
+  
+  push({
+  name: 'AddRoadStructure',
+    query: { id: data.id }
+  
+ });
+  // handleSelectCounty(data.county_id)
 
-  console.log(data)
+  // showEditSaveButton.value = true
 
-  currentRow.value = data.id
+  // console.log(data)
 
-  ruleForm.id = data.id
-  ruleForm.road_id = data.road_id
-  ruleForm.asset_type = data.asset_type
-  ruleForm.asset_condition = data.asset_condition
+  // currentRow.value = data.id
 
-  ruleForm.geom = data.geom
+  // ruleForm.id = data.id
+  // ruleForm.road_id = data.road_id
+  // ruleForm.asset_type = data.asset_type
+  // ruleForm.asset_condition = data.asset_condition
 
-  morefileList.value = data.documents
-  AddDialogVisible.value = true
+  // ruleForm.geom = data.geom
+
+  // morefileList.value = data.documents
+  // AddDialogVisible.value = true
 }
 
 

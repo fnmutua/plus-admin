@@ -414,6 +414,7 @@ exports.modelAllDataNoGeo = (req, res) => {
   var reg_model = req.query.model;
   var field = req.query.searchField;
   var searchKeyword = req.query.searchKeyword;
+  var ass_model = db.models[req.query.assocModel];
 
   var nestedModels = req.query.nested_models; // Comma-separated list of nested models
    var includeQuery = {};

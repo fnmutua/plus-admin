@@ -73,7 +73,7 @@ const getRoads = async () => {
     params: {
       pageIndex: 1,
        curUser: 1, // Id for logged in user
-      model: 'county',
+      model: 'road',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'

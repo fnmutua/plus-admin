@@ -1093,33 +1093,41 @@ const showAddSaveButton = ref(true)
 
 const AddDialogVisible = ref(false)
 const editFacility = (data: TableSlotDefault) => {
-  handleSelectCounty(data.county_id)
 
-  showEditSaveButton.value = true
-  console.log(data)
-  currentRow.value = data.id
-  ruleForm.id = data.id
-  ruleForm.name = data.name
-  ruleForm.type = data.type
-
-  ruleForm.provider_category = data.provider_category
-  ruleForm.provider = data.provider
-  ruleForm.number_connections = data.number_connections
-  ruleForm.settlement_id = data.settlement_id
-  ruleForm.county_id = data.county_id
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.pipe_type = data.pipe_type
-  ruleForm.pipe_size = data.pipe_size
+  push({
+  name: 'AddSewer',
+    query: { id: data.id }
+  
+ });
 
 
+  // handleSelectCounty(data.county_id)
+
+  // showEditSaveButton.value = true
+  // console.log(data)
+  // currentRow.value = data.id
+  // ruleForm.id = data.id
+  // ruleForm.name = data.name
+  // ruleForm.type = data.type
+
+  // ruleForm.provider_category = data.provider_category
+  // ruleForm.provider = data.provider
+  // ruleForm.number_connections = data.number_connections
+  // ruleForm.settlement_id = data.settlement_id
+  // ruleForm.county_id = data.county_id
+  // ruleForm.subcounty_id = data.subcounty_id
+  // ruleForm.pipe_type = data.pipe_type
+  // ruleForm.pipe_size = data.pipe_size
 
 
-  ruleForm.geom = data.geom
+
+
+  // ruleForm.geom = data.geom
 
 
 
-  morefileList.value = data.documents
-  AddDialogVisible.value = true
+  // morefileList.value = data.documents
+  // AddDialogVisible.value = true
 }
 
 

@@ -127,9 +127,9 @@ const tenure = ref([])
 const getTenureStatus = async () => {
   const formData = {}
   formData.model = 'households'
-  formData.summaryField = 'ownership_status'
+  formData.summaryField = 'owner_tenant'
   formData.summaryFunction = 'count'
-  formData.groupField = ['ownership_status']
+  formData.groupField = ['owner_tenant']
   formData.cache_key = 'ownershipStatusKey'
 
   await getSummarybyField(formData)
@@ -138,11 +138,11 @@ const getTenureStatus = async () => {
       //   console.log(res.reduce((n, { count }) => n + parseInt(count), 0))
       var data = res,
         sum = data.reduce((s, { count }) => s + parseInt(count), 0),
-        proportion = data.map(({ ownership_status, count }) => ({ ownership_status, percentage: count * 100 / sum }));
+        proportion = data.map(({ owner_tenant, count }) => ({ owner_tenant, percentage: count * 100 / sum }));
       //   console.log(proportion);
 
       proportion.forEach(function (item) {
-        if (item.ownership_status === "plot_Owner") {
+        if (item.owner_tenant === "plot_Owner") {
           totalState.proportionOwners = Math.round(item.percentage)
         }
       });

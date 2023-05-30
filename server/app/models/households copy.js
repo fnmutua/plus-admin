@@ -61,7 +61,7 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-      ownership_status: {
+      owner_tenant: {
         type: DataTypes.STRING,
         allowNull: true
       },

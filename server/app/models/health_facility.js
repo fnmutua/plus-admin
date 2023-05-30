@@ -16,10 +16,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
-    facility_type: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
+   
     level: {
       type: DataTypes.STRING,
       allowNull: true
@@ -107,12 +104,22 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+
+    migration_reason: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
+    },
+    
  
     isApproved: {
       type: DataTypes.STRING,
       defaultValue: 'Pending'
     },
+    challenges: {
+      type:  DataTypes.STRING ,
+      allowNull: true
  
+    },
     code: {
       type: DataTypes.STRING,
       allowNull: false,
