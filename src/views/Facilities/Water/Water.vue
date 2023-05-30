@@ -1144,30 +1144,38 @@ const showAddSaveButton = ref(true)
 
 const AddDialogVisible = ref(false)
 const editFacility = (data: TableSlotDefault) => {
-  handleSelectCounty(data.county_id)
 
-  showEditSaveButton.value = true
-
-  console.log(data)
-
-  currentRow.value = data.id
-
-  ruleForm.id = data.id
-  ruleForm.name = data.name
-  ruleForm.county_id = data.county_id
-  ruleForm.settlement_id = data.settlement_id
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.type = data.type
-  ruleForm.capacity = data.capacity
-  ruleForm.cost_20l_jerrican = data.cost_20l_jerrican
-  ruleForm.owner = data.owner
-  ruleForm.ownership_type = data.ownership_type
-  ruleForm.depth = data.depth
-  ruleForm.geom = data.geom
+  push({
+  name: 'AddWaterPoint',
+    query: { id: data.id }
+  
+ });
 
 
-  morefileList.value = data.documents
-  AddDialogVisible.value = true
+  // handleSelectCounty(data.county_id)
+
+  // showEditSaveButton.value = true
+
+  // console.log(data)
+
+  // currentRow.value = data.id
+
+  // ruleForm.id = data.id
+  // ruleForm.name = data.name
+  // ruleForm.county_id = data.county_id
+  // ruleForm.settlement_id = data.settlement_id
+  // ruleForm.subcounty_id = data.subcounty_id
+  // ruleForm.type = data.type
+  // ruleForm.capacity = data.capacity
+  // ruleForm.cost_20l_jerrican = data.cost_20l_jerrican
+  // ruleForm.owner = data.owner
+  // ruleForm.ownership_type = data.ownership_type
+  // ruleForm.depth = data.depth
+  // ruleForm.geom = data.geom
+
+
+  // morefileList.value = data.documents
+  // AddDialogVisible.value = true
 }
 
 

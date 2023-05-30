@@ -8,10 +8,10 @@ import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocu
 
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSelect, MessageParamsWithType, UploadProps, ElOptionGroup, ElOption, FormInstance, ElBadge,
-  ElDescriptions, ElDescriptionsItem, ElCascader
+  ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem,
+  ElOptionGroup, ElOption, FormInstance
 } from 'element-plus'
-import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElInputNumber } from 'element-plus'
+import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge } from 'element-plus'
 import { computed, onMounted } from 'vue'
 import xlsx from "json-as-xlsx"
 import { getFile } from '@/api/summary'
@@ -20,10 +20,10 @@ import {
   Position,
   TopRight,
   User,
-  View,
   Plus,
   Edit,
   Delete,
+  View,
   Download,
   Filter,
   MessageBox
@@ -71,13 +71,13 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 
 import "mapbox-layer-switcher/styles.css";
 
-import { countyOptions, subcountyOptions, WaterFacilitytypeOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index.ts'
-import { generalOwnership, cascadeOptions, phase_options, frequencyOptions, wasteOptions, FacilityConditionOptions } from '../common'
-
+import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, ownsershipOptions, regOptions, HCFTypeOptions } from './../common/index.ts'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
-import ListDocuments from '@/views/Components/ListDocuments.vue';
+
+
+ import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 
 
@@ -130,6 +130,10 @@ const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
 const showEditButtons = ref(false)
 
+
+
+
+
 // flag for admin buttons
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
   showAdminButtons.value = true
@@ -140,6 +144,7 @@ if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff
   || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
     showEditButtons.value = true;
 }
+
 console.log("Show Buttons -->", showAdminButtons)
 
 
@@ -147,18 +152,27 @@ console.log("Show Buttons -->", showAdminButtons)
 const tableDataList = ref([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
+// var filters = []
+// var filterValues = []
+
 var filters = ['isApproved']
 var filterValues = [['Approved']]  // make sure the inner array is array
+
 
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['settlement', 'document', 'users']
+
 const model = 'other_facility'
 const model_parent_key = 'settlement_id'
 //// ------------------parameters -----------------------////
 
 
 
+
+
+const mapHeight = '450px'
+const countries = 'ke'
 const facilityGeo = ref([])
 
 
@@ -170,11 +184,10 @@ const subcountyfilteredOptions = ref([])
 const settlementfilteredOptions = ref([])
 
 
-const showSubcountyEditField = ref(false)
+
 const handleSelectCounty = async (county_id: any) => {
   console.log(county_id)
-  showSubcountyEditField.value = true
-
+showSubcountyOpts.value = true 
   var subset = [];
   for (let i = 0; i < subcountyOptions.value.length; i++) {
     if (subcountyOptions.value[i].county_id == county_id) {
@@ -318,11 +331,11 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
+
 const tableDataListNew = ref([])
 const tableDataListRejected = ref([])
 const totalRejected = ref(0)
 const totalNew = ref(0)
-
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
@@ -351,21 +364,21 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   const res = await getSettlementListByCounty(formData)
 
-  console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
+    console.log('After Querry', res)
+    tableDataList.value = res.data
+    total.value = res.total
 
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
-    var dd = flattenJSON(arrayItem)
-    tblData.push(dd)
-  })
+    tblData = [] // reset the table data
+    console.log('TBL-b4', tblData)
+    res.data.forEach(function (arrayItem) {
+      //  console.log(countyOpt)
+      // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
+      var dd = flattenJSON(arrayItem)
+      tblData.push(dd)
+    })
 
-  console.log('TBL-4f', tblData)
-
+    console.log('TBL-4f', tblData)
+    
   if (showAdminButtons.value) {
     // filter only the new ones
     var filters = ['isApproved']
@@ -460,7 +473,9 @@ const getModelOptions = async () => {
   })
 }
 
-
+const open = (msg: MessageParamsWithType) => {
+  ElMessage.error(msg)
+}
 
 const makeSettlementOptions = (list) => {
   console.log('making the options..............', list)
@@ -532,30 +547,22 @@ getInterventionsAll()
 getGeo()
 
 
-const loadMap = (mapCenter) => {
+const loadMap = (geo) => {
 
-  if (mapCenter.length === 0) {
-    var centerPosition = [37.137343, 1.137451]
-    var zoom = 6
-  } else {
-    var centerPosition = mapCenter
-    var zoom = 19
-  }
+  var geoType = geo.type
+  var centerPosition = [37.137343, 1.137451]
+
+  console.log(geo.type)
   var nmap = new mapboxgl.Map({
     container: "mapContainer",
     style: "mapbox://styles/mapbox/streets-v12",
     center: centerPosition, // starting position
-    zoom: zoom,
+    zoom: 18,
 
   })
 
-   // When the map fails to load, hide the base map and show only the overlays
-   nmap.on('error', function (e) {
-    console.log('Failed.....', e.error)
-    nmap.setStyle( './style.json');
-          console.log("Failed to load base map. Showing only overlays.");
-      });
-
+    
+ 
   console.log("resizing....")
 
   const nav = new mapboxgl.NavigationControl();
@@ -563,26 +570,50 @@ const loadMap = (mapCenter) => {
   nmap.on('load', () => {
 
     nmap.resize()
-
     nmap.addSource('hcf', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
-      data: facilityGeo.value,
+      data: geo,
       // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
     });
 
+
+   
+  
     nmap.addLayer({
       'id': 'pontLayer',
       "type": "circle",
       'source': 'hcf',
       'paint': {
-        'circle-radius': 8,
+        'circle-radius': 4,
         'circle-stroke-width': 2,
         'circle-color': 'red',
         'circle-stroke-color': 'white'
       }
-    });
+    }); 
+  
 
+   
+
+      console.log('----', geo)
+      nmap.addLayer({
+      'id': 'projectScopeGeo',
+      'type': 'line',
+      'source': 'hcf',
+      'layout': {},
+      'paint': {
+        'line-color': '#000',
+        'line-width': 3
+      }
+    });
+   
+  
+
+    var bounds = turf.bbox((geo));
+
+    console.log('bounds',bounds)
+    //map.value.fitBounds(bounds, {padding: 20,duration:1000 });
+    nmap.fitBounds(bounds, { padding: 20, maxZoom: 15})
 
 
     nmap.addLayer({
@@ -621,83 +652,8 @@ const loadMap = (mapCenter) => {
     nmap.addControl(new MapboxLayerSwitcherControl(layers));
 
 
-
-
-    // Zoom to layers if not by clik on a list
-    if (mapCenter.length === 0) {
-      console.log(markerLatlon.value)
-      const bounds = new mapboxgl.LngLatBounds(
-        markerLatlon.value[0],
-        markerLatlon.value[0]
-      );
-      for (const coord of markerLatlon.value) {
-        bounds.extend(coord);
-      }
-
-      nmap.fitBounds(bounds, {
-        padding: 20
-      });
-    }
-
-
-    else {
-
-      const description = mapCenter[2]
-      const coordinates = [mapCenter[0], mapCenter[1]]
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    nmap.on('click', 'pontLayer', (e) => {
-      console.log("Onclikc..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.type;
-      const level = e.features[0].properties.ownership_type;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-
-
-
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + level + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-
-    });
-
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'pontLayer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'pontLayer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
-
+  
+ 
 
 
 
@@ -725,8 +681,7 @@ const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.id)
 
   push({
-    path: '/facilities/water/details/:id',
-    name: 'WaterDetails',
+     name: 'HealthFacilityDetails',
     params: { data: data.id, id: data.id }
   })
 }
@@ -734,9 +689,9 @@ const viewProfile = (data: TableSlotDefault) => {
 const activeTab = ref('list')
 
 const flyTo = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.geom.coordinates)
+  console.log('On Click..fly...', data.geom.coordinates)
   activeTab.value = 'map'
-  loadMap([data.geom.coordinates[0], data.geom.coordinates[1], data.type])
+  loadMap(data.geom, data.name)
 
 }
 
@@ -746,8 +701,7 @@ const flyTo = (data: TableSlotDefault) => {
 
 const AddFacility = (data: TableSlotDefault) => {
   push({
-    path: '/facilities/other/add',
-    name: 'AddOther'
+     name: 'AddOtherX'
   })
 }
 
@@ -1041,11 +995,40 @@ const beforeUpload: UploadProps['beforeUpload'] = (files) => {
 
 const legendItems = [
   {
-    "label": "Other Facilities",
-    "color": "red"
+    "label": "Dispensary",
+    "color": "#a6cee3"
+  },
+  {
+    "label": "Clinic",
+    "color": '#1f78b4'
+  },
+  {
+    "label": "Health Center",
+    "color": '#b2df8a'
+  },
+  {
+    "label": "Hospital",
+    "color": '#33a02c'
+  },
+  {
+    "label": "Laboratory",
+    "color": '#e31a1c'
+  },
+
+  {
+    "label": "Maternity",
+    "color": '#fdbf6f'
+  },
+
+  {
+    "label": "Pharmacy",
+    "color": "#ff7f00"
+  },
+
+  {
+    "label": "Others",
+    "color": "gray"
   }
-
-
 
 
 
@@ -1092,26 +1075,18 @@ const formheader = ref('Edit Facility')
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   id: '',
-  type: '',
-  condition: '',
-  type_waste: '',
-  cost_per_use: 0,
-  number_stances: 0,
-  number_staff: 0,
-  number_phases: '',
-  size_reserve: 0,
-  rating: '',
-  number_vehicles: 0,
-  height: 0,
-  frequency: '',
-  date_install: Date.now(),
-  ownership_type: '',
-  owner: '',
+  name: '',
   settlement_id: '',
   county_id: '',
   subcounty_id: '',
+  facility_type: '',
+  facility_number: '',
+  reg_status: '',
+  level: '',
+  owner: '',
+  ownership_type: '',
+  number_beds: '',
   geom: null,
-
 })
 
 
@@ -1120,37 +1095,36 @@ const showAddSaveButton = ref(true)
 
 const AddDialogVisible = ref(false)
 const editFacility = (data: TableSlotDefault) => {
-  handleSelectCounty(data.county_id)
 
-  showEditSaveButton.value = true
+  
+ push({
+  name: 'AddOtherX',
+    query: { id: data.id }
+  
+ });
+  
+  // handleSelectCounty(data.county_id)
 
-  console.log(data)
+  // showEditSaveButton.value = true
 
-  currentRow.value = data.id
+  // console.log(data)
 
-  ruleForm.id = data.id
-  ruleForm.type = data.type
-  ruleForm.condition = data.condition
-  ruleForm.type_waste = data.type_waste
-  ruleForm.cost_per_use = data.cost_per_use
-  ruleForm.number_stances = data.number_stances
-  ruleForm.number_staff = data.number_staff
-  ruleForm.number_phases = data.number_phases
-  ruleForm.size_reserve = data.size_reserve
-  ruleForm.rating = data.rating
-  ruleForm.number_vehicles = data.number_vehicles
-  ruleForm.date_install = data.date_install
-  ruleForm.height = data.height
-  ruleForm.frequency = data.frequency
-  ruleForm.ownership_type = data.ownership_type
-  ruleForm.owner = data.owner
-  ruleForm.settlement_id = data.settlement_id
-  ruleForm.county_id = data.county_id
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.geom = data.geom
+  // currentRow.value = data.id
 
-  morefileList.value = data.documents
-  AddDialogVisible.value = true
+  // ruleForm.id = data.id
+  // ruleForm.name = data.name
+  // ruleForm.county_id = data.county_id
+  // ruleForm.settlement_id = data.settlement_id
+  // ruleForm.subcounty_id = data.subcounty_id
+  // ruleForm.facility_type = data.facility_type
+  // ruleForm.reg_status = data.reg_status
+  // ruleForm.level = data.level
+  // ruleForm.ownership_type = data.ownership_type
+  // ruleForm.number_beds = data.number_beds
+  // ruleForm.geom = data.geom
+
+  // morefileList.value = data.documents
+  // AddDialogVisible.value = true
 }
 
 
@@ -1165,7 +1139,7 @@ const handleClose = () => {
   ruleForm.description = null
   formheader.value = 'Add Settlement'
   AddDialogVisible.value = false
-  showSubcountyEditField.value = false
+showSubcountyOpts.value =false 
 }
 
 console.log('------> countyOptions', countyOptions)
@@ -1176,92 +1150,6 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
   ruleForm.model = model
   await updateOneRecord(ruleForm).then(() => { })
-
-
-}
-
-///--------switches to enable fields on form based on selected feature --------------
-const rating = ref(false)
-const phase = ref(false)
-const height = ref(false)
-const date_install = ref(false)
-const stances = ref(false)
-const cost = ref(false)
-const waste = ref(false)
-const security = ref(false)
-const hazards = ref(false)
-
-const handleChange = (selected) => {
-  //  console.log(selected.length)
-  // console.log(selected[selected.length - 1])
-  ruleForm.type = selected[selected.length - 1]
-  var selection = selected[selected.length - 1]
-  // console.log(ruleForm)
-
-
-  //------------------rating and phases------------------
-  if (selection === 'primary_substation' || selection === 'powerline' || selection === 'floodlight' || selection === 'secondary_substation') {
-    rating.value = true
-    phase.value = true
-  } else {
-    rating.value = false
-    phase.value = false
-  }
-
-  //---------------height of floodlights----------
-  if (selection === 'floodlight') {
-    height.value = true
-    date_install.value = true
-  } else {
-    height.value = false
-    date_install.value = false
-  }
-
-  //---------------stances----------
-  if (selection === 'toilet' || selection === 'shower') {
-    stances.value = true
-  } else {
-    stances.value = false
-  }
-
-  //---------------stances----------
-  if (selection === 'toilet' || selection === 'shower') {
-    stances.value = true
-    cost.value = true
-  } else {
-    stances.value = false
-    cost.value = false
-  }
-
-  if (selection === 'illegal_dumping_site' || selection === 'legal_dumping_site' || selection === 'treatment_center' || selection === 'collection_point' || selection === 'waste_mgmt_project' || selection === 'other_waste_mgmt') {
-    waste.value = true
-    cost.value = true
-  } else {
-    waste.value = false
-    cost.value = false
-  }
-
-  if (selection === 'police_stn' || selection === 'police_post' || selection === 'chiefs_camp') {
-    security.value = true
-  } else {
-    security.value = false
-
-  }
-
-  if (selection === 'other_hazard' || selection === 'landslide' || selection === 'flooding' || selection === 'fire') {
-    hazards.value = true
-  } else {
-    hazards.value = false
-
-  }
-
-
-
-
-
-
-
-
 
 
 }
@@ -1306,6 +1194,7 @@ const Review = (data: TableSlotDefault) => {
   ruleForm.settlement_id = data.row.settlement_id
   ruleForm.county_id = data.row.county_id
   ruleForm.subcounty_id = data.row.subcounty_id
+ 
   ruleForm.geom = data.row.geom
 
 
@@ -1314,7 +1203,7 @@ const Review = (data: TableSlotDefault) => {
 }
 
 const approve = async () => {
-  console.log("Appprove")
+  console.log("Appproving.......")
   ruleForm.isApproved = 'Approved'
   ruleForm.reviewerId = userInfo.id
 
@@ -1349,6 +1238,9 @@ const confirmReject = async () => {
 
 }
 
+
+const showSubcountyOpts =ref(false)
+
 const tableRowClassName = (data) => {
   // console.log('Row Styling --------->', data.row)
   if (data.row.documents.length > 0) {
@@ -1358,10 +1250,8 @@ const tableRowClassName = (data) => {
 }
 
 
-
-
 /// Uplaod docuemnts from a central component 
-const mfield = 'education_facility_id'
+const mfield ='other_facility_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const selectedRow = ref([])
 const dynamicComponent = ref();
@@ -1387,9 +1277,9 @@ function toggleComponent(row) {
 
 
     }
- 
 
-       
+
+    
 // component for docuemnts 
 const rowData = ref()
 const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
@@ -1412,8 +1302,7 @@ function handleExpand(row) {
 }
 
 
-
-
+ 
 </script>
 
 <template>
@@ -1423,8 +1312,7 @@ function handleExpand(row) {
     </div>
 
     <div style="display: inline-block; margin-bottom: 15px">
-
-    <div style="display: inline-block;">
+    <div style="display: inline-block;  ">
           <el-select
 v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
             collapse-tags placeholder="Filter by Settlement">
@@ -1449,7 +1337,9 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
             <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
           </el-tooltip>
         </div>
+      
       </div>
+
 
     <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
       <el-tab-pane name="list">
@@ -1460,9 +1350,6 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
             </el-badge>
           </span>
         </template>
-
-
-     
 
 
 
@@ -1492,6 +1379,8 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
                     <el-dropdown-item
 @click="viewProfile(scope as TableSlotDefault)"
                       :icon="Position">View</el-dropdown-item>
+
+
                     <el-dropdown-item
 v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
@@ -1499,6 +1388,8 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
+
+
               <div v-else>
 
                 <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
@@ -1557,7 +1448,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           </span>
         </template>
 
-        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border  @expand-change="handleExpand"   :row-class-name="tableRowClassName">
+        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border     @expand-change="handleExpand" :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1584,15 +1475,11 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                     <el-dropdown-item
 @click="viewProfile(scope as TableSlotDefault)"
                       :icon="Position">View</el-dropdown-item>
-
-
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
 
-
               <div v-else>
-
                 <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
                   <el-button
 type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
@@ -1639,7 +1526,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
             </el-badge>
           </span>
         </template>
-        <el-table :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border  @expand-change="handleExpand" >
+        <el-table :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border    @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1728,8 +1615,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 
 
-
-
       <el-tab-pane label="Map" name="map">
         <el-card class="box-card" />
 
@@ -1751,17 +1636,92 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
     </el-tabs>
 
+
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
+      <el-row :gutter="10">
+
+        <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+          <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-position="left">
+            <el-form-item label="Name" prop="name">
+              <el-input v-model="ruleForm.name" placeholder="Please input" />
+            </el-form-item>
+
+            <el-form-item label="Level" prop="level">
+              <el-select v-model="ruleForm.level" filterable placeholder="Level">
+                <el-option v-for="item in LevelOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="Type" prop="facility_type">
+              <el-select v-model="ruleForm.facility_type" filterable placeholder="Type">
+                <el-option v-for="item in HCFTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="Ownership" prop="ownership">
+              <el-select v-model="ruleForm.ownership_type" filterable placeholder="Ownership">
+                <el-option v-for="item in ownsershipOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="County" prop="county_id">
+              <el-select v-model="ruleForm.county_id" filterable placeholder="County" :onChange="handleSelectCounty">
+                <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item v-if="showSubcountyOpts" label="Subcounty" prop="subcounty_id">
+              <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select subcounty">
+                <el-option
+v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                  :value="item.value" />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="Settlement" prop="settlement_id">
+              <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
+                <el-option
+v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+                  :value="item.value" />
+              </el-select>
+            </el-form-item>
+
+
+          </el-form>
+        </el-col>
+
+      </el-row>
+
+      <template #footer>
+        <span class="dialog-footer space-between">
+          <el-row :gutter="10">
+
+            <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+
+              <el-button @click="AddDialogVisible = false">Cancel</el-button>
+              <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+
+
+            </el-col>
+
+
+          </el-row>
+        </span>
+      </template>
+
+
+    </el-dialog>
+
  
-
-
     <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
       <el-descriptions title="" direction="vertical" :column="2" size="small" border>
         <el-descriptions-item label="Name">{{ other_facility_raw.name }}</el-descriptions-item>
-        <el-descriptions-item label="Status" :span="2">{{ other_facility_raw.reg_status }}</el-descriptions-item>
+        <el-descriptions-item label="Type" :span="2">{{ other_facility_raw.type }}</el-descriptions-item>
         <el-descriptions-item label="Type">{{ other_facility_raw.ownership_type }}</el-descriptions-item>
         <el-descriptions-item label="owner"> {{ other_facility_raw.owner }} </el-descriptions-item>
         <el-descriptions-item label="Submitted By"> {{ other_facility_raw.user }} </el-descriptions-item>
         <el-descriptions-item label="Date"> {{ other_facility_raw.date }} </el-descriptions-item>
+
+
 
 
       </el-descriptions>
@@ -1783,133 +1743,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         </span>
       </template>
     </el-dialog>
-
-    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
-      <el-row :gutter="10">
-
-        <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-          <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-position="left">
-            <el-form-item label="Name" prop="name">
-              <el-input v-model="ruleForm.name" />
-            </el-form-item>
-
-            <el-row>
-              <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
-                <el-form-item label="County" prop="county_id">
-                  <el-select v-model="ruleForm.county_id" filterable placeholder="County" :onChange="handleSelectCounty">
-                    <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-
-
-              <el-col :xl="12" :lg="12" :md="12" :sm="12" :xs="24">
-                <el-form-item v-if=showSubcountyEditField label="Subcounty" prop="subcounty_id">
-                  <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Sub County">
-                    <el-option
-v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
-                      :value="item.value" />
-                  </el-select>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-form-item label="Settlement" prop="settlement_id">
-              <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-                <el-option
-v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
-                  :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-
-            <el-form-item label="Type" prop="type">
-              <el-cascader v-model="tmpSel" :options="cascadeOptions" :show-all-levels="false" @change="handleChange" />
-
-            </el-form-item>
-
-            <el-form-item v-if="rating" label="Rating(V)" prop="rating">
-              <el-input v-model="ruleForm.rating" />
-            </el-form-item>
-
-            <el-form-item v-if="height" label="Height(m)" prop="height">
-              <el-input-number v-model="ruleForm.height" />
-            </el-form-item>
-
-            <el-form-item v-if="height" label="Installation Date" prop="date_install">
-              <el-date-picker v-model="ruleForm.date_install" type="date" placeholder="Select date" :size="small" />
-            </el-form-item>
-
-            <el-form-item v-if="stances" label="# of Stances" prop="stances">
-              <el-input-number v-model="ruleForm.number_stances" />
-            </el-form-item>
-
-            <el-form-item v-if="cost" label="Cost per use" prop="cost">
-              <el-input-number v-model="ruleForm.cost_per_use" />
-            </el-form-item>
-
-            <el-form-item v-if="security" label="#Patrol Vehicles" prop="cost">
-              <el-input-number v-model="ruleForm.number_vehicles" />
-            </el-form-item>
-
-            <el-form-item v-if="security" label="#Security staff" prop="cost">
-              <el-input-number v-model="ruleForm.number_staff" />
-            </el-form-item>
-
-
-
-            <el-form-item v-if="phase" label="Phase" prop="phase">
-              <el-select v-model="ruleForm.number_phases" filterable placeholder="Select">
-                <el-option v-for="item in phase_options" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-
-            <el-form-item v-if="waste" label="Type of Waste" prop="type">
-              <el-select v-model="ruleForm.type_waste" filterable placeholder="Select">
-                <el-option v-for="item in wasteOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item v-if="hazards" label="Frequency" prop="frequency">
-              <el-select v-model="ruleForm.frequency" filterable placeholder="Select">
-                <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-
-            <el-form-item label="Ownership" prop="ownership_type">
-              <el-select v-model="ruleForm.ownership_type" filterable placeholder="Select">
-                <el-option v-for="item in generalOwnership" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-
-            <el-form-item label="Owner" prop="owner">
-              <el-input v-model="ruleForm.owner" />
-            </el-form-item>
-
-            <el-form-item label="Condition" prop="asset_condition">
-              <el-select v-model="ruleForm.condition" filterable placeholder="Select">
-                <el-option
-v-for="item in FacilityConditionOptions" :key="item.value" :label="item.label"
-                  :value="item.value" />
-              </el-select>
-            </el-form-item>
-          </el-form>
-        </el-col>
-      </el-row>
-      <template #footer>
-        <span class="dialog-footer space-between">
-          <el-row :gutter="10">
-            <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-              <el-button @click="AddDialogVisible = false">Cancel</el-button>
-              <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-            </el-col>
-          </el-row>
-        </span>
-      </template>
-    </el-dialog>
-
 
   </ContentWrap>
 </template>

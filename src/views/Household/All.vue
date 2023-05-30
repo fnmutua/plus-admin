@@ -599,7 +599,7 @@ const ruleForm = reactive({
   education_level: '',
   residence_type: '',
   length_stay: 0,
-  ownership_status: '',
+  owner_tenant: '',
   age_plot_owner: '',
   photo: '',
   age_00_04m: 0,
@@ -783,7 +783,7 @@ const DownloadXlsx = async () => {
     { label: "Name", value: "name" }, // Top level data
     { label: "Gender", value: "gender" }, // Custom format
     { label: "Settlement", value: "settlement" }, // Run functions
-    { label: "Ownership Status", value: "ownership_status" }, // Run functions
+    { label: "Ownership Status", value: "owner_tenant" }, // Run functions
 
 
   ]
@@ -804,7 +804,7 @@ const DownloadXlsx = async () => {
     thisRecord.name = tableDataList.value[i].name
     thisRecord.settlement = tableDataList.value[i].settlement.name
     thisRecord.gender = tableDataList.value[i].gender
-    thisRecord.ownership_status = tableDataList.value[i].ownership_status
+    thisRecord.owner_tenant = tableDataList.value[i].owner_tenant
 
 
     dataHolder.push(thisRecord)

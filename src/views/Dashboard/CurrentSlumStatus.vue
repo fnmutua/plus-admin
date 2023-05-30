@@ -834,8 +834,8 @@ const getOwnershipStatusByGender = async () => {
   formData.cache_key = 'getOwnershipStatusByGender'
 
   // segregated by the settlement and county// Linking to be done later//
-  formData.summaryField = 'ownership_status'
-  formData.groupField = ['ownership_status', 'gender']
+  formData.summaryField = 'owner_tenant'
+  formData.groupField = ['owner_tenant', 'gender']
 
 
 
@@ -855,8 +855,8 @@ const getOwnershipStatusByGender = async () => {
         if (!clabels.includes(item.name)) {
           clabels.push(item.name);
         }
-        if (!subCategories.includes(item.ownership_status)) {
-          subCategories.push(item.ownership_status)
+        if (!subCategories.includes(item.owner_tenant)) {
+          subCategories.push(item.owner_tenant)
         }
       });
       // console.log('clabels....', clabels)

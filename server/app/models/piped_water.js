@@ -39,6 +39,11 @@ module.exports = function(sequelize, DataTypes) {
     },
 
 
+    ward_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+
    
     county_id: {
       type: DataTypes.INTEGER,

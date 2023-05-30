@@ -715,8 +715,7 @@ const flyTo = (data: TableSlotDefault) => {
 
 const AddFacility = (data: TableSlotDefault) => {
   push({
-    path: '/facilities/pipedwater/add',
-    name: 'PipedWaterAdd'
+     name: 'PipedWaterAddX'
   })
 }
 
@@ -1090,32 +1089,38 @@ const showAddSaveButton = ref(true)
 const AddDialogVisible = ref(false)
 const editFacility = (data: TableSlotDefault) => {
 
-  handleSelectCounty(data.county_id)
+  //   handleSelectCounty(data.county_id)
+
+  //   showEditSaveButton.value = true
+  //   console.log(data)
+  //   currentRow.value = data.id
+  //   ruleForm.id = data.id
+  //   ruleForm.name = data.name
+  //   ruleForm.ownership_type = data.ownership_type
+  //   ruleForm.owner = data.owner
+  //   ruleForm.number_connections = data.number_connections
+  //   ruleForm.settlement_id = data.settlement_id
+  //   ruleForm.county_id = data.county_id
+  //   ruleForm.subcounty_id = data.subcounty_id
+  //   ruleForm.geom = data.geom
+
+
+
+
+  //   ruleForm.geom = data.geom
+
+
+
+  //   morefileList.value = data.documents
+  //   AddDialogVisible.value = true
+  // }
+  push({
+  name: 'PipedWaterAddX',
+    query: { id: data.id }
   
-  showEditSaveButton.value = true
-  console.log(data)
-  currentRow.value = data.id
-  ruleForm.id = data.id
-  ruleForm.name = data.name
-  ruleForm.ownership_type = data.ownership_type
-  ruleForm.owner = data.owner
-  ruleForm.number_connections = data.number_connections
-  ruleForm.settlement_id = data.settlement_id
-  ruleForm.county_id = data.county_id
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.geom = data.geom
+ });
 
-
-
-
-  ruleForm.geom = data.geom
-
-
-
-  morefileList.value = data.documents
-  AddDialogVisible.value = true
 }
-
 
 const handleClose = () => {
   console.log("Closing the dialoig")

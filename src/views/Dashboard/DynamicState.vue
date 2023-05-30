@@ -255,12 +255,6 @@ const getSummary = async (card) => {
   }
 };
 
-
-
-
- 
-
-
 function xtransformData(data, chartType, aggregationMethod, cfield) {
 
 
@@ -1040,11 +1034,6 @@ const getCharts = async (section_id) => {
               }]
             }
 
-
-
-
-
-
           } catch (error) {
             // Handle any errors that occurred during the process
           }
@@ -1523,7 +1512,10 @@ const filteredSubCountyList = ref([])
 
 
 const getCountySubcountySep = async () => {
+    // initialize every time its called
+  const  nested =['subcounty','ward','settlement']
   const res = await getListWithoutGeo({
+  
     params: {
       //   pageIndex: 1,
       //  limit: 100,
@@ -1531,43 +1523,68 @@ const getCountySubcountySep = async () => {
       model: 'county',
       assocModel: 'subcounty',
       searchField: 'name',
+      nested_models:nested,
       searchKeyword: '',
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received response:', response)
+    console.log('Received  cascaded response:', response)
     //tableDataList.value = response.data
     const ret = response.data
 
 
 
     ret.forEach((data) => {
-      const option = {
+      const coption = {
         value: data.id,
-        label: data.name,
+        label: data.name +' county',
+        children:[]
       };
-      countyList.value.push(option);
+      countyList.value.push(coption)
+      
+             data.subcounties.forEach((subc) => {
+              const soption = {
+                value: subc.id,
+                label: subc.name +' constituency',
+                county_id: data.id,
+                children:[]
+               };
 
-      data.subcounties.forEach((subc) => {
-        const soption = {
-          value: subc.id,
-          label: subc.name,
-          county_id: data.id
-        };
-        subCountyList.value.push(soption);
-        filteredSubCountyList.value.push(soption);
+               subCountyList.value.push(soption);
+               filteredSubCountyList.value.push(soption);
+        
+              subc.wards.forEach((ward) => {
+                      const woption = {
+                        value: ward.id,
+                        label: ward.name,
+                        subcounty_id: ward.subcounty_id,
+                        county_id: ward.county_id,
+                        children:[]
+                      };
+                       ward.settlements.forEach((settlement) => {
+                            const sett_option = {
+                              value: settlement.id,
+                              label: settlement.name+' settlement',
+                              subcounty_id: settlement.subcounty_id,
+                              county_id: settlement.county_id,
+                              ward_id: settlement.ward_id,
+                            };
+                            
+                            woption.children.push(sett_option)
+              
+                            })
+                            soption.children.push(woption)
+              })
+              coption.children.push(soption)
+              })
 
-      })
+     });
 
-
-    });
-
-
-
+ 
   })
 
-  console.log('countyOptions', countyList)
-  console.log('filteredSubCountyList', filteredSubCountyList)
+  // console.log('countyOptions', countyList)
+  // console.log('filteredSubCountyList', filteredSubCountyList)
 }
 
 
@@ -1620,7 +1637,7 @@ const getCountySubcounty = async () => {
 
 
 getCountySubcountySep()
-getCountySubcounty()
+//getCountySubcounty()
 getCards()
 getTabs()
 

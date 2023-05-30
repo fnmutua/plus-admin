@@ -136,7 +136,7 @@ const ruleForm = reactive({
     education_level: '',
     residence_type: '',
     length_stay: 0,
-    ownership_status: '',
+    owner_tenant: '',
     age_plot_owner: '',
     photo: '',
     age_00_04m: 0,

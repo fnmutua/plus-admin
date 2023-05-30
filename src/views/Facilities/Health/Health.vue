@@ -773,8 +773,7 @@ const flyTo = (data: TableSlotDefault) => {
 
 const AddFacility = (data: TableSlotDefault) => {
   push({
-    path: '/facilities/health/add',
-    name: 'Addhealth'
+     name: 'AddhealthX'
   })
 }
 
@@ -1168,28 +1167,36 @@ const showAddSaveButton = ref(true)
 
 const AddDialogVisible = ref(false)
 const editFacility = (data: TableSlotDefault) => {
-  handleSelectCounty(data.county_id)
 
-  showEditSaveButton.value = true
+  
+ push({
+  name: 'AddhealthX',
+    query: { id: data.id }
+  
+ });
+  
+  // handleSelectCounty(data.county_id)
 
-  console.log(data)
+  // showEditSaveButton.value = true
 
-  currentRow.value = data.id
+  // console.log(data)
 
-  ruleForm.id = data.id
-  ruleForm.name = data.name
-  ruleForm.county_id = data.county_id
-  ruleForm.settlement_id = data.settlement_id
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.facility_type = data.facility_type
-  ruleForm.reg_status = data.reg_status
-  ruleForm.level = data.level
-  ruleForm.ownership_type = data.ownership_type
-  ruleForm.number_beds = data.number_beds
-  ruleForm.geom = data.geom
+  // currentRow.value = data.id
 
-  morefileList.value = data.documents
-  AddDialogVisible.value = true
+  // ruleForm.id = data.id
+  // ruleForm.name = data.name
+  // ruleForm.county_id = data.county_id
+  // ruleForm.settlement_id = data.settlement_id
+  // ruleForm.subcounty_id = data.subcounty_id
+  // ruleForm.facility_type = data.facility_type
+  // ruleForm.reg_status = data.reg_status
+  // ruleForm.level = data.level
+  // ruleForm.ownership_type = data.ownership_type
+  // ruleForm.number_beds = data.number_beds
+  // ruleForm.geom = data.geom
+
+  // morefileList.value = data.documents
+  // AddDialogVisible.value = true
 }
 
 

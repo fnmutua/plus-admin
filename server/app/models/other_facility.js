@@ -85,6 +85,12 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
+    hazard: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+
     owner: {
       type: DataTypes.STRING,
       allowNull: true
@@ -107,12 +113,20 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
+    ward_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
     createdBy: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
  
-
+    isApproved: {
+      type: DataTypes.STRING,
+      defaultValue: 'Pending'
+    },
     
     geom: {
       type: DataTypes.GEOMETRY('Geometry', 4326),

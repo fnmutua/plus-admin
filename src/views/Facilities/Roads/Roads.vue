@@ -745,8 +745,7 @@ const flyTo = (data: TableSlotDefault) => {
 
 const AddFacility = (data: TableSlotDefault) => {
   push({
-    path: '/facilities/road/add',
-    name: 'AddRoad'
+     name: 'AddRoadX'
   })
 }
 
@@ -1137,30 +1136,36 @@ const showAddSaveButton = ref(true)
 
 const AddDialogVisible = ref(false)
 const editFacility = (data: TableSlotDefault) => {
-  showEditSaveButton.value = true
-  console.log(data)
-  currentRow.value = data.id
-  ruleForm.id = data.id
-  ruleForm.name = data.name
-  ruleForm.rdClass = data.rdClass
-  ruleForm.rdReserve = data.rdReserve
-  ruleForm.width = data.width
-  ruleForm.surfaceType = data.surfaceType
-  ruleForm.surfaceType = data.surfaceType
-  ruleForm.surfaceCondition = data.surfaceCondition
-  ruleForm.traffic = data.traffic
-  ruleForm.direction = data.direction
-  ruleForm.drainage = data.drainage
-  ruleForm.drainageCondition = data.drainageCondition
-  ruleForm.settlement_id = data.settlement_id
+
+  push({
+  name: 'AddRoadX',
+    query: { id: data.id }
+  
+ });
+  // showEditSaveButton.value = true
+  // console.log(data)
+  // currentRow.value = data.id
+  // ruleForm.id = data.id
+  // ruleForm.name = data.name
+  // ruleForm.rdClass = data.rdClass
+  // ruleForm.rdReserve = data.rdReserve
+  // ruleForm.width = data.width
+  // ruleForm.surfaceType = data.surfaceType
+  // ruleForm.surfaceType = data.surfaceType
+  // ruleForm.surfaceCondition = data.surfaceCondition
+  // ruleForm.traffic = data.traffic
+  // ruleForm.direction = data.direction
+  // ruleForm.drainage = data.drainage
+  // ruleForm.drainageCondition = data.drainageCondition
+  // ruleForm.settlement_id = data.settlement_id
 
 
-  ruleForm.geom = data.geom
+  // ruleForm.geom = data.geom
 
 
 
-  morefileList.value = data.documents
-  AddDialogVisible.value = true
+  // morefileList.value = data.documents
+  // AddDialogVisible.value = true
 }
 
 
