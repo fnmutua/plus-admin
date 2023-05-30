@@ -20,6 +20,8 @@ interface Field {
   name: string;
   label: string;
   type: string;
+  // min: number;
+  // max: number;
   multiselect: string; // Use boolean type instead of string
   options: Array<any>; // Specify the array type of options
 }
@@ -156,11 +158,6 @@ const formFields: Field[][] = [
   
     
 
-    {
-      name: "mhm", label: "Menstrual Hygiene", type: "select", multiselect: 'false',  
-        options: mhmOptions
-    },
-
   
     {
       name: "parcel_tenure", label: "Tenure", type: "select", multiselect: 'false',  
@@ -177,17 +174,27 @@ const formFields: Field[][] = [
       name: "tenancy", label: "Tenancy", type: "select", multiselect: 'false',  
         options: tenancyOptions
     },
+    { name: "avg_fees_term", label: "Avg. Fees/Term", min:"0",  type: "number", multiselect: 'false', options: [] },
 
-    { name: "male_enrollment", label: "Male Enrollment", type: "number", multiselect: 'false', options:[]},
-    { name: "female_enrollment", label: "Female Enrollment", type: "number", multiselect: 'false', options:[]},
-    { name: "number_teachers", label: "Number of Teachers", type: "number", multiselect: 'false', options:[]},
-    { name: "number_other_staff", label: "Number of Staff(other)", type: "number", multiselect: 'false', options:[]},
-    { name: "number_classrooms", label: "Number of Classrooms", type: "number", multiselect: 'false', options:[]},
-    { name: "number_male_toilets", label: "Number of Toilets(Male)", type: "number", multiselect: 'false', options:[]},
-    { name: "number_female_toilets", label: "Number of Toilets(Female)", type: "number", multiselect: 'false', options:[]},
-    { name: "avg_fees_term", label: "Avg. Fees/Term", type: "number", multiselect: 'false', options:[]},
-    { name: "number_handwashing_stns", label: "Number of Handwashing Stns.", type: "number", multiselect: 'false', options:[]},
-   ],
+    { name: "male_enrollment", label: "Male Enrollment", type: "number", min:"0", multiselect: 'false', options:[]},
+    { name: "female_enrollment", label: "Female Enrollment", type: "number", min:"0", multiselect: 'false', options:[]},
+    { name: "number_teachers", label: "Number of Teachers", type: "number", min:"0", multiselect: 'false', options:[]},
+    { name: "number_other_staff", label: "Number of Staff(other)", type: "number",  min:"0",multiselect: 'false', options:[]},
+    { name: "number_classrooms", label: "Number of Classrooms", type: "number",  min:"0",multiselect: 'false', options:[]},
+    { name: "number_male_toilets", label: "Number of Toilets(Male)", type: "number", min:"0", multiselect: 'false', options:[]},
+    { name: "number_female_toilets", label: "Number of Toilets(Female)", type: "number",  min:"0",multiselect: 'false', options:[]},
+   
+    {
+      name: "mhm", label: "Menstrual Hygiene", type: "select", multiselect: 'false',  
+        options: mhmOptions
+    },
+
+    { name: "number_handwashing_stns", label: "Number of Handwashing Stns.", type: "number", min:"0", multiselect: 'false', options:[]},
+    { name: "challenges", label: "Challenges/Issues", type: "text", multiselect: 'false', options:[]},
+  
+  
+  
+  ],
 
 
 

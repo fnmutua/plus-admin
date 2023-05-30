@@ -696,13 +696,13 @@ const submitForm = async () => {
      
       formData.model = 'settlement'
       formData.code = shortid.generate()
-      formData.isApproved = 'Pending'
       formData.createdBy = userInfo.id
 
 
       if (newRecord.value) {
         await CreateRecord(formData)
- 
+        formData.isApproved = 'Pending'
+
         console.log('New form', formData);
 
       } else {

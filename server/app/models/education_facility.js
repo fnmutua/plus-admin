@@ -122,6 +122,13 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
  
+    challenges: {
+      type:  DataTypes.STRING ,
+      allowNull: true
+ 
+    },
+
+
     isApproved: {
       type: DataTypes.STRING,
       defaultValue: 'Pending'
@@ -131,12 +138,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false,
       unique: true
     },
- 
-    code: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique:true
-    },
+  
 
     geom: {
       type: DataTypes.GEOMETRY('Geometry', 4326),
