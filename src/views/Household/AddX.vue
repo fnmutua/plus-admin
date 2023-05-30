@@ -88,7 +88,7 @@
                     :filterable="true"
                     clearable
                     :options="field.options"
-                    :props="props"
+                   
                     
                     @change="getFieldChangeHandler(field.name)"
                     popper placement="bottom-end" width="10px" height="10px"

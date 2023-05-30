@@ -49,7 +49,7 @@ v-for="option in field.options" :key="option.value" :label="option.label"
 
               <el-cascader
 v-else-if="field.type === 'cascade' && !isMobile" v-model="formData[field.name]"
-                :filterable="true" clearable :options="field.options" :props="props"
+                :filterable="true" clearable :options="field.options"  
                 @change="getFieldChangeHandler(field.name)" popper placement="bottom-end" width="10px" height="10px" />
               <el-button
 type="primary" @click="showOnMobile(field.options)"
