@@ -68,8 +68,7 @@ const formFields: Field[][] =reactive( [
       options: cascadedAdminOptions.value,
     },
     { name: "name", label: "Name", type: "text", multiselect: 'false',show:'true',  options: [] },
-    { name: "length", label: "Length(Km)", min:"0",  type: "number",   multiselect: 'false', options: [] },
-        {
+         {
       name: "pipe_type", label: "Pipe", type: "select", multiselect: 'false',  
         options: pipeOptions  },
 
@@ -112,10 +111,7 @@ const formRules: FormRules = reactive({
   step1: {
     name: [
         { required: true, message: 'Road Name is required', trigger: 'blur' }
-    ],
-    length: [
-      { required: true, message: 'Length is required', trigger: 'blur' }
-  ],     
+    ],     
 
     // // age: [
     //     { required: true, message: 'Age is required', trigger: 'blur' },

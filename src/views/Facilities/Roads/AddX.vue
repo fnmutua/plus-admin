@@ -731,6 +731,7 @@ const submitForm = async () => {
       formData.model = model
       formData.code = shortid.generate()
       formData.createdBy = userInfo.id
+      formData.length =  turf.length(formData.geom, {units: 'kilometers'}).toFixed(2);
      // computeLength()
 
       if (newRecord.value) {
