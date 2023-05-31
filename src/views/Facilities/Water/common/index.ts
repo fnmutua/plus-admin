@@ -192,7 +192,7 @@ const getCountySubcountySep = async () => {
             data.subcounties.forEach((subc) => {
               const soption = {
                 value: subc.id,
-                label: subc.name +' subcounty',
+                label: subc.name +' constituency',
                 county_id: data.id,
                 children:[]
               };

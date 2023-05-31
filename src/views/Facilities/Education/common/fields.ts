@@ -185,7 +185,7 @@ const formFields: Field[][] = [
     { name: "number_female_toilets", label: "Number of Toilets(Female)", type: "number",  min:"0",multiselect: 'false', options:[]},
    
     {
-      name: "mhm", label: "Menstrual Hygiene", type: "select", multiselect: 'false',  
+      name: "mhm", label: "Menstrual Hygiene", type: "select", multiselect: 'true',  
         options: mhmOptions
     },
 

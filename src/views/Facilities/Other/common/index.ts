@@ -191,7 +191,7 @@ const getCountySubcountySep = async () => {
             data.subcounties.forEach((subc) => {
               const soption = {
                 value: subc.id,
-                label: subc.name +' subcounty',
+                label: subc.name +' constituency',
                 county_id: data.id,
                 children:[]
               };
@@ -743,8 +743,17 @@ const cascadeOptions = [
       {
         value: 'open_space',
         label: 'Open space',
-      }
+      },
+      {
+        value: 'Religious institution',
+        label: 'Religious institution',
+      },
 
+      {
+        value: 'Cemetery',
+        label: 'Cemetery',
+      }
+       
     ],
   },
 

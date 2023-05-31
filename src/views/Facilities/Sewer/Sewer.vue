@@ -556,12 +556,12 @@ const loadMap = (roadDetails) => {
     zoom: zoom,
 
   })
-   // When the map fails to load, hide the base map and show only the overlays
-   nmap.on('error', function (e) {
-    console.log('Failed.....', e.error)
-    nmap.setStyle( './style.json');
-          console.log("Failed to load base map. Showing only overlays.");
-      });
+  //  // When the map fails to load, hide the base map and show only the overlays
+  //  nmap.on('error', function (e) {
+  //   console.log('Failed.....', e.error)
+  //   nmap.setStyle( './style.json');
+  //         console.log("Failed to load base map. Showing only overlays.");
+  //     });
 
 
   console.log("resizing....")
@@ -587,15 +587,17 @@ const loadMap = (roadDetails) => {
       'paint': {
         'line-color': [
           'case',
-          ['==', ['get', 'ownership_type'], 'private'],
+          ['==', ['get', 'provider_category'], 'Private'],
           'red',
-          ['==', ['get', 'ownership_type'], 'public'],
+          ['==', ['get', 'provider_category'], 'Public'],
           'green',
-          ['==', ['get', 'ownership_type'], 'FBO'],
+          ['==', ['get', 'provider_category'], 'FBO'],
           'blue',
-          ['==', ['get', 'ownership_type'], 'NGO'],
+          ['==', ['get', 'provider_category'], 'NGO'],
           '#ff7f00', 'gray'],
+          'line-width': 3 // Adjust the thickness as desired
       }
+
     });
 
 

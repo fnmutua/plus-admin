@@ -87,12 +87,9 @@
                     v-model="formData[field.name]"
                     :filterable="true"
                     clearable
-                    :options="field.options"
-                   
-                    
+                    :options="field.options" 
                     @change="getFieldChangeHandler(field.name)"
-                    popper placement="bottom-end" width="10px" height="10px"
-                  />
+                   />
 
                   <el-button type="primary" @click="showOnMobile(field.options)" v-else-if="field.type === 'cascade' && isMobile">
               Select

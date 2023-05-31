@@ -3449,7 +3449,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       {
         path: 'add/:domain',
         name: 'AddInterventionProjectsV2',
-        component: () => import('@/views/Intervention/Project/AddProject.vue'),
+        component: () => import('@/views/Intervention/Project/AddX.vue'),
         meta: {
           title: 'Add Project',
           hidden: true,

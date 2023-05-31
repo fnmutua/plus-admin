@@ -556,11 +556,11 @@ const loadMap = (roadDetails) => {
 
   })
    // When the map fails to load, hide the base map and show only the overlays
-   nmap.on('error', function (e) {
-    console.log('Failed.....', e.error)
-    nmap.setStyle( './style.json');
-          console.log("Failed to load base map. Showing only overlays.");
-      });
+  //  nmap.on('error', function (e) {
+  //   console.log('Failed.....', e.error)
+  //   nmap.setStyle( './style.json');
+  //         console.log("Failed to load base map. Showing only overlays.");
+  //     });
 
 
   console.log("resizing....")
@@ -578,7 +578,7 @@ const loadMap = (roadDetails) => {
       // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
     });
 
-
+ 
     nmap.addLayer({
       'id': 'roads-layer',
       "type": "line",
@@ -586,15 +586,17 @@ const loadMap = (roadDetails) => {
       'paint': {
         'line-color': [
           'case',
-          ['==', ['get', 'ownership_type'], 'private'],
+          ['==', ['get', 'ownership_type'], 'Private'],
           'red',
-          ['==', ['get', 'ownership_type'], 'public'],
+          ['==', ['get', 'ownership_type'], 'Public'],
           'green',
           ['==', ['get', 'ownership_type'], 'FBO'],
           'blue',
-          ['==', ['get', 'ownership_type'], 'NGO'],
+          ['==', ['get', 'ownership_type'], 'Other'],
           '#ff7f00', 'gray'],
+          'line-width': 3 // Adjust the thickness as desired
       }
+
     });
 
 

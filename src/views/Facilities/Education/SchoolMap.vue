@@ -80,46 +80,7 @@ const getAll = async () => {
   }
 }
 
-const getParcelGeo = async () => {
-  console.log('Get all parcels for this settleemtn ')
-  const id = route.params.id
-  const settData = route.params.data
-  console.log('Settlement ID, Data:', id, settData)
-
-  const formData = {}
-  formData.model = 'parcel'
-  formData.columnFilterField = 'settlement_id'
-  formData.selectedParents = id
-  formData.id = id
-
-  console.log(formData)
-  const res = await getfilteredGeo(formData)
-
-  console.log('parcel Geo:', res.data[0].json_build_object.features)
-  if (res.data[0].json_build_object.features) {
-    parcel_geo.value = res.data[0].json_build_object
-
-    setTimeout(() => {
-      //   this.$refs.resizeMap();
-      //  map.value.leafletObject.invalidateSize()
-
-      // After building your geoJson layers, just add this:
-      nextTick().then(() => {
-        var group = new featureGroup()
-
-        map.value.leafletObject.eachLayer(function (layer) {
-          //    console.log(layer.feature)
-          if (layer.feature != undefined) {
-            group.addLayer(layer)
-          }
-        })
-
-        //  console.log(group.getBounds())
-        map.value.leafletObject.fitBounds(group.getBounds(), { padding: [20, 20] })
-      })
-    }, 0) // 0ms seems enough to execute resize after tab opens.
-  }
-}
+ 
 getAll()
 //getParcelGeo()
 

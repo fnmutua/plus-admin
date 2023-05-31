@@ -1366,6 +1366,7 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="Name" prop="name" sortable />
           <el-table-column label="Type" prop="type" sortable />
           <el-table-column label="Settlement" prop="settlement.name" sortable />
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
@@ -1460,6 +1461,8 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="Name" prop="name" sortable />
+
           <el-table-column label="Type" prop="type" sortable />
           <el-table-column label="Settlement" prop="settlement.name" sortable />
 
@@ -1538,6 +1541,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="Name" prop="name" sortable />
           <el-table-column label="Type" prop="type" sortable />
           <el-table-column label="Settlement" prop="settlement.name" sortable />
 

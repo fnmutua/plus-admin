@@ -173,6 +173,7 @@ const facilityGeo = ref([])
 const facilityGeoPoints = ref()
 const facilityGeoLines = ref([])
 const facilityGeoPolygons = ref([])
+const projectScopeGeo = ref([])
 const geoLoaded = ref(false)
 
 
@@ -438,6 +439,8 @@ const flyTo = (data: TableSlotDefault) => {
       bounds.value = turf.bbox((data.row.geom));
     }
 
+    projectScopeGeo.value=data.row.geom
+
     console.log(bounds.value)
 
     loadMap()
@@ -464,79 +467,46 @@ const loadMap = () => {
   })
 
 
-  console.log("resizing....", facilityGeo.value)
   const nav = new mapboxgl.NavigationControl();
   nmap.addControl(nav, "top-right");
   nmap.on('load', () => {
-    nmap.addSource('lines', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(facilityGeoLines.value),
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
-
-    nmap.addSource('points', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      data: turf.featureCollection(facilityGeoPoints.value),
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
-
-
-    nmap.addSource('polygons', {
+ 
+      nmap.addSource('layer', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
       //  data: turf.featureCollection(facilityGeoPolygons.value),
-      data: facilityGeoPolygons.value,
+      data: projectScopeGeo.value,
       // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
     });
 
-
-    nmap.addLayer({
-      'id': 'points-layer',
-      "type": "circle",
-      'source': 'points',
-      'paint': {
-        "circle-color": 'green'
-      }
-    });
-
-    nmap.addLayer({
-      'id': 'lines',
-      'type': 'line',
-      'source': 'lines',
-      'paint': {
-        'line-width': 3,
-        // Use a get expression (https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-get)
-        // to set the line-color to a feature property value.
-        'line-color': 'red'
-      }
-    });
-
-
-
-
-    nmap.addLayer({
-      'id': 'polygons-layer',
-      "type": "fill",
-      'source': 'polygons',
-      'paint': {
-        'fill-color': '#0080ff', // blue color fill
-        'fill-opacity': 0.2
-      }
-
-    });
+ 
     // Add a black outline around the polygon.
     nmap.addLayer({
       'id': 'outline',
       'type': 'line',
-      'source': 'polygons',
+      'source': 'layer',
       'layout': {},
       'paint': {
-        'line-color': '#000',
-        'line-width': 1
+        'line-color': 'black',
+        'line-width': 2
       }
     });
+
+    nmap.addLayer({
+      'id': 'pontLayer',
+      "type": "circle",
+      'source': 'layer',
+      'paint': {
+        'circle-radius': 4,
+        'circle-stroke-width': 2,
+        'circle-color':  'red',
+        'circle-stroke-color': 'white'
+      }
+    });
+
+  
+
+ 
 
     nmap.resize()
 
@@ -546,13 +516,13 @@ const loadMap = () => {
       id: 'Satellite',
       source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
       type: "raster"
-    }, 'polygons-layer');
+    }, 'outline');
 
     nmap.addLayer({
       id: 'Streets',
       source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
       type: "raster"
-    }, 'polygons-layer');
+    }, 'outline');
 
     // switch it off until the user selects to
     nmap.setLayoutProperty('Satellite', 'visibility', 'none')
@@ -579,20 +549,20 @@ const loadMap = () => {
 
 
 
-    var localBounds = turf.bbox((facilityGeo.value));
+    var localBounds = turf.bbox((projectScopeGeo.value));
     console.log(localBounds)
 
-    if (bounds.value) {
-      console.log(bounds.value)
+    if (localBounds) {
+      console.log(localBounds)
 
 
 
-      if (bounds.value[0] == bounds.value[2]) {
+      if (localBounds[0] == localBounds[2]) {
 
         // for points where the extent x1=x2
-        nmap.fitBounds(bounds.value, { maxZoom: 15, padding: 20 });
+        nmap.fitBounds(localBounds, { maxZoom: 15, padding: 20 });
       } else {
-        nmap.fitBounds(bounds.value, { padding: 20 });
+        nmap.fitBounds(localBounds, { padding: 20 });
 
       }
 
@@ -986,86 +956,94 @@ const AddProject = () => {
 
 
 const editProject = async (data: TableSlotDefault) => {
-
-  const formData = {}
-
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'project'
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = ['id']
-  formData.filterValues = [[data.row.id]]
-  formData.associated_multiple_models = ['activity',]
-
-  //------------------------- 
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-  console.log(res.data)
-  var project = res.data[0]
-
-
-  handleSelectCounty(project.county_id)
-  handleSelectSubCounty(project.subcounty_id)
-  handleSelectWard(project.ward_id)
-
-
-  showEditSaveButton.value = true
-
-  console.log(data)
-  ruleForm.id = project.id
-
-  ruleForm.location_level = project.location_level
-
-  ruleForm.title = project.title
-  ruleForm.programme_id = project.programme_id
-  ruleForm.status = project.status
-  ruleForm.domain_id = project.domain_id
-  ruleForm.category_id = project.category_id
-  tmp_domain.value = [project.component_id, project.category_id]
-  ruleForm.male_beneficiaries = project.male_beneficiaries
-  ruleForm.female_beneficiaries = project.female_beneficiaries
-  ruleForm.cost = project.cost
-  ruleForm.settlement_id = project.settlement_id
-  ruleForm.county_id = project.county_id
-  ruleForm.code = project.code
-  ruleForm.geom = project.geom
-  ruleForm.start_date = project.start_date
-  ruleForm.end_date = project.end_date
-
-  ruleForm.component_id = project.component_id
-  ruleForm.subcounty_id = project.subcounty_id
-  ruleForm.ward_id = project.ward_id
-
-
-  let activities = []
-  project.activities.forEach(function (arrayItem) {
-    activities.push(arrayItem.id)
+ 
+  push({
+    path: '/interventions/add/:domain',
+    name: 'AddInterventionProjectsV2',
+    query: { id: data.row.id },
+    params: { id:data.row.id, domain: component_id.value }
   })
 
-  ruleForm.activities = activities
+
+  // const formData = {}
+
+  // formData.curUser = 1 // Id for logged in user
+  // formData.model = 'project'
+  // //-Search field--------------------------------------------
+  // formData.searchField = 'name'
+  // formData.searchKeyword = ''
+  // //--Single Filter -----------------------------------------
+
+  // //formData.assocModel = associated_Model
+
+  // // - multiple filters -------------------------------------
+  // formData.filters = ['id']
+  // formData.filterValues = [[data.row.id]]
+  // formData.associated_multiple_models = ['activity',]
+
+  // //------------------------- 
+  // //console.log(formData)
+  // const res = await getSettlementListByCounty(formData)
+  // console.log(res.data)
+  // var project = res.data[0]
+
+
+  // handleSelectCounty(project.county_id)
+  // handleSelectSubCounty(project.subcounty_id)
+  // handleSelectWard(project.ward_id)
+
+
+  // showEditSaveButton.value = true
+
+  // console.log(data)
+  // ruleForm.id = project.id
+
+  // ruleForm.location_level = project.location_level
+
+  // ruleForm.title = project.title
+  // ruleForm.programme_id = project.programme_id
+  // ruleForm.status = project.status
+  // ruleForm.domain_id = project.domain_id
+  // ruleForm.category_id = project.category_id
+  // tmp_domain.value = [project.component_id, project.category_id]
+  // ruleForm.male_beneficiaries = project.male_beneficiaries
+  // ruleForm.female_beneficiaries = project.female_beneficiaries
+  // ruleForm.cost = project.cost
+  // ruleForm.settlement_id = project.settlement_id
+  // ruleForm.county_id = project.county_id
+  // ruleForm.code = project.code
+  // ruleForm.geom = project.geom
+  // ruleForm.start_date = project.start_date
+  // ruleForm.end_date = project.end_date
+
+  // ruleForm.component_id = project.component_id
+  // ruleForm.subcounty_id = project.subcounty_id
+  // ruleForm.ward_id = project.ward_id
+
+
+  // let activities = []
+  // project.activities.forEach(function (arrayItem) {
+  //   activities.push(arrayItem.id)
+  // })
+
+  // ruleForm.activities = activities
 
 
 
-  fileUploadList.value = project.documents
+  // fileUploadList.value = project.documents
 
 
-  if (project.settlement_id) {
-    showCountySettlement.value = true
-  }
-  if (project.county_id) {
-    showCounty.value = true
+  // if (project.settlement_id) {
+  //   showCountySettlement.value = true
+  // }
+  // if (project.county_id) {
+  //   showCounty.value = true
 
-  }
+  // }
 
-  console.log(project.domain_id)
+  // console.log(project.domain_id)
 
-  AddDialogVisible.value = true
+  // AddDialogVisible.value = true
 
 
 }
@@ -1075,15 +1053,7 @@ const editProject = async (data: TableSlotDefault) => {
 const AddDialogVisible = ref(false)
 
 
-
-const removeDocument = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-  formData.filesToDelete = [data.name]
-  deleteDocument(formData)
-}
+ 
 
 
 const DeleteProject = (data: TableSlotDefault) => {

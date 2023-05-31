@@ -100,26 +100,31 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-    createdBy: {
-      type: DataTypes.INTEGER,
+  
+    
+    services: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true
     },
 
-    migration_reason: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
-      allowNull: true,
-    },
     
- 
-    isApproved: {
-      type: DataTypes.STRING,
-      defaultValue: 'Pending'
-    },
-    challenges: {
+    referrals: {
       type:  DataTypes.STRING ,
       allowNull: true
  
     },
+
+
+     isApproved: {
+      type: DataTypes.STRING,
+      defaultValue: 'Pending'
+    },
+     
+    createdBy: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+ 
     code: {
       type: DataTypes.STRING,
       allowNull: false,

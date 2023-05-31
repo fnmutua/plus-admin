@@ -4,11 +4,11 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, } from '@/api/settlements'
 
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, MessageParamsWithType, UploadProps, ElOptionGroup, ElOption, FormInstance } from 'element-plus'
-import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElInputNumber } from 'element-plus'
+import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElInputNumber, ElDescriptions, ElDescriptionsItem, ElBadge, ElSwitch } from 'element-plus'
 import { computed, onMounted } from 'vue'
 import xlsx from "json-as-xlsx"
 import { getFile } from '@/api/summary'
@@ -18,6 +18,7 @@ import {
   TopRight,
   User,
   Plus,
+  View,
   Edit,
   Delete,
   Download,
@@ -28,7 +29,7 @@ import {
 import { ref, reactive, nextTick } from 'vue'
 import {
   ElPagination, ElTooltip, ElTabPane, ElTabs, ElTable, ElTableColumn, ElDialog, ElUpload,
-  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem
+  ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem, ElStep, ElSteps, ElRate
 } from 'element-plus'
 
 import { useRouter } from 'vue-router'
@@ -67,9 +68,13 @@ import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-
 
 import "mapbox-layer-switcher/styles.css";
 
-import { roadOptions, AssetConditionOptions, AssetTypeOptions, } from './../common/index.ts'
-
 import { countyOptions, SchoolLevelOptions, settlementOptionsV2, subcountyOptions, drainageTypeOtions, SurfaceTypeOtions, RdClassOptions } from './../common/index.ts'
+
+
+import UploadComponent from '@/views/Components/UploadComponent.vue';
+import { defineAsyncComponent } from 'vue';
+
+import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 
 
@@ -85,7 +90,6 @@ const morefileList = ref<UploadUserFile[]>([])
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-const map = ref()
 
 
 
@@ -94,15 +98,12 @@ const map = ref()
 
 console.log("userInfo--->", userInfo)
 
-// Map 
-const polygons = ref([]) as Ref<[number, number][][]>
-const shp = []
+
 const geoLoaded = ref(false)
 
 const markerLatlon = ref([])
 const markerProperties = ref([])
 
-const markers = ref()
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -121,7 +122,7 @@ const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
-
+const showEditButtons = ref(false)
 
 
 
@@ -131,37 +132,37 @@ if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) 
   showAdminButtons.value = true
 }
 
-
+// Show Edit buttons 
+if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
+}
 console.log("Show Buttons -->", showAdminButtons)
 
 
 
-let tableDataList = ref<UserType[]>([])
+const tableDataList = ref([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = []
 var filterValues = []
 var tblData = []
-const associated_Model = ''
-const associated_multiple_models = ['road', 'document']
+const associated_Model = 'road'
+const associated_multiple_models = ['document','road'  ]
 const model = 'road_asset'
+
 const model_parent_key = 'road_id'
 //// ------------------parameters -----------------------////
 
 
 
 
-const mapHeight = '450px'
-const countries = 'ke'
+
 const facilityGeo = ref([])
 
 
 
 //// ------------------Map -----------------------////
-
-
-
-
 
 
 
@@ -285,6 +286,11 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 };
 
 
+const tableDataListNew = ref([])
+const tableDataListRejected = ref([])
+const totalRejected = ref(0)
+const totalNew = ref(0)
+
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -303,8 +309,13 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
 
-  //-------------------------
+  //------------------- ------
   //console.log(formData)
+
+  // filter only the new ones
+  // var filters = ['isApproved']
+  // var filterValues = ['Appproved']  // make sure the inner array is array
+
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
@@ -316,14 +327,43 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   res.data.forEach(function (arrayItem) {
     //  console.log(countyOpt)
     // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
-
     var dd = flattenJSON(arrayItem)
-
     tblData.push(dd)
   })
 
   console.log('TBL-4f', tblData)
+
+  if (showAdminButtons.value) {
+    // filter only the new ones
+    var filters = ['isApproved']
+    var filterValues = [['Pending']]  // make sure the inner array is array
+    formData.filters = filters
+    formData.filterValues = filterValues
+    const newSettlements = await getSettlementListByCounty(formData)
+    console.log('NeWHCF', newSettlements)
+    tableDataListNew.value = newSettlements.data
+    totalNew.value = newSettlements.total
+    //
+
+    var filters = ['isApproved']
+    var filterValues = [['Rejected']]  // make sure the inner array is array
+    formData.filters = filters
+    formData.filterValues = filterValues
+    const Rejected = await getSettlementListByCounty(formData)
+    console.log('Rejecetd HCF', Rejected)
+    tableDataListRejected.value = Rejected.data
+    totalRejected.value = Rejected.total
+
+
+
+
+  }
+
+
+
+
 }
+
 
 const getParentNames = async () => {
   const res = await getCountyListApi({
@@ -377,9 +417,6 @@ const getModelOptions = async () => {
   })
 }
 
-const open = (msg: MessageParamsWithType) => {
-  ElMessage.error(msg)
-}
 
 const makeSettlementOptions = (list) => {
   console.log('making the options..............', list)
@@ -444,22 +481,42 @@ const getGeo = async () => {
 
 }
 
+const roadAssetGeo = ref([])
 
+const getAssetGeo = async () => {
+
+  const formData = {}
+  formData.model = 'road_asset'
+
+
+  console.log(formData)
+  const res = await getAllGeo(formData)
+
+
+
+  if (res.data[0].json_build_object) {
+
+
+    roadAssetGeo.value = res.data[0].json_build_object
+    console.log('getAssetGeo Returns---', res.data[0].json_build_object.features[0].geometry.coordinates)
+    console.log("getAssetGeo Geo", roadAssetGeo)
+
+
+  }
+
+
+
+}
 getParentNames()
 getModelOptions()
 getInterventionsAll()
 getGeo()
+getAssetGeo()
 
+const loadMap = (roadDetails) => {
+  var centerPosition = [37.137343, 1.137451]
+  var zoom = 6
 
-const loadMap = (mapCenter) => {
-
-  if (mapCenter.length === 0) {
-    var centerPosition = [37.137343, 1.137451]
-    var zoom = 6
-  } else {
-    var centerPosition = mapCenter
-    var zoom = 19
-  }
   var nmap = new mapboxgl.Map({
     container: "mapContainer",
     style: "mapbox://styles/mapbox/streets-v12",
@@ -468,12 +525,13 @@ const loadMap = (mapCenter) => {
 
   })
 
-   // When the map fails to load, hide the base map and show only the overlays
-   nmap.on('error', function (e) {
-    console.log('Failed.....', e.error)
-    nmap.setStyle( './style.json');
-          console.log("Failed to load base map. Showing only overlays.");
-      });
+     // When the map fails to load, hide the base map and show only the overlays
+    //  nmap.on('error', function (e) {
+    // console.log('Failed.....', e.error)
+    // nmap.setStyle( './style.json');
+    //       console.log("Failed to load base map. Showing only overlays.");
+    //   });
+
 
   console.log("resizing....")
 
@@ -483,19 +541,29 @@ const loadMap = (mapCenter) => {
 
     nmap.resize()
 
-    nmap.addSource('hcf', {
+    nmap.addSource('roads', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
       data: facilityGeo.value,
       // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
     });
 
+
+
+    nmap.addSource('structures', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: roadAssetGeo.value,
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
+
+
     nmap.addLayer({
-      'id': 'pontLayer',
+      'id': 'structures',
       "type": "circle",
-      'source': 'hcf',
+      'source': 'structures',
       'paint': {
-        'circle-radius': 8,
+        'circle-radius': 4,
         'circle-stroke-width': 2,
         'circle-color': [
           'case',
@@ -503,19 +571,46 @@ const loadMap = (mapCenter) => {
           '#a6cee3',
           ['==', ['get', 'asset_type'], 'cycling_lane'],
           '#1f78b4',
-          ['==', ['get', 'asset_type'], 'streetlight'],
+          ['==', ['get', 'asset_type'], 'health_center'],
           '#b2df8a',
-          ['==', ['get', 'asset_type'], 'culvert'],
+          ['==', ['get', 'asset_type'], 'streetlight'],
           '#33a02c',
-          ['==', ['get', 'asset_type'], 'bridge'],
+          ['==', ['get', 'asset_type'], 'culvert'],
           '#fb9a99',
-          ['==', ['get', 'asset_type'], 'drift'],
+          ['==', ['get', 'asset_type'], 'bridge'],
           '#e31a1c',
+          ['==', ['get', 'asset_type'], 'drift'],
+          '#fdbf6f',
           ['==', ['get', 'asset_type'], 'parking'],
           '#ff7f00', 'gray'],
         'circle-stroke-color': 'white'
       }
     });
+
+    nmap.addLayer({
+      'id': 'roads-layer',
+      "type": "line",
+      'source': 'roads',
+      'paint': {
+        'line-color': [
+          'case',
+          ['==', ['get', 'surfaceType'], 'asphalt'],
+          'red',
+          ['==', ['get', 'surfaceType'], 'surface_dressing'],
+          'purple',
+          ['==', ['get', 'surfaceType'], 'gravel'],
+          '#b2df8a',
+          ['==', ['get', 'surfaceType'], 'earth'],
+          '#33a02c',
+          ['==', ['get', 'surfaceType'], 'cabro'],
+          '#fb9a99',
+          ['==', ['get', 'surfaceType'], 'track'],
+          '#ff7f00', 'gray'],
+          'line-width': 3 // Adjust the thickness as desired
+
+      }
+    });
+
 
 
 
@@ -523,7 +618,7 @@ const loadMap = (mapCenter) => {
       id: 'Satellite',
       source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
       type: "raster"
-    }, 'pontLayer');
+    }, 'roads-layer');
 
     nmap.addLayer({
       id: 'Streets',
@@ -536,7 +631,6 @@ const loadMap = (mapCenter) => {
 
 
     const layers: MapboxLayerDefinition[] = [
-
       {
         id: "Satellite",
         title: "Satellite",
@@ -551,89 +645,63 @@ const loadMap = (mapCenter) => {
         type: 'base'
       },
 
+      {
+        id: "structures",
+        title: "Structures",
+        visibility: 'none',
+        type: 'base'
+      },
+
     ];
     nmap.addControl(new MapboxLayerSwitcherControl(layers));
-
-
-
-
     // Zoom to layers if not by clik on a list
-    if (mapCenter.length === 0) {
-      console.log(markerLatlon.value)
-      const bounds = new mapboxgl.LngLatBounds(
-        markerLatlon.value[0],
-        markerLatlon.value[0]
-      );
-      for (const coord of markerLatlon.value) {
-        bounds.extend(coord);
-      }
-
-      nmap.fitBounds(bounds, {
-        padding: 20
-      });
+    if (roadDetails.length === 0) {
+      // Get the bounds of the line layer
+      const bounds = turf.bbox(facilityGeo.value);
+      // Fit the map to the bounds
+      nmap.fitBounds(bounds, { padding: 20 });
     }
 
 
     else {
+      console.log('Geo', roadDetails[0])
+      const bounds = turf.bbox(roadDetails[0]);
+      console.log('bounds', bounds)
 
-      const description = mapCenter[2]
-      const coordinates = [mapCenter[0], mapCenter[1]]
+      nmap.fitBounds(bounds, { padding: 20 });
+
+      const description = roadDetails[1]
+      //  const coordinates = [roadDetails[0].geometry.coordinates[0][1]]
       new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
         .setHTML('<h3>' + description + '</h3>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
         .addTo(nmap);
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    nmap.on('click', 'pontLayer', (e) => {
-      console.log("Onclikc..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.asset_type;
-      const level = e.features[0].properties.asset_condition;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-
-
-
-      new mapboxgl.Popup({ offset: [0, -15] })
+    // Listen for click events on the line layer
+    nmap.on('click', 'roads-layer', function (e) {
+      // Get the coordinates of the clicked point
+      var coordinates = e.lngLat;
+      const description = e.features[0].properties.name;
+      const type = e.features[0].properties.surfaceType;
+      // Create a popup with the desired content
+      var popup = new mapboxgl.Popup()
         .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + level + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .setHTML('<h3>' + description + '</h3><p>' + type + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
         .addTo(nmap);
-
-
     });
 
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'pontLayer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
+    // Listen for click events on the line layer
+    nmap.on('click', 'structures', function (e) {
+      // Get the coordinates of the clicked point
+      var coordinates = e.lngLat;
+      const description = e.features[0].properties.asset_type;
+      const type = e.features[0].properties.asset_condition;
+      // Create a popup with the desired content
+      var popup = new mapboxgl.Popup()
+        .setLngLat(coordinates)
+        .setHTML('<h3>' + description + '</h3><p>' + type + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap);
     });
-
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'pontLayer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
-
-
-
 
 
   });
@@ -657,12 +725,12 @@ const onMap = async (obj) => {
 console.log('Options---->', countiesOptions)
 const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.id)
-
   push({
-    path: '/facilities/health/details/:id',
-    name: 'HealthFacilityDetails',
+    path: '/facilities/road/details/:id',
+    name: 'RoadsDetails',
     params: { data: data.id, id: data.id }
   })
+
 }
 
 const activeTab = ref('list')
@@ -670,7 +738,7 @@ const activeTab = ref('list')
 const flyTo = (data: TableSlotDefault) => {
   console.log('On Click.....', data.geom.coordinates)
   activeTab.value = 'map'
-  loadMap([data.geom.coordinates[0], data.geom.coordinates[1], data.asset_type])
+  loadMap([data.geom, data.name])
 
 }
 
@@ -679,6 +747,12 @@ const flyTo = (data: TableSlotDefault) => {
 
 
 const AddFacility = (data: TableSlotDefault) => {
+  push({
+     name: 'AddRoadX'
+  })
+}
+
+const AddAsset = (data: TableSlotDefault) => {
   push({
     path: '/facilities/roadasset/add',
     name: 'AddRoadStructure'
@@ -845,11 +919,11 @@ const submitMoreDocuments = async () => {
       formData.append('file', morefileList.value[i].raw)
       formData.append('format', morefileList.value[i].name.split('.').pop())
       formData.append('category', documentCategory.value)
-      formData.append('field_id', 'road_asset_id')
+      formData.append('field_id', 'road_id')
 
       formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
       formData.append('code', uuid.v4())
-      formData.append('road_asset_id', currentRow.value.id)
+      formData.append('road_id', currentRow.value.id)
 
     }
 
@@ -975,41 +1049,33 @@ const beforeUpload: UploadProps['beforeUpload'] = (files) => {
 
 const legendItems = [
   {
-    "label": "Footpath",
-    "color": "#a6cee3"
+    color: 'red',
+    label: 'Asphalt'
   },
   {
-    "label": "Cycling Lane",
-    "color": '#1f78b4'
+    color: '#1f78b4',
+    label: ' Surface Dressing'
   },
   {
-    "label": "Streetlight",
-    "color": '#b2df8a'
+    color: '#b2df8a',
+    label: ' Gravel'
   },
   {
-    "label": "Culvert",
-    "color": '#33a02c'
+    color: '#33a02c',
+    label: ' Earth'
   },
   {
-    "label": "Bridge",
-    "color": '#e31a1c'
+    color: '#fb9a99',
+    label: ' Cabro'
   },
-
   {
-    "label": "Drift",
-    "color": '#fdbf6f'
+    color: 'gray',
+    label: 'Track'
   },
-
   {
-    "label": "Parking",
-    "color": "#ff7f00"
-  },
-
-  {
-    "label": "Others",
-    "color": "gray"
+    color: '#ff7f00',
+    label: 'Other'
   }
-
 
 ]
 
@@ -1044,7 +1110,7 @@ const DeleteProject = (data: TableSlotDefault) => {
 
 }
 
-const formheader = ref('Edit Facility')
+const formheader = ref('Edit School')
 
 //*****************************Create**************************** */
 
@@ -1055,6 +1121,8 @@ const ruleForm = reactive({
   road_id: '',
   asset_type: '',
   asset_condition: '',
+  isApproved : '',
+  reviewerId:'',
   geom: null,
 })
 
@@ -1065,26 +1133,32 @@ const showAddSaveButton = ref(true)
 const AddDialogVisible = ref(false)
 const editFacility = (data: TableSlotDefault) => {
 
-  
   push({
   name: 'AddRoadStructure',
     query: { id: data.id }
   
  });
-  // handleSelectCounty(data.county_id)
-
   // showEditSaveButton.value = true
-
   // console.log(data)
-
   // currentRow.value = data.id
-
   // ruleForm.id = data.id
-  // ruleForm.road_id = data.road_id
-  // ruleForm.asset_type = data.asset_type
-  // ruleForm.asset_condition = data.asset_condition
+  // ruleForm.name = data.name
+  // ruleForm.rdClass = data.rdClass
+  // ruleForm.rdReserve = data.rdReserve
+  // ruleForm.width = data.width
+  // ruleForm.surfaceType = data.surfaceType
+  // ruleForm.surfaceType = data.surfaceType
+  // ruleForm.surfaceCondition = data.surfaceCondition
+  // ruleForm.traffic = data.traffic
+  // ruleForm.direction = data.direction
+  // ruleForm.drainage = data.drainage
+  // ruleForm.drainageCondition = data.drainageCondition
+  // ruleForm.settlement_id = data.settlement_id
+
 
   // ruleForm.geom = data.geom
+
+
 
   // morefileList.value = data.documents
   // AddDialogVisible.value = true
@@ -1095,12 +1169,12 @@ const handleClose = () => {
   console.log("Closing the dialoig")
   showAddSaveButton.value = true
   showEditSaveButton.value = false
-  ruleForm.name = null
-  ruleForm.county_id = null
-  ruleForm.population = null
-  ruleForm.area = null
-  ruleForm.description = null
-  formheader.value = 'Add Settlement'
+  for (let prop in ruleForm) {
+    ruleForm[prop] = null;
+  }
+
+
+  formheader.value = 'Add School'
   AddDialogVisible.value = false
 
 }
@@ -1116,7 +1190,139 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
 }
+const active = ref(0)
 
+const next = () => {
+  if (active.value++ > 3) active.value = 0
+}
+
+
+
+const ShowReviewDialog = ref(false)
+const RejectDialog = ref(false)
+const road_raw = ref({})
+const formHeader = ref()
+
+const Review = (data: TableSlotDefault) => {
+  console.log('On Click.....', data.row)
+  ShowReviewDialog.value = true
+
+  // make the descriptions dataset 
+  road_raw.value.asset_type = data.row.asset_type
+  road_raw.value.asset_condition = data.row.asset_condition
+  road_raw.value.surface_condition = data.row.surfaceCondition
+   road_raw.value.date = data.row.createdAt
+
+  //
+
+
+  ruleForm.id = data.row.id
+  ruleForm.asset_type = data.row.asset_type
+  ruleForm.asset_condition = data.row.asset_condition
+   ruleForm.road_id = data.row.road_id
+  ruleForm.geom = data.row.geom
+
+
+
+  formHeader.value = "Review"
+
+}
+
+const approve = async () => {
+  console.log("Appprove")
+  ruleForm.isApproved = 'Approved'
+  ruleForm.reviewerId = userInfo.id
+
+  console.log(ruleForm)
+  ruleForm.model = model
+  console.log(ruleForm)
+  await updateOneRecord(ruleForm).then(() => { })
+  ShowReviewDialog.value = false
+  getFilteredData(filters, filterValues)
+}
+
+
+const reject = async () => {
+  RejectDialog.value = true
+}
+
+const rejectReason = ref('')
+const confirmReject = async () => {
+  console.log('Reject Msg', rejectReason.value)
+  ruleForm.reject_msg = rejectReason.value
+  ruleForm.isApproved = 'Rejected'
+
+  console.log(ruleForm)
+  ruleForm.model = model
+  ruleForm.reviewerId = userInfo.id
+  console.log(ruleForm)
+  await updateOneRecord(ruleForm).then(() => { })
+  RejectDialog.value = false
+  ShowReviewDialog.value = false
+
+  getFilteredData(filters, filterValues)
+
+}
+
+const tableRowClassName = (data) => {
+  // console.log('Row Styling --------->', data.row)
+  if (data.row.documents.length > 0) {
+    return 'warning-row'
+  }
+  return ''
+}
+
+
+
+/// Uplaod docuemnts from a central component 
+const mfield = 'road_id'
+const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
+const selectedRow = ref([])
+const dynamicComponent = ref();
+ const componentProps = ref({
+      message: 'Hello from parent',
+      showDialog:addMoreDocuments,
+      data:currentRow.value,
+      model:model,
+      field:mfield
+    });
+
+ 
+ 
+function toggleComponent(row) {
+  console.log('Compnnent data', row)
+      componentProps.value.data=row
+      dynamicComponent.value = null; // Unload the component
+      addMoreDocuments.value = true; // Set any additional props
+
+      setTimeout(() => {
+        dynamicComponent.value = ChildComponent; // Load the component
+  }, 100); // 0.1 seconds
+
+
+    }
+
+     
+// component for docuemnts 
+const rowData = ref()
+const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
+const dynamicDocumentComponent = ref();
+const DocumentComponentProps = ref({
+  message: 'documents',
+  data: rowData.value,
+  docmodel: model,
+
+});
+
+
+function handleExpand(row) {
+   dynamicDocumentComponent.value = null; // Unload the component
+    rowData.value = row
+    DocumentComponentProps.value.data = row
+    setTimeout(() => {
+      dynamicDocumentComponent.value = documentComponent; // Load the component
+    }, 100); // 0.1 seconds
+}
 
 
 </script>
@@ -1125,75 +1331,73 @@ const editForm = async (formEl: FormInstance | undefined) => {
   <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Use the filters on the list of view the Map ')">
 
 
- 
 
+    <div v-if="dynamicComponent">
+      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
+    </div>
 
-    <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
-      <el-tab-pane label="List" name="list">
-        <div style="display: inline-block;">
+    <div style="display: inline-block; margin-bottom: 15px">
+
+    <div style="display: inline-block;">
           <el-select
 v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
-            collapse-tags placeholder="Filter by Road">
+            collapse-tags placeholder="Filter by Settlement">
             <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </div>
-
+        <div style="display: inline-block; margin-left: 20px">
+          <el-select
+v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
+            collapse-tags placeholder="Filter by  Name">
+            <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </div>
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         </div>
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </div>
-        <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
-          <el-tooltip content="Add Facility" placement="top">
-            <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
+     
+        <div v-if="showEditButtons" style="display: inline-block; margin-left: 20px">
+          <el-tooltip content="Add Structure" placement="top">
+            <el-button :onClick="AddAsset" type="primary" :icon="Plus">
+              <Icon icon="ph:bridge" width="18" />
+            </el-button>
           </el-tooltip>
         </div>
+      </div>
+
+
+    <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
+      <el-tab-pane name="list">
+        <template #label>
+          <span class="custom-tabs-label">
+            <el-badge type="primary" :value="total" class="item">
+              <el-button link>List</el-button>
+            </el-badge>
+          </span>
+        </template>
 
 
 
-        <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border>
+
+        <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border  @expand-change="handleExpand"   :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
                 <h3>Documents</h3>
-                <el-table :data="props.row.documents" border>
-                  <el-table-column label="Name" prop="name" />
-                  <el-table-column label="Type" prop="document_type.type" />
-                  <el-table-column label="Size(mb)" prop="size" />
-                  <el-table-column label="Actions">
-                    <!-- <template #default="scope"> -->
-                    <template #default="scope">
-
-                      <el-dropdown v-if="isMobile">
-                        <span class="el-dropdown-link">
-                          <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                        </span>
-                        <el-dropdown-menu>
-                          <el-dropdown-item @click="downloadFile(scope.row)" :icon="Download" color="green" />
-                          <el-dropdown-item @click="removeDocument(scope.row)" :icon="Delete" color="red" />
-                        </el-dropdown-menu>
-                      </el-dropdown>
-                      <div v-else>
-                        <el-button type="success" @click="downloadFile(scope.row)" :icon="Download" />
-                        <el-button type="danger" @click="removeDocument(scope.row)" :icon="Delete" />
-                      </div>
-                    </template>
-
-                  </el-table-column>
-                </el-table>
-                <!-- <el-button @click="addMoreDocs(props.row)" type="info" round>Add Documents</el-button> -->
-                <el-button
-type="success" :icon="Plus" circle @click="addMoreDocs(props.row)"
-                  style="margin-left: 10px;margin-top: 5px" size="small" />
-
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
           <el-table-column label="Road" prop="road.name" sortable />
           <el-table-column label="Asset" prop="asset_type" sortable />
-          <el-table-column label="Condition" prop="asset_condition" sortable />
-
+           <el-table-column label=" Condition" prop="asset_condition" sortable />
+ 
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
@@ -1219,7 +1423,7 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
 
               <div v-else>
 
-                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
                   <el-button
 type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
                     circle />
@@ -1261,63 +1465,191 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
-        <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
-          <el-row :gutter="10">
-
-            <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-              <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-position="left">
-                <el-form-item label="Road" prop="road_id">
-                  <el-select v-model="ruleForm.road_id" filterable placeholder="Road">
-                    <el-option
-v-for="item in countiesOptions" :key="item.value" :label="item.label"
-                      :value="item.value" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="Type" prop="asset_type">
-                  <el-select v-model="ruleForm.asset_type" filterable placeholder="Select">
-                    <el-option
-v-for="item in AssetTypeOptions" :key="item.value" :label="item.label"
-                      :value="item.value" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="Condition" prop="asset_condition">
-                  <el-select v-model="ruleForm.asset_condition" filterable placeholder="Select">
-                    <el-option
-v-for="item in AssetConditionOptions" :key="item.value" :label="item.label"
-                      :value="item.value" />
-                  </el-select>
-                </el-form-item>
-
-
-
-
-
-              </el-form>
-            </el-col>
-
-          </el-row>
-
-          <template #footer>
-            <span class="dialog-footer space-between">
-              <el-row :gutter="10">
-
-                <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-
-                  <el-button @click="AddDialogVisible = false">Cancel</el-button>
-                  <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-
-
-                </el-col>
-
-
-              </el-row>
-            </span>
-          </template>
-
-
-        </el-dialog>
 
       </el-tab-pane>
+
+
+
+      <el-tab-pane name="new" v-if=showEditButtons>
+        <template #label>
+          <span class="custom-tabs-label">
+            <el-badge type="success" :value="totalNew" class="item">
+              <el-button link>New</el-button>
+            </el-badge>
+          </span>
+        </template>
+
+        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border  @expand-change="handleExpand"  :row-class-name="tableRowClassName">
+          <el-table-column type="expand">
+            <template #default="props">
+              <div m="4">
+                <h3>Documents</h3>
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Road" prop="road.name" sortable />
+          <el-table-column label="Asset" prop="asset_type" sortable />
+           <el-table-column label=" Condition" prop="asset_condition" sortable />
+ 
+
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+@click="viewProfile(scope as TableSlotDefault)"
+                      :icon="Position">View</el-dropdown-item>
+
+
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
+
+              <div v-else>
+
+                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+
+                <el-tooltip content="View Profile" placement="top">
+                  <el-button
+type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+
+                <el-tooltip content="View Profile" placement="top">
+                  <el-button
+type="primary" size="small" :icon="TopRight"
+                    @click="viewProfile(scope.row as TableSlotDefault)" circle />
+                </el-tooltip>
+
+                <el-tooltip content="Review" placement="top">
+                  <el-button
+v-show="showAdminButtons" type="success" size="small" :icon="View"
+                    @click="Review(scope as TableSlotDefault)" circle />
+                </el-tooltip>
+
+
+              </div>
+            </template>
+
+          </el-table-column>
+
+        </el-table>
+
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalNew" :background="true"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      </el-tab-pane>
+
+      <el-tab-pane name="rejected" v-if=showAdminButtons :badge="5">
+        <template #label>
+          <span class="custom-tabs-label">
+            <el-badge :value="totalRejected" class="item">
+              <el-button link>Rejected</el-button>
+            </el-badge>
+          </span>
+        </template>
+        <el-table :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border  @expand-change="handleExpand" >
+          <el-table-column type="expand">
+            <template #default="props">
+              <div m="4">
+                <h3>Documents</h3>
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Road" prop="road.name" sortable />
+          <el-table-column label="Asset" prop="asset_type" sortable />
+           <el-table-column label=" Condition" prop="asset_condition" sortable />
+ 
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+@click="viewProfile(scope as TableSlotDefault)"
+                      :icon="Position">View</el-dropdown-item>
+
+                    <el-tooltip content="Review" placement="top">
+                      <el-button
+v-show="showAdminButtons" type="success" size="small" :icon="View"
+                        @click="Review(scope as TableSlotDefault)" circle />
+                    </el-tooltip>
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
+
+              <div v-else>
+
+
+
+                <el-tooltip content="View Profile" placement="top">
+                  <el-button
+type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+
+
+
+                <el-tooltip content="View Profile" placement="top">
+                  <el-button
+type="primary" size="small" :icon="TopRight"
+                    @click="viewProfile(scope.row as TableSlotDefault)" circle />
+                </el-tooltip>
+
+
+                <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
+                  <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                    title="Are you sure to delete this facility?" width="150"
+                    @confirm="DeleteProject(scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button type="danger" size="small" :icon=Delete circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+
+              </div>
+            </template>
+
+          </el-table-column>
+
+        </el-table>
+
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalRejected" :background="true"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+
+      </el-tab-pane>
+
+
 
 
       <el-tab-pane label="Map" name="map">
@@ -1330,7 +1662,7 @@ v-for="item in AssetConditionOptions" :key="item.value" :label="item.label"
             <el-collapse-item title="LEGEND">
               <div class="legend">
                 <div v-for="item in legendItems" :key="item.label" class="legend-item">
-                  <div class="circle-color" :style="{ backgroundColor: item.color }"></div>
+                  <div class="line-color" :style="{ backgroundColor: item.color }"></div>
                   <div class="legend-label">{{ item.label }}</div>
                 </div>
               </div>
@@ -1352,6 +1684,7 @@ v-for="item in AssetConditionOptions" :key="item.value" :label="item.label"
         </el-option-group>
       </el-select>
 
+
       <el-upload
 v-model:file-list="morefileList" class="upload-demo "
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
@@ -1364,6 +1697,135 @@ v-model:file-list="morefileList" class="upload-demo "
       </el-upload>
       <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
 
+    </el-dialog>
+
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
+      <el-row :gutter="10">
+
+
+        <div style="display: inline-block; width: 100%;   margin-bottom: 10px">
+          <el-steps :active="active" finish-status="success">
+            <el-step title="Profile" />
+            <el-step title="Condition" />
+
+          </el-steps>
+        </div>
+
+        <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px" class="demo-ruleForm" status-icon>
+
+          <el-row v-if="active === 0" :gutter="20">
+
+            <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
+              <el-form-item label="Road Name" prop="name">
+                <el-input v-model="ruleForm.name" />
+              </el-form-item>
+              <el-form-item label="Settlement" prop="settlement_id">
+                <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
+                  <el-option
+v-for="item in settlementOptionsV2" :key="item.value" :label="item.label"
+                    :value="item.value" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="Road Class" prop="rdClass">
+                <el-select v-model="ruleForm.rdClass" filterable placeholder="A,B,C..">
+                  <el-option v-for="item in RdClassOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="Road Width" prop="width">
+                <el-input-number v-model="ruleForm.width" />
+              </el-form-item>
+              <el-form-item label="Reserve" prop="rdReserve">
+                <el-input-number v-model="ruleForm.rdReserve" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row class="mb-4  md-5" v-if="active === 1" :gutter="20">
+
+            <el-col :span="24" :lg="24" :md="12" :sm="12" :xs="24">
+              <el-form-item label="Surface Type" prop="mhm">
+                <el-select v-model="ruleForm.surfaceType" filterable placeholder="surfaceType">
+                  <el-option
+v-for="item in SurfaceTypeOtions" :key="item.value" :label="item.label"
+                    :value="item.value" />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="Condition" prop="mhm">
+                <el-rate
+v-model="ruleForm.surfaceCondition" :colors="colors" show-text
+                  :texts="['Under Construction', 'Very Poor', 'Poor', 'good', 'Excellent']" />
+              </el-form-item>
+
+              <el-form-item label="Drainage Type" prop="mhm">
+                <el-select v-model="ruleForm.drainage" filterable placeholder="drainage">
+                  <el-option
+v-for="item in drainageTypeOtions" :key="item.value" :label="item.label"
+                    :value="item.value" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="Condition" prop="mhm">
+                <el-rate
+v-model="ruleForm.drainageCondition" :colors="colors" show-text
+                  :texts="['Under Construction', 'Very Poor', 'Poor', 'good', 'Excellent']" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+        </el-form>
+
+
+      </el-row>
+
+      <template #footer>
+        <span class="dialog-footer space-between">
+          <el-row :gutter="10">
+
+            <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+              <el-button @click="next">Next step</el-button>
+
+              <el-button @click="AddDialogVisible = false">Cancel</el-button>
+              <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+
+
+            </el-col>
+
+
+          </el-row>
+        </span>
+      </template>
+
+
+    </el-dialog>
+
+    <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
+      <el-descriptions title="" direction="vertical" :column="2" size="small" border>
+        <el-descriptions-item label="Type">{{ road_raw.asset_type }}</el-descriptions-item>
+        <el-descriptions-item label="Condition" :span="2">{{ road_raw.asset_condition }}</el-descriptions-item>
+         <el-descriptions-item label="Date"> {{ road_raw.date }} </el-descriptions-item>
+
+
+
+
+
+      </el-descriptions>
+      <template #footer>
+        <span v-if="showAdminButtons" class="dialog-footer">
+          <el-button type="success" @click="approve">Approve</el-button>
+          <el-button type="danger" @click="reject">Reject</el-button>
+        </span>
+      </template>
+    </el-dialog>
+    <el-dialog v-model="RejectDialog" title="Reason for rejection" width="20%">
+      <el-input v-model="rejectReason" placeholder="" />
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="RejectDialog = false">Cancel</el-button>
+          <el-button type="primary" @click="confirmReject">
+            Confirm
+          </el-button>
+        </span>
+      </template>
     </el-dialog>
 
 
@@ -1439,12 +1901,10 @@ v-model:file-list="morefileList" class="upload-demo "
 }
 
 
-.circle-color {
-  height: 20px;
-  width: 20px;
+.line-color {
+  height: 3px;
   margin-right: 10px;
-  border-radius: 50%;
-  display: inline-block;
+  width: 20px;
 
 }
 
@@ -1473,6 +1933,13 @@ v-model:file-list="morefileList" class="upload-demo "
   padding: 5px;
   border-radius: 5px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+
+
+.item {
+  margin-top: 10px;
+  margin-right: 40px;
 }
 </style>
 
