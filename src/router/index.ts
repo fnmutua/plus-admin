@@ -2664,7 +2664,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Settlement/AddX.vue'),
             name: 'AddSettlementX',
             meta: {
-              hidden: false,
+              hidden: true,
               props: true,
               icon:'bi:house-add',
               title: 'AddSettX'
@@ -2728,7 +2728,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Household/AddX.vue'),
             name: 'AddHouseholdx',
             meta: {
-              hidden: false,
+              hidden: true,
               props: true,
               icon:'bi:house-add',
               title: 'Add Household'
