@@ -38,7 +38,7 @@ module.exports = function(sequelize, DataTypes) {
     },
 
     length: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DOUBLE,
       allowNull: true
     },
 

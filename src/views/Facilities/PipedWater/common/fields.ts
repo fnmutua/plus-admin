@@ -100,8 +100,7 @@ const formFields: Field[][] =reactive( [
       name: "condition", label: "Condition", type: "select", multiselect: 'false',
       options: FacilityConditionOptions  },
      
-      { name: "length", label: "Length(Km)", min:"0",  type: "number",  multiselect: 'false', options: [] },
-      { name: "number_connections", label: "Number of Connections(HH))", min:"0",  type: "number",   multiselect: 'false', options: [] },
+       { name: "number_connections", label: "Number of Connections(HH))", min:"0",  type: "number",   multiselect: 'false', options: [] },
       { name: "challenges", label: "Challenges/Issues", type: "text", multiselect: 'false',   options:[]},
 
   

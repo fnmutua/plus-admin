@@ -42,11 +42,17 @@ v-for="option in field.options" :key="option.value" :label="option.label"
               </el-select>
 
                  
+          
               <el-cascader
-v-else-if="field.type === 'cascade'  " v-model="formData[field.name]"
-                :filterable="true" clearable :options="field.options"   
-                @change="getFieldChangeHandler(field.name)"/>
-              
+v-else-if="field.type === 'cascade' && !isMobile" v-model="formData[field.name]"
+                :filterable="true" clearable :options="field.options"  
+                @change="getFieldChangeHandler(field.name)"  />
+              <div v-else-if="field.type === 'cascade' && isMobile">  
+                <el-button type="primary" @click="showOnMobile(field.options)"> Select </el-button> 
+                <div>
+                  <span style="font-size: 10px;" >{{ selectAdmin }}</span>
+                </div>             
+              </div>
 
               <el-upload
                 v-else-if="field.type === 'upload' && visibleUpload"
@@ -87,6 +93,59 @@ v-else-if="field.type === 'cascade'  " v-model="formData[field.name]"
     
 
     </el-card>
+    <el-dialog v-model="showDialog" title="Select Location" width="70%">
+      <el-row  >
+          <el-select v-model="county_id" class="m-2"  @change="onSelectCounty"  placeholder="Select" size="large">
+            <el-option
+              v-for="item in cascadeOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+
+      <el-select v-model="subcounty_id" class="m-2"   @change="onSelectSubcounty"  placeholder="Select" size="large">
+        <el-option
+          v-for="item in subcountyOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
+      </el-select>
+
+      <el-select v-model="ward_id" class="m-2" placeholder="Select" @change="onSelectWard" size="large">
+        <el-option
+          v-for="item in wardOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
+      </el-select>
+      <el-select v-model="settlement_id" class="m-2" placeholder="Select" @change="onSelectSettlement" size="large">
+        <el-option
+          v-for="item in settOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
+      </el-select>
+
+        </el-row>   
+         <template #footer>
+      <div class="dialog-footer"> 
+        <el-row justify="space-between">
+          <el-col :span="12">
+            <el-button @click="showDialog = false" style="float: left">Cancel</el-button>
+          </el-col>
+          <el-col :span="12">
+            <el-button type="primary" @click="setLocationOnMobile" style="float: right">
+              Confirm
+            </el-button>
+          </el-col>
+        </el-row>
+      </div>
+    </template>
+        </el-dialog>
   </div>
 
  
@@ -161,7 +220,65 @@ if (isMobile.value) {
   labelPosition.value = 'top'
 
 }
+// for mobile only 
+const county_id = ref()
+const subcounty_id = ref()
+const subcountyOptions=ref([])
+const ward_id = ref()
+const wardOptions = ref([])
+const selectAdmin = ref()
 
+const settOptions = ref([])
+const settlement_id = ref()
+
+const showOnMobile = (options) => {
+  console.log(options)
+  cascadeOptions.value = options
+
+  showDialog.value = true
+};
+
+const onSelectCounty = (county_id) => {
+  subcounty_id.value=null
+  const selCounty = cascadeOptions.value.filter((obj) => obj.value === county_id);
+  subcountyOptions.value = selCounty[0].children
+  console.log(subcountyOptions)
+  selectAdmin.value=selCounty[0].label
+
+
+};
+const onSelectSubcounty = (subcounty_id) => {
+  ward_id.value= null
+  const selSubCounty = subcountyOptions.value.filter((obj) => obj.value === subcounty_id);
+  wardOptions.value = selSubCounty[0].children
+  console.log(subcountyOptions)
+  selectAdmin.value= selectAdmin.value + ' | '+ selSubCounty[0].label
+};
+
+const onSelectWard = (ward_id) => {
+  settlement_id.value= null
+  const selectWard = wardOptions.value.filter((obj) => obj.value === ward_id);
+  settOptions.value = selectWard[0].children
+
+   selectAdmin.value= selectAdmin.value + ' | '+ selectWard[0].label
+};
+
+const onSelectSettlement = (sett_id) => {
+    const selectedSettlement = settOptions.value.filter((obj) => obj.value === sett_id);
+  selectAdmin.value= selectAdmin.value + ' | '+ selectedSettlement[0].label
+};
+ 
+const setLocationOnMobile = () => {
+  formData.county_id = county_id.value
+  formData.subcounty_id=subcounty_id.value
+  formData.ward_id = ward_id.value
+  formData.settlement_id = settlement_id.value
+  formData.location =[county_id,subcounty_id,ward_id,settlement_id]
+
+  console.log('formData',formData)
+  showDialog.value=false
+};
+/// - mobile end 
 
 const fileList = ref([])
 const visibleUpload = ref(false)

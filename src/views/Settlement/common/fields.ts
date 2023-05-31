@@ -178,10 +178,10 @@ const formRules: FormRules = reactive({
       { required: true, message: 'Location is required', trigger: 'blur' },
       {
         validator: (rule, value, callback) => {
-          if (Array.isArray(value) && value.length === 4) {
+          if (Array.isArray(value) && value.length === 3) {
             callback();
           } else {
-            callback(new Error('Location must include Settlement'));
+            callback(new Error('Location must include Ward'));
           }
         }, 
         trigger: 'blur'
