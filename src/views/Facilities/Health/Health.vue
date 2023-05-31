@@ -554,7 +554,7 @@ const loadMap = (mapCenter) => {
     var zoom = 6
   } else {
     var centerPosition = mapCenter
-    var zoom = 19
+    var zoom = 12
   }
   var nmap = new mapboxgl.Map({
     container: "mapContainer",

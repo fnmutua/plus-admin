@@ -80,7 +80,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     mhm: {
-      type: DataTypes.STRING,
+      type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true
     },
 

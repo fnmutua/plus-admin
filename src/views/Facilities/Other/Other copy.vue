@@ -539,7 +539,7 @@ const loadMap = (mapCenter) => {
     var zoom = 6
   } else {
     var centerPosition = mapCenter
-    var zoom = 19
+    var zoom = 12
   }
   var nmap = new mapboxgl.Map({
     container: "mapContainer",
@@ -550,11 +550,11 @@ const loadMap = (mapCenter) => {
   })
 
    // When the map fails to load, hide the base map and show only the overlays
-   nmap.on('error', function (e) {
-    console.log('Failed.....', e.error)
-    nmap.setStyle( './style.json');
-          console.log("Failed to load base map. Showing only overlays.");
-      });
+  //  nmap.on('error', function (e) {
+  //   console.log('Failed.....', e.error)
+  //   nmap.setStyle( './style.json');
+  //         console.log("Failed to load base map. Showing only overlays.");
+  //     });
 
   console.log("resizing....")
 

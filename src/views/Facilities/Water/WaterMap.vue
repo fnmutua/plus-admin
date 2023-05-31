@@ -74,15 +74,15 @@ const getAll = async () => {
       container: "mapContainer",
       style: "mapbox://styles/mapbox/streets-v12",
       center: mapCenter.value, // starting position
-      zoom: 15,
+      zoom: 12,
 
     })
        // When the map fails to load, hide the base map and show only the overlays
-   nmap.on('error', function (e) {
-    console.log('Failed.....', e.error)
-    nmap.setStyle( './style.json');
-          console.log("Failed to load base map. Showing only overlays.");
-   });
+  //  nmap.on('error', function (e) {
+  //   console.log('Failed.....', e.error)
+  //   nmap.setStyle( './style.json');
+  //         console.log("Failed to load base map. Showing only overlays.");
+  //  });
       
     const nav = new mapboxgl.NavigationControl();
     nmap.addControl(nav, "top-right");

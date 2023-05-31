@@ -129,12 +129,12 @@ const formRules: FormRules = reactive({
   // Validation rules for each step
   step1: {
     name: [
-        { required: true, message: 'Road Name is required', trigger: 'blur' }
+        { required: true, message: 'Name is required', trigger: 'blur' }
     ],
-    length: [
-      { required: true, message: 'Length is required', trigger: 'blur' }
-  ],     
-
+  
+    type: [
+      { required: true, message: 'Type is required', trigger: 'blur' }
+  ],
     // // age: [
     //     { required: true, message: 'Age is required', trigger: 'blur' },
     //     { type: 'number', message: 'Age must be a number', trigger: 'blur' }

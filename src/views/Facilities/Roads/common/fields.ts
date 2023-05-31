@@ -81,7 +81,7 @@ const formFields: Field[][] =reactive( [
     {name: "surfaceCondition", label: "Condition", type: "select", multiselect: 'false', options: FacilityConditionOptions  },
     {name: "surfaceType", label: "Surface", type: "select", multiselect: 'false', options: SurfaceTypeOtions  },
 
-    {name: "drainage", label: "drainage", type: "select", multiselect: 'false', options: drainageTypeOtions  },
+    {name: "drainage", label: "Drainage", type: "select", multiselect: 'false', options: drainageTypeOtions  },
     
     {name: "traffic", label: "Traffic", type: "select", multiselect: 'false', options: traffic  },
     {name: "direction", label: "Direction", type: "select", multiselect: 'false', options: direction  },

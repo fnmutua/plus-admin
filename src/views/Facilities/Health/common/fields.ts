@@ -85,6 +85,22 @@ const formFields: Field[][] = [
           { label: 'Not registered', value: 'Not registered' }]
     },
     
+       
+    {
+      name: "services", label: "Services", type: "select", multiselect: 'true',  
+        options: [
+          { label: 'Out-patient', value: 'Out-patient' },
+          { label: 'In-patient', value: 'In-patient' },
+          { label: 'Pharmacy', value: 'Pharmacy' },
+          { label: 'Laboratory', value: 'Laboratory' },
+          { label: 'Other', value: 'Other' },
+          
+        ]
+    },
+
+    
+     
+    
     {
       name: "ownership_type", label: "Ownership", type: "select", multiselect: 'false',  
         options: [
@@ -133,32 +149,22 @@ const formFields: Field[][] = [
         
         ]
     },
-
-      
-     
-     
-   
-
-
+  
     {
       name: "inpatient", label: "Has Inpatient", type: "select", multiselect: 'false',  
         options: yes_no
     },
-
-
-    
-
-
-
+ 
 
     { name: "patients_per_day", label: "Avg. patients/day", min:"0",  type: "number", multiselect: 'false', options: [] },
     { name: "number_beds", label: "Bed Capacity", type: "number", min:"0", multiselect: 'false', options:[]},
-    { name: "occupancy", label: "Occupancy Rate", type: "number", min:"0", multiselect: 'false', options:[]},
+    { name: "occupancy", label: "Occupancy Rate(%)", type: "number", min:"0", multiselect: 'false', options:[]},
     { name: "number_doctors", label: "Number of Doctors", type: "number", min:"0", multiselect: 'false', options:[]},
     { name: "number_clinical_officers", label: "Number of Clincial Officers", type: "number",  min:"0",multiselect: 'false', options:[]},
     { name: "number_pharm", label: "Number of Pharmacists", type: "number",  min:"0",multiselect: 'false', options:[]},
     { name: "number_nurses", label: "Number of Nurses", type: "number", min:"0", multiselect: 'false', options:[]},
     
+    { name: "referrals", label: "Referrals To:", type: "text", multiselect: 'false', options:[]},
 
      { name: "challenges", label: "Challenges/Issues", type: "text", multiselect: 'false', options:[]},
   
