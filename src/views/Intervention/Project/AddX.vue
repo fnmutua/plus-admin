@@ -875,21 +875,23 @@ const handleChangeLocation = async (value: any) => {
   formData.ward_id = value[2]
   formData.settlement_id = value[3]
 
-  
-
-
+     
   if (value.length==1) {
     var model = 'county'
     var model_id = value[0]
-  } else if (value.length==1) {
+  } else if (value.length==2) {
     var model = 'subcounty'
     var model_id = value[1]
-
-  } else {
+  }
+  else if (value.length==3) {
     var model = 'ward'
     var model_id = value[2]
   }
-
+  else {
+    var model = 'settlement'
+    var model_id = value[3]
+  }
+  
   const geoForm = {}
   geoForm.model = model
   geoForm.id = model_id
