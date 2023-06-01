@@ -26,8 +26,10 @@ import { ElMessage } from 'element-plus'
 import { ElCollapse, ElCollapseItem } from 'element-plus';
 import { onMounted, computed, reactive } from 'vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
+ 
 
-
+import { Icon } from '@iconify/vue';
+import waterOutline from '@iconify-icons/mdi/water-outline';
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
@@ -78,7 +80,7 @@ const getGeodata = async (settlement_id, fmodel) => {
     .then((response: { data: any }) => {
       if (response.data[0].json_build_object.features) {
         facilityData.value[fmodel] = response.data[0].json_build_object
-
+          showLayerLegend.value=true
       }
 
 
@@ -92,6 +94,7 @@ const getGeodata = async (settlement_id, fmodel) => {
 const ParcelGeodata = ref([])
 
 const showParcelLegend = ref(false)
+const showLayerLegend = ref(false)
 const getParcels = async () => {
   const id = route.params.id
   const filterCol = 'settlement_id'
@@ -183,8 +186,7 @@ const getAll = async () => {
 
 const nmap = ref()
 
-const countOffline = ref(0)
-
+ 
 
 const loadMap = () => {
   nmap.value = new mapboxgl.Map({
@@ -232,8 +234,9 @@ const loadMap = () => {
       "type": "line",
       'source': 'polygons',
       'paint': {
-        'line-color': 'red',
-        'line-width': 1
+        'line-color': 'black',
+        'line-width': 1,
+        'line-dasharray'  :[3,4]
       }
     });
 
@@ -304,24 +307,37 @@ const loadMap = () => {
           'paint': {
             'circle-radius': 8,
             'circle-stroke-width': 2,
-            'circle-color': prop === 'health_facility' ? 'green' : prop === 'education_facility' ? 'purple' : prop === 'road' ? 'red' : prop === 'sewer' ? 'yellow' : prop === 'water_point' ? 'blue' : prop === 'piped_water' ? 'blue' : 'gray',
-            'circle-stroke-color': 'white'
+            'circle-color': prop === 'health_facility' ? 'yellow' : prop === 'education_facility' ?
+              'green' : prop === 'road' ? 'red' : prop === 'sewer' ? 'purple' : prop === 'water_point' ? 'blue'
+                : prop === 'piped_water' ? 'blue' : 'gray','circle-stroke-color': 'white'
           }
         });
+
+       
+
+
+
       } else if (facilityData.value[prop].features[0].geometry.type == 'LineString') {
         const layer = ({
           'id': prop,
           "type": "line",
           'source': prop,
           'paint': {
-            'line-color': prop === 'piped_water' ? 'blue' : prop === 'sewer' ? 'black' : 'red',
+            'line-color': prop === 'piped_water' ? 'blue' : prop === 'sewer' ? 'purple' : 'red',
             'line-width': 2, // Adjust the thickness as desired
           }
         });
 
-        if (prop === 'sewer') {
-          layer.paint['line-dasharray'] = [2, 2];
-        }
+        // if (prop === 'sewer') {
+        // //  layer.paint['line-dasharray'] = [0, 4, 3];
+
+        //   // Add a dot in between the dashes
+        //     const dashArray = layer.paint['line-dasharray'];
+        //     const dotInBetween = dashArray.flatMap(dash => [dash, 1]); // 1 represents the dot
+        // //    layer.paint['line-dasharray'] = dotInBetween;
+
+
+        // }
         nmap.value.addLayer(layer);
       }
       else
@@ -338,7 +354,23 @@ const loadMap = () => {
           }
         });
 
-      }
+      } 
+
+      nmap.value.on('click', prop, (e) => {
+      console.log("click props..........")
+      // Copy coordinates array.
+       const parcel_no = e.features[0].properties.name ?e.features[0].properties.name :e.features[0].properties.title
+  
+         const clickedLocation = e.lngLat;
+
+     
+      new mapboxgl.Popup({ offset: [0, 0] })
+        .setLngLat(clickedLocation)
+        .setHTML('<h1><u><strong>Details</strong></u><h1>' + '<h3><strong> Layer: </strong>'
+          + prop + '</h3><p><strong> Name/Title:  </strong> '  + parcel_no + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+        .addTo(nmap.value);
+      });
+    
     }
 
 
@@ -496,7 +528,7 @@ const legendItems = [
 const boundaryItems = [
   {
     "label": "Boundary",
-    "color": "red"
+    "color": "black"
   },
 ]
 
@@ -551,15 +583,6 @@ const filteredLayers = ref([])
 
 const handleCheckboxChange = (option:String) => {
 
-  // if (filteredLayers.value.includes(option)) { 
-  //   console.log('in', option)
-  // } else {
-
-  //   console.log('out', option)
-
-  // }
-
-
   for (let i = 0; i < facilityLayers.value.length; i++) {
     // console.log('opt', option[i])
 
@@ -608,7 +631,7 @@ const handleCheckboxChange = (option:String) => {
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-          
+           
           <el-tooltip content="Download Data" placement="top">
             <el-button type="primary" :onClick="downloadMap" style="  margin-left: 5px">
               <Icon :size=24 icon='ic:sharp-file-download' />
@@ -636,7 +659,7 @@ const handleCheckboxChange = (option:String) => {
                      
             <div >
               <div v-for="item in boundaryItems" :key="item.label" class="line-item">
-              <div class="line-color" :style="{ backgroundColor: item.color }"></div>
+              <div class="line-color"></div>
               <div class="legend-label">{{ item.label }}</div>
             </div>
             </div> 
@@ -647,19 +670,19 @@ const handleCheckboxChange = (option:String) => {
             </div>
             </div> -->
           </div>
-        </el-collapse-item>
+        </el-collapse-item>  
 
-      <el-collapse-item title="Parcels" name="Parcels">
-        <div v-if="showParcelLegend">
+      <el-collapse-item title="Parcels" name="Parcels" v-if="showParcelLegend">
+        <div >
              <div v-for="item in legendItems" :key="item.label" class="legend-item">
               <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
               <div class="legend-label">{{ item.label }}</div>
             </div>
             </div>
-    </el-collapse-item>
+    </el-collapse-item>  
 
 
-        <el-collapse-item title="Layers" name="checkboxes">
+        <el-collapse-item title="Layers" name="checkboxes" v-if="showLayerLegend">
            
    <el-checkbox-group v-model="filteredLayers" @change="handleCheckboxChange"  class="checkbox-group-vertical">
       <el-checkbox v-for="item in facilityLayers" :label="item" :key="item">{{ item }}</el-checkbox>
@@ -753,9 +776,10 @@ h1 {
 }
 
 .line-color {
-  height: 3px;
+  border-top: 3px dotted rgb(14, 1, 1);
+
   margin-right: 10px;
-  width: 20px;
+  width: 15px;
 
 }
 
@@ -763,7 +787,9 @@ h1 {
   display: flex;
   align-items: center;
   margin-bottom: 5px;
+  border-style: dashed;
 }
+
 
 
 .legend-color {
