@@ -464,7 +464,7 @@ const legendItems = [
     "color": "#F6C567"
   },
   {
-    "label": "Recreation/Reservation",
+    "label": "Recreation",
     "color": "#6FDC6E"
   },
   {
@@ -582,25 +582,7 @@ const handleCheckboxChange = (option:String) => {
     }
 
   }
-    
-         
-
-
-
-  //  if (filteredLayers.value.includes(option)) {
-  //    nmap.value.setLayoutProperty(
-  //       option,
-  //         'visibility',
-  //         'visible'
-  //      );
-    
-  //       }  else {
-  //       nmap.value.setLayoutProperty(
-  //         option,
-  //         'visibility',
-  //        'none'
-  //      );
-  //  }
+     
     }
 
 
@@ -618,7 +600,6 @@ const handleCheckboxChange = (option:String) => {
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
-
                 <el-checkbox-group :onChange="switchLayer" v-model="selectedLayers">
                   <el-checkbox-button v-for="layer in layers" :key="layer" :name="layer" :label="layer">{{
                     layer
@@ -652,37 +633,35 @@ const handleCheckboxChange = (option:String) => {
  <el-collapse v-model="collapse">
         <el-collapse-item title="Key">
           <div class="legend">
-            <div v-if="showParcelLegend">
-                <strong>Parcels</strong>
-            <div v-for="item in legendItems" :key="item.label" class="legend-item">
-              <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
-              <div class="legend-label">{{ item.label }}</div>
-            </div>
-            </div>
-           
+                     
             <div >
               <div v-for="item in boundaryItems" :key="item.label" class="line-item">
               <div class="line-color" :style="{ backgroundColor: item.color }"></div>
               <div class="legend-label">{{ item.label }}</div>
             </div>
-            </div>
-            
-            
-            <div  v-if="facilityLayers.length>0">
-              <strong v-if="facilityLayers.length>0">Facilities</strong>
-             <div v-for="item in lineItems" :key="item.label" class="line-item">
+            </div> 
+            <!-- <div  v-if="facilityLayers.length>0">
+              <div v-for="item in lineItems" :key="item.label" class="line-item">
               <div class="line-color" :style="{ backgroundColor: item.color }"></div>
               <div class="legend-label">{{ item.label }}</div>
             </div>
-            </div>
-            
-
+            </div> -->
           </div>
         </el-collapse-item>
+
+      <el-collapse-item title="Parcels" name="Parcels">
+        <div v-if="showParcelLegend">
+             <div v-for="item in legendItems" :key="item.label" class="legend-item">
+              <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
+              <div class="legend-label">{{ item.label }}</div>
+            </div>
+            </div>
+    </el-collapse-item>
+
+
         <el-collapse-item title="Layers" name="checkboxes">
            
- 
-          <el-checkbox-group v-model="filteredLayers" @change="handleCheckboxChange">
+   <el-checkbox-group v-model="filteredLayers" @change="handleCheckboxChange"  class="checkbox-group-vertical">
       <el-checkbox v-for="item in facilityLayers" :label="item" :key="item">{{ item }}</el-checkbox>
     </el-checkbox-group>
 
@@ -809,13 +788,8 @@ h1 {
 }
 
 
-
-.vertical-checkboxes .el-checkbox-group {
+.checkbox-group-vertical {
   display: flex;
   flex-direction: column;
-}
-
-.vertical-checkboxes .el-checkbox {
-  margin-bottom: 10px;
 }
 </style>
