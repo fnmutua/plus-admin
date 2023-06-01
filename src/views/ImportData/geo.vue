@@ -27,7 +27,7 @@ import {
   Delete,
   RefreshLeft,
   UploadFilled,
-  ArrowRightBold,
+   ArrowRightBold,
   Tools
 } from '@element-plus/icons-vue'
 
@@ -370,13 +370,13 @@ const handleProcess = async () => {
         conv_feature[matched_field[0].field] = feature[prop]
       }
       conv_feature.geom = (feature.geom)
- 
+
     }
     console.log(conv_feature)
     if (!conv_feature.code) {
-        conv_feature.code = shortid.generate()
-  
-      }
+      conv_feature.code = shortid.generate()
+
+    }
     return conv_feature
   })
 
@@ -581,9 +581,9 @@ const readShp = async (file) => {
       var collection = turf.featureCollection(geojson);
 
       console.log(collection)
-     loadOptions(collection)
+      loadOptions(collection)
 
-   
+
 
 
     })
@@ -605,7 +605,7 @@ const readJson = (event) => {
 
   console.log(json)
 
- loadOptions(json)
+  loadOptions(json)
 
 }
 const loadOptions = (json) => {
@@ -613,10 +613,10 @@ const loadOptions = (json) => {
   var featureType = json.type
 
   if (featureType === 'FeatureCollection') {
-      console.log('xFeatureCollection:', json)
+    console.log('xFeatureCollection:', json)
   } else if (featureType === 'Features' || featureType === 'Features') {
 
-    console.log("features:",json)
+    console.log("features:", json)
 
   } else {
     console.log("Unknwon Features")
@@ -626,10 +626,10 @@ const loadOptions = (json) => {
 
   const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
 
-    let sourceProj
-     let epsgCode
-     let crsProp = json.crs ? json.crs.properties.name : null;
-    
+  let sourceProj
+  let epsgCode
+  let crsProp = json.crs ? json.crs.properties.name : null;
+
   // //       try {
   // //           crsProp = json.crs.properties.name;
   // //       }
@@ -654,47 +654,47 @@ const loadOptions = (json) => {
 
   if (crsProp && crsProp.includes('EPSG')) {
     console.log('The string contains the character "EPSG"');
-    epsgCode = crsProp.match(/EPSG::(\d+)/)[1] 
-} else {
+    epsgCode = crsProp.match(/EPSG::(\d+)/)[1]
+  } else {
     epsgCode = 4326
   }
 
 
 
-//const epsgCode = crsProp? crsProp.match(/EPSG::(\d+)/)[1]:4326
-
-        
- 
-
-    if (epsgCode == 21037) {
-      // zone 37S
-      sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-    }
-    else if (epsgCode == 21097) {
-      // zone 37 N
-      sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
-    }
-    else if (epsgCode == 21036) {
-      // zone 36 S
-      sourceProj = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-    }
-    else if (epsgCode == 21096) {
-      // zone 36N
-      sourceProj = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-    }
-
-    else {
-      sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
-
-    }
-
-
-    proj4.defs("SOURCE_CRS", sourceProj);
-    proj4.defs("WGS84", targetProj);
+  //const epsgCode = crsProp? crsProp.match(/EPSG::(\d+)/)[1]:4326
 
 
 
-    console.log('json.features',json.features)
+
+  if (epsgCode == 21037) {
+    // zone 37S
+    sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+  }
+  else if (epsgCode == 21097) {
+    // zone 37 N
+    sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
+  }
+  else if (epsgCode == 21036) {
+    // zone 36 S
+    sourceProj = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+  }
+  else if (epsgCode == 21096) {
+    // zone 36N
+    sourceProj = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
+  }
+
+  else {
+    sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
+
+  }
+
+
+  proj4.defs("SOURCE_CRS", sourceProj);
+  proj4.defs("WGS84", targetProj);
+
+
+
+  console.log('json.features', json.features)
 
   // makeOptions(fields)
   for (let i = 0; i < json.features.length; i++) {
@@ -702,33 +702,33 @@ const loadOptions = (json) => {
 
     var feature = json.features[i]
 
-      // Check if the properties field exists
-  if (!feature.hasOwnProperty('properties')) {
-    // Add the properties field
-    Object.assign(feature, { properties: {} });
-  }
-    console.log('feature b4projectoion',feature)
+    // Check if the properties field exists
+    if (!feature.hasOwnProperty('properties')) {
+      // Add the properties field
+      Object.assign(feature, { properties: {} });
+    }
+    console.log('feature b4projectoion', feature)
 
 
-       const geometry = json.features[i].geometry;
-              // Check if the geometry type is "Polygon" or "MultiPolygon"
-              if (geometry.type === "Polygon") {
-                // If it's a single polygon, project its coordinates
-                geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
-                  return proj4("SOURCE_CRS", "WGS84", coordinate);
-                });
-              } else if (geometry.type === "MultiPolygon") {
-                // If it's a multi-polygon, loop through all polygons and project their coordinates
-                geometry.coordinates.forEach(polygon => {
-                  polygon[0] = polygon[0].map(coordinate => {
-                    return proj4("SOURCE_CRS", "WGS84", coordinate);
-                  });
-                });
-              }
+    const geometry = json.features[i].geometry;
+    // Check if the geometry type is "Polygon" or "MultiPolygon"
+    if (geometry.type === "Polygon") {
+      // If it's a single polygon, project its coordinates
+      geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
+        return proj4("SOURCE_CRS", "WGS84", coordinate);
+      });
+    } else if (geometry.type === "MultiPolygon") {
+      // If it's a multi-polygon, loop through all polygons and project their coordinates
+      geometry.coordinates.forEach(polygon => {
+        polygon[0] = polygon[0].map(coordinate => {
+          return proj4("SOURCE_CRS", "WGS84", coordinate);
+        });
+      });
+    }
 
-              console.log('geometry',geometry)
-            var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
-            feature.geometry.crs = crs
+    console.log('geometry', geometry)
+    var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+    feature.geometry.crs = crs
 
     feature.geometry = geometry
     console.log(feature)
@@ -753,55 +753,88 @@ const loadOptions = (json) => {
     var thisFeature = upload.properties
     thisFeature.geom = upload.geometry
 
-   console.log('------matchedObj------>', i, thisFeature)
 
-    if (upload.properties[code.value]) {
+    console.log('------matchedObj------>', i, thisFeature)
+
+
+
+    if (settlement.value) {
       show.value = true // Show the matching table if only any match is observed
-
       var filterParent = parentObj.value.filter(function (el) {
-        return el['code'] === upload.properties[code.value]
+        return el['id'] === settlement.value
       })
 
-      console.log('------filterParent------>',   filterParent)
+              console.log('------filterParent------>', filterParent)
+              if (filterParent.length > 0) {
+                // here we add a prefix to the parent details to avoid confusion
+                let pre = parentModel.value + '_' // a prefix to differential parent and child
+                let pfeature = Object.keys(filterParent[0]).reduce(
+                  (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+                  {}
+                )
+                const mergedFeature = { ...thisFeature, ...pfeature } // merge the feature with the parent details
+                matchedObjwithparent.value.push(mergedFeature)
+              }
 
-      if (filterParent.length >0) {
-      // here we add a prefix to the parent details to avoid confusion
-      let pre = parentModel.value + '_' // a prefix to differential parent and child
-      let pfeature = Object.keys(filterParent[0]).reduce(
-        (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-        {}
-      )
+              else {
+                console.log('No match......')
+                ElMessage.error('The selected settlement did not match any records in the datababase!')
+                loadingPosting.value = false
+                show.value = false
 
+                return
 
- 
-        const mergedFeature = { ...thisFeature, ...pfeature } // merge the feature with the parent details
+              }
 
-        matchedObjwithparent.value.push(mergedFeature)
-
-      } 
-      else {
-        console.log('No match......')
-        ElMessage.error(
-        'The parent Code(pcode) did not match any records in the datababase!'
-      )
-        loadingPosting.value = false
-      show.value=false
-
-      return
-
-      }
- 
 
 
     } else {
-      console.log('The parent Code is required')
 
+
+      if (upload.properties[code.value]) {
+        var filterParent = parentObj.value.filter(function (el) {
+        return el['code'] === upload.properties[code.value]
+      })
+        console.log('------filterParent------>', filterParent)
+              if (filterParent.length > 0) {
+                // here we add a prefix to the parent details to avoid confusion
+                let pre = parentModel.value + '_' // a prefix to differential parent and child
+                let pfeature = Object.keys(filterParent[0]).reduce(
+                  (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+                  {}
+                )
+                const mergedFeature = { ...thisFeature, ...pfeature } // merge the feature with the parent details
+                matchedObjwithparent.value.push(mergedFeature)
+              }
+
+              else {
+                console.log('No match......')
+                ElMessage.error('The parent Code(pcode) did not match any records in the datababase!')
+                loadingPosting.value = false
+                show.value = false
+
+                return
+
+              }
+
+        
+      } 
+      else {
+        console.log('The parent Code is required')
       ElMessage.error(
         'The parent Code(pcode) is required in the uploaded  File!'
       )
       loadingPosting.value = false
-
       return
+
+      }
+
+
+
+
+
+
+      
     }
   })
 
@@ -820,7 +853,7 @@ const loadOptions = (json) => {
 
 }
 
- 
+
 
 const handleClearField = async (row) => {
   console.log('Cleared.......', row)
@@ -879,30 +912,118 @@ const updateSelect = async (row, index) => {
       <div style="display: inline-block; margin-left: 20px">
         <el-select
 v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
-          :onClear="handleClear" clearable filterable collapse-tags placeholder="Filter by Settlement">
+          :onClear="handleClear" clearable filterable collapse-tags placeholder="Select Settlement">
           <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </div>
 
 
 
-      <el-divider v-if="showUploadinput" border-style="dashed" content-position="left">Upload</el-divider>
-      <el-upload
-v-if="showUploadinput" class="upload-demo" drag
+      <!-- <el-divider v-if="showUploadinput" border-style="dashed" content-position="left">Upload</el-divider> -->
+      <!-- <el-upload
+v-if="showUploadinput" class="upload-demo"  
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList"
         :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="1"
         :on-exceed="handleExceed" :auto-upload="false">
         <div class="el-upload__text"> Drop file here or <em>click to upload</em> </div>
-      </el-upload>
+      </el-upload> -->
 
-      <el-button v-if="showUploadinput" class="mb-2" style="width: 20%" @click="submitFiles" type="primary">
-        Upload<el-icon class="el-icon--right">
-          <Upload />
-        </el-icon>
-      </el-button>
 
- 
-      <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 200px; overflow-y: scroll;">
+
+
+<!--           
+      <el-upload 
+                v-if="showUploadinput"
+                v-model:file-list="fileList"
+                class="upload-demo mt-2"
+                action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+                :auto-upload="false"
+                :show-file-list="false"
+                :on-preview="handlePreview" 
+                :on-remove="handleRemove" 
+                :before-remove="beforeRemove" 
+                 :on-exceed="handleExceed"
+               /> -->
+
+      <el-divider v-if="showUploadinput" border-style="dashed" content-position="left">Upload</el-divider>
+
+               <!-- <el-upload
+v-if="showUploadinput"
+                  v-model:file-list="fileList"
+                  class="upload-demo mt-2"
+                  action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+                  multiple
+                  :on-preview="handlePreview"
+                  :on-remove="handleRemove"
+                  :before-remove="beforeRemove"
+                  :limit="1"
+                  :auto-upload="false"
+
+                  :on-exceed="handleExceed"
+                >
+                  <el-button type="primary">Select File </el-button>
+                
+                </el-upload> -->
+
+
+
+
+
+                <el-upload
+                   v-if="showUploadinput"
+                    ref="upload"
+                    v-model:file-list="fileList"
+                    class="upload-demo"
+                    action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+                    :limit="1"
+                    :on-exceed="handleExceed"
+                    :on-preview="handlePreview"
+                    :on-remove="handleRemove"
+                   :before-remove="beforeRemove"
+                    :auto-upload="false"
+                  >
+                    <template #trigger>
+                      <el-button type="primary">select file  </el-button>
+                    </template>
+                    
+
+                    <el-button v-if="showUploadinput" class="ml-3" style="width: 10%" @click="submitFiles" type="success">
+                    Process<el-icon class="el-icon--right">
+                      <Tools />
+                    </el-icon>
+                      </el-button>
+                    <template #tip>
+                      <div class="el-upload__tip text-red">
+                        Only zipped shapefile (.zip), json and geojson formats are support
+                      </div>
+                    </template>
+                  </el-upload>
+
+
+
+      <!-- <el-divider v-if="showUploadinput" border-style="dashed" content-position="left">Upload</el-divider> -->
+
+
+
+      <!-- <el-button v-if="showUploadinput" class="mb-2" style="width: 20%; margin-top: 10px;" @click="submitFiles" type="primary">
+  Upload<el-icon class="el-icon--right">
+    <Upload />
+  </el-icon>
+</el-button> -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+      <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 250px; overflow-y: scroll;">
         <el-table-column prop="column" label="Field">
           <template #default="scope">
             <el-input v-model="scope.row.field" controls-position="left" disabled />
@@ -923,26 +1044,26 @@ v-for="(option, index) in matchOptions" :key="index" :label="option.label" :valu
       </el-table>
     </div>
 
-      <div class="button-group-container">
-        <el-button-group v-if="show" class="mt-1" style="width: 100%">
-          <!-- <el-button type="primary" :icon="Tools" @click="handleProcess" />
+    <div class="button-group-container">
+      <el-button-group v-if="show" class="mt-1" style="width: 100%">
+        <!-- <el-button type="primary" :icon="Tools" @click="handleProcess" />
           <el-button type="primary" :icon="RefreshLeft" @click="handleClearField" /> -->
 
-          <el-button v-if="showUploadinput" class="mt-2" style="width: 10%" @click="handleProcess" type="primary">
-        Submit Data<el-icon class="el-icon--right">
-          <UploadFilled />
-        </el-icon>
-      </el-button>
+        <el-button v-if="showUploadinput" class="mt-2" style="width: 10%" @click="handleProcess" type="primary">
+          Submit Data<el-icon class="el-icon--right">
+            <UploadFilled />
+          </el-icon>
+        </el-button>
 
 
-      <el-button v-if="showUploadinput" class="mt-2" style="width: 10%" @click="handleClearField" type="warning">
-        Reset<el-icon class="el-icon--right">
-          <RefreshLeft />
-        </el-icon>
-      </el-button>
-        </el-button-group>
-      </div>
- 
+        <el-button v-if="showUploadinput" class="mt-2" style="width: 10%" @click="handleClearField" type="warning">
+          Reset<el-icon class="el-icon--right">
+            <RefreshLeft />
+          </el-icon>
+        </el-button>
+      </el-button-group>
+    </div>
+
 
 
 
@@ -966,7 +1087,8 @@ v-for="(option, index) in matchOptions" :key="index" :label="option.label" :valu
 
 
 .table-container {
-    height: 200px; /* Adjust the height as needed */
-    overflow-y: auto;
-  }
+  height: 200px;
+  /* Adjust the height as needed */
+  overflow-y: auto;
+}
 </style>
