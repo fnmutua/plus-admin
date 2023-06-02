@@ -652,6 +652,15 @@ db.models.indicator_category_report.belongsTo(db.models.settlement, {
 
 
 
+// user  - indicator_category_report
+db.models.feedback.belongsTo(db.models.users, {
+  foreignKey: 'actionedBy'
+})
+
+db.models.users.hasMany(db.models.feedback, {
+  foreignKey: 'actionedBy'
+})
+
 
 
 

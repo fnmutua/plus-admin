@@ -3528,7 +3528,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Profile',
           hidden: false,
-          icon:'gis:map-users'
+          icon:'pajamas:profile'
         }
       }, 
 
@@ -3540,7 +3540,19 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Logs',
           hidden: false,
-          icon:'ic:twotone-logo-dev'
+          icon:'arcticons:auditor'
+        }
+      }, 
+
+      {
+        path: 'feedback',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Users/Feedback.vue'),
+        name: 'Feedback',
+        meta: {
+          title: 'Feedback',
+          hidden: false,
+          icon:'fluent:person-feedback-48-filled'
         }
       }, 
     ]

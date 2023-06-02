@@ -21,6 +21,8 @@ module.exports = function(app) {
 
   app.post("/api/v1/roles/all", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.rolesController);
 
+  app.post("/api/v1/feedback/add", controller.sendFeedback);
+  app.post("/api/v1/feedback/all", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.getFeedback);
 
 
 

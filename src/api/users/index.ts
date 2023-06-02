@@ -72,3 +72,15 @@ export const getSystemRoles = (data: UserType): Promise<IResponse<UserType>> => 
   console.log('....', data)
   return request.post({ url: prod + '/api/v1/roles/all', data })
 }
+
+
+export const setUserFeedback = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/feedback/add', data })
+}
+
+
+export const getUserFeedback = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/feedback/all', data })
+}
