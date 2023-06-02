@@ -37,10 +37,19 @@ const handleCommand = (command: string | number | object) => {
       path: '/mne/new',
       name: 'NewReports'
     })
-  } else if (command == 'Accounts') {
+  }
+  else if (command == 'Accounts') {
     push({
       path: '/users/new',
       name: 'NewAccounts'
+    })
+
+  }
+
+  else if (command == 'Feedback') {
+    push({
+      path: '/users/new',
+      name: 'Feedback'
     })
 
   }
@@ -92,6 +101,30 @@ const getNewAccounts = async () => {
     });
 
 }
+
+const newFeedback = ref()
+
+const getNewFeedback = async () => {
+  const formData = {}
+  formData.model = 'feedback'
+  formData.summaryFunction = 'count'
+  formData.summaryField = 'status'
+  formData.summaryFieldValue = 'Pending'
+ 
+  // Directbeneficisaries 
+  await getSummarybyFieldSimple(formData)
+    .then(response => {
+      var results = response.Total
+      console.log('Count New newFeedback..........', results[0].count)
+      newFeedback.value = results[0].count
+      if (results[0].count > 0) {
+        activeDot.value = true
+      }
+    });
+
+}
+
+
 const showBadge = ref(false)
 console.log("userInfo-------x---------", userInfo)
 if (userInfo.roles.includes("admin") || (userInfo.roles.includes("sud_staff")) || (userInfo.roles.includes("kisip_staff")) || (userInfo.roles.includes("national_monitoring"))) {
@@ -104,6 +137,7 @@ if (userInfo.roles.includes("admin") || (userInfo.roles.includes("sud_staff")) |
 
 getNewReports()
 getNewAccounts()
+getNewFeedback()
 
 
 
@@ -128,6 +162,12 @@ getNewAccounts()
               New Accounts
               <el-badge class="mark" :value="newAccounts" />
             </el-dropdown-item>
+
+            <el-dropdown-item command="Feedback" class="clearfix">
+              New Feedback
+              <el-badge class="mark" :value="newFeedback" />
+            </el-dropdown-item>
+
           </el-dropdown-menu>
         </template>
       </el-dropdown>

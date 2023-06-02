@@ -59,6 +59,7 @@ var _dashboard_section_chart= require('./dashboard_section_chart')
 
 var _chart_indicator= require('./chart_indicator')
 var _document_category= require('./document_category')
+var _feedback= require('./feedback')
 
 
 var _settlement_uploads = require('./settlement_uploads')
@@ -125,6 +126,7 @@ function initModels(sequelize) {
   var dashboard_section_chart = _dashboard_section_chart(sequelize, DataTypes)
   var chart_indicator = _chart_indicator(sequelize, DataTypes)
   var document_category = _document_category(sequelize, DataTypes)
+  var feedback = _feedback(sequelize, DataTypes)
   
   
   
@@ -188,7 +190,9 @@ function initModels(sequelize) {
     dashboard_section_chart,
     chart_indicator,
     document_category,
-    settlement_uploads
+    settlement_uploads,
+    feedback,
+    
   }
 }
 module.exports = initModels

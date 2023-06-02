@@ -2,7 +2,7 @@
 import { reactive, ref, unref, watch } from 'vue'
 import { Form } from '@/components/Form'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElButton, ElCheckbox, ElLink, ElDialog, ElForm, ElFormItem, ElInput } from 'element-plus'
+import { ElButton, ElCheckbox, ElLink,  ElDialog, ElForm, ElFormItem, ElInput,FormInstance,ElMessage } from 'element-plus'
 import { useForm } from '@/hooks/web/useForm'
 import { loginApi, getTestRoleApi, getOtherRoutesApi, getAdminRoleApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
@@ -12,7 +12,8 @@ import { useRouter } from 'vue-router'
 import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router'
 import { UserType } from '@/api/login/types'
 import { useValidator } from '@/hooks/web/useValidator'
-import { activateUserApi, updateUserApi, resetUserPassword } from '@/api/users'
+import { activateUserApi, updateUserApi, resetUserPassword,setUserFeedback } from '@/api/users'
+import { uuid } from 'vue-uuid'
 
 const { required } = useValidator()
 
@@ -39,6 +40,17 @@ const formLabelWidth = '140px'
 const form = reactive({
   email: '',
 })
+
+
+
+const feedback = reactive({
+  name: '',
+  email: '',
+  message: '',
+  phone: '',
+  code:''
+})
+
 
 const schema = reactive<FormSchema[]>([
   {
@@ -89,7 +101,7 @@ const schema = reactive<FormSchema[]>([
   },
 ])
 
-
+const dialogFeedback = ref()
 const { register, elFormRef, methods } = useForm()
 
 const loading = ref(false)
@@ -260,6 +272,55 @@ const toRegister = () => {
 const reset = () => {
   resetUserPassword(form)
 }
+
+
+
+ 
+
+const ruleFormRef = ref<FormInstance>()
+
+const sendFeedback = async (formEl: FormInstance | undefined) => {
+
+ 
+  feedback.code = uuid.v4()
+  if (!formEl) return
+  await formEl.validate(async (valid, fields) => {
+    if (valid) {
+        // The form is valid, you can perform further actions here
+      const res = setUserFeedback(feedback)
+
+      
+      dialogFeedback.value=false
+        
+      } else {
+        // The form is invalid, you can show an error message or perform other actions
+      console.log('Form validation failed.');
+        ElMessage.error('Validation Errors. Please address')
+      }
+    });
+
+}
+
+const feedbackRules =  {
+      name: [
+        { required: true, message: 'Please enter your name', trigger: 'blur' }
+      ],
+      email: [
+        { required: true, message: 'Please enter your email', trigger: 'blur' },
+        { type: 'email', message: 'Please enter a valid email address', trigger: ['blur', 'change'] }
+      ],
+      message: [
+        { required: true, message: 'Please enter a message', trigger: 'blur' }
+      ]
+    }
+ 
+
+
+
+
+
+
+
 </script>
 
 <template>
@@ -285,28 +346,19 @@ const reset = () => {
       </div>
     </template>
     <template #tool>
-      <div class="flex justify-right items-center w-[100%]">
-        <ElLink @click="dialogFormVisible = true" :underline="false">{{ t('Forgot Password') }}</ElLink>
-      </div>
-    </template>
+  <div class="flex justify-between items-center w-[100%]">
+    <div>
+      <ElLink @click="dialogFormVisible = true" :underline="false">{{ t('Forgot Password') }}</ElLink>
+    </div>
+    <div>
+      <ElLink @click="dialogFeedback = true" :underline="false">{{ t('Feedback') }}</ElLink>
+    </div>
+  </div>
+</template>
+
   </Form>
 
-  <el-dialog v-model="xdialogFormVisible" title="Please Enter your Email">
-    <el-form :model="form">
-      <el-form-item label="Email" :label-width="formLabelWidth">
-        <el-input v-model="form.email" autocomplete="off" />
-      </el-form-item>
 
-    </el-form>
-    <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="dialogFormVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="reset">
-          Reset
-        </el-button>
-      </span>
-    </template>
-  </el-dialog>
 
   <el-dialog
   title="Please Enter your Email"
@@ -328,6 +380,46 @@ const reset = () => {
     <el-button type="primary" @click="reset">Submit</el-button>
   </div>
 </el-dialog>
+
+
+<el-dialog
+  title="Send us a message"
+  v-model="dialogFeedback"
+  width="25%"
+  :center="true"
+>
+  <el-form :model="feedback" :rules="feedbackRules" ref="ruleFormRef"> 
+    <el-row>
+      <el-col :xs="24" :sm="12">
+        <el-form-item label="Name" prop="name">
+          <el-input v-model="feedback.name"/>
+        </el-form-item>
+      </el-col>
+    </el-row>
+    <el-row>
+      <el-col :xs="24" :sm="12">
+        <el-form-item label="Email" prop="email">
+          <el-input v-model="feedback.email"/>
+        </el-form-item>
+      </el-col>
+    </el-row>
+    
+    <el-row>
+      <el-col :xs="24" :sm="12">
+        <el-form-item label="Message" prop="message">
+          <el-input v-model="feedback.message" type="textarea"/>
+        </el-form-item>
+      </el-col>
+    </el-row>
+
+  </el-form>
+  <div style="text-align: center">
+    <el-button @click="dialogFeedback = false">Cancel</el-button>
+    <el-button type="primary" @click="sendFeedback(ruleFormRef)">Submit</el-button>
+  </div>
+
+  </el-dialog>
+
 
 
 </template>

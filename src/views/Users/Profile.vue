@@ -3,23 +3,17 @@ import { Descriptions } from '@/components/Descriptions'
 import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted, ref, reactive, unref } from 'vue'
 import { Form } from '@/components/Form'
-import { ElFormItem, ElInput, ElButton } from 'element-plus'
+import { ElFormItem, ElInput, ElButton, ElDialog, ElForm, ElMessage ,FormInstance} from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { useForm } from '@/hooks/web/useForm'
 import { useRoute } from 'vue-router'
-import {
-  getOneGeo,
-  getOneSettlement,
-  getSettlementListByCounty,
-  getfilteredGeo
-} from '@/api/settlements'
-
+ 
 // Locally
 import { VueCollapsiblePanelGroup, VueCollapsiblePanel } from '@dafcoe/vue-collapsible-panel'
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { activateUserApi, updateUserApi, getUserListApi, getMyProfile } from '@/api/users'
+import { activateUserApi, updateUserApi, getUserListApi, setUserFeedback, getMyProfile } from '@/api/users'
 import {
   ElAvatar
 } from 'element-plus'
@@ -35,6 +29,7 @@ import {
   MessageBox
 } from '@element-plus/icons-vue'
 
+import { uuid } from 'vue-uuid'
 
 const { register, elFormRef } = useForm()
 
@@ -170,7 +165,64 @@ onMounted(() => {
 })
 
 
+const feedback = reactive({
+  name: '',
+  email: '',
+  message: '',
+  phone: '',
+  code:''
+})
 
+const dialogFeedback = ref(false)
+
+const ruleFormRef = ref<FormInstance>()
+
+
+const setFeedback = async () => { 
+  feedback.name = profile.name 
+  feedback.email = profile.email
+  
+  dialogFeedback.value=true 
+}
+
+
+
+
+const sendFeedback = async (formEl: FormInstance | undefined) => {
+
+ 
+  feedback.code = uuid.v4()
+  if (!formEl) return
+  await formEl.validate(async (valid, fields) => {
+    if (valid) {
+        // The form is valid, you can perform further actions here
+      const res = setUserFeedback(feedback)
+
+      
+      dialogFeedback.value=false
+        
+      } else {
+        // The form is invalid, you can show an error message or perform other actions
+      console.log('Form validation failed.');
+        ElMessage.error('Validation Errors. Please address')
+      }
+    });
+
+}
+
+const feedbackRules =  {
+      name: [
+        { required: true, message: 'Please enter your name', trigger: 'blur' }
+      ],
+      email: [
+        { required: true, message: 'Please enter your email', trigger: 'blur' },
+        { type: 'email', message: 'Please enter a valid email address', trigger: ['blur', 'change'] }
+      ],
+      message: [
+        { required: true, message: 'Please enter a message', trigger: 'blur' }
+      ]
+    }
+ 
 
 </script>
 
@@ -214,8 +266,59 @@ onMounted(() => {
           <p>{{ profile.county }}</p>
         </div>
       </div>
+
+      <div class="profile-card">
+ 
+        <div class="card-content">
+          <ElButton  type="primary" class="w-[100%]" @click="setFeedback()" > Feedback/Querries?       
+        </ElButton>
+         </div>
+      </div>
+
     </div>
   </div>
+
+  
+<el-dialog
+  title="Send us a message"
+  v-model="dialogFeedback"
+  width="25%"
+  :center="true"
+>
+  <el-form :model="feedback" :rules="feedbackRules" ref="ruleFormRef"> 
+    <el-row>
+      <el-col :xs="24" :sm="12">
+        <el-form-item label="Name" prop="name">
+          <el-input v-model="feedback.name" disabled/>
+        </el-form-item>
+      </el-col>
+    </el-row>
+    <el-row>
+      <el-col :xs="24" :sm="12">
+        <el-form-item label="Email" prop="email">
+          <el-input v-model="feedback.email" disabled/>
+        </el-form-item>
+      </el-col>
+    </el-row>
+    
+    <el-row>
+      <el-col :xs="24" :sm="12">
+        <el-form-item label="Message" prop="message">
+          <el-input v-model="feedback.message" type="textarea"/>
+        </el-form-item>
+      </el-col>
+    </el-row>
+
+  </el-form>
+  <div style="text-align: center">
+    <el-button @click="dialogFeedback = false">Cancel</el-button>
+    <el-button type="primary" @click="sendFeedback(ruleFormRef)">Submit</el-button>
+  </div>
+
+  </el-dialog>
+
+
+
 </template>
 
 <style lang="less" scoped>

@@ -457,3 +457,42 @@ exports.rolesController = (req, res) => {
       })
     })
 }
+
+
+exports.sendFeedback = (req, res) => {
+ 
+ console.log('feedback received')
+ var obj = req.body
+  console.log(obj)
+ // insert
+ db.models.feedback
+ .create(obj)
+ .then(async function (item) {
+   // Special for projects where we store the project-activty relation 
+      res.status(200).send({
+       message: 'We have received your feedback. We will revert.',
+        code: '0000'
+   })
+ })
+ .catch(function (err) {
+    console.log(err)
+   return res.status(500).send({ message: 'We are unable to receive your feedback at this moment. Please try again later.' })
+ })
+}
+
+exports.getFeedback = (req, res) => {
+ 
+  console.log('feedback in system')
+
+  db.models.feedback.findAndCountAll(qry).then((list) => {
+    console.log(list)
+    res.status(200).send({
+      data: list.rows,
+      total: list.count,
+      code: '0000',
+      message: 'Feedback received.'
+    })
+  })
+
+
+ }

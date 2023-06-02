@@ -1013,16 +1013,6 @@ v-if="showUploadinput"
 
 
 
-
-
-
-
-
-
-
-
-
-
       <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 250px; overflow-y: scroll;">
         <el-table-column prop="column" label="Field">
           <template #default="scope">
