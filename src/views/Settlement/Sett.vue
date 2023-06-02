@@ -8,7 +8,7 @@ import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElLink, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElOptionGroup, ElStep, ElSteps
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElOptionGroup, ElStep, ElSteps, ElCheckbox,ElCheckboxGroup, ElCheckboxButton
 } from 'element-plus'
 import { ElMessage, } from 'element-plus'
 import { Position, View, Plus, User, Download, Briefcase, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Loading } from '@element-plus/icons-vue'
@@ -36,6 +36,7 @@ import filterDataByKeys from '@/utils/filterArrays'
 
 import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldSimple } from '@/api/summary'
 
+import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 
 import 'element-plus/theme-chalk/display.css'
@@ -509,12 +510,51 @@ const getNewOrRejectedSettlements = async (tab) => {
   } else {
     tableDataList.value = res.data
     //  total.value=totalApproved.value
+
+   // console.log('Keys >>>>', flattenNestedArrays(res.data))
+   /// model_fields.value = await flattenNestedArrays(res.data)
+
+
+   res.data.forEach(function (arrayItem) {
+    var dd = flattenJSON(arrayItem)
+
+    flattenedData.value.push(dd)
+  })
+
+
+
+   var obj = flattenJSON(res.data[0])
+
+   console.log('flatteda', obj)
+   model_fields.value  = Object.keys(obj);
+
+   
   }
 
-
+ 
 
 }
+const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
+  for (let key in obj) {
+    if (key !== 'geom' && key !== 'id' && key !== 'createdAt'&& key !== 'updatedAt'&& key !== 'email'&& key !== 'phone'&& key !== 'isApproved' && key !== 'createdBy' && key !== 'isActive' && key !== 'documents'&& key !== 'user' && key !== 'code' ) {
+      if ((typeof obj[key] !== 'object' || obj[key] === null) && key !== 'id' ) {
+        res[extraKey + key] = obj[key];
+      } else if (Array.isArray(obj[key]) ) {
+        obj[key].forEach((item, index) => {
+          flattenJSON(item, res, `${extraKey}${key}.${index}.`);
+        });
+      } else {
+        flattenJSON(obj[key], res, `${extraKey}${key}_`);
+      }
+    }
+  }
+  return res;
+};
 
+
+const model_fields = ref([])
+const flattenedData = ref([])
+const fieldColumns = ref(4)
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   loadingGetData.value = true
@@ -558,43 +598,11 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   // 
 
 
-
-
 }
 
 
 
-
-
-
-const getSettlementsOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      settlementOptions.value.push(countyOpt)
-    })
-  })
-}
-
+ 
 
 
 const viewHHs = (data: TableSlotDefault) => {
@@ -788,6 +796,10 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   if (tab === 'list') {
 
     tableDataList.value = res.data
+
+    
+
+
 
   } else if (tab === 'New') {
     tableDataListNew.value = res.data
@@ -1264,23 +1276,39 @@ const decommisionSettlement = async (data: TableSlotDefault) => {
 
 }
 
+const showSelectFields =ref(false)
+const selectedFields =ref([])
+
 
 const DownloadXlsx = async () => {
-  console.log(tableDataList.value)
+  showSelectFields.value=true
 
-  // change here !
-  let fields = [
-    { label: "S/No", value: "index" }, // Top level data
-    { label: "Name", value: "name" }, // Top level data
-    { label: "County", value: "county" }, // Custom format
-    { label: "Population", value: "population" }, // Run functions
-    { label: "Area(HA)", value: "area" }, // Run functions
-    { label: "Description", value: "description" }, // Run functions
-    { label: "Code", value: "code" }, // Run functions
-    { label: "CountyID", value: "CountyID" }, // Run functions
-    { label: "SubcountyID", value: "subcountyID" }, // Run functions
+ } 
 
-  ]
+
+const handleDownloadSelectFields = async () => {
+   console.log('selectedFields ---', selectedFields.value)
+
+  if (selectedFields.value.length < 1) {
+    ElMessage.warning('Specify the fields you want on the exported file')
+    return 
+    
+   }
+
+ 
+
+  let fields =[]
+
+  for (let i = 0; i < selectedFields.value.length; i++) { 
+    var fld = {}
+    fld.label=selectedFields.value[i]
+    fld.value = selectedFields.value[i]
+    fields.push(fld)
+  }
+
+  console.log(fields)
+
+   
 
 
   // Preprae the data object 
@@ -1291,18 +1319,29 @@ const DownloadXlsx = async () => {
   let dataHolder = []
   // loop through the table data and sort the data 
   // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
+  for (let i = 0; i < flattenedData.value.length; i++) {
     let thisRecord = {}
-    tableDataList.value[i]
+
+ //   console.log('flattened ??',i,  flattenedData.value[i])
+     
     thisRecord.index = i + 1
-    thisRecord.name = tableDataList.value[i].name
-    thisRecord.county = tableDataList.value[i].county.name
-    thisRecord.population = tableDataList.value[i].population
-    thisRecord.area = tableDataList.value[i].area
-    thisRecord.description = tableDataList.value[i].description
-    thisRecord.code = tableDataList.value[i].code
-    thisRecord.CountyID = tableDataList.value[i].county_id
-    thisRecord.SubcountyID = tableDataList.value[i].subcounty ? tableDataList.value[i].subcounty.id : null;
+
+    for (let j = 0; j < fields.length; j++) {
+      var fld = fields[j].label
+      thisRecord[fld] = flattenedData.value[i][fld]
+
+      console.log('fld',thisRecord)
+
+
+    }
+    // thisRecord.name = tableDataList.value[i].name
+    // thisRecord.county = tableDataList.value[i].county.name
+    // thisRecord.population = tableDataList.value[i].population
+    // thisRecord.area = tableDataList.value[i].area
+    // thisRecord.description = tableDataList.value[i].description
+    // thisRecord.code = tableDataList.value[i].code
+    // thisRecord.CountyID = tableDataList.value[i].county_id
+    // thisRecord.SubcountyID = tableDataList.value[i].subcounty ? tableDataList.value[i].subcounty.id : null;
 
 
     dataHolder.push(thisRecord)
@@ -1324,31 +1363,7 @@ const DownloadXlsx = async () => {
 }
 
 
-
-const downloadFile = async (data) => {
-
-  console.log(data.name)
-
-  const formData = {}
-  formData.filename = data.name
-  formData.responseType = 'blob'
-  await getFile(formData)
-    .then(response => {
-      console.log(response)
-
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', data.name)
-      document.body.appendChild(link)
-      link.click()
-
-    })
-    .catch(error => {
-      console.error('Error downloading file:', error);
-    });
-
-}
+ 
 
 console.log('IsMobile', isMobile)
 
@@ -1686,6 +1701,45 @@ function handleExpand(row) {
     }, 100); // 0.1 seconds
 }
 
+
+
+
+// Revised molde for downlaod
+
+const getModeldefinition = async ( ) => {
+ 
+var formData = {}
+formData.model = model
+console.log("gettign fields")
+
+
+await getModelSpecs(formData).then((response) => {
+
+  var data = response.data
+
+  var fields = data.filter(function (obj) {
+    return (obj.field !== 'id');
+  });
+
+  var fields2 = fields.filter(function (obj) {
+    return (obj.field !== 'geom' && obj.field !=='isApproved' && obj.field !=='createdBy' && obj.field !=='updatedAt'  && obj.field !=='createdAt'     );
+  });
+
+  fields2.forEach(function (arrayItem: { field: string }) {
+       model_fields.value.push(arrayItem.field)
+  })
+    console.log(model_fields.value)
+})
+
+
+}
+
+
+// get model fields 
+
+//  getModeldefinition()
+
+console.log('model_fields.value', model_fields.value )
 
 </script>
 
@@ -2212,26 +2266,24 @@ v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
         </span>
       </template>
     </el-dialog>
+  
+    <!-- <el-dialog v-model="showSelectFields" title="Select Fields" width="50%">
+      <el-checkbox-group   v-model="selectedFields">
+    <el-checkbox v-for="field in model_fields" :key="field" :name="field" :label="field">{{ field }}</el-checkbox>
+    </el-checkbox-group>
+      <el-button type="secondary" @click="handleDownloadSelectFields()">Submit</el-button>
+    </el-dialog>   -->
 
+    
+    <el-dialog v-model="showSelectFields" title="Select Fields" width="50%">
+  <el-row>
+    <el-col :span="6" v-for="(field, index) in model_fields" :key="index">
+      <el-checkbox v-model="selectedFields" :label="field">{{ field }}</el-checkbox>
+    </el-col>
+  </el-row>
+  <el-button type="success" @click="handleDownloadSelectFields()">Download</el-button>
+</el-dialog>
 
-    <!-- <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="30%">
-      <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
-        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
-          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-        </el-option-group>
-      </el-select>
-      <el-upload
-v-model:file-list="morefileList" class="upload-demo "
-        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :limit="5" :auto-upload="false">
-        <el-button type="primary">Click to upload</el-button>
-        <template #tip>
-          <div class="el-upload__tip">
-            jpg/png files with a size less than 500KB.
-          </div>
-        </template>
-      </el-upload>
-      <el-button type="secondary" @click="submitMoreDocuments()">Submit</el-button>
-    </el-dialog> -->
 
 
     <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
