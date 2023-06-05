@@ -31,7 +31,7 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false
       },
       frequency: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
         allowNull: false
       },	
       createdBy: {
@@ -51,12 +51,10 @@ module.exports = function (sequelize, DataTypes) {
       schema: 'public',
       timestamps: true,
       indexes: [
-        {
-          name: 'indicator_category_pkey',
+               {
           unique: true,
-          fields: [{ name: 'id' }]
+          fields: ['indicator_id', 'category_id','project_id', 'activity_id' ]
         },
-      
          
 
       ]

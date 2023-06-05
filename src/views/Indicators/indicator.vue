@@ -58,7 +58,7 @@ if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
 } else {
-  dialogWidth.value = "55%"
+  dialogWidth.value = "40%"
   actionColumnWidth.value = "160px"
 
 
@@ -410,9 +410,23 @@ const handleClose = () => {
   formHeader.value = 'Add Indicator'
 
 }
+interface FormData {
+  [key: string]: any;
+}
 
+interface FormRules {
+  [key: string]: {
+    [key: string]: {
+      required?: boolean;
+      type?: string;
+      message?: string;
+      trigger?: string;
+    }[];
+  };
+}
 
 const ruleFormRef = ref<FormInstance>()
+
 const ruleForm = reactive({
   name: '',
   type: '',
@@ -423,19 +437,24 @@ const ruleForm = reactive({
   desc: '',
 })
 
-const rules = reactive<FormRules>({
+const rules = reactive({
+
   name: [
     { required: true, message: 'Please provide indicator name', trigger: 'blur' },
     { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
   ],
   type: [
     { required: true, message: 'Indicator type is required', trigger: 'blur' }],
-  unit: [{ required: true, message: 'The Indicator type is required', trigger: 'blur' }],
+
+    activity_id: [
+    { required: true, message: 'Activity is required', trigger: 'blur' }],
+
+
   format: [
     { required: true, message: 'Indicator Formatt is required', trigger: 'blur' }],
 
   level: [
-    { required: true, message: 'The  description is required', trigger: 'blur' }
+    { required: true, message: 'The  level is required', trigger: 'blur' }
   ]
 })
 
@@ -444,19 +463,33 @@ const AddIndicator = () => {
 }
 
 
-const submitForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate((valid, fields) => {
-    if (valid) {
-      ruleForm.model = 'indicator'
-      ruleForm.code = uuid.v4()
-      const res = CreateRecord(ruleForm)
+// const submitForm = async (formEl: FormInstance | undefined) => {
+//   if (!formEl) return
+//   await formEl.validate((valid, fields) => {
+//     if (valid) {
 
-    } else {
-      console.log('error submit!', fields)
-    }
-  })
+//       console.log('Is valid....')
+//       ruleForm.model = 'indicator'
+//       ruleForm.code = uuid.v4()
+//       const res = CreateRecord(ruleForm)
+
+//     } else {
+//       console.log('error submit!', fields)
+//     }
+//   })
+// }
+
+const submitForm = async (formEl) => {
+  const valid = await formEl.validate()
+  if (valid) {
+    ruleForm.model = 'indicator'
+    ruleForm.code = uuid.v4()
+    const res = CreateRecord(ruleForm)
+  } else {
+    ElMessage.error('Please fill in all the required fields')
+  }
 }
+
 
 
 const editForm = async (formEl: FormInstance | undefined) => {
@@ -618,29 +651,30 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
-      <el-form-item label="Activity">
-        <el-select filterable v-model="ruleForm.activity_id" placeholder="Select Activity"  width="200px">
-          <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
+      <el-form-item label="Activity" prop="activity_id">
+      <el-select filterable v-model="ruleForm.activity_id" placeholder="Select Activity" style="width: 100%">
+        <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+    </el-form-item>
 
 
-      <el-form-item label="Title">
+
+      <el-form-item label="Title" prop="name">
         <el-input v-model="ruleForm.name" />
       </el-form-item>
-      <el-form-item label="Type">
-        <el-select v-model="ruleForm.type" placeholder="Type">
+      <el-form-item label="Type" prop="type">
+        <el-select v-model="ruleForm.type" placeholder="Type" >
           <el-option label="Output" value="output" />
           <el-option label="Impact" value="outcome" />
         </el-select>
       </el-form-item>
-      <el-form-item label="Format">
-        <el-select v-model="ruleForm.format" placeholder="Format">
+      <el-form-item label="Format" prop="format">
+        <el-select v-model="ruleForm.format" placeholder="Format"  >
           <el-option label="Number" value="number" />
           <el-option label="Percent" value="percent" />
         </el-select>
       </el-form-item>
-      <el-form-item label="Unit">
+      <!-- <el-form-item label="Unit">
         <el-select clearable filterable v-model="ruleForm.unit" placeholder="Unit">
           <el-option label="Block" value="Block" />
           <el-option label="Connection" value="Connection" />
@@ -667,9 +701,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
           <el-option label="Basemap" value="Basemap" />
           <el-option label="Strategy" value="Strategy" />
         </el-select>
-      </el-form-item>
-      <el-form-item label="Level">
-        <el-select v-model="ruleForm.level" placeholder="Level">
+      </el-form-item> -->
+      <el-form-item label="Level"  prop="level">
+        <el-select v-model="ruleForm.level" placeholder="Level" >
           <el-option label="Settlement" value="Settlement" />
           <el-option label="County" value="County" />
           <el-option label="National" value="National" />
@@ -685,4 +719,89 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       </span>
     </template>
   </el-dialog>
+
+<!-- 
+  <el-dialog v-model="xAddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
+   
+    <el-form
+    ref="ruleFormRef"
+    :model="ruleForm"
+    :rules="rules"
+    label-width="120px"
+    class="demo-ruleForm"
+    :size="formSize"
+    status-icon
+  >
+    <el-form-item label="Activity name" prop="name">
+      <el-input v-model="ruleForm.name" />
+    </el-form-item>
+    <el-form-item label="Activity zone" prop="region">
+      <el-select v-model="ruleForm.region" placeholder="Activity zone">
+        <el-option label="Zone one" value="shanghai" />
+        <el-option label="Zone two" value="beijing" />
+      </el-select>
+    </el-form-item>
+    <el-form-item label="Activity count" prop="count">
+      <el-select-v2
+        v-model="ruleForm.count"
+        placeholder="Activity count"
+        :options="options"
+      />
+    </el-form-item>
+    <el-form-item label="Activity time" required>
+      <el-col :span="11">
+        <el-form-item prop="date1">
+          <el-date-picker
+            v-model="ruleForm.date1"
+            type="date"
+            label="Pick a date"
+            placeholder="Pick a date"
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-col>
+      <el-col class="text-center" :span="2">
+        <span class="text-gray-500">-</span>
+      </el-col>
+      <el-col :span="11">
+        <el-form-item prop="date2">
+          <el-time-picker
+            v-model="ruleForm.date2"
+            label="Pick a time"
+            placeholder="Pick a time"
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-col>
+    </el-form-item>
+    <el-form-item label="Instant delivery" prop="delivery">
+      <el-switch v-model="ruleForm.delivery" />
+    </el-form-item>
+    <el-form-item label="Activity type" prop="type">
+      <el-checkbox-group v-model="ruleForm.type">
+        <el-checkbox label="Online activities" name="type" />
+        <el-checkbox label="Promotion activities" name="type" />
+        <el-checkbox label="Offline activities" name="type" />
+        <el-checkbox label="Simple brand exposure" name="type" />
+      </el-checkbox-group>
+    </el-form-item>
+    <el-form-item label="Resources" prop="resource">
+      <el-radio-group v-model="ruleForm.resource">
+        <el-radio label="Sponsorship" />
+        <el-radio label="Venue" />
+      </el-radio-group>
+    </el-form-item>
+    <el-form-item label="Activity form" prop="desc">
+      <el-input v-model="ruleForm.desc" type="textarea" />
+    </el-form-item>
+    <el-form-item>
+      <el-button type="primary" @click="submitForm(ruleFormRef)">
+        Create
+      </el-button>
+      <el-button @click="resetForm(ruleFormRef)">Reset</el-button>
+    </el-form-item>
+  </el-form>
+    
+  </el-dialog> -->
+
 </template>
