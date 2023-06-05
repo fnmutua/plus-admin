@@ -44,7 +44,11 @@ module.exports = function (sequelize, DataTypes) {
           name: 'indicator_pkey',
           unique: true,
           fields: [{ name: 'id' }]
-        }
+        },
+        {
+          unique: true,
+          fields: ['name', 'type','format', 'level' ]
+        },
       ]
     }
   )
