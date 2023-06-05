@@ -376,15 +376,15 @@ const editIndicator = (data: TableSlotDefault) => {
 
 
 const DeleteIndicator = (data: TableSlotDefault) => {
-  console.log('----->', data.row.id)
+  console.log('----->', data.id)
   let formData = {}
-  formData.id = data.row.id
+  formData.id = data.id
   formData.model = 'indicator'
   DeleteRecord(formData)
   console.log(tableDataList.value)
 
   // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
+  let index = tableDataList.value.indexOf(data);
   if (index !== -1) {
     tableDataList.value.splice(index, 1);
   }

@@ -683,7 +683,6 @@ getDashSectionOptions()
 getStrategicFocusAreas()
 getIndicatorCategories()
 
-const chartOptions = ref([])
 
 
 const handleFilterSections = async (dashboard_id) => {
@@ -742,6 +741,44 @@ console.log("getting fields fields",fieldSet.value)
 
 }
 
+
+const chartOptions = ref([])
+
+chartOptions.value = [
+          {
+            value: 1,
+            label: 'Simple Bar'
+          },
+          {
+            value: 2,
+            label: 'Multiple Bar'
+          },
+          {
+            value: 3,
+            label: 'Pie'
+          },
+
+          {
+            value: 4,
+            label: 'Stacked Bar'
+          },
+
+          {
+            value: 5,
+            label: 'Line Chart'
+          },
+         
+          {
+            value: 7,
+            label: 'Map Chart'
+          },
+
+          {
+            value: 8,
+            label: 'Population Pyramid'
+          },
+
+        ]
  const handleSelectModel = async (selModel) => {
   console.log('specs.....')
   getModeldefinition(selModel)
