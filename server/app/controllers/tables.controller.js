@@ -557,7 +557,7 @@ exports.xmodelImportData = (req, res) => {
     .then(function (item) {
       console.log(req.body.count)
       res.status(200).send({
-        message: 'Import Successful',
+        message: 'Record Successfully saved',
         total: req.body.count,
         code: '0000'
       })
@@ -716,54 +716,100 @@ exports.modelCreateOneRecord = (req, res) => {
 
 
 
-  // insert
+  // // insert
+  // db.models[reg_model]
+  //   .create(obj)
+  //   .then(async function (item) {
+  //     // Special for projects where we store the project-activty relation 
+  //     if (reg_model ==='project') {
+  //       var activity_list =req.body.activities
+  //        const list_activities = await db.models.activity.findAll({
+  //         where: {
+  //           id: activity_list
+  //         }
+  //       });
+        
+  //   //   await item.addActivities(list_activities)
+  //     await item .setActivities(list_activities);
+
+        
+  //     }
+  //     else if (reg_model === 'dashboard_section_chart') {
+  //       var indicator_list =req.body.indicator_id
+  //        const list_indicators = await db.models.indicator.findAll({
+  //         where: {
+  //           id: indicator_list
+  //         }
+  //       });
+        
+  //       item.addIndicators(list_indicators)
+  //     }
+
+  //     res.status(200).send({
+  //       message: 'Import Successful',
+  //       total: req.body.count,
+  //       data: item,
+  //       code: '0000'
+  //     })
+  //   })
+  //   .catch(function (err) {
+  //     // handle error;
+  //     console.log('error0-----2----->', err)
+
+  //     if (err.name == 'SequelizeUniqueConstraintError') {
+  //       var message = err
+  //       var xmessage = 'One or more table constraints are violated. Check your id columns'
+  //     } else {
+  //       var message = 'The submitted record does not match the required fields'
+  //     }
+  //     return res.status(500).send({ message: message })
+  //   })
+  
   db.models[reg_model]
-    .create(obj)
-    .then(async function (item) {
-      // Special for projects where we store the project-activty relation 
-      if (reg_model ==='project') {
-        var activity_list =req.body.activities
-         const list_activities = await db.models.activity.findAll({
-          where: {
-            id: activity_list
-          }
-        });
-        
-    //   await item.addActivities(list_activities)
-      await item .setActivities(list_activities);
+  .create(obj)
+  .then(async function (item) {
+    // Special for projects where we store the project-activity relation
+    if (reg_model === 'project') {
+      var activity_list = req.body.activities;
+      const list_activities = await db.models.activity.findAll({
+        where: {
+          id: activity_list,
+        },
+      });
 
-        
-      }
-      else if (reg_model === 'dashboard_section_chart') {
-        var indicator_list =req.body.indicator_id
-         const list_indicators = await db.models.indicator.findAll({
-          where: {
-            id: indicator_list
-          }
-        });
-        
-        item.addIndicators(list_indicators)
-      }
+      // await item.addActivities(list_activities)
+      await item.setActivities(list_activities);
+    } else if (reg_model === 'dashboard_section_chart') {
+      var indicator_list = req.body.indicator_id;
+      const list_indicators = await db.models.indicator.findAll({
+        where: {
+          id: indicator_list,
+        },
+      });
 
-      res.status(200).send({
-        message: 'Import Successful',
-        total: req.body.count,
-        data: item,
-        code: '0000'
-      })
-    })
-    .catch(function (err) {
-      // handle error;
-      console.log('error0-----2----->', err)
+      item.addIndicators(list_indicators);
+    }
 
-      if (err.name == 'SequelizeUniqueConstraintError') {
-        var message = err
-        var xmessage = 'One or more table constraints are violated. Check your id columns'
-      } else {
-        var message = 'The submitted record does not match the required fields'
-      }
-      return res.status(500).send({ message: message })
-    })
+    res.status(200).send({
+      message: 'Record Saved Successfully',
+      total: req.body.count,
+      data: item, // Include the created record in the response
+      code: '0000',
+    });
+  })
+  .catch(function (err) {
+    // handle error;
+    console.log('error0-----2----->', err);
+
+    if (err.name == 'SequelizeUniqueConstraintError') {
+      var message = 'Duplicate Entries are not allowed';
+     } else {
+      var message = 'The submitted record does not match the required fields';
+    }
+    return res.status(500).send({ message: message });
+  });
+
+
 }
 
 exports.modelAllGeo = async (req, res) => {

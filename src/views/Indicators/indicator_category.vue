@@ -258,6 +258,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 const indicatorsOptions = ref([])
 
 const getIndicatorNames = async () => {
+  indicatorsOptions.value = []
+  indicatorsOptionsFiltered.value=[]
   const res = await getCountyListApi({
     params: {
       //   pageIndex: 1,
@@ -323,6 +325,49 @@ const makeSettlementOptions = (list) => {
     categoryOptions.value.push(countyOpt)
   })
 }
+
+
+
+const frequencyOptions = ref([])
+
+const getFrequencyOptions = async () => {
+  frequencyOptions.value=[]
+  const res = await getCountyListApi({
+    params: {
+      //   pageIndex: 1,
+      //    limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'frequency',
+      searchField: 'frequency',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received frequency:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+       opt.label = arrayItem.frequency 
+      //  console.log(countyOpt)
+      frequencyOptions.value.push(opt)
+     })
+  })
+}
+
+
+getFrequencyOptions()
+
+
+
+
+
+
+
 
 const handleDownload = () => {
   downloadLoading.value = true
@@ -400,6 +445,7 @@ const getProjectOptions = async () => {
 
 
 const projectOptions = ref([])
+const projectList = ref([])
 
 const getProjectActivities = async () => {
   const formData = {}
@@ -424,12 +470,14 @@ const getProjectActivities = async () => {
   const res = await getListManyToMany(formData)
 
   console.log('Projects >>', res)
+  projectList.value=res.data
   res.data.forEach(function (arrayItem) {
 
     //console.log(arrayItem)
     var opt = {}
     opt.value = arrayItem.id
     opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+    opt.activities = arrayItem.activities  
 
     //  console.log(countyOpt)
     projectOptions.value.push(opt)
@@ -456,6 +504,18 @@ const getProjectActivities = async () => {
 
 const changeProject = async (project: any) => {
 
+  console.log('!editingMode.value',editingMode.value)
+
+  if (!editingMode.value) {
+
+      ruleForm.activity_id = null
+      ruleForm.indicator_id = null
+      ruleForm.category_id = null
+      ruleForm.frequency = null  
+  }
+
+  
+
   console.log('Activities List Project ID>>', activityOptions.value)
   console.log('Activities List >>', project)
 
@@ -470,6 +530,13 @@ const indicatorsOptionsFiltered = ref([])
 
 
 const changeActivity = async (activity: any) => {
+
+   ruleForm.indicator_id = null
+  ruleForm.category_id = null
+  ruleForm.frequency = null
+
+
+  
   indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
     return el.activity_id == activity
   });
@@ -488,10 +555,12 @@ getInterventionsAll()
 
 
 
-
-const editIndicator = (data: TableSlotDefault) => {
+const editingMode = ref(false)
+const editIndicator = async (data: TableSlotDefault) => {
   showSubmitBtn.value = false
   showEditSaveButton.value = true
+  editingMode.value=true
+
   console.log(data)
   ruleForm.id = data.row.id
   ruleForm.indicator_name = data.row.indicator.indicator_name
@@ -501,10 +570,13 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.category_title = data.row.category_title
   ruleForm.activity_id = data.row.activity_id
   ruleForm.project_id = data.row.project_id
-
+ 
   formHeader.value = 'Edit Indicator'
+  changeProject(data.row.project_id)
+  
+  console.log(frequencyOptions.value)
 
-
+  await getFrequencyOptions()
   AddDialogVisible.value = true
 }
 
@@ -545,7 +617,6 @@ const handleClose = () => {
 }
 
 
-
 const changeCategory = async (category: any) => {
   ruleForm.category_id = category
   var filtredCategories = categoryOptions.value.filter(function (el) {
@@ -557,6 +628,13 @@ const changeCategory = async (category: any) => {
 
 const changeIndicator = async (indicator: any) => {
   ruleForm.indicator_id = indicator
+
+   ruleForm.category_id = null
+  ruleForm.frequency = null
+
+
+
+
   var filtredOptions = indicatorsOptions.value.filter(function (el) {
     return el.value == indicator
   });
@@ -583,18 +661,19 @@ const ruleForm = reactive({
 
 const rules = reactive<FormRules>({
   indicator_id: [
-    { required: true, message: 'Please provide indicator name', trigger: 'blur' },
-    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+    { required: true, message: 'Please select an indicator', trigger: 'blur' }
   ],
-  category_id: [{ required: true, message: 'Indicator category is required', trigger: 'blur' }],
+  category_id: [{ required: true, message: 'The Indicator category is required', trigger: 'blur' }],
   frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
   activity_id: [{ required: true, message: 'The Indicator Activity is required', trigger: 'blur' }],
+  project_id: [{ required: true, message: 'Project is required', trigger: 'blur' }],
 
 })
 
-const AddIndicator = () => {
+const AddIndicatorConfig = () => {
   AddDialogVisible.value = true
 }
+
 
 
 const submitForm = async (formEl: FormInstance | undefined) => {
@@ -615,21 +694,27 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 
 const editForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate((valid, fields) => {
-    if (valid) {
-      ruleForm.model = 'indicator_category'
-      ruleForm.code = ruleForm.indicator_id + '_' + ruleForm.activity_id + '_' + ruleForm.project_id + '_' + ruleForm.category_id
+  if (!formEl) return;
 
-      updateOneRecord(ruleForm).then(() => { })
+  const valid = await new Promise<boolean>((resolve) => {
+    formEl.validate((valid) => {
+      resolve(valid);
+    });
+  });
 
-      // dialogFormVisible.value = false
+  if (valid) {
+    ruleForm.model = 'indicator_category';
+    ruleForm.code = ruleForm.indicator_id + '_' + ruleForm.activity_id + '_' + ruleForm.project_id + '_' + ruleForm.category_id;
 
+    await updateOneRecord(ruleForm);
 
-    } else {
-      console.log('error submit!', fields)
-    }
-  })
+    AddDialogVisible.value = false;
+    ruleForm.project_id = null;
+    ruleForm.activity_id = null;
+    editingMode.value = false;
+  } else {
+    console.log('error submit!', formEl.fields);
+  }
 }
 
 
@@ -695,8 +780,206 @@ const DownloadXlsx = async () => {
 }
 
 
-</script>
+// Add new catrogires 
+const categoryFormRef = ref<FormInstance>()
+const categoryForm = reactive({
+  indicator_id: '',
+  indicator_name: '',
+  category_id: '',
+  category_title: '',
+  frequency: '',
+  activity_id: null,
+  code: null,
+  project_id: null
+})
+const AddCategoryVisible = ref(false)
+const AddCategory = () => {
 
+  AddCategoryVisible.value=true 
+    console.log('adding....')
+ 
+  
+}
+
+
+const submitCategoryForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate(async (valid, fields) => { // Make the callback function async
+    if (valid) {
+      categoryForm.model = 'category'
+      categoryForm.code = uuid.v4()
+      const res = await CreateRecord(categoryForm)
+
+      var cat = {}
+        cat.value = res.data.id
+        cat.label=res.data.category
+
+        categoryOptions.value.push(cat)
+
+
+      // Handle the response here
+    } else {
+      console.log('error categoryForm!', fields)
+    }
+  })
+}
+
+
+
+
+
+const handleCloseCategory = () => {
+  AddCategoryVisible.value=false
+ }
+
+
+const handleCancelAddEdit = () => {
+  ruleForm.activity_id = null
+  ruleForm.project_id=null
+  editingMode.value=false
+  AddDialogVisible.value=false
+ }
+
+
+
+// Add new Indicators  
+//---------------------------------------------------
+const indicatorFormRef = ref<FormInstance>()
+const indicatorForm = reactive({
+  name: '',
+  type: '',
+  unit: '',
+  level: '',
+  format: '',
+  activity_id: '',
+  desc: '',
+})
+
+const IndicatorRules = reactive({
+
+name: [
+  { required: true, message: 'Please provide indicator name', trigger: 'blur' },
+  { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+],
+type: [
+  { required: true, message: 'Indicator type is required', trigger: 'blur' }],
+
+  activity_id: [
+  { required: true, message: 'Activity is required', trigger: 'blur' }],
+
+
+format: [
+  { required: true, message: 'Indicator Formatt is required', trigger: 'blur' }],
+
+level: [
+  { required: true, message: 'The  level is required', trigger: 'blur' }
+]
+})
+const AddNewIndicatorVisible = ref(false)
+const AddIndicator = () => {
+    console.log('adding....')
+    AddNewIndicatorVisible.value=true 
+ }
+
+const submitIndicatorForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate(async (valid, fields) => { // Make the callback function async
+    if (valid) {
+      indicatorForm.model = 'indicator'
+      indicatorForm.code = uuid.v4()
+      const res = await CreateRecord(indicatorForm)
+      console.log(res.data)
+      var ind = {}
+        ind.value = res.data.id
+        ind.label=res.data.name
+
+        indicatorsOptionsFiltered.value.push(ind)
+    } else {
+      console.log('error categoryForm!', fields)
+    }
+  })
+
+  //await getIndicatorNames()
+  //indicatorsOptionsFiltered.value=[]
+  //await changeActivity(indicatorForm.activity_id)
+}
+
+const handleCloseIndicator = () => {
+  AddCategoryVisible.value=false
+ }
+
+
+
+ 
+// Add new Activities
+//---------------------------------------------------
+const AddFrequencyVisible = ref(false)
+const freqFormRef = ref<FormInstance>()
+const freqForm = reactive({
+  frequency: '',
+})
+
+const freqRules = reactive({
+
+title: [
+  { required: true, message: 'Please provide indicator name', trigger: 'blur' },
+  { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+   ],
+ 
+})
+ 
+
+const AddNewFreq = () => {
+    console.log('adding....')
+  AddFrequencyVisible.value = true 
+    
+  // get this activtys project
+  const thisProject = projectList.value.filter(function (el) {
+    return el.id == ruleForm.activity_id
+  });
+
+  console.log('thisProject',thisProject[0])
+
+ }
+
+const submitFreqForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate(async (valid, fields) => { // Make the callback function async
+    if (valid) {
+      freqForm.model = 'frequency'
+      freqForm.code = uuid.v4()
+      const res = await CreateRecord(freqForm)
+      console.log(res.data)
+      var act = {}
+      act.value = res.data.id
+      act.label=res.data.frequency
+
+        frequencyOptions.value.push(act)
+    } else {
+      console.log('error categoryForm!', fields)
+    }
+  })
+
+  //await getIndicatorNames()
+  //indicatorsOptionsFiltered.value=[]
+  //await changeActivity(indicatorForm.activity_id)
+}
+
+const handleCloseFreq = () => {
+
+
+
+  
+  AddFrequencyVisible.value=false
+
+ 
+
+ }
+
+
+
+
+</script>
 <template>
   <ContentWrap :title="t('Indicator Configurations')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
@@ -723,15 +1006,10 @@ v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multipl
     </div>
     <div style="display: inline-block; margin-left: 20px">
       <el-tooltip content="Add Indicator Configuration" placement="top">
-        <el-button v-if="showAdminButtons" :onClick="AddIndicator" type="primary" :icon="Plus" />
+        <el-button v-if="showAdminButtons" :onClick="AddIndicatorConfig" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
-
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
-
-
-
-
 
     <el-table :data="tableDataList" :loading="loading" border>
       <el-table-column label="Id" prop="id" width="50px" sortable />
@@ -760,7 +1038,6 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope as TableSlotDefault)"
             </template>
           </el-dropdown>
 
-
           <div v-else>
 
             <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
@@ -768,9 +1045,6 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope as TableSlotDefault)"
 type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
                 circle />
             </el-tooltip>
-
-
-
 
             <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
               <el-popconfirm
@@ -802,53 +1076,146 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
       <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
-        <el-form-item label="Project">
-          <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" placeholder="Select Project">
+        <el-form-item label="Project" prop="project_id">
+          <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" placeholder="Select Project" style="width: 100%">
             <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Activity">
-          <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" placeholder="Select Activity">
+        <el-form-item label="Activity"  prop="activity_id">
+          <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" placeholder="Select Activity" style="width: 100%" >
             <el-option
 v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
               :value="item.value" />
           </el-select>
+ 
         </el-form-item>
 
-        <el-form-item label="Indicator">
+        <el-form-item label="Indicator" prop="indicator_id">
           <el-select
 filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
-            placeholder="Select Indicator">
+            placeholder="Select Indicator" style="width: 90%; margin-right: 10px;">
             <el-option
 v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
               :value="item.value" />
+
           </el-select>
+           <el-button type="primary" @click="AddIndicator" :icon="Plus" plain />
         </el-form-item>
 
-        <el-form-item label="Category">
-          <el-select v-model="ruleForm.category_id" :onChange="changeCategory" placeholder="Select Category">
+        <el-form-item label="Category" prop="category_id">
+          <el-select v-model="ruleForm.category_id" :onChange="changeCategory" placeholder="Select Category" style="width: 90%; margin-right: 10px;" >
             <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
+          <el-button type="primary" @click="AddCategory" :icon="Plus" plain />  
         </el-form-item>
-        <el-form-item label="Frequency">
-          <el-select clearable filterable v-model="ruleForm.frequency" placeholder="Unit">
+
+
+        <el-form-item label="Frequency" prop="frequency">
+          <el-select v-model="ruleForm.frequency"  placeholder="Select Frequency" style="width: 90%; margin-right: 10px;" >
+            <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+          <el-button type="primary" @click="AddNewFreq" :icon="Plus" plain />  
+        </el-form-item>
+
+<!-- 
+        <el-form-item label="Frequency"   prop="frequency">
+          <el-select clearable filterable v-model="ruleForm.frequency" placeholder="Frequency" style="width: 90%; margin-right: 10px;"  allow-create>
             <el-option label="Quarterly" value="Quarterly" />
             <el-option label="Monthly" value="Monthly" />
             <el-option label="Annually" value="Annually" />
-
           </el-select>
-        </el-form-item>
+
+        </el-form-item> -->
 
       </el-form>
-
+ 
     </el-col>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
+        <el-button  @click="handleCancelAddEdit"  >Cancel</el-button>
         <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
         <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
       </span>
     </template>
 
   </el-dialog>
+
+
+  <el-dialog v-model="AddCategoryVisible" @close="handleCloseCategory" title="Add Category"  width="30%" draggable>
+    <el-form ref="categoryFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+      <el-form-item label="Title">
+        <el-input v-model="categoryForm.category" />
+      </el-form-item>
+
+    </el-form>
+    <template #footer>
+
+      <span class="dialog-footer">
+        <el-button @click="AddCategoryVisible = false">Cancel</el-button>
+        <el-button   type="primary" @click="submitCategoryForm(categoryFormRef)">Submit</el-button>
+       </span>
+    </template>
+  </el-dialog>
+
+
+
+  <el-dialog v-model="AddNewIndicatorVisible" @close="handleCloseIndicator"   title="Add Indicator" :width="dialogWidth" draggable>
+    <el-form ref="indicatorFormRef" :model="indicatorForm" :rules="IndicatorRules" label-width="120px">
+
+      <el-form-item label="Activity" prop="activity_id">
+      <el-select filterable v-model="indicatorForm.activity_id" placeholder="Select Activity" style="width: 100%">
+        <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+    </el-form-item>
+
+      <el-form-item label="Title" prop="name">
+        <el-input v-model="indicatorForm.name" />
+      </el-form-item>
+      <el-form-item label="Type" prop="type">
+        <el-select v-model="indicatorForm.type" placeholder="Type" >
+          <el-option label="Output" value="output" />
+          <el-option label="Impact" value="outcome" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="Format" prop="format">
+        <el-select v-model="indicatorForm.format" placeholder="Format"  >
+          <el-option label="Number" value="number" />
+          <el-option label="Percent" value="percent" />
+        </el-select>
+      </el-form-item>
+      
+      <el-form-item label="Level"  prop="level">
+        <el-select v-model="indicatorForm.level" placeholder="Level" >
+          <el-option label="Settlement" value="Settlement" />
+          <el-option label="County" value="County" />
+          <el-option label="National" value="National" />
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+
+      <span class="dialog-footer">
+        <el-button @click="AddNewIndicatorVisible = false">Cancel</el-button>
+        <el-button  type="primary" @click="submitIndicatorForm(indicatorFormRef)">Submit</el-button>
+       </span>
+    </template>
+  </el-dialog>
+
+
+
+
+  <el-dialog v-model="AddFrequencyVisible" @close="handleCloseFreq" :title="formHeader" :width="dialogWidth" draggable>
+    <el-form ref="freqFormRef" :model="freqForm" :rules="freqRules">
+      <el-input v-model="freqForm.frequency"  :style="{ width: '100%' }" />
+    </el-form>
+    <template #footer>
+
+      <span class="dialog-footer">
+        <el-button @click="AddFrequencyVisible = false">Cancel</el-button>
+         <el-button  type="primary" @click="submitFreqForm(freqFormRef)">Save</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+
 </template>

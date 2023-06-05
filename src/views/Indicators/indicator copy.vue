@@ -22,9 +22,12 @@ import {
 
 import { ref, reactive, computed } from 'vue'
 import {
-  ElPagination, ElTooltip, ElCol, ElOption, ElDivider, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElFormItem, ElRow, ElInput, FormRules, ElPopconfirm, ElTooltipContentProps, ElTable, ElTableColumn,
+  ElPagination, ElInputNumber, ElTable,
+  ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
+  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, ElOptionGroup, FormRules, ElPopconfirm
 } from 'element-plus'
+
+
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -49,13 +52,15 @@ console.log('IsMobile', isMobile)
 
 const dialogWidth = ref()
 const actionColumnWidth = ref()
+const idColumnWidth = ref("50px")
 
 if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
 } else {
-  dialogWidth.value = "25%"
+  dialogWidth.value = "55%"
   actionColumnWidth.value = "160px"
+
 
 }
 
@@ -67,7 +72,7 @@ const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
 const indicatorsOptions = ref([])
-const ActivityOptions = ref([])
+const settlementOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
@@ -79,24 +84,11 @@ const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
-const showEditButtons = ref(false)
-
-
-
-
 
 // flag for admin buttons
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
   showAdminButtons.value = true
 }
-
-// Show Edit buttons 
-if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
-  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
-    showEditButtons.value = true;
-}
-console.log("Show Buttons -->", showAdminButtons)
-
 
 
 console.log("Show Buttons -->", showAdminButtons)
@@ -110,31 +102,47 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = []
-const model = 'activity'
+const associated_multiple_models = ['activity']
+const model = 'indicator'
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
 const AddDialogVisible = ref(false)
-const formHeader = ref('Add Activity')
+const formHeader = ref('Add Indicator')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
 
 
 
-
-
-
 const columns: TableColumn[] = [
   {
-    field: 'id',
-    label: t('Id'),
-
+    field: 'index',
+    label: t('userDemo.index'),
+    type: 'index'
   },
 
   {
-    field: 'title',
-    label: t('Title')
+    field: 'name',
+    label: t('Name')
+  },
+
+
+  {
+    field: 'activity.title',
+    label: t('Activity')
+  },
+
+  {
+    field: 'unit',
+    label: t('Unit')
+  },
+  {
+    field: 'type',
+    label: t('Type')
+  },
+  {
+    field: 'level',
+    label: t('Reporting Level')
   },
 
 
@@ -166,7 +174,7 @@ const handleClear = async () => {
 }
 
 
-const handleSelectActivity = async (indicator: any) => {
+const handleSelectIndicator = async (indicator: any) => {
   var selectOption = 'id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
@@ -231,7 +239,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.curUser = 1 // Id for logged in user
   formData.model = model
   //-Search field--------------------------------------------
-  formData.searchField = 'title'
+  formData.searchField = 'name'
   formData.searchKeyword = ''
   //--Single Filter -----------------------------------------
 
@@ -272,8 +280,8 @@ const getIndicatorOptions = async () => {
       //   pageIndex: 1,
       //   limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'activity',
-      searchField: 'title',
+      model: 'indicator',
+      searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
     }
@@ -286,21 +294,20 @@ const getIndicatorOptions = async () => {
     // pass result to the makeoptions
 
     categories.value = ret
-    makeOptions(categories)
+    makeSettlementOptions(categories)
   })
 }
 
 
-
-const makeOptions = (list) => {
+const makeSettlementOptions = (list) => {
   console.log('making the options..............', list)
-  ActivityOptions.value = []
+  settlementOptions.value = []
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
     //  console.log(countyOpt)
-    ActivityOptions.value.push(countyOpt)
+    settlementOptions.value.push(countyOpt)
   })
 }
 
@@ -312,7 +319,42 @@ const handleDownload = () => {
   if (data) exportFromJSON({ data, fileName, exportType })
 }
 
+const activityOptions = ref([])
+const getActivityOptions = async () => {
+  await getCountyListApi({
+    params: {
+      //   pageIndex: 1,
+      //   limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'activity',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    // var ret = response
 
+    console.log('Activities', response.data)
+    response.data.forEach(function (arrayItem: { id: string; type: string }) {
+      //console.log(arrayItem)
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+
+      //  console.log(countyOpt)
+      activityOptions.value.push(opt)
+    })
+
+
+  })
+}
+
+
+getActivityOptions()
+getIndicatorOptions()
+getInterventionsAll()
 
 console.log('Options---->', indicatorsOptions)
 const editIndicator = (data: TableSlotDefault) => {
@@ -320,48 +362,37 @@ const editIndicator = (data: TableSlotDefault) => {
   showEditSaveButton.value = true
   console.log(data)
   ruleForm.id = data.row.id
-  ruleForm.title = data.row.title
-
-
-
-  formHeader.value = 'Edit Component'
+  ruleForm.name = data.row.name
+  ruleForm.type = data.row.type
+  ruleForm.format = data.row.format
+  ruleForm.level = data.row.level
+  ruleForm.unit = data.row.unit
+  ruleForm.activity_id = data.row.activity_id
+  formHeader.value = 'Edit Indicator'
 
 
   AddDialogVisible.value = true
 }
 
 
-const DeleteIndicator = async (data: TableSlotDefault) => {
+const DeleteIndicator = (data: TableSlotDefault) => {
   console.log('----->', data.id)
   let formData = {}
   formData.id = data.id
-  formData.model = model
-  await DeleteRecord(formData)
+  formData.model = 'indicator'
+  DeleteRecord(formData)
+  console.log(tableDataList.value)
 
   // remove the deleted object from array list 
   let index = tableDataList.value.indexOf(data);
   if (index !== -1) {
-    console.log('Remove index', index)
-
     tableDataList.value.splice(index, 1);
-    console.log(tableDataList.value)
-
   }
-
-
-
 
   getFilteredData(filters, filterValues)
 }
 
-const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
-  title: '',
 
-
-
-
-})
 const handleClose = () => {
 
   console.log("Clsoing the dialoig")
@@ -369,50 +400,103 @@ const handleClose = () => {
   showEditSaveButton.value = false
 
   ruleForm.id = ''
-  ruleForm.title = ''
-  formHeader.value = 'Add Activity'
+  ruleForm.name = ''
+  ruleForm.type = ''
+  ruleForm.format = ''
+  ruleForm.level = ''
+  ruleForm.unit = ''
+  ruleForm.activity_id
+
+  formHeader.value = 'Add Indicator'
 
 }
+interface FormData {
+  [key: string]: any;
+}
 
+interface FormRules {
+  [key: string]: {
+    [key: string]: {
+      required?: boolean;
+      type?: string;
+      message?: string;
+      trigger?: string;
+    }[];
+  };
+}
 
+const ruleFormRef = ref<FormInstance>()
 
-
-const rules = reactive<FormRules>({
-  title: [
-    { required: true, message: 'Please provide A title', trigger: 'blur' },
-    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
-  ],
-
+const ruleForm: FormData = reactive({ 
+  name: null,
+  type: null,
+  unit: null,
+  level: null,
+  format: null,
+  activity_id: null,
+  desc: null,
 })
 
-const AddComponent = () => {
+const rules = reactive({
+
+  name: [
+    { required: true, message: 'Please provide indicator name', trigger: 'blur' },
+    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+  ],
+  type: [
+    { required: true, message: 'Indicator type is required', trigger: 'blur' }],
+
+    activity_id: [
+    { required: true, message: 'Activity is required', trigger: 'blur' }],
+
+
+  format: [
+    { required: true, message: 'Indicator Formatt is required', trigger: 'blur' }],
+
+  level: [
+    { required: true, message: 'The  description is required', trigger: 'blur' }
+  ]
+})
+
+const AddIndicator = () => {
   AddDialogVisible.value = true
 }
 
 
-const submitForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate(async (valid, fields) => {
-    if (valid) {
-      ruleForm.model = model
-      ruleForm.code = uuid.v4()
-      const res = await CreateRecord(ruleForm)
-      console.log('inserted object', res.data)
-      tableDataList.value.push(res.data)  // Add the added object on the list 
+// const submitForm = async (formEl: FormInstance | undefined) => {
+//   if (!formEl) return
+//   await formEl.validate((valid, fields) => {
+//     if (valid) {
 
+//       console.log('Is valid....')
+//       ruleForm.model = 'indicator'
+//       ruleForm.code = uuid.v4()
+//       const res = CreateRecord(ruleForm)
 
-    } else {
-      console.log('error submit!', fields)
-    }
-  })
+//     } else {
+//       console.log('error submit!', fields)
+//     }
+//   })
+// }
+
+const submitForm = async (formEl) => {
+  const valid = await formEl.validate()
+  if (valid) {
+    ruleForm.model = 'indicator'
+    ruleForm.code = uuid.v4()
+    const res = CreateRecord(ruleForm)
+  } else {
+    ElMessage.error('Please fill in all the required fields')
+  }
 }
+
 
 
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate((valid, fields) => {
     if (valid) {
-      ruleForm.model = model
+      ruleForm.model = 'indicator'
 
       updateOneRecord(ruleForm).then(() => { })
 
@@ -427,18 +511,17 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
 
-getIndicatorOptions()
-getInterventionsAll()
-
-
 const DownloadXlsx = async () => {
   console.log(tableDataList.value)
 
   // change here !
   let fields = [
-    { label: "S/No", value: "id" }, // Top level data
-    { label: "Title", value: "title" }, // Top level data
-    { label: "Code", value: "code" }, // Custom format
+    { label: "S/No", value: "index" }, // Top level data
+    { label: "Title", value: "title" }, // Custom format
+    { label: "Activity", value: "activity" }, // Top level data
+    { label: "level", value: "level" }, // Custom format
+    { label: "Format", value: "format" }, // Custom format
+    { label: "Unit", value: "unit" } // Custom format
 
   ]
 
@@ -454,9 +537,12 @@ const DownloadXlsx = async () => {
   for (let i = 0; i < tableDataList.value.length; i++) {
     let thisRecord = {}
     tableDataList.value[i]
-    thisRecord.id = tableDataList.value[i].id
-    thisRecord.title = tableDataList.value[i].title
-    thisRecord.code = tableDataList.value[i].code
+    thisRecord.index = i + 1
+    thisRecord.title = tableDataList.value[i].name
+    thisRecord.activity = tableDataList.value[i].activity.title
+    thisRecord.level = tableDataList.value[i].level
+    thisRecord.format = tableDataList.value[i].format
+    thisRecord.unit = tableDataList.value[i].unit
 
 
     dataHolder.push(thisRecord)
@@ -476,26 +562,17 @@ const DownloadXlsx = async () => {
   xlsx([dataObj], settings) //  download the excel file
 
 }
-
-const tableRowClassName = (data) => {
-  // console.log('Row Styling --------->', data.row)
-  if (data.row.documents.length > 0) {
-    return 'warning-row'
-  }
-  return ''
-}
-
 </script>
 
 <template>
-  <ContentWrap :title="t('Activities')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Indicator List')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
       <el-select
-v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Activity">
-        <el-option v-for="item in ActivityOptions" :key="item.value" :label="item.label" :value="item.value" />
+v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="Search Indicator">
+        <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
@@ -505,18 +582,23 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Intervention Activity" placement="top">
-        <el-button  v-if="showEditButtons"  :onClick="AddComponent" type="primary" :icon="Plus" />
+      <el-tooltip content="Add Indicator" placement="top">
+        <el-button v-if="showAdminButtons" :onClick="AddIndicator" type="primary" :icon="Plus" />
       </el-tooltip>
     </div>
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
+
+
+
     <el-table :data="tableDataList" :loading="loading" border>
-      <el-table-column label="Id" prop="id" width="50px" sortable />
-      <el-table-column label="Title" prop="title" sortable />
-      <el-table-column label="Code" prop="code" sortable />
-      <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+      <el-table-column label="Id" prop="id" :width="idColumnWidth" sortable />
+      <el-table-column label="Title" prop="name" sortable />
+      <el-table-column label="Activity" prop="activity.title" sortable />
+      <el-table-column label="Unit" prop="unit" sortable />
+      <el-table-column label="Type" prop="type" sortable />
+      <el-table-column fixed="right" label="Actions" :width="actionColumnWidth" sortable>
         <template #default="scope">
           <el-dropdown v-if="isMobile">
             <span class="el-dropdown-link">
@@ -533,8 +615,6 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-
-
           <div v-else>
 
             <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
@@ -542,8 +622,6 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
 type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
                 circle />
             </el-tooltip>
-
-
 
 
             <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
@@ -563,6 +641,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
       </el-table-column>
     </el-table>
 
+
     <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
@@ -570,11 +649,65 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   </ContentWrap>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules">
-      <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+
+      <el-form-item label="Activity">
+        <el-select filterable v-model="ruleForm.activity_id" placeholder="Select Activity"  width="200px">
+          <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
 
 
-
+      <el-form-item label="Title">
+        <el-input v-model="ruleForm.name" />
+      </el-form-item>
+      <el-form-item label="Type">
+        <el-select v-model="ruleForm.type" placeholder="Type">
+          <el-option label="Output" value="output" />
+          <el-option label="Impact" value="outcome" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="Format">
+        <el-select v-model="ruleForm.format" placeholder="Format">
+          <el-option label="Number" value="number" />
+          <el-option label="Percent" value="percent" />
+        </el-select>
+      </el-form-item>
+      <!-- <el-form-item label="Unit">
+        <el-select clearable filterable v-model="ruleForm.unit" placeholder="Unit">
+          <el-option label="Block" value="Block" />
+          <el-option label="Connection" value="Connection" />
+          <el-option label="County" value="County" />
+          <el-option label="Footpath" value="Footpath" />
+          <el-option label="Grievance" value="Grievance" />
+          <el-option label="Kiosk" value="Kiosk" />
+          <el-option label="Kilometer" value="Km" />
+          <el-option label="Meter" value="M" />
+          <el-option label="Letter" value="Letter" />
+          <el-option label="Person" value="Person" />
+          <el-option label="Household" value="Household" />
+          <el-option label="Organization" value="Organization" />
+          <el-option label="Workshop" value="Workshop" />
+          <el-option label="Meeting" value="Meeting" />
+          <el-option label="Training" value="Training" />
+          <el-option label="Survey" value="Survey" />
+          <el-option label="Group" value="Group" />
+          <el-option label="Census" value="Census" />
+          <el-option label="Plan" value="Plan" />
+          <el-option label="Streetlight" value="Streetlight" />
+          <el-option label="Title" value="Title" />
+          <el-option label="Lease" value="Lease" />
+          <el-option label="Basemap" value="Basemap" />
+          <el-option label="Strategy" value="Strategy" />
+        </el-select>
+      </el-form-item> -->
+      <el-form-item label="Level">
+        <el-select v-model="ruleForm.level" placeholder="Level">
+          <el-option label="Settlement" value="Settlement" />
+          <el-option label="County" value="County" />
+          <el-option label="National" value="National" />
+        </el-select>
+      </el-form-item>
     </el-form>
     <template #footer>
 
