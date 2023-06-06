@@ -84,6 +84,21 @@ console.log("programmeComponentOptions", programmeComponentOptions.value)
 }
 getProgrameComponents()
 
+
+const activity = {
+  path: 'activity',
+   component: () => import('@/views/Indicators/Activity.vue'),
+  name: 'ProgrammeActivity',
+  meta: {
+    title: 'Activities',
+    icon:'icon-park-outline:activity-source',
+    
+  }
+}
+
+programmeComponentOptions.value.push(activity)
+
+
  const getDynamicDashboards = async () => {
   const formData = {}
   formData.limit = 100
@@ -135,7 +150,7 @@ getProgrameComponents()
 
 
 }
- getDynamicDashboards()
+ await getDynamicDashboards()
 
 
 
@@ -235,7 +250,9 @@ export const usePermissionStore = defineStore('permission', {
         this.addRouters = routerMap          
   
         
-        const  subprograms = [
+        const subprograms = [
+        
+
         {
           path: '/subprogrammes',
           component: Layout,
@@ -248,7 +265,8 @@ export const usePermissionStore = defineStore('permission', {
           },
           children:programmeComponentOptions.value
 
-        } ]
+          }
+        ]
  
           this.addRouters.splice(2, 0, ...subprograms );  // Push the routes to position no.4 after settlements
 

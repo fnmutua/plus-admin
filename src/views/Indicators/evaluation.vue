@@ -416,15 +416,15 @@ const editEvaluation = (data: TableSlotDefault) => {
 
 
 const DeleteEvaluation = (data: TableSlotDefault) => {
-  console.log('----->', data.row.id)
+  console.log('----->', data)
   let formData = {}
-  formData.id = data.row.id
+  formData.id = data.id
   formData.model = model
   DeleteRecord(formData)
   console.log(tableDataList.value)
 
   // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
+  let index = tableDataList.value.indexOf(data.id);
   if (index !== -1) {
     tableDataList.value.splice(index, 1);
   }
