@@ -1,10 +1,9 @@
-const { truncate } = require('fs')
 const Sequelize = require('sequelize')
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
     'indicator_category',
     {
- 
+        
       indicator_id: {
         type: DataTypes.INTEGER,
         allowNull: false
@@ -33,17 +32,17 @@ module.exports = function (sequelize, DataTypes) {
       frequency: {
         type: DataTypes.INTEGER,
         allowNull: false
-      },	
+      },
+
       createdBy: {
         type: DataTypes.INTEGER,
         allowNull: true
       },
    
-      code: {
+       code: {
         type: DataTypes.STRING,
-        allowNull: false,
-        unique:true
-      },	
+        allowNull: true
+      }
     },
     {
       sequelize,
@@ -51,12 +50,15 @@ module.exports = function (sequelize, DataTypes) {
       schema: 'public',
       timestamps: true,
       indexes: [
-               {
+        {
+          name: 'indicator_category_pkey',
           unique: true,
-          fields: ['indicator_id', 'category_id','project_id', 'activity_id' ]
+          fields: [{ name: 'id' }]
         },
-         
-
+        {
+          unique: true,
+          fields: ['indicator_id', 'category_id','project_id'  ]
+        },
       ]
     }
   )
