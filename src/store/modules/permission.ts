@@ -98,7 +98,6 @@ const activity = {
 
 programmeComponentOptions.value.push(activity)
 
-
  const getDynamicDashboards = async () => {
   const formData = {}
   formData.limit = 100
@@ -150,7 +149,7 @@ programmeComponentOptions.value.push(activity)
 
 
 }
- await getDynamicDashboards()
+   getDynamicDashboards()
 
 
 
