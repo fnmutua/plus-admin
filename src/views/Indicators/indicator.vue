@@ -113,50 +113,7 @@ const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
 
 
-
-const columns: TableColumn[] = [
-  {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
-  },
-
-  {
-    field: 'name',
-    label: t('Name')
-  },
-
-
-  {
-    field: 'activity.title',
-    label: t('Activity')
-  },
-
-  {
-    field: 'unit',
-    label: t('Unit')
-  },
-  {
-    field: 'type',
-    label: t('Type')
-  },
-  {
-    field: 'level',
-    label: t('Reporting Level')
-  },
-
-
-
-  {
-    field: 'code',
-    label: t('Code')
-  },
-  {
-    field: 'action',
-    label: t('Actions')
-  }
-
-]
+ 
 const handleClear = async () => {
   console.log('cleared....')
 
@@ -484,7 +441,12 @@ const submitForm = async (formEl) => {
   if (valid) {
     ruleForm.model = 'indicator'
     ruleForm.code = uuid.v4()
-    const res = CreateRecord(ruleForm)
+    const res = await CreateRecord(ruleForm)
+    console.log('res.data', res.data)
+    tableDataList.value.push(res.data)  // Add the added object on the list
+
+    console.log(tableDataList.value)
+
   } else {
     ElMessage.error('Please fill in all the required fields')
   }
@@ -596,8 +558,7 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
       <el-table-column label="Id" prop="id" :width="idColumnWidth" sortable />
       <el-table-column label="Title" prop="name" sortable />
       <el-table-column label="Activity" prop="activity.title" sortable />
-      <el-table-column label="Unit" prop="unit" sortable />
-      <el-table-column label="Type" prop="type" sortable />
+       <el-table-column label="Type" prop="type" sortable />
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth" sortable>
         <template #default="scope">
           <el-dropdown v-if="isMobile">
