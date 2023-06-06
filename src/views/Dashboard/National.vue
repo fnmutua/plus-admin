@@ -848,10 +848,10 @@ const filterCounty = async (county_id) => {
       <div class="tabs-container">
         <ElSkeleton :loading="cardLoading" animated>
           <el-carousel height="350px">
-            <el-carousel-item v-for="item in 4" :key="item">
-              <el-card :body-style="{ padding: '0px' }">
+            <el-carousel-item v-for="item in 2" :key="item">
+              <el-card class="box-card">
                 <div class="image" style="position: relative;">
-                  <img src="@/assets/imgs/dashboard01.jpg" class="image" />
+                  <img src="@/assets/imgs/dashboard01.png" class="image" />
                   <div class="overlay-text">
                     <h3>Your Text Here</h3>
                     <a href="link_to_resource">Link to Resource</a>
@@ -864,7 +864,16 @@ const filterCounty = async (county_id) => {
       </div>
 </el-col>
 
-
+<el-col :xs="24" :sm="24" :md="12" :lg="12">
+      <div class="tabs-container">
+        <ElSkeleton :loading="cardLoading" animated>
+           
+          <el-card class="box-card"> 
+            <span>Map here..</span>
+            </el-card>
+        </ElSkeleton>
+      </div>
+</el-col>
   </el-row>
 </template>
  
