@@ -2563,30 +2563,30 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       },
-      {
-        path: 'status',
-        component: () => import('@/views/Dashboard/CurrentSlumStatus.vue'),
-        name: 'Status',
-        meta: {
-          title: t('Status'),
-          noCache: true,
-          affix: true,
-          icon:'pajamas:status',
-          hidden: true,
+      // {
+      //   path: 'status',
+      //   component: () => import('@/views/Dashboard/CurrentSlumStatus.vue'),
+      //   name: 'Status',
+      //   meta: {
+      //     title: t('Status'),
+      //     noCache: true,
+      //     affix: true,
+      //     icon:'pajamas:status',
+      //     hidden: true,
 
-        }
-      },
-      {
-        path: 'achievements',
-        component: () => import('@/views/Dashboard/Interventions.vue'),
-        name: 'InterventionsDashboard',
-        meta: {
-          title: t('Interventions'),
-          noCache: true,
-          icon:'fa-solid:hands-helping',
-          hidden: true,
-        }
-      },
+      //   }
+      // },
+      // {
+      //   path: 'achievements',
+      //   component: () => import('@/views/Dashboard/Interventions.vue'),
+      //   name: 'InterventionsDashboard',
+      //   meta: {
+      //     title: t('Interventions'),
+      //     noCache: true,
+      //     icon:'fa-solid:hands-helping',
+      //     hidden: true,
+      //   }
+      // },
       // {
       //   path: 'dynamic',
       //   component: () => import('@/views/Dashboard/Dynamic.vue'),
@@ -3322,18 +3322,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       alwaysShow: false
     },
     children: [
-      {
-        path: 'activity',
-      //  component: 'views/Indicators/indicator_category_report',
-        component: () => import('@/views/Indicators/Activity.vue'),
+      // {
+      //   path: 'activity',
+      // //  component: 'views/Indicators/indicator_category_report',
+      //   component: () => import('@/views/Indicators/Activity.vue'),
 
-        name: 'MEActivity',
-        meta: {
-          title: 'Activities',
-          icon:'icon-park-outline:activity-source',
+      //   name: 'MEActivity',
+      //   meta: {
+      //     title: 'Activities',
+      //     icon:'icon-park-outline:activity-source',
           
-        }
-      },
+      //   }
+      // },
 
       
       {

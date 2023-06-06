@@ -71,9 +71,7 @@ const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
-const indicatorsOptions = ref([])
 const countyOptions = ref([])
-const projectOptions = ref([])
 
 
 const categories = ref([])
@@ -287,6 +285,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 }
 
 
+const indicatorsOptions = ref([])
+const indicatorsOptionsFiltered = ref([])
 
 const getIndicatorNames = async () => {
   const formData = {}
@@ -313,53 +313,75 @@ const getIndicatorNames = async () => {
     var opt = {}
     console.log(arrayItem)
     opt.value = arrayItem.id
-    opt.label = arrayItem.indicator_name + ' | '  +arrayItem.activity.title + '|' + arrayItem.project.title + ' | ' + arrayItem.category.category
+    opt.label = arrayItem.indicator_name + ' | ' + arrayItem.category.category
     opt.title = arrayItem.category.title
     opt.project_id = arrayItem.project.id
+    opt.activity_id = arrayItem.activity.id
+    
     opt.county_id = arrayItem.project.county_id
     opt.subcounty_id = arrayItem.project.subcounty_id
     opt.settlement_id = arrayItem.project.settlement_id
     opt.ward_id = arrayItem.project.ward_id
 
     indicatorsOptions.value.push(opt)
+    indicatorsOptionsFiltered.value.push(opt)
   })
 
+  console.log('indicatorsOptions.value',indicatorsOptions.value)
 }
 
+const projectOptions = ref([])
+const activityOptions = ref([])
+const activityOptionsFiltered = ref([])
 
 const getProjects = async () => {
-  const res = await getCountyListApi({
-    params: {
-      //   pageIndex: 1,
-      //   limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'project',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then(async (response: { data: any }) => {
-    console.log('Projects response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
+  const formData = {}
+
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'project'
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = ''
+
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+  formData.associated_multiple_models = ['activity' ]
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+  console.log('project', res)
+
+  res.data.forEach(function (arrayItem: { id: string; type: string }) {
+    var opt = {}
+    console.log(arrayItem)
+    opt.value = arrayItem.id
+    opt.label = arrayItem.title  
+     projectOptions.value.push(opt)
 
 
-    loading.value = false
+    arrayItem.activities.forEach(function (activity: any) {
+      console.log('activity--->', activity)
 
+      var act = {}
+    console.log(activity)
+    act.value = activity.id
+    act.label = activity.title  
+    act.project_id = arrayItem.id
+    activityOptions.value.push(act)
+    activityOptionsFiltered.value.push(act)
 
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      projectOptions.value.push(opt)
     })
-
   })
+
 }
 
 
 
+ 
 
 
 const props1 = {
@@ -427,31 +449,9 @@ const DeleteReport = (data: TableSlotDefault) => {
 
 }
 
-const removeDocument = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = 'indicator_category_report'
-  formData.filesToDelete = [data.name]
-
-
-
-  deleteDocument(formData)
-
-
-
-}
 
 const currentRow = ref()
-const addMoreDocs = (data: TableSlotDefault) => {
-
-  currentRow.value = data
-
-  addMoreDocuments.value = true
-
-  console.log('currentRow', currentRow.value)
-
-}
+ 
 const handleClose = () => {
 
   console.log("Closing the dialoig")
@@ -469,39 +469,33 @@ const handleClose = () => {
 }
 
 
-
-const submitMoreDocuments = async () => {
-  console.log('More files.....', morefileList)
-
-  // uploading the documents 
-  const fileTypes = []
-  const formData = new FormData()
-  let files = []
-  for (var i = 0; i < morefileList.value.length; i++) {
-    console.log('------>file', morefileList.value[i])
-    var format = morefileList.value[i].name.split('.').pop() // get file extension
-    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-    fileTypes.push(format)
-    // formData.append('file', fileList.value[i])
-    // formData.file = fileList.value[i]
-
-    formData.append('model', model)
-
-    formData.append('file', morefileList.value[i].raw)
-    formData.append('format', morefileList.value[i].name.split('.').pop())
-    formData.append('category', documentCategory.value)
-    formData.append('field_id', 'report_id')
-
-    formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
-    formData.append('code', uuid.v4())
-    formData.append('report_id', currentRow.value.id)
+ 
 
 
-  }
+const changeProject = async (project: any) => {
+  ruleForm.indicator_category_id=[]
+  ruleForm.activity_id=[]
+
+  // Filter the activities 
+  activityOptionsFiltered.value = activityOptions.value.filter(function (el) {
+    return el.project_id == project
+  });
+
+  // filter the indicators 
+  indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
+    return el.project_id == project
+  });
+
+}
 
 
-  console.log(currentRow.value.id)
-  await uploadFilesBatch(formData)
+const changeActivity = async (activity: any) => {
+  ruleForm.indicator_category_id=[]
+  indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
+   return el.activity_id == activity
+   
+ });
+
 
 }
 
@@ -924,6 +918,7 @@ const submitFiles = async () => {
 getModeldefinition(model)
 
 getIndicatorNames()
+getProjects()
 //getCategoryOptions()
 getInterventionsAll()
 
@@ -1034,7 +1029,7 @@ if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
 } else {
-  dialogWidth.value = "25%"
+  dialogWidth.value = "45%"
   actionColumnWidth.value = "160px"
 
 }
@@ -1183,11 +1178,11 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
       </el-tooltip>
     </div>
 
-    <div style="display: inline-block; margin-left: 20px">
+    <!-- <div style="display: inline-block; margin-left: 20px">
       <el-tooltip content="Import" placement="top">
         <el-button v-if="showAdminButtons" :onClick="ImportReports" type="primary" :icon="UploadFilled" />
       </el-tooltip>
-    </div>
+    </div> -->
 
 
 
@@ -1269,13 +1264,31 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
         <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
 
-          <el-form-item label="Indicator">
+          <el-form-item label="Project">
             <el-select
-filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
-              placeholder="Select Indicator">
-              <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
+filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width: 100%"
+              placeholder="Select Project">
+              <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
+
+          <el-form-item label="Activity">
+            <el-select
+filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
+              placeholder="Select Activity">
+              <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+
+
+          <el-form-item label="Indicator">
+            <el-select
+filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" style="width: 100%"
+              placeholder="Select Indicator">
+              <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+
 
 
 
