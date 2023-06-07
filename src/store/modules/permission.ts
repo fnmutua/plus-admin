@@ -124,16 +124,16 @@ programmeComponentOptions.value.push(activity)
     if (arrayItem.type==='intervention') {
       prog.component = () => import('@/views/Dashboard/Dynamic.vue') // This is a template to hold info on interventions
       prog.path = 'intervention_' + arrayItem.title.toLowerCase()
+      prog.name = arrayItem.title 
 
     }
     else {
       prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
       prog.path = 'status_' + arrayItem.title.toLowerCase()
-
+      prog.name =  arrayItem.title 
     }
     
   //  prog.component =  Layout
-    prog.name = 'Dynamic'+toTitleCase(arrayItem.title)  
 
     const meta = {}
     meta.title = arrayItem.title 
@@ -149,7 +149,7 @@ programmeComponentOptions.value.push(activity)
 
 
 }
-   getDynamicDashboards()
+     getDynamicDashboards()
 
 
 
