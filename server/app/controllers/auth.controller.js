@@ -585,6 +585,40 @@ exports.settlementController = (req, res) => {
 }
 
 
+
+exports.wardController = (req, res) => {
+  var reg_model = 'ward'
+  console.log('county', req.body.county)
+  var county = req.body.county
+  if (county) {
+ 
+    db.models[reg_model]
+      .findAndCountAll({
+        where: {
+          county_id: {
+            [Op.eq]: county
+          }
+        },
+        attributes: { exclude: ['geom'] }
+      })
+    .then((list) => {
+      //console.log(list.rows)
+      res.status(200).send(list.rows)
+    })
+
+  } else {
+
+    db.models[reg_model]
+    .findAndCountAll({attributes: { exclude: ['geom' ] }})
+    .then((list) => {
+      //console.log(list.rows)
+      res.status(200).send(list.rows)
+    })
+  }
+
+}
+
+
 exports.subCountyController = (req, res) => {
   var reg_model = 'subcounty'
 
