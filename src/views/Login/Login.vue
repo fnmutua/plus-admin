@@ -35,7 +35,7 @@ const toLogin = () => {
         <div class="flex justify-center items-center h-[calc(100%-60px)]">
           <TransitionGroup appear tag="div" enter-active-class="animate__animated animate__bounceInLeft">
             <!-- <img src="@/assets/svgs/login-box-bg.svg" key="1" alt="" class="w-350px" /> -->
-            <img src="@/assets/svgs/Coat_of_arms_of_Kenya.svg" key="1" alt="" class="w-350px" />
+            <img src="@/assets/svgs/logo_animates.svg" key="1" alt="" class="w-350px" />
 
             <div class="text-2xl text-white text-center" key="2">{{
               t('Kenya Slum Information System')
@@ -59,7 +59,8 @@ const toLogin = () => {
         <Transition appear enter-active-class="animate__animated animate__bounceInRight">
           <div
             class="h-full flex items-center m-auto w-[100%] @2xl:max-w-500px @xl:max-w-500px @md:max-w-500px @lg:max-w-500px">
-            <LoginForm v-if="isLogin" class="p-20px h-auto m-auto <xl:(rounded-3xl light:bg-white)"
+            <LoginForm
+v-if="isLogin" class="p-20px h-auto m-auto <xl:(rounded-3xl light:bg-white)"
               @to-register="toRegister" />
             <RegisterForm v-else class="p-20px h-auto m-auto <xl:(rounded-3xl light:bg-white)" @to-login="toLogin" />
           </div>
