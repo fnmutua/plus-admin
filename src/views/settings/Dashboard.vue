@@ -368,7 +368,14 @@ const rules = reactive<FormRules>({
     { required: true, message: 'Please provide a title', trigger: 'blur' },
     { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
   ],
- 
+  type: [
+    { required: true, message: 'Type is required', trigger: 'blur' },
+  ],
+  description: [
+    { required: true, message: 'Description is required', trigger: 'blur' },
+    { max: 50, message: 'Length should be 50 characters or less', trigger: 'blur' }
+
+   ],
 })
 
 const AddIndicator = () => {
@@ -467,11 +474,11 @@ layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
     
-      <el-form-item label="Title">
+      <el-form-item label="Title" prop="title">
         <el-input v-model="ruleForm.title" />
       </el-form-item>
 
-      <el-form-item label="Type">
+      <el-form-item label="Type" prop="type">
         <el-select
 v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags
           placeholder="Select Type of dashboard">
@@ -479,12 +486,12 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
         </el-select>
       </el-form-item>
 
-      <el-form-item label="Icon">
+      <el-form-item label="Icon" prop="icon">
         <el-input v-model="ruleForm.icon" />
       </el-form-item>
 
-      <el-form-item label="Description">
-        <el-input v-model="ruleForm.description" />
+      <el-form-item label="Description" prop="description">
+        <el-input type="textarea" v-model="ruleForm.description"  />
       </el-form-item>
     </el-form>
     <template #footer>

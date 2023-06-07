@@ -546,7 +546,7 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
 }
 
-const cardSymbol = ref()
+
 const getCardData = async () => {
 
   var filters = ['dashboard_id']
@@ -574,14 +574,15 @@ const getCardData = async () => {
   const res = await getSettlementListByCounty(formData)
 
   // cards.value = res.data
-
+ 
   res.data.forEach(function async(arrayItem) {
     console.log('getting teh card', arrayItem)
     if (arrayItem.computation === 'proportion') {
-      cardSymbol.value='%'
+      console.log('Proportiongs......')
+     var cardSymbol='%'
     } else {
-      cardSymbol.value=''
-    }
+      var cardSymbol = ''
+       }
 
 
 
@@ -589,10 +590,10 @@ const getCardData = async () => {
   //  var result = getSummary(arrayItem.card_model, arrayItem.card_model_field, arrayItem.aggregation)
 
     result.then((result) => {
-      console.log(result); // "Promise resolved!"
+      console.log('resultx',arrayItem); // "Promise resolved!"
       let card = arrayItem
       card.value = result
-      card.symbol=cardSymbol.value 
+      card.symbol=cardSymbol
       cards.value.push(card)
     });
 
@@ -1743,7 +1744,7 @@ const formatNumber =   (value) => {
 
               <el-divider direction="vertical" />
               <div class="card-value">
-                <p class="value-text">{{ formatNumber(card.value) }} {{ card.symbol }}</p>
+                <p class="value-text">{{ formatNumber(card.value) }}{{ card.symbol }}</p>
                 <p class="value-label">{{ card.description }}</p>
               </div>
 
@@ -1817,7 +1818,7 @@ v-for="(card) in tab.cards" :key="card.id" :span="12" :xl="12" :lg="12" :md="12"
 }
 
 .tabs-container {
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 .cards-container {

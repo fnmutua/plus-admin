@@ -17,6 +17,7 @@ import {
     ElIcon,
     ElTableColumn,
     ElInput,
+    ElDialog,
     ElSwitch,
     ElOptionGroup,
     ElOption
@@ -447,19 +448,19 @@ const selectOptions = ref()
 const selectedValues = ref()
 
 const readXLSX = async (event) => {
-    console.log('on file change.......', event)
-     console.log('loadingPosting.value.......', loadingPosting.value)
+ //   console.log('on file change.......', event)
+    // console.log('loadingPosting.value.......', loadingPosting.value)
 
 
     
     //file.value = event.target.files ? event.target.files[0] : null;   // Direct upload 
     file.value = event   // called from the uplaod funtion 
 
-    console.log('The file---->', file)
+  //  console.log('The file---->', file)
 
     readXlsxFile(file.value).then((rows) => {
         const fields = Object.values(rows[0]) //  get all proterit4s of the first feature
-        console.log("fields-->", fields)
+      //  console.log("fields-->", fields)
 
         if (!fields.includes('pcode')) {
             console.log('Has Pcode', fields.includes('pcode')); //true
@@ -485,8 +486,8 @@ const readXLSX = async (event) => {
             uploadObj.value.push(record) // Push to the temporary holder
         }  // remove header row
 
-        console.log('rows-uploadObj------>', uploadObj)
-        console.log('rows-parentObj------>', parentObj)
+     //   console.log('rows-uploadObj------>', uploadObj)
+      //  console.log('rows-parentObj------>', parentObj)
 
 
         const options = {
@@ -520,26 +521,27 @@ const readXLSX = async (event) => {
             matchedWithParent.value = uploadObj.value.map(obj => {
                 let input = obj.pcode
                 const fuse = new Fuse(parentObj.value, options);
-                console.log('Running fuse')
+               // console.log('Running fuse')
 
                         //      let results = fuse.search(input);
                          let results;
                         try {
                         results = fuse.search(input);
-                        console.log(results);
+                  //      console.log(results);
                         } catch (error) {
-                        console.error("An error occurred during Fuse search:", error);
+                 //       console.error("An error occurred during Fuse search:", error);
                         // Handle the error case if needed
                         results = [];
                         }
 
                         if (results.length > 0) {
-                        console.log(pfield, results[0].item);
+                       // console.log(pfield, results[0].item);
                         return {
                             ...obj, // spread existing properties of the object
                             [pfield]: results[0].item.id, // add new property to the object
                             ['county_id']: results[0].item.county_id, // add new property to the object
                             ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
+                            ['ward_id']: results[0].item.ward_id,  // add new property to the object
                             ['code']: shortid.generate(),
                             //['settlement_id']: results[0].item.settlement_id  // add new property to the object
                         };
@@ -559,7 +561,7 @@ const readXLSX = async (event) => {
         }
 
 
-        console.log('matched >>>', matchedWithParent.value)
+     //   console.log('matched >>>', matchedWithParent.value)
 
         //--------------------------------------------------------------------------------
 
@@ -573,8 +575,8 @@ const readXLSX = async (event) => {
         const databaseColumns = fieldSet.value.map(obj => obj.field);
 
 
-        console.log('From DB:', databaseColumns)
-        console.log('From XLSX:', uploadColumns)
+      //  console.log('From DB:', databaseColumns)
+      //  console.log('From XLSX:', uploadColumns)
 
         const FieldMatchOptions = {
             // isCaseSensitive: false,
@@ -602,7 +604,7 @@ const readXLSX = async (event) => {
             const fuse = new Fuse(uploadColumns, FieldMatchOptions);
 
             let results = fuse.search(input);
-            console.log(field, results)
+       //     console.log(field, results)
             let obj = {}
             obj.key1 = field
             if (results.length > 0) {
@@ -626,11 +628,11 @@ const readXLSX = async (event) => {
         selectedValues.value = uploadColumns
 
 
-        console.log(selectOptions.value)
+     //   console.log(selectOptions.value)
 
         show.value = true
         showTable.value = true
-        loadingPosting.value = false
+     loadingPosting.value = false
 
 
     })
@@ -638,10 +640,96 @@ const readXLSX = async (event) => {
 
 }
 
+const options = {
+  includeScore: true,
+  shouldSort: true,
+  keys: ["parent_code"]
+};
+
+const pfield = theParentModelField.value;
+
+const xreadXLSX = async (event) => {
+  file.value = event;
+
+  const rows = await readXlsxFile(file.value);
+  const fields = Object.values(rows[0]);
+
+  if (!fields.includes('pcode')) {
+    ElMessage.error('The uploaded file is missing "pcode" field. Present: [' + fields + ']');
+    handleReset();
+    return;
+  }
+
+  uploadObj.value = rows.slice(1).map((row) => {
+    const record = {};
+    fields.forEach((f, i) => {
+      const v = row[i];
+      record[f] = v;
+    });
+    record['createdBy'] = userInfo.id;
+    return record;
+  });
+
+  if (selectedparent.value != 'none') {
+    const fuse = new Fuse(parentObj.value, options);
+    matchedWithParent.value = uploadObj.value.map(obj => {
+      const { pcode } = obj;
+      const results = fuse.search(pcode);
+      if (results.length > 0) {
+        return {
+          ...obj,
+          [pfield]: results[0].item.id,
+          ['county_id']: results[0].item.county_id,
+          ['subcounty_id']: results[0].item.subcounty_id,
+          ['ward_id']: results[0].item.ward_id,
+          ['code']: shortid.generate(),
+        };
+      } else {
+        ElMessage.error("No parent exists with the provided pcode: " + pcode);
+        return { ...obj };
+      }
+    });
+  } else {
+    matchedWithParent.value = uploadObj.value;
+  }
+
+  const uploadColumns = Object.keys(matchedWithParent.value[0]);
+  const databaseColumns = fieldSet.value.map(obj => obj.field);
+
+  const FieldMatchOptions = {
+    includeScore: true,
+    shouldSort: true,
+    threshold: 0.4,
+    keys: ["parent_code"]
+  };
+
+  tableData.value = databaseColumns.map(field => {
+    const fuse = new Fuse(uploadColumns, FieldMatchOptions);
+    const results = fuse.search(field);
+    return {
+      key1: field,
+      key2: results.length > 0 ? results[0].item : []
+    };
+  });
+
+  selectOptions.value = uploadColumns.map(uploadedField => ({
+    value: uploadedField,
+    label: uploadedField,
+    disabled: false
+  }));
+
+  selectedValues.value = uploadColumns;
+
+  show.value = true;
+  showTable.value = true;
+  loadingPosting.value = false;
+};
+
 
 
 const handleFileUpload = async () => {
-    loadingPosting.value = true
+    console.log('uploading.....')
+     loadingPosting.value = true
 
     if (fileList.value.length == 0) {
         ElMessage.error('Select a  File first!')
@@ -705,7 +793,7 @@ const handleReset = async () => {
 const DisablePostSubmit = ref(false)
 const handleSubmitData = async () => {
     console.log(tableData.value)
-     loadingPosting.value=true
+    // loadingPosting.value=true
     console.log(matchedWithParent.value)
     DisablePostSubmit.value = true  // Disable the submti button to avoid double sumbissions 
  
@@ -799,7 +887,7 @@ const handleSubmitData = async () => {
             })
     }
 
-    loadingPosting.value=false
+  //  loadingPosting.value=false
 
 
 
@@ -810,9 +898,10 @@ const handleSubmitData = async () => {
 
 <template>
     <ContentWrap
+v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait......."
 :title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')" >
 
-        <div  v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.......">
+        <div  >
             <div style="display: inline-block;">
             <el-select
 v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Select data to import"
@@ -833,32 +922,44 @@ v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Se
         </div>
 
         <el-divider border-style="dashed" content-position="left">Upload</el-divider>
-        <el-upload
-v-if="showUploadSpace" class="upload-demo" drag
+        <!-- <el-upload
+v-if="showUploadSpace" class="upload-demo"  
             action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"   v-model:file-list="fileList"
-            :auto-upload="false">
-            <div class="el-upload__text"> Drop xlsx file here or <em>click to upload</em> </div>
-        </el-upload>
+            :auto-upload="false"/> -->
+
+
+         
+            <el-upload
+                        v-if="showUploadButton"
+                        ref="upload"
+                        v-model:file-list="fileList"
+                        class="upload-demo"
+                        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+                        :limit="1"
+                        :on-exceed="handleExceed"
+                        :auto-upload="false"
+                             >
+                        <template #trigger>
+                        <el-button type="primary">select file</el-button>
+                        </template>
+                        <el-button class="ml-3" type="success" @click="handleFileUpload"  :disabled="disableDoubeUpload">
+                        upload
+                        </el-button>
+                        <template #tip>
+                        <div class="el-upload__tip text-red">
+                            limit 1 file, new file will cover the old file
+                        </div>
+                        </template>
+                    </el-upload>
+<!-- 
         <el-button
 v-if="showUploadButton" class="mt-4" style="width: 100%" @click="handleFileUpload" type="primary"
             :disabled="disableDoubeUpload">
             Upload<el-icon class="el-icon--right">
                 <Upload />
             </el-icon>
-        </el-button>
+        </el-button> -->
 
-        <el-table v-if="showTable" :data="tableData" :size="small" style="height: 200px; overflow-y: scroll;">
-            <el-table-column prop="key1" label="Database Field" />
-            <el-table-column label="From XLSX">
-                <template #default="scope">
-                    <el-select v-model="scope.row.key2" @change="updateSelect(scope.row, scope.$index)" clearable>
-                        <el-option
-v-for="(option, index) in selectOptions" :key="index" :label="option.label"
-                            :value="option.value" :disabled="option.disabled" />
-                    </el-select>
-                </template>
-            </el-table-column>
-        </el-table>
         <el-button
 v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type="success"
             :disabled="DisablePostSubmit">
@@ -868,6 +969,33 @@ v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type
         </el-button>
         </div>
         
+
+
+        <el-dialog title="Match Fields" v-model="showTable"   width="60%">
+       
+            <el-table v-if="showTable" :data="tableData" :size="small">
+            <el-table-column prop="key1" label="Database Field" />
+            <el-table-column label="From XLSX">
+                <template #default="scope">
+                    <el-select v-model="scope.row.key2" @change="updateSelect(scope.row, scope.$index)" filterable clearable>
+                        <el-option
+v-for="(option, index) in selectOptions" :key="index" :label="option.label"
+                            :value="option.value" :disabled="option.disabled" />
+                    </el-select>
+                </template>
+            </el-table-column>
+        </el-table>
+        <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showTable = false">Cancel</el-button>
+        <el-button type="primary" @click="handleSubmitData ">
+          Confirm
+        </el-button>
+      </span>
+    </template>
+         </el-dialog>
+
+
     </ContentWrap>
 </template>
 

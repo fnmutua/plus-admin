@@ -555,8 +555,34 @@ const rules = reactive<FormRules>({
   ],
   dashboard_id: [
     { required: true, message: 'Please select a Dashboard', trigger: 'blur' },
-
   ],
+
+  icon: [
+    { required: true, message: 'Icon is required.', trigger: 'blur' },
+  ],
+
+  iconColor: [
+    { required: true, message: 'iconColor is required.', trigger: 'blur' },
+  ],
+
+  
+  aggregation: [
+    { required: true, message: 'Aggregator method is required.', trigger: 'blur' },
+  ],
+
+  description: [
+    { required: true, message: 'description is required.', trigger: 'blur' },
+  ],
+  indicator_id: [
+    { required: true, message: 'Indicator is required.', trigger: 'blur' },
+  ],
+
+  computation: [
+    { required: true, message: 'computation is required.', trigger: 'blur' },
+  ] 
+ 
+
+
 })
 
 const AddCard = () => {
@@ -816,32 +842,32 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="40%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
-      <el-form-item label="Dashboard" prop="dashboard">
+      <el-form-item label="Dashboard" prop="dashboard_id" >
         <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select"   :onChange="handleSelectType">
           <el-option v-for="item in DashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
 
 
-      <el-form-item label="Title">
+      <el-form-item label="Title" prop="title">
            <el-input v-model="ruleForm.title" />
        </el-form-item>
  
-      <el-form-item label="Icon">
+      <el-form-item label="Icon"  prop="icon">
         <el-tooltip content="Get icons from https://icon-sets.iconify.design/" placement="top">
         <el-input v-model="ruleForm.icon" />
       </el-tooltip>
 
       </el-form-item>
-      <el-form-item label="Icon Color">
+      <el-form-item label="Icon Color" prop="iconColor">
            <el-color-picker v-model="ruleForm.iconColor"/>
        </el-form-item>
 
-       <el-form-item label="Description">
+       <el-form-item label="Description" prop="description">
            <el-input v-model="ruleForm.description" />
        </el-form-item>
  
-       <el-form-item label="Type" v-if="showStatusExtras">
+       <el-form-item label="Type" v-if="showStatusExtras"   prop="card_model" >
         <el-select
 v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags  :onChange="handleSelectModel"
           placeholder="Select Entity to summarize">
@@ -850,7 +876,7 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
       </el-form-item>
 
        
-       <el-form-item label="Field" v-if="showStatusExtras">
+       <el-form-item label="Field"    prop="card_model_field" v-if="showStatusExtras">
         <el-select
 v-model="ruleForm.card_model_field"   :onClear="handleClear" clearable filterable collapse-tags :onChange="handleFilterAggregators"
           placeholder="Field to summarize">
@@ -862,14 +888,13 @@ v-model="ruleForm.card_model_field"   :onClear="handleClear" clearable filterabl
        
 
     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-      <el-form-item label="Filter" v-if="showStatusExtras && fieldSelected">
+      <el-form-item label="Filter"     prop="filter_function"  v-if="showStatusExtras && fieldSelected">
         <el-select v-model="ruleForm.filter_function" :onClear="handleClear" clearable   filterable collapse-tags placeholder="" :onChange="handleFilterFunction">
           <el-option v-for="item in functionOptions" :key="item.value" :label="item.label" :value="item.value"  :disabled="disabledoptions"/>
         </el-select>
       </el-form-item>
     </el-col>
 
-    <el-checkbox v-model="ruleForm.unique" label="Unique" size="small" border />
 
     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
          <el-select v-if="showStatusExtras && fieldSelected && showFilterValues" v-model="ruleForm.filter_value" :onClear="handleClear" clearable multiple filterable collapse-tags placeholder="Filter values">
@@ -881,7 +906,7 @@ v-model="ruleForm.card_model_field"   :onClear="handleClear" clearable filterabl
    
 
 
-       <el-form-item label="Indicator" v-if="!showStatusExtras">
+       <el-form-item label="Indicator" v-if="!showStatusExtras"  prop="indicator_id">
         <el-select
 v-model="ruleForm.indicator_id" :onClear="handleClear"   clearable
         filterable collapse-tags placeholder="Filter by Project/Indicator">
@@ -889,15 +914,20 @@ v-model="ruleForm.indicator_id" :onClear="handleClear"   clearable
       </el-select>
        </el-form-item>
 
-       <el-form-item label="Aggregation">
-            <el-select
-size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"  
-            clearable filterable collapse-tags placeholder="Select">
-            <el-option v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-       </el-form-item>
-    
-       <el-form-item label="Computation">
+
+       <el-row>
+  <el-form-item label="Aggregation" prop="aggregation" >
+    <el-select size="default" v-model="ruleForm.aggregation" :onClear="handleClear" style="width: 90%" clearable filterable collapse-tags placeholder="Select">
+      <el-option v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+    </el-select>
+  </el-form-item>
+     <el-checkbox v-model="ruleForm.unique" label="Unique" size="small" border />
+ </el-row>
+
+
+
+
+       <el-form-item label="Computation" prop="computation">
             <el-select
 size="default" v-model="ruleForm.computation"  :onClear="handleClear"  
             clearable filterable collapse-tags placeholder="Select">
