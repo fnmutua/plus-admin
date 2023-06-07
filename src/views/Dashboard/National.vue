@@ -533,7 +533,7 @@ const dashboardImages = [houseImage1, shanty, title]
           <el-card shadow="always">
             <div class="card-content">
               <div class="icon-container">
-                <Icon icon='ic:sharp-people' width="60" color='black' />
+                <Icon icon='ic:sharp-people' width="60" color='green' />
               </div>
               <el-divider direction="vertical" />
               <div class="card-value">
@@ -553,7 +553,7 @@ const dashboardImages = [houseImage1, shanty, title]
           <el-card shadow="always">
             <div class="card-content">
               <div class="icon-container">
-                <Icon icon='mdi:excavator' width="60" color='green' />
+                <Icon icon='mdi:excavator' width="60" color='black' />
               </div>
               <el-divider direction="vertical" />
               <div class="card-value">
@@ -599,7 +599,7 @@ const dashboardImages = [houseImage1, shanty, title]
         <el-card class="box-card" shadow="always" style="text-align: center;">
 
         <ElSkeleton :loading="vloading" animated>
-          <el-carousel height="350px">
+          <el-carousel height="350px" >
         <el-carousel-item v-for="(item, index) in dashboards" :key="item">
           <el-row>
             <!-- Column for the text -->

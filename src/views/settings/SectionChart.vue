@@ -559,6 +559,7 @@ const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
   dashboard_section_id: '',
+  dashboard_id: '',
   description: '',
   iconColor: '',
   icon: '',
@@ -592,8 +593,29 @@ const rules = reactive<FormRules>({
   ],
   dashboard_section_id: [
     { required: true, message: 'Please select a Dashboard', trigger: 'blur' },
+  ],
+  dashboard_id: [
+    { required: true, message: 'Please select a Dashboard', trigger: 'blur' },
+  ],
+
+  description: [
+    { required: true, message: 'Description is required', trigger: 'blur' },
 
   ],
+
+  iconColor: [
+    { required: true, message: 'iconColor is required', trigger: 'blur' },
+
+  ],
+
+  aggregation: [
+    { required: true, message: 'Aggregation method is required', trigger: 'blur' }, ],
+
+
+    type: [
+    { required: true, message: 'Chart Type   is required', trigger: 'blur' }, ],
+    
+
 })
 
 const AddCard = () => {
@@ -941,8 +963,8 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="150px">
 
 
-      <el-form-item label="Dashboard" prop="dashboard">
-        <el-select v-model="value4" filterable placeholder="Select" :onChange="handleFilterSections">
+      <el-form-item label="Dashboard" prop="dashboard_id" >
+        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" :onChange="handleFilterSections">
           <el-option v-for="item in DashBoardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>  
@@ -955,17 +977,17 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       </el-form-item>
 
 
-      <el-form-item label="Title">
+      <el-form-item label="Title" prop="title">
         <el-input v-model="ruleForm.title" />
       </el-form-item>
 
-      <el-form-item label="Description">
+      <el-form-item label="Description" prop="description">
         <el-input v-model="ruleForm.description" />
       </el-form-item>
     
  
 
-       <el-form-item label="Entity" v-if="showStatusExtras">
+       <el-form-item label="Entity" v-if="showStatusExtras" prop="card_model">
         <el-select
 v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags  :onChange="handleSelectModel"
           placeholder="Select Entity to summarize">
@@ -975,7 +997,7 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
 
 
       
-      <el-form-item label="Chart Type">
+      <el-form-item label="Chart Type"  prop="type">
         <el-select
 v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags
           placeholder="Select Type of Chart">
@@ -985,7 +1007,7 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
 
 
        
-       <el-form-item label="Field" v-if="showStatusExtras">
+       <el-form-item label="Field" v-if="showStatusExtras"  prop="card_model_field">
         <el-select
 v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags :onChange="handleFilterAggregators"
           placeholder="Field to summarize">
@@ -993,21 +1015,21 @@ v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable 
         </el-select>
       </el-form-item>
 
-      <el-form-item  v-if="showStatusExtras">
+      <el-form-item  v-if="showStatusExtras" prop="categorized">
         <el-checkbox v-model="ruleForm.categorized"  >Categorized  by selected field</el-checkbox>
 
       </el-form-item>
 
 
 
-      <el-form-item label="Indicators" v-if="!showStatusExtras">
+      <el-form-item label="Indicators" v-if="!showStatusExtras" prop="indicator_id">
             <el-select v-model="ruleForm.indicator_id" filterable multiple placeholder="Select" style="width: 100%;">
               <el-option v-for="item in IndicatorCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
 
-          <el-form-item label="Aggregation">
+          <el-form-item label="Aggregation" prop="aggregation">
             <el-select
 size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"  
             clearable filterable collapse-tags placeholder="Select">
