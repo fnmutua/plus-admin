@@ -49,6 +49,10 @@ import { useRouter } from 'vue-router'
 
 import { Echart } from '@/components/Echart'
 
+import houseImage1 from '@/assets/imgs/house.svg';
+import shanty from '@/assets/imgs/shanty.svg';
+import title from '@/assets/imgs/title.svg';
+
 
 use([
   GaugeChart,
@@ -495,6 +499,8 @@ const formatNumber =   (value) => {
 
 console.log('settlementPopulationMap',settlementPopulationMap)
 
+
+const dashboardImages = [houseImage1, shanty, title]
 </script>
 
 <template>
@@ -593,32 +599,30 @@ console.log('settlementPopulationMap',settlementPopulationMap)
         <el-card class="box-card" shadow="always" style="text-align: center;">
 
         <ElSkeleton :loading="vloading" animated>
-            <el-carousel height="350px">
-              <el-carousel-item v-for="(item) in dashboards" :key="item">
-                <el-row>
-                  <!-- Column for the text -->
-                  <el-col :span="24">
-                    <div class="overlay-text">
-                      <h3 class="text-style">{{ item.title }} Dashboard</h3>
-                      <!-- <a href="/intervention_slum%20interventions">{{ item.description }}</a> -->
-                      <el-button type="primary" plain :icon="TopRight" @click="goToDashboard(item.title)">
-                        {{ truncatedDescription(item.description) }}
-                      </el-button>
-                    </div>
-                  </el-col>
-                </el-row>
-                <el-row>
-                  <!-- Column for the image -->
-                  <el-col :span="24">
-                    <div class="image" style="position: relative;">
+          <el-carousel height="350px">
+        <el-carousel-item v-for="(item, index) in dashboards" :key="item">
+          <el-row>
+            <!-- Column for the text -->
+            <el-col :span="24">
+              <div class="overlay-text">
+                <h3 class="text-style">{{ item.title }} Dashboard</h3>
+                <el-button type="primary" plain :icon="TopRight" @click="goToDashboard(item.title)">
+                  {{ truncatedDescription(item.description) }}
+                </el-button>
+              </div>
+            </el-col>
+          </el-row>
+          <el-row>
+            <!-- Column for the image -->
+            <el-col :span="24">
+              <div class="image" style="position: relative;">
+                <img :src="dashboardImages[index]" class="image" />
+              </div>
+            </el-col>
+          </el-row>
+        </el-carousel-item>
+      </el-carousel>
 
-                      <img src="@/assets/imgs/house.svg" class="image" />
-
-                    </div>
-                  </el-col>
-                </el-row>
-              </el-carousel-item>
-            </el-carousel>
           </ElSkeleton>
           </el-card>
 
