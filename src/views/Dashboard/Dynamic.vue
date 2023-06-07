@@ -1521,6 +1521,17 @@ getCards()
 
 }
 
+
+
+const formatNumber =   (value) => {
+     if (value >= 1000000) {
+      return (value / 1000000).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'M';
+    } else if (value >= 1000) {
+      return (value / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'K';
+    }
+    return value.toLocaleString('en-US');
+}
+
 </script>
 
 <template>
@@ -1558,7 +1569,7 @@ getCards()
 
               <el-divider direction="vertical" />
               <div class="card-value">
-                <p class="value-text">{{ card.value }}</p>
+                <p class="value-text">{{ formatNumber(card.value) }}</p>
                 <p class="value-label">{{ card.description }}</p>
               </div>
 
