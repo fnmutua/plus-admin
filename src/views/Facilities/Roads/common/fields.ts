@@ -56,13 +56,6 @@ const direction = [
     ];
   
 const formFields: Field[][] =reactive( [
-  // Fields for 1 Profile
-  //id, name, school_number, category, level, reg_status, ownership_type, owner, catchment, male_enrollment, female_enrollment, number_teachers, number_other_staff, number_classrooms, number_male_toilets, number_female_toilets, avg_fees_term, number_handwashing_stns, mhm, parcel_tenure, tenancy, settlement_id, county_id, subcounty_id, ward_id, 
-  //id, name,    ,  , settlement_id, county_id, subcounty_id,
-
-  // \\copy public.road(id, name, \"rdNum\", \"rdClass\", width, \"rdReserve\", \"surfaceType\", \"surfaceCondition\", traffic, direction,
-//  drainage, \"drainageCondition\", settlement_id, county_id, subcounty_id, \"createdBy\",
-//   \"isApproved\", length, code, geom, \"createdAt\", \"updatedAt\", ward_id
   [
     {
       name: "location",
