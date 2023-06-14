@@ -2434,20 +2434,22 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
       obj.protectedFile = req.body.protected[i]
 
 
-     await db.models[req.body.model[i]]
-      .findAndCountAll({
+      await db.models[req.body.model]
+      .findOne({
         where: {
           code: {
-            [Op.eq]: req.body.pcode[i]
+            [Op.eq]: req.body.pcode
           }
-        },
-       })
-    .then((list) => {
-      //console.log(list.rows)
-    //  res.status(200).send(list.rows)
-      obj[column] = list.rows.id
-
-    })
+        }
+      })
+      .then((record) => {
+        if (record) {
+          obj[column] = record.id;
+        } else {
+          obj[column] = '';
+        }
+      });
+    
 
       
 
@@ -2462,19 +2464,21 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
 
 
       await db.models[req.body.model]
-      .findAndCountAll({
+      .findOne({
         where: {
           code: {
             [Op.eq]: req.body.pcode
           }
-        },
-       })
-    .then((list) => {
-      //console.log(list.rows)
-   //   res.status(200).send(list.rows)
-      obj[column] = list.rows.id
-
-    })
+        }
+      })
+      .then((record) => {
+        if (record) {
+          obj[column] = record.id;
+        } else {
+          obj[column] = '';
+        }
+      });
+    
 
       
       
