@@ -2434,7 +2434,7 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
       obj.protectedFile = req.body.protected[i]
 
 
-      await db.models[req.body.model]
+      await db.models[req.body.model[i]]
       .findOne({
         where: {
           code: {
