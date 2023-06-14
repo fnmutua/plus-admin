@@ -605,7 +605,7 @@ exports.modelImportData = async (req, res) => {
 
 }
 
-exports.modelImportDataUpsert = async (req, res) => {
+exports.xmodelImportDataUpsert = async (req, res) => {
   var reg_model = req.body.model
   let data = req.body.data
 
@@ -686,6 +686,74 @@ exports.modelImportDataUpsert = async (req, res) => {
 
 
 }
+
+exports.modelImportDataUpsert = async (req, res) => {
+  var reg_model = req.body.model;
+  let data = req.body.data;
+  let insertedDocuments = [];
+
+  let errors = [];
+
+  if (reg_model === 'project') {
+    await Promise.all(
+      data.map(async (item) => {
+        item.createdBy = req.thisUser.id;
+
+        try {
+          const prj = await db.models[reg_model].create(item);
+          if (reg_model === 'project') {
+            const list_activities = item.activities;
+            const arr = JSON.parse(list_activities);
+            const activities = await db.models.activity.findAll({
+              where: {
+                id: arr,
+              },
+            });
+
+            await prj.addActivities(activities);
+          }
+
+          insertedDocuments.push(prj); // Add the inserted document to the array
+        } catch (err) {
+          errors.push(err.original);
+          console.log('error-01', err);
+        }
+      })
+    );
+  } else {
+    await Promise.all(
+      data.map(async (item) => {
+        item.createdBy = req.thisUser.id;
+
+        try {
+          const [insertedData, created] = await db.models[reg_model].upsert(item);
+          if (created) {
+            insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
+          }
+        } catch (err) {
+          console.log(err);
+          errors.push(err.original);
+        }
+      })
+    );
+  }
+
+  console.log("Upsert Errors ---->", errors);
+  if (errors.length > 0) {
+    let errorCodes = [...new Set(errors)];
+    if (errorCodes.includes("42P10")) {
+      var errorMsg = 'There are one or more duplicate records';
+    }
+
+    res.status(500).send({ message: 'Import/Update failed for:' + errors.length + " Records (" + errors[0] + ')'});
+  } else {
+    res.status(200).send({
+      message: 'Import/Update Successful......',
+      code: '0000',
+      insertedDocuments: insertedDocuments, // Add the inserted documents to the response
+    });
+  }
+};
 
 
 
@@ -2331,7 +2399,153 @@ exports.batchDocumentsUpload = async (req, res) => {
 }
  
  
+exports.batchDocumentsUploadByParentCode = async (req, res) => {
 
+  const uploadsDir = path.join(__dirname, '../../../..', 'uploads');
+
+  if (!req.files) {
+    return res.status(500).send({ msg: 'file is not found' })
+  }
+
+  var myFiles = []
+  if (Array.isArray(req.files.file)) {
+
+    myFiles = req.files.file
+    console.log('In upload  multiple express.....', req.files.file)
+
+  } else {
+    // var myFiles = [req.files.file]
+    myFiles.push(req.files.file)
+    console.log('In upload single.....', req.files.file)
+  
+  }
+ 
+  var errors = []
+
+  for (let i = 0; i < myFiles.length; i++) {
+    // Sin
+    var obj = {}
+    if (myFiles.length > 1) {
+      var column = req.body.field_id[i]
+      obj.category = req.body.category[i]
+      obj.format = req.body.format[i]
+      obj.size = req.body.size[i]
+      obj.createdBy = req.body.createdBy[i]
+      obj.protectedFile = req.body.protected[i]
+
+
+     await db.models[req.body.model]
+      .findAndCountAll({
+        where: {
+          code: {
+            [Op.eq]: req.body.pcode[i]
+          }
+        },
+       })
+    .then((list) => {
+      //console.log(list.rows)
+    //  res.status(200).send(list.rows)
+      obj[column] = list.rows.id
+
+    })
+
+      
+
+    } else {
+      var column = req.body.field_id
+      //obj[column] = req.body[column]
+      obj.category = req.body.category
+      obj.format = req.body.format
+      obj.size = req.body.size
+      obj.createdBy = req.body.createdBy 
+      obj.protectedFile = req.body.protected 
+
+
+      await db.models[req.body.model]
+      .findAndCountAll({
+        where: {
+          code: {
+            [Op.eq]: req.body.pcode
+          }
+        },
+       })
+    .then((list) => {
+      //console.log(list.rows)
+   //   res.status(200).send(list.rows)
+      obj[column] = list.rows.id
+
+    })
+
+      
+      
+      console.log("KEY>>>",column, obj[column])
+
+    }
+    if (obj[column] === '' ||  obj.category  === 'undefined' ) {
+      errors.push('The field' + column + ' is required')
+
+    } else {
+      let fname = myFiles[i].name.replace(/\s/g, '_')
+      //let location = `./public/${fname}`
+      let location = uploadsDir + '/' + fname
+      
+      
+      console.log(i, '----', column)
+      obj.name = fname
+      obj.location = location
+  
+      obj.code = crypto.randomUUID()
+      var thisFile = {
+        type: req.body.format,
+        name: fname,
+  
+         file_path:location,   
+    }
+      console.log('Thisfile', thisFile)
+      var reg_model = 'document'
+      console.log("insert Object", obj)
+  
+      try {
+        await db.models[reg_model].create(obj)
+          .then(function (item) {
+            console.log("Moving to public...", location)
+            myFiles[i].mv(location)
+          })
+      }
+            
+      catch (error) {
+        // handle error;
+        if (error.name === 'SequelizeUniqueConstraintError') {
+           error.errors.map((err) => {
+              errors.push(err.message)
+          });
+         // errors.push(validationErrors)
+        } else {
+           errors.push('Check your files again')
+        }
+      }
+
+    }
+  
+  }
+
+ // Send message
+
+  if (errors.length === 0) {
+    res.status(200).send({
+      message: 'Upload via App Successful',
+      code: '0000'
+    })
+  
+
+  } else {
+
+    res.status(500).send({
+      message: 'Upload failed. '+errors  + ' errors',
+      code: '0000'
+    })
+  }
+}
 
 
  
