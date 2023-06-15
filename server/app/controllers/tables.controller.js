@@ -2438,7 +2438,7 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
       .findOne({
         where: {
           code: {
-            [Op.eq]: req.body.pcode
+            [Op.eq]: req.body.pcode[i]
           }
         }
       })
