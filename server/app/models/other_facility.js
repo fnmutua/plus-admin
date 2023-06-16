@@ -128,6 +128,10 @@ module.exports = function(sequelize, DataTypes) {
       defaultValue: 'Pending'
     },
     
+     code: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     geom: {
       type: DataTypes.GEOMETRY('Geometry', 4326),
       allowNull: true

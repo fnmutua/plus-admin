@@ -724,8 +724,8 @@ exports.modelImportDataUpsert = async (req, res) => {
     );
   }
   else {
-    await Promise.all(
-      data.map(async (item) => {
+    console.log(data)
+    await Promise.all(data.map(async (item) => {
         item.createdBy = req.thisUser.id;
 
         try {
