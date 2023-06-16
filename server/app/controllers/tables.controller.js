@@ -692,6 +692,8 @@ exports.modelImportDataUpsert = async (req, res) => {
   let data = req.body.data;
   let insertedDocuments = [];
 
+  console.log('req.body.data',req.body.data)
+
   let errors = [];
 
   if (reg_model === 'project') {
@@ -720,7 +722,8 @@ exports.modelImportDataUpsert = async (req, res) => {
         }
       })
     );
-  } else {
+  }
+  else {
     await Promise.all(
       data.map(async (item) => {
         item.createdBy = req.thisUser.id;
