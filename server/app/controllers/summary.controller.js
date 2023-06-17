@@ -1130,8 +1130,58 @@ try {
   }
   console.log(results)
 
+// rearrange such that the dates are all present in each element 
+
+// Extract the data
+const models = results
+
+// Find all unique dates
+const allDates = new Set();
+models.forEach(model => {
+  model.summary.forEach(summary => {
+    allDates.add(summary.date);
+  });
+});
+
+// Sort the dates in ascending order
+const sortedDates = Array.from(allDates).sort((a, b) => {
+  const [dayA, monthA, yearA] = a.split('/');
+  const [dayB, monthB, yearB] = b.split('/');
+
+  // Convert the components to numbers
+  const dateA = new Date(Number(yearA), Number(monthA) - 1, Number(dayA));
+  const dateB = new Date(Number(yearB), Number(monthB) - 1, Number(dayB));
+
+  return dateA - dateB;
+});
+  
+// Reprocess the data
+const adjustedData = models.map(model => {
+  const summaryDict = {};
+  model.summary.forEach(summary => {
+    summaryDict[summary.date] = summary.value;
+  });
+
+  const adjustedSummary = sortedDates.map(date => {
+    return { date, value: summaryDict[date] || 0 };
+  });
+
+  return {
+    model: model.model,
+    summary: adjustedSummary
+  };
+});
+
+console.log(adjustedData);
+
+
+
+
+
+
+
   res.status(200).send({
-     data: results,
+     data: adjustedData,
        code: '0000'
   })
 } catch (error) {
