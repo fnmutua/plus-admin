@@ -6,10 +6,7 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: false
     },
-    school_number: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
+  
 
     category: {
       type: DataTypes.STRING,
