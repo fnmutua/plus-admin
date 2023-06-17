@@ -15,6 +15,7 @@ module.exports = function (app) {
   app.post('/api/v1/summary/byfield/include',  [authJwt.verifyToken], controller.nestedSumModelByColumn)
   app.post('/api/v1/summary/byfield/multiple',  [authJwt.verifyToken],controller.sumModelAssociatedMultipleModels)
   app.post('/api/v1/summary/group/multiple',  [authJwt.verifyToken],controller.sumGroupByMultipleColumns)
+  app.post('/api/v1/summary/group/app',  [authJwt.verifyToken], controller.appGetSummaryCombined)
 
   
  

@@ -1084,4 +1084,63 @@ exports.dsumModelAssociatedMultipleModels = async (req, res) => {
   
 }
 
+const getSumPerModel = async (model,user) => { 
+  var result = await db.models[model].findAll({
+    attributes: [     
+       [
+        sequelize.fn
+        (
+          "to_char", 
+          sequelize.col("createdAt"), 
+          'dd/mm/YY'
+        ),
+        "date",
+       ],
+       [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+    ],
+    where: {
+      createdBy: user,
+    },
+    group: [sequelize.literal('date')],
+  });
 
+  var dateValueArray = result.map(entry => ({
+    date: entry.dataValues.date,
+    value: parseInt(entry.dataValues.count)
+  }));
+
+  var sorted = dateValueArray.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+
+  var obj = {}
+  obj.model = model
+  obj.summary=sorted
+  return(obj);
+}
+
+exports.appGetSummaryCombined = async (req, res) => { 
+   
+var summaryModels =['settlement', 'education_facility', 'sewer', 'piped_water', 'water_point', 'road', 'health_facility', 'other_facility']
+  
+try {
+  var results =[]
+  for (const model of summaryModels) {
+    var count = await getSumPerModel(model, req.body.userId)
+    results.push(count)
+  }
+  console.log(results)
+
+  res.status(200).send({
+     data: results,
+       code: '0000'
+  })
+} catch (error) {
+ console.log(error)
+  res.status(500).send({
+    message: 'Getting your data contributions failed. Try again later'  
+  });
+
+  }
+  
+
+}
