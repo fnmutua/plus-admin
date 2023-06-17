@@ -247,7 +247,8 @@ const loadMap = async () => {
  
 
       else if (baselayers.value[i]=='Imagery') {
-        url = 'mapbox://mapbox.street'
+
+
           // get the drone
         await axios.get('https://cloud.ags.co.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
         .then((response) => {
@@ -293,34 +294,26 @@ const loadMap = async () => {
       
           console.log("Overlapping layers:", intersectingLayer);
 
-          var server = 'https://cloud.ags.co.ke/geoserver/kisip/wms'
+          if (intersectingLayer.length>0) {
+            var server = 'https://cloud.ags.co.ke/geoserver/kisip/wms'
 
-          nmap.value.addLayer({
-            'id': baselayers.value[i],
-            'type': 'raster',
-            'source': {
-              'type': 'raster',
-              'tiles': [ server+'?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=' + intersectingLayer[0].name ],
-                'tileSize': 256
-            },
-            'paint': {},
-           },
-          );
+                  nmap.value.addLayer({
+                    'id': baselayers.value[i],
+                    'type': 'raster',
+                    'source': {
+                      'type': 'raster',
+                      'tiles': [ server+'?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=' + intersectingLayer[0].name ],
+                        'tileSize': 256
+                    },
+                    'paint': {},
+                  },
+                  );
 
+          }
 
-          //nmap.value.moveLayer('Imagery');
+        
 
-          // Get all loaded layers
-         // const loadedLayers = nmap.value.getStyle().layers;
-         //     console.log('loadedLayers',loadedLayers)
-
-           //nmap.value.moveLayer('Imagery', satelliteIndex - 1);
-          //nmap.value.moveLayer(baselayers.value[i], 'Satellite');
-
-              // Move each loaded layer to the bottom
-              // loadedLayers.forEach(layer => {
-              //   nmap.value.moveLayer('Imagery', nmap.value.getStyle().layers.length - 1);
-              // });
+      
 
 
         });
@@ -364,7 +357,7 @@ const loadMap = async () => {
 
       }
     });
-    
+
     // Load facility data here
     for (let prop in facilityData.value) {
       //console.log(prop, facilityData.value[prop].features[0].geometry.type);
