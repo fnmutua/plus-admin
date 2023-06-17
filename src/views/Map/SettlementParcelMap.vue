@@ -1,5 +1,4 @@
-<!-- eslint-disable vue/no-deprecated-slot-attribute -->
-<script setup lang="ts">
+ <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getOneGeo, getfilteredGeo } from '@/api/settlements'
@@ -27,9 +26,13 @@ import { ElCollapse, ElCollapseItem } from 'element-plus';
 import { onMounted, computed, reactive } from 'vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
  
+import axios from 'axios';
+ import { XMLParser } from 'fast-xml-parser';
+
 
 import { Icon } from '@iconify/vue';
 import waterOutline from '@iconify-icons/mdi/water-outline';
+import { before } from 'lodash-es'
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
@@ -169,6 +172,8 @@ const getAll = async () => {
     facilityGeoLines.value = lines
     facilityGeoPolygons.value = polygons
 
+    // Now check if there are any drone images
+
   }
   await getParcels()
    getGeodata(route.params.id, 'health_facility')
@@ -188,7 +193,7 @@ const nmap = ref()
 
  
 
-const loadMap = () => {
+const loadMap = async () => {
   nmap.value = new mapboxgl.Map({
     container: "mapContainer",
     style: "mapbox://styles/mapbox/streets-v12",
@@ -203,7 +208,7 @@ const loadMap = () => {
 
 
 
-  nmap.value.on('load', () => {
+  nmap.value.on('load', async () => {
     nmap.value.addSource('polygons', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
@@ -216,30 +221,116 @@ const loadMap = () => {
       data: turf.featureCollection(ParcelGeodata.value),
     
     });
+ 
+    for (let i = 0; i < baselayers.value.length; i++) {
+      console.log('Base Layers',baselayers.value[i])
+      let url 
+  
 
-    nmap.value.addLayer({
-      id: 'Satellite',
+      if (baselayers.value[i]=='Satellite') {
+        url = 'mapbox://mapbox.satellite'
+           
+      nmap.value.addLayer({
+      id: baselayers.value[i],
       type: 'raster',
       source: {
         type: 'raster',
         tileSize: 256,
-        url: 'mapbox://mapbox.satellite'
-      },
-      before: 'background'
-    });
-
-    // Load the boundary layer with red outline
-    nmap.value.addLayer({
-      'id': 'Boundary',
-      "type": "line",
-      'source': 'polygons',
-      'paint': {
-        'line-color': 'black',
-        'line-width': 1,
-        'line-dasharray'  :[3,4]
+        url: url
+         },
+         layout: {
+        visibility: 'none'
       }
-    });
+      });
 
+      }
+ 
+
+      else if (baselayers.value[i]=='Imagery') {
+        url = 'mapbox://mapbox.street'
+          // get the drone
+        await axios.get('https://cloud.ags.co.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+        .then((response) => {
+          const xml = response.data;
+          // console.log(xml)
+          const parser = new XMLParser();
+          const json = parser.parse(xml);
+          const glayers = json.WMS_Capabilities.Capability.Layer.Layer.map(layer => ({
+            name: layer.Name,
+            title: layer.Title,
+            label: layer.Name,
+            value: layer.Name,
+            bbox: layer.EX_GeographicBoundingBox
+
+          }));
+
+          console.log('Drone Layers >>',glayers) 
+ 
+          const intersectingLayer = glayers.map((layer) => {
+                // Generate the bounding box
+            console.log(layer.name)
+                
+                 const coords =  [
+                layer.bbox.westBoundLongitude,
+                layer.bbox.southBoundLatitude,
+                layer.bbox.eastBoundLongitude,
+                layer.bbox.northBoundLatitude
+                ] ;
+ 
+            var settBBOX = turf.bbox(facilityGeoPolygons.value[0])
+          
+                const overlap = turf.booleanIntersects(turf.bboxPolygon(settBBOX),turf.bboxPolygon(coords));
+                console.log(overlap, turf.bboxPolygon(settBBOX),turf.bboxPolygon(coords))
+
+            if (overlap) {
+              return layer  ;  
+                }
+              
+        }).filter(layer => layer !== undefined);;
+
+
+        // Filter the intersecting layers
+      
+          console.log("Overlapping layers:", intersectingLayer);
+
+          var server = 'https://cloud.ags.co.ke/geoserver/kisip/wms'
+
+          nmap.value.addLayer({
+            'id': baselayers.value[i],
+            'type': 'raster',
+            'source': {
+              'type': 'raster',
+              'tiles': [ server+'?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=' + intersectingLayer[0].name ],
+                'tileSize': 256
+            },
+            'paint': {},
+           },
+          );
+
+
+          //nmap.value.moveLayer('Imagery');
+
+          // Get all loaded layers
+         // const loadedLayers = nmap.value.getStyle().layers;
+         //     console.log('loadedLayers',loadedLayers)
+
+           //nmap.value.moveLayer('Imagery', satelliteIndex - 1);
+          //nmap.value.moveLayer(baselayers.value[i], 'Satellite');
+
+              // Move each loaded layer to the bottom
+              // loadedLayers.forEach(layer => {
+              //   nmap.value.moveLayer('Imagery', nmap.value.getStyle().layers.length - 1);
+              // });
+
+
+        });
+
+      }
+
+   
+    }
+
+    
     nmap.value.addLayer({
       'id': 'Parcels',
       "type": "fill",
@@ -273,22 +364,7 @@ const loadMap = () => {
 
       }
     });
-
-
-    nmap.value.addLayer({
-      'id': 'Labels',
-      'type': 'symbol',
-      'source': 'parcels',
-      'layout': {
-        'text-field': ['get', 'parcel_no'],
-        'text-size': 14,
-        'text-offset': [0, 1]
-      },
-      'paint': {
-        'text-color': 'white'
-      }
-    });
-
+    
     // Load facility data here
     for (let prop in facilityData.value) {
       //console.log(prop, facilityData.value[prop].features[0].geometry.type);
@@ -356,6 +432,9 @@ const loadMap = () => {
 
       } 
 
+
+
+
       nmap.value.on('click', prop, (e) => {
       console.log("click props..........")
       // Copy coordinates array.
@@ -374,13 +453,48 @@ const loadMap = () => {
     }
 
 
+ 
+    // Load the boundary layer with red outline
+    nmap.value.addLayer({
+      'id': 'Boundary',
+      "type": "line",
+      'source': 'polygons',
+      'paint': {
+        'line-color': 'black',
+        'line-width': 1,
+        'line-dasharray'  :[3,4]
+      }
+    });
+
+ 
+
+
+    nmap.value.addLayer({
+      'id': 'Labels',
+      'type': 'symbol',
+      'source': 'parcels',
+      'layout': {
+        'text-field': ['get', 'parcel_no'],
+        'text-size': 14,
+        'text-offset': [0, 1]
+      },
+      'paint': {
+        'text-color': 'white'
+      }
+    });
+
+
+     
+
+
+
+
     ///=============
 
     // switch it off until the user selects to
     nmap.value.setLayoutProperty('Satellite', 'visibility', 'none')
 
-
-
+ 
     nmap.value.resize()
     var bounds = turf.bbox((filtergeo.value));
     nmap.value.fitBounds(bounds, { padding: 20 });
@@ -449,37 +563,8 @@ const downloadMap = () => {
   console.log("Downlaod...s.")
 }
 
-const selectedLayers = ref(['Parcels', 'Boundary', 'Labels'], 'Satellite')
-const layers = ['Parcels', 'Boundary', 'Labels', 'Satellite']
 
 
-
-const switchLayer = () => {
-
-
-  for (let i = 0; i < layers.length; i++) {
-    let thisLayer = layers[i]
-    console.log('Thislayer', thisLayer)
-
-    if (selectedLayers.value.includes(thisLayer)) {
-      nmap.value.setLayoutProperty(
-        thisLayer,
-        'visibility',
-        'visible'
-      );
-    } else {
-      nmap.value.setLayoutProperty(
-        thisLayer,
-        'visibility',
-        'none'
-      );
-
-    }
-
-  }
-
-
-}
 
 
 const legendItems = [
@@ -532,22 +617,7 @@ const boundaryItems = [
   },
 ]
 
-const lineItems = [
-  {
-    "label": "Road",
-    "color": "#8C675D"
-  },
-  {
-    "label": "Sewer",
-    "color": "#800080"
-  },
-  {
-    "label": "Piped Water",
-    "color": "#F6C567"
-  },
-   
-  
-]
+
 const isMobile = computed(() => appStore.getMobile)
 
 const showContent = ref(true)
@@ -577,9 +647,23 @@ onMounted(() => {
 
 })
 
+
+
+
+
+
+
+
+
 console.log(model)
 const facilityLayers = ref([])
 const filteredLayers = ref([])
+const baselayers = ref(['Satellite','Imagery'])
+const filteredBaselayers = ref([])
+
+const parcels = ref(true)
+const parcelLabels = ref(true)
+
 
 const handleCheckboxChange = (option:String) => {
 
@@ -609,6 +693,153 @@ const handleCheckboxChange = (option:String) => {
     }
 
 
+ 
+ const handleSwitchParcels = (option) => {
+
+let opt 
+  if (option) {
+      opt='visible'
+   } else {
+    opt='none'
+}
+
+  console.log('out',option)
+  nmap.value.setLayoutProperty(
+    'Parcels',
+      'visibility',
+      opt
+   );
+
+
+
+ 
+}
+    
+
+ const handleSwitchLabels = (option) => {
+
+  let opt 
+    if (option) {
+        opt='visible'
+     } else {
+      opt='none'
+  }
+ 
+    console.log('out',option)
+    nmap.value.setLayoutProperty(
+      'Labels',
+        'visibility',
+        opt
+     );
+ 
+
+ 
+   
+ }
+  
+ const handleChangeVisibility = (option:String) => {
+
+for (let i = 0; i < baselayers.value.length; i++) {
+  // console.log('opt', option[i])
+
+  if (option.includes(baselayers.value[i])) {
+    console.log('in', baselayers.value[i])
+
+        nmap.value.setLayoutProperty(
+          baselayers.value[i],
+        'visibility',
+        'visible'
+     );
+  }
+  else {
+    console.log('out', baselayers.value[i])
+    nmap.value.setLayoutProperty(
+      baselayers.value[i],
+        'visibility',
+        'none'
+     );
+  }
+
+}
+   
+  }
+// const checkDroneImages = async (polygons) => { 
+// //************ Get Drone imagery layers */
+
+// axios
+//   //  .get('http://159.223.109.100:8080/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+//   .get('https://cloud.ags.co.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+//   .then((response) => {
+//     const xml = response.data;
+//     // console.log(xml)
+//     const parser = new XMLParser();
+//     const json = parser.parse(xml);
+//     const glayers = json.WMS_Capabilities.Capability.Layer.Layer.map(layer => ({
+//       name: layer.Name,
+//       title: layer.Title,
+//       label: layer.Name,
+//       value: layer.Name,
+//       bbox: layer.EX_GeographicBoundingBox
+
+//     }));
+
+//     console.log('Drone Layers >>',glayers) 
+
+
+ 
+
+//     const intersectingLayer = glayers.map((layer) => {
+//           // Generate the bounding box
+//       console.log(layer.name)
+          
+//      // {westBoundLongitude: 35.115590373402114, eastBoundLongitude: 35.123152813241305, southBoundLatitude: 1.2237978217447545, northBoundLatitude: 1.2330626574519714}
+//           const coords =  [
+//           layer.bbox.westBoundLongitude,
+//           layer.bbox.southBoundLatitude,
+//           layer.bbox.eastBoundLongitude,
+//           layer.bbox.northBoundLatitude
+//           ] ;
+
+      
+
+//       var settBBOX = turf.bbox(polygons[0])
+    
+//            const overlap = turf.booleanIntersects(turf.bboxPolygon(settBBOX),turf.bboxPolygon(coords));
+//           console.log(overlap, turf.bboxPolygon(settBBOX),turf.bboxPolygon(coords))
+
+//       if (overlap) {
+//         return layer  ;  
+//           }
+        
+//   }).filter(layer => layer !== undefined);;
+
+
+//   // Filter the intersecting layers
+ 
+//     console.log("Overlapping layers:", intersectingLayer);
+
+//     var server = 'https://cloud.ags.co.ke/geoserver/kisip/wms'
+
+//     nmap.value.addLayer({
+//       'id': 'Imagery',
+//       'type': 'raster',
+//       'source': {
+//         'type': 'raster',
+//         'tiles': [ server+'?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=' + intersectingLayer[0].name ],
+//           'tileSize': 256
+//       },
+//       'paint': {}
+//      });
+
+
+//      nmap.value.moveLayer('Imagery');
+
+//   });
+
+
+
+ 
+
 </script>
  
 <template>
@@ -617,7 +848,7 @@ const handleCheckboxChange = (option:String) => {
       <div class="card-header">
         <span>{{ toTitleCase(title.replace('_', ' ')) + ' Settlement' }}</span>
         <div>
-          <el-dropdown>
+          <!-- <el-dropdown>
             <el-button type="primary">
               <Icon :size=24 icon='ion:layers' />
             </el-button>
@@ -630,7 +861,7 @@ const handleCheckboxChange = (option:String) => {
                 </el-checkbox-group>
               </el-dropdown-menu>
             </template>
-          </el-dropdown>
+          </el-dropdown> -->
            
           <el-tooltip content="Download Data" placement="top">
             <el-button type="primary" :onClick="downloadMap" style="  margin-left: 5px">
@@ -653,44 +884,55 @@ const handleCheckboxChange = (option:String) => {
     </div>
     <div id="floating-div">
 
- <el-collapse v-model="collapse">
-        <el-collapse-item title="Key">
-          <div class="legend">
+   <el-collapse v-model="collapse">
+          <el-collapse-item title="Key">
+            <div class="legend">
                      
-            <div >
-              <div v-for="item in boundaryItems" :key="item.label" class="line-item">
-              <div class="line-color"></div>
-              <div class="legend-label">{{ item.label }}</div>
+              <div >
+                <div v-for="item in boundaryItems" :key="item.label" class="line-item">
+                <div class="line-color"></div>
+                <div class="legend-label">{{ item.label }}</div>
+              </div>
+              </div> 
+             
             </div>
-            </div> 
-            <!-- <div  v-if="facilityLayers.length>0">
-              <div v-for="item in lineItems" :key="item.label" class="line-item">
-              <div class="line-color" :style="{ backgroundColor: item.color }"></div>
-              <div class="legend-label">{{ item.label }}</div>
-            </div>
-            </div> -->
-          </div>
-        </el-collapse-item>  
+          </el-collapse-item>  
 
-      <el-collapse-item title="Parcels" name="Parcels" v-if="showParcelLegend">
-        <div >
-             <div v-for="item in legendItems" :key="item.label" class="legend-item">
-              <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
-              <div class="legend-label">{{ item.label }}</div>
-            </div>
-            </div>
-    </el-collapse-item>  
-
-
-        <el-collapse-item title="Layers" name="checkboxes" v-if="showLayerLegend">
+        <el-collapse-item title="Parcels" name="Parcels" v-if="showParcelLegend">
+        
+            <div ><el-checkbox   v-model="parcels" @change="handleSwitchParcels">
+              <span class="legend-label">Parcels</span>
+            </el-checkbox> </div>
+         
            
-   <el-checkbox-group v-model="filteredLayers" @change="handleCheckboxChange"  class="checkbox-group-vertical">
-      <el-checkbox v-for="item in facilityLayers" :label="item" :key="item">{{ item }}</el-checkbox>
-    </el-checkbox-group>
+               <div v-for="item in legendItems" :key="item.label" class="legend-item">
+                <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
+                <div class="legend-label">{{ item.label }}</div>
+              </div>
+              <div> <el-checkbox   v-model="parcelLabels" @change="handleSwitchLabels">
+                <span class="legend-label-text">Labels</span>
+              </el-checkbox>  </div>
+
+      </el-collapse-item>  
+
+
+       <el-collapse-item title="Overlays" name="checkboxes" v-if="showLayerLegend">
+     <el-checkbox-group v-model="filteredLayers" @change="handleCheckboxChange"  class="checkbox-group-vertical">
+        <el-checkbox v-for="item in facilityLayers" :label="item" :key="item">{{ item }}</el-checkbox>
+      </el-checkbox-group>
 
        </el-collapse-item>
        
-      </el-collapse>  
+       <el-collapse-item title="Base" name="baseLayers"  >
+     <el-checkbox-group v-model="filteredBaselayers" @change="handleChangeVisibility"  class="checkbox-group-vertical">
+        <el-checkbox v-for="item in baselayers" :label="item" :key="item">{{ item }}</el-checkbox>
+      </el-checkbox-group>
+
+       </el-collapse-item>
+
+
+
+        </el-collapse>  
 
 
      
