@@ -189,6 +189,24 @@ const schema = reactive<FormSchema[]>([
       }
     }
   },
+  {
+  field: 'agree_terms',
+  label: t('Agree to policy'),
+  value: false,
+  component: 'Switch',
+  colProps: {
+    span: 24
+  },
+  componentProps: {
+    style: {
+      width: '100%'
+    },
+    placeholder: t('terms.agreeTermsPlaceholder')
+    } 
+    
+},
+ 
+ 
 
   {
     field: 'register',
@@ -253,6 +271,14 @@ function validateUsername(rule, value, callback) {
   }
 }
 
+// Custom validator for agree_terms field
+const validateAgreeTerms = (rule, value, callback) => {
+  if (value !== true) {
+     callback(`You must agree to the terms of the Privacy Policy`);
+  } else {
+    callback();
+  }
+};
 
 
 const rules: FormRules = {
@@ -264,8 +290,13 @@ const rules: FormRules = {
   username:[{ validator: validateUsername, trigger: 'blur' }  ], 
   email:[{ validator: validateEmail, trigger: 'blur' }  ], 
   password: [{ validator: passwordValidator, trigger: 'blur' }],
-  county_id: [required()]
+  county_id: [required()],
+  agree_terms: [{ validator: validateAgreeTerms, trigger: 'change' }]
+  
 }
+
+
+
 
 const toLogin = () => {
   emit('to-login')
