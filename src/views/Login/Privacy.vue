@@ -49,7 +49,7 @@ const toLogin = () => {
 
           <div>
             
-            <h1><strong>Kenya Slum information  Privacy Policy</strong></h1>
+            <h1><strong>Kenya Slum information System  Privacy Policy</strong></h1>
             
             <h3><strong>Effective Date:</strong> <span class="italic">June 01, 2023</span></h3>
             <el-divider />
