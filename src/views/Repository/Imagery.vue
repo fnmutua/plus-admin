@@ -121,14 +121,15 @@ const loadMap = () => {
 } 
  
 onMounted(() => {
-      axios
-    //  .get('http://159.223.109.100:8080/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
-      .get('https://cloud.ags.co.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+
+  
+
+      axios.get('https://cloud.ags.co.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+      // .get('https://cloud.ags.co.ke/geoserver/kisip/wms?service=wms&version=1.1.1&request=GetCapabilities')
       .then((response) => {
         const xml = response.data;
-       // console.log(xml)
-
-
+        console.log(xml)
+ 
        const parser = new XMLParser();
       const json = parser.parse(xml);
 
