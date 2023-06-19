@@ -80,6 +80,18 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
   },
 
   {
+    path: '/privacy',
+    component: () => import('@/views/Login/Privacy.vue'),
+    name: 'Privacy',
+    meta: {
+      hidden: true,
+      title: 'Privacy',
+      noTagsView: true
+    }
+  },
+
+
+  {
     path: '/landing',
     component: () => import('@/views/Landing/Landing.vue'),
     name: 'Landing',
@@ -3773,7 +3785,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
 
     ]
-  }
+  },
+
+  // {
+  //   path: '/privacy',
+  //   component: () => import('@/views/Users/User.vue'),
+  //   name: 'Privacy',
+  //   meta: {
+  //     title: 'Privacy',
+  //     icon: 'material-symbols:settings',
+  //     alwaysShow: true
+  //   },
+  // }
 ]
 
 
@@ -4432,7 +4455,7 @@ const router = createRouter({
 })
 
 export const resetRouter = (): void => {
-  const resetWhiteNameList = ['Redirect', 'Login', 'NoFind', 'Root', 'Reset', 'Logoff']
+  const resetWhiteNameList = ['Redirect', 'Login', 'NoFind', 'Root', 'Reset', 'Logoff', 'Privacy']
   router.getRoutes().forEach((route) => {
     const { name } = route
     if (name && !resetWhiteNameList.includes(name as string)) {
