@@ -2,7 +2,7 @@
 import { reactive, ref, unref, watch } from 'vue'
 import { Form } from '@/components/Form'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElButton, ElCheckbox, ElLink,  ElDialog, ElForm, ElFormItem, ElInput,FormInstance,ElMessage } from 'element-plus'
+import { ElButton, ElCheckbox, ElLink,  ElDialog, ElForm, ElFormItem, ElInput,FormInstance,ElMessage, ElTooltip } from 'element-plus'
 import { useForm } from '@/hooks/web/useForm'
 import { loginApi, getTestRoleApi, getOtherRoutesApi, getAdminRoleApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
@@ -14,9 +14,17 @@ import { UserType } from '@/api/login/types'
 import { useValidator } from '@/hooks/web/useValidator'
 import { activateUserApi, updateUserApi, resetUserPassword,setUserFeedback } from '@/api/users'
 import { uuid } from 'vue-uuid'
+import { Icon } from '@iconify/vue';
+
+
+import {
+  Guide,
+    InfoFilled,
+  Document
+} from '@element-plus/icons-vue'
 
 const { required } = useValidator()
-
+ 
 const emit = defineEmits(['to-register'])
 
 const appStore = useAppStore()
@@ -42,6 +50,11 @@ const form = reactive({
 })
 
 
+const toPrivacy= () => {
+  push({
+         name: 'Privacy'
+    })
+}
 
 const feedback = reactive({
   name: '',
@@ -350,9 +363,26 @@ const feedbackRules =  {
     <div>
       <ElLink @click="dialogFormVisible = true" :underline="false">{{ t('Forgot Password') }}</ElLink>
     </div>
-    <div>
-      <ElLink @click="dialogFeedback = true" :underline="false">{{ t('Feedback') }}</ElLink>
-    </div>
+       <!-- <ElLink @click="dialogFeedback = true" :underline="false">{{ t('Feedback') }}</ElLink> -->
+ 
+       
+
+      <el-row>
+        <el-tooltip content="leave us a message" placement="top">
+          <el-button type="secondary" @click="dialogFeedback = true">
+            <Icon icon="fluent:person-feedback-32-regular" />
+          </el-button>
+        </el-tooltip>
+
+        <el-tooltip content="Our privacy policy" placement="top">
+         <el-button type="secondary" @click="toPrivacy">
+          <Icon icon="material-symbols:privacy-tip-outline" />
+        </el-button>
+      </el-tooltip>
+
+  </el-row>
+
+
   </div>
 </template>
 

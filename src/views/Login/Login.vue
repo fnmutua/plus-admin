@@ -25,6 +25,7 @@ const toRegister = () => {
 const toLogin = () => {
   isLogin.value = true
 }
+
 </script>
 
 <template>
