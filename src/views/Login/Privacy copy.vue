@@ -34,24 +34,26 @@ const toLogin = () => {
 
 <template>
   <!-- <div :class="prefixCls" class="h-[100%] relative <xl:bg-v-dark <sm:px-10px <xl:px-10px <md:px-10px"> -->
-  <div :class="prefixCls" class="h-[100%] relative <xl <sm:px-10px <xl:px-10px <md:px-10px">
+    <div class="scrollable-container">
+
+  <div :class="prefixCls" class="h-[50%] relative <xl <sm:px-10px <xl:px-10px <md:px-10px">
     <div class="relative h-full flex mx-auto">
-      <div :class="`${prefixCls}__left flex-1 bg-gray-500 bg-opacity-20 relative p-30px <xl:hidden`">
-        <div class="flex   h-[calc(100%-60px)]">
-          <TransitionGroup appear tag="div" enter-active-class="animate__animated animate__bounceInLeft">
+       
+      <div class="flex-1 p-30px <sm:p-10px dark:bg-v-dark relative">
+         
+        <Transition appear enter-active-class="animate__animated animate__bounceInRight">
 
-            <div class="text-2xl text-white text-center" key="2">{{
-              t('Kenya Slum Information System and Slum Mapper App')
-            }}</div>
 
-            <div class="text-1xl text-white text-center" key="2">{{
-              t('Privacy Policy')
-            }}
-            </div>
+         
 
-            <div class="text-white ">
 
-              <p><strong>1. Personal Information</strong></p>
+          <div>
+            
+            <h1><strong>Kenya Slum information System  Privacy Policy</strong></h1>
+                        <h3><strong>Effective Date:</strong> <span class="italic">June 01, 2023</span></h3>
+            <el-divider />
+            Advanced Geospatial Solutions  operates the Kenya Slum information System( the "System") and the SlumMapper (the "App"). This page informs you of our policies regarding the collection, use, and disclosure of personal information we receive from users of the App.
+                     <p><strong>1. Personal Information</strong></p>
               <p>We may ask you to provide certain personally identifiable information that can be used to contact or
                 identify you. Personally identifiable information may include, but is not limited to, your name, email,
                 and phone number ("Personal Information").</p>
@@ -86,31 +88,6 @@ const toLogin = () => {
               <p>The security of your Personal Information is important to us. We strive to implement and maintain
                 reasonable security measures to protect against unauthorized access, alteration, disclosure, or
                 destruction of your Personal Information.</p>
-
-              <el-divider />
-
-            </div>
-
-
-
-          </TransitionGroup>
-        </div>
-      </div>
-      <div class="flex-1 p-30px <sm:p-10px dark:bg-v-dark relative">
-        <div class="flex justify-between items-center text-white @2xl:justify-end @xl:justify-end">
-          <div class="flex items-center @2xl:hidden @xl:hidden">
-            <img src="@/assets/imgs/logo.png" alt="" class="w-48px h-48px mr-10px" />
-            <span class="text-20px font-bold">{{ underlineToHump(appStore.getTitle) }}</span>
-          </div>
-
-
-        </div>
-        <Transition appear enter-active-class="animate__animated animate__bounceInRight">
-
-
-          <div>
-            <el-space />
-
             <h3><strong>6. Links to Other Websites</strong></h3>
             <p>Our App may contain links to other websites that are not operated by us. If you click on a third-party
               link, you will be directed to that third party's site. We strongly advise you to review the Privacy Policy
@@ -123,15 +100,20 @@ const toLogin = () => {
               Personal Information from a Child without verification of parental consent, we will take steps to remove
               that information from our servers.</p>
             <el-space />
-            <h3><strong>8. Changes to This Privacy Policy</strong></h3>
+
+            <h3><strong>8. Right to erasure</strong></h3>
+            <p>The App user reserves the right to have their data delete from the system at any given time. Should a user desire so, write us an email requesting for data deletion.</p>
+            
+            <h3><strong>9. Changes to This Privacy Policy</strong></h3>
             <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new
               Privacy Policy on this page. You are advised to review this Privacy Policy periodically for any changes.</p>
-            <h3><strong>9. Contact Us</strong></h3>
+                       
+            <h3><strong>10. Contact Us</strong></h3>
             <el-space />
+
             <p>If you have any questions about this Privacy Policy, please contact us at <a
                 href="mailto:info@ags.co.ke">info@ags.co.ke</a>.</p>
-            <el-divider />
-            <el-button type="primary" @click="toLogin" plain>Back</el-button>
+             <el-button type="primary" @click="toLogin" plain>Back</el-button>
 
 
           </div>
@@ -139,6 +121,7 @@ const toLogin = () => {
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <style lang="less" scoped>@prefix-cls: ~'@{namespace}-login';
@@ -158,4 +141,20 @@ const toLogin = () => {
       content: '';
     }
   }
-}</style>
+}
+
+.scrollable-container {
+  overflow: auto;
+  height: 100%; /* Adjust the desired height */
+}
+
+.scrollable-content {
+  /* Set a minimum width to ensure horizontal scrolling works */
+  min-width: 100%;
+}
+.italic {
+  font-style: italic;
+}
+
+</style>
+
