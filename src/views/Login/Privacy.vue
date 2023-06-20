@@ -50,12 +50,10 @@ const toLogin = () => {
           <div>
             
             <h1><strong>Kenya Slum information System  Privacy Policy</strong></h1>
-            
-            <h3><strong>Effective Date:</strong> <span class="italic">June 01, 2023</span></h3>
+                        <h3><strong>Effective Date:</strong> <span class="italic">June 01, 2023</span></h3>
             <el-divider />
             Advanced Geospatial Solutions  operates the Kenya Slum information System( the "System") and the SlumMapper (the "App"). This page informs you of our policies regarding the collection, use, and disclosure of personal information we receive from users of the App.
-         
-            <p><strong>1. Personal Information</strong></p>
+                     <p><strong>1. Personal Information</strong></p>
               <p>We may ask you to provide certain personally identifiable information that can be used to contact or
                 identify you. Personally identifiable information may include, but is not limited to, your name, email,
                 and phone number ("Personal Information").</p>
@@ -102,11 +100,17 @@ const toLogin = () => {
               Personal Information from a Child without verification of parental consent, we will take steps to remove
               that information from our servers.</p>
             <el-space />
-            <h3><strong>8. Changes to This Privacy Policy</strong></h3>
+
+            <h3><strong>8. Right to erasure</strong></h3>
+            <p>The App user reserves the right to have their data delete from the system at any given time. Should a user desire so, write us an email requesting for data deletion.</p>
+            
+            <h3><strong>9. Changes to This Privacy Policy</strong></h3>
             <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new
               Privacy Policy on this page. You are advised to review this Privacy Policy periodically for any changes.</p>
-            <h3><strong>9. Contact Us</strong></h3>
+                       
+            <h3><strong>10. Contact Us</strong></h3>
             <el-space />
+
             <p>If you have any questions about this Privacy Policy, please contact us at <a
                 href="mailto:info@ags.co.ke">info@ags.co.ke</a>.</p>
              <el-button type="primary" @click="toLogin" plain>Back</el-button>
