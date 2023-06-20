@@ -7,7 +7,7 @@ import { underlineToHump } from '@/utils'
 import { useAppStore } from '@/store/modules/app'
 import { useDesign } from '@/hooks/web/useDesign'
 import { ref } from 'vue'
-import { ElDivider, ElTabs, ElTabPane, ElContainer, ElMain, ElAside, ElMenu, ElMenuItem, ElSubMenu } from 'element-plus'
+import { ElDivider, ElTabs, ElTabPane, ElContainer, ElMain, ElAside, ElMenu, ElMenuItem, ElSubMenu, ElButton } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 const { getPrefixCls } = useDesign()
@@ -70,7 +70,7 @@ const toLogin = () => {
       href="mailto:info@ags.co.ke">info@ags.co.ke</a>.</p></el-tab-pane>
  
       <el-tab-pane label="Back" @click="toLogin">
-  <el-button type="primary" plain>Back</el-button>
+  <el-button type="primary">Go to the System</el-button>
 </el-tab-pane>  </el-tabs>
 </template>
 
