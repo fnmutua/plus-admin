@@ -13,9 +13,9 @@ const nodemailer = require('nodemailer')
 const turf = require('@turf/turf');
 
 
-
+ 
 exports.signup = (req, res) => {
-  console.log('Inside REgistration', req.body)
+
   const emails = []
   // Save User to Database
   User.create({
@@ -71,8 +71,9 @@ exports.signup = (req, res) => {
         }) // initialize create Transport service
 
 
-        const xCLIENT_URL = 'http://' + req.headers.host
-        const CLIENT_URL = req.headers.referer
+        //const xCLIENT_URL = 'http://' + req.headers.host
+        //const CLIENT_URL = req.headers.referer
+        const CLIENT_URL = req.protocol + '://' + req.get('host') 
         console.log('Reset-URL', CLIENT_URL)
         console.log('Admin Emails >>', emails); // an array of email addresses
 
@@ -113,91 +114,92 @@ exports.signup = (req, res) => {
     })
 }
 
-exports.xsignup = (req, res) => {
-  console.log('Inside REgistration', req.body)
-  // Save User to Database
-  User.create({
-    username: req.body.username,
-    name: req.body.name,
-    email: req.body.email,
-    avatar: req.body.avatar,
-    county_id: req.body.county_id,
-    password: bcrypt.hashSync(req.body.password, 8)
-  })
-    .then((user) => {
-      if (req.body.role) {
-        Role.findAll({
-          where: {
-            name: {
-              [Op.or]: req.body.role
-            }
-          }
-        }).then((roles) => {
-          user.setRoles(roles).then(() => {
-            var token = jwt.sign({ id: user.id }, config.secret, {
-              expiresIn: 86400 // 24 hours
-            })
+// exports.xsignup = (req, res) => {
+//   console.log('Inside REgistration', req.body)
+//   // Save User to Database
+//   User.create({
+//     username: req.body.username,
+//     name: req.body.name,
+//     email: req.body.email,
+//     avatar: req.body.avatar,
+//     county_id: req.body.county_id,
+//     password: bcrypt.hashSync(req.body.password, 8)
+//   })
+//     .then((user) => {
+//       if (req.body.role) {
+//         Role.findAll({
+//           where: {
+//             name: {
+//               [Op.or]: req.body.role
+//             }
+//           }
+//         }).then((roles) => {
+//           user.setRoles(roles).then(() => {
+//             var token = jwt.sign({ id: user.id }, config.secret, {
+//               expiresIn: 86400 // 24 hours
+//             })
 
-        // Send email to admin about the new reighstration
+//         // Send email to admin about the new reighstration
 
-        var transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: 'kisip.mis@gmail.com',
-            pass: 'ycoxaqavmfiqljjg'
-          }
-        }) // initialize create Transport service
+//         var transporter = nodemailer.createTransport({
+//           service: 'gmail',
+//           auth: {
+//             user: 'kisip.mis@gmail.com',
+//             pass: 'ycoxaqavmfiqljjg'
+//           }
+//         }) // initialize create Transport service
 
+//         const CLIENT_URL = req.protocol + '://' + req.get('host') + req.originalUrl;
 
-        const xCLIENT_URL = 'http://' + req.headers.host
-        const CLIENT_URL = req.headers.referer
-        console.log('Reset-URL', CLIENT_URL)
+//         //const xCLIENT_URL = 'http://' + req.headers.host
+//         //const CLIENT_URL = req.headers.referer
+//         console.log('Reset-URL', CLIENT_URL)
 
-        const mailOptions = {
-          from: 'kisip.mis@gmail.com',
-          to: 'felix.mutua@gmail.com',
-          subject: 'New KISIP MIS user account',
-          text:
-            'A new user account (' +  req.body.email + ')has been created. Please review and approve appropriately via this link:\n\n' +
-            CLIENT_URL+'#/users/new/'  
-        }
+//         const mailOptions = {
+//           from: 'kisip.mis@gmail.com',
+//           to: 'felix.mutua@gmail.com',
+//           subject: 'New KISIP MIS user account',
+//           text:
+//             'A new user account (' +  req.body.email + ')has been created. Please review and approve appropriately via this link:\n\n' +
+//             CLIENT_URL+'#/users/new/'  
+//         }
 
-        console.log('sending mail')
+//         console.log('sending mail')
 
-        transporter.sendMail(mailOptions, (err, response) => {
-          if (err) {
-            console.error('there was an error: ', err)
-          } else {
-            console.log('here is the res: ', response)
+//         transporter.sendMail(mailOptions, (err, response) => {
+//           if (err) {
+//             console.error('there was an error: ', err)
+//           } else {
+//             console.log('here is the res: ', response)
             
-          }
-        })
-            console.log(roles)
-            res.send({
-              message: 'User registered successfully! Please wait for the account to be activated',
-              code: '0000',
-              roles: roles[0].name,
-              data: token,
-              user: user
-            })
-          })
-        })
-      } else {
-        // public user role = 14
-        user.setRoles([14]).then(() => {
-          res.send({
-            message: 'User was registered successfully! Please wait for the account to be activated',
-            code: '0000',
-            data: 'successful'
-          })
-        })
-      }
-    })
-    .catch((err) => {
-      console.log(err)
-      res.status(500).send({ message: err.message })
-    })
-}
+//           }
+//         })
+//             console.log(roles)
+//             res.send({
+//               message: 'User registered successfully! Please wait for the account to be activated',
+//               code: '0000',
+//               roles: roles[0].name,
+//               data: token,
+//               user: user
+//             })
+//           })
+//         })
+//       } else {
+//         // public user role = 14
+//         user.setRoles([14]).then(() => {
+//           res.send({
+//             message: 'User was registered successfully! Please wait for the account to be activated',
+//             code: '0000',
+//             data: 'successful'
+//           })
+//         })
+//       }
+//     })
+//     .catch((err) => {
+//       console.log(err)
+//       res.status(500).send({ message: err.message })
+//     })
+// }
 exports.updateUser = (req, res) => {
   console.log('Update user....')
  
@@ -591,8 +593,7 @@ exports.wardController = (req, res) => {
   console.log('county', req.body.county)
   var county = req.body.county
   if (county) {
- 
-    db.models[reg_model]
+     db.models[reg_model]
       .findAndCountAll({
         where: {
           county_id: {
