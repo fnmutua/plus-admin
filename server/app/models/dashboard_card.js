@@ -57,6 +57,18 @@ module.exports = function(sequelize, DataTypes) {
       defaultValue: false
     },
     
+    filtered: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+
+    filter_field: {
+      type: DataTypes.STRING,
+      allowNull: true
+
+     },
+
+
     code: {
       type: DataTypes.STRING,
       allowNull: false

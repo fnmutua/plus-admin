@@ -180,8 +180,11 @@ const getSubsetGeo = async (model,filterFields, filterValues) => {
 ////-----------------------------------------------------------------------------------
  
 
-const getSummary = async (indicator) => {
+const getSummary = async (scards) => {
 
+  console.log('scards',scards)
+
+  let indicator= scards.indicator_id
  
  var ids = await getIndicatorConfigurations(indicator)
 
@@ -191,12 +194,29 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
   let associated_Models = []
   let filterFields = ['indicator_category_id'] 
   let filterValues = [ids] 
-   
+  let filterOperator =[]
+
+
+  var filter_value = scards.filter_value
+  var filter_field = scards.filter_field
+  var filter_function = scards.filter_function
+
+  
+  if (filter_value && filter_field ) { 
+    filterFields.push(filter_field)
+    filterValues = [filter_value]
+    filterOperator.push(filter_function)
+  }
+
+
+
+
   if (filterLevel.value === 'county') {
       associated_Models.push('subcounty')
       filterFields.push('county_id')
       filterValues.push([selectedCounties.value])
- 
+      filterOperator.push(['eq'])
+
 
   }
 
@@ -205,6 +225,8 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
     associated_Models.push('ward')
     filterFields.push('subcounty_id')
     filterValues.push([selectedSubCounties.value])
+    filterOperator.push(['eq'])
+
    }
 
   else if (filterLevel.value === 'national') {
@@ -226,7 +248,7 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
   // formData.filterValue = [ids]    
   formData.filterField =filterFields
   formData.filterValue =filterValues 
-  formData.filterOperator = []
+  formData.filterOperator = filterOperator
 
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
@@ -592,7 +614,7 @@ const getCardData = async () => {
 
   res.data.forEach(function async(arrayItem) {
     console.log('arrayItem.indicator_id', arrayItem.indicator_id)
-    var result = getSummary(arrayItem.indicator_id)
+    var result = getSummary(arrayItem)
 
     result.then((result) => {
       console.log(result); // "Promise resolved!"

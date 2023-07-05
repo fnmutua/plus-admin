@@ -170,7 +170,9 @@ const getSummary = async (card) => {
     //  var result = getSummary(card.card_model, arrayItem.card_model_field, arrayItem.aggregation)
 
     var selectModel = card.card_model
-    var cmodelField = card.card_model_field
+  var cmodelField = card.card_model_field
+  var filter_value = card.filter_value
+  var filter_field = card.filter_field
     var aggregMethod = card.aggregation
     var filter_value = card.filter_value
     var computation = card.computation
@@ -190,8 +192,8 @@ const getSummary = async (card) => {
   let filterValues = []
   let filterOperator =[]
 
-  if (filter_value) { 
-    filterFields.push(cmodelField)
+  if (filter_value && filter_field ) { 
+    filterFields.push(filter_field)
     filterValues = [filter_value]
     filterOperator.push(filter_function)
   }
