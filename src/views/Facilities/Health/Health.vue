@@ -161,7 +161,7 @@ var filterValues = [['Approved']]  // make sure the inner array is array
 
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['settlement', 'document', 'users']
+const associated_multiple_models = ['settlement','users']
 
 const model = 'health_facility'
 const model_parent_key = 'settlement_id'
