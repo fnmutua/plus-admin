@@ -138,6 +138,12 @@ const formRules: FormRules = reactive({
     status: [
       { required: true, message: 'Status is required', trigger: 'blur' }
     ],
+
+    activities: [
+      { required: true, message: 'Activities are required', trigger: 'blur' }
+    ],
+
+
     start_date: [
       { required: true, message: 'Start date is required', trigger: 'blur' }
     ],
