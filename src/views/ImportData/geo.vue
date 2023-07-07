@@ -423,6 +423,8 @@ const makeOptions = (list) => {
 
   selectedValues.value = matchOptions
 
+  console.log(matchOptions, matchOptions)
+  show.value=true
 }
 
 const handleClear = async () => {
@@ -712,18 +714,20 @@ const loadOptions = (json) => {
 
     const geometry = json.features[i].geometry;
     // Check if the geometry type is "Polygon" or "MultiPolygon"
-    if (geometry.type === "Polygon") {
+    if (geometry && geometry.type === "Polygon") {
       // If it's a single polygon, project its coordinates
       geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
         return proj4("SOURCE_CRS", "WGS84", coordinate);
       });
-    } else if (geometry.type === "MultiPolygon") {
+    } else if (geometry && geometry.type === "MultiPolygon") {
       // If it's a multi-polygon, loop through all polygons and project their coordinates
       geometry.coordinates.forEach(polygon => {
         polygon[0] = polygon[0].map(coordinate => {
           return proj4("SOURCE_CRS", "WGS84", coordinate);
         });
       });
+    } else {
+      continue
     }
 
     console.log('geometry', geometry)
@@ -841,12 +845,13 @@ const loadOptions = (json) => {
 
 
   console.log('children', matchedObjwithparent.value)
-
+  loadingPosting.value = false
   const mergedfields = (Object.getOwnPropertyNames(matchedObjwithparent.value[0]));  // get properties from first row
 
+  console.log( 'mergedfields',mergedfields)
 
   makeOptions(mergedfields)
-  loadingPosting.value = false
+
 
 
 

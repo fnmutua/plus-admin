@@ -132,6 +132,7 @@ var filterValues = []
 var tblData = []
 
 const associated_Model = ''
+//const associated_multiple_models = ['settlement', 'document']
 const associated_multiple_models = ['settlement', 'document']
 
 const model = 'households'
