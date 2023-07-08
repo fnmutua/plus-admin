@@ -10,7 +10,10 @@ import { use } from "echarts/core";
 
 import { Icon } from '@iconify/vue';
 
-import { pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,  lineOptions, stackedbarOptions,  barMaleFemaleOptions } from './chart-types'
+import {
+  pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,
+  lineOptions, stackedbarOptions, barMaleFemaleOptions
+} from './chart-types'
 import { EChartsOption, registerMap } from 'echarts'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
@@ -672,7 +675,9 @@ const getCharts = async (section_id) => {
 
             };
 
-            console.log('PIExs', UpdatedPieOptionsMultiple)
+            console.log('UpdatedPieOptionsMultiple', UpdatedPieOptionsMultiple)
+
+            
 
             thisChart.chart = UpdatedPieOptionsMultiple
 
@@ -1771,7 +1776,7 @@ v-for="(card) in tab.cards" :key="card.id" :span="12" :xl="12" :lg="12" :md="12"
               <el-card>
 
                 <ElSkeleton :loading="loading" animated>
-                  <v-chart class="chart" :option="card.chart" autoresize />
+                  <v-chart  :id="card.id" class="chart" :option="card.chart" autoresize />
                 </ElSkeleton>
 
               </el-card>

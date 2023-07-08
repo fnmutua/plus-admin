@@ -1613,7 +1613,7 @@ const formatNumber =   (value) => {
               <el-card>
 
                 <ElSkeleton :loading="loading" animated>
-                  <v-chart class="chart" :option="card.chart" autoresize />
+                  <v-chart  :id="card.id" class="chart" :option="card.chart" autoresize />
                 </ElSkeleton>
 
               </el-card>
