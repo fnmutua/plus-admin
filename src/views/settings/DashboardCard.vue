@@ -461,7 +461,7 @@ const ruleForm = reactive({
   iconColor: 'red',
   icon: '',
   aggregation: '',
-  indicator_id: '',
+  indicator_id: null,
   card_model_field: '',
   filter_value:'',
   filter_function:'',

@@ -1274,7 +1274,7 @@ const getCharts = async (section_id) => {
 
                   // females
                   let femaleKeys = keys.filter(key => key.includes("f"));
-                  let females = femaleKeys.map(key => parseInt(results[0][key]))
+                  let females = femaleKeys.map(key => -1*parseInt(results[0][key])) // We put Female left (Negative) 
                   //console.log('pyramid---f-->', femaleKeys, females)
                   fArray.value.push(females)
 
