@@ -10,7 +10,10 @@ import { use } from "echarts/core";
 
 import { Icon } from '@iconify/vue';
 
-import { pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,  lineOptions, stackedbarOptions,  barMaleFemaleOptions } from './chart-types'
+import {
+  pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,
+  lineOptions, stackedbarOptions, barMaleFemaleOptions,toggleFullScreen
+} from './chart-types'
 import { EChartsOption, registerMap } from 'echarts'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountFilter, getSumFilter } from '@/api/settlements'
@@ -40,6 +43,10 @@ import {
 import VChart, { THEME_KEY } from 'vue-echarts';
 import { provide } from 'vue';
 import { getRoutesList } from '@/api/settlements'
+
+import {
+  FullScreen,
+} from '@element-plus/icons-vue'
 
 
 const colorPalette = ['#ff007f', '#0000ff'];  // Male-Female
@@ -724,7 +731,9 @@ const getCharts = async (section_id) => {
 
             };
 
-            console.log('PIExs', UpdatedPieOptionsMultiple)
+         
+
+            console.log('PIExs1', UpdatedPieOptionsMultiple.toolbox.feature)
 
             thisChart.chart = UpdatedPieOptionsMultiple
 
@@ -1706,6 +1715,9 @@ const formatNumber =   (value) => {
     }
     return value.toLocaleString('en-US');
 }
+
+
+  
   
 
 </script>
@@ -1751,29 +1763,34 @@ const formatNumber =   (value) => {
     </el-col>
   </el-row>
   <div class="tabs-container">
-    <el-tabs v-model="activeTab">
-      <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
-        <el-row :gutter="20">
+  <el-tabs v-model="activeTab">
+    <el-tab-pane v-for="(tab) in tabs" :name="tab.name" :key="tab.id" :label="tab.label">
+      <el-row :gutter="20">
+        <el-col
+          v-for="(card) in tab.cards"
+          :key="card.id"
+          
+          :span="12"
+          :xl="12"
+          :lg="12"
+          :md="12"
+          :sm="24"
+          :xs="24"
+        >
+          <div class="charts-container">
+            <el-card>
+              <ElSkeleton :loading="loading" animated>
+                <v-chart :id="card.id" class="chart" :option="card.chart" autoresize />
+ 
+              </ElSkeleton>
+            </el-card>
+          </div>
+        </el-col>
+      </el-row>
+    </el-tab-pane>
+  </el-tabs>
+</div>
 
-
-          <el-col
-v-for="(card) in tab.cards" :key="card.id" :span="12" :xl="12" :lg="12" :md="12" :sm="24"
-            :xs="24">
-            <div class="tabs-container">
-              <el-card>
-
-                <ElSkeleton :loading="loading" animated>
-                  <v-chart class="chart" :option="card.chart" autoresize />
-                </ElSkeleton>
-
-              </el-card>
-            </div>
-
-          </el-col>
-        </el-row>
-      </el-tab-pane>
-    </el-tabs>
-  </div>
 </template>
  
 <style scoped>
@@ -1815,6 +1832,10 @@ v-for="(card) in tab.cards" :key="card.id" :span="12" :xl="12" :lg="12" :md="12"
   margin-top: 10px;
 }
 
+
+.charts-container {
+  margin-top: 10px;
+}
 .cards-container {
   margin-top: 5px;
 }

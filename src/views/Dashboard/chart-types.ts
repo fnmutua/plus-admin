@@ -4,6 +4,11 @@ import { useI18n } from '@/hooks/web/useI18n'
 import 'echarts/lib/component/toolbox'
 import { reactive } from 'vue';
 
+import {
+  FullScreen,
+} from '@element-plus/icons-vue'
+
+
 const { t } = useI18n()
 
 const colorPalette = ['#ff007f', '#0000ff'];  // Male-Female
@@ -35,15 +40,37 @@ export const lineOptions: EChartsOption = {
       itemHeight: 20,
    
     },
-  toolbox: {
-    show: true,
-    feature: {
-      mark: { show: true },
-      dataView: { show: true, readOnly: false },
-      restore: { show: true },
-      saveAsImage: { show: true, pixelRatio: 4 }
-    }
-  },
+    toolbox: {
+      show: true,
+            feature: {
+          myFullScreenButton: {
+            show: true,
+            title: 'Full Screen',
+                //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+              
+               icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+   
+                onclick: function () {
+              
+              const chart = this.api; // Get the chart instance
+              const chartName = chart.getOption().title[0].text; // Get the chart title
+      
+              console.log('Chart Name:', chartName);
+      
+              const containerDiv = chart.getDom(); // Get the container div element
+              const containerId = containerDiv.id; // Get the container ID
+      
+              console.log('Container ID:', containerId);
+              toggleFullScreen(containerId);
+            }
+          },
+  
+        mark: { show: true },
+        dataView: { show: true, readOnly: false },
+        restore: { show: true },
+        saveAsImage: { show: true, pixelRatio: 4 }
+      }
+    },
   tooltip: {
     trigger: 'item',
     formatter: '{a} <br/>{b} : {c} ({d}%)'
@@ -89,15 +116,37 @@ export const stacklineOptions: EChartsOption = {
       bottom:'20'
    
     },
-  toolbox: {
-    show: true,
-    feature: {
-      mark: { show: true },
-      dataView: { show: true, readOnly: false },
-      restore: { show: true },
-      saveAsImage: { show: true, pixelRatio: 4 }
-    }
-  },
+    toolbox: {
+      show: true,
+            feature: {
+          myFullScreenButton: {
+            show: true,
+            title: 'Full Screen',
+                //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+              
+               icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+   
+                onclick: function () {
+              
+              const chart = this.api; // Get the chart instance
+              const chartName = chart.getOption().title[0].text; // Get the chart title
+      
+              console.log('Chart Name:', chartName);
+      
+              const containerDiv = chart.getDom(); // Get the container div element
+              const containerId = containerDiv.id; // Get the container ID
+      
+              console.log('Container ID:', containerId);
+              toggleFullScreen(containerId);
+            }
+          },
+  
+        mark: { show: true },
+        dataView: { show: true, readOnly: false },
+        restore: { show: true },
+        saveAsImage: { show: true, pixelRatio: 4 }
+      }
+    },
   tooltip: {
     trigger: 'item',
     formatter: '{a} <br/>{b} : {c} ({d}%)'
@@ -146,7 +195,29 @@ export const pieOptions  = reactive({
   },
   toolbox: {
     show: true,
-    feature: {
+          feature: {
+        myFullScreenButton: {
+          show: true,
+          title: 'Full Screen',
+              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+            
+             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+ 
+              onclick: function () {
+            
+            const chart = this.api; // Get the chart instance
+            const chartName = chart.getOption().title[0].text; // Get the chart title
+    
+            console.log('Chart Name:', chartName);
+    
+            const containerDiv = chart.getDom(); // Get the container div element
+            const containerId = containerDiv.id; // Get the container ID
+    
+            console.log('Container ID:', containerId);
+            toggleFullScreen(containerId);
+          }
+        },
+
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
@@ -201,7 +272,21 @@ export const pieOptions  = reactive({
 });
 
 
+export const toggleFullScreen = (cardId) => {
 
+  console.log('Card ID', cardId)
+  const chartContainer = document.getElementById(`${cardId}`);
+  console.log(chartContainer)
+    const fullscreenElement =
+      chartContainer.requestFullscreen ||
+      chartContainer.mozRequestFullScreen ||
+      chartContainer.webkitRequestFullscreen ||
+      chartContainer.msRequestFullscreen;
+
+    if (fullscreenElement) {
+      fullscreenElement.call(chartContainer);
+    }
+}
 
 
 export const simpleBarChart: EChartsOption = {
@@ -218,9 +303,31 @@ export const simpleBarChart: EChartsOption = {
   },
   toolbox: {
     show: true,
-    feature: {
+          feature: {
+        myFullScreenButton: {
+          show: true,
+          title: 'Full Screen',
+              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+            
+             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+ 
+              onclick: function () {
+            
+            const chart = this.api; // Get the chart instance
+            const chartName = chart.getOption().title[0].text; // Get the chart title
+    
+            console.log('Chart Name:', chartName);
+    
+            const containerDiv = chart.getDom(); // Get the container div element
+            const containerId = containerDiv.id; // Get the container ID
+    
+            console.log('Container ID:', containerId);
+            toggleFullScreen(containerId);
+          }
+        },
+
       mark: { show: true },
-      dataView: { show: true, readOnly: true },
+      dataView: { show: true, readOnly: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 4 }
     }
@@ -280,9 +387,31 @@ export const multipleBarChart: EChartsOption = {
 
   toolbox: {
     show: true,
-    feature: {
+          feature: {
+        myFullScreenButton: {
+          show: true,
+          title: 'Full Screen',
+              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+            
+             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+ 
+              onclick: function () {
+            
+            const chart = this.api; // Get the chart instance
+            const chartName = chart.getOption().title[0].text; // Get the chart title
+    
+            console.log('Chart Name:', chartName);
+    
+            const containerDiv = chart.getDom(); // Get the container div element
+            const containerId = containerDiv.id; // Get the container ID
+    
+            console.log('Container ID:', containerId);
+            toggleFullScreen(containerId);
+          }
+        },
+
       mark: { show: true },
-      dataView: { show: true, readOnly: true },
+      dataView: { show: true, readOnly: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 4 }
     }
@@ -300,6 +429,10 @@ export const multipleBarChart: EChartsOption = {
       left :'left',
     itemWidth: 20,
     itemHeight: 20,
+    pageIcons: {
+      horizontal: ['prev', 'next'], // Show previous and next page icons
+      // ... other pagination icon configurations ...
+    },
   },
   grid: {
     left: '3%',
@@ -349,7 +482,11 @@ export const barOptionsMultiple: EChartsOption = {
       center: 'left',
       itemWidth: 20,
     itemHeight: 20,
-      bottom:'20'
+    bottom: '20',
+    pageIcons: {
+      horizontal: ['prev', 'next'], // Show previous and next page icons
+      // ... other pagination icon configurations ...
+    },
    
     },
    grid: {
@@ -430,9 +567,31 @@ export const  barMaleFemaleOptions: EChartsOption = {
 
   toolbox: {
     show: true,
-    feature: {
+          feature: {
+        myFullScreenButton: {
+          show: true,
+          title: 'Full Screen',
+              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+            
+             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+ 
+              onclick: function () {
+            
+            const chart = this.api; // Get the chart instance
+            const chartName = chart.getOption().title[0].text; // Get the chart title
+    
+            console.log('Chart Name:', chartName);
+    
+            const containerDiv = chart.getDom(); // Get the container div element
+            const containerId = containerDiv.id; // Get the container ID
+    
+            console.log('Container ID:', containerId);
+            toggleFullScreen(containerId);
+          }
+        },
+
       mark: { show: true },
-      dataView: { show: true, readOnly: true },
+      dataView: { show: true, readOnly: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 4 }
     }
@@ -519,9 +678,31 @@ export const  stackedbarOptions: EChartsOption = {
 
   toolbox: {
     show: true,
-    feature: {
+          feature: {
+        myFullScreenButton: {
+          show: true,
+          title: 'Full Screen',
+              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+            
+             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+ 
+              onclick: function () {
+            
+            const chart = this.api; // Get the chart instance
+            const chartName = chart.getOption().title[0].text; // Get the chart title
+    
+            console.log('Chart Name:', chartName);
+    
+            const containerDiv = chart.getDom(); // Get the container div element
+            const containerId = containerDiv.id; // Get the container ID
+    
+            console.log('Container ID:', containerId);
+            toggleFullScreen(containerId);
+          }
+        },
+
       mark: { show: true },
-      dataView: { show: true, readOnly: true },
+      dataView: { show: true, readOnly: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 4 }
     }
@@ -550,7 +731,10 @@ export const  stackedbarOptions: EChartsOption = {
       left: 'left',
       itemWidth: 20,
       itemHeight: 20,
-      
+      pageIcons: {
+        horizontal: ['prev', 'next'], // Show previous and next page icons
+        // ... other pagination icon configurations ...
+      },
     },
  
 
@@ -617,9 +801,31 @@ export const  mapChartOptions: EChartsOption = {
   },
   toolbox: {
     show: true,
-    feature: {
+          feature: {
+        myFullScreenButton: {
+          show: true,
+          title: 'Full Screen',
+              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+            
+             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+ 
+              onclick: function () {
+            
+            const chart = this.api; // Get the chart instance
+            const chartName = chart.getOption().title[0].text; // Get the chart title
+    
+            console.log('Chart Name:', chartName);
+    
+            const containerDiv = chart.getDom(); // Get the container div element
+            const containerId = containerDiv.id; // Get the container ID
+    
+            console.log('Container ID:', containerId);
+            toggleFullScreen(containerId);
+          }
+        },
+
       mark: { show: true },
-      dataView: { show: true, readOnly: true },
+      dataView: { show: true, readOnly: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 4 }
     }
