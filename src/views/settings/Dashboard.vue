@@ -21,8 +21,11 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDatePicker, ElPopconfirm } from 'element-plus'
-import { useRouter } from 'vue-router'
+import {
+  ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,
+  ElDatePicker, ElPopconfirm,ElSwitch
+} from 'element-plus'
+import { useRouter,useRoute } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -38,10 +41,12 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 console.log("userInfo--->", userInfo)
 
-
-
-
-
+// We  ndeed to get all routes so that 
+// we check againt new routes i.e new dashbaords 
+const router = useRouter();
+const allRoutes = router.getRoutes();
+console.log('All Routes:', allRoutes);
+ 
 
 
 const { push } = useRouter()
@@ -88,6 +93,18 @@ const AddDialogVisible = ref(false)
 const formHeader = ref('Add Dashboard')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
+
+
+
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  title: '',
+  type:'',
+  icon: null,
+  main_dashboard:false,
+  description:null
+ 
+})
 
 
 const typeOptions = [
@@ -143,6 +160,27 @@ const handleClear = async () => {
   //----run the get data--------
   getInterventionsAll()
 }
+
+
+
+const checkIfRouteExists = async (route: any) => { 
+    // Find the route by name
+    const routeName = route;
+    const resolvedRoute = allRoutes.find(route => route.name === routeName);
+
+  console.log('Resolved Route:', resolvedRoute);
+
+  if (resolvedRoute) {
+    let msg = "Error. A route with same name exists. Try different Name"
+      return msg
+  } else {
+      return null
+    }
+}
+
+
+
+
 
 
 const handleSelectIndicator = async (indicator: any) => {
@@ -305,6 +343,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.icon = data.row.icon
   ruleForm.description = data.row.description
   ruleForm.type = data.row.type
+  ruleForm.main_dashboard = data.row.main_dashboard
  
 
   formHeader.value = 'Edit Dashboard'
@@ -354,14 +393,7 @@ const handleClose = () => {
 }
 
 
-const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
-  title: '',
-  type:'',
-  icon: null,
-  description:null
- 
-})
+
 
 const rules = reactive<FormRules>({
   title: [
@@ -386,7 +418,14 @@ const AddIndicator = () => {
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate((valid, fields) => {
-    if (valid) {
+
+    var exists = checkIfRouteExists(ruleForm.title)
+
+    if (exists) {
+      ElMessage.error('A route with same name exists. Try a different Name')
+    } else {
+ 
+      if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
       const res = CreateRecord(ruleForm)
@@ -394,6 +433,9 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     } else {
       console.log('error submit!', fields)
     }
+    }
+
+  
   })
 }
 
@@ -484,6 +526,10 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
           placeholder="Select Type of dashboard">
           <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
+      </el-form-item>
+
+      <el-form-item label="Main" prop="main_dashboard">
+        <el-switch v-model="ruleForm.main_dashboard" />
       </el-form-item>
 
       <el-form-item label="Icon" prop="icon">
