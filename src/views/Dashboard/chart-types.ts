@@ -228,24 +228,14 @@ export const pieOptions  = reactive({
     trigger: 'item',
     formatter: '{a} <br/>{b} : {c} ({d}%)'
   },
+  
   legend: {
-    //  show: ShowLegend,
-      orient: 'horizontal',
-      type: 'scroll',
-      left: 'left',
-      itemWidth: 20,
-      itemHeight: 20,
-      data: [
-        {
-          name: 'Male',
-          icon: maleIcon
-        },
-        {
-          name: 'Female',
-          icon: femaleIcon
-        }
-      ]
-    },
+    type: 'scroll',
+    orient: 'vertical',
+    left: 10,
+    top: 20,
+    bottom: 20,
+ },
   selectedMode: true,
 
   series: [
@@ -423,17 +413,12 @@ export const multipleBarChart: EChartsOption = {
     }
   },
   legend: {
-    orient: 'horizontal',
-     type: 'scroll',
-      bottom:'-10',
-      left :'left',
-    itemWidth: 20,
-    itemHeight: 20,
-    pageIcons: {
-      horizontal: ['prev', 'next'], // Show previous and next page icons
-      // ... other pagination icon configurations ...
-    },
-  },
+    type: 'scroll',
+    orient: 'vertical',
+    left: 10,
+    top: 20,
+    bottom: 20,
+ },
   grid: {
     left: '3%',
     right: '4%',
@@ -476,19 +461,12 @@ export const barOptionsMultiple: EChartsOption = {
     }
   },
   legend: {
-    //  show: ShowLegend,
-      orient: 'horizontal',
-      type: 'scroll',
-      center: 'left',
-      itemWidth: 20,
-    itemHeight: 20,
-    bottom: '20',
-    pageIcons: {
-      horizontal: ['prev', 'next'], // Show previous and next page icons
-      // ... other pagination icon configurations ...
-    },
-   
-    },
+    type: 'scroll',
+    orient: 'vertical',
+    left: 10,
+    top: 20,
+    bottom: 20,
+ },
    grid: {
     left: '3%',
     right: '4%',
@@ -725,17 +703,12 @@ export const  stackedbarOptions: EChartsOption = {
 
   },
   legend: {
-    //  show: ShowLegend,
-      orient: 'vertical',
-      type: 'scroll',
-      left: 'left',
-      itemWidth: 20,
-      itemHeight: 20,
-      pageIcons: {
-        horizontal: ['prev', 'next'], // Show previous and next page icons
-        // ... other pagination icon configurations ...
-      },
-    },
+    type: 'scroll',
+    orient: 'vertical',
+    left: 10,
+    top: 20,
+    bottom: 20,
+ },
  
 
   series: [
