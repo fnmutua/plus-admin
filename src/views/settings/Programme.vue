@@ -38,7 +38,12 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 console.log("userInfo--->", userInfo)
 
-
+// We  ndeed to get all routes so that 
+// we check againt new routes i.e new dashbaords 
+const router = useRouter();
+const allRoutes = router.getRoutes();
+console.log('All Routes:', allRoutes);
+ 
 
 
 
@@ -132,6 +137,24 @@ const handleClear = async () => {
   //----run the get data--------
   getInterventionsAll()
 }
+
+
+
+const checkIfRouteExists = async (route: any) => { 
+    // Find the route by name
+    const routeName = route;
+    const resolvedRoute = allRoutes.find(route => route.name === routeName);
+
+  console.log('Resolved Route:', resolvedRoute);
+
+  if (resolvedRoute) {
+    let msg = "Error. A route with same name exists. Try different Name"
+      return msg
+  } else {
+      return null
+    }
+}
+
 
 
 const handleSelectIndicator = async (indicator: any) => {
@@ -372,13 +395,22 @@ const AddIndicator = () => {
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate((valid, fields) => {
-    if (valid) {
-      ruleForm.model = model
-      ruleForm.code = uuid.v4()
-      const res = CreateRecord(ruleForm)
 
+    var exists = checkIfRouteExists(ruleForm.title)
+
+    if (exists) {
+      ElMessage.error('A route with same name exists. Try a different Name')
     } else {
-      console.log('error submit!', fields)
+
+
+      if (valid) {
+        ruleForm.model = model
+        ruleForm.code = uuid.v4()
+        const res = CreateRecord(ruleForm)
+
+      } else {
+        console.log('error submit!', fields)
+      }
     }
   })
 }

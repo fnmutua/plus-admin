@@ -138,17 +138,6 @@ exports.GetRoutes = (req, res) => {
    }
  
  
-   /// use the multpiple filters
-   
-   // if (req.body.filters) {
-   //   if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
-   //     for (let i = 0; i < req.body.filters.length; i++) {
-   //       queryFields[req.body.filters[i]] = req.body.filterValues[i]
-   //     }
-   //     console.log('Final-object------------>', queryFields)
-   //     qry.where = queryFields
-   //   }
-   // }
    var lstQuerries = []
  
  
@@ -872,15 +861,12 @@ exports.modelCreateOneRecord = (req, res) => {
   .catch(function (err) {
     // handle error;
     console.log('error0-----2----->', err);
-
-    if (err.name == 'SequelizeUniqueConstraintError') {
-      var message = 'Duplicate Entries are not allowed';
-     } else {
-      var message = 'The submitted record does not match the required fields';
-    }
+  
+    var message = err.message || 'An error occurred';
+  
     return res.status(500).send({ message: message });
   });
-
+  
 
 }
 
@@ -1133,12 +1119,13 @@ exports.modelEditOneRecord = (req, res) => {
         });
       }
     })
-    .catch(error => {
-      console.error(error);
-      res.status(500).send({
-        message: "Internal server error",
-        code: "0002"
-      });
+    .catch(function (err) {
+      // handle error;
+      console.log('update Error----->', err);
+    
+      var message = err.message || 'An error occurred';
+    
+      return res.status(500).send({ message: message });
     });
 };
 

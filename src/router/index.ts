@@ -2567,7 +2567,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         component: () => import('@/views/Dashboard/National.vue'),
         name: 'National',
         meta: {
-          title: t('Overview'),
+          title: t('Status'),
           noCache: true,
           icon:'ic:round-bubble-chart',
           affix: true,
