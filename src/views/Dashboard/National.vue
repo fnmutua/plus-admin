@@ -347,6 +347,11 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
 
     })
 
+
+    console.log('Pie-chart',chartType )
+
+
+
     let objChart = {}
     objChart.name = category
     objChart.type = 'bar'
@@ -357,6 +362,8 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
       objChart.label = {
         show: true
       }
+
+
     }
     else if (chartType == 3) { //3 pie bar chart
       objChart.value = dataArr
@@ -382,7 +389,36 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
 
   return result;
 }
+
+const summarizePieData = async (data) => {
  
+          if (data.length === 0) {
+            return [];
+          }
+
+          const propertyToSummarize = Object.keys(data[0])[0];
+          const summary = {};
+
+          for (let i = 0; i < data.length; i++) {
+            const item = data[i];
+            const propValue = item[propertyToSummarize];
+
+            if (summary.hasOwnProperty(propValue)) {
+              summary[propValue].value += parseInt(item.count);
+            } else {
+              summary[propValue] = {
+                value: parseInt(item.count),
+                name: propValue,
+              };
+            }
+          }
+
+         var objChart  = Object.values(summary);
+
+          return objChart
+
+     //     return Object.values(summary);
+ }
 
 const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   
@@ -498,7 +534,9 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
       seriesData = values[cAggregation]
     }
 
+   
 
+ 
     else if (chartType == 6 ) {
       console.log('Multi-line chart ', amount)
       //  Step 1: Extract and sort unique dates in ascending order
@@ -532,6 +570,19 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
 
 
+    }
+
+    else if (chartType == 4) {
+      console.log('Pie  chart ', amount)
+      console.log('Rose')
+     
+       
+
+        seriesData = await summarizePieData(amount);
+ 
+     
+
+ 
     }
 
 
@@ -713,7 +764,7 @@ const getCharts = async (section_id) => {
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log(cdata);
+            console.log('cdata', cdata);
 
 
             const UpdatedPieOptionsMultiple = {
@@ -733,7 +784,7 @@ const getCharts = async (section_id) => {
 
          
 
-            console.log('PIExs1', UpdatedPieOptionsMultiple.toolbox.feature)
+            console.log('PieChart001',UpdatedPieOptionsMultiple)
 
             thisChart.chart = UpdatedPieOptionsMultiple
 
@@ -905,7 +956,7 @@ const getCharts = async (section_id) => {
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log('Multi[e]', cdata);
+            console.log('stacked...', cdata);
 
             const UpdatedBarOptionsMultiple = {
               ...stackedbarOptions,
@@ -917,13 +968,13 @@ const getCharts = async (section_id) => {
                 ...stackedbarOptions.xAxis,
                 data: cdata[0]  // categories as recieved 
               },
-              // series: {
-              //   ...stackedbarOptions.series,
-              //   data: cdata[1]  // categories as recieved 
-              // },
+              series: {
+                ...stackedbarOptions.series,
+                data: cdata  //   as recieved 
+              },
             };
 
-            console.log('UpdatedBarOptionsMultiple >>>>',  cdata[1])
+            console.log('stacked >>>>',  cdata[1])
 
 
             thisChart.chart = UpdatedBarOptionsMultiple
@@ -1466,11 +1517,14 @@ const getCharts = async (section_id) => {
       }
 
       else if (thisChart.type == 3) {
-        processPieChart();
+        processStackedBarChart();
+
       }
 
       else if (thisChart.type == 4) {
-        processStackedBarChart();
+        processPieChart();
+
+
       }
 
       else if (thisChart.type == 5) {
