@@ -29,6 +29,17 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       },
    
+      activity_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
+   
+
+
+      
+
+
+
        code: {
         type: DataTypes.STRING,
         allowNull: true
@@ -47,7 +58,7 @@ module.exports = function (sequelize, DataTypes) {
         },
         {
           unique: true,
-          fields: ['name', 'type','format', 'level' ]
+          fields: ['name', 'activity_id', 'type','format', 'level' ]
         },
       ]
     }

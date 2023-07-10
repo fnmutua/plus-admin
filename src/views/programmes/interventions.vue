@@ -35,7 +35,7 @@ import proj4 from 'proj4';
 import { getAllHouseholds, getFilteredHouseholdsBykeyword, updateHousehold } from '@/api/households'
 
 import {
-  countyOptions, settlementOptionsV2, subcountyOptions
+  countyOptions, settlementOptionsV2, subcountyOptions, implementationOptions
 } from './common/index.ts'
 
 ////////////*************Map Imports***************////////
@@ -161,7 +161,7 @@ let filterValues = [[component_id.value]]   // make sure the inner array is arra
 var tblData = []
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
+const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'programme_implementation',  'document']
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
@@ -2182,9 +2182,10 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="Title" prop="title" width="400" sortable />
+          <el-table-column label="Title" prop="title" width="200" sortable />
           <el-table-column label="County" prop="county.name" sortable />
-          <el-table-column label="Settlement" prop="settlement.name" sortable />
+          <!-- <el-table-column label="Settlement" prop="settlement.name" sortable /> -->
+          <el-table-column label="Pogramme" prop="programme.acronym" sortable />
           <el-table-column label="Status" prop="status" sortable />
           <el-table-column label="Start" prop="start_date" :formatter="formatStartDate" sortable />
           <el-table-column label="End" prop="end_date" :formatter="formatEndDate" sortable />

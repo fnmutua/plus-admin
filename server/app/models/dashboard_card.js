@@ -47,6 +47,12 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: true
     },
+
+        
+    filter_option: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     computation: {
       type: DataTypes.STRING,
       allowNull: true

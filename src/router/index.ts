@@ -3685,7 +3685,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       //  component: 'views/Users/County',
        // component: () => import('@/views/settings/Programmes.vue'),
         component: () => import('@/views/settings/Programme.vue'),
-
           name: 'ProjectsProgrammes',
           meta: {
             title: 'Programmes',
@@ -3707,6 +3706,21 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             }
           }, 
           
+
+          {
+            path: 'impl',
+          //  component: 'views/Users/County',
+            component: () => import('@/views/settings/Implementation.vue'),
+            name: 'ProgrammeImplementation',
+            meta: {
+              title: 'Implementation',
+              hidden: false,
+              icon:'material-symbols:settings'
+    
+            }
+          },  
+          
+
           {
             path: 'projcat',
           //  component: 'views/Users/County',

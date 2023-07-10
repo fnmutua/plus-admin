@@ -40,6 +40,14 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
 
+    implementation_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+
+
+    
+
     status: {
       type: DataTypes.STRING,
       allowNull: false

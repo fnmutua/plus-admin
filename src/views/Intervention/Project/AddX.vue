@@ -44,7 +44,7 @@ v-for="option in field.options" :key="option.value" :label="option.label"
                  
               <el-cascader
 v-else-if="field.type === 'cascade' && !isMobile" v-model="formData[field.name]"
-                :filterable="true" clearable :options="field.options"  
+                :filterable="true" clearable :options="field.options"   :props="props1"
                 @change="getFieldChangeHandler(field.name)"  />
               <div v-else-if="field.type === 'cascade' && isMobile">  
                 <el-button type="primary" @click="showOnMobile(field.options)"> Select </el-button> 
@@ -187,7 +187,9 @@ import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
 
 
-
+const props1 = {
+  checkStrictly: true,
+}
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()

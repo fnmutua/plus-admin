@@ -194,7 +194,7 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
   let associated_Models = []
   let filterFields = ['indicator_category_id'] 
   let filterValues = [ids] 
-  let filterOperator =[]
+  let filterOperator =['eq']
 
 
   var filter_value = scards.filter_value
@@ -204,7 +204,9 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
   
   if (filter_value && filter_field ) { 
     filterFields.push(filter_field)
-    filterValues = [filter_value]
+    //filterValues = [filter_value]
+    filterValues.push(filter_value)
+
     filterOperator.push(filter_function)
   }
 
@@ -249,6 +251,8 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
   formData.filterField =filterFields
   formData.filterValue =filterValues 
   formData.filterOperator = filterOperator
+
+  console.log('Filter FormData : ', formData)
 
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
@@ -1340,55 +1344,7 @@ const countyList = ref([])
 const subCountyList = ref([])
 const filteredSubCountyList = ref([])
 
-
-const xgetCountySubcountySep = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      //   pageIndex: 1,
-      //  limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'county',
-      assocModel: 'subcounty',
-      searchField: 'name',
-      searchKeyword: '',
-      nested_models:['subcounty'],
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    const ret = response.data
-
-
-
-    ret.forEach((data) => {
-      const option = {
-        value: data.id,
-        label: data.name,
-      };
-      countyList.value.push(option);
-
-      data.subcounties.forEach((subc) => {
-        const soption = {
-          value: subc.id,
-          label: subc.name,
-          county_id: data.id
-        };
-        subCountyList.value.push(soption);
-        filteredSubCountyList.value.push(soption);
-
-      })
-
-
-    });
-
-
-
-  })
-
-  console.log('countyOptions', countyList)
-  console.log('filteredSubCountyList', filteredSubCountyList)
-}
+ 
 
 
 const getCountySubcountySep = async () => {
