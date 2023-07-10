@@ -618,6 +618,19 @@ db.models.project.hasMany(db.models.indicator_category_report, {
   foreignKey: 'project_id'
 })
 
+// indicator_category_report  - programme_implementation
+db.models.indicator_category_report.belongsTo(db.models.programme_implementation, {
+  foreignKey: 'programme_implementation_id'
+})
+
+db.models.programme_implementation.hasMany(db.models.indicator_category_report, {
+  foreignKey: 'programme_implementation_id'
+})
+
+
+
+
+
 // subcounty  - indicator_category_report
 db.models.indicator_category_report.belongsTo(db.models.subcounty, {
   foreignKey: 'subcounty_id'
@@ -1017,6 +1030,17 @@ db.models.evaluation.belongsTo(db.models.project, {
 
 db.models.project.hasMany(db.models.evaluation, {
   foreignKey: 'project_id'
+})
+
+
+
+// Programme_implementation - Proejct 
+db.models.project.belongsTo(db.models.programme_implementation, {
+  foreignKey: 'implementation_id',
+})
+
+db.models.programme_implementation.hasMany(db.models.project, {
+  foreignKey: 'implementation_id'
 })
 
  

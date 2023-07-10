@@ -451,9 +451,9 @@ const AddComponent = () => {
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate((valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
 
-    var exists = checkIfRouteExists(ruleForm.title)
+    var exists = await checkIfRouteExists(ruleForm.title)
 
     if (exists) {
       ElMessage.error('A route with same name exists. Try a different Name')

@@ -317,6 +317,7 @@ const getIndicatorNames = async () => {
     opt.title = arrayItem.category.title
     opt.project_id = arrayItem.project.id
     opt.activity_id = arrayItem.activity.id
+    opt.programme_implementation_id = arrayItem.programme_implementation_id
     
     opt.county_id = arrayItem.project.county_id
     opt.subcounty_id = arrayItem.project.subcounty_id
@@ -360,6 +361,7 @@ const getProjects = async () => {
     console.log(arrayItem)
     opt.value = arrayItem.id
     opt.label = arrayItem.title  
+    opt.programme_implementation_id = arrayItem.implementation_id  
      projectOptions.value.push(opt)
 
 
@@ -473,6 +475,17 @@ const handleClose = () => {
 
 
 const changeProject = async (project: any) => {
+
+  console.log('changeProject',project )
+
+const filteredOpts = projectOptions.value.filter(item => item.value == project );
+
+console.log('filteredOpts',filteredOpts[0].programme_implementation_id )
+
+   ruleForm.programme_implementation_id= filteredOpts[0].programme_implementation_id
+
+   console.log(ruleForm)
+
   ruleForm.indicator_category_id=[]
   ruleForm.activity_id=[]
 
@@ -508,7 +521,7 @@ const changeIndicator = async (indicator: any) => {
   });
 
   ruleForm.project_id = filtredOptions[0].project_id
-  ruleForm.settlement_id = filtredOptions[0].settlement_id
+   ruleForm.settlement_id = filtredOptions[0].settlement_id
   ruleForm.county_id = filtredOptions[0].county_id
   ruleForm.subcounty_id = filtredOptions[0].subcounty_id
   ruleForm.ward_id = filtredOptions[0].ward_id
@@ -529,6 +542,7 @@ const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   indicator_category_id: '',
   project_id: '',
+  programme_implementation_id:'',
   settlement_id: '',
   subcounty_id: '',
   ward_id:'',
@@ -599,7 +613,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       // formData.append('DocTypes', fileTypes)
 
       console.log(formData)
-      await uploadDocuments(formData)
+      //await uploadDocuments(formData)
 
 
       AddDialogVisible.value = false

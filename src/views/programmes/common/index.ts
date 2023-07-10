@@ -132,6 +132,35 @@ const getWards = async () => {
 
 
 
+const implementationOptions = ref([])
+ const getImplementationSponsors = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'programme_implementation',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    //console.log('Received response:', response)
+    //tableDataList.value = response.data
+    const ret = response.data
+  
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      const parentOpt = {}
+      parentOpt.value = arrayItem.id
+       parentOpt.label = arrayItem.acronym
+      //  console.log(countyOpt)
+      implementationOptions.value.push(parentOpt)
+    })
+  })
+}
+
+
+
 const regOptions = [
   {
     value: 'Registered',
@@ -791,10 +820,10 @@ getCounties()
 getSubCounties()
  
 getWards()
-
+getImplementationSponsors()
 
 export {
   countyOptions, settlementOptionsV2, subcountyOptions,wardOptions, regOptions,WaterFacilitytypeOptions,cascadeOptions,phase_options,frequencyOptions,wasteOptions,FacilityConditionOptions,
   SchoolLevelOptions, HCFTypeOptions, LevelOptions, generalOwnership, roadOptions,AssetConditionOptions,AssetTypeOptions,
-  ownsershipOptions, mhmOptions, tenancyOptions, drainageTypeOtions, SurfaceTypeOtions, RdClassOptions,pipeOptions,sewerTypes
+  ownsershipOptions, mhmOptions, tenancyOptions, drainageTypeOtions, SurfaceTypeOtions, RdClassOptions,pipeOptions,sewerTypes, implementationOptions
 };

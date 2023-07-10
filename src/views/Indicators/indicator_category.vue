@@ -478,6 +478,7 @@ const getProjectActivities = async () => {
     opt.value = arrayItem.id
     opt.label = arrayItem.title + '(' + arrayItem.id + ')'
     opt.activities = arrayItem.activities  
+    opt.programme_implementation = arrayItem.programme_implementation  
 
     //  console.log(countyOpt)
     projectOptions.value.push(opt)

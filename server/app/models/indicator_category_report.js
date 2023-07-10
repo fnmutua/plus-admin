@@ -28,6 +28,11 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       },
 
+      programme_implementation_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
+ 
       settlement_id: {
         type: DataTypes.INTEGER,
         allowNull: true

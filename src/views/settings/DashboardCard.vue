@@ -33,6 +33,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { getUniqueFieldValues} from '@/api/households'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
+import { getListWithoutGeo } from '@/api/counties'
 
 import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
@@ -463,8 +464,9 @@ const ruleForm = reactive({
   aggregation: '',
   indicator_id: null,
   card_model_field: '',
-  filter_value:'',
-  filter_function:'',
+  filter_value:[],
+  filter_function: '',
+  filter_option:'',
   card_model:'',
   computation:'',
   unique:false,
@@ -488,9 +490,10 @@ const editMode=ref(false)
   ruleForm.indicator_id = data.row.indicator_id
   ruleForm.card_model = data.row.card_model
   ruleForm.card_model_field = data.row.card_model_field
-  ruleForm.filter_value = data.row.filter_value
+ // ruleForm.filter_value = data.row.filter_value
   ruleForm.computation = data.row.computation
   ruleForm.filter_function = data.row.filter_function
+  ruleForm.filter_option = data.row.filter_option
   ruleForm.unique = data.row.unique
   ruleForm.filter_field = vdata.filter_field
   ruleForm.filtered = vdata.filtered
@@ -506,8 +509,15 @@ const editMode=ref(false)
     await handleFilterAggregators(data.row.card_model_field)
    }
   
- 
+ var filterValues = []
    if (data.row.filter_value) {
+
+    data.row.filter_value.forEach(item => {
+      console.log(item);
+      filterValues.push(parseInt(item))
+        });
+
+        ruleForm.filter_value=filterValues
     fieldSelected.value=true
     showFilterValues.value=true
    } else {
@@ -667,7 +677,6 @@ const editForm = async (formEl: FormInstance | undefined) => {
  
 const getIndicatorNames = async () => {
   const formData = {}
-
   formData.curUser = 1 // Id for logged in user
   formData.model = 'indicator'
   //-Search field--------------------------------------------
@@ -680,7 +689,9 @@ const getIndicatorNames = async () => {
   // - multiple filters -------------------------------------
   formData.filters = []
   formData.filterValues = []
-  formData.associated_multiple_models = [  'activity']
+  formData.associated_multiple_models = []
+  formData.nested_models = ['activity', ['project']]
+
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
@@ -688,7 +699,7 @@ const getIndicatorNames = async () => {
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
     var opt = {}
-    console.log(arrayItem)
+    console.log('xx-xx--xx--', arrayItem)
     opt.value = arrayItem.id
     opt.label = arrayItem.name  + ' | ' + arrayItem.activity.title
    // opt.title = arrayItem.category.title
@@ -724,8 +735,9 @@ const handleSelectModel = async (selModel) => {
 
     ruleForm.aggregation = ''
    ruleForm.card_model_field = ''
-   ruleForm.filter_value = null
+   ruleForm.filter_value = []
    ruleForm.filter_function = null
+   ruleForm.filter_option = null
     ruleForm.filter_field = null
    ruleForm.filtered = false
   ruleForm.computation = null
@@ -894,6 +906,67 @@ const onSwitchChange = async (val) => {
   }
 }
 
+// Filters for interventions
+const implementationOptions = ref([])
+ const getImplementationSponsors = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'programme_implementation',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    //console.log('Received response:', response)
+    //tableDataList.value = response.data
+    const ret = response.data
+  
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      const parentOpt = {}
+      parentOpt.value = arrayItem.id
+       parentOpt.label = arrayItem.acronym
+      //  console.log(countyOpt)
+      implementationOptions.value.push(parentOpt)
+    })
+  })
+}
+
+getImplementationSponsors()
+
+const filterInterventionsOptions = [
+  {
+    value: 'quantity',
+    label: 'Quantity'
+  },
+  
+  {
+    value: 'programme',
+    label: 'Programme'
+  }
+]
+
+const filterOption = ref()
+
+
+
+const changeFilterForIndicators = async (val) => { 
+
+  console.log('val', val)
+
+  if (val=='programme') {
+    ruleForm.filter_field = 'programme_implementation_id'
+    ruleForm.filter_function='eq'
+  } else {
+    ruleForm.filter_field = 'amount'
+
+
+  }
+
+}
+
 </script>
 
 <template>
@@ -985,7 +1058,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
       <el-form-item label="Indicator" v-if="!showStatusExtras"  prop="indicator_id">
         <el-select
-v-model="ruleForm.indicator_id" :onClear="handleClear"   clearable
+v-model="ruleForm.indicator_id" :onClear="handleClear"    clearable
         filterable collapse-tags placeholder="Filter by Project/Indicator">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -1043,15 +1116,39 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
             style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes" inactive-text="No" />
           </el-form-item> 
           
-          <el-form-item label="Filter Field" prop="filter_field" v-if="ruleForm.filtered && !showStatusExtras">
+
+           <!-- // Filters for Interventions dashbaords -->
+           <el-form-item label="Filter By" prop="filterOption" v-if="ruleForm.filtered && !showStatusExtras">
+            <el-select v-model="ruleForm.filter_option" :onClear="handleClear" :onChange="changeFilterForIndicators" collapse-tags placeholder="Filter By">
+              <el-option v-for="item in filterInterventionsOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+
+              
+
+              <el-form-item label="Programme" prop="filter_field" v-if=" ruleForm.filtered && !showStatusExtras && ruleForm.filter_option=='programme'">
                 <el-select
-        v-model="ruleForm.filter_field"   :onClear="handleClear" disabled collapse-tags  
+v-model="ruleForm.filter_value" :onClear="handleClear"  multiple collapse-tags  
+                  placeholder="Field to filter with">
+                  <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
+ 
+
+          <!-- <el-form-item label="Filter By" prop="filter_field" v-if="ruleForm.filtered && !showStatusExtras">
+                <el-select
+v-model="ruleForm.filter_field"   :onClear="handleClear"  collapse-tags  
                   placeholder="Field to filter with">
                   <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
-              </el-form-item>
+              </el-form-item> -->
 
-              <el-form-item label="Filter Field" prop="filter_field"  v-if="ruleForm.filtered &&showStatusExtras">
+
+
+                <!-- // Filters for Status dashbaords -->
+
+
+              <el-form-item label="Filter Field" prop="filter_field"  v-if="ruleForm.filtered &&showStatusExtras && ruleForm.filter_option!='programme'">
                 <el-select
         v-model="ruleForm.filter_field"   :onClear="handleClear" clearable filterable collapse-tags :onChange="handleFilterAggregators"
                   placeholder="Field to filter with">
@@ -1066,7 +1163,7 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
       <el-row>
 
            <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-      <el-form-item label="Filter Function" prop="filter_function"  v-if="fieldSelected && ruleForm.filtered">
+      <el-form-item label="Filter Function" prop="filter_function"  v-if="fieldSelected && ruleForm.filtered && ruleForm.filter_option!='programme'">
         <el-select
                 v-model="ruleForm.filter_function" 
                 :onClear="handleClear" 
@@ -1083,7 +1180,7 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
 
             <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
                 <el-select
-                  v-if="fieldSelected && showFilterValues && ruleForm.filtered " 
+                  v-if="fieldSelected && showFilterValues && ruleForm.filtered  && ruleForm.filter_option!='programme'" 
                 v-model="ruleForm.filter_value" :onClear="handleClear"
                   clearable 
                   multiple
@@ -1095,19 +1192,7 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
                 </el-select>
               </el-col>
 
-              <!-- <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-                <el-select
-                    v-if="fieldSelected && showFilterValues && ruleForm.filtered &&!showStatusExtras" 
-                  v-model="ruleForm.filter_value" :onClear="handleClear"
-                    clearable 
-                  filterable 
-                  collapse-tags 
-                  allow-create
-                  placeholder="Filter Value">
-                    <el-option v-for="item in fieldOptions" :key="item.value" :label="item.label" :value="item.value" />
-                  </el-select>
-
-              </el-col> -->
+            
 
       </el-row>
    

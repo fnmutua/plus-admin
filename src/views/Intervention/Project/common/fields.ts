@@ -5,6 +5,7 @@ import {
   countyOptions,
    activityOptions,
   cascadedAdminOptions,
+  implementationOptions,
 } from "./index.ts";
  
 const steps = [
@@ -90,8 +91,12 @@ const formFields: Field[][] = [
     },
     { name: "title", label: "Title", type: "text", multiselect: 'false', options: [] },
    
-      {
+    {
       name: "status", label: "Status", type: "select", multiselect: 'false',    options: statusOptions
+    },
+
+    {
+      name: "implementation_id", label: "Programme/Project", type: "select", multiselect: 'false',    options: implementationOptions.value
     },
 
     { name: "start_date", label: "Start Date", type: "date", multiselect: 'false',    options: [] },
@@ -175,10 +180,10 @@ const formRules: FormRules = reactive({
       { required: true, message: 'Location is required', trigger: 'blur' },
       {
         validator: (rule, value, callback) => {
-          if (Array.isArray(value) && value.length === 4) {
+          if (Array.isArray(value) && value.length >=3) {
             callback();
           } else {
-            callback(new Error('Location must include Settlement'));
+            callback(new Error('Location must be at least  a ward/Settlement level'));
           }
         }, 
         trigger: 'blur'

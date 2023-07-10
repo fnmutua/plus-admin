@@ -756,6 +756,8 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     eq: op.eq,
     gt: op.gt,
     lt: op.lt,
+    lte: op.lte, // Added lte mapping
+
     // Add more operator mappings as needed
   };
 
@@ -763,6 +765,8 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
   console.log('-----------------------------x--------------------------------',req.body.filterField)
 
   for (let i = 0; i < filterCols.length; i++) {
+
+    console.log(filterCols[i], filterOperators[i],filterValues[i] )
     const filterCol = filterCols[i];
     const filterVal = filterValues[i];
     const operator = filterOperators[i]; // Get the operator corresponding to the filter field
@@ -774,11 +778,15 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
       continue; // Skip adding any condition for this field
     } else {
 
+      console.log('Operator---->S',operator, [operatorMappings[operator]] )
+
       if (Array.isArray(filterVal)) {
-        const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
+       // const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
+        const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
   
         filterConditions.push({ [op.or]: nestedConditions });
       } else if (operator !== "all" && operator) {
+
         filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
       }
     }

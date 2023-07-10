@@ -773,63 +773,16 @@ exports.modelCreateOneRecord = (req, res) => {
 
   }
 
-  console.log('One record... Edited----', obj)
+  console.log('One record... Edited---s-', obj)
 
 
-
-  // // insert
-  // db.models[reg_model]
-  //   .create(obj)
-  //   .then(async function (item) {
-  //     // Special for projects where we store the project-activty relation 
-  //     if (reg_model ==='project') {
-  //       var activity_list =req.body.activities
-  //        const list_activities = await db.models.activity.findAll({
-  //         where: {
-  //           id: activity_list
-  //         }
-  //       });
-        
-  //   //   await item.addActivities(list_activities)
-  //     await item .setActivities(list_activities);
-
-        
-  //     }
-  //     else if (reg_model === 'dashboard_section_chart') {
-  //       var indicator_list =req.body.indicator_id
-  //        const list_indicators = await db.models.indicator.findAll({
-  //         where: {
-  //           id: indicator_list
-  //         }
-  //       });
-        
-  //       item.addIndicators(list_indicators)
-  //     }
-
-  //     res.status(200).send({
-  //       message: 'Import Successful',
-  //       total: req.body.count,
-  //       data: item,
-  //       code: '0000'
-  //     })
-  //   })
-  //   .catch(function (err) {
-  //     // handle error;
-  //     console.log('error0-----2----->', err)
-
-  //     if (err.name == 'SequelizeUniqueConstraintError') {
-  //       var message = err
-  //       var xmessage = 'One or more table constraints are violated. Check your id columns'
-  //     } else {
-  //       var message = 'The submitted record does not match the required fields'
-  //     }
-  //     return res.status(500).send({ message: message })
-  //   })
+ 
   
   db.models[reg_model]
   .create(obj)
   .then(async function (item) {
     // Special for projects where we store the project-activity relation
+    console.log('temI',item)
     if (reg_model === 'project') {
       var activity_list = req.body.activities;
       const list_activities = await db.models.activity.findAll({
@@ -860,7 +813,7 @@ exports.modelCreateOneRecord = (req, res) => {
   })
   .catch(function (err) {
     // handle error;
-    console.log('error0-----2----->', err);
+    console.log('error0--90----->', err);
   
     var message = err.message || 'An error occurred';
   
