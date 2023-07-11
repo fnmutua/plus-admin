@@ -173,9 +173,9 @@ const getSummary = async (card) => {
     //  var result = getSummary(card.card_model, arrayItem.card_model_field, arrayItem.aggregation)
 
     var selectModel = card.card_model
-  var cmodelField = card.card_model_field
-  var filter_value = card.filter_value
-  var filter_field = card.filter_field
+    var cmodelField = card.card_model_field
+    var filter_value = card.filter_value
+    var filter_field = card.filter_field
     var aggregMethod = card.aggregation
     var filter_value = card.filter_value
     var computation = card.computation
@@ -336,6 +336,7 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   let filterFields = []
   let filterValues = []
   let groupFields = []
+  let filterOperator =[]
 
   var cmodel = thisChart.card_model
   var cfield = thisChart.card_model_field
@@ -346,9 +347,22 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
   console.log('unique',unique)
 
+
+  console.log('Chart Filters',thisChart )
   // thisChart.card_model,thisChart.card_model_field,thisChart.aggregation,  thisChart.type);
 
   // set admin level filtering
+
+
+  var filter_value = thisChart.filter_value
+  var filter_field = thisChart.filter_field
+  var filter_function = thisChart.filter_function
+
+  if (filter_value && filter_field ) { 
+    filterFields.push(filter_field)
+    filterValues = [filter_value]
+    filterOperator.push(filter_function)
+  }
 
 
 

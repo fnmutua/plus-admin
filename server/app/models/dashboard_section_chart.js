@@ -45,6 +45,44 @@ module.exports = function(sequelize, DataTypes) {
        defaultValue: false
 
     },
+
+    filter_value: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true
+    },
+    
+    filter_function: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+        
+    filter_option: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+
+    filtered: {
+      type: DataTypes.BOOLEAN,
+      defaultValue:false
+    },
+
+       
+    filter_field: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+
+
+
+
+
+
+
+
+
     code: {
       type: DataTypes.STRING,
       allowNull: false

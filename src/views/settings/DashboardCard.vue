@@ -515,7 +515,7 @@ const editMode=ref(false)
     data.row.filter_value.forEach(item => {
       console.log(item);
       filterValues.push(parseInt(item))
-        });
+        });   
 
         ruleForm.filter_value=filterValues
     fieldSelected.value=true
@@ -1135,14 +1135,7 @@ v-model="ruleForm.filter_value" :onClear="handleClear"  multiple collapse-tags
               </el-form-item>
  
 
-          <!-- <el-form-item label="Filter By" prop="filter_field" v-if="ruleForm.filtered && !showStatusExtras">
-                <el-select
-v-model="ruleForm.filter_field"   :onClear="handleClear"  collapse-tags  
-                  placeholder="Field to filter with">
-                  <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
-                </el-select>
-              </el-form-item> -->
-
+      
 
 
                 <!-- // Filters for Status dashbaords -->

@@ -343,15 +343,35 @@ function transformData(data, chartType) {
   return result;
 }
 
-const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType) => {
+const getSummaryMultipleParentsGrouped = async (indicator_categories, chart) => {
 
+  var chartType = chart.type
   
+  console.log('xchart', chart)
   // set admin level filtering
   let associated_Models = ['indicator_category']
   let filterFields = ['indicator_category_id'] 
   let filterValues = [indicator_categories] 
   let groupFields = ['indicator_category.category_title'] 
-   
+     let filterOperator =['eq']
+
+
+  var filter_value = chart.filter_value
+  var filter_field = chart.filter_field
+  var filter_function = chart.filter_function
+
+
+  
+  if (filter_value && filter_field ) { 
+    filterFields.push(filter_field)
+    //filterValues = [filter_value]
+    filterValues.push(filter_value)
+
+    filterOperator.push(filter_function)
+  }
+
+
+
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
     filterFields.push('county_id')
@@ -444,8 +464,11 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chartType)
  // formData.filterValue = [indicator_categories]  // Bitumen
   formData.filterField = filterFields
   formData.filterValue = filterValues  // Bitumen
-  formData.filterOperator = ['eq' ] // Bitumen
+  //formData.filterOperator = ['eq' ] // Bitumen
+  formData.filterOperator = filterOperator// Bitumen
 
+
+  console.log('Form beofre send',formData)
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const amount = response.Total;
@@ -683,7 +706,7 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             // console.log("pie", ids) 
-            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
+            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart)   // first array is the categories // second is the data
             console.log('PIEx', cdata[1])
 
             const UpdatedPieOptionsMultiple = {
@@ -756,7 +779,7 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("bar", ids)
-            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
+            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart)   // first array is the categories // second is the data
             console.log(cdata)
 
             const UpdatedBarOptionsMultiple = {
@@ -822,7 +845,7 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("bar", ids)
-            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
+            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart)   // first array is the categories // second is the data
             console.log(cdata)
 
             const UpdatedBarOptionsMultiple = {
@@ -888,7 +911,7 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("bar", ids)
-            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
+            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart)   // first array is the categories // second is the data
             console.log(cdata)
 
             const UpdatedBarOptionsMultiple = {
@@ -955,7 +978,7 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("line-IDS", ids)
-            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
+            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart)   // first array is the categories // second is the data
             console.log('lichecrt data', cdata)
 
             const UpdatedBarOptionsMultiple = {
@@ -1019,7 +1042,7 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("line-IDS", ids)
-            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
+            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart)   // first array is the categories // second is the data
             console.log('lichecrt data', cdata)
 
 
@@ -1093,7 +1116,7 @@ const getCharts = async (section_id) => {
             //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("line-IDS", ids)
-            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart.type)   // first array is the categories // second is the data
+            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart)   // first array is the categories // second is the data
             console.log('map data', cdata)
             var MaxMin = cdata[0]
             await getCountyGeo()
