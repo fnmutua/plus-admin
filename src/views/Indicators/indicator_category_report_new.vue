@@ -1174,7 +1174,7 @@ const editIndicator = (data: TableSlotDefault) => {
     ruleForm.location.push(data.row.settlement_id)
   }
   ruleForm.code = data.row.code
-  ruleForm.ward_id = data.row.settlement.ward_id
+  ruleForm.ward_id = data.row.ward_id
 
   formHeader.value = 'Review Report'
 
@@ -1255,11 +1255,11 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
-    <div style="display: inline-block; margin-left: 20px">
+    <!-- <div style="display: inline-block; margin-left: 20px">
       <el-tooltip content="Add Report " placement="top">
         <el-button v-if="showEditButtons" :onClick="AddReport" type="primary" :icon="Plus" />
       </el-tooltip>
-    </div>
+    </div> -->
 
     <!-- <div style="display: inline-block; margin-left: 20px">
       <el-tooltip content="Import" placement="top">

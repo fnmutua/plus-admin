@@ -755,6 +755,7 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
   const operatorMappings = {
     eq: op.eq,
     gt: op.gt,
+    gte: op.gte,
     lt: op.lt,
     lte: op.lte, // Added lte mapping
 

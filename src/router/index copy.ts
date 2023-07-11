@@ -3634,7 +3634,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
       {
         path: 'charts',
-        component: () => import('@/views/settings/SectionChart.vue'),
+        component: () => import('@/views/settings/DashboardChart.vue'),
         name: 'DashboardSectionCharts',
         meta: {
           title: 'Dashboard Charts',
