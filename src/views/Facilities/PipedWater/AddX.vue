@@ -274,6 +274,7 @@ const setLocationOnMobile = () => {
   formData.ward_id = ward_id.value
   formData.settlement_id = settlement_id.value
   formData.location =[county_id,subcounty_id,ward_id,settlement_id]
+  handleChangeLocation( [county_id.value, subcounty_id.value, ward_id.value])
 
   console.log('formData',formData)
   showDialog.value=false

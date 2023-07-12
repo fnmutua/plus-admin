@@ -309,6 +309,8 @@ const onSelectWard = (ward_id) => {
   const selectedWard = wardOptions.value.filter((obj) => obj.value === ward_id);
  
   selectAdmin.value= selectAdmin.value + ' | '+ selectedWard[0].label
+
+  //curData.location = [county_id, subcounty_id, ward_id]
 };
  
 const setLocationOnMobile = () => {
@@ -316,6 +318,7 @@ const setLocationOnMobile = () => {
   formData.subcounty_id=subcounty_id.value
   formData.ward_id = ward_id.value
   formData.location =[county_id,subcounty_id,ward_id]
+  handleChangeLocation( [county_id.value, subcounty_id.value, ward_id.value])
 
   console.log('formData',formData)
   showDialog.value=false
@@ -587,11 +590,11 @@ const loadMap = async () => {
     });
 
 
+  
     map.value.addControl(new mapboxgl.NavigationControl());
     // add marker for project location
 
-    //   console.log(map.value)
-
+ 
     function updateRuleform(feature) {
       // do something with the new marker feature
       var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
@@ -607,11 +610,22 @@ const loadMap = async () => {
   // listen for the draw.create event
   map.value.on('draw.create', function (e) {
     // check if the new feature is a marker
-    if (e.features[0].geometry.type === 'Polygon') {
+   // if (e.features[0].geometry.type === 'Polygon') {
       // trigger your function here
       updateRuleform(e.features[0]);
 
-    }
+  //  }
+  });
+
+
+    // listen for the draw.se event
+    map.value.on('draw.update', function (e) {
+    // check if the new feature is a marker
+    //if (e.features[0].geometry.type === 'Polygon') {
+      // trigger your function here
+      updateRuleform(e.features[0]);
+
+   // }
   });
  
   // Listen for the draw.delete event
@@ -636,6 +650,61 @@ const loadMap = async () => {
   map.value.on('load', function () {
     // code to execute after the map has finished loading
     console.log("Map has loaded......")
+    //map.value.addControl(draw, 'top-left');
+
+
+     
+    map.value.addLayer({
+      id: 'Satellite',
+      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+      type: "raster"
+    });
+
+    map.value.addLayer({
+      id: 'Streets',
+      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
+      type: "raster"
+    }, 'Satellite');
+
+
+    
+    map.value.addSource('scope', {
+      type: 'geojson',
+      //data: projectPoly.value
+      data: (projectScopeGeo.value),
+    });
+
+    
+    // Edit only if not a new record 
+    if (!newRecord.value) {
+      toggleDrawToolbox('digitize')
+      const geojson = JSON.parse(JSON.stringify(projectScopeGeo.value));
+    var feature = turf.feature(geojson);
+    var collection = turf.featureCollection([feature])
+    draw.set(collection);
+    // Check if the new feature is a polygon
+   // if (collection.features[0].type === 'Polygon') {
+      // Trigger your function here
+      updateRuleform(collection.features[0]);
+   //}
+    }
+    
+
+    if (newRecord.value) {
+      toggleDrawToolbox('digitize')
+      // Load this outline only if its a new settlement 
+      map.value.addLayer({
+      'id': 'projectScopeGeo',
+      'type': 'line',
+      'source': 'scope',
+      'layout': {},
+      'paint': {
+        'line-color': '#000',
+        'line-width': 3
+      }
+    });  
+      
+    }
 
     map.value.addLayer({
     'id': 'draw-layer',
@@ -653,36 +722,6 @@ const loadMap = async () => {
     },
     'layout': {}
   });
-
-  // Set the state of the layer to "draw" to enable drawing on it
-  map.value.setFeatureState({'source': 'draw-layer', 'id': 'draw-layer'}, {'draw': true});
- 
-  // draw.value = new MapboxDraw({
-  //   displayControlsDefault: false,
-  //   controls: {
-  //     point: true,
-  //     line_string: true,
-  //     polygon: true,
-  //     trash: true
-  //   },
-    
-  // });
-  // map.value.addControl(draw.value, 'top-left');
-
-
-
-
-    map.value.addLayer({
-      id: 'Satellite',
-      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
-      type: "raster"
-    });
-
-    map.value.addLayer({
-      id: 'Streets',
-      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
-      type: "raster"
-    }, 'Satellite');
 
     // switch it off until the user selects to
     map.value.setLayoutProperty('Satellite', 'visibility', 'none')
@@ -709,22 +748,7 @@ const loadMap = async () => {
 
 
 
-    map.value.addSource('scope', {
-      type: 'geojson',
-      //data: projectPoly.value
-      data: (projectScopeGeo.value),
-    });
-    
-    map.value.addLayer({
-      'id': 'projectScopeGeo',
-      'type': 'line',
-      'source': 'scope',
-      'layout': {},
-      'paint': {
-        'line-color': '#000',
-        'line-width': 3
-      }
-    });
+   
 
     var bounds = turf.bbox((projectScopeGeo.value));
     map.value.fitBounds(bounds, {padding: 20,duration:1000 });
@@ -745,7 +769,7 @@ const draw = new MapboxDraw({
   displayControlsDefault: false,
   controls: {
     point: true,
-    line_string: true,
+    line_string: false,
     polygon: true,
     trash: true
   },
@@ -856,8 +880,10 @@ const handleChangeLocation = async (value: any) => {
   console.log('LocGeo', res.data[0].json_build_object)
 
 
-  if (newRecord.value && !projectScopeGeo.value) {
-    projectScopeGeo.value=res.data[0].json_build_object
+  if (newRecord.value) {
+    console.log('New, ',projectScopeGeo.value )
+
+    projectScopeGeo.value = res.data[0].json_build_object
 
   }
   //const lastElement = array[array.length - 1];
