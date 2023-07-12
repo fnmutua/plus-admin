@@ -11,7 +11,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: false
     },
-
+    shortTitle: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
     createdBy: {
       type: DataTypes.INTEGER,
       allowNull: true
