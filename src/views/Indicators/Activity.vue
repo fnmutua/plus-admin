@@ -548,8 +548,15 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules">
-      <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
-      <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" />
+      <!-- <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
+      <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" /> -->
+      <el-form-item label="Title">
+       <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
+      </el-form-item>
+
+<el-form-item label="Short Title">
+  <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" />
+</el-form-item>
 
 
 
