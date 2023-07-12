@@ -125,30 +125,7 @@ const showEditSaveButton = ref(false)
 
 
 
-const columns: TableColumn[] = [
-  {
-    field: 'id',
-    label: t('Id'),
-
-  },
-
-  {
-    field: 'title',
-    label: t('Title')
-  },
-
-
-
-  {
-    field: 'code',
-    label: t('Code')
-  },
-  {
-    field: 'action',
-    label: t('Actions')
-  }
-
-]
+ 
 const handleClear = async () => {
   console.log('cleared....')
 
@@ -321,6 +298,7 @@ const editIndicator = (data: TableSlotDefault) => {
   console.log(data)
   ruleForm.id = data.row.id
   ruleForm.title = data.row.title
+  ruleForm.shortTitle = data.row.shortTitle
 
 
 
@@ -357,10 +335,7 @@ const DeleteIndicator = async (data: TableSlotDefault) => {
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
-
-
-
-
+  shortTitle:''
 })
 const handleClose = () => {
 
@@ -370,6 +345,7 @@ const handleClose = () => {
 
   ruleForm.id = ''
   ruleForm.title = ''
+  ruleForm.shortTitle = ''
   formHeader.value = 'Add Activity'
 
 }
@@ -514,6 +490,7 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
 
     <el-table :data="tableDataList" :loading="loading" border>
       <el-table-column label="Id" prop="id" width="50px" sortable />
+      <el-table-column label="Short Title" prop="shortTitle" sortable />
       <el-table-column label="Title" prop="title" sortable />
       <el-table-column label="Code" prop="code" sortable />
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
@@ -572,6 +549,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules">
       <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
+      <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" />
 
 
 
