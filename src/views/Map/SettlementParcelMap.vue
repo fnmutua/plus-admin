@@ -33,6 +33,7 @@ import axios from 'axios';
 import { Icon } from '@iconify/vue';
 import waterOutline from '@iconify-icons/mdi/water-outline';
 import { before } from 'lodash-es'
+import { composeEventHandlers } from 'element-plus/es/utils'
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
@@ -278,11 +279,29 @@ const loadMap = async () => {
                 layer.bbox.northBoundLatitude
                 ] ;
  
-            var settBBOX = turf.bbox(facilityGeoPolygons.value[0])
+                //console.log(facilityGeoPoints.value)
+               // console.log(facilityGeoLines.value)
+              //  console.log(facilityGeoPolygons.value)
+            let overlap 
+            if (facilityGeoPoints.value.length>0) {
+              console.log('facilityGeoPoints.value.length>0',facilityGeoPoints.value)
+                overlap = turf.booleanIntersects(turf.bboxPolygon(coords), facilityGeoPoints.value[0]);
+            } 
+            else if (facilityGeoLines.value.length>0) {
+                overlap = turf.booleanIntersects(turf.bboxPolygon(coords), facilityGeoLines.value[0]);
+
+            } else {
+
+              var settBBOX = turf.bbox(facilityGeoPolygons.value[0])
+                console.log(settBBOX)
           
-                const overlap = turf.booleanIntersects(turf.bboxPolygon(settBBOX),turf.bboxPolygon(coords));
+                  overlap = turf.booleanIntersects(turf.bboxPolygon(settBBOX),turf.bboxPolygon(coords));
                 console.log(overlap, turf.bboxPolygon(settBBOX),turf.bboxPolygon(coords))
 
+            }
+
+
+               
             if (overlap) {
               return layer  ;  
                 }
@@ -312,10 +331,6 @@ const loadMap = async () => {
           }
 
         
-
-      
-
-
         });
 
       }
@@ -427,7 +442,6 @@ const loadMap = async () => {
 
 
 
-
       nmap.value.on('click', prop, (e) => {
       console.log("click props..........")
       // Copy coordinates array.
@@ -446,6 +460,29 @@ const loadMap = async () => {
     }
 
 
+    if(facilityGeoPoints.value.length>0) {
+
+        console.log('Point Layer')
+
+        nmap.value.addSource('PointSettlement', {
+        type: 'geojson',
+        data: facilityGeoPoints.value[0],
+        });
+
+        nmap.value.addLayer({
+          'id': 'PointSettlementLayer',
+          "type": "circle",
+          'source': 'PointSettlement',
+          'paint': {
+            'circle-radius': 8,
+            'circle-stroke-width': 2,
+            'circle-color' : 'red',
+            'circle-stroke-color': 'white'
+          }
+        });
+
+
+        }
  
     // Load the boundary layer with red outline
     nmap.value.addLayer({
@@ -490,7 +527,18 @@ const loadMap = async () => {
  
     nmap.value.resize()
     var bounds = turf.bbox((filtergeo.value));
-    nmap.value.fitBounds(bounds, { padding: 20 });
+
+
+
+    if (facilityGeoPoints.value.length>0) {
+      nmap.value.fitBounds(bounds, { maxZoom: 15, padding: 20 });
+     } else {
+        nmap.value.fitBounds(bounds, { padding: 20 });
+  }
+
+
+
+
 
 
     // Change the cursor to a pointer when the mouse is over the places layer.
