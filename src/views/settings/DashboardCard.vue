@@ -1078,7 +1078,7 @@ v-model="ruleForm.indicator_id" :onClear="handleClear"    clearable
 
     </el-row>
 
-       <el-form-item label="Summary Field" v-if="showStatusExtras"   prop="card_model" >
+       <el-form-item label="Entity" v-if="showStatusExtras"   prop="card_model" >
         <el-select
 v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags  :onChange="handleSelectModel"
           placeholder="Select Entity to summarize">

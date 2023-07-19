@@ -855,15 +855,28 @@ const getCharts = async (section_id) => {
         // Continue with the rest of your code here
       }
 
-      // function to process processMultiBarChart charts 
+      // function to process processStackedBarChart charts 
       async function processStackedBarChart() {
         const promises = [async function () {
-          console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
+          console.log('This stack chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
 
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log('Multi[e]', cdata);
+            console.log('stacked...', cdata);
+
+
+
+            for (var i = 0; i < cdata[1].length; i++) {
+              cdata[1][i].label = {
+                show: false,
+                position: 'inside'
+              };
+              // cdata[1][i].stack = 'total'
+              // cdata[1][i].type = 'bar'
+            }
+
+
 
             const UpdatedBarOptionsMultiple = {
               ...stackedbarOptions,
@@ -873,28 +886,21 @@ const getCharts = async (section_id) => {
               },
               xAxis: {
                 ...stackedbarOptions.xAxis,
-                data: cdata[0]  // categories as recieved 
+                data: cdata[0],  // categories as recieved 
+             //   type:'category'
               },
-              // series: {
-              //   ...stackedbarOptions.series,
-              //   data: cdata[1]  // categories as recieved 
-              // },
+
+              series:  cdata[1]   
             };
 
-            console.log('UpdatedBarOptionsMultiple >>>>',  cdata[1])
+            console.log('stacked >>>>',  UpdatedBarOptionsMultiple)
 
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
 
-            for (var i = 0; i < cdata[1].length; i++) {
-              cdata[1][i].label = {
-                show: false,
-                position: 'inside'
-              };
-            }
 
-           thisChart.chart.series = cdata[1]
+           //thisChart.chart.series = cdata[1]
 
 
 
@@ -933,6 +939,7 @@ const getCharts = async (section_id) => {
         charts.push(thisChart)
         // Continue with the rest of your code here
       }
+
 
       // function to process processMultiBarChart charts 
       async function processLineChart() {

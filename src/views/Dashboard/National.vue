@@ -572,16 +572,11 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
     }
 
-    else if (chartType == 4) {
+    else if (chartType == 3) {
       console.log('Pie  chart ', amount)
       console.log('Rose')
      
-       
-
         seriesData = await summarizePieData(amount);
- 
-     
-
  
     }
 
@@ -951,33 +946,13 @@ const getCharts = async (section_id) => {
       // function to process processMultiBarChart charts 
       async function processStackedBarChart() {
         const promises = [async function () {
-          console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
+          console.log('This stack chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
 
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
             console.log('stacked...', cdata);
 
-            const UpdatedBarOptionsMultiple = {
-              ...stackedbarOptions,
-              title: {
-                ...stackedbarOptions.title,
-                text: thisChart.title
-              },
-              xAxis: {
-                ...stackedbarOptions.xAxis,
-                data: cdata[0]  // categories as recieved 
-              },
-              series: {
-                ...stackedbarOptions.series,
-                data: cdata  //   as recieved 
-              },
-            };
-
-            console.log('stacked >>>>',  cdata[1])
-
-
-            thisChart.chart = UpdatedBarOptionsMultiple
 
 
             for (var i = 0; i < cdata[1].length; i++) {
@@ -985,9 +960,35 @@ const getCharts = async (section_id) => {
                 show: false,
                 position: 'inside'
               };
+              // cdata[1][i].stack = 'total'
+              // cdata[1][i].type = 'bar'
             }
 
-           thisChart.chart.series = cdata[1]
+
+
+            const UpdatedBarOptionsMultiple = {
+              ...barMaleFemaleOptions,
+              title: {
+                ...stackedbarOptions.title,
+                text: thisChart.title
+              },
+              xAxis: {
+                ...stackedbarOptions.xAxis,
+                data: cdata[0],  // categories as recieved 
+             //   type:'category'
+              },
+
+              series:  cdata[1]   
+            };
+
+            console.log('stacked >>>>',  UpdatedBarOptionsMultiple)
+
+
+            thisChart.chart = UpdatedBarOptionsMultiple
+
+
+
+           //thisChart.chart.series = cdata[1]
 
 
 
@@ -1517,13 +1518,13 @@ const getCharts = async (section_id) => {
       }
 
       else if (thisChart.type == 3) {
-        processStackedBarChart();
+        processPieChart();
 
       }
 
       else if (thisChart.type == 4) {
-        processPieChart();
 
+        processStackedBarChart();
 
       }
 
