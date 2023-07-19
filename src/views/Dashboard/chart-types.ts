@@ -714,26 +714,7 @@ export const  stackedbarOptions: EChartsOption = {
  
 
   series: [
-    {
-      name: '',
-      type: 'bar',
-      stack: 'total',
      
-      emphasis: {
-        focus: 'series'
-      },
-      data: []
-    },
-    {
-      name: '',
-      type: 'bar',
-      stack: 'total',
-      emphasis: {
-        focus: 'series'
-      },
-      data: []
-    },
-
   ]
 }
 
