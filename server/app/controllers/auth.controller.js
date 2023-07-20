@@ -713,3 +713,48 @@ exports.myProfile = (req, res) => {
     }
   })
 }
+
+
+
+
+exports.subCountyAllController = (req, res) => {
+  var reg_model = 'subcounty'
+     db.models[reg_model]
+    .findAndCountAll({attributes: { exclude: ['geom' ] }})
+    .then((list) => {
+      //console.log(list.rows)
+      res.status(200).send(list.rows)
+    })
+  }
+
+   
+exports.wardAllController = (req, res) => {
+  var reg_model = 'ward'
+     db.models[reg_model]
+    .findAndCountAll({attributes: { exclude: ['geom' ] }})
+    .then((list) => {
+      //console.log(list.rows)
+      res.status(200).send(list.rows)
+    })
+  }
+
+  exports.settlementAllController = (req, res) => {
+    var reg_model = 'settlement'
+       db.models[reg_model]
+      .findAndCountAll({attributes: { exclude: ['geom' ] }})
+      .then((list) => {
+        //console.log(list.rows)
+        res.status(200).send(list.rows)
+      })
+}
+    
+    exports.countyAllController = (req, res) => {
+      var reg_model = 'county'
+         db.models[reg_model]
+        .findAndCountAll({attributes: { exclude: ['geom' ] }})
+        .then((list) => {
+          //console.log(list.rows)
+          res.status(200).send(list.rows)
+        })
+      }
+    
