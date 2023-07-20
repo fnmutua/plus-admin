@@ -483,6 +483,10 @@ exports.countyController = (req, res) => {
 }
 
 
+ 
+
+
+
 exports.xcountyByLocationController = (req, res) => {
   var reg_model = 'county'
   var point = req.body.MyLocation
@@ -758,3 +762,35 @@ exports.wardAllController = (req, res) => {
         })
       }
     
+
+ exports.getOneCountyController = (req, res) => {
+        var reg_model = 'county'
+        console.log('county', req.body.county)
+        var county = req.body.county
+        if (county) {
+       
+          db.models[reg_model]
+            .findAndCountAll({
+              where: {
+                id: {
+                  [Op.eq]: county
+                }
+              },
+              attributes: { exclude: ['geom'] }
+            })
+          .then((list) => {
+            //console.log(list.rows)
+            res.status(200).send(list.rows)
+          })
+      
+        } else {
+      
+          db.models[reg_model]
+          .findAndCountAll({attributes: { exclude: ['geom' ] }})
+          .then((list) => {
+            //console.log(list.rows)
+            res.status(200).send(list.rows)
+          })
+        }
+      
+      }
