@@ -38,4 +38,15 @@ module.exports = function (app) {
 
   app.post('/api/auth/profile', controller.myProfile)
 
+
+  
+  app.post('/api/auth/county/all', controller.countyAllController)
+  app.post('/api/auth/subcounty/all', controller.subCountyAllController)
+  app.post('/api/auth/ward/all', controller.wardAllController)
+  app.post('/api/auth/settlement/all', controller.settlementAllController)
+
+
+
+
+
 }
