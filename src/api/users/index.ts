@@ -1,5 +1,6 @@
 import request from '@/config/axios'
 import type { UserType } from '../register/types'
+import axios from 'axios';
 
 interface RoleParams {
   roleName: string
@@ -38,8 +39,15 @@ export const activateUserApi = (data: UserType, params): Promise<IResponse<UserT
 
 export const updateUserApi = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('To Activate user....', data)
-  return request.post({ url: prod + '/api/auth/update', data })
+  return request.post({ url: prod + '/api/auth/update', data  })
 }
+
+
+export const updateByUserApi = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('To Activate user....', data)
+  return request.post({ url: prod + '/api/auth/profile/update', data, enctype:'multipart/form-data' })
+}
+ 
 
 export const getMyProfile = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('To Activate user....', data)

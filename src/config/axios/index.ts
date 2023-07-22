@@ -40,9 +40,9 @@ const request = (option: any) => {
     data,
     responseType: responseType,
     headers: {
-      'Content-Type': headersType || default_headers,
-      'x-access-token': `${token.value}`    // felix - add auth token 
-    }
+      'Content-Type': headersType || default_headers || 'multipart/form-data',
+      'x-access-token': `${token.value}`
+     }
   })
 }
  

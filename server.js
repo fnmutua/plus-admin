@@ -21,7 +21,8 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
- 
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 
 const envt = 'DEV'   // PROD

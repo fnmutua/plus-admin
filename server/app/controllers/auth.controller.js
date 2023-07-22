@@ -113,93 +113,7 @@ exports.signup = (req, res) => {
       res.status(500).send({ message: err.message })
     })
 }
-
-// exports.xsignup = (req, res) => {
-//   console.log('Inside REgistration', req.body)
-//   // Save User to Database
-//   User.create({
-//     username: req.body.username,
-//     name: req.body.name,
-//     email: req.body.email,
-//     avatar: req.body.avatar,
-//     county_id: req.body.county_id,
-//     password: bcrypt.hashSync(req.body.password, 8)
-//   })
-//     .then((user) => {
-//       if (req.body.role) {
-//         Role.findAll({
-//           where: {
-//             name: {
-//               [Op.or]: req.body.role
-//             }
-//           }
-//         }).then((roles) => {
-//           user.setRoles(roles).then(() => {
-//             var token = jwt.sign({ id: user.id }, config.secret, {
-//               expiresIn: 86400 // 24 hours
-//             })
-
-//         // Send email to admin about the new reighstration
-
-//         var transporter = nodemailer.createTransport({
-//           service: 'gmail',
-//           auth: {
-//             user: 'kisip.mis@gmail.com',
-//             pass: 'ycoxaqavmfiqljjg'
-//           }
-//         }) // initialize create Transport service
-
-//         const CLIENT_URL = req.protocol + '://' + req.get('host') + req.originalUrl;
-
-//         //const xCLIENT_URL = 'http://' + req.headers.host
-//         //const CLIENT_URL = req.headers.referer
-//         console.log('Reset-URL', CLIENT_URL)
-
-//         const mailOptions = {
-//           from: 'kisip.mis@gmail.com',
-//           to: 'felix.mutua@gmail.com',
-//           subject: 'New KISIP MIS user account',
-//           text:
-//             'A new user account (' +  req.body.email + ')has been created. Please review and approve appropriately via this link:\n\n' +
-//             CLIENT_URL+'#/users/new/'  
-//         }
-
-//         console.log('sending mail')
-
-//         transporter.sendMail(mailOptions, (err, response) => {
-//           if (err) {
-//             console.error('there was an error: ', err)
-//           } else {
-//             console.log('here is the res: ', response)
-            
-//           }
-//         })
-//             console.log(roles)
-//             res.send({
-//               message: 'User registered successfully! Please wait for the account to be activated',
-//               code: '0000',
-//               roles: roles[0].name,
-//               data: token,
-//               user: user
-//             })
-//           })
-//         })
-//       } else {
-//         // public user role = 14
-//         user.setRoles([14]).then(() => {
-//           res.send({
-//             message: 'User was registered successfully! Please wait for the account to be activated',
-//             code: '0000',
-//             data: 'successful'
-//           })
-//         })
-//       }
-//     })
-//     .catch((err) => {
-//       console.log(err)
-//       res.status(500).send({ message: err.message })
-//     })
-// }
+ 
 exports.updateUser = (req, res) => {
   console.log('Update user....')
  
@@ -250,6 +164,60 @@ exports.updateUser = (req, res) => {
     }
   })
 }
+
+ 
+
+const path = require('path')
+
+exports.updateByUser = (req, res) => {
+  console.log('Update by user....');
+  console.log('Request:----->', req.body);
+
+
+    let fname 
+  if (req.files &&req.files.profilePhoto) {
+    let myPhoto = req.files.profilePhoto
+      //const uploadsDir = path.join(__dirname, '../../../..', 'uploads');
+      const uploadsDir = `public`;
+
+        fname = myPhoto.name.replace(/\s/g, '_')
+
+      let location = uploadsDir + '/' + fname
+
+
+      console.log("Moving to public...", location)
+      myPhoto.mv(location)
+    
+   }
+  
+
+
+    // get this one record and update it by replacing the whole document
+    User.findAll({ where: { id: req.body.id } }).then((result) => {
+      if (result) {
+        // Result is an array because we have used findAll. We can use findOne as well if you want one row and update that.
+        result[0].set(req.body);
+
+      // Check if a file was uploaded and update the profile photo path in the database
+            if ( req.files &&req.files.profilePhoto) {
+               const host = `${req.protocol}://${req.get('host')}`;
+              result[0].avatar = `${host}/${fname}`;
+             }
+
+            result[0].save();
+
+            res.send({
+              message: 'User profile updated successfully!',
+              code: "0000",
+              user: result[0]
+            });
+
+ 
+      }
+    });
+  };
+
+
 
 exports.reset = (req, res) => {
   console.log('Reset password....', req.headers)
