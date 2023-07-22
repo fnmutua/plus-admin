@@ -19,7 +19,7 @@ exports.signup = (req, res) => {
   const emails = []
   // Save User to Database
   User.create({
-    username: req.body.username,
+    username: req.body.username.trim().toLowerCase(),
     name: req.body.name,
     email: req.body.email,
     avatar: req.body.avatar,
@@ -344,9 +344,13 @@ exports.signin = async (req, res) => {
   instlog.source = ip
 
   console.log('Logging in:', req.body.username)
+ // const username = req.body.username.trim();
+ 
   User.findOne({
-    where: {
-      username: req.body.username
+       where: {
+      username: {
+        [Op.iLike]: req.body.username
+      }
     }
   })
     .then(async (user) => {
