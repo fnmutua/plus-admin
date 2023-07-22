@@ -349,7 +349,7 @@ exports.signin = async (req, res) => {
   User.findOne({
        where: {
       username: {
-        [Op.iLike]: req.body.username
+        [Op.iLike]: req.body.username.trim().toLowerCase()
       }
     }
   })
