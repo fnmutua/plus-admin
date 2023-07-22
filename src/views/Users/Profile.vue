@@ -3,7 +3,7 @@ import { Descriptions } from '@/components/Descriptions'
 import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted, ref, reactive, unref } from 'vue'
 import { Form } from '@/components/Form'
-import { ElFormItem, ElInput, ElButton, ElDialog, ElForm, ElMessage ,FormInstance} from 'element-plus'
+import { ElFormItem, ElInput, ElButton, ElDialog, ElForm, ElMessage ,FormInstance, ElCard, ElDivider} from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { useForm } from '@/hooks/web/useForm'
 import { useRoute } from 'vue-router'
@@ -13,7 +13,7 @@ import { VueCollapsiblePanelGroup, VueCollapsiblePanel } from '@dafcoe/vue-colla
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { activateUserApi, updateUserApi, getUserListApi, setUserFeedback, getMyProfile } from '@/api/users'
+import { activateUserApi, updateByUserApi, getUserListApi, setUserFeedback, getMyProfile } from '@/api/users'
 import {
   ElAvatar
 } from 'element-plus'
@@ -30,6 +30,9 @@ import {
 } from '@element-plus/icons-vue'
 
 import { uuid } from 'vue-uuid'
+
+import { Icon } from '@iconify/vue';
+
 
 const { register, elFormRef } = useForm()
 
@@ -100,15 +103,21 @@ let settlement = reactive({
   flag: false
 })
 ////////////
+const profileRef = ref<FormInstance>()
+
 
 const profile = reactive({
+  id:'',
   name: '',
+  avatar:'',
   county: '',
   email: '',
   status: '',
   username: '',
-  phone: '',
-
+  phone: null,
+  county_id:'',
+  roles:[],
+ 
 })
 
 
@@ -145,8 +154,10 @@ const getFilteredData = async () => {
   profile.avatar = res.data[0].avatar
   profile.email = res.data[0].email
   profile.county = res.data[0].county_id
+  profile.id = res.data[0].id
+  profile.county_id = res.data[0].county_id
+   profile.roles = res.data[0].roles
   profile.phone = res.data[0].phone
-  avatar.value = res.data[0].avatar
 
   initials.value = getInitials(res.data[0].name)
   console.log(userDetails)
@@ -224,18 +235,136 @@ const feedbackRules =  {
     }
  
 
+
+    //// ------------------parameters -----------------------////
+ const formData = ref(new FormData());
+
+const ruleFormRefProfile = ref<FormInstance>()
+const ruleForm = reactive({
+  id:'',
+  name: '',
+  avatar:'',
+  county: '',
+  email: '',
+  status: '',
+  username: '',
+  phone: null,
+  county_id:'',
+  roles:[],
+})
+
+const dialogFormVisible=ref(false)
+
+const EditUser = () => {
+  console.log(profile.id)
+  // Append other form data properties to the formData
+  ruleForm.id= profile.id
+  ruleForm.name = profile.name
+  ruleForm.email= profile.email
+  ruleForm.username= profile.username
+  ruleForm.phone= profile.phone
+  ruleForm.county_id= profile.county_id
+  
+  dialogFormVisible.value = true
+}
+
+const uploadProfilePhoto = async (event) => {
+  
+  const file = event.target.files[0];
+  formData.value.append('profilePhoto', file); // Append the profile photo file to the formData
+
+
+  // Append other form data properties as needed
+
+  console.log(formData);
+    // Inspect the contents of formData
+    for (const pair of formData.value.entries()) {
+    console.log(pair[0], pair[1]);
+  }
+
+}
+
+
+
+const updateUser = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  console.log(ruleForm)
+
+     
+  formData.value.append('id', ruleForm.id);
+  formData.value.append('name', ruleForm.name);
+   formData.value.append('email', ruleForm.email);
+   formData.value.append('username', ruleForm.username);
+  formData.value.append('phone', ruleForm.phone);
+  formData.value.append('county_id',ruleForm.county_id);
+ 
+
+  
+  updateByUserApi(formData.value)
+    .then(response => {
+      // Handle the API response and show the message to the user
+      const message = response.data; // Assuming the message is in the 'message' field of the API response
+      console.log('API Response:', response.data);
+      console.log('Message:', message);
+      // You can display the message to the user using a notification or any other method
+    })
+    .catch(error => {
+      // Handle any errors that occur during the API call
+      console.error('Error updating user:', error);
+      // You can display an error message to the user using a notification or any other method
+    })
+    .finally(() => {
+      // Close the form dialog regardless of the API call result
+      dialogFormVisible.value = false;
+    });
+    formData.value = new FormData(); // Create a new empty FormData object
+
+}
+
+
+
+ const xupdateUser = () => {
+ 
+  
+  updateByUserApi(formData.value)
+    .then(response => {
+      // Handle the API response and show the message to the user
+      const message = response.data.message; // Assuming the message is in the 'message' field of the API response
+      console.log('API Response:', response.data);
+      console.log('Message:', message);
+      // You can display the message to the user using a notification or any other method
+    })
+    .catch(error => {
+      // Handle any errors that occur during the API call
+      console.error('Error updating user:', error);
+      // You can display an error message to the user using a notification or any other method
+    })
+    .finally(() => {
+      // Close the form dialog regardless of the API call result
+      dialogFormVisible.value = false;
+    });
+    formData.value = new FormData(); // Create a new empty FormData object
+
+
+}
+
 </script>
 
 <template>
   <div class="user-profile">
-    <div class="profile-header">
-      <!-- <img :src="profile.avatar" alt="User Profile Image" /> -->
  
-      <el-avatar size="large"> {{ initials }} </el-avatar>
-     <h1>{{ name }}</h1>
-      <p>{{ tagline }}</p>
+
+    
+    <div class="profile-header">
+      <div class="profile-header">
+      <img :src="profile.avatar" alt="User Profile Image" v-if="profile.avatar" /> <!-- Use the avatarPath to display the user's avatar -->
+      <el-avatar size="large" v-else> {{ initials }} </el-avatar> <!-- Display initials if avatarPath is not available -->
+     </div>
+    <h1>{{ profile.name }}</h1>
     </div>
  
+
+
     <div class="profile-details">
       <div class="profile-card">
         <div class="card-icon">
@@ -273,7 +402,19 @@ const feedbackRules =  {
           <ElButton  type="primary" class="w-[100%]" @click="setFeedback()" > Feedback/Querries?       
         </ElButton>
          </div>
+
+         
       </div>
+
+      <div class="profile-card">
+  
+
+  
+ <div class="card-content">
+   <ElButton  type="primary" class="w-[100%]" @click="EditUser()" > Edit Profile       
+ </ElButton>
+  </div>
+</div>
 
     </div>
   </div>
@@ -318,6 +459,36 @@ const feedbackRules =  {
   </el-dialog>
 
 
+  
+  <el-dialog v-model="dialogFormVisible" title="My Details">
+      <el-form ref="ruleFormRefProfile" :model="ruleForm" >
+        <el-form-item label="Name" >
+          <el-input v-model="ruleForm.name" autocomplete="off" />
+        </el-form-item>
+        <el-form-item label="Username" >
+          <el-input v-model="ruleForm.username" autocomplete="off" disabled />
+        </el-form-item>
+        <el-form-item label="Email" >
+          <el-input v-model="ruleForm.email" autocomplete="off" />
+        </el-form-item>
+        <el-form-item label="Phone" >
+          <el-input v-model="ruleForm.phone" autocomplete="off" />
+        </el-form-item>
+
+        <el-form-item label="Profile" >
+          <input type="file" @change="uploadProfilePhoto" accept="image/*"/> <!-- Profile photo input -->
+        </el-form-item>
+
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogFormVisible = false">Cancel</el-button>
+          <el-button type="primary" @click="updateUser(ruleFormRefProfile)">
+            Confirm
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
 
 </template>
 
@@ -413,6 +584,25 @@ const feedbackRules =  {
   font-size: 18px;
   margin-bottom: 5px;
 }
+
+
+.card-xcontent {
+  display: flex;
+  align-items: center;
+}
+
+
+.icon-container {
+  display: inline-block;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(34, 35, 35, 0.2);
+  padding: 5px;
+  /* optional padding around the icon */
+  border-radius: 10%;
+  /* optional border radius for circular icon */
+}
+
+
 
 .card-content p {
   font-size: 16px;
