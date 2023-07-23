@@ -182,7 +182,7 @@ exports.updateByUser = (req, res) => {
 
         fname = myPhoto.name.replace(/\s/g, '_')
 
-      let location = uploadsDir + '/' + fname
+      let location = uploadsDir + '/' + req.body.id+fname 
 
 
       console.log("Moving to public...", location)
@@ -199,9 +199,18 @@ exports.updateByUser = (req, res) => {
         result[0].set(req.body);
 
       // Check if a file was uploaded and update the profile photo path in the database
-            if ( req.files &&req.files.profilePhoto) {
-               const host = `${req.protocol}://${req.get('host')}`;
-              result[0].avatar = `${host}/${fname}`;
+        if (req.files && req.files.profilePhoto) {
+              
+          const host = req.get('host');
+
+          // Check if the connection is secure (HTTPS)
+          const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+        
+          // Build the avatar URL with the correct protocol
+          const protocol = isSecure ? 'https://' : 'http://';
+          const avatarURL = `${protocol}${host}/${ req.body.id+fname }`;
+        
+          result[0].avatar = avatarURL;
              }
 
             result[0].save();
