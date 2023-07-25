@@ -430,7 +430,7 @@ const makeOptions = (list) => {
   console.log(matchOptions, matchOptions)
   //show.value=true
 }
-
+ 
 const handleClear = async () => {
   console.log('cleared....')
   settlement.value = ''
