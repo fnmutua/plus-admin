@@ -90,6 +90,15 @@ const showSettleementSelect = ref(false)
 const { t } = useI18n()
 
 
+const showErrorMessage = (message) => {
+  ElMessage({
+    showClose: true,
+    message: message,
+    type: 'error',
+    duration:10000
+  })
+}
+
 
 const uploadOptions = [
   {
@@ -402,7 +411,9 @@ const handleProcess = async () => {
   await BatchImportUpsert(formData)
     .catch((error) => {
       console.log('Error------>', error.response.data.message)
-      ElMessage.error(error.response.data.message)
+     // ElMessage.error(error.response.data.message)
+      showErrorMessage(error.response.data.message)
+
     })
     .then((response: { data: any }) => {
       loadingPosting.value = false
@@ -484,7 +495,9 @@ const readShapefile = async (zip) => {
   const shpPrj = filenames.find((filename) => filename.endsWith('.prj'));
 
   if (!shpFilename || !dbfFilename || !shpPrj) {
-    ElMessage.error('Shapefile is missing required files. Ensure .shp, .dbf and .prj files are present in the zipped file')
+   // ElMessage.error('Shapefile is missing required files. Ensure .shp, .dbf and .prj files are present in the zipped file')
+    showErrorMessage('Shapefile is missing required files. Ensure .shp, .dbf and .prj files are present in the zipped file')
+
     loadingPosting.value = false
 
     // throw new Error('Shapefile is missing required files. Ensure .shp, .dbf and .prj files are present');
@@ -515,7 +528,9 @@ const submitFiles = async () => {
   loadingPosting.value = true
   loadingText.value = 'Matching fields.. Please wait.......'
   if (fileList.value.length == 0) {
-    ElMessage.error('Select a  File first!')
+  //  ElMessage.error('Select a  File first!')
+    showErrorMessage('Select a  File first!')
+
   } else {
 
 
@@ -552,7 +567,10 @@ const submitFiles = async () => {
 
 
     else {
-      ElMessage.error('Please select a zipped shapefile or a geojon file')
+     // ElMessage.error('Please select a zipped shapefile or a geojon file')
+      showErrorMessage('Please select a zipped shapefile or a geojon file')
+
+
       loadingPosting.value = false
 
       return false;
@@ -588,7 +606,8 @@ const readShp = async (file) => {
     })
     .catch((error) => {
       console.error(error)
-      ElMessage.error('Invalid shapefiles. Check your zipped file')
+      //ElMessage.error('Invalid shapefiles. Check your zipped file')
+      showErrorMessage('valid shapefiles. Check your zipped file')
 
 
     })
@@ -747,7 +766,7 @@ const loadOptions = (json) => {
   }
 
 
-
+ 
 
   console.log('rows-uploadObj------>', uploadObj.value)
   console.log('rows-parentObj------>', parentObj.value)
@@ -785,7 +804,8 @@ const loadOptions = (json) => {
       matchedObjwithparent.value.push(mergedFeature);
     } else {
       console.log('No match......');
-      ElMessage.error('The selected settlement did not match any records in the database!');
+      //ElMessage.error('The selected settlement did not match any records in the database!');
+      showErrorMessage('The selected settlement did not match any records in the database!')
       show.value = false;
       loadingPosting.value = false;
       console.log('move away.....');
@@ -812,7 +832,8 @@ const loadOptions = (json) => {
       } else {
         console.log('No match......');
         push({ name: 'Importgeo' });
-        ElMessage.error('The parent Code (pcode) did not match any records in the database!');
+       //ElMessage.error('The parent Code ' + uploadObj.value[0].properties.pcode + ' (pcode) did not match any records in the database!');
+        showErrorMessage('The parent Code ' + uploadObj.value[0].properties.pcode + ' (pcode) did not match any records in the database!')
         loadingPosting.value = false;
         show.value = false;
         console.log('move away.....');
@@ -820,12 +841,16 @@ const loadOptions = (json) => {
       }
     } else {
       console.log('The parent Code is required');
-      ElMessage.error('The parent Code (pcode) is required in the uploaded File!');
+      //ElMessage.error('The parent Code (pcode) is required in the uploaded File!');
+      showErrorMessage('The parent Code (pcode) is required in the uploaded File!')
+
       loadingPosting.value = false;
       return;
     }
   }
 });
+
+
 
 
 
