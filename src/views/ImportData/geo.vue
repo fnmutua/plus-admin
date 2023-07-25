@@ -94,8 +94,16 @@ const showErrorMessage = (message) => {
   ElMessage({
     showClose: true,
     message: message,
-    type: 'error',
+    type: 'warning',
     duration:10000
+  })
+}
+
+const showUploadMessage = (message) => {
+  ElMessage({
+    showClose: false,
+    message: message,
+     duration:3000
   })
 }
 
@@ -774,83 +782,88 @@ const loadOptions = (json) => {
 
   console.log('rows-uploadObj---PCODE--->', uploadObj.value[0].properties.pcode)
 
-
   uploadObj.value.map((upload, i) => {
-  console.log('------------>', i, upload);
+      console.log('------------>', i, upload);
+      var thisFeature = upload.properties;
+      thisFeature.geom = upload.geometry;
 
-  var thisFeature = upload.properties;
-  thisFeature.geom = upload.geometry;
+      console.log('------matchedObj------>', i, thisFeature);
 
-  console.log('------matchedObj------>', i, thisFeature);
+      if (settlement.value) {
+        // Show the matching table if only any match is observed
 
-  if (settlement.value) {
-    show.value = true; // Show the matching table if only any match is observed
+        var filterParent = parentObj.value.filter(function (el) {
+          return el['id'] === settlement.value;
+        });
 
-    var filterParent = parentObj.value.filter(function (el) {
-      return el['id'] === settlement.value;
-    });
+        console.log('------filterParent------>', filterParent);
 
-    console.log('------filterParent------>', filterParent);
+        if (filterParent.length > 0) {
+          // Here we add a prefix to the parent details to avoid confusion
+          let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
+          let pfeature = Object.keys(filterParent[0]).reduce(
+            (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+            {}
+          );
 
-    if (filterParent.length > 0) {
-      // Here we add a prefix to the parent details to avoid confusion
-      let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
-      let pfeature = Object.keys(filterParent[0]).reduce(
-        (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-        {}
-      );
-
-      const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
-      matchedObjwithparent.value.push(mergedFeature);
-    } else {
-      console.log('No match......');
-      //ElMessage.error('The selected settlement did not match any records in the database!');
-      showErrorMessage('The selected settlement did not match any records in the database!')
-      show.value = false;
-      loadingPosting.value = false;
-      console.log('move away.....');
-      //    return
-    }
-  } else {
-    if (upload.properties[code.value]) {
-      var filterParent = parentObj.value.filter(function (el) {
-        return el['code'] === upload.properties[code.value];
-      });
-
-      console.log('------filterParent------>', filterParent);
-
-      if (filterParent.length > 0) {
-        // Here we add a prefix to the parent details to avoid confusion
-        let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
-        let pfeature = Object.keys(filterParent[0]).reduce(
-          (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-          {}
-        );
-
-        const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
-        matchedObjwithparent.value.push(mergedFeature);
+          const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
+          matchedObjwithparent.value.push(mergedFeature);
+        } else {
+          console.log('No match......');
+          //ElMessage.error('The selected settlement did not match any records in the database!');
+          showErrorMessage('The selected settlement did not match any records in the database!')
+          //show.value = false;
+          loadingPosting.value = false;
+          console.log('move away.....');
+             return
+        }
       } else {
-        console.log('No match......');
-        push({ name: 'Importgeo' });
-       //ElMessage.error('The parent Code ' + uploadObj.value[0].properties.pcode + ' (pcode) did not match any records in the database!');
-        showErrorMessage('The parent Code ' + uploadObj.value[0].properties.pcode + ' (pcode) did not match any records in the database!')
-        loadingPosting.value = false;
-        show.value = false;
-        console.log('move away.....');
-        return;
+        if (upload.properties[code.value]) {
+          var filterParent = parentObj.value.filter(function (el) {
+            return el['code'] === upload.properties[code.value];
+          });
+
+          console.log('------filterParent------>', filterParent);
+
+          if (filterParent.length > 0) {
+            // Here we add a prefix to the parent details to avoid confusion
+            let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
+            let pfeature = Object.keys(filterParent[0]).reduce(
+              (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+              {}
+            );
+
+            const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
+            matchedObjwithparent.value.push(mergedFeature);
+          } else {
+            console.log('No match......');
+            push({ name: 'Importgeo' });
+            //ElMessage.error('The parent Code ' + uploadObj.value[0].properties.pcode + ' (pcode) did not match any records in the database!');
+            showErrorMessage('The parent Code ' + thisFeature.pcode + ' (pcode) did not match any records in the database!')
+            loadingPosting.value = false;
+            //show.value = false;
+            console.log('move away.....');
+            return;
+          }
+        } else {
+          console.log('The parent Code is required');
+          //ElMessage.error('The parent Code (pcode) is required in the uploaded File!');
+          showErrorMessage('The parent Code (pcode) is required in the uploaded File!')
+
+          loadingPosting.value = false;
+          return;
+        }
       }
-    } else {
-      console.log('The parent Code is required');
-      //ElMessage.error('The parent Code (pcode) is required in the uploaded File!');
-      showErrorMessage('The parent Code (pcode) is required in the uploaded File!')
+  });
 
-      loadingPosting.value = false;
-      return;
-    }
+
+  console.log('Finished Matching -->', matchedObjwithparent.value)
+
+  if (matchedObjwithparent.value.length >0) {
+    show.value = true;
+
+    showUploadMessage(matchedObjwithparent.value.length + 'will now be uploaded')
   }
-});
-
-
 
 
 
