@@ -725,8 +725,15 @@ const loadOptions = (json) => {
         polygon[0] = polygon[0].map(coordinate => {
           return proj4("SOURCE_CRS", "WGS84", coordinate);
         });
+      }); 
+    }  
+    else if (geometry && geometry.type === "LineString") {
+       // If it's a single polygon, project its coordinates
+      geometry.coordinates = geometry.coordinates.map(coordinate => {
+        return proj4("SOURCE_CRS", "WGS84", coordinate);
       });
-    } else {
+    }
+    else {
       continue
     }
 
@@ -747,6 +754,7 @@ const loadOptions = (json) => {
 
   console.log('rows-uploadObj------>', uploadObj.value)
   console.log('rows-parentObj------>', parentObj.value)
+  console.log('uploadObj.value[0]------>', uploadObj.value[0])
 
   console.log('rows-uploadObj---PCODE--->', uploadObj.value[0].properties.pcode)
 
