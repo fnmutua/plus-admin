@@ -47,8 +47,12 @@ import * as turf from '@turf/turf'
 import proj4 from 'proj4';
 import shortid from 'shortid';
 
+import { useRouter,useRoute } from 'vue-router'
 
+const route = useRoute()
+const { push } = useRouter()
 
+    
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
@@ -424,7 +428,7 @@ const makeOptions = (list) => {
   selectedValues.value = matchOptions
 
   console.log(matchOptions, matchOptions)
-  show.value=true
+  //show.value=true
 }
 
 const handleClear = async () => {
@@ -437,13 +441,6 @@ const handleSelectSettlement = async (settlement: any) => {
   settlement = settlement
 
 }
-
-
-
-
-
-
-
 
 const fileList = ref<UploadUserFile[]>([])
 
@@ -760,98 +757,79 @@ const loadOptions = (json) => {
 
 
   uploadObj.value.map((upload, i) => {
-    console.log('------------>', i, upload)
+  console.log('------------>', i, upload);
 
-    var thisFeature = upload.properties
-    thisFeature.geom = upload.geometry
+  var thisFeature = upload.properties;
+  thisFeature.geom = upload.geometry;
 
+  console.log('------matchedObj------>', i, thisFeature);
 
-    console.log('------matchedObj------>', i, thisFeature)
+  if (settlement.value) {
+    show.value = true; // Show the matching table if only any match is observed
 
+    var filterParent = parentObj.value.filter(function (el) {
+      return el['id'] === settlement.value;
+    });
 
+    console.log('------filterParent------>', filterParent);
 
-    if (settlement.value) {
-      show.value = true // Show the matching table if only any match is observed
-      var filterParent = parentObj.value.filter(function (el) {
-        return el['id'] === settlement.value
-      })
+    if (filterParent.length > 0) {
+      // Here we add a prefix to the parent details to avoid confusion
+      let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
+      let pfeature = Object.keys(filterParent[0]).reduce(
+        (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+        {}
+      );
 
-              console.log('------filterParent------>', filterParent)
-              if (filterParent.length > 0) {
-                // here we add a prefix to the parent details to avoid confusion
-                let pre = parentModel.value + '_' // a prefix to differential parent and child
-                let pfeature = Object.keys(filterParent[0]).reduce(
-                  (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-                  {}
-                )
-                const mergedFeature = { ...thisFeature, ...pfeature } // merge the feature with the parent details
-                matchedObjwithparent.value.push(mergedFeature)
-              }
-
-              else {
-                console.log('No match......')
-                ElMessage.error('The selected settlement did not match any records in the datababase!')
-                loadingPosting.value = false
-                show.value = false
-
-                return
-
-              }
-
-
-
+      const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
+      matchedObjwithparent.value.push(mergedFeature);
     } else {
-
-
-      if (upload.properties[code.value]) {
-        var filterParent = parentObj.value.filter(function (el) {
-        return el['code'] === upload.properties[code.value]
-      })
-        console.log('------filterParent------>', filterParent)
-              if (filterParent.length > 0) {
-                // here we add a prefix to the parent details to avoid confusion
-                let pre = parentModel.value + '_' // a prefix to differential parent and child
-                let pfeature = Object.keys(filterParent[0]).reduce(
-                  (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-                  {}
-                )
-                const mergedFeature = { ...thisFeature, ...pfeature } // merge the feature with the parent details
-                matchedObjwithparent.value.push(mergedFeature)
-              }
-
-              else {
-                console.log('No match......')
-                ElMessage.error('The parent Code(pcode) did not match any records in the datababase!')
-                loadingPosting.value = false
-                show.value = false
-
-                return
-
-              }
-
-        
-      } 
-      else {
-        console.log('The parent Code is required')
-      ElMessage.error(
-        'The parent Code(pcode) is required in the uploaded  File!'
-      )
-      loadingPosting.value = false
-      return
-
-      }
-
-
-
-
-
-
-      
+      console.log('No match......');
+      ElMessage.error('The selected settlement did not match any records in the database!');
+      show.value = false;
+      loadingPosting.value = false;
+      console.log('move away.....');
+      //    return
     }
-  })
+  } else {
+    if (upload.properties[code.value]) {
+      var filterParent = parentObj.value.filter(function (el) {
+        return el['code'] === upload.properties[code.value];
+      });
+
+      console.log('------filterParent------>', filterParent);
+
+      if (filterParent.length > 0) {
+        // Here we add a prefix to the parent details to avoid confusion
+        let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
+        let pfeature = Object.keys(filterParent[0]).reduce(
+          (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+          {}
+        );
+
+        const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
+        matchedObjwithparent.value.push(mergedFeature);
+      } else {
+        console.log('No match......');
+        push({ name: 'Importgeo' });
+        ElMessage.error('The parent Code (pcode) did not match any records in the database!');
+        loadingPosting.value = false;
+        show.value = false;
+        console.log('move away.....');
+        return;
+      }
+    } else {
+      console.log('The parent Code is required');
+      ElMessage.error('The parent Code (pcode) is required in the uploaded File!');
+      loadingPosting.value = false;
+      return;
+    }
+  }
+});
 
 
 
+console.log('show Match?', show.value)
   console.log('children', matchedObjwithparent.value)
   loadingPosting.value = false
   const mergedfields = (Object.getOwnPropertyNames(matchedObjwithparent.value[0]));  // get properties from first row
@@ -924,7 +902,7 @@ const updateSelect = async (row, index) => {
 
       <div style="display: inline-block; margin-left: 20px">
         <el-select
-v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
+        v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
           :onClear="handleClear" clearable filterable collapse-tags placeholder="Select Settlement">
           <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
