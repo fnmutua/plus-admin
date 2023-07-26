@@ -14,10 +14,10 @@ import {
   ElIcon,
   ElTableColumn,
   ElInput,
-  ElSwitch,
+  ElSwitch,ElCol, ElRow,ElButtonGroup,
   ElUpload,
   ElOption,
-  ElMessage, ElDivider, ElMessageBox, UploadProps, UploadUserFile, ElOptionGroup
+  ElMessage, ElDivider, ElMessageBox, UploadProps, UploadUserFile, ElOptionGroup, ElNotification,
 } from 'element-plus'
 import {
   Upload,
@@ -27,7 +27,9 @@ import {
   Delete,
   RefreshLeft,
   UploadFilled,
-   ArrowRightBold,
+  ArrowRightBold,
+  Close,
+  Promotion,
   Tools
 } from '@element-plus/icons-vue'
 
@@ -47,12 +49,12 @@ import * as turf from '@turf/turf'
 import proj4 from 'proj4';
 import shortid from 'shortid';
 
-import { useRouter,useRoute } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const route = useRoute()
 const { push } = useRouter()
 
-    
+
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
@@ -70,12 +72,10 @@ const parent_key = ref()       // the parent foregin key in the model
 const parentModel = ref()      // the parent model
 const loadingPosting = ref(false)
 const showUploadinput = ref(false)
-const showUploadbtn = ref(false)
-const loadingText = ref()
+ const loadingText = ref()
 
 ///---------------------xlsx-
-const file = ref()
-
+ 
 
 //// ------------------parameters -----------------------////
 const matchOptions = ref([])
@@ -95,17 +95,24 @@ const showErrorMessage = (message) => {
     showClose: true,
     message: message,
     type: 'warning',
-    duration:10000
+    duration: 10000
   })
 }
 
+
 const showUploadMessage = (message) => {
-  ElMessage({
-    showClose: false,
+  ElNotification({
+    title: 'Results',
     message: message,
-     duration:3000
+    dangerouslyUseHTMLString: true,
+
+    duration: 0,
+    type: 'info',
+
   })
 }
+
+ 
 
 
 const uploadOptions = [
@@ -171,11 +178,7 @@ const uploadOptions = [
         value: 'sewer',
         label: 'Sewer'
       },
-
-      {
-        value: 'path',
-        label: 'Paths'
-      }
+ 
     ]
   }
 ]
@@ -419,7 +422,7 @@ const handleProcess = async () => {
   await BatchImportUpsert(formData)
     .catch((error) => {
       console.log('Error------>', error.response.data.message)
-     // ElMessage.error(error.response.data.message)
+      // ElMessage.error(error.response.data.message)
       showErrorMessage(error.response.data.message)
 
     })
@@ -449,7 +452,7 @@ const makeOptions = (list) => {
   console.log(matchOptions, matchOptions)
   //show.value=true
 }
- 
+
 const handleClear = async () => {
   console.log('cleared....')
   settlement.value = ''
@@ -466,9 +469,10 @@ const fileList = ref<UploadUserFile[]>([])
 const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
   console.log(file, uploadFiles)
   show.value = false
-  uploadObj.value = []
-  matchedObj.value = []
-  fieldSet.value = []
+  //uploadObj.value = []
+ // matchedObj.value = []
+   fieldSet.value = []
+ // reset()
 
 }
 
@@ -480,12 +484,18 @@ const handlePreview: UploadProps['onPreview'] = (uploadFile) => {
   console.log(uploadFile)
 }
 
-const handleExceed: UploadProps['onExceed'] = (files, uploadFiles) => {
-  ElMessage.warning(
-    `The limit is 1, you selected ${files.length} files this time, add up to ${files.length + uploadFiles.length
-    } totally`
-  )
+ 
+
+const handleFileChange = () => {
+    console.log('uploaded...')
+  
+  disableProcess.value=false
+
 }
+
+
+
+
 
 const beforeRemove: UploadProps['beforeRemove'] = (uploadFile) => {
   return ElMessageBox.confirm(`Cancel the transfert of ${uploadFile.name} ?`).then(
@@ -494,50 +504,26 @@ const beforeRemove: UploadProps['beforeRemove'] = (uploadFile) => {
   )
 }
 
+ 
+ 
 
-const readShapefile = async (zip) => {
-
-  const filenames = Object.keys(zip.files);
-  const shpFilename = filenames.find((filename) => filename.endsWith('.shp'));
-  const dbfFilename = filenames.find((filename) => filename.endsWith('.dbf'));
-  const shpPrj = filenames.find((filename) => filename.endsWith('.prj'));
-
-  if (!shpFilename || !dbfFilename || !shpPrj) {
-   // ElMessage.error('Shapefile is missing required files. Ensure .shp, .dbf and .prj files are present in the zipped file')
-    showErrorMessage('Shapefile is missing required files. Ensure .shp, .dbf and .prj files are present in the zipped file')
-
-    loadingPosting.value = false
-
-    // throw new Error('Shapefile is missing required files. Ensure .shp, .dbf and .prj files are present');
-  } else {
-
-    const shpFile = await zip.files[shpFilename].async('arraybuffer');
-    const dbfFile = await zip.files[dbfFilename].async('arraybuffer');
-
-    return { shp: shpFile, dbf: dbfFile };
-  }
-
-
-}
-
-const convertToGeoJSON = async (shapefileData) => {
-  const { shp, dbf } = shapefileData;
-  const shpBuffer = new Uint8Array(shp);
-  const dbfBuffer = new Uint8Array(dbf);
-  const { features, bbox } = await shapefile.read(shpBuffer, dbfBuffer);
-  const geojson = { type: 'FeatureCollection', features, bbox };
-  return geojson;
-}
-
-
+const disableUploadSubmit = ref(false)
+const disableProcess = ref(true)
 
 const submitFiles = async () => {
+
+  //disable to prevent multiple uplaods/submits
+
+
+  disableUploadSubmit.value = true
+  disableProcess.value=true
   console.log('on Submit....', fileList.value)
   loadingPosting.value = true
   loadingText.value = 'Matching fields.. Please wait.......'
   if (fileList.value.length == 0) {
-  //  ElMessage.error('Select a  File first!')
+    //  ElMessage.error('Select a  File first!')
     showErrorMessage('Select a  File first!')
+    reset()
 
   } else {
 
@@ -575,7 +561,7 @@ const submitFiles = async () => {
 
 
     else {
-     // ElMessage.error('Please select a zipped shapefile or a geojon file')
+      // ElMessage.error('Please select a zipped shapefile or a geojon file')
       showErrorMessage('Please select a zipped shapefile or a geojon file')
 
 
@@ -591,7 +577,24 @@ const submitFiles = async () => {
 
 }
 
+const reset = async () => { 
 
+  console.log('reseting')
+  disableUploadSubmit.value = false
+  
+  matchOptions.value =[]
+   reserveOptions.value = []
+  uploadObj.value = []
+  matchedObj.value = []
+  matchedObjwithparent.value = []
+  fieldSet.value = []
+  show.value = false
+  showSwitch.value =false
+  showSettleementSelect.value = false
+  fileList.value=[]
+
+  
+}
 
 const readShp = async (file) => {
   console.log('Reading Shp file....')
@@ -634,6 +637,8 @@ const readJson = (event) => {
   loadOptions(json)
 
 }
+
+
 const loadOptions = (json) => {
 
   var featureType = json.type
@@ -739,24 +744,56 @@ const loadOptions = (json) => {
     const geometry = json.features[i].geometry;
     // Check if the geometry type is "Polygon" or "MultiPolygon"
     if (geometry && geometry.type === "Polygon") {
-      // If it's a single polygon, project its coordinates
-      geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
-        return proj4("SOURCE_CRS", "WGS84", coordinate);
-      });
-    } else if (geometry && geometry.type === "MultiPolygon") {
-      // If it's a multi-polygon, loop through all polygons and project their coordinates
-      geometry.coordinates.forEach(polygon => {
-        polygon[0] = polygon[0].map(coordinate => {
-          return proj4("SOURCE_CRS", "WGS84", coordinate);
+          // If it's a single polygon, project its coordinates
+          geometry.coordinates = geometry.coordinates.map(ring => {
+            return ring.map(coordinate => {
+              return proj4("SOURCE_CRS", "WGS84", coordinate);
+            });
+          });
+        }
+
+    else if (geometry && geometry.type === "MultiPolygon") {
+        // If it's a MultiPolygon, loop through all polygons and project their coordinates
+        geometry.coordinates.forEach(polygon => {
+          polygon.forEach((ring, ringIndex) => {
+            geometry.coordinates[ringIndex] = ring.map(coordinate => {
+              return proj4("SOURCE_CRS", "WGS84", coordinate);
+            });
+          });
         });
-      }); 
-    }  
+      }
+
     else if (geometry && geometry.type === "LineString") {
-       // If it's a single polygon, project its coordinates
+      // If it's a single polygon, project its coordinates
       geometry.coordinates = geometry.coordinates.map(coordinate => {
         return proj4("SOURCE_CRS", "WGS84", coordinate);
       });
     }
+
+    else if (geometry && geometry.type === "MultiLineString") {
+        // If it's a MultiLineString, project the coordinates of each LineString
+        geometry.coordinates = geometry.coordinates.map(lineString => {
+          return lineString.map(coordinate => {
+            return proj4("SOURCE_CRS", "WGS84", coordinate);
+          });
+        });
+      }
+
+
+    else if (geometry && geometry.type === "Point") {
+      // If it's a single point, project its coordinates
+      geometry.coordinates = proj4("SOURCE_CRS", "WGS84", geometry.coordinates);
+    }
+
+
+      else if (geometry && geometry.type === "MultiPoint") {
+    // If it's a MultiPoint, project the coordinates of each point
+    geometry.coordinates = geometry.coordinates.map(coordinate => {
+      return proj4("SOURCE_CRS", "WGS84", coordinate);
+    });
+  }
+
+
     else {
       continue
     }
@@ -774,26 +811,57 @@ const loadOptions = (json) => {
   }
 
 
- 
+
 
   console.log('rows-uploadObj------>', uploadObj.value)
   console.log('rows-parentObj------>', parentObj.value)
-  console.log('uploadObj.value[0]------>', uploadObj.value[0])
+  //console.log('uploadObj.value[0]------>', uploadObj.value[0])
 
-  console.log('rows-uploadObj---PCODE--->', uploadObj.value[0].properties.pcode)
+  //console.log('rows-uploadObj---PCODE--->', uploadObj.value[0].properties.pcode)
 
+  let failedCount = 0
   uploadObj.value.map((upload, i) => {
-      console.log('------------>', i, upload);
-      var thisFeature = upload.properties;
-      thisFeature.geom = upload.geometry;
+    console.log('------------>', i, upload);
+    var thisFeature = upload.properties;
+    thisFeature.geom = upload.geometry;
 
-      console.log('------matchedObj------>', i, thisFeature);
+    console.log('------matchedObj------>', i, thisFeature);
 
-      if (settlement.value) {
-        // Show the matching table if only any match is observed
+    if (settlement.value) {
+      // Show the matching table if only any match is observed
 
+      var filterParent = parentObj.value.filter(function (el) {
+        return el['id'] === settlement.value;
+      });
+
+      console.log('------filterParent------>', filterParent);
+
+      if (filterParent.length > 0) {
+        // Here we add a prefix to the parent details to avoid confusion
+        let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
+        let pfeature = Object.keys(filterParent[0]).reduce(
+          (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+          {}
+        );
+
+        const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
+        matchedObjwithparent.value.push(mergedFeature);
+      } else {
+        console.log('No match......');
+        //ElMessage.error('The selected settlement did not match any records in the database!');
+        showErrorMessage('The selected settlement did not match any records in the database!')
+        //show.value = false;
+        loadingPosting.value = false;
+        failedCount = failedCount + 1
+        console.log('move away.....');
+        return
+      }
+    }
+
+    else {
+      if (upload.properties[code.value]) {
         var filterParent = parentObj.value.filter(function (el) {
-          return el['id'] === settlement.value;
+          return el['code'] === upload.properties[code.value];
         });
 
         console.log('------filterParent------>', filterParent);
@@ -810,69 +878,56 @@ const loadOptions = (json) => {
           matchedObjwithparent.value.push(mergedFeature);
         } else {
           console.log('No match......');
-          //ElMessage.error('The selected settlement did not match any records in the database!');
-          showErrorMessage('The selected settlement did not match any records in the database!')
+          push({ name: 'Importgeo' });
+          //ElMessage.error('The parent Code ' + uploadObj.value[0].properties.pcode + ' (pcode) did not match any records in the database!');
+          showErrorMessage('The parent Code ' + thisFeature.pcode + ' (pcode) did not match any records in the database!')
+          loadingPosting.value = false;
           //show.value = false;
-          loadingPosting.value = false;
           console.log('move away.....');
-             return
-        }
-      } else {
-        if (upload.properties[code.value]) {
-          var filterParent = parentObj.value.filter(function (el) {
-            return el['code'] === upload.properties[code.value];
-          });
+          failedCount = failedCount + 1
 
-          console.log('------filterParent------>', filterParent);
-
-          if (filterParent.length > 0) {
-            // Here we add a prefix to the parent details to avoid confusion
-            let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
-            let pfeature = Object.keys(filterParent[0]).reduce(
-              (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-              {}
-            );
-
-            const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
-            matchedObjwithparent.value.push(mergedFeature);
-          } else {
-            console.log('No match......');
-            push({ name: 'Importgeo' });
-            //ElMessage.error('The parent Code ' + uploadObj.value[0].properties.pcode + ' (pcode) did not match any records in the database!');
-            showErrorMessage('The parent Code ' + thisFeature.pcode + ' (pcode) did not match any records in the database!')
-            loadingPosting.value = false;
-            //show.value = false;
-            console.log('move away.....');
-            return;
-          }
-        } else {
-          console.log('The parent Code is required');
-          //ElMessage.error('The parent Code (pcode) is required in the uploaded File!');
-          showErrorMessage('The parent Code (pcode) is required in the uploaded File!')
-
-          loadingPosting.value = false;
           return;
         }
+      } else {
+        console.log('The parent Code is required');
+        //ElMessage.error('The parent Code (pcode) is required in the uploaded File!');
+        showErrorMessage('The parent Code (pcode) is required in the uploaded File!')
+
+        loadingPosting.value = false;
+        return;
       }
+    }
   });
 
 
   console.log('Finished Matching -->', matchedObjwithparent.value)
-
-  if (matchedObjwithparent.value.length >0) {
+  let successCount = 0
+  if (matchedObjwithparent.value.length > 0) {
     show.value = true;
-
-    showUploadMessage(matchedObjwithparent.value.length + 'will now be uploaded')
+    successCount = matchedObjwithparent.value.length
+    //showUploadMessage(matchedObjwithparent.value.length + ' will now be uploaded' + failedCount +'Failed to match')
   }
 
+  const successColor = 'green';
+  const failColor = 'red';
+
+  const result = `
+      <strong style="color: ${successColor}">${successCount}</strong>: Will be uploaded<br>
+      <strong style="color: ${failColor}">${failedCount}</strong>: Failed to match
+  `;
 
 
-console.log('show Match?', show.value)
+  //const result = '<strong>'+ successCount  +'</strong>' + ': will now be uploaded  <br>' + '<strong>'+ failedCount + '</strong>' +': Failed to match '   
+
+  showUploadMessage(result)
+
+
+  console.log('show Match?', show.value)
   console.log('children', matchedObjwithparent.value)
   loadingPosting.value = false
   const mergedfields = (Object.getOwnPropertyNames(matchedObjwithparent.value[0]));  // get properties from first row
 
-  console.log( 'mergedfields',mergedfields)
+  console.log('mergedfields', mergedfields)
 
   makeOptions(mergedfields)
 
@@ -896,8 +951,9 @@ const selectedValues = ref()
 
 const prevValue = ref()
 
+const disableSubmitMatched =ref(true)
 const updateSelect = async (row, index) => {
-
+  disableSubmitMatched.value=false
   // Remove the previously selected value for this row from the selectedValues array
   prevValue.value = selectedValues.value[index];
 
@@ -927,9 +983,12 @@ const updateSelect = async (row, index) => {
 <template>
   <ContentWrap :title="t('Upload Geometry Data')" :message="t('Ensure you have the required fields Geojson ')">
 
-    <div v-loading="loadingPosting" :element-loading-text="loadingText">
 
-      <div style="display: inline-block; margin-left: 20px">
+    <el-row :gutter="20">
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12"> 
+        <div  > 
+
+          <div style="display: inline-block; margin-left: 20px">
         <el-select v-model="type" :onChange="handleSelectType" :onClear="handleClear" placeholder="Select data to import">
           <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
             <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
@@ -938,111 +997,97 @@ const updateSelect = async (row, index) => {
       </div>
 
 
+
       <div style="display: inline-block; margin-left: 20px">
         <el-select
-        v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
+v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
           :onClear="handleClear" clearable filterable collapse-tags placeholder="Select Settlement">
           <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </div>
 
 
+      <div style="margin-top: 20px">
 
-      <!-- <el-divider v-if="showUploadinput" border-style="dashed" content-position="left">Upload</el-divider> -->
+      <el-upload
+    class="upload-demo"
+    drag
+    action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+    v-if="showUploadinput" ref="upload" v-model:file-list="fileList"
+    :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :on-change="handleFileChange"
+        :auto-upload="false"
+  >
+    <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+    <div class="el-upload__text">
+      Drop file here or <em>click to upload</em>
+    </div>
+    <template #tip>
+      <div class="el-upload__tip">
+        Only zipped shapefile (.zip), json and geojson formats are support
+      </div>
+    </template>
+       </el-upload>
+       </div>
+  <div class="button-group-container" v-if="showUploadinput">
+    <el-button-group  class="mt-1" style="width: 100%">
+
+      
+    <el-button :disabled="disableProcess" @click="submitFiles" type="primary"   style="display: inline-block; margin-left: 5px" class="mt-1" >
+      Process
+      <el-icon class="el-icon--right"> <Promotion/> </el-icon>
+    </el-button>
+    <el-button @click="reset" type="warning"   class="mt-1"  style="display: inline-block; margin-left: 5px"  >
+      Reset
+      <el-icon class="el-icon--right"> <Close/> </el-icon>
+    </el-button>
+
+    <el-button v-if="showUploadinput &&!disableSubmitMatched" class="mt-1"   @click="handleProcess" type="primary"  style="display: inline-block; margin-left: 5px" >
+          Submit Data<el-icon class="el-icon--right">
+            <UploadFilled />
+          </el-icon>
+        </el-button>
+  </el-button-group>
+</div>
+
+
+
+
+
+
       <!-- <el-upload
-v-if="showUploadinput" class="upload-demo"  
-        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList"
-        :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="1"
-        :on-exceed="handleExceed" :auto-upload="false">
-        <div class="el-upload__text"> Drop file here or <em>click to upload</em> </div>
+       v-if="showUploadinput" ref="upload" v-model:file-list="fileList" class="upload-demo"
+        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :limit="1" :on-exceed="handleExceed"
+        :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :on-change="handleFileChange"
+        :auto-upload="false">
+        <template #trigger>
+          <el-button  :disabled="disableUploadSubmit" type="plain">Select File <el-icon class="el-icon--right"> <UploadFilled/> </el-icon>
+          </el-button>
+        </template>
+
+            
+        <el-button
+v-if="showUploadinput" class="mt-3" :disabled="disableProcess"  
+            @click="submitFiles" type="primary" plain>
+            Process
+            <el-icon class="el-icon--right"> <Promotion/> </el-icon>
+                </el-button>
+                <el-button v-if="showUploadinput"  @click="reset" type="warning" plain>
+                  Reset
+                  <el-icon class="el-icon--right">  <Close/> </el-icon>
+          </el-button>
+
       </el-upload> -->
 
 
+  
 
+        </div>
+      </el-col>
+  
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12"> 
+        <div class="grid-content ep-bg-purple-light" > 
 
-<!--           
-      <el-upload 
-                v-if="showUploadinput"
-                v-model:file-list="fileList"
-                class="upload-demo mt-2"
-                action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-                :auto-upload="false"
-                :show-file-list="false"
-                :on-preview="handlePreview" 
-                :on-remove="handleRemove" 
-                :before-remove="beforeRemove" 
-                 :on-exceed="handleExceed"
-               /> -->
-
-      <el-divider v-if="showUploadinput" border-style="dashed" content-position="left">Upload</el-divider>
-
-               <!-- <el-upload
-v-if="showUploadinput"
-                  v-model:file-list="fileList"
-                  class="upload-demo mt-2"
-                  action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-                  multiple
-                  :on-preview="handlePreview"
-                  :on-remove="handleRemove"
-                  :before-remove="beforeRemove"
-                  :limit="1"
-                  :auto-upload="false"
-
-                  :on-exceed="handleExceed"
-                >
-                  <el-button type="primary">Select File </el-button>
-                
-                </el-upload> -->
-
-
-
-
-
-                <el-upload
-                   v-if="showUploadinput"
-                    ref="upload"
-                    v-model:file-list="fileList"
-                    class="upload-demo"
-                    action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-                    :limit="1"
-                    :on-exceed="handleExceed"
-                    :on-preview="handlePreview"
-                    :on-remove="handleRemove"
-                   :before-remove="beforeRemove"
-                    :auto-upload="false"
-                  >
-                    <template #trigger>
-                      <el-button type="primary">select file  </el-button>
-                    </template>
-                    
-
-                    <el-button v-if="showUploadinput" class="ml-3" style="width: 10%" @click="submitFiles" type="success">
-                    Process<el-icon class="el-icon--right">
-                      <Tools />
-                    </el-icon>
-                      </el-button>
-                    <template #tip>
-                      <div class="el-upload__tip text-red">
-                        Only zipped shapefile (.zip), json and geojson formats are support
-                      </div>
-                    </template>
-                  </el-upload>
-
-
-
-      <!-- <el-divider v-if="showUploadinput" border-style="dashed" content-position="left">Upload</el-divider> -->
-
-
-
-      <!-- <el-button v-if="showUploadinput" class="mb-2" style="width: 20%; margin-top: 10px;" @click="submitFiles" type="primary">
-  Upload<el-icon class="el-icon--right">
-    <Upload />
-  </el-icon>
-</el-button> -->
-
-
-
-      <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 250px; overflow-y: scroll;">
+          <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 400px; overflow-y: scroll;" border >
         <el-table-column prop="column" label="Field">
           <template #default="scope">
             <el-input v-model="scope.row.field" controls-position="left" disabled />
@@ -1061,27 +1106,36 @@ v-for="(option, index) in matchOptions" :key="index" :label="option.label" :valu
           </template>
         </el-table-column>
       </el-table>
-    </div>
-
-    <div class="button-group-container">
-      <el-button-group v-if="show" class="mt-1" style="width: 100%">
-        <!-- <el-button type="primary" :icon="Tools" @click="handleProcess" />
-          <el-button type="primary" :icon="RefreshLeft" @click="handleClearField" /> -->
-
-        <el-button v-if="showUploadinput" class="mt-2" style="width: 10%" @click="handleProcess" type="primary">
-          Submit Data<el-icon class="el-icon--right">
-            <UploadFilled />
-          </el-icon>
-        </el-button>
+    
 
 
-        <el-button v-if="showUploadinput" class="mt-2" style="width: 10%" @click="handleClearField" type="warning">
-          Reset<el-icon class="el-icon--right">
-            <RefreshLeft />
-          </el-icon>
-        </el-button>
-      </el-button-group>
-    </div>
+
+        </div>
+      </el-col>
+  </el-row>
+
+  
+    
+ 
+     
+
+
+
+ 
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1110,4 +1164,20 @@ v-for="(option, index) in matchOptions" :key="index" :label="option.label" :valu
   /* Adjust the height as needed */
   overflow-y: auto;
 }
+
+
+
+.button-group-container {
+  display: flex;
+  width: 100%;
+}
+
+.button-group {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+}
+
+
+
 </style>
