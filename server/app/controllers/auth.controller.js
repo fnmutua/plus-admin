@@ -229,6 +229,7 @@ exports.updateByUser = (req, res) => {
 
 
 exports.reset = (req, res) => {
+  let username
   console.log('Reset password....', req.headers)
   console.log(req.body)
   if (req.body.email === '') {
@@ -243,6 +244,7 @@ exports.reset = (req, res) => {
         // res.status(403).send('email not in db');
         return res.status(404).send({ message: 'User Not found.' })
       } else {
+        username=user.userName
         var token = jwt.sign({ id: user.id }, config.secret, {
           expiresIn: 86400 // 24 hours
         })
@@ -282,7 +284,7 @@ exports.reset = (req, res) => {
           to: `${req.body.email}`,
           subject: 'Link To Reset Password',
           text:
-            'You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n' +
+            'You are receiving this because you (or someone else) have requested the reset of the password for your account.'+username +'\n\n' +
             'Please click on the following link, or paste this into your browser to complete the process within one hour of receiving it:\n\n' +
             CLIENT_URL+'#/reset/'+token+'\n\n' +
             'If you did not request this, please ignore this email and your password will remain unchanged.\n'
