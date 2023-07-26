@@ -145,7 +145,7 @@ const signIn = async () => {
       try {
         const res = await loginApi(formData)
         console.log('After Login', res)
-        const selUserDetails = (({ id, name, roles, data, county_id }) => ({ id, name, roles, data, county_id }))(res);
+        const selUserDetails = (({ id, name, roles, data, county_id, avatar }) => ({ id, name, roles, data, county_id ,avatar}))(res);
         if (selUserDetails) {
           wsCache.set(appStore.getUserInfo, selUserDetails)
           // 是否使用动态路由

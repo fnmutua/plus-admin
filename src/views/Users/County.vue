@@ -7,7 +7,7 @@ import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElDropdown, ElDropdownItem, ElCheckboxGroup,ElCheckbox,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
@@ -573,6 +573,15 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
 
     <el-table :data="tableDataList" style="width: 100%" fit>
+
+      
+        <!-- Avatar column -->
+  <el-table-column label="Avatar" width="100">
+    <template #default="scope">
+      <el-avatar :src="scope.row.avatar" size="80px" />
+    </template>
+  </el-table-column>
+
       <el-table-column type="index" label="#" width="50">
         <!-- Use the 'index' slot to customize the index column -->
         <template #default="scope">
