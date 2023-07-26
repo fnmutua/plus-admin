@@ -2401,7 +2401,7 @@ export const staffRoutes: AppRouteRecordRaw[] = [
         name: 'Importgeo',
         meta: {
           title: 'Spatial',
-          icon: 'gis:geojson-file',
+          icon: 'mdi:file-location-outline',
 
         }
       },
@@ -3248,7 +3248,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'Importgeo',
             meta: {
               title: 'Spatial',
-              icon: 'gis:geojson-file',
+              icon: 'mdi:file-location-outline',
     
             }
           },
