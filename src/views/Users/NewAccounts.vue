@@ -6,7 +6,7 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElDropdown, ElDropdownItem,
+  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElDropdown, ElDropdownItem,ElCol,
   ElFormItem, ElForm, ElInput, ElTable, ElTableColumn,ElCheckTag,ElCheckbox,ElCheckboxButton,ElCheckboxGroup, ElAvatar
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
@@ -577,7 +577,12 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
     <el-table :data="tableDataList" style="width: 100%" fit>
 
-      
+      <el-table-column type="index" label="#" width="50">
+        <!-- Use the 'index' slot to customize the index column -->
+        <template #default="scope">
+          {{ scope.$index + 1 }}
+        </template>
+      </el-table-column>
         <!-- Avatar column -->
   <el-table-column label="Avatar" width="100">
     <template #default="scope">
@@ -585,12 +590,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
     </template>
   </el-table-column>
   
-      <el-table-column type="index" label="#" width="50">
-        <!-- Use the 'index' slot to customize the index column -->
-        <template #default="scope">
-          {{ scope.$index + 1 }}
-        </template>
-      </el-table-column>
+ 
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="County" prop="county.name" sortable />
@@ -643,36 +643,37 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
 
-    <el-dialog v-model="dialogFormVisible" title="User Details">
+      <el-dialog v-model="dialogFormVisible" title="User Details" width="40%">
       <el-form :model="form">
-        <el-form-item label="Name" :label-width="formLabelWidth">
-          <el-input v-model="form.name" autocomplete="off" />
-        </el-form-item>
-
-        <el-form-item label="Email" :label-width="formLabelWidth">
-          <el-input v-model="form.email" autocomplete="off" disabled />
-        </el-form-item>
-
-        <el-form-item label="Phone" :label-width="formLabelWidth">
-          <el-input v-model="form.phone" autocomplete="off" />
-        </el-form-item>
-
-
-        <el-form-item label="County" :label-width="formLabelWidth">
-          <el-select v-model="form.county_id" placeholder="Please select a zone">
-            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
  
+            <el-form-item label="" :label-width="formLabelWidth" class="center-avatar">
+               <el-avatar shape="circle" :size="60"  fit="cover" :src="form.avatar"  />
+            </el-form-item>
+                <el-form-item label="Name" :label-width="formLabelWidth">
+                  <el-input v-model="form.name" autocomplete="off" />
+                </el-form-item>
 
+                <el-form-item label="Email" :label-width="formLabelWidth">
+                  <el-input v-model="form.email" autocomplete="off" disabled />
+                </el-form-item>
 
-        <el-form-item label="Roles" :label-width="formLabelWidth">
-  <el-checkbox-group v-model="form.roles">
-    <el-checkbox v-for="item in RolesOptions" :key="item.value" :label="item.value">
-      {{ item.label }}
-    </el-checkbox>
-  </el-checkbox-group>
-</el-form-item>
+                <el-form-item label="Phone" :label-width="formLabelWidth">
+                  <el-input v-model="form.phone" autocomplete="off" />
+                </el-form-item>
+                <el-form-item label="County" :label-width="formLabelWidth">
+                  <el-select v-model="form.county_id" placeholder="Please select a zone">
+                    <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="Roles" :label-width="formLabelWidth">
+                  <el-checkbox-group v-model="form.roles">
+                    <el-row :gutter="20">
+                      <el-col v-for="item in RolesOptions" :key="item.value" :span="7">
+                        <el-checkbox :label="item.value">{{ item.label }}</el-checkbox>
+                      </el-col>
+                    </el-row>
+                  </el-checkbox-group>
+                </el-form-item>
 
       </el-form>
       <template #footer>

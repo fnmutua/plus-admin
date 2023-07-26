@@ -6,8 +6,8 @@ import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElDropdown, ElDropdownItem, ElCheckboxGroup,ElCheckbox,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar
+  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter,ElRow, ElDropdown, ElDropdownItem, ElCheckboxGroup,ElCheckbox,
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar,  
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
@@ -16,13 +16,13 @@ import {
   Edit,
   User,
   Plus,
-  Download,
+  Download,UserFilled,
   Filter,
   MessageBox
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ELRow } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
@@ -94,7 +94,7 @@ const downloadLoading = ref(false)
 
 const dialogFormVisible = ref(false)
 const editUserForm = ref()
-const formLabelWidth = '140px'
+const formLabelWidth = '100px'
 
 
 let tableDataList = ref<UserType[]>([])
@@ -123,7 +123,8 @@ const form = reactive({
   email: '',
   phone: '',
   county_id: '',
-  roles: []
+  roles: [],
+  avatar:''
 })
 
 
@@ -441,6 +442,7 @@ const EditUser = (data: TableSlotDefault) => {
   form.county_id = data.row.county_id
   form.email = data.row.email
   form.phone = data.row.phone
+  form.avatar = data.row.avatar
   let roles = []
   data.row.user_roles.forEach(function (arrayItem) {
     roles.push(arrayItem.roleid)
@@ -574,7 +576,12 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
     <el-table :data="tableDataList" style="width: 100%" fit>
 
-      
+      <el-table-column type="index" label="#" width="50">
+        <!-- Use the 'index' slot to customize the index column -->
+        <template #default="scope">
+          {{ scope.$index + 1 }}
+        </template>
+      </el-table-column>
         <!-- Avatar column -->
   <el-table-column label="Avatar" width="100">
     <template #default="scope">
@@ -582,12 +589,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
     </template>
   </el-table-column>
 
-      <el-table-column type="index" label="#" width="50">
-        <!-- Use the 'index' slot to customize the index column -->
-        <template #default="scope">
-          {{ scope.$index + 1 }}
-        </template>
-      </el-table-column>
+ 
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="County" prop="county.name" sortable />
@@ -640,36 +642,37 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
 
-    <el-dialog v-model="dialogFormVisible" title="User Details">
+    <el-dialog v-model="dialogFormVisible" title="User Details" width="40%">
       <el-form :model="form">
-        <el-form-item label="Name" :label-width="formLabelWidth">
-          <el-input v-model="form.name" autocomplete="off" />
-        </el-form-item>
+ 
+            <el-form-item label="" :label-width="formLabelWidth" class="center-avatar">
+               <el-avatar shape="circle" :size="60"  fit="cover" :src="form.avatar"  />
+            </el-form-item>
+                <el-form-item label="Name" :label-width="formLabelWidth">
+                  <el-input v-model="form.name" autocomplete="off" />
+                </el-form-item>
 
-        <el-form-item label="Email" :label-width="formLabelWidth">
-          <el-input v-model="form.email" autocomplete="off" disabled />
-        </el-form-item>
+                <el-form-item label="Email" :label-width="formLabelWidth">
+                  <el-input v-model="form.email" autocomplete="off" disabled />
+                </el-form-item>
 
-        <el-form-item label="Phone" :label-width="formLabelWidth">
-          <el-input v-model="form.phone" autocomplete="off" />
-        </el-form-item>
-
-
-        <el-form-item label="County" :label-width="formLabelWidth">
-          <el-select v-model="form.county_id" placeholder="Please select a zone">
-            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-
-     
-        <el-form-item label="Roles" :label-width="formLabelWidth">
-  <el-checkbox-group v-model="form.roles">
-    <el-checkbox v-for="item in RolesOptions" :key="item.value" :label="item.value">
-      {{ item.label }}
-    </el-checkbox>
-  </el-checkbox-group>
-</el-form-item>
-
+                <el-form-item label="Phone" :label-width="formLabelWidth">
+                  <el-input v-model="form.phone" autocomplete="off" />
+                </el-form-item>
+                <el-form-item label="County" :label-width="formLabelWidth">
+                  <el-select v-model="form.county_id" placeholder="Please select a zone">
+                    <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="Roles" :label-width="formLabelWidth">
+                  <el-checkbox-group v-model="form.roles">
+                    <el-row :gutter="20">
+                      <el-col v-for="item in RolesOptions" :key="item.value" :span="7">
+                        <el-checkbox :label="item.value">{{ item.label }}</el-checkbox>
+                      </el-col>
+                    </el-row>
+                  </el-checkbox-group>
+                </el-form-item>
 
       </el-form>
       <template #footer>
@@ -702,6 +705,10 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   margin-right: 10px;
 }
 
+.center-avatar {
+  display: flex;
+  justify-content: center;
+}
 
 .my-switch {
   margin-right: 10px;
