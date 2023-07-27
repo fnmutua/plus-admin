@@ -44,9 +44,7 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: false
     },
-
-
-    
+ 
 
     status: {
       type: DataTypes.STRING,
@@ -66,26 +64,32 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.DATE,
       allowNull: true
     },
-  
- 
-  
+    
     cost: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+    
+    sourceFunding: {
+      type: DataTypes.ARRAY(DataTypes.INTEGER),
+      allowNull: false
+    },
+
     male_beneficiaries: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+
     female_beneficiaries: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
 
-    geom: {
-      type: DataTypes.GEOMETRY('Geometry', 4326),
+    contractor: {
+      type: DataTypes.ARRAY(DataTypes.INTEGER),
       allowNull: true
     },
+
 
     createdBy: {
       type: DataTypes.INTEGER,
@@ -99,6 +103,11 @@ module.exports = function(sequelize, DataTypes) {
       unique:true
     },  
     
+
+    geom: {
+      type: DataTypes.GEOMETRY('Geometry', 4326),
+      allowNull: true
+    },
 
 
   }, {

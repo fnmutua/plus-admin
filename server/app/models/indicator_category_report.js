@@ -27,6 +27,12 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
+    
+      activity_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
 
       programme_implementation_id: {
         type: DataTypes.INTEGER,
@@ -41,15 +47,47 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.STRING,
         allowNull: true
       },
+
       date: {
         type: DataTypes.DATE,
         allowNull: false
       },
+
       amount: {
         type: DataTypes.DECIMAL,
         allowNull: false
       },  
+
+      progress: {
+        type: DataTypes.DECIMAL,
+        allowNull: false
+      }, 
+            
+      disbursement: {
+        type: DataTypes.DECIMAL,
+        allowNull: false
+      },  
       
+     
+      project_status: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      }, 
+
+    
+      status: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: "New",   // Approved, Rejected 
+      },
+
+
+      comments: {
+        type: DataTypes.STRING,
+        allowNull: true
+      }, 
+
+         
       documentation: {
         type: DataTypes.STRING,
         allowNull: true
@@ -59,12 +97,7 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       }, 
-      
-      status: {
-        type: DataTypes.STRING,
-        allowNull: true,
-        defaultValue: "New",   // Approved, Rejected 
-      },
+
       reject_msg: {
         type: DataTypes.STRING,
         allowNull: true
@@ -81,6 +114,22 @@ module.exports = function (sequelize, DataTypes) {
         unique:true
       },  
       
+      cumDisbursement: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      
+      cumProgress: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      cumAmount: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+
+
     },
     {
       sequelize,
