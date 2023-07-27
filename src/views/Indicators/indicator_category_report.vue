@@ -21,8 +21,10 @@ import { ref, reactive, computed, h } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, ElOptionGroup, FormRules, ElPopconfirm
+  ElDatePicker, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload,ElSlider 
+  , ElInput, FormRules, ElPopconfirm, ElCol, ElRow 
 } from 'element-plus'
+ 
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -87,6 +89,62 @@ const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
 const showEditButtons = ref(false)
 
+
+// Function to empty all fields in ruleForm
+function emptyRuleForm() {
+  for (const key in ruleForm) {
+    ruleForm[key] = null;
+  }
+}
+
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+   indicator_category_id: '',
+  project_id: '',
+  activity_id:'',
+  programme_implementation_id:'',
+  settlement_id: '',
+  subcounty_id: '',
+  ward_id:'',
+  county_id: '',
+  period: getQuarter,
+  date: new Date(),
+  progress:0,
+  amount: 0,
+  files: '',
+  project_status:'',
+  disbursement:0,
+  userId: userInfo.id,
+  code: '',
+  cumDisbursement: 0,
+  cumProgress: 0,
+  cumAmount:0,
+  comments: '', 
+  units:'Quantity', 
+  cumUnits:'Cumulative(qty)'
+})
+
+const rules = reactive<FormRules>({
+  indicator_id: [
+    { required: true, message: 'Please provide indicator name', trigger: 'blur' },
+    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+  ],
+  category_id: [
+    { required: true, message: 'Indicator category is required', trigger: 'blur' }],
+     frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
+  progress: [
+    { required: true, message: 'Progress is required', trigger: 'blur' }],
+})
+
+
+
+
+
+
+
+
+
+
 // flag for admin buttons
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
   showAdminButtons.value = true
@@ -106,6 +164,8 @@ const formHeader = ref('Add Report')
 const showSubmitBtn = ref(false)
 const showProcessBtn = ref(true)
 const addMoreDocuments = ref(false)
+
+
 
 const showEditSaveButton = ref(false)
 const cascadeOptions = ref([])
@@ -132,7 +192,11 @@ const show = ref(false)
 const { t } = useI18n()
 
 
-
+const statusOptions = [
+    { label: 'Ongoing', value: 1 },
+    { label: 'Suspended', value: 2 },
+    { label: 'Completed', value: 3 },
+]  
 
 const handleClear = async () => {
   console.log('cleared....')
@@ -303,7 +367,7 @@ const getIndicatorNames = async () => {
   // - multiple filters -------------------------------------
   formData.filters = []
   formData.filterValues = []
-  formData.associated_multiple_models = ['project', 'category', 'activity']
+  formData.associated_multiple_models = ['project', 'category', 'activity', 'indicator']
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
@@ -323,6 +387,7 @@ const getIndicatorNames = async () => {
     opt.subcounty_id = arrayItem.project.subcounty_id
     opt.settlement_id = arrayItem.project.settlement_id
     opt.ward_id = arrayItem.project.ward_id
+    opt.unit = arrayItem.indicator.unit
 
     indicatorsOptions.value.push(opt)
     indicatorsOptionsFiltered.value.push(opt)
@@ -380,11 +445,7 @@ const getProjects = async () => {
   })
 
 }
-
-
-
  
-
 
 const props1 = {
   checkStrictly: true,
@@ -401,18 +462,32 @@ const editReport = (data: TableSlotDefault) => {
 
   ruleForm.settlement_id = data.settlement_id
   ruleForm.project_id = data.project_id
+  ruleForm.activity_id = data.activity_id
+ 
+
   ruleForm.date = data.date
   ruleForm.amount = data.amount
   ruleForm.indicator_category_id = data.indicator_category_id
+  ruleForm.programme_implementation_id = data.programme_implementation_id
+
+  
   ruleForm.ward_id = data.ward_id
-
   ruleForm.code = data.code
+  ruleForm.progress = data.progress
+  ruleForm.project_status = data.project_status
+  ruleForm.disbursement = data.disbursement
+  ruleForm.comments = data.comments
 
+  // Nullify Cumulatives every time theres an edit to avoid multiple editign duplciations
+   ruleForm.cumDisbursement = 0
+  // ruleForm.cumProgress = 0
+   ruleForm.cumAmount = 0
+  
   formHeader.value = 'Edit Report'
   fileUploadList.value = data.documents
 
-  console.log(' ruleForm.location', ruleForm.location)
-
+ 
+  getCumulativeProgressEditPhase()
   AddDialogVisible.value = true
 }
 
@@ -512,7 +587,7 @@ const changeActivity = async (activity: any) => {
 
 }
 
-
+ 
 const changeIndicator = async (indicator: any) => {
   ruleForm.indicator_id = indicator
 
@@ -528,8 +603,11 @@ const changeIndicator = async (indicator: any) => {
 
 
   console.log("Filtered Indicators", filtredOptions[0])
+  ruleForm.units="Quantity(" + filtredOptions[0].unit + ")"
+  ruleForm.cumUnits="Cumulative(" + filtredOptions[0].unit + ")"
   //ruleForm.indicator_category_title = filtredOptions[0].category_title
 
+  getCumulativeProgress()
 }
 
 
@@ -538,33 +616,7 @@ function getQuarter(date = new Date()) {
   return Math.floor(date.getMonth() / 3 + 1);
 }
 
-const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
-  indicator_category_id: '',
-  project_id: '',
-  programme_implementation_id:'',
-  settlement_id: '',
-  subcounty_id: '',
-  ward_id:'',
-  county_id: '',
-  period: getQuarter,
-  date: new Date(),
-  amount: '',
-  files: '',
-  userId: userInfo.id,
-  code: ''
-})
 
-const rules = reactive<FormRules>({
-  indicator_id: [
-    { required: true, message: 'Please provide indicator name', trigger: 'blur' },
-    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
-  ],
-  category_id: [
-    { required: true, message: 'Indicator category is required', trigger: 'blur' }],
-  frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
-
-})
 
 const AddReport = () => {
   AddDialogVisible.value = true
@@ -583,9 +635,16 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.period = getQuarter()
       ruleForm.code = uuid.v4()
       ruleForm.userId = userInfo.id
+      ruleForm.cumDisbursement = ruleForm.cumDisbursement + ruleForm.disbursement
+      ruleForm.cumProgress = (ruleForm.cumProgress + ruleForm.progress)<=100? (ruleForm.cumProgress + ruleForm.progress):100
+
+      console.log('cumProgress', ruleForm.cumProgress)
+      
+      ruleForm.cumAmount = ruleForm.cumAmount + ruleForm.amount
+      
       const report = await CreateRecord(ruleForm)   // first save the form on DB
       console.log("Report", report.data.id)
-
+      emptyRuleForm()
       // uploading the documents 
       const fileTypes = []
       const formData = new FormData()
@@ -626,6 +685,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 }
 
 
+
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
@@ -635,6 +695,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
       console.log(ruleForm.value)
       await updateOneRecord(ruleForm).then(() => { })
 
+      //emptyRuleForm()
       // dialogFormVisible.value = false
 
       const fileTypes = []
@@ -721,6 +782,147 @@ const submitBatchImport = async () => {
 
 
 
+
+const getCumulativeProgress = async () => {
+
+  var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 'programme_implementation_id',
+   ]
+
+  if (ruleForm.settlement_id) {
+    filters.push('settlement_id')
+   }
+  var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
+    [ruleForm.project_id],  [ruleForm.programme_implementation_id],[ruleForm.settlement_id]]  // remember to change here!
+
+
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = []
+
+  // - multiple filters -------------------------------------
+  formData.filters = filters
+  formData.filterValues = filterValues
+  formData.associated_multiple_models = []
+  formData.nested_models = nested_models
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+
+  
+  console.log('yaay. Got last reports', res.data)
+
+
+  function getLatestReport(dataList) {
+    if (dataList.length === 0) {
+    return null;
+  }
+
+  // Find the latest ID using reduce function
+  const latestID = dataList.reduce((prevObj, currentObj) => (currentObj.id > prevObj.id ? currentObj : prevObj)).id;
+
+  // Find the object with the latest ID
+  const objectWithLatestID = dataList.find((obj) => obj.id === latestID);
+
+  // Return the object with the latest ID
+  return objectWithLatestID;
+}
+
+
+// Get the object with the latest date
+const objectWithLatestDate = getLatestReport(res.data);
+console.log('objectWithLatestDate', objectWithLatestDate);
+ 
+ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
+ruleForm.cumDisbursement=parseInt(objectWithLatestDate.cumDisbursement)
+ruleForm.cumAmount=parseInt(objectWithLatestDate.cumAmount)
+
+console.log('cumProgress ats tart',ruleForm);
+ 
+}
+
+
+const getCumulativeProgressEditPhase = async () => {
+
+var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 'programme_implementation_id',
+ ]
+
+if (ruleForm.settlement_id) {
+  filters.push('settlement_id')
+ }
+var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
+  [ruleForm.project_id],  [ruleForm.programme_implementation_id],[ruleForm.settlement_id]]  // remember to change here!
+
+
+const formData = {}
+formData.limit = pSize.value
+formData.page = page.value
+formData.curUser = 1 // Id for logged in user
+formData.model = model
+//-Search field--------------------------------------------
+formData.searchField = 'name'
+formData.searchKeyword = ''
+//--Single Filter -----------------------------------------
+
+formData.assocModel = []
+
+// - multiple filters -------------------------------------
+formData.filters = filters
+formData.filterValues = filterValues
+formData.associated_multiple_models = []
+formData.nested_models = nested_models
+
+//-------------------------
+//console.log(formData)
+const res = await getSettlementListByCounty(formData)
+
+
+console.log('Editing.. Get Last Report', res.data)
+
+
+function getReportBeforeCurrentID(dataList, currentID) {
+  if (dataList.length === 0) {
+    return null;
+  }
+
+  // Filter the dataList to get records with IDs less than currentID
+  const filteredRecords = dataList.filter((obj) => obj.id < currentID);
+
+  if (filteredRecords.length === 0) {
+    return null; // No record before the currentID
+  }
+
+  // Find the object with the maximum ID from the filtered records
+  const objectWithLatestID = filteredRecords.reduce((prevObj, currentObj) => (currentObj.id > prevObj.id ? currentObj : prevObj));
+
+  // Return the object with the maximum ID (last record before currentID)
+  return objectWithLatestID;
+}
+
+
+// Get the object with the latest date
+
+const objectWithLatestDate = getReportBeforeCurrentID(res.data, ruleForm.id);
+console.log('objectWithLatestDate', objectWithLatestDate);
+
+ 
+    ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
+    ruleForm.cumDisbursement=parseInt(objectWithLatestDate.cumDisbursement)
+    ruleForm.cumAmount=parseInt(objectWithLatestDate.cumAmount)
+
+console.log('cumProgress ats tart',ruleForm);
+ 
+
+
+}
 /// Import multiple reports - ----------------
 // ----------------------------------------------
 //const parentModels = ['county']
@@ -1154,8 +1356,19 @@ function handleExpand(row) {
     }, 100); // 0.1 seconds
 }
 
+const sliderMarks =[
+        { value: 20, label: '20%' },
+        { value: 40, label: '40%' },
+        { value: 60, label: '60%' },
+        { value: 80, label: '80%' },
+        { value: 100, label: '100%' }
+      ];
+ 
+ function showTooltip() {
+      return this.sliderValue >= 40 ? 'always' : 'none';
+    }
 
-
+ 
 </script>
 
 <template>
@@ -1273,10 +1486,11 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
 
-    <el-row :gutter="10">
 
-      <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
         <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
+          <el-row :gutter="10">
+
+          <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
 
           <el-form-item label="Project">
             <el-select
@@ -1302,24 +1516,74 @@ filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" 
               <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
+        </el-col>
+      </el-row>
 
+      <el-row :gutter="10">
 
-
-
-          <el-form-item label="Date">
-            <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />
+          <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
+          <el-form-item label="Status">
+            <el-select
+                  filterable v-model="ruleForm.project_status"  style="width: 100%"
+              placeholder="Select Status">
+              <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
           </el-form-item>
-          <el-form-item label="Quantity">
+
+          <el-form-item :label="ruleForm.units">
             <el-input-number v-model="ruleForm.amount" />
           </el-form-item>
 
+          <el-form-item label="Disbursement (Ksh.)">
+            <el-input-number v-model="ruleForm.disbursement"  :controls="false">
+              <template #prepend>Ksh.</template>
+            </el-input-number>
+
+        </el-form-item>
+        </el-col>
+
+        <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
+
+        <el-form-item label="Date">
+          <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />
+        </el-form-item>
+ 
+        <el-form-item :label="ruleForm.cumUnits" >
+            <el-input-number v-model="ruleForm.cumAmount" type="number" disabled >
+              <template #prepend>Cumulative(Amount)</template>
+            </el-input-number>
+        </el-form-item>
+
+ 
+         <el-form-item label="Cumulative(Ksh.)">
+            <el-input-number v-model="ruleForm.cumDisbursement" type="number" disabled >
+              <template #prepend>Cumulative(Ksh.)</template>
+            </el-input-number>
+        </el-form-item>
+        
+      </el-col>
+      <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+        <el-form-item label="Progress todate (%)">
+            <el-slider v-model="ruleForm.progress" :min="ruleForm.cumProgress" /> 
+        </el-form-item>
+      </el-col>
+    
+    </el-row>
 
 
+      <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+
+
+        <el-form-item label="Comments">
+            <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?"/>
+        </el-form-item>
+
+        </el-col>
         </el-form>
 
-      </el-col>
+   
 
-    </el-row>
+
     <template #footer>
 
       <span class="dialog-footer">

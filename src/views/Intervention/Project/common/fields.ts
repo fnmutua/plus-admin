@@ -43,6 +43,20 @@ const yes_no = [
   { label: "Yes", value: "yes" },
   { label: "No", value: "no" },
 ];
+
+const sourceFundingOptions = [
+  { label: "Gok", value: 1 },
+  { label: "WorldBank", value: 2 },
+ ];
+
+ const contractorOptions = [
+  { label: "ABC Contractors Limited", value: 1 },
+  { label: "Slum Upgrading Department", value: 2 },
+ ];
+
+
+
+
 const catchment = [
   { label: "Within this settlement", value: "within_settlement" },
   { label: "Outside this settlement", value: "outside_settlement" },
@@ -95,15 +109,20 @@ const formFields: Field[][] = [
       name: "status", label: "Status", type: "select", multiselect: 'false',    options: statusOptions
     },
 
-    {
-      name: "implementation_id", label: "Programme/Project", type: "select", multiselect: 'false',    options: implementationOptions.value
-    },
+    {name: "implementation_id", label: "Delivery Unit", type: "select", multiselect: 'false',    options: implementationOptions.value },
 
     { name: "start_date", label: "Start Date", type: "date", multiselect: 'false',    options: [] },
     { name: "end_date", label: "End Date", type: "date", multiselect: 'false',    options: [] },
+    { name: "cost", label: "Project Budget/Cost", min: "0", type: "number", multiselect: 'false', options: [] },
+    {name: "sourceFunding", label: "Source of Funding", type: "select", multiselect: 'true',    options: sourceFundingOptions },
     { name: "male_beneficiaries", label: "Male Beneficiaries",  min:"0", type: "number", multiselect: 'false',    options: [] },
     { name: "female_beneficiaries", label: "Female Beneficiaries",  min:"0", type: "number", multiselect: 'false',    options: [] },
-    { name: "activities", label: "Project Activities",    type: "select", multiselect: 'true', options:activityOptions.value },
+    { name: "contractor", label: "Contractor/Implementer", type: "select", multiselect: 'true',    options: contractorOptions },
+
+    
+   
+   
+    { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', options: activityOptions.value },
  
   
    

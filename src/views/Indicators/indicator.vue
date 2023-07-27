@@ -635,34 +635,14 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
           <el-option label="Percent" value="percent" />
         </el-select>
       </el-form-item>
-      <!-- <el-form-item label="Unit">
-        <el-select clearable filterable v-model="ruleForm.unit" placeholder="Unit">
-          <el-option label="Block" value="Block" />
-          <el-option label="Connection" value="Connection" />
-          <el-option label="County" value="County" />
-          <el-option label="Footpath" value="Footpath" />
-          <el-option label="Grievance" value="Grievance" />
-          <el-option label="Kiosk" value="Kiosk" />
-          <el-option label="Kilometer" value="Km" />
-          <el-option label="Meter" value="M" />
-          <el-option label="Letter" value="Letter" />
-          <el-option label="Person" value="Person" />
-          <el-option label="Household" value="Household" />
-          <el-option label="Organization" value="Organization" />
-          <el-option label="Workshop" value="Workshop" />
-          <el-option label="Meeting" value="Meeting" />
-          <el-option label="Training" value="Training" />
-          <el-option label="Survey" value="Survey" />
-          <el-option label="Group" value="Group" />
-          <el-option label="Census" value="Census" />
-          <el-option label="Plan" value="Plan" />
-          <el-option label="Streetlight" value="Streetlight" />
-          <el-option label="Title" value="Title" />
-          <el-option label="Lease" value="Lease" />
-          <el-option label="Basemap" value="Basemap" />
-          <el-option label="Strategy" value="Strategy" />
+         <el-form-item label="Unit" prop="format">
+        <el-select clearable filterable v-model="ruleForm.unit"  allow-create placeholder="Unit">
+          <el-option label="Kilometre" value="Km" />
+          <el-option label="Number" value="No." />
+          <el-option label="Household" value="HH" />
+           
         </el-select>
-      </el-form-item> -->
+      </el-form-item>
       <el-form-item label="Level"  prop="level">
         <el-select v-model="ruleForm.level" placeholder="Level" >
           <el-option label="Settlement" value="Settlement" />
@@ -670,6 +650,8 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
           <el-option label="National" value="National" />
         </el-select>
       </el-form-item>
+
+      
     </el-form>
     <template #footer>
 
