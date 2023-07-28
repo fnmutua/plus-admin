@@ -2244,6 +2244,7 @@ exports.batchDocumentsUpload = async (req, res) => {
     // var myFiles = [req.files.file]
     myFiles.push(req.files.file)
     console.log('In upload single.....', req.files.file)
+    console.log('In upload single.....', req.body)
   
   }
  
