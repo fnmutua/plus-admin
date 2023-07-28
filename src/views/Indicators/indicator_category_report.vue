@@ -644,37 +644,37 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       
       const report = await CreateRecord(ruleForm)   // first save the form on DB
       console.log("Report", report.data.id)
+      
       emptyRuleForm()
+      
       // uploading the documents 
-      const fileTypes = []
-      const formData = new FormData()
-      let files = []
-      for (var i = 0; i < fileUploadList.value.length; i++) {
-        console.log('------>file', fileUploadList.value[i])
-        var format = fileUploadList.value[i].name.split('.').pop() // get file extension
-        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-        fileTypes.push(format)
-        // formData.append('file', fileList.value[i])
-        // formData.file = fileList.value[i]
+    
+     const formData = new FormData()
+    for (var i = 0; i < fileUploadList.value.length; i++) {
+        console.log('------>file', fileList.value[i])
+        var column = 'report_id'
         formData.append('file', fileUploadList.value[i].raw)
-        formData.append('DocType', format)
+        formData.append('format', fileUploadList.value[i].name.split('.').pop())
+         formData.append('field_id', 'report_id')
+        formData.append('category', 2)
+        formData.append(column,  parseInt(report.data.id))
+        formData.append('size', (fileUploadList.value[i].raw.size / 1024 / 1024).toFixed(2))
+        formData.append('createdBy', userInfo.id)
+        formData.append('protected', false)
 
-      }
+     //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
+    }
 
-
-      formData.append('parent_code', report.data.id)
-      formData.append('model', model)
-      formData.append('grp', 'M&E Documentation')
-      formData.append('code', uuid.v4())
-      formData.append('column', 'report_id')
-
-
-      // formData.append('DocTypes', fileTypes)
-
-      console.log(formData)
-      //await uploadDocuments(formData)
+    formData.append('code', uuid.v4())
 
 
+
+    console.log('Befoer submit', formData)
+    const docs = await uploadFilesBatch(formData)
+       
+    console.log('after submit', docs.data)
+
+  
       AddDialogVisible.value = false
       handleClose()
 
@@ -1405,12 +1405,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
       </el-tooltip>
     </div>
 
-    <!-- <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Import" placement="top">
-        <el-button v-if="showAdminButtons" :onClick="ImportReports" type="primary" :icon="UploadFilled" />
-      </el-tooltip>
-    </div> -->
-
+  
 
 
     <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
@@ -1570,19 +1565,38 @@ filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" 
     
     </el-row>
 
+      <el-row :gutter="10">
+        <el-col :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
 
-      <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+            <el-upload
+                  v-model:file-list="fileUploadList"
+                  class="upload-demo"
+                  action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+                  multiple
+                  :on-preview="handlePreview"
+                  :on-remove="handleRemove"
+                  :before-remove="beforeRemove"
+                  :limit="3"
+                  :auto-upload="false"
+                  :on-exceed="handleExceed"
+                >
+            <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
+            </el-upload>
+            </el-col>
 
+          <el-col :xl="16" :lg="16" :md="24" :sm="24" :xs="24">
+            <el-form-item label="Comments">
+                <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?"/>
+            </el-form-item>
 
-        <el-form-item label="Comments">
-            <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?"/>
-        </el-form-item>
+            </el-col>
 
-        </el-col>
+           
+          </el-row>
+
         </el-form>
 
-   
-
+       
 
     <template #footer>
 
