@@ -42,3 +42,9 @@ export const getOtherRoutesApi = (params: RoleParams): Promise<IResponse<string[
 
   return request.get({ url: '/role/list', params })
 }
+
+export const getSuperAdminRoleApi = (params: RoleParams
+  ): Promise<IResponse<AppCustomRouteRecordRaw[]>> => {
+    console.log('getRoleNames - admin ', request.get({ url: '/role/list', params }))
+    return request.get({ url: '/role/list', params })
+  }

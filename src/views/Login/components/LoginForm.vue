@@ -4,7 +4,7 @@ import { Form } from '@/components/Form'
 import { useI18n } from '@/hooks/web/useI18n'
 import { ElButton, ElCheckbox, ElLink,  ElDialog, ElForm, ElFormItem, ElInput,FormInstance,ElMessage, ElTooltip } from 'element-plus'
 import { useForm } from '@/hooks/web/useForm'
-import { loginApi, getTestRoleApi, getOtherRoutesApi, getAdminRoleApi } from '@/api/login'
+import { loginApi, getTestRoleApi, getOtherRoutesApi, getAdminRoleApi, getSuperAdminRoleApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStore } from '@/store/modules/app'
 import { usePermissionStore } from '@/store/modules/permission'
@@ -183,26 +183,48 @@ const getRole = async (authenitcatedUser) => {
   const formData = await getFormData<UserType>()
   console.log('authenitcatedUser', authenitcatedUser)
 
-  // use the user details to set paths to see 
+  // use the user details to set paths to see
   if (authenitcatedUser.roles.includes("admin")) {
-    formData.role = 'admin'
-  } else if (authenitcatedUser.roles.includes("sud_staff") || (authenitcatedUser.roles.includes("kisip_staff")) || (authenitcatedUser.roles.includes("national_monitoring"))) {
-    formData.role = 'staff'
+    formData.role = 'admin';
+  } else if (
+    authenitcatedUser.roles.includes("sud_staff") ||
+    authenitcatedUser.roles.includes("kisip_staff") ||
+    authenitcatedUser.roles.includes("national_monitoring")
+  ) {
+    formData.role = 'staff';
+  } else if (authenitcatedUser.roles.includes("county_admin")) {
+    formData.role = 'county_admin';
+  } else if (authenitcatedUser.roles.includes("super_admin")) {
+    formData.role = 'super_admin';
+  } else if (
+    authenitcatedUser.roles.includes("county_staff") ||
+    authenitcatedUser.roles.includes("county_mon") ||
+    authenitcatedUser.roles.includes("settlement_sec")
+  ) {
+    formData.role = 'county_user';
+  } else {
+    formData.role = 'others';
   }
-  else if (authenitcatedUser.roles.includes("county_admin")) {
-    formData.role = 'county_admin'
+
+  // If the user has more than one role, find the superior role based on priority order
+  const rolePriorityOrder = [
+    'super_admin',
+    'admin',
+    'county_admin',
+    'staff',
+    'county_user',
+    'others',
+  ];
+
+  const superiorRole = authenitcatedUser.roles.find((role) =>
+    rolePriorityOrder.includes(role)
+  );
+
+  if (superiorRole) {
+    formData.role = superiorRole;
   }
 
-  else if (authenitcatedUser.roles.includes("county_staff") || (authenitcatedUser.roles.includes("county_mon")) || (authenitcatedUser.roles.includes("settlement_sec"))) {
-    formData.role = 'county_user'
-  }
-  else {
-    formData.role = 'others'
-
-  }
-
-
-
+  
   const params = {
     roleName: formData.role
   }
@@ -215,6 +237,10 @@ const getRole = async (authenitcatedUser) => {
     case 'admin':
       res = await getAdminRoleApi(params)
       break;
+    case 'super_admin':
+      res = await getSuperAdminRoleApi(params)
+      break;
+
     case 'staff':
       res = await getOtherRoutesApi(params)
       break;
@@ -240,10 +266,7 @@ const getRole = async (authenitcatedUser) => {
     console.log("  formData.role >>", formData.role)
 
 
-    //  formData.role === 'admin'
-    //   ? await permissionStore.generateRoutes('admin', routers).catch(() => { })
-    //   : await permissionStore.generateRoutes('county_admin', routers).catch(() => { })
-
+  
 
     if (formData.role === 'admin') {
       await permissionStore.generateRoutes('admin', routers).catch(() => { })
@@ -251,13 +274,17 @@ const getRole = async (authenitcatedUser) => {
       await permissionStore.generateRoutes('county_admin', routers).catch(() => { })
       console.log('0003')
     }
-    else if (formData.role === 'staff') {
-      await permissionStore.generateRoutes('staff', routers).catch(() => { })
+    else if (formData.role === 'staff' || formData.role === 'sud_staff' ) {
+      await permissionStore.generateRoutes('kisip_staff', routers).catch(() => { })
       console.log('0003')
     }
     else if (formData.role === 'county_user') {
-      await permissionStore.generateRoutes('county_user', routers).catch(() => { })
+      await permissionStore.generateRoutes('county_staff', routers).catch(() => { })
       console.log('0004--county_users')
+    }
+    else if (formData.role === 'super_admin') {
+      await permissionStore.generateRoutes('super_admin', routers).catch(() => { })
+      console.log('0004--super_admin')
     }
 
     else {

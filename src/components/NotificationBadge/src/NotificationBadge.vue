@@ -127,7 +127,7 @@ const getNewFeedback = async () => {
 
 const showBadge = ref(false)
 console.log("userInfo-------x---------", userInfo)
-if (userInfo.roles.includes("admin") || (userInfo.roles.includes("sud_staff")) || (userInfo.roles.includes("kisip_staff")) || (userInfo.roles.includes("national_monitoring"))) {
+if (userInfo.roles.includes("admin") || (userInfo.roles.includes("staff")) || (userInfo.roles.includes("national_monitoring"))) {
   showBadge.value = true
 } else {
   showBadge.value = false

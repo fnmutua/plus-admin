@@ -145,7 +145,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: t('Data'),
       icon: 'mdi:map-legend',
       alwaysShow: true,
-      role: ['admin', 'super_admin', 'county_admin','sud_staff','senior_staff','kisip_staff','county_staff','county_mon', ] 
+      role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] 
 
     },
     children: [
@@ -971,8 +971,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
     ]
   },
-   
- 
+    
   {
     path: '/interventions',
     component: Layout,
@@ -982,7 +981,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'Interventions',
       icon: 'mdi:office-building-marker-outline',
       hidden: true,
-       role: ['admin', 'super_admin', 'county_admin','sud_staff','senior_staff','kisip_staff','county_staff','county_mon', ] 
+       role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] 
 
     },
     children: [
@@ -1037,8 +1036,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'All',
           hidden: false,
           icon: 'fa6-solid:users-rectangle',
-          //role: ['admin', 'super_admin', 'county_admin','sud_staff','senior_staff','kisip_staff','county_staff','county_mon', ] 
-          role: ['admin', 'super_admin'  ] 
+          //role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] 
+           role: ['admin', 'super_admin'  ] 
 
         }
       },
@@ -1051,7 +1050,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'New',
           hidden: false,
           icon: 'grommet-icons:user-new',
-          role: ['admin', 'super_admin'  ] 
+        //  role: ['admin', 'super_admin'  ] 
+        role: ['admin', 'super_admin'  ] 
 
         }
       },
@@ -1065,7 +1065,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'County',
           hidden: false,
           icon: 'gis:map-users',
-          role: ['admin', 'super_admin', 'county_admin'  ] 
+       //   role: ['admin', 'super_admin', 'county_admin'  ] 
+       role: ['admin', 'super_admin'  ] 
 
         }
       }, 
@@ -1090,7 +1091,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Logs',
           hidden: false,
           icon: 'arcticons:auditor',
-          role: [ 'super_admin'   ] 
+     //     role: [ 'super_admin'   ] 
+        role: [ 'super_admin'  ] 
 
         }
       }, 
@@ -1104,7 +1106,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Feedback',
           hidden: false,
           icon: 'fluent:person-feedback-48-filled',
-          role: ['admin', 'super_admin'  ] 
+     //     role: ['admin', 'super_admin'  ] 
 
         }
       }, 
@@ -1338,18 +1340,63 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         ]
       },
 
-     
+      {
+        path: 'roles',
+        component: () => import('@/views/Dashboard/National.vue'),
+        name: 'Roles',
+        meta: {
+          title: t('Roles'),
+          noCache: true,
+          icon:'ic:round-bubble-chart',
+          affix: true,
+          hidden: false,
+          role: ['super_admin'] 
+
+        }
+      },
 
 
     ]
   },
 
+  {
+    path: '/admin',
+    component: Layout,
+     name: 'Admin',
+    meta: {
+      title: t('Admin'),
+      icon: 'ant-design:dashboard-filled',
+      // we have removed roles here to make it public
+      role: ['super_admin'] 
+
+     },
+ 
+
+    children: [
+      {
+        path: 'roles',
+        component: () => import('@/views/Users/Role.vue'),
+        name: 'Roles',
+        meta: {
+          title: t('Roles'),
+          noCache: true,
+          icon:'ic:round-bubble-chart',
+          affix: true,
+          hidden: false,
+          role: ['super_admin'] 
+
+        }
+      },
+       
+    ]
+  },
+
   // {
-  //   path: '/privacy',
+  //   path: '/xprivacy',
   //   component: () => import('@/views/Users/User.vue'),
-  //   name: 'Privacy',
+  //   name: 'xPrivacy',
   //   meta: {
-  //     title: 'Privacy',
+  //     title: 'xPrivacy',
   //     icon: 'material-symbols:settings',
   //     alwaysShow: true
   //   },

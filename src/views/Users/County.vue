@@ -377,6 +377,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
   formData.nested_filter = nested_filter
+  formData.currentUser = currentUser
 
 
   //-------------------------

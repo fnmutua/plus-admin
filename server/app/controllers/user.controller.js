@@ -336,8 +336,22 @@ exports.modelPaginatedUsersfilterBykeyWord = (req, res) => {
  
 exports.modelCountyUsers = (req, res) => {
  
-  console.log('This User roles',req.roles)
-   var currentUserRoles = req.roles
+
+
+  var currentUserRoles = req.body.currentUser;
+
+  // Get the roleNamesToIds mapping from db.models.roles
+  const roleNamesToIds = {};
+  db.models.roles.forEach((role) => {
+    roleNamesToIds[role.name] = role.id;
+  });
+
+
+
+
+  console.log('County User roles',req.body)
+  var currentUserRoles = req.roles
+  
   // control the levels of users the loogend in user can see
   if (currentUserRoles.includes(0)) {
     var RoleFilters = [1,5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins

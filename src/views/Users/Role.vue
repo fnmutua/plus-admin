@@ -5,13 +5,13 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
- import { ElButton, ElSwitch, ElSelect, MessageParamsWithType } from 'element-plus'
+ import { ElButton, ElSwitch, ElSelect, ElDialog, ElForm, ElFormItem, ElInput } from 'element-plus'
  import { ElMessage } from 'element-plus'
 import {
   Position,
   TopRight,
   User,
-   Plus,
+   Plus,Edit, 
   Download,
   Filter,
   MessageBox
@@ -22,6 +22,7 @@ import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import {  activateUserApi } from '@/api/users'
+import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 
 import {
    searchByKeyWord
@@ -38,15 +39,15 @@ const value2 = ref([])
 var value3 = ref([])
 const countiesOptions = ref([])
 const settlementOptions = ref([])
-const userOptions = ref([])
+const roleOptions = ref([])
 
 const settlements = ref([])
 const filteredSettlements = ref([])
 const page = ref(1)
-const pSize = ref(5)
+const pSize = ref(10)
 const selCounties = []
 const loading = ref(true)
-const pageSize = ref(5)
+const pageSize = ref(10)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
@@ -103,67 +104,29 @@ const handleClear = async () => {
   currentPage.value = 1
   tblData = []
   //----run the get data--------
-  getInterventionsAll()
+  getAllRoles()
 }
-
-const handleSelectCounty = async (county_id: any) => {
-  var selectOption = 'county_id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('county : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(county_id) && county_id.length > 0) {
-    filterValues.splice(index, 0, county_id) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (county_id.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-  // here we filter the list of settlements based on the selected county
-  filteredSettlements.value = settlements.value.filter(
-    (settlement) => settlement.county_id == county_id
-  )
-  console.log('filyterested settlements------>', filteredSettlements)
-  makeSettlementOptions(filteredSettlements)
-
-  getFilteredData(filters, filterValues)
-}
-
+ 
  
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
 
-  if (searchString.value == '') {
-    getFilteredBySearchData(searchString.value)
-  } else {
+  
     getFilteredData(filters, filterValues)
-  }
+   
 }
 
 const onPageSizeChange = async (size: any) => {
   pSize.value = size
 
-  if (searchString.value == '') {
-    getFilteredBySearchData(searchString.value)
-  } else {
+  
     getFilteredData(filters, filterValues)
-  }
+ 
 }
 
-const getInterventionsAll = async () => {
+const getAllRoles = async () => {
   getFilteredData(filters, filterValues)
 }
 
@@ -183,70 +146,8 @@ const destructure = (obj) => {
   return simpleObj
 }
  
-const getCountyNames = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'county',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      countiesOptions.value.push(countyOpt)
-    })
-  })
-}
-
-const getSettlementsOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-    // pass result to the makeoptions
-
-    settlements.value = ret
-    makeSettlementOptions(settlements)
-  })
-}
-
  
-const makeSettlementOptions = (list) => {
-  console.log('making the options..............', list)
-  settlementOptions.value = []
-  list.value.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-    //  console.log(countyOpt)
-    settlementOptions.value.push(countyOpt)
-  })
-}
+  
 
 const activateDeactivate = (data: TableSlotDefault) => {
   console.log('Activating user.....', data.row)
@@ -254,50 +155,11 @@ const activateDeactivate = (data: TableSlotDefault) => {
 
 //  activateUserApi(data.row, { model: 'users' }).then(() => {})
 }
-
-
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'data.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
-
-const getFilteredBySearchData = async (searchString) => {
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = searchString
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = associated_multiple_models
-
-  //-------------------------
-  console.log(formData)
-  const res = await searchByKeyWord(formData)
-
-  console.log('After -----x ------Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
-  loading.value = false
-
-  tblData = [] // reset the table data
-
-}
+ 
+ 
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = 100
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -318,7 +180,11 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
-  tableDataList.value = res.data
+
+  const filteredData = res.data.filter((item) => item.name !== 'super_admin');
+
+  tableDataList.value = filteredData
+
   total.value = res.total
   loading.value = false
 
@@ -326,9 +192,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('TBL-b4', tblData)
   res.data.forEach(function (arrayItem) {
     console.log('arrayItem ----->', arrayItem)
-    delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
-    delete arrayItem['photo'] //  remove the geometry column
-
+ 
     var dd = destructure(arrayItem)
     tblData.push(dd)
     //  generate the filter options
@@ -336,32 +200,97 @@ const getFilteredData = async (selFilters, selfilterValues) => {
     opt.value = arrayItem.id
     opt.label = arrayItem.name + '(' + arrayItem.id + ')'
     //  console.log(countyOpt)
-    userOptions.value.push(opt)
+    if (arrayItem.name !='super_admin') {
+      roleOptions.value.push(opt) 
+    }
+    
   })
 
-  console.log('TBL-4f', tblData)
+  console.log('roleOptions', roleOptions)
 }
-
-const searchByName = async (filterString: any) => {
-  searchString.value = filterString
-
-  getFilteredBySearchData(searchString.value)
-}
-
-getCountyNames()
-getSettlementsOptions()
-getInterventionsAll()
 
  
 
+ 
+getAllRoles()
+
+
+
+const formHeader = ref('Add Category')
+const showSubmitBtn = ref(true)
+const showEditSaveButton = ref(false)
+
+
+const AddDialogVisible=ref(false)
 const AddRole = (data: TableSlotDefault) => {
 
   ElMessage.warning("Coming soon...")
-  // push({
-  //   path: '/data/settlement/add',
-  //   name: 'AddRole'
-  // })
+  AddDialogVisible.value = true
+ 
 }
+
+
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  name: '',
+  description: '',
+  subordinates: '',
+
+})
+
+const editRole = (data: TableSlotDefault) => {
+  showSubmitBtn.value = false
+  showEditSaveButton.value = true
+  console.log(data)
+  ruleForm.id = data.row.id
+  ruleForm.name = data.row.name
+  ruleForm.description = data.row.description
+  ruleForm.subordinates = data.row.subordinates
+
+
+  formHeader.value = 'Edit Role'
+
+
+  AddDialogVisible.value = true
+}
+
+ 
+
+
+const submitForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate((valid, fields) => {
+    if (valid) {
+      ruleForm.model = model
+      ruleForm.code = uuid.v4()
+      const res = CreateRecord(ruleForm)
+
+    } else {
+      console.log('error submit!', fields)
+    }
+  })
+}
+
+
+const editForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate((valid, fields) => {
+    if (valid) {
+      ruleForm.model = model
+
+      updateOneRecord(ruleForm).then(() => { })
+
+      // dialogFormVisible.value = false
+
+
+    } else {
+      console.log('error submit!', fields)
+    }
+  })
+}
+
+ 
+
 </script>
 
 <template>
@@ -386,15 +315,24 @@ const AddRole = (data: TableSlotDefault) => {
       :pageSize="pageSize"
       :currentPage="currentPage"
     >
-      <template #action="data">
-        <el-tooltip content="Activate/Deactivate User" placement="top">
+    <template #action="data">
+          <div class="action-buttons">
+            <el-tooltip content="Activate/Deactivate User" placement="top" v-if="data.row.name !== 'super_admin'">
+              <ElSwitch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)">
+              {{ t('tableDemo.action') }}
+              </ElSwitch>
+            </el-tooltip>
 
-          <ElSwitch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)">
-          {{ t('tableDemo.action') }}
-        </ElSwitch>
-        </el-tooltip>
- 
-      </template>
+            <!-- Add space here -->
+            <div class="button-space"></div>
+
+         <!-- Conditionally render the Edit button based on the role -->
+          <el-tooltip content="Edit" placement="top" v-if="data.row.name !== 'super_admin'">
+            <el-button type="success" :icon="Edit" @click="editRole(data as TableSlotDefault)" circle />
+          </el-tooltip>
+          </div>
+        </template>
+
     </Table>
     <ElPagination
       layout="sizes, prev, pager, next, total"
@@ -407,6 +345,54 @@ const AddRole = (data: TableSlotDefault) => {
       @current-change="onPageChange"
       class="mt-4"
     />
+
+
+    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+      <el-form-item label="Title">
+        <el-input v-model="ruleForm.name" />
+      </el-form-item>
+      <el-form-item label="Description">
+        <el-input v-model="ruleForm.description" />
+      </el-form-item>
+
+      <el-form-item label="Subordinates">
+        <el-select multiple v-model="ruleForm.subordinates" placeholder="Select">
+        <el-option
+          v-for="item in roleOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+         />
+      </el-select>      
+    </el-form-item>
+
+    
+
+
+    </el-form>
+    <template #footer>
+
+      <span class="dialog-footer">
+        <el-button @click="AddDialogVisible = false">Cancel</el-button>
+        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+
   </ContentWrap>
 </template>
  
+<style>
+  .action-buttons {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Adjust the space as needed */
+  .button-space {
+    width: 10px; /* You can change this value to adjust the space */
+  }
+</style>
