@@ -691,7 +691,15 @@ const loadMap = async () => {
   // });
   // map.value.addControl(draw.value, 'top-left');
 
-
+            // Add the "Geolocate Control" to the map
+            var geolocate = new mapboxgl.GeolocateControl({
+              positionOptions: {
+                enableHighAccuracy: true,
+              },
+              trackUserLocation: true,
+              showUserLocation: true,
+            });
+            map.value.addControl(geolocate);
 
 
     map.value.addLayer({

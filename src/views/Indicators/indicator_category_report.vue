@@ -14,6 +14,7 @@ import {
   Filter,
   Delete,
   UploadFilled,
+  Position,
   InfoFilled
 } from '@element-plus/icons-vue'
 
@@ -21,10 +22,10 @@ import { ref, reactive, computed, h } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload,ElSlider 
-  , ElInput, FormRules, ElPopconfirm, ElCol, ElRow 
+  ElDatePicker, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElSlider
+  , ElInput, FormRules, ElPopconfirm, ElCol, ElRow
 } from 'element-plus'
- 
+
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -45,13 +46,21 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import {
-  countyOptions, settlementOptionsV2, subcountyOptions,wardOptions
+  countyOptions, settlementOptionsV2, subcountyOptions, wardOptions
 } from './common/index.ts'
 
 
 
 //import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
 
+import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
+import "mapbox-layer-switcher/styles.css";
+import * as turf from '@turf/turf'
+
+
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+mapboxgl.accessToken = MapBoxToken;
 
 
 
@@ -99,29 +108,29 @@ function emptyRuleForm() {
 
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-   indicator_category_id: '',
+  indicator_category_id: '',
   project_id: '',
-  activity_id:'',
-  programme_implementation_id:'',
+  activity_id: '',
+  programme_implementation_id: '',
   settlement_id: '',
   subcounty_id: '',
-  ward_id:'',
+  ward_id: '',
   county_id: '',
   period: getQuarter,
   date: new Date(),
-  progress:0,
+  progress: 0,
   amount: 0,
   files: '',
-  project_status:'',
-  disbursement:0,
+  project_status: '',
+  disbursement: 0,
   userId: userInfo.id,
   code: '',
   cumDisbursement: 0,
   cumProgress: 0,
-  cumAmount:0,
-  comments: '', 
-  units:'Quantity', 
-  cumUnits:'Cumulative(qty)'
+  cumAmount: 0,
+  comments: '',
+  units: 'Quantity',
+  cumUnits: 'Cumulative(qty)'
 })
 
 const rules = reactive<FormRules>({
@@ -131,7 +140,7 @@ const rules = reactive<FormRules>({
   ],
   category_id: [
     { required: true, message: 'Indicator category is required', trigger: 'blur' }],
-     frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
+  frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
   progress: [
     { required: true, message: 'Progress is required', trigger: 'blur' }],
 })
@@ -151,9 +160,9 @@ if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) 
 }
 
 // Show Edit buttons 
-if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
-  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
-    showEditButtons.value = true;
+if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff") || userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") || userInfo.roles.includes("national_monitoring")) {
+  showEditButtons.value = true;
 }
 console.log("Show Buttons -->", showAdminButtons)
 
@@ -168,7 +177,7 @@ const addMoreDocuments = ref(false)
 
 
 const showEditSaveButton = ref(false)
-const cascadeOptions = ref([])
+ 
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
@@ -177,7 +186,7 @@ var filterValues = [[userInfo.id]]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document','settlement', 'county']
+const associated_multiple_models = ['document', 'settlement', 'county', 'users', 'project']
 const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -193,10 +202,10 @@ const { t } = useI18n()
 
 
 const statusOptions = [
-    { label: 'Ongoing', value: 1 },
-    { label: 'Suspended', value: 2 },
-    { label: 'Completed', value: 3 },
-]  
+  { label: 'Ongoing', value: 1 },
+  { label: 'Suspended', value: 2 },
+  { label: 'Completed', value: 3 },
+]
 
 const handleClear = async () => {
   console.log('cleared....')
@@ -382,7 +391,7 @@ const getIndicatorNames = async () => {
     opt.project_id = arrayItem.project.id
     opt.activity_id = arrayItem.activity.id
     opt.programme_implementation_id = arrayItem.programme_implementation_id
-    
+
     opt.county_id = arrayItem.project.county_id
     opt.subcounty_id = arrayItem.project.subcounty_id
     opt.settlement_id = arrayItem.project.settlement_id
@@ -393,7 +402,7 @@ const getIndicatorNames = async () => {
     indicatorsOptionsFiltered.value.push(opt)
   })
 
-  console.log('indicatorsOptions.value',indicatorsOptions.value)
+  console.log('indicatorsOptions.value', indicatorsOptions.value)
 }
 
 const projectOptions = ref([])
@@ -415,7 +424,7 @@ const getProjects = async () => {
   // - multiple filters -------------------------------------
   formData.filters = []
   formData.filterValues = []
-  formData.associated_multiple_models = ['activity' ]
+  formData.associated_multiple_models = ['activity']
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
@@ -425,27 +434,27 @@ const getProjects = async () => {
     var opt = {}
     console.log(arrayItem)
     opt.value = arrayItem.id
-    opt.label = arrayItem.title  
-    opt.programme_implementation_id = arrayItem.implementation_id  
-     projectOptions.value.push(opt)
+    opt.label = arrayItem.title
+    opt.programme_implementation_id = arrayItem.implementation_id
+    projectOptions.value.push(opt)
 
 
     arrayItem.activities.forEach(function (activity: any) {
       console.log('activity--->', activity)
 
       var act = {}
-    console.log(activity)
-    act.value = activity.id
-    act.label = activity.title  
-    act.project_id = arrayItem.id
-    activityOptions.value.push(act)
-    activityOptionsFiltered.value.push(act)
+      console.log(activity)
+      act.value = activity.id
+      act.label = activity.title
+      act.project_id = arrayItem.id
+      activityOptions.value.push(act)
+      activityOptionsFiltered.value.push(act)
 
     })
   })
 
 }
- 
+
 
 const props1 = {
   checkStrictly: true,
@@ -463,14 +472,14 @@ const editReport = (data: TableSlotDefault) => {
   ruleForm.settlement_id = data.settlement_id
   ruleForm.project_id = data.project_id
   ruleForm.activity_id = data.activity_id
- 
+
 
   ruleForm.date = data.date
   ruleForm.amount = data.amount
   ruleForm.indicator_category_id = data.indicator_category_id
   ruleForm.programme_implementation_id = data.programme_implementation_id
 
-  
+
   ruleForm.ward_id = data.ward_id
   ruleForm.code = data.code
   ruleForm.progress = data.progress
@@ -479,14 +488,14 @@ const editReport = (data: TableSlotDefault) => {
   ruleForm.comments = data.comments
 
   // Nullify Cumulatives every time theres an edit to avoid multiple editign duplciations
-   ruleForm.cumDisbursement = 0
+  ruleForm.cumDisbursement = 0
   // ruleForm.cumProgress = 0
-   ruleForm.cumAmount = 0
-  
+  ruleForm.cumAmount = 0
+
   formHeader.value = 'Edit Report'
   fileUploadList.value = data.documents
 
- 
+
   getCumulativeProgressEditPhase()
   AddDialogVisible.value = true
 }
@@ -528,7 +537,7 @@ const DeleteReport = (data: TableSlotDefault) => {
 
 
 const currentRow = ref()
- 
+
 const handleClose = () => {
 
   console.log("Closing the dialoig")
@@ -546,23 +555,23 @@ const handleClose = () => {
 }
 
 
- 
+
 
 
 const changeProject = async (project: any) => {
 
-  console.log('changeProject',project )
+  console.log('changeProject', project)
 
-const filteredOpts = projectOptions.value.filter(item => item.value == project );
+  const filteredOpts = projectOptions.value.filter(item => item.value == project);
 
-console.log('filteredOpts',filteredOpts[0].programme_implementation_id )
+  console.log('filteredOpts', filteredOpts[0].programme_implementation_id)
 
-   ruleForm.programme_implementation_id= filteredOpts[0].programme_implementation_id
+  ruleForm.programme_implementation_id = filteredOpts[0].programme_implementation_id
 
-   console.log(ruleForm)
+  console.log(ruleForm)
 
-  ruleForm.indicator_category_id=[]
-  ruleForm.activity_id=[]
+  ruleForm.indicator_category_id = []
+  ruleForm.activity_id = []
 
   // Filter the activities 
   activityOptionsFiltered.value = activityOptions.value.filter(function (el) {
@@ -578,16 +587,16 @@ console.log('filteredOpts',filteredOpts[0].programme_implementation_id )
 
 
 const changeActivity = async (activity: any) => {
-  ruleForm.indicator_category_id=[]
+  ruleForm.indicator_category_id = []
   indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
-   return el.activity_id == activity
-   
- });
+    return el.activity_id == activity
+
+  });
 
 
 }
 
- 
+
 const changeIndicator = async (indicator: any) => {
   ruleForm.indicator_id = indicator
 
@@ -596,15 +605,15 @@ const changeIndicator = async (indicator: any) => {
   });
 
   ruleForm.project_id = filtredOptions[0].project_id
-   ruleForm.settlement_id = filtredOptions[0].settlement_id
+  ruleForm.settlement_id = filtredOptions[0].settlement_id
   ruleForm.county_id = filtredOptions[0].county_id
   ruleForm.subcounty_id = filtredOptions[0].subcounty_id
   ruleForm.ward_id = filtredOptions[0].ward_id
 
 
   console.log("Filtered Indicators", filtredOptions[0])
-  ruleForm.units="Quantity(" + filtredOptions[0].unit + ")"
-  ruleForm.cumUnits="Cumulative(" + filtredOptions[0].unit + ")"
+  ruleForm.units = "Quantity(" + filtredOptions[0].unit + ")"
+  ruleForm.cumUnits = "Cumulative(" + filtredOptions[0].unit + ")"
   //ruleForm.indicator_category_title = filtredOptions[0].category_title
 
   getCumulativeProgress()
@@ -636,45 +645,45 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.code = uuid.v4()
       ruleForm.userId = userInfo.id
       ruleForm.cumDisbursement = ruleForm.cumDisbursement + ruleForm.disbursement
-      ruleForm.cumProgress = (ruleForm.cumProgress + ruleForm.progress)<=100? (ruleForm.cumProgress + ruleForm.progress):100
+      ruleForm.cumProgress = (ruleForm.cumProgress + ruleForm.progress) <= 100 ? (ruleForm.cumProgress + ruleForm.progress) : 100
 
       console.log('cumProgress', ruleForm.cumProgress)
-      
+
       ruleForm.cumAmount = ruleForm.cumAmount + ruleForm.amount
-      
+
       const report = await CreateRecord(ruleForm)   // first save the form on DB
       console.log("Report", report.data.id)
-      
+
       emptyRuleForm()
-      
+
       // uploading the documents 
-    
-     const formData = new FormData()
-    for (var i = 0; i < fileUploadList.value.length; i++) {
+
+      const formData = new FormData()
+      for (var i = 0; i < fileUploadList.value.length; i++) {
         console.log('------>file', fileList.value[i])
         var column = 'report_id'
         formData.append('file', fileUploadList.value[i].raw)
         formData.append('format', fileUploadList.value[i].name.split('.').pop())
-         formData.append('field_id', 'report_id')
+        formData.append('field_id', 'report_id')
         formData.append('category', 2)
-        formData.append(column,  parseInt(report.data.id))
+        formData.append(column, parseInt(report.data.id))
         formData.append('size', (fileUploadList.value[i].raw.size / 1024 / 1024).toFixed(2))
         formData.append('createdBy', userInfo.id)
         formData.append('protected', false)
 
-     //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
-    }
+        //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
+      }
 
-    formData.append('code', uuid.v4())
+      formData.append('code', uuid.v4())
 
 
 
-    console.log('Befoer submit', formData)
-    const docs = await uploadFilesBatch(formData)
-       
-    console.log('after submit', docs.data)
+      console.log('Befoer submit', formData)
+      const docs = await uploadFilesBatch(formData)
 
-  
+      console.log('after submit', docs.data)
+
+
       AddDialogVisible.value = false
       handleClose()
 
@@ -698,38 +707,38 @@ const editForm = async (formEl: FormInstance | undefined) => {
       //emptyRuleForm()
       // dialogFormVisible.value = false
 
-       const updateformData = new FormData()
-    // uploading the documents 
-    
-    const formData = new FormData()
-    for (var i = 0; i < fileUploadList.value.length; i++) {
+      const updateformData = new FormData()
+      // uploading the documents 
 
-      console.log('------>file', fileUploadList.value[i])
+      const formData = new FormData()
+      for (var i = 0; i < fileUploadList.value.length; i++) {
 
-         var column = 'report_id'
+        console.log('------>file', fileUploadList.value[i])
+
+        var column = 'report_id'
         updateformData.append('file', fileUploadList.value[i].raw)
         updateformData.append('format', fileUploadList.value[i].name.split('.').pop())
         updateformData.append('field_id', 'report_id')
         updateformData.append('category', 2)
-        updateformData.append(column,  parseInt(ruleForm.id))
+        updateformData.append(column, parseInt(ruleForm.id))
         updateformData.append('size', (fileUploadList.value[i].raw.size / 1024 / 1024).toFixed(2))
         updateformData.append('createdBy', userInfo.id)
         updateformData.append('protected', false)
 
-     //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
-    }
+        //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
+      }
 
       updateformData.append('code', uuid.v4())
 
 
 
-    console.log('Befoer submit', updateformData)
-    const docs = await uploadFilesBatch(updateformData)
-       
-    console.log('after submit', docs.data)
+      console.log('Befoer submit', updateformData)
+      const docs = await uploadFilesBatch(updateformData)
 
-  
- 
+      console.log('after submit', docs.data)
+
+
+
 
 
     } else {
@@ -790,13 +799,13 @@ const submitBatchImport = async () => {
 const getCumulativeProgress = async () => {
 
   var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 'programme_implementation_id',
-   ]
+  ]
 
   if (ruleForm.settlement_id) {
     filters.push('settlement_id')
-   }
+  }
   var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
-    [ruleForm.project_id],  [ruleForm.programme_implementation_id],[ruleForm.settlement_id]]  // remember to change here!
+  [ruleForm.project_id], [ruleForm.programme_implementation_id], [ruleForm.settlement_id]]  // remember to change here!
 
 
   const formData = {}
@@ -821,109 +830,109 @@ const getCumulativeProgress = async () => {
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
-  
+
   console.log('yaay. Got last reports', res.data)
 
 
   function getLatestReport(dataList) {
     if (dataList.length === 0) {
-    return null;
+      return null;
+    }
+
+    // Find the latest ID using reduce function
+    const latestID = dataList.reduce((prevObj, currentObj) => (currentObj.id > prevObj.id ? currentObj : prevObj)).id;
+
+    // Find the object with the latest ID
+    const objectWithLatestID = dataList.find((obj) => obj.id === latestID);
+
+    // Return the object with the latest ID
+    return objectWithLatestID;
   }
 
-  // Find the latest ID using reduce function
-  const latestID = dataList.reduce((prevObj, currentObj) => (currentObj.id > prevObj.id ? currentObj : prevObj)).id;
 
-  // Find the object with the latest ID
-  const objectWithLatestID = dataList.find((obj) => obj.id === latestID);
+  // Get the object with the latest date
+  const objectWithLatestDate = getLatestReport(res.data);
+  console.log('objectWithLatestDate', objectWithLatestDate);
 
-  // Return the object with the latest ID
-  return objectWithLatestID;
-}
+  ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
+  ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
+  ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
 
+  console.log('cumProgress ats tart', ruleForm);
 
-// Get the object with the latest date
-const objectWithLatestDate = getLatestReport(res.data);
-console.log('objectWithLatestDate', objectWithLatestDate);
- 
-ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
-ruleForm.cumDisbursement=parseInt(objectWithLatestDate.cumDisbursement)
-ruleForm.cumAmount=parseInt(objectWithLatestDate.cumAmount)
-
-console.log('cumProgress ats tart',ruleForm);
- 
 }
 
 
 const getCumulativeProgressEditPhase = async () => {
 
-var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 'programme_implementation_id',
- ]
+  var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 'programme_implementation_id',
+  ]
 
-if (ruleForm.settlement_id) {
-  filters.push('settlement_id')
- }
-var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
-  [ruleForm.project_id],  [ruleForm.programme_implementation_id],[ruleForm.settlement_id]]  // remember to change here!
-
-
-const formData = {}
-formData.limit = pSize.value
-formData.page = page.value
-formData.curUser = 1 // Id for logged in user
-formData.model = model
-//-Search field--------------------------------------------
-formData.searchField = 'name'
-formData.searchKeyword = ''
-//--Single Filter -----------------------------------------
-
-formData.assocModel = []
-
-// - multiple filters -------------------------------------
-formData.filters = filters
-formData.filterValues = filterValues
-formData.associated_multiple_models = []
-formData.nested_models = nested_models
-
-//-------------------------
-//console.log(formData)
-const res = await getSettlementListByCounty(formData)
+  if (ruleForm.settlement_id) {
+    filters.push('settlement_id')
+  }
+  var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
+  [ruleForm.project_id], [ruleForm.programme_implementation_id], [ruleForm.settlement_id]]  // remember to change here!
 
 
-console.log('Editing.. Get Last Report', res.data)
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = []
+
+  // - multiple filters -------------------------------------
+  formData.filters = filters
+  formData.filterValues = filterValues
+  formData.associated_multiple_models = []
+  formData.nested_models = nested_models
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
 
 
-function getReportBeforeCurrentID(dataList, currentID) {
-  if (dataList.length === 0) {
-    return null;
+  console.log('Editing.. Get Last Report', res.data)
+
+
+  function getReportBeforeCurrentID(dataList, currentID) {
+    if (dataList.length === 0) {
+      return null;
+    }
+
+    // Filter the dataList to get records with IDs less than currentID
+    const filteredRecords = dataList.filter((obj) => obj.id < currentID);
+
+    if (filteredRecords.length === 0) {
+      return null; // No record before the currentID
+    }
+
+    // Find the object with the maximum ID from the filtered records
+    const objectWithLatestID = filteredRecords.reduce((prevObj, currentObj) => (currentObj.id > prevObj.id ? currentObj : prevObj));
+
+    // Return the object with the maximum ID (last record before currentID)
+    return objectWithLatestID;
   }
 
-  // Filter the dataList to get records with IDs less than currentID
-  const filteredRecords = dataList.filter((obj) => obj.id < currentID);
 
-  if (filteredRecords.length === 0) {
-    return null; // No record before the currentID
-  }
+  // Get the object with the latest date
 
-  // Find the object with the maximum ID from the filtered records
-  const objectWithLatestID = filteredRecords.reduce((prevObj, currentObj) => (currentObj.id > prevObj.id ? currentObj : prevObj));
-
-  // Return the object with the maximum ID (last record before currentID)
-  return objectWithLatestID;
-}
+  const objectWithLatestDate = getReportBeforeCurrentID(res.data, ruleForm.id);
+  console.log('objectWithLatestDate', objectWithLatestDate);
 
 
-// Get the object with the latest date
+  ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
+  ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
+  ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
 
-const objectWithLatestDate = getReportBeforeCurrentID(res.data, ruleForm.id);
-console.log('objectWithLatestDate', objectWithLatestDate);
+  console.log('cumProgress ats tart', ruleForm);
 
- 
-    ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
-    ruleForm.cumDisbursement=parseInt(objectWithLatestDate.cumDisbursement)
-    ruleForm.cumAmount=parseInt(objectWithLatestDate.cumAmount)
-
-console.log('cumProgress ats tart',ruleForm);
- 
 
 
 }
@@ -1145,7 +1154,7 @@ getInterventionsAll()
 
 //getProjects()
 
- 
+
 
 const tableRowClassName = (data) => {
   // console.log('Row Styling --------->', data.row)
@@ -1288,7 +1297,7 @@ const DownloadXlsx = async () => {
     thisRecord.quantity = tableDataList.value[i].amount
     thisRecord.settlement = tableDataList.value[i].settlement.name
     thisRecord.county = tableDataList.value[i].county.name
-     thisRecord.date = tableDataList.value[i].date
+    thisRecord.date = tableDataList.value[i].date
 
 
     dataHolder.push(thisRecord)
@@ -1315,28 +1324,28 @@ const mfield = 'report_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const selectedRow = ref([])
 const dynamicComponent = ref();
- const componentProps = ref({
-      message: 'Hello from parent',
-      showDialog:addMoreDocuments,
-      data:currentRow.value,
-      umodel:model,
-      field:mfield
-    });
+const componentProps = ref({
+  message: 'Hello from parent',
+  showDialog: addMoreDocuments,
+  data: currentRow.value,
+  umodel: model,
+  field: mfield
+});
 
- 
- 
+
+
 function toggleComponent(row) {
   console.log('Compnnent data', row)
-      componentProps.value.data=row
-      dynamicComponent.value = null; // Unload the component
-      addMoreDocuments.value = true; // Set any additional props
+  componentProps.value.data = row
+  dynamicComponent.value = null; // Unload the component
+  addMoreDocuments.value = true; // Set any additional props
 
-      setTimeout(() => {
-        dynamicComponent.value = ChildComponent; // Load the component
+  setTimeout(() => {
+    dynamicComponent.value = ChildComponent; // Load the component
   }, 100); // 0.1 seconds
 
 
-    }
+}
 
 
 // component for docuemnts 
@@ -1352,37 +1361,219 @@ const DocumentComponentProps = ref({
 
 
 function handleExpand(row) {
-   dynamicDocumentComponent.value = null; // Unload the component
-    rowData.value = row
-    DocumentComponentProps.value.data = row
-    setTimeout(() => {
-      dynamicDocumentComponent.value = documentComponent; // Load the component
-    }, 100); // 0.1 seconds
+  dynamicDocumentComponent.value = null; // Unload the component
+  rowData.value = row
+  DocumentComponentProps.value.data = row
+  setTimeout(() => {
+    dynamicDocumentComponent.value = documentComponent; // Load the component
+  }, 100); // 0.1 seconds
 }
 
-const sliderMarks =[
-        { value: 20, label: '20%' },
-        { value: 40, label: '40%' },
-        { value: 60, label: '60%' },
-        { value: 80, label: '80%' },
-        { value: 100, label: '100%' }
-      ];
- 
- function showTooltip() {
-      return this.sliderValue >= 40 ? 'always' : 'none';
-    }
+
+
+const dialogMap = ref(false)
+
+const reportGeom = ref([])
+const projectGeom = ref([])
+
+const reportDetails = ref();
+const  locationStatus = ref('')
+const projectLocationColor=ref('red')
+const showMap = (row) => {
+  console.log(row)
+
+  reportDetails.value = row
+
+
+
+  dialogMap.value = true
+  reportGeom.value = reportDetails.value.geom.coordinates
+  projectGeom.value = reportDetails.value.project.geom 
 
  
+     var centroid = turf.centroid(reportDetails.value.project.geom );
+
+      var options = {units: 'kilometers'};
+
+  var distance = turf.distance(reportDetails.value.geom, centroid, options);
+  console.log('distance , ', distance) 
+
+  if (distance<1) {
+    projectLocationColor.value='green'
+  }
+  
+  locationStatus.value='The report is ' + distance.toFixed(2) +  ' kilometers from the center of the project'
+  setTimeout(loadMap, 100); // delay for the dialog to fully load
+  //loadMap()
+}
+
+
+
+const closeMap = () => {
+
+  dialogMap.value = false
+}
+
+const loadMap = () => {
+  var mapCenter = reportGeom.value;
+
+  var nmap = new mapboxgl.Map({
+    container: "mapContainer",
+    style: "mapbox://styles/mapbox/streets-v12",
+    center: mapCenter, // starting position
+    zoom: 12,
+  });
+
+
+
+  nmap.on("load", () => {
+    nmap.addLayer({
+      id: "Satellite",
+      source: { type: "raster", url: "mapbox://mapbox.satellite", tileSize: 256 },
+      type: "raster",
+    });
+
+    nmap.addLayer({
+      id: "Streets",
+      source: { type: "raster", url: "mapbox://mapbox.streets", tileSize: 256 },
+      type: "raster",
+    });
+
+    nmap.setLayoutProperty("Satellite", "visibility", "none");
+
+    const layers = [
+      {
+        id: "Satellite",
+        title: "Satellite",
+        visibility: "none",
+        type: "base",
+      },
+      {
+        id: "Streets",
+        title: "Streets",
+        visibility: "none",
+        type: "base",
+      },
+    ];
+
+     //     Add point layer
+     nmap.addLayer({
+        id: 'point-layer',
+        type: 'circle',
+        source: {
+          type: 'geojson',
+          data: projectGeom.value,
+        },
+        paint: {
+          'circle-color': projectLocationColor.value.color,
+          'circle-radius': 6,
+        },
+        filter: ['==', '$type', 'Point'],
+      });
+
+        // Add line layer
+        nmap.addLayer({
+          id: 'line-layer',
+          type: 'line',
+          source: {
+            type: 'geojson',
+            data: projectGeom.value,
+          },
+          paint: {
+            'line-color':projectLocationColor.value,
+            'line-width': 2,
+          },
+          filter: ['==', '$type', 'LineString'],
+        });
+
+       // Add polygon layer as outline
+        nmap.addLayer({
+          id: 'polygon-layer',
+          type: 'line', // Change to 'line' to display the outline
+          source: {
+            type: 'geojson',
+            data: projectGeom.value,
+          },
+          paint: {
+            'line-color': projectLocationColor.value, // Outline color (replace 'green' with your desired color)
+            'line-width': 2, // Outline width in pixels (adjust as needed)
+          },
+          filter: ['in', '$type', 'Polygon' ], // Include both Polygon and MultiPolygon types
+        });
+
+
+ 
+
+
+
+    nmap.addControl(new MapboxLayerSwitcherControl(layers));
+
+    const nav = new mapboxgl.NavigationControl();
+    nmap.addControl(nav, "top-left");
+
+    // Add a marker at the geom.value position
+
+    function formatDateToYYYYMMDD(dateString) {
+      const dateObj = new Date(dateString);
+      const year = dateObj.getUTCFullYear();
+      const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    // Add a marker at the geom.value position
+    var marker = new mapboxgl.Marker().setLngLat(mapCenter).addTo(nmap);
+      // Create the marker and specify the color
+      var marker = new mapboxgl.Marker({
+        color: projectLocationColor.value,
+      }).setLngLat(mapCenter)
+        .addTo(nmap);
+    // Create a simple popup with user information displayed using line breaks
+    var popupContent = document.createElement('div');
+
+    // Sample user information (replace these with actual data)
+    var userName = reportDetails.value.user.name;
+    var phoneNumber = reportDetails.value.user.phone;
+    var date = formatDateToYYYYMMDD(reportDetails.value.date);
+
+    var userInfo = `
+        <div style="text-align: center;">
+          <strong>Submitted By:</strong>
+          <hr style="margin: 5px 0;">
+
+        </div>
+        <strong>Name:</strong> ${userName}<br>
+          <strong>Phone Number:</strong> ${phoneNumber}<br>
+          <strong>Date:</strong> ${date}
+        `;
+
+    popupContent.innerHTML = userInfo;
+
+    var popup = new mapboxgl.Popup({ anchor: 'right', offset: [-20, 0] }).setDOMContent(popupContent);
+
+    // Attach the popup to the marker
+    marker.setPopup(popup);
+    nmap.resize();
+  });
+};
+
+
+function isGeomNull(geom) {
+  console.log('---geom-----', geom)
+  return geom === null;
+}
+
+
+
 </script>
 
 <template>
   <ContentWrap :title="t('Monitoring and Evaluation Reports')" :message="t('Use the filters to subset')">
- 
+
 
 
 
     <div v-if="dynamicComponent">
-      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
+      <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
 
@@ -1409,21 +1600,25 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
       </el-tooltip>
     </div>
 
-  
 
 
-    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
-          <el-table-column type="expand">
-            <template #default="props">
-              <div m="4">
-                <h3>Documents</h3>
-                <div>
-                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
-                </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
-              </div>
-            </template>
-          </el-table-column>
+
+    <el-table
+:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+      @expand-change="handleExpand">
+      <el-table-column type="expand">
+        <template #default="props">
+          <div m="4">
+            <h3>Documents</h3>
+            <div>
+              <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            </div>
+            <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+              :icon="Plus" circle @click="toggleComponent(props.row)" />
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
       <el-table-column label="Settlement" prop="settlement.name" sortable />
       <!-- <el-table-column label="County" prop="county.name" sortable /> -->
@@ -1460,6 +1655,17 @@ v-if="showEditButtons" type="success" :icon="Edit"
                 @click="editReport(scope.row as TableSlotDefault)" circle />
             </el-tooltip>
 
+            <el-tooltip content="Map" placement="top">
+              <el-button
+v-if="showEditButtons" type="warning" :icon="Position" :disabled="isGeomNull(scope.row.geom)"
+                @click="showMap(scope.row as TableSlotDefault)" circle />
+            </el-tooltip>
+
+
+
+
+
+
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
@@ -1486,10 +1692,10 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
 
 
-        <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
-          <el-row :gutter="10">
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
+      <el-row :gutter="10">
 
-          <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+        <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
 
           <el-form-item label="Project">
             <el-select
@@ -1503,7 +1709,9 @@ filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width:
             <el-select
 filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
               placeholder="Select Activity">
-              <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+              <el-option
+v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
+                :value="item.value" />
             </el-select>
           </el-form-item>
 
@@ -1512,7 +1720,9 @@ filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="widt
             <el-select
 filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" style="width: 100%"
               placeholder="Select Indicator">
-              <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+              <el-option
+v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
+                :value="item.value" />
             </el-select>
           </el-form-item>
         </el-col>
@@ -1520,11 +1730,9 @@ filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" 
 
       <el-row :gutter="10">
 
-          <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
+        <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
           <el-form-item label="Status">
-            <el-select
-                  filterable v-model="ruleForm.project_status"  style="width: 100%"
-              placeholder="Select Status">
+            <el-select filterable v-model="ruleForm.project_status" style="width: 100%" placeholder="Select Status">
               <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
@@ -1534,73 +1742,63 @@ filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" 
           </el-form-item>
 
           <el-form-item label="Disbursement (Ksh.)">
-            <el-input-number v-model="ruleForm.disbursement"  :controls="false">
+            <el-input-number v-model="ruleForm.disbursement" :controls="false">
               <template #prepend>Ksh.</template>
             </el-input-number>
 
-        </el-form-item>
+          </el-form-item>
         </el-col>
 
         <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
 
-        <el-form-item label="Date">
-          <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />
-        </el-form-item>
- 
-        <el-form-item :label="ruleForm.cumUnits" >
-            <el-input-number v-model="ruleForm.cumAmount" type="number" disabled >
+          <el-form-item label="Date">
+            <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />
+          </el-form-item>
+
+          <el-form-item :label="ruleForm.cumUnits">
+            <el-input-number v-model="ruleForm.cumAmount" type="number" disabled>
               <template #prepend>Cumulative(Amount)</template>
             </el-input-number>
-        </el-form-item>
+          </el-form-item>
 
- 
-         <el-form-item label="Cumulative(Ksh.)">
-            <el-input-number v-model="ruleForm.cumDisbursement" type="number" disabled >
+
+          <el-form-item label="Cumulative(Ksh.)">
+            <el-input-number v-model="ruleForm.cumDisbursement" type="number" disabled>
               <template #prepend>Cumulative(Ksh.)</template>
             </el-input-number>
-        </el-form-item>
-        
-      </el-col>
-      <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-        <el-form-item label="Progress todate (%)">
-            <el-slider v-model="ruleForm.progress" :min="ruleForm.cumProgress" /> 
-        </el-form-item>
-      </el-col>
-    
-    </el-row>
+          </el-form-item>
+
+        </el-col>
+        <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+          <el-form-item label="Progress todate (%)">
+            <el-slider v-model="ruleForm.progress" :min="ruleForm.cumProgress" />
+          </el-form-item>
+        </el-col>
+
+      </el-row>
 
       <el-row :gutter="10">
         <el-col :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
 
-            <el-upload
-                  v-model:file-list="fileUploadList"
-                  class="upload-demo"
-                  action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-                  multiple
-                  :on-preview="handlePreview"
-                  :on-remove="handleRemove"
-                  :before-remove="beforeRemove"
-                  :limit="3"
-                  :auto-upload="false"
-                  :on-exceed="handleExceed"
-                >
+          <el-upload
+v-model:file-list="fileUploadList" class="upload-demo"
+            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
+            :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
+            :on-exceed="handleExceed">
             <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
-            </el-upload>
-            </el-col>
+          </el-upload>
+        </el-col>
 
-          <el-col :xl="16" :lg="16" :md="24" :sm="24" :xs="24">
-            <el-form-item label="Comments">
-                <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?"/>
-            </el-form-item>
+        <el-col :xl="16" :lg="16" :md="24" :sm="24" :xs="24">
+          <el-form-item label="Comments">
+            <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
+          </el-form-item>
+        </el-col>
+      </el-row>
 
-            </el-col>
+    </el-form>
 
-           
-          </el-row>
 
-        </el-form>
-
-       
 
     <template #footer>
 
@@ -1609,12 +1807,9 @@ filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" 
         <el-row :gutter="10">
 
           <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-
             <el-button @click="AddDialogVisible = false">Cancel</el-button>
             <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
             <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-
-
           </el-col>
 
 
@@ -1658,8 +1853,17 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
     </template>
   </el-dialog>
 
+  <el-dialog v-model="dialogMap" width="50%" draggable :before-close="closeMap" :show-close="false">
+    <template #header="{ titleId, titleClass }">
+      <div class="my-header">
+      <h4 :id="titleId" :class="titleClass">Reporting Location</h4>
+      <h2 :style="`color: ${projectLocationColor}; font-style: italic;`">{{ locationStatus }}</h2> <!-- Use the 'italicizedColor' variable -->
+      <el-button type="danger" :icon="CircleCloseFilled" @click="closeMap">Close Map</el-button>
+    </div>
+    </template>
+    <div id="mapContainer" class="basemap"></div>
 
- 
+  </el-dialog>
 </template>
 
 <style>
@@ -1669,5 +1873,24 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
 
 .el-table .success-row {
   --el-table-tr-bg-color: var(--el-color-success-light-9);
+}
+</style>
+
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 450px;
+  border: 1px solid #e2dcdc;
+  /* Outline */
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+  /* Shadow */
+}
+</style>
+
+<style scoped>
+.my-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
 }
 </style>
