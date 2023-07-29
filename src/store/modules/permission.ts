@@ -160,15 +160,16 @@ programmeComponentOptions.value.push(activity)
     
         console.log("dynamo", dynamicDashbaordOptions.value)
   
-        adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
 
       }
-  
+     // adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
+
   
       
     });
     
-  
+    adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
+
   
   }
 
