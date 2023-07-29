@@ -225,78 +225,8 @@ console.log('loadingPosting.value.......', morefileList.value.length)
 
  const res = await uploadFilesBatch(formData)
 
-
-//   // const res = await uploadFilesBatch(formData, (progressEvent) => {
-//   //   const uploadPercentage = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-//   //   console.log('Upload xPercentage:', uploadPercentage);
-//   //   // You can handle the upload percentage here, e.g., update a progress bar
-//   //   console.log('Upload Percentage:', state.uploadPercentage);
-
-//   // });
-
  
-//   const postFiles = async () => {
-//    await  axios.post('http://localhost/api/v1/upload/batch', formData, {
-//  //    axios.post(prod+'/api/v1/upload/batch', formData, {
-//         headers: {
-//       'Content-Type': 'multipart/form-data',
-//       'x-access-token': `${userInfo.data}`    // felix - add auth token 
-
-//         },
-//         onUploadProgress: (progressEvent) => {
-//           const percentage = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-//           uploadProgress.value = percentage;
-//           console.log(percentage)
-//       //    setTimeout(trackFileAvailability(percentage), 1); // Check again after 0.011 second (adjust as needed)
-
-//         },
-//       })
-//       .then((response) => {
-//         console.log('File uploaded successfully', response);
-//      //   addMoreDocuments.value = false
-//     //    loadingPosting.value=false
-
-//       })
-//       .catch((error) => {
-//         console.log('File upload failed:', error);
-//        // addMoreDocuments.value = false
-//       //  loadingPosting.value = false
-//         ElMessage.error(error)
-
-//       });
-
-//     };
-
-//     postFiles();
-
-//  const samplePostRequest = async () => {
-//   try {
-//     const response =    await  axios.post('http://localhost/api/v1/upload/batch', formData, {
-//  //    axios.post(prod+'/api/v1/upload/batch', formData, {
-//         headers: {
-//       'Content-Type': 'multipart/form-data',
-//       'x-access-token': `${userInfo.data}`    // felix - add auth token 
-
-//         },
-//         onUploadProgress: (progressEvent) => {
-//           const percentage = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-//           uploadProgress.value = percentage;
-//           console.log(percentage)
-//       //    setTimeout(trackFileAvailability(percentage), 1); // Check again after 0.011 second (adjust as needed)
-
-//         },
-//       })
-//     console.log("Sucess",response)
-//     ElMessage.success( response.data.title);
-//   } catch (error) {
-//     console.error('Error:', error);
-//     ElMessage.error( response.data);
-
-//   }
-// };
-
-//     samplePostRequest();
-
+ 
 
  if (res.code === "0000") {
    loadingPosting.value = false
@@ -371,9 +301,7 @@ const handleFileChange = async (file, fileList) => {
 
       <template #footer>
         <span class="dialog-footer">
-          <!-- <el-button @click="addMoreDocuments = false">
-            <i class="el-icon-close"></i>
-          </el-button> -->
+    
           <el-row class="mb-4">
 
           <el-tooltip content="Cancel" placement="top">
