@@ -106,9 +106,9 @@ getDocumentTypes()
 
  
 const addMoreDocuments = ref(props.showDialog)
-const xmodel = ref(props.umodel)
-const currentRow = ref(props.data)
-const field_id = ref(props.field)
+ //const xmodel = ref(props.umodel)
+//const currentRow = ref(props.data)
+//const field_id = ref(props.field)
 
 
 
@@ -204,20 +204,20 @@ console.log('loadingPosting.value.......', morefileList.value.length)
     // formData.append('file', fileList.value[i])
     // formData.file = fileList.value[i]
 
-    formData.append('model', xmodel)
+    formData.append('model', props.umodel)
     formData.append('createdBy', userInfo.id)
 
     formData.append('file', morefileList.value[i].raw)
     formData.append('format', morefileList.value[i].name.split('.').pop())
     formData.append('category', documentCategory.value)
-    formData.append('field_id', field_id.value)
+    formData.append('field_id', props.field)
     formData.append('protected', protectedFile.value)
 
     formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
     formData.append('code', uuid.v4())
-    formData.append(field_id.value , currentRow.value.id)
+    formData.append(props.field, props.data.id)
 
-    console.log('formData',field_id.value)
+    console.log('formData',props.field)
 
   }
 
