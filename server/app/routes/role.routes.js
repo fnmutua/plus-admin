@@ -16,6 +16,7 @@ module.exports = function(app) {
 
   app.post("/api/v1/role/all", [authJwt.verifyToken, authJwt.isSuperAdmin],controller.getAllRoles);
   app.post("/api/v1/role/one", [authJwt.verifyToken, authJwt.isSuperAdmin],controller.getRoleById);
+  app.post("/api/v1/role/subordinate", [authJwt.verifyToken, authJwt.isSomeAdmin],controller.getSubordinateRoles);
 
 
   app.post("/api/v1/role/edit", [authJwt.verifyToken, authJwt.isSuperAdmin],controller.editRole);

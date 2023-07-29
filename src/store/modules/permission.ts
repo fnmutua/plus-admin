@@ -104,7 +104,7 @@ programmeComponentOptions.value.push(activity)
 
 
  // Wrap your code in an async function
-const loadDynamicDashboards = async () => {
+ 
   const getDynamicDashboards = async () => {
     const formData = {}
     formData.limit = 100
@@ -172,10 +172,8 @@ const loadDynamicDashboards = async () => {
   }
 
   await getDynamicDashboards();
-};
  
-loadDynamicDashboards();
-
+ 
  
 
 const subprograms = [

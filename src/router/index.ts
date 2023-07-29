@@ -1033,11 +1033,11 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         component: () => import('@/views/Users/User.vue'),
         name: 'staff',
         meta: {
-          title: 'All',
+          title: 'Staff',
           hidden: false,
           icon: 'fa6-solid:users-rectangle',
           //role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] 
-           role: ['admin', 'super_admin'  ] 
+          role: ['admin', 'super_admin','county_admin'  ] 
 
         }
       },
@@ -1051,25 +1051,25 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           hidden: false,
           icon: 'grommet-icons:user-new',
         //  role: ['admin', 'super_admin'  ] 
-        role: ['admin', 'super_admin'  ] 
+        role: ['admin', 'super_admin','county_admin'  ] 
 
         }
       },
-      {
-        path: 'county',
-      //  component: 'views/Users/County',
-        component: () => import('@/views/Users/County.vue'),
+      // {
+      //   path: 'county',
+      // //  component: 'views/Users/County',
+      //   component: () => import('@/views/Users/County.vue'),
 
-        name: 'CountyStaff',
-        meta: {
-          title: 'County',
-          hidden: false,
-          icon: 'gis:map-users',
-       //   role: ['admin', 'super_admin', 'county_admin'  ] 
-       role: ['admin', 'super_admin'  ] 
+      //   name: 'CountyStaff',
+      //   meta: {
+      //     title: 'County',
+      //     hidden: false,
+      //     icon: 'gis:map-users',
+      //  //   role: ['admin', 'super_admin', 'county_admin'  ] 
+      //  role: ['admin', 'super_admin', 'county_admin'  ] 
 
-        }
-      }, 
+      //   }
+      // }, 
       {
         path: 'profile',
       //  component: 'views/Users/County',
@@ -1082,20 +1082,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       }, 
 
-      {
-        path: 'logs',
-      //  component: 'views/Users/County',
-        component: () => import('@/views/Users/Logs.vue'),
-        name: 'Logs',
-        meta: {
-          title: 'Logs',
-          hidden: false,
-          icon: 'arcticons:auditor',
-     //     role: [ 'super_admin'   ] 
-        role: [ 'super_admin'  ] 
-
-        }
-      }, 
+   
 
       {
         path: 'feedback',
@@ -1339,22 +1326,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     
         ]
       },
-
-      {
-        path: 'roles',
-        component: () => import('@/views/Dashboard/National.vue'),
-        name: 'Roles',
-        meta: {
-          title: t('Roles'),
-          noCache: true,
-          icon:'ic:round-bubble-chart',
-          affix: true,
-          hidden: false,
-          role: ['super_admin'] 
-
-        }
-      },
-
+ 
 
     ]
   },
@@ -1387,7 +1359,20 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       },
-       
+      {
+        path: 'logs',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Users/Logs.vue'),
+        name: 'Logs',
+        meta: {
+          title: 'Logs',
+          hidden: false,
+          icon: 'arcticons:auditor',
+     //     role: [ 'super_admin'   ] 
+          role: [ 'super_admin'  ] 
+
+        }
+      }, 
     ]
   },
 

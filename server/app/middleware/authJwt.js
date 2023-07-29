@@ -182,6 +182,36 @@ isAdminOrCountyAdmin = (req, res, next) => {
      });
    });
  };
+
+ isSomeAdmin = (req, res, next) => {
+  // console.log("Requrest,",req.userid)
+   User.findByPk(req.userid).then(user => {
+   //  console.log(user)
+     user.getRoles().then(roles => {
+       for (let i = 0; i < roles.length; i++) {
+           console.log(roles[i].name)
+         if (roles[i].name === "super_admin") {
+           next();
+           return;
+         }
+         if (roles[i].name === "admin") {
+          next();
+          return;
+         }  
+             
+         if (roles[i].name === "county_admin") {
+          next();
+          return;
+        }
+        
+       }
+       res.status(403).send({
+         message: "You require  Admin Role to perform this function"
+       });
+     });
+   });
+ };
+ 
  
 const authJwt = {
   verifyToken: verifyToken,
@@ -190,7 +220,8 @@ const authJwt = {
   isModeratorOrAdmin: isModeratorOrAdmin,
   isStaffOrAdmin: isStaffOrAdmin,
   isAdminOrCountyAdmin: isAdminOrCountyAdmin,
-  isSuperAdmin:isSuperAdmin
+  isSuperAdmin: isSuperAdmin,
+  isSomeAdmin:isSomeAdmin
 
 };
 module.exports = authJwt;

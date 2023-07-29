@@ -5,12 +5,9 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { getUserRoles,getByName } from '@/api/users'
-
-
 import {
-  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter,ElRow, ElDropdown, ElDropdownItem, ElCheckboxGroup,ElCheckbox,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar,  
+  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElDropdown, ElDropdownItem,ElCol,
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn,ElCheckTag,ElCheckbox,ElCheckboxButton,ElCheckboxGroup, ElAvatar
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
@@ -19,13 +16,13 @@ import {
   Edit,
   User,
   Plus,
-  Download,UserFilled,
+  Download,
   Filter,
   MessageBox
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider, ELRow } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
@@ -97,7 +94,7 @@ const downloadLoading = ref(false)
 
 const dialogFormVisible = ref(false)
 const editUserForm = ref()
-const formLabelWidth = '100px'
+const formLabelWidth = '140px'
 
 
 let tableDataList = ref<UserType[]>([])
@@ -105,14 +102,15 @@ let tableDataList_orig = ref<UserType[]>([])
 
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = ['county_id']
-var filterValues = [currentUser.county_id]
+var filters = ['isactive']
+console.log(currentUser)
+var filterValues = [false]
 var tblData = []
 
-const associated_multiple_models = ['county' ]
+const associated_multiple_models = ['county']
 
-////const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
-//const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
+const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
+const nested_filter = ['id', [14]] //   column and value of the grandchild. In this case roles. 5=county Admin 
 
 
 const model = 'users'
@@ -126,8 +124,7 @@ const form = reactive({
   email: '',
   phone: '',
   county_id: '',
-  roles: [],
-  avatar:''
+  roles: []
 })
 
 
@@ -254,9 +251,8 @@ const getCountyNames = async () => {
     })
   })
 }
-
-const xgetRoles = async () => {
-  const res = await getUserRoles({
+const getRoles = async () => {
+  const res = await getCountyListApi({
     params: {
       pageIndex: 1,
       limit: 100,
@@ -278,44 +274,12 @@ const xgetRoles = async () => {
       roleOpt.value = arrayItem.id
       roleOpt.label = arrayItem.name
       //  console.log(countyOpt)
-      if (arrayItem.name !=='super_admin') {
+      if (arrayItem.name != 'super_admin') {
         RolesOptions.value.push(roleOpt)
 
       }
     })
   })
-}
-
-const getRoles = async () => {
-  
-  const formData = {}
-  formData.limit = 100
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'roles'
-  //-Search field--------------------------------------------
-  
-  formData.currentUser = currentUser
- 
-
-  //-------------------------
-   const res = await getUserRoles(formData)
-
-   console.log('Get Roles.....',res.data)
-
-    
-  res.data.forEach(function (arrayItem) {
- 
-   
-    //  generate the filter options
-    var opt = {}
-    opt.value = arrayItem.id
-    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
-    //  console.log(countyOpt)
-    RolesOptions.value.push(opt)
-  })
-
-  console.log('RolesOptions', RolesOptions)
 }
 
 const getSettlementsOptions = async () => {
@@ -362,7 +326,7 @@ const activateDeactivate = (data: TableSlotDefault) => {
 }
 
 
-const xgetFilteredBySearchData = async (searchString) => {
+const getFilteredBySearchData = async (searchString) => {
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
@@ -380,8 +344,8 @@ const xgetFilteredBySearchData = async (searchString) => {
   formData.filters = filters
   formData.filterValues = filterValues
   formData.associated_multiple_models = associated_multiple_models
-  //formData.nested_models = nested_models
-  //formData.nested_filter = nested_filter
+  formData.nested_models = nested_models
+  formData.nested_filter = nested_filter
 
   //-------------------------
   console.log(formData)
@@ -397,44 +361,6 @@ const xgetFilteredBySearchData = async (searchString) => {
   tblData = [] // reset the table data
 
 }
-
-const getFilteredBySearchData = async (searchString) => {
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchString = searchString
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = associated_multiple_models
-  //formData.nested_models = nested_models
-  //formData.nested_filter = nested_filter
-  formData.currentUser = currentUser
-
-  //-------------------------
-  console.log(formData)
-  const res = await getByName(formData)
-
-  console.log('After -----x ------Querry', res)
-  tableDataList.value = res.data
-  tableDataList_orig.value = res.data // back for post filter
-
-  total.value = res.total
-  loading.value = false
-
-  tblData = [] // reset the table data
-
-}
-
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -452,9 +378,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
-  //formData.nested_models = nested_models
-  //formData.nested_filter = nested_filter
-  formData.currentUser = currentUser
+  formData.nested_models = nested_models
+  formData.nested_filter = nested_filter
 
 
   //-------------------------
@@ -520,14 +445,10 @@ const EditUser = (data: TableSlotDefault) => {
   form.county_id = data.row.county_id
   form.email = data.row.email
   form.phone = data.row.phone
-  form.avatar = data.row.avatar
   let roles = []
-  data.row.roles.forEach(function (arrayItem) {
-    console.log(arrayItem.id)
-    roles.push(arrayItem.id)
+  data.row.user_roles.forEach(function (arrayItem) {
+    roles.push(arrayItem.roleid)
   })
-
-
   form.roles = roles
   console.log(form)
   dialogFormVisible.value = true
@@ -542,10 +463,28 @@ const updateUser = () => {
 }
 const search = ref('')
 
+const filterTableData = () => {
+
+  console.log("filtering data")
+
+  if (search.value) {
+    console.log(search.value)
+    tableDataList.value = tableDataList.value.filter(
+      (data) =>
+        !search.value ||
+        data.name.toLowerCase().includes(search.value.toLowerCase())
+    )
+    console.log(tableDataList.value)
+
+  } else {
+    console.log("Clear search", search.value)
+    console.log("Clear search", tableDataList_orig.value)
+
+    tableDataList.value = tableDataList_orig.value
+  }
+}
+
  
-
-
-
 const DownloadXlsx = async () => {
   console.log(tableDataList.value)
 
@@ -650,7 +589,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       <el-avatar :src="scope.row.avatar" size="80px" />
     </template>
   </el-table-column>
-
+  
  
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
@@ -704,7 +643,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
 
-    <el-dialog v-model="dialogFormVisible" title="User Details" width="40%">
+      <el-dialog v-model="dialogFormVisible" title="User Details" width="40%">
       <el-form :model="form">
  
             <el-form-item label="" :label-width="formLabelWidth" class="center-avatar">
@@ -767,10 +706,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   margin-right: 10px;
 }
 
-.center-avatar {
-  display: flex;
-  justify-content: center;
-}
 
 .my-switch {
   margin-right: 10px;
