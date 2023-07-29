@@ -62,32 +62,47 @@ router.beforeEach(async (to, from, next) => {
       // }
 
 
-      if (userInfo.roles.includes("admin"))
-      {
-     //   await permissionStore.generateRoutes('admin', roleRouters as AppCustomRouteRecordRaw[])
-        await permissionStore.generateRoutes('admin')
+      const roles = userInfo.roles;
 
-       }
-      else if (userInfo.roles.includes("county_admin"))
-      {
-        await permissionStore.generateRoutes('county_admin')
-      }
-        
-      else if (userInfo.roles.includes("county_staff") ||userInfo.roles.includes("county_mon") )
+      const rolePriorityOrder = [
+        'super_admin',
+        'admin',
+        'county_admin',
+        'staff',
+        'county_user',
+        'others',
+      ];
       
-      {
-        await permissionStore.generateRoutes('county_user')
-      }    
-   //   else if (userInfo.roles.includes("county_staff") || userInfo.roles.includes("county_mon"))
+      let superiorRole = 'others';
       
-      else if (userInfo.roles.includes("sud_staff") || (userInfo.roles.includes("kisip_staff")) || (userInfo.roles.includes("national_monitoring"))) 
-      {
-        await permissionStore.generateRoutes('staff')
-      }    
-        
-      else {
-        await permissionStore.generateRoutes('public')
+      for (const role of rolePriorityOrder) {
+        if (roles.includes(role)) {
+          superiorRole = role;
+          break;
+        }
       }
+      
+      switch (superiorRole) {
+        case 'super_admin':
+          await permissionStore.generateRoutes('super_admin');
+          break;
+        case 'admin':
+          await permissionStore.generateRoutes('admin');
+          break;
+        case 'county_admin':
+          await permissionStore.generateRoutes('county_admin');
+          break;
+        case 'staff':
+          await permissionStore.generateRoutes('staff');
+          break;
+        case 'county_staff':
+          await permissionStore.generateRoutes('county_staff');
+          break;
+        default:
+          await permissionStore.generateRoutes('public');
+          break;
+      }
+      
 
 
       permissionStore.getAddRouters.forEach((route) => {

@@ -136,7 +136,7 @@ if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) 
 }
 
 // Show Edit buttons 
-if (userInfo.roles.includes("kisip_staff") || userInfo.roles.includes("sud_staff")|| userInfo.roles.includes("admin")
+if (userInfo.roles.includes("staff")|| userInfo.roles.includes("admin")
   || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
     showEditButtons.value = true;
 }

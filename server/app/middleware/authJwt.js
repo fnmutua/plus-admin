@@ -69,6 +69,24 @@ isAdmin = (req, res, next) => {
   });
 };
 
+isSuperAdmin = (req, res, next) => {
+  User.findByPk(req.userid).then(user => {
+    user.getRoles().then(roles => {
+      for (let i = 0; i < roles.length; i++) {
+        if (roles[i].name === "super_admin") {
+          next();
+          return;
+        }
+      }
+      res.status(403).send({
+        message: "This resource requires an Super Admin Role!"
+      });
+      return;
+    });
+  });
+};
+
+
 isModerator = (req, res, next) => {
   User.findByPk(req.userid).then(user => {
     user.getRoles().then(roles => {
@@ -171,7 +189,8 @@ const authJwt = {
   isModerator: isModerator,
   isModeratorOrAdmin: isModeratorOrAdmin,
   isStaffOrAdmin: isStaffOrAdmin,
-  isAdminOrCountyAdmin:isAdminOrCountyAdmin
+  isAdminOrCountyAdmin: isAdminOrCountyAdmin,
+  isSuperAdmin:isSuperAdmin
 
 };
 module.exports = authJwt;

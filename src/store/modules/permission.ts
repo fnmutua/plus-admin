@@ -233,14 +233,15 @@ export const usePermissionStore = defineStore('permission', {
   },
   actions: {
     generateRoutes(
-      type: 'admin' | 'county_admin' | 'county_staff' | 'county_mon' | 'sud_staff'
-        | 'kisip_staff' | 'senior_staff' | 'public' | 'super_admin',
+      type: 'admin' | 'county_admin' | 'county_staff' | 'county_mon' | 'staff' | 'public' | 'super_admin',
       routers?: AppCustomRouteRecordRaw[] | string[]
     ): Promise<unknown> {
       return new Promise<void>((resolve) => {
         // Function to recursively filter routes and their children based on 'type'
         const filterRoutes = (routes) => {
+        
           const filteredRoutes = routes.filter((route) => {
+            console.log('route---->', type)
             if (!route.meta || !route.meta.role) return true; // Include routes without 'meta' or 'role' property
             return route.meta.role.includes(type);
           });
@@ -266,7 +267,7 @@ export const usePermissionStore = defineStore('permission', {
         this.addRouters = routerMap;     
   
 
-     console.log('routerMap - 2',routerMap)
+     console.log('routerMap2',routerMap)
 
 
 
