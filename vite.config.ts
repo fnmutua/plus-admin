@@ -107,8 +107,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     },
     build: {
       minify: 'terser',
-      target: 'esnext',
-      outDir: env.VITE_OUT_DIR || 'dist',
+       outDir: env.VITE_OUT_DIR || 'dist',
       sourcemap: env.VITE_SOURCEMAP === 'true' ? 'inline' : false,
       // brotliSize: false,
       terserOptions: {
@@ -117,7 +116,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
           drop_console: env.VITE_DROP_CONSOLE === 'true'
         }
       }
-    },
+    }, 
     server: {
       host: false,
        port : 4000, //Dev
