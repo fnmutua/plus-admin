@@ -160,7 +160,8 @@ programmeComponentOptions.value.push(activity)
     
         console.log("dynamo", dynamicDashbaordOptions.value)
   
-  
+        adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
+
       }
   
   
@@ -171,7 +172,7 @@ programmeComponentOptions.value.push(activity)
   
   }
 
-  await getDynamicDashboards();
+    getDynamicDashboards();
  
  
  
@@ -198,7 +199,7 @@ const subprograms = [
     adminRoutes.splice(2, 0, ...subprograms);
 
 // Push the 'dynamicDashbaordOptions' to the 'children' of the first route in 'adminRoutes'
-adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
+//adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
 
  
  
