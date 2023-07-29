@@ -3,11 +3,14 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty, DeleteRecord } from '@/api/settlements'
+import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
+import { getUserRoles,getByName } from '@/api/users'
+
+
 import {
-  ElButton, ElSwitch, ElSelect, ElDialog, ElRow,ElCol,
-  ElTable, ElTableColumn, ElPopconfirm, ElFormItem, ElForm, ElInput, ElCheckboxGroup,ElCheckbox, ElAvatar
+  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter,ElRow, ElDropdown, ElDropdownItem, ElCheckboxGroup,ElCheckbox,
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar,  
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
@@ -16,51 +19,56 @@ import {
   Edit,
   User,
   Plus,
-  InfoFilled,
-  Delete,
-  Download,
+  Download,UserFilled,
   Filter,
   MessageBox
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider, ELRow } from 'element-plus'
+import { ref, reactive, computed } from 'vue'
+import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
-import { activateUserApi, updateUserApi, getUserListApi, getSystemRoles, getUserByKeyWord } from '@/api/users'
+import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-
 import xlsx from "json-as-xlsx"
 
-import {
-  searchByKeyWord
-} from '@/api/settlements'
+import { searchByKeyWord } from '@/api/settlements'
 interface Params {
   pageIndex?: number
   xpageSize?: number
 }
 
-
-
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
+const isMobile = computed(() => appStore.getMobile)
+
+console.log('IsMobile', isMobile)
+
+const dialogWidth = ref()
+const actionColumnWidth = ref()
+
+if (isMobile.value) {
+  dialogWidth.value = "90%"
+  actionColumnWidth.value = "75px"
+} else {
+  dialogWidth.value = "25%"
+  actionColumnWidth.value = "160px"
+
+}
 
 
-const userInfo = wsCache.get(appStore.getUserInfo)
 
+const currentUser = wsCache.get(appStore.getUserInfo)
 
 // Hide buttons if not admin 
 const showAdminButtons = ref(false)
-const showSuperAdminButtons = ref(false)
 
-if (userInfo.roles.includes("admin")) {
+if (currentUser.roles.includes("admin")) {
   showAdminButtons.value = true
 }
 
-if (userInfo.roles.includes("super_admin")) {
-  showSuperAdminButtons.value = true
-}
+
 
 const { push } = useRouter()
 const value1 = ref([])
@@ -82,7 +90,6 @@ const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
-const maxCount = ref(0)
 const downloadLoading = ref(false)
 
 
@@ -90,20 +97,22 @@ const downloadLoading = ref(false)
 
 const dialogFormVisible = ref(false)
 const editUserForm = ref()
-const formLabelWidth = '140px'
+const formLabelWidth = '100px'
 
 
 let tableDataList = ref<UserType[]>([])
+let tableDataList_orig = ref<UserType[]>([])
+
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = []
-var filterValues = []
+var filters = ['county_id']
+var filterValues = [currentUser.county_id]
 var tblData = []
 
-const associated_multiple_models = ['county']
+const associated_multiple_models = ['county' ]
 
-const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
-const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
+////const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
+//const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
 
 
 const model = 'users'
@@ -115,42 +124,16 @@ const form = reactive({
   id: '',
   name: '',
   email: '',
-  username: '',
   phone: '',
   county_id: '',
-  roles: []
+  roles: [],
+  avatar:''
 })
 
 
 const { t } = useI18n()
 
-const columns: TableColumn[] = [
-  {
-    field: 'index',
-    label: t('S/No'),
-    type: 'index'
-  },
 
-  {
-    field: 'name',
-    label: t('Name')
-  },
-  {
-    field: 'username',
-    label: t('Username')
-  },
-
-
-  {
-    field: 'county.name',
-    label: t('County')
-  },
-  {
-    field: 'action',
-    width: "150",
-    label: t('Operations')
-  }
-]
 const handleClear = async () => {
   console.log('cleared....')
 
@@ -202,24 +185,6 @@ const handleSelectCounty = async (county_id: any) => {
 }
 
 
-const DeleteUSer = (data: TableSlotDefault) => {
-  console.log('----->', data.row)
-  let formData = {}
-  formData.id = data.row.id
-  formData.model = model
-
-  DeleteRecord(formData)
-
-  console.log(tableDataList.value)
-
-
-  // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
-  if (index !== -1) {
-    tableDataList.value.splice(index, 1);
-  }
-
-}
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
@@ -289,9 +254,20 @@ const getCountyNames = async () => {
     })
   })
 }
-const getRoles = async () => {
-  const res = await getSystemRoles({}).then((response: { data: any }) => {
-    console.log('Received  Roles response:', response)
+
+const xgetRoles = async () => {
+  const res = await getUserRoles({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'roles',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
     //tableDataList.value = response.data
     var ret = response.data
 
@@ -302,9 +278,44 @@ const getRoles = async () => {
       roleOpt.value = arrayItem.id
       roleOpt.label = arrayItem.name
       //  console.log(countyOpt)
-      RolesOptions.value.push(roleOpt)
+      if (arrayItem.name !=='super_admin') {
+        RolesOptions.value.push(roleOpt)
+
+      }
     })
   })
+}
+
+const getRoles = async () => {
+  
+  const formData = {}
+  formData.limit = 100
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'roles'
+  //-Search field--------------------------------------------
+  
+  formData.currentUser = currentUser
+ 
+
+  //-------------------------
+   const res = await getUserRoles(formData)
+
+   console.log('Get Roles.....',res.data)
+
+    
+  res.data.forEach(function (arrayItem) {
+ 
+   
+    //  generate the filter options
+    var opt = {}
+    opt.value = arrayItem.id
+    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    //  console.log(countyOpt)
+    RolesOptions.value.push(opt)
+  })
+
+  console.log('RolesOptions', RolesOptions)
 }
 
 const getSettlementsOptions = async () => {
@@ -350,21 +361,8 @@ const activateDeactivate = (data: TableSlotDefault) => {
   activateUserApi(data.row, { model: 'users' }).then(() => { })
 }
 
-function roundUp(number) {
-  return Math.ceil(number / 100) * 100;
-}
 
-
-
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'data.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
-
-const getFilteredBySearchData = async (searchString) => {
+const xgetFilteredBySearchData = async (searchString) => {
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
@@ -382,27 +380,66 @@ const getFilteredBySearchData = async (searchString) => {
   formData.filters = filters
   formData.filterValues = filterValues
   formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
-  formData.nested_filter = nested_filter
+  //formData.nested_models = nested_models
+  //formData.nested_filter = nested_filter
 
   //-------------------------
   console.log(formData)
-  const res = await getUserByKeyWord(formData)
+  const res = await searchByKeyWord(formData)
 
   console.log('After -----x ------Querry', res)
   tableDataList.value = res.data
+  tableDataList_orig.value = res.data // back for post filter
+
   total.value = res.total
-  maxCount.value = roundUp(res.total)
   loading.value = false
 
   tblData = [] // reset the table data
 
 }
+
+const getFilteredBySearchData = async (searchString) => {
+  const formData = {}
+  formData.limit = pSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchString = searchString
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = filters
+  formData.filterValues = filterValues
+  formData.associated_multiple_models = associated_multiple_models
+  //formData.nested_models = nested_models
+  //formData.nested_filter = nested_filter
+  formData.currentUser = currentUser
+
+  //-------------------------
+  console.log(formData)
+  const res = await getByName(formData)
+
+  console.log('After -----x ------Querry', res)
+  tableDataList.value = res.data
+  tableDataList_orig.value = res.data // back for post filter
+
+  total.value = res.total
+  loading.value = false
+
+  tblData = [] // reset the table data
+
+}
+
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
-  formData.currrentUser = userInfo.id // Id for logged in user
+  formData.curUser = 1 // Id for logged in user
   formData.model = model
   //-Search field--------------------------------------------
   formData.searchField = 'name'
@@ -415,25 +452,28 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
-  formData.nested_filter = nested_filter
+  //formData.nested_models = nested_models
+  //formData.nested_filter = nested_filter
+  formData.currentUser = currentUser
 
 
   //-------------------------
   console.log('gettign getCountyStaff users --->', formData)
-  const res = await getUserListApi(formData)
+  const res = await getCountyStaff(formData)
 
   console.log('After getting all users', res)
   tableDataList.value = res.data
+  tableDataList_orig.value = res.data // back for post filter
+
   total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
-  maxCount.value = roundUp(res.total)
+
   loading.value = false
 
   tblData = [] // reset the table data
   console.log('TBL-b4', tblData)
   res.data.forEach(function (arrayItem) {
     console.log('arrayItem ----->', arrayItem)
-    //delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
+    delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
     delete arrayItem['photo'] //  remove the geometry column
 
     var dd = destructure(arrayItem)
@@ -477,14 +517,17 @@ const EditUser = (data: TableSlotDefault) => {
   console.log(data)
   form.id = data.row.id
   form.name = data.row.name
-  form.username = data.row.username
   form.county_id = data.row.county_id
   form.email = data.row.email
   form.phone = data.row.phone
+  form.avatar = data.row.avatar
   let roles = []
-  data.row.user_roles.forEach(function (arrayItem) {
-    roles.push(arrayItem.roleid)
+  data.row.roles.forEach(function (arrayItem) {
+    console.log(arrayItem.id)
+    roles.push(arrayItem.id)
   })
+
+
   form.roles = roles
   console.log(form)
   dialogFormVisible.value = true
@@ -493,12 +536,15 @@ const EditUser = (data: TableSlotDefault) => {
 
 const updateUser = () => {
 
-  console.log(form)
-
   updateUserApi(form).then(() => { })
 
   dialogFormVisible.value = false
 }
+const search = ref('')
+
+ 
+
+
 
 const DownloadXlsx = async () => {
   console.log(tableDataList.value)
@@ -509,6 +555,8 @@ const DownloadXlsx = async () => {
     { label: "Name", value: "name" }, // Top level data
     { label: "Email", value: "email" }, // Custom format
     { label: "Username", value: "username" }, // Run functions
+    { label: "Phone", value: "phone" }, // Run functions
+    { label: "County", value: "county" }, // Run functions
 
   ]
 
@@ -523,14 +571,15 @@ const DownloadXlsx = async () => {
   // change here !
   for (let i = 0; i < tableDataList.value.length; i++) {
     let thisRecord = {}
-
+    tableDataList.value[i]
     thisRecord.index = i + 1
     thisRecord.name = tableDataList.value[i].name
+    thisRecord.county = tableDataList.value[i].county.name
     thisRecord.email = tableDataList.value[i].email
     thisRecord.username = tableDataList.value[i].username
+    thisRecord.phone = tableDataList.value[i].phone
 
 
-    //console.log(i)
     dataHolder.push(thisRecord)
   }
   dataObj.content = dataHolder
@@ -548,6 +597,9 @@ const DownloadXlsx = async () => {
   xlsx([dataObj], settings) //  download the excel file
 
 }
+
+
+
 </script>
 
 <template>
@@ -581,28 +633,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <!-- <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-          :currentPage="currentPage">
-          <template #action="data">
-            <ElRow :gutter="5" justify="space-between">
-              <el-tooltip content="Activate/Deactivate User" placement="top">
-                <el-switch v-model="data.row.isactive" @click="activateDeactivate(data as TableSlotDefault)" />
-              </el-tooltip>
-              <el-tooltip content="Edit" placement="top">
-                <el-button type="success" :icon="Edit" @click="EditUser(data as TableSlotDefault)" circle />
-              </el-tooltip>
-              <el-tooltip content="Delete" placement="top">
-                <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
-                  icon-color="#626AEF" title="Are you sure to delete this User?"
-                  @confirm="DeleteUSer(data as TableSlotDefault)">
-                  <template #reference>
-                    <el-button v-if="showSuperAdminButtons" type="danger" :icon=Delete circle />
-                  </template>
-                </el-popconfirm>
-              </el-tooltip>
-            </ElRow>
-          </template>
-        </Table> -->
+
 
 
     <el-table :data="tableDataList" style="width: 100%" fit>
@@ -613,7 +644,6 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           {{ scope.$index + 1 }}
         </template>
       </el-table-column>
-      
         <!-- Avatar column -->
   <el-table-column label="Avatar" width="100">
     <template #default="scope">
@@ -621,13 +651,14 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
     </template>
   </el-table-column>
 
-
-
+ 
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="County" prop="county.name" sortable />
       <el-table-column fixed="right" label="Operations" :width="actionColumnWidth">
         <template #default="scope">
+
+
           <el-dropdown v-if="isMobile">
             <span class="el-dropdown-link">
               <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
@@ -668,13 +699,12 @@ v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefaul
 
 
 
-
     <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, maxCount]" :total="total" :background="true" @size-change="onPageSizeChange"
+      :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
 
-      <el-dialog v-model="dialogFormVisible" title="User Details" width="40%">
+    <el-dialog v-model="dialogFormVisible" title="User Details" width="40%">
       <el-form :model="form">
  
             <el-form-item label="" :label-width="formLabelWidth" class="center-avatar">
@@ -699,7 +729,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
                 <el-form-item label="Roles" :label-width="formLabelWidth">
                   <el-checkbox-group v-model="form.roles">
                     <el-row :gutter="20">
-                      <el-col v-for="item in RolesOptions" :key="item.value" :span="7">
+                      <el-col v-for="item in RolesOptions" :key="item.value" :span="12">
                         <el-checkbox :label="item.value">{{ item.label }}</el-checkbox>
                       </el-col>
                     </el-row>
@@ -737,7 +767,13 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   margin-right: 10px;
 }
 
+.center-avatar {
+  display: flex;
+  justify-content: center;
+}
+
 .my-switch {
   margin-right: 10px;
 }
 </style>
+

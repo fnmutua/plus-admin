@@ -92,3 +92,17 @@ export const getUserFeedback = (data: UserType): Promise<IResponse<UserType>> =>
   console.log('....', data)
   return request.post({ url: prod + '/api/v1/feedback/all', data })
 }
+
+
+
+export const getUserRoles = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/role/subordinate', data })
+}
+
+
+export const getByName = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/user/name', data })
+}
+ 

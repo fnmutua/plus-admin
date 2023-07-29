@@ -173,3 +173,55 @@ exports.getAllRoles = (req, res) => {
       });
     });
 };
+
+exports.getSubordinateRoles = (req, res) => {
+  console.log('getting getSubordinateRoles roles......',req.body.currentUser);
+
+  var user = req.body.currentUser
+  console.log(user.roles)
+  var tmpRoles = user.roles
+  // Assuming currentUserRoles is provided in the request body
+  var currentUserRoles = tmpRoles;
+  //var currentUserRoles = ["super_admin"]
+
+  // Retrieve all role records
+  db.models.roles
+    .findAll()
+    .then(function (roles) {
+      // Filter roles based on currentUserRoles
+      const filteredRoles = roles.filter((role) =>
+        currentUserRoles.includes(role.name)
+      );
+
+      // Extract the 'subordinates' column and merge into one array
+      const allSubordinates = filteredRoles.reduce((subordinates, role) => {
+        if (role.subordinates && role.subordinates.length > 0) {
+          subordinates.push(...role.subordinates);
+        }
+        return subordinates;
+      }, []);
+
+      // Remove duplicates from allSubordinates using Set
+      const uniqueSubordinates = [...new Set(allSubordinates)];
+
+      // Use the filtered subordinates to find the roles associated with these subordinates
+      const subordinateRoles = roles.filter((role) =>
+        uniqueSubordinates.includes(role.id)
+      );
+
+      // Send the subordinate roles array in the response
+      res.status(200).send({
+        message: 'Subordinate roles retrieved successfully',
+        data: subordinateRoles,
+        code: '0000',
+      });
+    })
+    .catch(function (err) {
+      // Handle errors, e.g., database errors
+      console.log('error---------->', err);
+      return res.status(500).send({
+        message: 'An error occurred while retrieving roles',
+        code: '0001',
+      });
+    });
+};
