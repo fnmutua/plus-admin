@@ -628,6 +628,15 @@ db.models.programme_implementation.hasMany(db.models.indicator_category_report, 
 })
 
 
+// indicator_category_report  - programme_implementation
+db.models.indicator_category_report.belongsTo(db.models.users, {
+  foreignKey: 'userId'
+})
+
+db.models.users.hasMany(db.models.indicator_category_report, {
+  foreignKey: 'userId'
+})
+
 
 
 
