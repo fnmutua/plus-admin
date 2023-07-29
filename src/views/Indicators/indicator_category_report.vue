@@ -698,34 +698,38 @@ const editForm = async (formEl: FormInstance | undefined) => {
       //emptyRuleForm()
       // dialogFormVisible.value = false
 
-      const fileTypes = []
-      const updateformData = new FormData()
+       const updateformData = new FormData()
+    // uploading the documents 
+    
+    const formData = new FormData()
+    for (var i = 0; i < fileUploadList.value.length; i++) {
 
-      for (var i = 0; i < fileUploadList.value.length; i++) {
-        console.log('------>file', fileUploadList.value[i])
-        var format = fileUploadList.value[i].name.split('.').pop() // get file extension
-        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-        fileTypes.push(format)
-        // formData.append('file', fileList.value[i])
-        // formData.file = fileList.value[i]
+      console.log('------>file', fileUploadList.value[i])
+
+         var column = 'report_id'
         updateformData.append('file', fileUploadList.value[i].raw)
-        updateformData.append('DocType', format)
+        updateformData.append('format', fileUploadList.value[i].name.split('.').pop())
+        updateformData.append('field_id', 'report_id')
+        updateformData.append('category', 2)
+        updateformData.append(column,  parseInt(ruleForm.id))
+        updateformData.append('size', (fileUploadList.value[i].raw.size / 1024 / 1024).toFixed(2))
+        updateformData.append('createdBy', userInfo.id)
+        updateformData.append('protected', false)
 
-      }
+     //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
+    }
 
-
-      updateformData.append('parent_code', ruleForm.id)
-      updateformData.append('model', model)
-      updateformData.append('grp', 'M&E Documentation')
       updateformData.append('code', uuid.v4())
-      updateformData.append('column', 'report_id')
 
 
-      // formData.append('DocTypes', fileTypes)
 
-      console.log(updateformData)
-      await uploadDocuments(updateformData)
+    console.log('Befoer submit', updateformData)
+    const docs = await uploadFilesBatch(updateformData)
+       
+    console.log('after submit', docs.data)
 
+  
+ 
 
 
     } else {
