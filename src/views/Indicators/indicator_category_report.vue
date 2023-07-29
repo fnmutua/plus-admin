@@ -1421,7 +1421,7 @@ const loadMap = () => {
     container: "mapContainer",
     style: "mapbox://styles/mapbox/streets-v12",
     center: mapCenter, // starting position
-    zoom: 12,
+    zoom: 18,
   });
 
 

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { adminRoutes, constantRouterMap  } from '@/router'
+import { adminRoutes, constantRouterMap,publicRoutes,countyAdminRoutes,staffRoutes, countyUserRoutes} from '@/router'
 import { generateRoutesFn1, generateRoutesFn2, flatMultiLevelRoutes } from '@/utils/routerHelper'
 import { store } from '../index'
 import { cloneDeep } from 'lodash-es'
@@ -55,8 +55,6 @@ const getProgrameComponents = async () => {
     meta.title = arrayItem.title 
     meta.hidden = false
     meta.icon = arrayItem.icon
-    meta.role= ['admin', 'super_admin'] 
-
     prog.meta = meta
 
     const children_components = []
@@ -72,8 +70,6 @@ const getProgrameComponents = async () => {
         child_meta_d.hidden = false
         child_meta_d.component_id = compon.id 
         child_meta_d.icon = compon.icon
-        child_meta_d.role= ['admin', 'super_admin'] 
-
         compont.meta = child_meta_d    
         children_components.push(compont)
       })
@@ -103,7 +99,58 @@ const activity = {
 programmeComponentOptions.value.push(activity)
 
 
+
+ const xgetDynamicDashboards = async () => {
+  const formData = {}
+  formData.limit = 100
+  formData.page = 1
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'dashboard'
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
  
+  // - multiple filters -------------------------------------
+  formData.associated_multiple_models = []
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getRoutesList(formData)
+  console.log("dynamo",res)
+
+   
+  res.data.forEach(function (arrayItem) {
+    const prog = {}
+    if (arrayItem.type==='intervention') {
+      prog.component = () => import('@/views/Dashboard/Dynamic.vue') // This is a template to hold info on interventions
+      prog.path = 'intervention_' + arrayItem.title.toLowerCase()
+      prog.name = arrayItem.title 
+
+    }
+    else {
+      prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
+      prog.path = 'status_' + arrayItem.title.toLowerCase()
+      prog.name =  arrayItem.title 
+    }
+    
+  //  prog.component =  Layout
+
+    const meta = {}
+    meta.title = arrayItem.title 
+    meta.hidden = false
+    meta.icon = arrayItem.icon
+    meta.dashboard_id = arrayItem.id
+    prog.meta = meta
+ 
+      dynamicDashbaordOptions.value.push(prog)
+
+    console.log("dynamo", dynamicDashbaordOptions.value)
+  })
+
+
+}
 
 const getDynamicDashboards = async () => {
   const formData = {}
@@ -153,9 +200,8 @@ const getDynamicDashboards = async () => {
       meta.hidden = false
       meta.icon = arrayItem.icon
       meta.dashboard_id = arrayItem.id
- 
       prog.meta = meta
-
+   
         dynamicDashbaordOptions.value.push(prog)
   
       console.log("dynamo", dynamicDashbaordOptions.value)
@@ -170,37 +216,8 @@ const getDynamicDashboards = async () => {
 
 
 }
-await getDynamicDashboards()
+getDynamicDashboards()
 
-  
-const subprograms = [
-  {
-    path: '/subprogrammes',
-    component: Layout,
-    //redirect: '/settings',
-    name: 'Slum_Programmes',
-    meta: {
-      title: 'Programmes',
-      icon: 'icon-park-solid:love-and-help',
-      alwaysShow: true,
-      role: ['admin', 'super_admin'] 
-
-    },
-    children:programmeComponentOptions.value
-
-    }
-  ]
- 
-  //push the subprograms to 3rd in row 
-    adminRoutes.splice(2, 0, ...subprograms);
-
-// Push the 'dynamicDashbaordOptions' to the 'children' of the first route in 'adminRoutes'
-adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
-
- 
- 
- 
-console.log('routesX', adminRoutes)
 
 
 export interface PermissionState {
@@ -233,40 +250,94 @@ export const usePermissionStore = defineStore('permission', {
   },
   actions: {
     generateRoutes(
-      type: 'admin' | 'county_admin' | 'county_staff' | 'county_mon' | 'sud_staff'
-        | 'kisip_staff' | 'senior_staff' | 'public' | 'super_admin',
+      type: 'admin' | 'county_admin' |'county_user'| 'staff'|'public' |'super_admin',
       routers?: AppCustomRouteRecordRaw[] | string[]
     ): Promise<unknown> {
       return new Promise<void>((resolve) => {
-        // Function to recursively filter routes and their children based on 'type'
-        const filterRoutes = (routes) => {
-          const filteredRoutes = routes.filter((route) => {
-            if (!route.meta || !route.meta.role) return true; // Include routes without 'meta' or 'role' property
-            return route.meta.role.includes(type);
-          });
-  
-          // Recursively filter the children of each route
-          filteredRoutes.forEach((route) => {
-            if (route.children) {
-              route.children = filterRoutes(route.children);
-            }
-          });
-  
-          return filteredRoutes;
-        };
-  
-        const filteredRoutes = filterRoutes(adminRoutes);
-  
-        // Clone the filtered routes to avoid modifying the original routes
-        const routerMap: AppRouteRecordRaw[] = cloneDeep(filteredRoutes);
-  
-        // Further processing if needed...
-        // Add additional routes, modify route properties, etc.
-  
-        this.addRouters = routerMap;     
-  
+        let routerMap: AppRouteRecordRaw[] = []
+        const dynamicMap: AppRouteRecordRaw[] = []
 
-     console.log('routerMap - 2',routerMap)
+        console.log('Tyoe---->--', type)
+        console.log('0001')
+
+        if (type === 'admin' || type === 'super_admin') {
+          console.log("generating routes.....admin")
+          // 模拟后端过滤菜单
+         // routerMap = generateRoutesFn2(routers as AppCustomRouteRecordRaw[])
+          
+       routerMap = cloneDeep(adminRoutes)
+
+          console.log('routerMap--',routerMap)
+        } else if (type === 'county_admin') {
+          console.log("generating routes.....county_admin")
+         //routerMap = generateRoutesFn1(cloneDeep(asyncRouterMap), routers as string[])  // felix to edit
+         // routerMap = generateRoutesFn2(routers as AppCustomRouteRecordRaw[])
+          routerMap = cloneDeep(countyAdminRoutes)
+          console.log('routerMap-county_admin-',routerMap)
+        }
+        else if (type === 'county_user') {
+          console.log("generating routes.....county_user")
+          routerMap = cloneDeep(countyUserRoutes)
+          console.log('routerMap-county_user-',routerMap)
+        }
+        else if (type === 'staff') {
+          console.log("generating routes.....staffRoutes")
+          routerMap = cloneDeep(staffRoutes)
+          console.log('routerMap-staffRoutes-',routerMap)
+
+        }       
+        
+        else {
+          // 直接读取静态路由表
+          //routerMap = cloneDeep(asyncRouterMap)
+          console.log('Public Routes......')
+          routerMap = cloneDeep(publicRoutes)
+
+        }
+        // 动态路由，404一定要放到最后面
+        // this.addRouters = routerMap.concat([
+          // {
+          //   path: '/:path(.*)*',
+          //   redirect: '/404',
+          //   name: '404Page',
+          //   meta: {
+          //     hidden: false,
+          //     breadcrumb: false
+          //   }
+          // },
+        
+        // ])
+
+ 
+        this.addRouters = routerMap          
+  
+        
+        const subprograms = [
+        
+
+        {
+          path: '/subprogrammes',
+          component: Layout,
+          //redirect: '/settings',
+          name: 'Slum_Programmes',
+          meta: {
+            title: 'Programmes',
+            icon: 'icon-park-solid:love-and-help',
+            alwaysShow: true
+          },
+          children:programmeComponentOptions.value
+
+          }
+        ]
+ 
+          this.addRouters.splice(2, 0, ...subprograms );  // Push the routes to position no.4 after settlements
+
+        // Add the dynamic Dashboards......
+     this.addRouters[0].children.push(...dynamicDashbaordOptions.value);
+
+    // this.addRouters.splice(0, 0, ...dashbaodAdd );  // Push the routes to position no.4 after settlements
+
+     console.log('routerMap',routerMap)
 
 
 
