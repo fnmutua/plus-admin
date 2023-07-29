@@ -331,10 +331,110 @@ exports.modelPaginatedUsersfilterBykeyWord = (req, res) => {
 }
 
  
+ 
+let page = 1; // Set the desired page number
+let limit = 5; // Set the number of items per page
+
+
+
+
+exports.modelCountyUsers = (req, res) => {
+ 
+  console.log(req.body.currentUser)
+ 
+  var currentUserRoles = req.body.currentUser.roles
+
+  console.log('Current User Roles, ',currentUserRoles)
+  var userCounty = req.body.currentUser.county_id
+  
+  if (req.body.limit ) {
+    limit = req.body.limit 
+  }
+  if (req.body.page ) {
+   page =  req.body.page 
+  }
+   
+
+  // Use the findAll() method to retrieve all roles from the database
+  Role.findAll()
+  .then(async (roles) => {
+          // roles will contain an array of role objects retrieved from the database
+          // Filter roles based on currentUserRoles
+          const filteredRoles = roles.filter((role) => currentUserRoles.includes(role.name));
+
+          // Extract the 'subordinates' column and merge into one array
+          const allSubordinates = filteredRoles.reduce((subordinates, role) => {
+            if (role.subordinates && role.subordinates.length > 0) {
+              subordinates.push(...role.subordinates);
+            }
+            return subordinates;
+          }, []);
+
+          // Remove duplicates from allSubordinates using Set
+          const uniqueSubordinates = [...new Set(allSubordinates)];
+
+             // Get users with associated roles that match the 'subordinates' array and are from userCounty
+            const findAndCountOptions = {
+              include: {
+                model: Role,
+                through: 'user_roles', // Name of the middle table
+                where: { id: uniqueSubordinates },
+              },
+           //   where: { county_id: userCounty }, // Filter users based on the county_id
+              limit: limit,
+              offset: (page - 1) * limit,
+                };
+                
+                // If the user has the 'county_admin' role, apply the county filter
+                if (currentUserRoles.includes('county_admin')) {
+                  findAndCountOptions.where.county_id = userCounty;
+                }
+                
+
+            console.log(' Subordinate Roles for this user:', uniqueSubordinates);
+
+
+            User.findAndCountAll(findAndCountOptions)
+              .then(({ count, rows: usersWithSubordinates }) => {
+                 console.log('Total Users with Subordinate Roles in userCounty:', count);
+
+                              
+              res.status(200).send({
+                data: usersWithSubordinates,
+                total: count,
+                code: '0000',
+                message: 'County Users retrieved Successfully'
+              })
+
+                
+              })
+              .catch((error) => {
+                console.error('Error fetching users:', error);
+                return res.status(500).send({ message: 'Unable to retrieve county users. Please try again later.' })
+
+              });
+     
+
+            
+    
+     
+                })
+              .catch((error) => {
+                console.error('Error fetching roles:', error);
+                return res.status(500).send({ message: 'Unable to retrieve county users. Please try again later.' })
+
+              });
+            
+
+
+
 
 
  
-exports.modelCountyUsers = (req, res) => {
+}
+
+ 
+exports.xmodelCountyUsers = (req, res) => {
  
 
 
