@@ -41,6 +41,7 @@ module.exports = defineConfig({
     '@typescript-eslint/no-unused-vars': 'off',
     'no-unused-vars': 'off',
     'space-before-function-paren': 'off',
+    'vue/no-setup-props-destructure': 'off',
 
     'vue/attributes-order': 'off',
     'vue/one-component-per-file': 'off',
