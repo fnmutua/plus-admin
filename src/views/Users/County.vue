@@ -274,7 +274,10 @@ const getRoles = async () => {
       roleOpt.value = arrayItem.id
       roleOpt.label = arrayItem.name
       //  console.log(countyOpt)
-      RolesOptions.value.push(roleOpt)
+      if (arrayItem.name !=='super_admin') {
+        RolesOptions.value.push(roleOpt)
+
+      }
     })
   })
 }
@@ -445,9 +448,12 @@ const EditUser = (data: TableSlotDefault) => {
   form.phone = data.row.phone
   form.avatar = data.row.avatar
   let roles = []
-  data.row.user_roles.forEach(function (arrayItem) {
-    roles.push(arrayItem.roleid)
+  data.row.roles.forEach(function (arrayItem) {
+    console.log(arrayItem.id)
+    roles.push(arrayItem.id)
   })
+
+
   form.roles = roles
   console.log(form)
   dialogFormVisible.value = true

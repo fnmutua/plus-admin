@@ -103,76 +103,81 @@ const activity = {
 programmeComponentOptions.value.push(activity)
 
 
- 
-
-const getDynamicDashboards = async () => {
-  const formData = {}
-  formData.limit = 100
-  formData.page = 1
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'dashboard'
-  //-Search field--------------------------------------------
-  formData.searchField = 'title'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
- 
-  // - multiple filters -------------------------------------
-  formData.associated_multiple_models = []
-
-  //-------------------------
-  //console.log(formData)
-  const res = await getRoutesList(formData)
-  console.log("dynamo",res)
-
+ // Wrap your code in an async function
+const loadDynamicDashboards = async () => {
+  const getDynamicDashboards = async () => {
+    const formData = {}
+    formData.limit = 100
+    formData.page = 1
+    formData.curUser = 1 // Id for logged in user
+    formData.model = 'dashboard'
+    //-Search field--------------------------------------------
+    formData.searchField = 'title'
+    formData.searchKeyword = ''
+    //--Single Filter -----------------------------------------
+  
    
-  res.data.forEach(function (arrayItem, index) {
-
-    console.log('arrayItem',index,"|",arrayItem)
-
-    if (!arrayItem.main_dashboard) { //Include only the other dashbaprds. The main dashbaord has been loaded elsewher)
-      
-
-      const prog = {}
-      if (arrayItem.type==='intervention') {
-        prog.component = () => import('@/views/Dashboard/Dynamic.vue') // This is a template to hold info on interventions
-        prog.path = 'intervention_' + arrayItem.title.toLowerCase()
-        prog.name = arrayItem.title 
+    // - multiple filters -------------------------------------
+    formData.associated_multiple_models = []
   
-      }
-      else {
-        prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
-        prog.path = 'status_' + arrayItem.title.toLowerCase()
-        prog.name =  arrayItem.title 
-      }
-      
-    //  prog.component =  Layout
+    //-------------------------
+    //console.log(formData)
+    const res = await getRoutesList(formData)
+    console.log("dynamo",res)
   
-      const meta = {}
-      meta.title = arrayItem.title 
-      meta.hidden = false
-      meta.icon = arrayItem.icon
-      meta.dashboard_id = arrayItem.id
- 
-      prog.meta = meta
-
-        dynamicDashbaordOptions.value.push(prog)
+     
+    res.data.forEach(function (arrayItem, index) {
   
-      console.log("dynamo", dynamicDashbaordOptions.value)
-
-
-    }
-
-
+      console.log('arrayItem',index,"|",arrayItem)
+  
+      if (!arrayItem.main_dashboard) { //Include only the other dashbaprds. The main dashbaord has been loaded elsewher)
+        
+  
+        const prog = {}
+        if (arrayItem.type==='intervention') {
+          prog.component = () => import('@/views/Dashboard/Dynamic.vue') // This is a template to hold info on interventions
+          prog.path = 'intervention_' + arrayItem.title.toLowerCase()
+          prog.name = arrayItem.title 
     
-  });
+        }
+        else {
+          prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
+          prog.path = 'status_' + arrayItem.title.toLowerCase()
+          prog.name =  arrayItem.title 
+        }
+        
+      //  prog.component =  Layout
+    
+        const meta = {}
+        meta.title = arrayItem.title 
+        meta.hidden = false
+        meta.icon = arrayItem.icon
+        meta.dashboard_id = arrayItem.id
+   
+        prog.meta = meta
   
-
-
-}
-await getDynamicDashboards()
-
+          dynamicDashbaordOptions.value.push(prog)
+    
+        console.log("dynamo", dynamicDashbaordOptions.value)
   
+  
+      }
+  
+  
+      
+    });
+    
+  
+  
+  }
+
+  await getDynamicDashboards();
+};
+ 
+loadDynamicDashboards();
+
+ 
+
 const subprograms = [
   {
     path: '/subprogrammes',

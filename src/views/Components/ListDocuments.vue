@@ -24,15 +24,18 @@ const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 
-const props = defineProps({
-  message: String,
-  showDialog: Boolean,
-  data: Array,
-  docmodel: String,
-  field: String
-})
-const { show } = toRefs(props)
+// const props = defineProps({
+//   message: String,
+//   showDialog: Boolean,
+//   data: Array,
+//   docmodel: String,
+//   field: String
+// })
+// const { show } = toRefs(props)
 
+
+const props = defineProps(['message', 'showDialog', 'data', 'docmodel', 'field']);
+const { show } = toRefs(props);
 
  
 // lifecycle hooks
