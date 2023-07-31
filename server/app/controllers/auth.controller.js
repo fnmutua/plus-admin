@@ -385,6 +385,17 @@ exports.reset = (req, res) => {
     })
 }
 
+
+function encodePhoto(photoPath) {
+  try {
+    const data = fs.readFileSync(photoPath);
+    return data.toString('base64');
+  } catch (error) {
+    console.error('Error reading photo file:', error);
+    return null; // Return null or any default value if the photo cannot be read or converted
+  }
+}
+
 exports.signin = async (req, res) => {
   const  instlog = {}
   instlog.table='auth'
@@ -471,7 +482,9 @@ exports.signin = async (req, res) => {
           accessToken: token,
           code: '0000',
           user: user,
-          avatar: user.avatar,
+          photo: user.avatar,
+          avatar: 'data:image/png;base64,' + user.photo.toString('base64'),
+
           data: token,
           message: 'Login Successful'
         })

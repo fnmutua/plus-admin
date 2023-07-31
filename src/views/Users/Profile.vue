@@ -330,16 +330,20 @@ const updateUser = async (formEl: FormInstance | undefined) => {
 
 <template>
   <div class="user-profile">
- 
-
-    
     <div class="profile-header">
-      <div class="profile-header">
-      <img :src="profile.photo" alt="User Profile Image" v-if="profile.photo" /> <!-- Use the avatarPath to display the user's avatar -->
-      <el-avatar size="large" v-else> {{ initials }} </el-avatar> <!-- Display initials if avatarPath is not available -->
-     </div>
-    <h1>{{ profile.name }}</h1>
+    <!-- Use the avatarPath to display the user's avatar -->
+    <div class="profile-photo-wrapper" @click="EditUser">
+      <!-- Edit icon -->
+      <span class="edit-icon" @click="EditUser">
+        <Icon icon="basil:edit-outline" color="blue" width="24" />
+      </span>
+      <img :src="profile.photo" alt="User Profile Image" v-if="profile.photo" />
+      <el-avatar size="large" v-else>
+        {{ initials }}
+      </el-avatar>
     </div>
+  </div>
+  
   
 
 
@@ -586,4 +590,21 @@ const updateUser = async (formEl: FormInstance | undefined) => {
   font-size: 16px;
   color: #888;
 }
+</style>
+
+<style>
+  .profile-photo-wrapper {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .edit-icon {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: #fff;
+    padding: 5px;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
 </style>
