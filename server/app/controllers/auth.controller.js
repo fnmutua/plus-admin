@@ -174,7 +174,8 @@ exports.updateByUser = (req, res) => {
   console.log('Request:----->', req.body);
 
 
-    let fname 
+  let fname 
+  let location 
   if (req.files &&req.files.profilePhoto) {
     let myPhoto = req.files.profilePhoto
       //const uploadsDir = path.join(__dirname, '../../../..', 'uploads');
@@ -182,7 +183,7 @@ exports.updateByUser = (req, res) => {
 
         fname = myPhoto.name.replace(/\s/g, '_')
 
-      let location = uploadsDir + '/' + req.body.id+fname 
+        location = uploadsDir + '/' + req.body.id+fname 
 
 
       console.log("Moving to public...", location)
@@ -193,37 +194,108 @@ exports.updateByUser = (req, res) => {
 
 
     // get this one record and update it by replacing the whole document
-    User.findAll({ where: { id: req.body.id } }).then((result) => {
-      if (result) {
-        // Result is an array because we have used findAll. We can use findOne as well if you want one row and update that.
-        result[0].set(req.body);
+    // User.findAll({ where: { id: req.body.id } }).then((result) => {
+    //   if (result) {
+    //     // Result is an array because we have used findAll. We can use findOne as well if you want one row and update that.
+    //     result[0].set(req.body);
 
-      // Check if a file was uploaded and update the profile photo path in the database
-        if (req.files && req.files.profilePhoto) {
+    //   // Check if a file was uploaded and update the profile photo path in the database
+    //     if (req.files && req.files.profilePhoto) {
               
-          const host = req.get('host');
+    //       const host = req.get('host');
 
-          // Check if the connection is secure (HTTPS)
-          const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    //       // Check if the connection is secure (HTTPS)
+    //       const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
         
-          // Build the avatar URL with the correct protocol
-          const protocol = isSecure ? 'https://' : 'http://';
-          const avatarURL = `${protocol}${host}/${ req.body.id+fname }`;
+    //       // Build the avatar URL with the correct protocol
+    //       const protocol = isSecure ? 'https://' : 'http://';
+    //       const avatarURL = `${protocol}${host}/${ req.body.id+fname }`;
         
-          result[0].avatar = avatarURL;
-             }
+    //       result[0].avatar = avatarURL;
+    //          }
 
-            result[0].save();
+    //         result[0].save();
 
-            res.send({
-              message: 'User profile updated successfully!',
-              code: "0000",
-              user: result[0]
-            });
+    //         res.send({
+    //           message: 'User profile updated successfully!',
+    //           code: "0000",
+    //           user: result[0]
+    //         });
 
  
+    //   }
+    // });
+  
+  
+  
+    const fs = require('fs');
+    const path = require('path');
+    
+    User.findAll({ where: { id: req.body.id } }).then((result) => {
+      if (result && result.length > 0) {
+        const user = result[0];
+    
+        // Check if a file was uploaded and update the profile photo path in the database
+        if (req.files && req.files.profilePhoto) {
+          const profilePhoto = req.files.profilePhoto;
+          const filePath = path.join(__dirname, 'uploads', profilePhoto.name);
+    
+          // Read the file data as a buffer
+          fs.readFile(location, (err, data) => {
+            if (err) {
+              console.error('Error reading profile photo:', err);
+              // Handle the error
+              return res.status(500).json({ error: 'Error reading profile photo' });
+            }
+    
+            // Set the avatar_data field to the file data buffer
+            user.photo = data;
+
+            console.log('user',user)
+    
+            // Save the updated user record
+            user
+              .save()
+              .then(() => {
+                // Remove the temporary file (optional, you can skip this if you don't need to keep the file)
+               // fs.unlinkSync(profilePhoto.tempFilePath);
+    
+                // Send the response after successful update
+                res.send({
+                  message: 'User profile updated successfully!',
+                  code: '0000',
+                  user: user,
+                });
+              })
+              .catch((error) => {
+                console.error('Error saving user profile:', error);
+                // Handle the error
+                res.status(500).json({ error: 'Error saving user profile' });
+              });
+          });
+        } else {
+          // If no file was uploaded, just save the user without changing the avatar_data
+          user
+            .save()
+            .then(() => {
+              // Send the response after successful update
+              res.send({
+                message: 'User profile updated successfully!',
+                code: '0000',
+                user: user,
+              });
+            })
+            .catch((error) => {
+              console.error('Error saving user profile:', error);
+              // Handle the error
+              res.status(500).json({ error: 'Error saving user profile' });
+            });
+        }
+      } else {
+        res.status(404).json({ error: 'User not found' });
       }
     });
+    
   };
 
 
@@ -675,7 +747,7 @@ exports.subCountyController = (req, res) => {
 
 
  
-exports.myProfile = (req, res) => {
+exports.xmyProfile = (req, res) => {
   console.log('Update user....')
  
   console.log('Request:----->', req.body)
@@ -700,6 +772,39 @@ exports.myProfile = (req, res) => {
     }
   })
 }
+
+ 
+exports.myProfile = (req, res) => {
+  console.log('Update user....');
+ 
+  console.log('Request:----->', req.body);
+  var qry = {};
+  qry.where =  {
+    id: req.body.id 
+  };
+  qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'isactive', 'resetPasswordToken'] }; // will be applciable to users only
+
+  // get this one  record and update it by replacing the whole docuemnt
+  User.findAll(qry).then((result) => {
+    if (result && result.length > 0) {
+      const user = result[0]; // Convert the Sequelize instance to a plain object
+
+      // Convert the avatar_data (binary) to a base64-encoded URL for the photo
+      if (user.photo) {
+        const avatarURL = 'data:image/png;base64,' + user.photo.toString('base64');
+        user.photo = avatarURL;
+        delete user.photo; // Remove the binary data from the result object
+      }
+
+      res.status(200).send({
+        data: user,
+        code: '0000'
+      });
+    } else {
+      res.status(500).send({ message: 'Retrieving your profile failed' });
+    }
+  });
+};
 
 
 

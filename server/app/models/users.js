@@ -51,6 +51,11 @@ module.exports = function (sequelize, DataTypes) {
       avatar: {
         type: DataTypes.STRING(255),
         allowNull: true
+      },
+
+      photo: {
+        type: DataTypes.BLOB,
+        allowNull: true
       }
     },
     {
