@@ -115,7 +115,8 @@ const profile = reactive({
   status: '',
   username: '',
   phone: null,
-  county_id:'',
+  county_id: '',
+  photo: null, 
   roles:[],
  
 })
@@ -147,19 +148,20 @@ const getFilteredData = async () => {
   //console.log(formData)
   const res = await getMyProfile(formData)
 
-  console.log('getMyProfile', res)
-  userDetails.value = res.data[0]
-  profile.name = res.data[0].name
-  profile.username = res.data[0].username
-  profile.avatar = res.data[0].avatar
-  profile.email = res.data[0].email
-  profile.county = res.data[0].county_id
-  profile.id = res.data[0].id
-  profile.county_id = res.data[0].county_id
-   profile.roles = res.data[0].roles
-  profile.phone = res.data[0].phone
+  console.log('getMyProfile', res.data)
+  userDetails.value = res.data
+  profile.name = res.data.name
+  profile.username = res.data.username
+  profile.avatar = res.data.avatar
+  profile.email = res.data.email
+  profile.county = res.data.county_id
+  profile.id = res.data.id
+  profile.county_id = res.data.county_id
+   profile.roles = res.data.roles
+   profile.phone = res.data.phone
+   profile.photo = res.data.photo
 
-  initials.value = getInitials(res.data[0].name)
+  initials.value = getInitials(res.data.name)
   console.log(userDetails)
 
 }
@@ -322,31 +324,7 @@ const updateUser = async (formEl: FormInstance | undefined) => {
 }
 
 
-
- const xupdateUser = () => {
  
-  
-  updateByUserApi(formData.value)
-    .then(response => {
-      // Handle the API response and show the message to the user
-      const message = response.data.message; // Assuming the message is in the 'message' field of the API response
-      console.log('API Response:', response.data);
-      console.log('Message:', message);
-      // You can display the message to the user using a notification or any other method
-    })
-    .catch(error => {
-      // Handle any errors that occur during the API call
-      console.error('Error updating user:', error);
-      // You can display an error message to the user using a notification or any other method
-    })
-    .finally(() => {
-      // Close the form dialog regardless of the API call result
-      dialogFormVisible.value = false;
-    });
-    formData.value = new FormData(); // Create a new empty FormData object
-
-
-}
 
 </script>
 
@@ -357,12 +335,12 @@ const updateUser = async (formEl: FormInstance | undefined) => {
     
     <div class="profile-header">
       <div class="profile-header">
-      <img :src="profile.avatar" alt="User Profile Image" v-if="profile.avatar" /> <!-- Use the avatarPath to display the user's avatar -->
+      <img :src="profile.photo" alt="User Profile Image" v-if="profile.photo" /> <!-- Use the avatarPath to display the user's avatar -->
       <el-avatar size="large" v-else> {{ initials }} </el-avatar> <!-- Display initials if avatarPath is not available -->
      </div>
     <h1>{{ profile.name }}</h1>
     </div>
- 
+  
 
 
     <div class="profile-details">
