@@ -849,32 +849,25 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           },
         ]
       },
+ 
+
+    ]
+  },
+   
+  
+  
   {
-    path: 'mne',
+    path: '/mne',
     component: Layout,
     redirect: '/mne/indicator',
     name: 'MonitoringEvaluation',
     meta: {
-      title: 'Reporting',
+      title: 'M&E',
       icon: 'uis:graph-bar',
       alwaysShow: false
     },
     children: [
-      // {
-      //   path: 'activity',
-      // //  component: 'views/Indicators/indicator_category_report',
-      //   component: () => import('@/views/Indicators/Activity.vue'),
-
-      //   name: 'MEActivity',
-      //   meta: {
-      //     title: 'Activities',
-      //     icon:'icon-park-outline:activity-source',
-          
-      //   }
-      // },
-
-      
-      {
+         {
         path: 'indicator',
         //component: 'views/Facilities/Water/Water',
         //component: () => import('@/views/Facilities/Water/Water.vue'),
@@ -937,7 +930,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Indicators/indicator_category_report_new.vue'),
             name: 'NewReports',
             meta: {
-              title: 'New Reports',
+              title: 'New',
               icon:'carbon:result-new',
             }
           },
@@ -968,10 +961,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       }
     ]
   },
-
-    ]
-  },
-    
   {
     path: '/interventions',
     component: Layout,
@@ -1386,6 +1375,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
   //     alwaysShow: true
   //   },
   // }
+
+
 ]
 
  
