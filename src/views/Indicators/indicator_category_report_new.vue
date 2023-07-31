@@ -545,19 +545,30 @@ function getQuarter(date = new Date()) {
 }
 
 const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
+  const ruleForm = reactive({
   indicator_category_id: '',
-  project_id:null,
-  settlement_id: null,
-  subcounty_id: null,
-  ward_id:null,
-  county_id: null,
+  project_id: '',
+  activity_id: '',
+  programme_implementation_id: '',
+  settlement_id: '',
+  subcounty_id: '',
+  ward_id: '',
+  county_id: '',
   period: getQuarter,
   date: new Date(),
-  amount: null,
+  progress: 0,
+  amount: 0,
   files: '',
+  project_status: '',
+  disbursement: 0,
   userId: userInfo.id,
-  code: ''
+  code: '',
+  cumDisbursement: 0,
+  cumProgress: 0,
+  cumAmount: 0,
+  comments: '',
+  units: 'Quantity',
+  cumUnits: 'Cumulative(qty)'
 })
 
 const rules = reactive<FormRules>({
@@ -1157,7 +1168,7 @@ function handleExpand(row) {
 
 const report = ref({})
 
-const editIndicator = (data: TableSlotDefault) => {
+const xeditIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
   showEditSaveButton.value = true
   console.log('review',data)
@@ -1190,6 +1201,63 @@ const editIndicator = (data: TableSlotDefault) => {
   console.log(' ruleForm.location', ruleForm.location)
 
   ReviewDialog.value = true
+}
+
+const editIndicator = (data: TableSlotDefault) => {
+  showSubmitBtn.value = false
+
+  showEditSaveButton.value = true
+  console.log(data)
+  ruleForm.id = data.row.id
+  ruleForm.county_id = data.row.county_id
+  ruleForm.subcounty_id = data.row.subcounty_id
+
+  ruleForm.settlement_id = data.row.settlement_id
+  ruleForm.project_id = data.row.project_id
+  ruleForm.activity_id = data.row.activity_id
+
+
+  ruleForm.date = data.row.date
+  ruleForm.amount = data.row.amount
+  ruleForm.indicator_category_id = data.row.indicator_category_id
+  ruleForm.programme_implementation_id = data.row.programme_implementation_id
+
+
+  ruleForm.ward_id = data.row.ward_id
+  ruleForm.code = data.row.code
+  ruleForm.progress = data.row.progress
+  ruleForm.project_status = data.row.project_status
+  ruleForm.disbursement = data.row.disbursement
+  ruleForm.comments = data.row.comments
+
+  // Nullify Cumulatives every time theres an edit to avoid multiple editign duplciations
+  ruleForm.cumDisbursement = 0
+  // ruleForm.cumProgress = 0
+  ruleForm.cumAmount = 0
+
+  formHeader.value = 'Edit Report'
+  fileUploadList.value = data.row.documents
+
+  ruleForm.location = [data.row.county_id]
+  if (data.row.settlement_id) {
+    ruleForm.location.push(data.row.settlement_id)
+  }
+  
+
+  formHeader.value = 'Review Report'
+
+// make the descriptions dataset 
+report.value.county =  data.row.county? data.row.county.name :''
+report.value.indicator = data.row.indicator_category.indicator_name
+report.value.status = data.row.status
+report.value.date = data.row.date
+report.value.amount = data.row.amount
+
+
+
+console.log(' ruleForm.location', ruleForm.location)
+
+ReviewDialog.value = true
 }
 
 
