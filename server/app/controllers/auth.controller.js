@@ -483,7 +483,7 @@ exports.signin = async (req, res) => {
           code: '0000',
           user: user,
           photo: user.avatar,
-          avatar: 'data:image/png;base64,' + user.photo.toString('base64'),
+          avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : '';
 
           data: token,
           message: 'Login Successful'
@@ -804,14 +804,16 @@ exports.myProfile = (req, res) => {
 
       // Convert the avatar_data (binary) to a base64-encoded URL for the photo
       if (user.photo) {
-        const avatarURL = 'data:image/png;base64,' + user.photo.toString('base64');
+       // const avatarURL = 'data:image/png;base64,' + user.photo.toString('base64');
+        const avatarURL =  user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : '';
+
         user.photo = avatarURL;
         delete user.photo; // Remove the binary data from the result object
-      }
+      } 
 
       res.status(200).send({
         data: user,
-        code: '0000'
+        code: '0000' 
       });
     } else {
       res.status(500).send({ message: 'Retrieving your profile failed' });
