@@ -408,13 +408,22 @@ exports.signin = async (req, res) => {
   console.log('Logging in:', req.body.username)
  // const username = req.body.username.trim();
  
-  User.findOne({
-       where: {
-      username: {
-        [Op.iLike]: req.body.username.trim().toLowerCase()
+    User.findOne({
+      where: {
+        [Op.or]: [
+          {
+            username: {  // chek user input against username 
+              [Op.iLike]: req.body.username.trim().toLowerCase()
+            }
+          },
+          {
+            email: { // we test what user has put against   email
+              [Op.iLike]: req.body.username.trim().toLowerCase()
+            }
+          }
+        ]
       }
-    }
-  })
+    })
     .then(async (user) => {
     
       if (!user) {
@@ -433,8 +442,6 @@ exports.signin = async (req, res) => {
         instlog.status = 'Fail.  Invalid Password'
         console.log(instlog)
         await db.models.logs.create(instlog);
-
-
         return res.status(401).send({
           accessToken: null,
           message: 'Invalid Password!'
@@ -471,6 +478,8 @@ exports.signin = async (req, res) => {
         for (let i = 0; i < roles.length; i++) {
           authorities.push(roles[i].name)
         }
+
+        console.log('Logged User:', user)
         res.status(200).send({
           id: user.id,
           username: user.username,
@@ -483,7 +492,9 @@ exports.signin = async (req, res) => {
           code: '0000',
           user: user,
           photo: user.avatar,
-          avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : '', 
+          //avatar: user.avatar,
+          avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : user.avatar, 
+          //avatar : user.avatar, 
           data: token,
           message: 'Login Successful'
         })
