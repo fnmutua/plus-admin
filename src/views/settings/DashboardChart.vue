@@ -846,6 +846,7 @@ chartOptions.value = [
 
         ]
 
+  const hideCategorize =ref(true)
 
  const handleSelectModel = async (selModel) => {
   console.log('specs.....')
@@ -928,7 +929,18 @@ chartOptions.value = [
 
 
 }
+const handleSelectChart = async (ctype) => {
+ 
 
+  if (ctype!=7) {  
+      hideCategorize.value=false
+  } else {
+    hideCategorize.value=true
+
+  }
+
+
+}
  
 // const handleFilterAggregators = async (selModel) => {
 //    console.log('filtreing teh aggregators.....',selModel, fieldSet )
@@ -1300,7 +1312,7 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
       
       <el-form-item label="Chart Type"  prop="type">
         <el-select
-v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags
+v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags :onChange="handleSelectChart"
           placeholder="Select Type of Chart">
           <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -1316,7 +1328,7 @@ v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable 
         </el-select>
       </el-form-item>
 
-      <el-form-item  v-if="showStatusExtras" prop="categorized">
+      <el-form-item  v-if="showStatusExtras && !hideCategorize" prop="categorized">
         <el-checkbox v-model="ruleForm.categorized"  >Categorized  by selected field</el-checkbox>
 
       </el-form-item>
