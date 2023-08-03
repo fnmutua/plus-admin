@@ -22,7 +22,7 @@ import {
 
 import { ref, reactive } from 'vue'
 import {
-  ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,
+  ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,ElCol,ElRow,
   ElDatePicker, ElPopconfirm,ElSwitch
 } from 'element-plus'
 import { useRouter,useRoute } from 'vue-router'
@@ -66,10 +66,30 @@ const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
+const showSuperAdminButtons = ref(false)
 
 // flag for admin buttons
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
+let filters =[]
+let filterValues = []
+
+// flag for admin buttons
+if (userInfo.roles.includes("admin") || userInfo.roles.includes("staff")) {
   showAdminButtons.value = true
+   
+}
+ 
+
+// filter Charts only admins can see all 
+if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin") ) {
+  showAdminButtons.value = true
+  showSuperAdminButtons.value=true
+  filters = []
+  filterValues = []
+}
+else {
+
+  filters = ['createdBy']
+  filterValues = [[userInfo.id]]
 }
 
 
@@ -80,8 +100,7 @@ console.log("Show Buttons -->", showAdminButtons)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = []
-var filterValues = []
+ 
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = []
@@ -102,6 +121,7 @@ const ruleForm = reactive({
   type:'',
   icon: null,
   main_dashboard:false,
+  public:false,
   description:null
  
 })
@@ -344,6 +364,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.description = data.row.description
   ruleForm.type = data.row.type
   ruleForm.main_dashboard = data.row.main_dashboard
+  ruleForm.public = data.row.public
  
 
   formHeader.value = 'Edit Dashboard'
@@ -468,7 +489,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
     <div style="display: inline-block; margin-left: 20px">
       <el-select
-v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
+v-model="value3"   :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search Programme">
         <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -527,10 +548,22 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
           <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
+      <el-row>
 
+    <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
       <el-form-item label="Main" prop="main_dashboard">
         <el-switch v-model="ruleForm.main_dashboard" />
       </el-form-item>
+    </el-col>
+
+
+    <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
+      <el-form-item label="Public" prop="public" v-if="showSuperAdminButtons" >
+        <el-switch v-model="ruleForm.public" />
+      </el-form-item>
+    </el-col>
+      </el-row>
+      
 
       <el-form-item label="Icon" prop="icon">
         <el-input v-model="ruleForm.icon" />

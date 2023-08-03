@@ -118,9 +118,26 @@ const total = ref(0)
 const downloadLoading = ref(false)
 const showAdminButtons = ref(false)
 
+let filters =[]
+let filterValues = []
+
 // flag for admin buttons
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
+if (userInfo.roles.includes("admin") || userInfo.roles.includes("staff")) {
   showAdminButtons.value = true
+   
+}
+ 
+
+// filter Charts only admins can see all 
+if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin") ) {
+  showAdminButtons.value = true
+  filters = []
+  filterValues = []
+}
+else {
+
+  filters = ['createdBy']
+  filterValues = [[userInfo.id]]
 }
 
 
@@ -180,8 +197,7 @@ const functionOptions = ref([])
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = []
-var filterValues = []
+ 
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['dashboard']
