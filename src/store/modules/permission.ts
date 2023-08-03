@@ -7,6 +7,8 @@ import { Layout, getParentLayout } from '@/utils/routerHelper'
 import { getCountyListApi } from '@/api/counties'
 import { ref, reactive } from 'vue'
 import { getRoutesList, getSettlementListByCounty } from '@/api/settlements'
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
 
 
 function toTitleCase(str) {
@@ -18,8 +20,12 @@ function toTitleCase(str) {
   );
 }
 
+const { wsCache } = useCache()
 
- 
+const appStore = useAppStoreWithOut()
+
+const userInfo = wsCache.get(appStore.getUserInfo)
+
 
 const programmeComponentOptions = ref([])
 const dynamicDashbaordOptions = ref([])
@@ -114,6 +120,9 @@ programmeComponentOptions.value.push(activity)
     //-Search field--------------------------------------------
     formData.searchField = 'title'
     formData.searchKeyword = ''
+
+    formData.filters = ['createdBy']
+    formData.filterValues = [[userInfo.id]]
     //--Single Filter -----------------------------------------
   
    
@@ -168,13 +177,87 @@ programmeComponentOptions.value.push(activity)
       
     });
     
-    adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
+   // adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
 
   
   }
 
-    getDynamicDashboards();
+  const getPublicDynamicDashboards = async () => {
+    const formData = {}
+    formData.limit = 100
+    formData.page = 1
+    formData.curUser = 1 // Id for logged in user
+    formData.model = 'dashboard'
+    //-Search field--------------------------------------------
+    formData.searchField = 'title'
+    formData.searchKeyword = ''
+
+    formData.filters = ['public']
+    formData.filterValues = [[true]]
+    //--Single Filter -----------------------------------------
+  
+   
+    // - multiple filters -------------------------------------
+    formData.associated_multiple_models = []
+  
+    //-------------------------
+    //console.log(formData)
+    const res = await getRoutesList(formData)
+    console.log("dynamo",res)
+  
+     
+    res.data.forEach(function (arrayItem, index) {
+  
+      console.log('arrayItem',index,"|",arrayItem)
+  
+      if (!arrayItem.main_dashboard) { //Include only the other dashbaprds. The main dashbaord has been loaded elsewher)
+        
+  
+        const prog = {}
+        if (arrayItem.type==='intervention') {
+          prog.component = () => import('@/views/Dashboard/Dynamic.vue') // This is a template to hold info on interventions
+          prog.path = 'intervention_' + arrayItem.title.toLowerCase()
+          prog.name = arrayItem.title 
+    
+        }
+        else {
+          prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
+          prog.path = 'status_' + arrayItem.title.toLowerCase()
+          prog.name =  arrayItem.title 
+        }
+        
+      //  prog.component =  Layout
+    
+        const meta = {}
+        meta.title = arrayItem.title 
+        meta.hidden = false
+        meta.icon = arrayItem.icon
+        meta.dashboard_id = arrayItem.id
+   
+        prog.meta = meta
+  
+       // dynamicDashbaordOptions.value.push(prog)
+       const isDuplicate = dynamicDashbaordOptions.value.some(option => option.meta.dashboard_id === meta.dashboard_id);
+
+            if (!isDuplicate) {
+              dynamicDashbaordOptions.value.push(prog);
+            }
+  
+
+      }
  
+  
+      
+    });
+    
+    adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
+
+  
+}
+  
+    getDynamicDashboards();
+    getPublicDynamicDashboards();
+
  
  
 
