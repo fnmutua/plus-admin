@@ -301,25 +301,23 @@ const updateUser = async (formEl: FormInstance | undefined) => {
   formData.value.append('county_id',ruleForm.county_id);
  
 
-  
-  updateByUserApi(formData.value)
-    .then(response => {
-      // Handle the API response and show the message to the user
-      const message = response.data; // Assuming the message is in the 'message' field of the API response
-      console.log('API Response:', response.data);
-      console.log('Message:', message);
-      // You can display the message to the user using a notification or any other method
-    })
-    .catch(error => {
-      // Handle any errors that occur during the API call
-      console.error('Error updating user:', error);
-      // You can display an error message to the user using a notification or any other method
-    })
-    .finally(() => {
-      // Close the form dialog regardless of the API call result
-      dialogFormVisible.value = false;
-    });
-    formData.value = new FormData(); // Create a new empty FormData object
+  await updateByUserApi(formData.value)
+  .then(response => {
+    // Handle the API response and show the message to the user
+    const message = response.data; // Assuming the message is in the 'message' field of the API response
+    console.log('API Response:', response);
+    console.log('Message:', response);
+    // You can display the message to the user using a notification or any other method
+  })
+  .catch(error => {
+    // Handle any errors that occur during the API call
+    console.error('Error updating user:', error);
+    // You can display an error message to the user using a notification or any other method
+  });
+
+ formData.value = new FormData(); // Create a new empty FormData object
+dialogFormVisible.value = false; // Close the form dialog regardless of the API call result
+
 
 }
 
