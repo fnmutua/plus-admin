@@ -251,7 +251,7 @@ const loadMap = async () => {
 
 
           // get the drone
-        await axios.get('https://cloud.ags.co.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+        await axios.get('https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
         .then((response) => {
           const xml = response.data;
           // console.log(xml)
@@ -314,7 +314,7 @@ const loadMap = async () => {
           console.log("Overlapping layers:", intersectingLayer);
 
           if (intersectingLayer.length>0) {
-            var server = 'https://cloud.ags.co.ke/geoserver/kisip/wms'
+            var server = 'https://kesmis.go.ke/geoserver/kisip/wms'
 
                   nmap.value.addLayer({
                     'id': baselayers.value[i],
@@ -809,7 +809,7 @@ for (let i = 0; i < baselayers.value.length; i++) {
 
 // axios
 //   //  .get('http://159.223.109.100:8080/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
-//   .get('https://cloud.ags.co.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+//   .get('https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
 //   .then((response) => {
 //     const xml = response.data;
 //     // console.log(xml)
@@ -859,7 +859,7 @@ for (let i = 0; i < baselayers.value.length; i++) {
  
 //     console.log("Overlapping layers:", intersectingLayer);
 
-//     var server = 'https://cloud.ags.co.ke/geoserver/kisip/wms'
+//     var server = 'https://kesmis.go.ke/geoserver/kisip/wms'
 
 //     nmap.value.addLayer({
 //       'id': 'Imagery',

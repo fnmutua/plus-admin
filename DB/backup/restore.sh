@@ -53,15 +53,15 @@ echo
 
 
  
-  psql -c 'DROP DATABASE  "xkisip" WITH (FORCE)';
+  psql -c 'DROP DATABASE  "kisip" WITH (FORCE)';
 
   echo "Now restoring......"
-  psql -c 'CREATE DATABASE  "xkisip"';
+  psql -c 'CREATE DATABASE  "kisip"';
 
   now="$(date +'%d%m%Y')"
 
- 
-  psql -f 20052023.kisip.sql  xkisip
+#psql -f 20052023.kisip.sql  xkisip
+pg_restore  -d kisip 04082023.kisip.sql.tar
 
  
 

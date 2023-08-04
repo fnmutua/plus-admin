@@ -39,12 +39,6 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 console.log("userInfo--->", userInfo)
 
 
-
-
- 
-
- 
-
  
  
 const lyr = ref('')
@@ -95,7 +89,7 @@ const loadMap = () => {
  
  
     var xserver = 'http://159.223.109.100:8080/geoserver/kisip/wms'
-    var server = 'https://cloud.ags.co.ke/geoserver/kisip/wms'
+    var server = 'https://kesmis.go.ke/geoserver/kisip/wms'
       
       var local_server = 'http://localhost:8080/geoserver/kisip/wms'
 
@@ -124,8 +118,8 @@ onMounted(() => {
 
   
 
-      axios.get('https://cloud.ags.co.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
-      // .get('https://cloud.ags.co.ke/geoserver/kisip/wms?service=wms&version=1.1.1&request=GetCapabilities')
+      axios.get('https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+      // .get('https://kesmis.go.ke/geoserver/kisip/wms?service=wms&version=1.1.1&request=GetCapabilities')
       .then((response) => {
         const xml = response.data;
         console.log(xml)

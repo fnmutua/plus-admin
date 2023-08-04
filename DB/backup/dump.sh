@@ -60,8 +60,8 @@ echo
 now="$(date +'%d%m%Y')"
 
 echo $now.kisip.sql
-pg_dump $DB_name >  $now.kisip.sql
-pg_dump -Ft $DB_name  >  $now.kisip.sql.tar
+ 
+ pg_dump -Ft $DB_name  >  $now.kisip.sql.tar
  
 
 echo

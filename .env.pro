@@ -20,7 +20,7 @@ VITE_SOURCEMAP=false
 VITE_OUT_DIR=dist-pro
 
 # 标题
-VITE_APP_TITLE=KeSIS
+VITE_APP_TITLE=KeSISPro
 
 # Make sure to change here for production.
 VITE_APP_HOST=http://localhost    
