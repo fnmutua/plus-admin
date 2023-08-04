@@ -270,9 +270,12 @@ const EditUser = () => {
   dialogFormVisible.value = true
 }
 
+const photofile=ref( )
 const uploadProfilePhoto = async (event) => {
   
   const file = event.target.files[0];
+    photofile.value = event.target.files[0];
+  
   formData.value.append('profilePhoto', file); // Append the profile photo file to the formData
 
 
@@ -292,16 +295,17 @@ const updateUser = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   console.log(ruleForm)
 
-     
-  formData.value.append('id', ruleForm.id);
-  formData.value.append('name', ruleForm.name);
-   formData.value.append('email', ruleForm.email);
-   formData.value.append('username', ruleForm.username);
-  formData.value.append('phone', ruleForm.phone);
-  formData.value.append('county_id',ruleForm.county_id);
- 
+  const formData = new FormData(); 
+   formData.append('id', ruleForm.id);
+  formData.append('name', ruleForm.name);
+   formData.append('email', ruleForm.email);
+   formData.append('username', ruleForm.username);
+  formData.append('phone', ruleForm.phone);
+  formData.append('county_id',ruleForm.county_id);
+  formData.append('profilePhoto', photofile.value); // Append the profile photo file to the formData
 
-  await updateByUserApi(formData.value)
+
+  await updateByUserApi(formData)
   .then(response => {
     // Handle the API response and show the message to the user
     const message = response.data; // Assuming the message is in the 'message' field of the API response
@@ -315,7 +319,7 @@ const updateUser = async (formEl: FormInstance | undefined) => {
     // You can display an error message to the user using a notification or any other method
   });
 
- formData.value = new FormData(); // Create a new empty FormData object
+/// formData.value = new FormData(); // Create a new empty FormData object
 dialogFormVisible.value = false; // Close the form dialog regardless of the API call result
 
 
