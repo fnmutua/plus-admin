@@ -121,7 +121,8 @@ onBeforeMount( async () => {
     console.log("Before mount");
       //dashboard_id.value = 1;
     // page_title.value = this.$route.meta.title;
-     await getDynamicDashboards();
+  await getDynamicDashboards();
+    getCountyGeo()
     getCards()
     getCountySubcountySep()
     getTabs()
@@ -129,7 +130,17 @@ onBeforeMount( async () => {
    console.log(dashboard_id.value)
   });
 
- 
+//  watch(
+//   route,
+//     () => {
+//     console.log("Watching...............................", route.meta);
+     
+//     // Proceed with other operations or page loading
+//       dashboard_id.value = 1
+//     // page_title.value = route.meta.title
+//   },
+//   { deep: true, immediate: true }
+// );
 
 
 const activeTab = ref();
@@ -163,18 +174,11 @@ const pyramidOptions = ref()
 
 const countyGeo = ref([])
 const subCountyGeo = ref([])
-const aspect = ref(0.9999782571714015)
-const foundMapChart = ref(false)
+const aspect = ref()
+const fmap = ref(false)
 
 const getCountyGeo = async () => {
-
-  if (countyGeo.value.length>0) {
-    registerMap('KE', countyGeo.value);
-    return 
-  } 
-  else {
-    foundMapChart.value=true
-  const formData = {}
+    const formData = {}
   formData.model = 'county'
   const res = await getAllGeo(formData)
   console.log('county geo', res.data[0].json_build_object)
@@ -186,12 +190,13 @@ const getCountyGeo = async () => {
     const y_coord = (bbox[1] + bbox[3]) / 2;
     aspect.value = Math.cos(y_coord * Math.PI / 180);
     //   console.log(aspect.value)
-    registerMap('KE', countyGeo.value);
 
+    registerMap('KE', res.data[0].json_build_object);
+    fmap.value=true
+    console.log('fmap',fmap.value)
 
-  }
-  }
-  
+ 
+  }  
 
  }
 
@@ -723,7 +728,6 @@ const getCards = async () => {
 
 
 const getCharts = async (section_id) => {
-  foundMapChart.value=false
 
   const formData = {}
   formData.curUser = 1 // Id for logged in user
@@ -782,6 +786,8 @@ const getCharts = async (section_id) => {
             console.log('PieChart001',UpdatedPieOptionsMultiple)
 
             thisChart.chart = UpdatedPieOptionsMultiple
+
+
 
 
             // show no data 
@@ -1178,18 +1184,11 @@ const getCharts = async (section_id) => {
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
             console.log('map data', cdata)
             var MaxMin = cdata[0]
-
-            // We call the await getCountyGeo() once to avoid overlaod
-     
-              await getCountyGeo()
-        
-            
+           // await getCountyGeo()
             //await getSubsetGeo(model,filterFields, filterValues)
             if (selectedCounties.value.length > 0 && filterLevel.value === 'county') {
               await getSubsetGeo('subcounty', ['county_id'], selectedCounties.value)
 
-
-              
             }
             if (selectedSubCounties.value.length > 0 && filterLevel.value === 'subcounty') {
               await getSubsetGeo('ward', ['subcounty_id'], selectedSubCounties.value)
