@@ -848,6 +848,65 @@ exports.modelAllGeo = async (req, res) => {
   })
 }
 
+exports.xmodelAllGeo = async (req, res) => {
+  
+  try {
+    var reg_model = req.body.model;
+
+    // Check if tableName is provided in the request body
+    if (!reg_model) {
+      return res.status(400).json({ error: 'Table name is required in the request body' });
+    }
+
+    // Find the model based on the table name
+    const Model = db.models[reg_model];
+    if (!Model) {
+      return res.status(404).json({ error: 'Table not found' });
+    }
+
+    const geoJSON = await Model.findAll({
+      where: {
+        geom: {
+          [Op.not]: null, // Filter geom column where it's not null
+        },
+      },
+      attributes: [
+        'id', // Include the 'id' attribute
+        [Sequelize.fn('ST_AsGeoJSON', Sequelize.col('geom')), 'geoJSON'], // Use ST_AsGeoJSON to convert the geometry to GeoJSON
+        // Add other columns you want in the properties
+      ],
+    });
+
+    if (!geoJSON || geoJSON.length === 0) {
+      return res.status(404).json({ error: 'No valid geometry found' });
+    }
+
+    const data = {
+      type: 'FeatureCollection',
+      features: geoJSON.map(row => ({
+        type: 'Feature',
+        geometry: JSON.parse(row.dataValues.geoJSON), // Parse the GeoJSON string
+        properties: {
+          id: row.dataValues.id, // Include the 'id' attribute in properties
+
+          // Include other properties from the model as needed
+          // For example: property1: row.dataValues.property1, property2: row.dataValues.property2, ...
+        },
+      })),
+    };
+ 
+    res.status(200).send({
+      message: "Maps retrieval successful",
+      code: "0000",
+      data: data // Include the updated record in the response
+    });
+  } catch (error) {
+    console.error('Error retrieving GeoJSON data:', error);
+    res.status(500).json({ error: 'Failed to retrieve GeoJSON data' });
+  }
+}
+
+
 exports.modelOneGeo = async (req, res) => {
   var reg_model = req.body.model
   var id = req.body.id

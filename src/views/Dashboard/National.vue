@@ -129,17 +129,7 @@ onBeforeMount( async () => {
    console.log(dashboard_id.value)
   });
 
-//  watch(
-//   route,
-//     () => {
-//     console.log("Watching...............................", route.meta);
-     
-//     // Proceed with other operations or page loading
-//       dashboard_id.value = 1
-//     // page_title.value = route.meta.title
-//   },
-//   { deep: true, immediate: true }
-// );
+ 
 
 
 const activeTab = ref();
@@ -173,9 +163,17 @@ const pyramidOptions = ref()
 
 const countyGeo = ref([])
 const subCountyGeo = ref([])
-const aspect = ref()
+const aspect = ref(0.9999782571714015)
+const foundMapChart = ref(false)
 
 const getCountyGeo = async () => {
+
+  if (countyGeo.value.length>0) {
+    registerMap('KE', countyGeo.value);
+    return 
+  } 
+  else {
+    foundMapChart.value=true
   const formData = {}
   formData.model = 'county'
   const res = await getAllGeo(formData)
@@ -192,9 +190,10 @@ const getCountyGeo = async () => {
 
 
   }
+  }
+  
 
-  // getSettlementCountByCounty() // This is only called the first time for the first graph
-}
+ }
 
 
 const getSubsetGeo = async (model, filterFields, filterValues) => {
@@ -724,6 +723,7 @@ const getCards = async () => {
 
 
 const getCharts = async (section_id) => {
+  foundMapChart.value=false
 
   const formData = {}
   formData.curUser = 1 // Id for logged in user
@@ -782,8 +782,6 @@ const getCharts = async (section_id) => {
             console.log('PieChart001',UpdatedPieOptionsMultiple)
 
             thisChart.chart = UpdatedPieOptionsMultiple
-
-
 
 
             // show no data 
@@ -1180,7 +1178,12 @@ const getCharts = async (section_id) => {
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
             console.log('map data', cdata)
             var MaxMin = cdata[0]
-            await getCountyGeo()
+
+            // We call the await getCountyGeo() once to avoid overlaod
+     
+              await getCountyGeo()
+        
+            
             //await getSubsetGeo(model,filterFields, filterValues)
             if (selectedCounties.value.length > 0 && filterLevel.value === 'county') {
               await getSubsetGeo('subcounty', ['county_id'], selectedCounties.value)

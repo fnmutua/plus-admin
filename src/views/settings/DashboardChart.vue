@@ -22,7 +22,7 @@ import {
 
 import { ref, reactive } from 'vue'
 import {
-  ElPagination, ElTooltip, ElOption, ElDivider,ElSwitch,
+  ElPagination, ElTooltip, ElOption, ElDivider,ElSwitch,ElTable,ElTableColumn,
   ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElCheckbox, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -36,6 +36,10 @@ import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 import { getListWithoutGeo } from '@/api/counties'
 import { getUniqueFieldValues} from '@/api/households'
+import {  computed  } from 'vue'
+
+import { Icon } from '@iconify/vue';
+
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -1231,7 +1235,9 @@ const showFilterValues=ref(false)
 
 
 const fieldOptions = ref([])
+const isMobile = computed(() => appStore.getMobile)
 
+console.log('IsMobile', isMobile)
 </script>
 
 <template>
@@ -1264,7 +1270,7 @@ v-model="value3" :onChange="handleSelectDashboardSection" :onClear="handleClear"
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table
+    <!-- <Table
 :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
@@ -1283,7 +1289,71 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
         </el-tooltip>
 
       </template>
-    </Table>
+    </Table> -->
+
+
+    
+    <el-table :loading="loading"   :data="tableDataList" stripe="stripe">
+      <el-table-column label="Type">
+        <template #default="scope">
+          <Icon  v-if="scope.row.type === 1"  width="24" icon="tabler:chart-bar" />
+          <Icon  v-if="scope.row.type === 2"  width="24" icon="fa-regular:chart-bar" />
+          <Icon  v-if="scope.row.type === 3"  width="24" icon="bi:pie-chart-fill" />
+          <Icon  v-if="scope.row.type === 4"  width="24" icon="ic:baseline-stacked-bar-chart" />
+          <Icon  v-if="scope.row.type === 5"  width="24" icon="vaadin:line-chart" />
+          <Icon  v-if="scope.row.type === 6"  width="24" icon="material-symbols:1x-mobiledata-badge-rounded" />
+          <Icon  v-if="scope.row.type === 7"  width="24" icon="foundation:map" />
+          <Icon  v-if="scope.row.type === 8"  width="24" icon="carbon:chart-population" />
+    </template>
+  </el-table-column>
+  <el-table-column label="#" prop="id" sortable />
+
+      <el-table-column label="Title" prop="title" sortable />
+      <el-table-column label="Description" prop="description" sortable />
+  
+      <el-table-column fixed="right" label="Actions" >
+        <template #default="scope">
+          <el-dropdown v-if="isMobile">
+            <span class="el-dropdown-link">
+              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+v-if="showAdminButtons" @click="editIndicator(scope as TableSlotDefault)"
+                  :icon="Edit">Edit</el-dropdown-item>
+                <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope as TableSlotDefault)"
+                  :icon="Delete" color="red">Delete</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+          <div v-else>
+            <el-tooltip content="Edit" placement="top">
+              <el-button
+v-if="showAdminButtons" type="success" :icon="Edit"
+                @click="editIndicator(scope as TableSlotDefault)" circle />
+            </el-tooltip>
+
+             
+            <el-tooltip content="Delete" placement="top">
+              <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                title="Are you sure to delete this report?" @confirm="DeleteIndicator(scope as TableSlotDefault)">
+                <template #reference>
+                  <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                </template>
+              </el-popconfirm>
+            </el-tooltip>
+
+          </div>
+        </template>
+      </el-table-column>
+
+
+    </el-table>
+
+
     <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
@@ -1434,6 +1504,7 @@ v-model="ruleForm.filter_value" :onClear="handleClear"  multiple collapse-tags
               </el-row>
 
               <el-row  >
+
             <!-- fOR STATUS DASHBAORD ONLU  -->
                <el-form-item label="Filter xFunction" prop="filter_function" v-if="ruleForm.filtered && showStatusExtras "  >
               <el-select
