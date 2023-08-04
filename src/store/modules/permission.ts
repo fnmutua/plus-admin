@@ -329,7 +329,7 @@ export const usePermissionStore = defineStore('permission', {
         const filterRoutes = (routes) => {
         
           const filteredRoutes = routes.filter((route) => {
-            console.log('route---->', type)
+            //console.log('route---->', type)
             if (!route.meta || !route.meta.role) return true; // Include routes without 'meta' or 'role' property
             return route.meta.role.includes(type);
           });
