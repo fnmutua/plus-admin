@@ -171,7 +171,7 @@ exports.updateUser = (req, res) => {
  
 exports.updateByUser = (req, res) => {
   console.log('Update by user....');
-  console.log('Request:----->', req.body);
+  console.log('Request:----->', req);
 
 
   let fname 
