@@ -12,6 +12,8 @@ var bcrypt = require('bcryptjs')
 const nodemailer = require('nodemailer')
 const turf = require('@turf/turf');
 
+const fs = require('fs');
+const path = require('path');
 
  
 exports.signup = (req, res) => {
@@ -165,10 +167,8 @@ exports.updateUser = (req, res) => {
   })
 }
 
+
  
-
-const path = require('path')
-
 exports.updateByUser = (req, res) => {
   console.log('Update by user....');
   console.log('Request:----->', req.body);
@@ -228,8 +228,7 @@ exports.updateByUser = (req, res) => {
   
   
   
-    const fs = require('fs');
-    const path = require('path');
+
     
     User.findAll({ where: { id: req.body.id } }).then((result) => {
       if (result && result.length > 0) {
@@ -250,13 +249,16 @@ exports.updateByUser = (req, res) => {
     
             // Set the avatar_data field to the file data buffer
             user.photo = data;
+            user.name = req.body.name;
+            user.email = req.body.email;
+            user.phone = req.body.phone;
 
             console.log('user',user)
     
             // Save the updated user record
             user
               .save()
-              .then(() => {
+              .then((updatedUser) => {
                 // Remove the temporary file (optional, you can skip this if you don't need to keep the file)
                // fs.unlinkSync(profilePhoto.tempFilePath);
     
@@ -264,7 +266,7 @@ exports.updateByUser = (req, res) => {
                 res.send({
                   message: 'User profile updated successfully!',
                   code: '0000',
-                  user: user,
+                  user: updatedUser,
                 });
               })
               .catch((error) => {
