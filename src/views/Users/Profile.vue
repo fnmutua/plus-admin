@@ -302,7 +302,7 @@ const updateUser = async (formEl: FormInstance | undefined) => {
    formData.append('username', ruleForm.username);
   formData.append('phone', ruleForm.phone);
   formData.append('county_id',ruleForm.county_id);
-  formData.append('files', photofile.value); // Append the profile photo file to the formData
+  formData.append('profilePhoto', photofile.value); // Append the profile photo file to the formData
 
 
   await updateByUserApi(formData)

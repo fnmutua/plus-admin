@@ -184,13 +184,13 @@ const upload = multer({ storage: storage });
 exports.updateByUser = (req, res) => {
      
 
-  upload.array('files')(req, res, async (err) => {
+  upload.array('profilePhoto')(req, res, async (err) => {
     if (err) {
       console.log(err);
       // Handle multer errors, if any
       // return res.status(400).json({ error: 'File upload failed.' });
       return res.status(500).send({
-        message: 'Upload failed.',
+        message: 'Profile Update failed.',
         code: '0000'
       })
     }
