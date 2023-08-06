@@ -210,16 +210,18 @@ exports.updateByUser = (req, res) => {
           //const profilePhoto = req.files[0];
          // const filePath = path.join('/data/uploads', req.files.profilePhoto[0].originalname);
     
-          // Read the file data as a buffer
-          fs.readFile(profilePhotoPath, (err, data) => {
-            if (err) {
-              console.error('Error reading profile photo:', err);
-              // Handle the error
-              //return res.status(500).json({ error: 'Error reading profile photo' });
-            }
-    
-            // Set the avatar_data field to the file data buffer
-            user.photo = data;
+        // Read the file data as a buffer
+            fs.readFile(profilePhotoPath, (err, data) => {
+              if (err) {
+                console.error('Error reading profile photo:', err);
+                // Handle the error
+                // return res.status(500).json({ error: 'Error reading profile photo' });
+              } else {
+                // Set the avatar_data field to the file data buffer only if reading is successful
+                user.photo = data;
+              }
+            });
+
             user.name = req.body.name;
             user.email = req.body.email;
             user.phone = req.body.phone;
