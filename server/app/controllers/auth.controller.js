@@ -200,6 +200,7 @@ exports.updateByUser = (req, res) => {
     
     var pic = req.files[0]
     console.log('pi:>', pic)
+    console.log('pic.path:>', pic.path)
 
     User.findAll({ where: { id: req.body.id } }).then((result) => {
       if (result && result.length > 0) {
