@@ -2219,10 +2219,15 @@ exports.batchDocumentsUpload = (req, res) => {
   console.log('files:', req.files);
    var reg_model = 'document'
     let myFiles = req.files
+
     console.log(myFiles)
-    console.log( req.body)
+    console.log(req.body)
+    
     for (let i = 0; i < myFiles.length; i++) {
-      // Sin
+   
+      
+      if (myFiles.length>1) {
+           // Sin
      // console.log(myFiles[i])
       var obj = {}
       var column = req.body.field_id[i]
@@ -2230,14 +2235,28 @@ exports.batchDocumentsUpload = (req, res) => {
       obj.category = req.body.category[i]
       obj.format = req.body.format[i]
       obj.size = req.body.size[i]
-      obj.size = req.body.size[i]
       obj.createdBy = req.body.createdBy[i] 
       obj.protectedFile = req.body.protected[i] 
       obj.name = myFiles[i].originalname
       obj.code = crypto.randomUUID()
       obj.location = myFiles[i].path
-
       console.log(obj)
+      }
+      else {
+        var obj = {}
+        var column = req.body.field_id
+        obj[column] = req.body[column]
+        obj.category = req.body.category
+        obj.format = req.body.format
+        obj.size = req.body.size
+        obj.createdBy = req.body.createdBy
+        obj.protectedFile = req.body.protected
+        obj.name = myFiles[i].originalname
+        obj.code = crypto.randomUUID()
+        obj.location = myFiles[i].path
+        console.log(obj)
+      }
+
 
 
       try {
