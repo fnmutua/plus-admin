@@ -298,9 +298,9 @@ const submitFiles = async (files) => {
     var file = fileList.value[i].name.split('.').pop() // get file extension
     //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
     fileTypes.push(type.value)
-    // formData.append('file', fileList.value[i])
+    // formData.append('files', fileList.value[i])
     // formData.file = fileList.value[i]
-    formData.append('file', fileList.value[i].raw)
+    formData.append('files', fileList.value[i].raw)
   }
 
   formData.append('settlement_id', settlement.value)

@@ -542,7 +542,7 @@ const handleSubmitData = async () => {
 
         console.log('------>Field_ID', fileList.value[i].field_id)
 
-        formData.append('file', fileList.value[i].raw)
+        formData.append('files', fileList.value[i].raw)
         formData.append('format', fileList.value[i].name.split('.').pop())
         formData.append('category', fileList.value[i].type)
         formData.append('field_id', fileList.value[i].field_id)

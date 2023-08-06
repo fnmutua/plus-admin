@@ -600,9 +600,9 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         var format = fileUploadList.value[i].name.split('.').pop() // get file extension
         //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
         fileTypes.push(format)
-        // formData.append('file', fileList.value[i])
+        // formData.append('files', fileList.value[i])
         // formData.file = fileList.value[i]
-        formData.append('file', fileUploadList.value[i].raw)
+        formData.append('files', fileUploadList.value[i].raw)
         formData.append('DocType', format)
 
       }
@@ -650,9 +650,9 @@ const editForm = async (formEl: FormInstance | undefined) => {
         var format = fileUploadList.value[i].name.split('.').pop() // get file extension
         //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
         fileTypes.push(format)
-        // formData.append('file', fileList.value[i])
+        // formData.append('files', fileList.value[i])
         // formData.file = fileList.value[i]
-        updateformData.append('file', fileUploadList.value[i].raw)
+        updateformData.append('files', fileUploadList.value[i].raw)
         updateformData.append('DocType', format)
 
       }

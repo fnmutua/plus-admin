@@ -201,13 +201,13 @@ console.log('loadingPosting.value.......', morefileList.value.length)
     var format = morefileList.value[i].name.split('.').pop() // get file extension
     //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
     fileTypes.push(format)
-    // formData.append('file', fileList.value[i])
+    // formData.append('files', fileList.value[i])
     // formData.file = fileList.value[i]
 
     formData.append('model', props.umodel)
     formData.append('createdBy', userInfo.id)
 
-    formData.append('file', morefileList.value[i].raw)
+    formData.append('files', morefileList.value[i].raw)
     formData.append('format', morefileList.value[i].name.split('.').pop())
     formData.append('category', documentCategory.value)
     formData.append('field_id', props.field)

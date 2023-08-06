@@ -662,7 +662,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       for (var i = 0; i < fileUploadList.value.length; i++) {
         console.log('------>file', fileList.value[i])
         var column = 'report_id'
-        formData.append('file', fileUploadList.value[i].raw)
+        formData.append('files', fileUploadList.value[i].raw)
         formData.append('format', fileUploadList.value[i].name.split('.').pop())
         formData.append('field_id', 'report_id')
         formData.append('category', 2)
@@ -716,7 +716,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
         console.log('------>file', fileUploadList.value[i])
 
         var column = 'report_id'
-        updateformData.append('file', fileUploadList.value[i].raw)
+        updateformData.append('files', fileUploadList.value[i].raw)
         updateformData.append('format', fileUploadList.value[i].name.split('.').pop())
         updateformData.append('field_id', 'report_id')
         updateformData.append('category', 2)
