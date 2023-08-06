@@ -2220,6 +2220,7 @@ exports.batchDocumentsUpload = (req, res) => {
    var reg_model = 'document'
     let myFiles = req.files
     console.log(myFiles)
+    console.log( req.body)
     for (let i = 0; i < myFiles.length; i++) {
       // Sin
      // console.log(myFiles[i])
