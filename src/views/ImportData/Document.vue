@@ -539,6 +539,7 @@ const handleSubmitData = async () => {
     for (var i = 0; i < fileList.value.length; i++) {
         console.log('------>file', fileList.value[i])
         var column = fileList.value[i].field_id
+        
 
         console.log('------>Field_ID', fileList.value[i].field_id)
 
@@ -549,8 +550,8 @@ const handleSubmitData = async () => {
         formData.append(column, fileList.value[i][column])
         formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
         formData.append('createdBy', userInfo.id)
-        formData.append('protected', fileList.value[i].protected)
-
+        formData.append('protected', fileList.value[i].protected?fileList.value[i].protected:false)
+ 
     }
 
     formData.append('code', uuid.v4())
