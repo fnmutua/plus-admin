@@ -196,7 +196,7 @@ exports.updateByUser = (req, res) => {
     }
  
     // The uploaded files can be accessed using `req.files`
-    console.log('files:', req.profilePhoto);
+    console.log('profilePhoto:', req.profilePhoto);
     
     
 
