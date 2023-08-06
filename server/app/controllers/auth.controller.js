@@ -220,7 +220,7 @@ exports.updateByUser = (req, res) => {
                 // Set the avatar_data field to the file data buffer only if reading is successful
                 user.photo = data;
               }
-            });
+       
 
             user.name = req.body.name;
             user.email = req.body.email;
@@ -271,6 +271,7 @@ exports.updateByUser = (req, res) => {
       }
     });
   })
+
   };
 
 
