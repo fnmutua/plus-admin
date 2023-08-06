@@ -196,7 +196,7 @@ exports.updateByUser = (req, res) => {
     }
  
     // The uploaded files can be accessed using `req.files`
-    console.log('files:', req.files);
+    console.log('files:', req.profilePhoto);
     
     
 
@@ -205,9 +205,9 @@ exports.updateByUser = (req, res) => {
         const user = result[0];
     
         // Check if a file was uploaded and update the profile photo path in the database
-        if (req.files && req.files.profilePhoto) {
-          const profilePhoto = req.files.profilePhoto;
-          const filePath = path.join(__dirname, 'uploads', profilePhoto.name);
+        if (req.files) {
+          const profilePhoto = req.files;
+          const filePath = path.join('/data/uploads', profilePhoto.originalname);
     
           // Read the file data as a buffer
           fs.readFile(location, (err, data) => {
