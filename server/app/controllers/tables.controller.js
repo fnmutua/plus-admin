@@ -2886,7 +2886,7 @@ exports.RemoveDocument = (req, res) => {
     
       db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i].name } })
         .then((result) => {
-       console.log('succeed')
+       console.log('object succeed')
       }) 
       .catch(function (err) {
         // handle error;
@@ -2899,11 +2899,11 @@ exports.RemoveDocument = (req, res) => {
      // var filePath = './public/' + req.body.filesToDelete[i];
       const filePath = path.join('/data/', 'uploads', req.body.filesToDelete[i]);
 
-      //fs.unlinkSync(filePath);
+       fs.unlinkSync(filePath);
     
       db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i] } })
         .then((result) => {
-       console.log('succeed')
+       console.log('delete succeed')
       }) 
       .catch(function (err) {
         // handle error;
