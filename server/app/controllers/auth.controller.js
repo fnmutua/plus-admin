@@ -198,9 +198,9 @@ exports.updateByUser = (req, res) => {
     // The uploaded files can be accessed using `req.files`
     console.log('profilePhoto:', req.files[0]);
     
-    var pic = req.files[0]
-    console.log('pi:>', pic)
-    console.log('pic.path:>', pic.path)
+    var profilePhoto = req.files[0]
+    console.log('pi:>', profilePhoto)
+    console.log('pic.path:>', profilePhoto.path)
 
     User.findAll({ where: { id: req.body.id } }).then((result) => {
       if (result && result.length > 0) {
@@ -208,11 +208,11 @@ exports.updateByUser = (req, res) => {
     
         // Check if a file was uploaded and update the profile photo path in the database
         if (req.files) {
-          const profilePhoto = req.files[0];
+          //const profilePhoto = req.files[0];
          // const filePath = path.join('/data/uploads', req.files.profilePhoto[0].originalname);
     
           // Read the file data as a buffer
-          fs.readFile(req.files[0].profilePhoto.path, (err, data) => {
+          fs.readFile(profilePhoto.path, (err, data) => {
             if (err) {
               console.error('Error reading profile photo:', err);
               // Handle the error
