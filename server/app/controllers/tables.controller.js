@@ -2274,70 +2274,6 @@ exports.xxbatchDocumentsUpload = async (req, res) => {
 
 
 
-exports.RemoveDocument = (req, res) => {
-  var reg_model = 'document'  
-  let errors =[]
-  console.log("Removing files:", req.body.filesToDelete )
- 
-  for (let i = 0; i < req.body.filesToDelete.length; i++) {
-
-    if (typeof(req.body.filesToDelete[i]) == 'object') { 
-
-    //  var filePath = './public/' + req.body.filesToDelete[i].name;
-
-      const filePath = path.join(__dirname, '../../../..', 'uploads', req.body.filesToDelete[i].name);
-
-      fs.unlinkSync(filePath);
-    
-      db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i].name } })
-        .then((result) => {
-       console.log('succeed')
-      }) 
-      .catch(function (err) {
-        // handle error;
-        console.log('error0---------->', err)
-        errors.push(err)
-  
-      })
-    } else {
-
-     // var filePath = './public/' + req.body.filesToDelete[i];
-      const filePath = path.join(__dirname, '../../../..', 'uploads', req.body.filesToDelete[i]);
-
-      //fs.unlinkSync(filePath);
-    
-      db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i] } })
-        .then((result) => {
-       console.log('succeed')
-      }) 
-      .catch(function (err) {
-        // handle error;
-        console.log('error0---------->', err)
-        errors.push(err)
-  
-      })
-
-    }
- 
-
-    if (errors.length ===0) {
-      res.status(200).send({
-        message: 'Delete Successful',
-        code: '0000'
-      })
-    } else {
-      res.status(500).send({
-        message: 'Delete Failed',
-        code: '0000'
-      })
-    }
-  
-    }
-
-
-
-}
-
 
 exports.getFieldQUnique = async (req, res) => {
   var reg_model = req.body.model;
@@ -2931,3 +2867,68 @@ exports.downloadFile = (req, res) => {
 };
 
 
+
+
+exports.RemoveDocument = (req, res) => {
+  var reg_model = 'document'  
+  let errors =[]
+  console.log("Removing files:", req.body.filesToDelete )
+ 
+  for (let i = 0; i < req.body.filesToDelete.length; i++) {
+
+    if (typeof(req.body.filesToDelete[i]) == 'object') { 
+
+    //  var filePath = './public/' + req.body.filesToDelete[i].name;
+
+      const filePath = path.join(__dirname, '../../../..', 'uploads', req.body.filesToDelete[i].name);
+
+      fs.unlinkSync(filePath);
+    
+      db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i].name } })
+        .then((result) => {
+       console.log('succeed')
+      }) 
+      .catch(function (err) {
+        // handle error;
+        console.log('error0---------->', err)
+        errors.push(err)
+  
+      })
+    } else {
+
+     // var filePath = './public/' + req.body.filesToDelete[i];
+      const filePath = path.join('/data/', 'uploads', req.body.filesToDelete[i]);
+
+      //fs.unlinkSync(filePath);
+    
+      db.models[reg_model].destroy({ where: { name: req.body.filesToDelete[i] } })
+        .then((result) => {
+       console.log('succeed')
+      }) 
+      .catch(function (err) {
+        // handle error;
+        console.log('error0---------->', err)
+        errors.push(err)
+  
+      })
+
+    }
+ 
+
+    if (errors.length ===0) {
+      res.status(200).send({
+        message: 'Delete Successful',
+        code: '0000'
+      })
+    } else {
+      res.status(500).send({
+        message: 'Delete Failed',
+        code: '0000'
+      })
+    }
+  
+    }
+
+
+
+}
