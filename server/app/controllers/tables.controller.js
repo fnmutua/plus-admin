@@ -2893,7 +2893,7 @@ exports.modelUpload = (req, res) => {
 exports.downloadFile = (req, res) => {
   console.log("Received files:", req.body);
 
-  const uploadedFile = path.join(__dirname, '/data/uploads' , req.body.filename);
+  const uploadedFile = path.join('/data/uploads' , req.body.filename);
 
   console.log(uploadedFile);
 
