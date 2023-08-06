@@ -2144,152 +2144,8 @@ exports.modelGetParentIDS = (req, res) => {
 
 
 
-exports.modelUpload = (req, res) => {
-  console.log('xxxx', req.body.createdBy) 
 
-
-  if (!req.files) {
-    return res.status(500).send({ msg: 'file is not found :modelUpload' })
-  }
-  console.log('In upload express.....', req.body.DocTypes)
-  // accessing the file
-  var arr = req.body.DocTypes
-  let ftypes = arr.split(',')
-
-  const myFiles = req.files.file
-  const settlement_name = req.body.settlement_name
-
-  console.log('myFiles', myFiles.length)
-
-  // Run for more than one document
-
-  if (myFiles.length > 0) {
-    var objs = []
-
-    for (let i = 0; i < myFiles.length; i++) {
-      //  mv() method places the file inside public directory
-      console.log('Myfiles', i, myFiles[i].name)
-      var fname = settlement_name + '_' + myFiles[i].name.replace(/\s/g, '_')
-      var doctype = ftypes[i]
-      console.log(ftypes[i])
-
-      if (
-        doctype == 'socio_economic' ||
-        doctype == 'stakeholder_report' ||
-        doctype == 'planning_report' ||
-        doctype == 'basemap_report' ||
-        doctype == 'esia_report'
-      ) {
-        var group = 'Report'
-      }
-
-      if (doctype == 'ldpdp' || doctype == 'pdp') {
-        var group = 'Development Plan'
-      }
-
-      if (doctype == 'survey_plan' || doctype == 'rim') {
-        var group = 'Map'
-      }
-
-      if (doctype == 'design' || doctype == 'built') {
-        var group = 'Drawing'
-      }
-
-      var thisFile = {
-        type: doctype,
-        name: fname,
-        file_path: `./public/${fname}`,
-        settlement_id: req.body.settlement_id,
-        group: group
-      }
-      objs.push(thisFile)
-    }
-
-    console.log('Multiple Files:', objs)
-
-    db.models.settlement_uploads
-      .bulkCreate(objs)
-      .then(function () {
-        for (let i = 0; i < myFiles.length; i++) {
-          // var fname = settlement_name + '_' + myFiles[i].name
-          var fname = settlement_name + '_' + myFiles[i].name.replace(/\s/g, '_')
-
-          myFiles[i].mv(`./public/${fname}`)
-          //  myFiles[i].mv(`./public/${settlement_name}_${myFiles[i].name}`);
-          console.log(myFiles[i])
-        }
-
-        // return models.DiscoverySource.findAll();
-        res.status(200).send({
-          message: 'Saved succesfully',
-          code: '0000'
-        })
-        console.log('upload data have been saved')
-      })
-      .catch(function (error) {
-        res.send(error.errors)
-        console.log('Error during Post: ' + error)
-      })
-  } else {
-    // Sin
-    var objs = []
-    var fname = settlement_name + '_' + myFiles.name.replace(/\s/g, '_')
-    var doctype = ftypes
-    console.log('ftypes:', ftypes[0])
-
-    if (
-      doctype == 'socio_economic' ||
-      doctype == 'stakeholder_report' ||
-      doctype == 'planning_report' ||
-      doctype == 'basemap_report' ||
-      doctype == 'esia_report'
-    ) {
-      var group = 'Report'
-    }
-
-    if (doctype == 'ldpdp' || doctype == 'pdp') {
-      var group = 'Development Plan'
-    }
-
-    if (doctype == 'survey_plan' || doctype == 'rim') {
-      var group = 'Map'
-    }
-
-    if (doctype == 'design' || doctype == 'built') {
-      var group = 'Drawing'
-    }
-
-    var thisFile = {
-      type: ftypes[0],
-      name: fname,
-      file_path: `./public/${fname}`,
-      settlement_id: req.body.settlement_id,
-      group: group
-    }
-    objs.push(thisFile)
-
-    console.log('Thisfile', thisFile)
-
-    db.models.settlement_uploads
-      .bulkCreate(objs)
-      .then(function () {
-        // var fname = settlement_name+"_"+myFiles.name
-        myFiles.mv(`./public/${fname}`)
-
-        // return models.DiscoverySource.findAll();
-        res.status(200).send({
-          message: 'One File Saved succesfully',
-          code: '0000'
-        })
-      })
-      .catch(function (error) {
-        res.send(error.errors[0])
-        console.log('Error during Post: ' + error)
-      })
-  }
-}
-
-exports.batchDocumentsUpload = async (req, res) => {
+exports.xxbatchDocumentsUpload = async (req, res) => {
  // console.log('uploading......') 
 
   const uploadsDir = path.join(__dirname, '../../../..', 'uploads');
@@ -2409,396 +2265,11 @@ exports.batchDocumentsUpload = async (req, res) => {
   }
 }
  
- 
-exports.batchDocumentsUploadByParentCode = async (req, res) => {
-
-  const uploadsDir = path.join(__dirname, '../../../..', 'uploads');
-
-  if (!req.files) {
-    return res.status(500).send({ msg: 'file is not found :batchDocumentsUploadByParentCode' })
-  }
-
-  var myFiles = []
-  if (Array.isArray(req.files.file)) {
-
-    myFiles = req.files.file
-    console.log('In upload  multiple express.....', req.files.file)
-
-  } else {
-    // var myFiles = [req.files.file]
-    myFiles.push(req.files.file)
-    console.log('In upload single.....', req.files.file)
-  
-  }
- 
-  var errors = []
-
-  for (let i = 0; i < myFiles.length; i++) {
-    // Sin
-    var obj = {}
-    if (myFiles.length > 1) {
-      var column = req.body.field_id[i]
-      obj.category = req.body.category[i]
-      obj.format = req.body.format[i]
-      obj.size = req.body.size[i]
-      obj.createdBy = req.body.createdBy[i]
-      obj.protectedFile = req.body.protected[i]
 
 
-      await db.models[req.body.model[i]]
-      .findOne({
-        where: {
-          code: {
-            [Op.eq]: req.body.pcode[i]
-          }
-        }
-      })
-      .then((record) => {
-        if (record) {
-          obj[column] = record.id;
-        } else {
-          obj[column] = '';
-        }
-      });
-    
-
-      
-
-    } else {
-      var column = req.body.field_id
-      //obj[column] = req.body[column]
-      obj.category = req.body.category
-      obj.format = req.body.format
-      obj.size = req.body.size
-      obj.createdBy = req.body.createdBy 
-      obj.protectedFile = req.body.protected 
-
-
-      await db.models[req.body.model]
-      .findOne({
-        where: {
-          code: {
-            [Op.eq]: req.body.pcode
-          }
-        }
-      })
-      .then((record) => {
-        if (record) {
-          obj[column] = record.id;
-        } else {
-          obj[column] = '';
-        }
-      });
-    
-
-      
-      
-      console.log("KEY>>>",column, obj[column])
-
-    }
-    if (obj[column] === '' ||  obj.category  === 'undefined' ) {
-      errors.push('The field' + column + ' is required')
-
-    } else {
-      let fname = myFiles[i].name.replace(/\s/g, '_')
-      //let location = `./public/${fname}`
-      let location = uploadsDir + '/' + fname
-      
-      
-      console.log(i, '----', column)
-      obj.name = fname
-      obj.location = location
-  
-      obj.code = crypto.randomUUID()
-      var thisFile = {
-        type: req.body.format,
-        name: fname,
-  
-         file_path:location,   
-    }
-      console.log('Thisfile', thisFile)
-      var reg_model = 'document'
-      console.log("insert Object", obj)
-  
-      try {
-        await db.models[reg_model].create(obj)
-          .then(function (item) {
-            console.log("Moving to public...", location)
-            myFiles[i].mv(location)
-          })
-      }
-            
-      catch (error) {
-        // handle error;
-        if (error.name === 'SequelizeUniqueConstraintError') {
-           error.errors.map((err) => {
-              errors.push(err.message)
-          });
-         // errors.push(validationErrors)
-        } else {
-           errors.push('Check your files again')
-        }
-      }
-
-    }
-  
-  }
-
- // Send message
-
-  if (errors.length === 0) {
-    res.status(200).send({
-      message: 'Upload via App Successful',
-      code: '0000'
-    })
-  
-
-  } else {
-
-    res.status(500).send({
-      message: 'Upload failed. '+errors  + ' errors',
-      code: '0000'
-    })
-  }
-}
 
 
  
-exports.downloadFile = (req, res) => {
-  console.log("Received files:", req.body);
-
-  const uploadedFile = path.join(__dirname, '../../../..', 'uploads', req.body.filename);
-
-  console.log(uploadedFile);
-
-  // Check if the file exists
-  fs.access(uploadedFile, fs.constants.F_OK, (err) => {
-    if (err) {
-      console.log(err);
-      res.status(404).send({
-        message: 'File not found.',
-        code: '0000'
-      });
-
-      db.models.document.destroy({ where: { id: req.body.doc_id } })
-      .then((result) => {
-     console.log('succeed')
-    }) 
-
-      
-    } else {
-      // File exists, send it
-      res.sendFile(uploadedFile, function(err) {
-        if (err) {
-          console.log(err);
-          res.status(500).send({
-            message: 'Download failed. Error occurred.',
-            code: '0000'
-          });
-        } else {
-          // File sent successfully
-          // Handle success logic here if needed
-        }
-      });
-    }
-  });
-};
-
-
-exports.xReportDocumentationUpload = (req, res) => {
-  console.log(req.files)
-
-  if (!req.files) {
-    return res.status(500).send({ msg: 'file is not found:xReportDocumentationUpload' })
-  }
-  console.log('In upload express.....', req.body.DocTypes)
-  // accessing the file
-  var arr = req.body.DocTypes
-  let ftypes = arr.split(',')
-
-  const myFiles = req.files.file
-  const report_code = req.body.report_code
-
-  console.log('myFiles', myFiles.length)
-
-  // Run for more than one document
-
-  if (myFiles.length > 0) {
-    var objs = []
-
-    for (let i = 0; i < myFiles.length; i++) {
-      //  mv() method places the file inside public directory
-      console.log('Myfiles', i, myFiles[i].name)
-      var fname = report_code + '_' + myFiles[i].name.replace(/\s/g, '_')
-      var doctype = ftypes[i]
-      console.log(ftypes[i])
- 
-      var thisFile = {
-        type: doctype,
-        name: fname,
-        file_path: `./public/${fname}`,
-        report_code: req.body.report_code,
-        group: 'M&E Documentation'
-      }
-      objs.push(thisFile)
-    }
-
-    console.log('Multiple Files:', objs)
-
-    res.status(500).send('Multiple uploads  coming soon')
-
-  } else {
-    // Sin
-    var objs = []
-    var fname = report_code + '_' + myFiles.name.replace(/\s/g, '_')
-    var doctype = ftypes
-    console.log('ftypes:', ftypes[0])
-
-      var thisFile = {
-      type: ftypes[0],
-      name: fname,
-      file_path: `./public/${fname}`,
-      report_code: req.body.report_code,
-      group:  req.body.grp
-    }
-    objs.push(thisFile)
-
-    console.log('Thisfile', thisFile, req.body.model)
-
-    var reg_model = req.body.model
- 
-    //db.models[reg_model].findAll
-    db.models[reg_model].update(
-      { documentation: thisFile.name},
-      { where: { code: thisFile.report_code } }
-    )
-      .then(function () {
-        // var fname = settlement_name+"_"+myFiles.name
-        myFiles.mv(`./public/${fname}`)
-
-        // return models.DiscoverySource.findAll();
-        res.status(200).send({
-          message: 'One File Saved succesfully',
-          code: '0000'
-        })
-      })
-      .catch(err =>
-        res.status(500).send(err)
-      )
-
-
-    // db.models.settlement_uploads
-    //   .bulkCreate(objs)
-    //   .then(function () {
-    //     // var fname = settlement_name+"_"+myFiles.name
-    //     myFiles.mv(`./public/${fname}`)
-
-    //     // return models.DiscoverySource.findAll();
-    //     res.status(200).send({
-    //       message: 'One File Saved succesfully',
-    //       code: '0000'
-    //     })
-    //   })
-    //   .catch(function (error) {
-    //     res.send(error.errors[0])
-    //     console.log('Error during Post: ' + error)
-    //   })
-  }
-}
-
-
-exports.ReportDocumentationUpload = async (req, res) => {
-  console.log(req.files)
-  var column = req.body.column
-
-  if (!req.files) {
-    return res.status(500).send({ msg: 'file is not found:ReportDocumentationUpload' })
-  }
-  console.log('In upload single.....', req.files.file)
-  console.log('In upload  multiple express.....', req.files.file.length)
-
-  if (Array.isArray(req.files.file)) {
-
-    var myFiles = req.files.file
-
-  } else {
-    var myFiles = [req.files.file]
-
-
-  }
-  // accessing the file
-  var arr = req.body.DocType
-  //let ftypes = arr.split(',')
-
-  const parent_code = req.body.parent_code
-
-  console.log('myFiles', myFiles.length)
-
-  // Run for more than one document
-
-    
-        var errors = []
-
-    for (let i = 0; i < myFiles.length; i++) {
-        // Sin
- 
-      let fname = parent_code + '_' + myFiles[i].name.replace(/\s/g, '_')
-      let location= `./public/${fname}`
-         var thisFile = {
-              type: req.body.DocType[i],
-              name: fname,
-              file_path: `./public/${fname}`,
-              group:  req.body.grp
-            }
-        console.log('Thisfile', thisFile, req.body.model)
-        var reg_model = 'document'   
-        var obj = {}
-        obj.name = fname
-        obj.category= req.body.grp
-        obj.format=req.body.DocType[i]
-        obj.location= `./public/${fname}`
-        obj[column]=req.body.parent_code
-        obj.code=crypto.randomUUID()
-
-        console.log("kinsert Object",obj )
-      // insert
-      await db.models[reg_model].create(obj)
-        .then(function (item) {
-          console.log("Movig to public...",location)
-          myFiles[i].mv(location)
-        
-      })
-      .catch(function (err) {
-        // handle error;
-        console.log('error0---3------->', err)
-        errors.push(err)
-
-        if (err.name == 'SequelizeUniqueConstraintError') {
-          var message = 'One or more table constraints are violated. Check your id columns'
-        } else {
-          var message = 'The uploaded file does not match the required fields'
-        }
-        return res.status(500).send({ message: message })
-      })
-  }
-  if (errors.length === 0) {
-    res.status(200).send({
-      message: 'Upload Successful',
-      code: '0000'
-    })
-  
-
-  } else {
-
-    res.status(500).send({
-      message: 'Upload failed. There are '+errors.length  + ' errors',
-      code: '0000'
-    })
-  }
-
-
-  
-}
 
 
 
@@ -2907,7 +2378,7 @@ const multer = require('multer');
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, '/uploads'); // Define the directory where uploaded files will be stored
+    cb(null, '/data/uploads'); // Define the directory where uploaded files will be stored
   },
   filename: function (req, file, cb) {
     cb(null, file.originalname); // Keep the original file name
@@ -2981,4 +2452,482 @@ exports.batchDocumentsUpload = (req, res) => {
 
 
  
+
+
+
+exports.ReportDocumentationUpload = async (req, res) => {
+
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.log(err);
+      // Handle multer errors, if any
+      // return res.status(400).json({ error: 'File upload failed.' });
+      return res.status(500).send({
+        message: 'Upload failed.',
+        code: '0000'
+      })
+    }
+
+
+    console.log(req.files)
+    var column = req.body.column
+
+    if (!req.files) {
+      return res.status(500).send({ msg: 'file is not found:ReportDocumentationUpload' })
+    }
+    console.log('In upload single.....', req.files.file)
+    console.log('In upload  multiple express.....', req.files.file.length)
+
+    if (Array.isArray(req.files.file)) {
+
+      var myFiles = req.files.file
+
+    } else {
+      var myFiles = [req.files.file]
+
+
+    }
+    // accessing the file
+    var arr = req.body.DocType
+    //let ftypes = arr.split(',')
+
+    const parent_code = req.body.parent_code
+
+    console.log('myFiles', myFiles.length)
+
+    // Run for more than one document
+
+    
+    var errors = []
+
+    for (let i = 0; i < myFiles.length; i++) {
+      // Sin
+ 
+      let fname = parent_code + '_' + myFiles[i].name.replace(/\s/g, '_')
+      let location = `./public/${fname}`
+      var thisFile = {
+        type: req.body.DocType[i],
+        name: fname,
+        file_path: `./public/${fname}`,
+        group: req.body.grp
+      }
+      console.log('Thisfile', thisFile, req.body.model)
+      var reg_model = 'document'
+      var obj = {}
+      obj.name = fname
+      obj.category = req.body.grp
+      obj.format = req.body.DocType[i]
+      obj.location = `./public/${fname}`
+      obj[column] = req.body.parent_code
+      obj.code = crypto.randomUUID()
+
+      console.log("kinsert Object", obj)
+      // insert
+      await db.models[reg_model].create(obj)
+        .then(function (item) {
+          console.log("Movig to public...", location)
+          myFiles[i].mv(location)
+        
+        })
+        .catch(function (err) {
+          // handle error;
+          console.log('error0---3------->', err)
+          errors.push(err)
+
+          if (err.name == 'SequelizeUniqueConstraintError') {
+            var message = 'One or more table constraints are violated. Check your id columns'
+          } else {
+            var message = 'The uploaded file does not match the required fields'
+          }
+          return res.status(500).send({ message: message })
+        })
+    }
+    if (errors.length === 0) {
+      res.status(200).send({
+        message: 'Upload Successful',
+        code: '0000'
+      })
+  
+
+    } else {
+
+      res.status(500).send({
+        message: 'Upload failed. There are ' + errors.length + ' errors',
+        code: '0000'
+      })
+    }
+
+
+  })
+}
+
+
+ 
+exports.batchDocumentsUploadByParentCode = async (req, res) => {
+
+
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.log(err);
+      // Handle multer errors, if any
+      // return res.status(400).json({ error: 'File upload failed.' });
+      return res.status(500).send({
+        message: 'Upload failed.',
+        code: '0000'
+      })
+    }
+
+
+
+  //  const uploadsDir = path.join(__dirname, '../../../..', 'uploads');
+
+    if (!req.files) {
+      return res.status(500).send({ msg: 'file is not found :batchDocumentsUploadByParentCode' })
+    }
+
+    var myFiles = []
+    if (Array.isArray(req.files.file)) {
+
+      myFiles = req.files.file
+      console.log('In upload  multiple express.....', req.files.file)
+
+    } else {
+      // var myFiles = [req.files.file]
+      myFiles.push(req.files.file)
+      console.log('In upload single.....', req.files.file)
+  
+    }
+ 
+    var errors = []
+
+    for (let i = 0; i < myFiles.length; i++) {
+      // Sin
+      var obj = {}
+      if (myFiles.length > 1) {
+        var column = req.body.field_id[i]
+        obj.category = req.body.category[i]
+        obj.format = req.body.format[i]
+        obj.size = req.body.size[i]
+        obj.createdBy = req.body.createdBy[i]
+        obj.protectedFile = req.body.protected[i]
+
+
+        await db.models[req.body.model[i]]
+          .findOne({
+            where: {
+              code: {
+                [Op.eq]: req.body.pcode[i]
+              }
+            }
+          })
+          .then((record) => {
+            if (record) {
+              obj[column] = record.id;
+            } else {
+              obj[column] = '';
+            }
+          });
+    
+          // obj.name = myFiles[i].originalname
+          // obj.code = crypto.randomUUID()
+          // obj.location = myFiles[i].path
+      
+
+      } else {
+        var column = req.body.field_id
+        //obj[column] = req.body[column]
+        obj.category = req.body.category
+        obj.format = req.body.format
+        obj.size = req.body.size
+        obj.createdBy = req.body.createdBy
+        obj.protectedFile = req.body.protected
+
+
+        await db.models[req.body.model]
+          .findOne({
+            where: {
+              code: {
+                [Op.eq]: req.body.pcode
+              }
+            }
+          })
+          .then((record) => {
+            if (record) {
+              obj[column] = record.id;
+            } else {
+              obj[column] = '';
+            }
+          });
+    
+
+      
+      
+        console.log("KEY>>>", column, obj[column])
+
+      }
+      if (obj[column] === '' || obj.category === 'undefined') {
+        errors.push('The field' + column + ' is required')
+
+      } else {
+        let fname = myFiles[i].originalname
+        //let location = `./public/${fname}`
+        //let location = uploadsDir + '/' + fname
+      
+      
+        console.log(i, '----', column)
+        obj.name = fname
+        obj.location =  myFiles[i].path
+  
+        obj.code = crypto.randomUUID()
+        var thisFile = {
+          type: req.body.format,
+          name: fname,
+          file_path: myFiles[i].path,
+        }
+        console.log('Thisfile', thisFile)
+        var reg_model = 'document'
+        console.log("insert Object", obj)
+  
+        try {
+          await db.models[reg_model].create(obj)
+            .then(function (item) {
+              console.log("Moving to public...", location)
+              myFiles[i].mv(location)
+            })
+        }
+            
+        catch (error) {
+          // handle error;
+          if (error.name === 'SequelizeUniqueConstraintError') {
+            error.errors.map((err) => {
+              errors.push(err.message)
+            });
+            // errors.push(validationErrors)
+          } else {
+            errors.push('Check your files again')
+          }
+        }
+
+      }
+  
+    }
+
+    // Send message
+
+    if (errors.length === 0) {
+      res.status(200).send({
+        message: 'Upload via App Successful',
+        code: '0000'
+      })
+  
+
+    } else {
+
+      res.status(500).send({
+        message: 'Upload failed. ' + errors + ' errors',
+        code: '0000'
+      })
+    }
+  })
+}
+
+
+exports.modelUpload = (req, res) => {
+  console.log('xxxx', req.body.createdBy) 
+ 
+
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.log(err);
+      // Handle multer errors, if any
+      // return res.status(400).json({ error: 'File upload failed.' });
+      return res.status(500).send({
+        message: 'Upload failed.',
+        code: '0000'
+      })
+    }
+
+
+    if (!req.files) {
+      return res.status(500).send({ msg: 'file is not found :modelUpload' })
+    }
+    console.log('In upload express.....', req.body.DocTypes)
+    // accessing the file
+    var arr = req.body.DocTypes
+    let ftypes = arr.split(',')
+
+    const myFiles = req.files.file
+    const settlement_name = req.body.settlement_name
+
+    console.log('myFiles', myFiles.length)
+
+    // Run for more than one document
+
+
+        
+          // obj.name = myFiles[i].originalname
+          // obj.code = crypto.randomUUID()
+          // obj.location = myFiles[i].path
+      
+
+    
+    if (myFiles.length > 0) {
+      var objs = []
+
+      for (let i = 0; i < myFiles.length; i++) {
+        //  mv() method places the file inside public directory
+        
+        var fname = settlement_name + '_' + myFiles[i].originalname
+        var doctype = ftypes[i]
+        console.log(ftypes[i])
+
+        if (
+          doctype == 'socio_economic' ||
+          doctype == 'stakeholder_report' ||
+          doctype == 'planning_report' ||
+          doctype == 'basemap_report' ||
+          doctype == 'esia_report'
+        ) {
+          var group = 'Report'
+        }
+
+        if (doctype == 'ldpdp' || doctype == 'pdp') {
+          var group = 'Development Plan'
+        }
+
+        if (doctype == 'survey_plan' || doctype == 'rim') {
+          var group = 'Map'
+        }
+
+        if (doctype == 'design' || doctype == 'built') {
+          var group = 'Drawing'
+        }
+
+        var thisFile = {
+          type: doctype,
+          name: fname,
+          file_path: myFiles[i].path,
+          settlement_id: req.body.settlement_id,
+          group: group
+        }
+        objs.push(thisFile)
+      }
+
+      console.log('Multiple Files:', objs)
+
+      db.models.settlement_uploads
+        .bulkCreate(objs)
+        .then(function () {
+            // return models.DiscoverySource.findAll();
+          res.status(200).send({
+            message: 'Saved succesfully',
+            code: '0000'
+          })
+          console.log('upload data have been saved')
+        })
+        .catch(function (error) {
+          res.send(error.errors)
+          console.log('Error during Post: ' + error)
+        })
+    } else {
+      // Sin
+      var objs = []
+      var fname = settlement_name + '_' +  myFiles[i].originalname
+      var doctype = ftypes
+      console.log('ftypes:', ftypes[0])
+
+      if (
+        doctype == 'socio_economic' ||
+        doctype == 'stakeholder_report' ||
+        doctype == 'planning_report' ||
+        doctype == 'basemap_report' ||
+        doctype == 'esia_report'
+      ) {
+        var group = 'Report'
+      }
+
+      if (doctype == 'ldpdp' || doctype == 'pdp') {
+        var group = 'Development Plan'
+      }
+
+      if (doctype == 'survey_plan' || doctype == 'rim') {
+        var group = 'Map'
+      }
+
+      if (doctype == 'design' || doctype == 'built') {
+        var group = 'Drawing'
+      }
+
+      var thisFile = {
+        type: ftypes[0],
+        name: fname,
+        file_path: `./public/${fname}`,
+        settlement_id: req.body.settlement_id,
+        group: group
+      }
+      objs.push(thisFile)
+
+      console.log('Thisfile', thisFile)
+
+      db.models.settlement_uploads
+        .bulkCreate(objs)
+        .then(function () {
+          // var fname = settlement_name+"_"+myFiles.name
+          //myFiles.mv(`./public/${fname}`)
+
+          // return models.DiscoverySource.findAll();
+          res.status(200).send({
+            message: 'One File Saved succesfully',
+            code: '0000'
+          })
+        })
+        .catch(function (error) {
+          res.send(error.errors[0])
+          console.log('Error during Post: ' + error)
+        })
+    }
+  })
+}
+
+ 
+exports.downloadFile = (req, res) => {
+  console.log("Received files:", req.body);
+
+  const uploadedFile = path.join(__dirname, '/data/uplaods' , req.body.filename);
+
+  console.log(uploadedFile);
+
+  // Check if the file exists
+  fs.access(uploadedFile, fs.constants.F_OK, (err) => {
+    if (err) {
+      console.log(err);
+      res.status(404).send({
+        message: 'File not found.',
+        code: '0000'
+      });
+
+      db.models.document.destroy({ where: { id: req.body.doc_id } })
+      .then((result) => {
+     console.log('succeed')
+    }) 
+
+      
+    } else {
+      // File exists, send it
+      res.sendFile(uploadedFile, function(err) {
+        if (err) {
+          console.log(err);
+          res.status(500).send({
+            message: 'Download failed. Error occurred.',
+            code: '0000'
+          });
+        } else {
+          // File sent successfully
+          // Handle success logic here if needed
+        }
+      });
+    }
+  });
+};
+
 
