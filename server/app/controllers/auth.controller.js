@@ -168,68 +168,38 @@ exports.updateUser = (req, res) => {
 }
 
 
- 
+const multer = require('multer');
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, '/data/uploads'); // Define the directory where uploaded files will be stored
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname); // Keep the original file name
+  },
+});
+
+const upload = multer({ storage: storage });
 exports.updateByUser = (req, res) => {
-  console.log('Update by user....');
-  console.log('Request:----->', req);
+     
 
-
-  let fname 
-  let location 
-  if (req.files &&req.files.profilePhoto) {
-    let myPhoto = req.files.profilePhoto
-      //const uploadsDir = path.join(__dirname, '../../../..', 'uploads');
-      const uploadsDir = `public`;
-
-        fname = myPhoto.name.replace(/\s/g, '_')
-
-        location = uploadsDir + '/' + req.body.id+fname 
-
-
-      console.log("Moving to public...", location)
-      myPhoto.mv(location)
-    
-   }
-  
-
-
-    // get this one record and update it by replacing the whole document
-    // User.findAll({ where: { id: req.body.id } }).then((result) => {
-    //   if (result) {
-    //     // Result is an array because we have used findAll. We can use findOne as well if you want one row and update that.
-    //     result[0].set(req.body);
-
-    //   // Check if a file was uploaded and update the profile photo path in the database
-    //     if (req.files && req.files.profilePhoto) {
-              
-    //       const host = req.get('host');
-
-    //       // Check if the connection is secure (HTTPS)
-    //       const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
-        
-    //       // Build the avatar URL with the correct protocol
-    //       const protocol = isSecure ? 'https://' : 'http://';
-    //       const avatarURL = `${protocol}${host}/${ req.body.id+fname }`;
-        
-    //       result[0].avatar = avatarURL;
-    //          }
-
-    //         result[0].save();
-
-    //         res.send({
-    //           message: 'User profile updated successfully!',
-    //           code: "0000",
-    //           user: result[0]
-    //         });
-
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.log(err);
+      // Handle multer errors, if any
+      // return res.status(400).json({ error: 'File upload failed.' });
+      return res.status(500).send({
+        message: 'Upload failed.',
+        code: '0000'
+      })
+    }
  
-    //   }
-    // });
-  
-  
-  
-
+    // The uploaded files can be accessed using `req.files`
+    console.log('files:', req.files);
     
+    
+
     User.findAll({ where: { id: req.body.id } }).then((result) => {
       if (result && result.length > 0) {
         const user = result[0];
@@ -253,14 +223,14 @@ exports.updateByUser = (req, res) => {
             user.email = req.body.email;
             user.phone = req.body.phone;
 
-            console.log('user',user)
+            console.log('user', user)
     
             // Save the updated user record
             user
               .save()
               .then((updatedUser) => {
                 // Remove the temporary file (optional, you can skip this if you don't need to keep the file)
-               // fs.unlinkSync(profilePhoto.tempFilePath);
+                // fs.unlinkSync(profilePhoto.tempFilePath);
     
                 // Send the response after successful update
                 res.send({
@@ -297,7 +267,7 @@ exports.updateByUser = (req, res) => {
         res.status(404).json({ error: 'User not found' });
       }
     });
-    
+  })
   };
 
 
