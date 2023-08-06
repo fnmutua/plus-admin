@@ -199,8 +199,6 @@ exports.updateByUser = (req, res) => {
     console.log('profilePhoto:', req.files[0]);
     
     var profilePhoto = req.files[0]
-    console.log('pi:>', profilePhoto)
-    console.log('pic.path:>', profilePhoto.path)
 
     User.findAll({ where: { id: req.body.id } }).then((result) => {
       if (result && result.length > 0) {
