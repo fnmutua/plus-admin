@@ -196,10 +196,11 @@ exports.updateByUser = (req, res) => {
     }
  
     // The uploaded files can be accessed using `req.files`
-    console.log('profilePhoto:', req.files[0].profilePhoto);
+    console.log('profilePhoto:', req.files[0]);
     console.log('profilePhoto2:', req.files[0].profilePhoto.path);
     
-    
+    var pic = req.files[0]
+    console.log('pi:>', pic)
 
     User.findAll({ where: { id: req.body.id } }).then((result) => {
       if (result && result.length > 0) {
