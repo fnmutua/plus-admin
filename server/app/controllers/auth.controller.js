@@ -215,9 +215,10 @@ exports.updateByUser = (req, res) => {
             if (err) {
               console.error('Error reading profile photo:', err);
               // Handle the error
-              return res.status(500).json({ error: 'Error reading profile photo' });
+              //return res.status(500).json({ error: 'Error reading profile photo' });
+              return null 
             }
-    
+          });
             // Set the avatar_data field to the file data buffer
             user.photo = data;
             user.name = req.body.name;
@@ -245,7 +246,7 @@ exports.updateByUser = (req, res) => {
                 // Handle the error
                 res.status(500).json({ error: 'Error saving user profile' });
               });
-          });
+         
         } else {
           // If no file was uploaded, just save the user without changing the avatar_data
           user
