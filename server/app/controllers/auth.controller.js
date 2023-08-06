@@ -206,11 +206,11 @@ exports.updateByUser = (req, res) => {
     
         // Check if a file was uploaded and update the profile photo path in the database
         if (req.files) {
-          const profilePhoto = req.files;
+          const profilePhoto = req.files[0];
          // const filePath = path.join('/data/uploads', req.files.profilePhoto[0].originalname);
     
           // Read the file data as a buffer
-          fs.readFile(req.files.profilePhoto[0].path, (err, data) => {
+          fs.readFile(req.files[0].profilePhoto.path, (err, data) => {
             if (err) {
               console.error('Error reading profile photo:', err);
               // Handle the error
