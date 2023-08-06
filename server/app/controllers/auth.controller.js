@@ -199,6 +199,7 @@ exports.updateByUser = (req, res) => {
     console.log('profilePhoto:', req.files[0]);
     
     var profilePhoto = req.files[0]
+    var profilePhotoPath = profilePhoto?profilePhoto.path:''
 
     User.findAll({ where: { id: req.body.id } }).then((result) => {
       if (result && result.length > 0) {
@@ -210,7 +211,7 @@ exports.updateByUser = (req, res) => {
          // const filePath = path.join('/data/uploads', req.files.profilePhoto[0].originalname);
     
           // Read the file data as a buffer
-          fs.readFile(profilePhoto.path, (err, data) => {
+          fs.readFile(profilePhotoPath, (err, data) => {
             if (err) {
               console.error('Error reading profile photo:', err);
               // Handle the error
