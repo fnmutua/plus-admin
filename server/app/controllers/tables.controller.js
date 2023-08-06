@@ -2225,7 +2225,7 @@ exports.batchDocumentsUpload = (req, res) => {
      // console.log(myFiles[i])
       var obj = {}
       var column = req.body.field_id[i]
-      obj[column] = req.body[column][i]
+      obj[column] = req.body[column]
       obj.category = req.body.category[i]
       obj.format = req.body.format[i]
       obj.size = req.body.size[i]
