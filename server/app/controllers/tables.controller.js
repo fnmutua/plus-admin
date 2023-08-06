@@ -2142,10 +2142,14 @@ exports.modelGetParentIDS = (req, res) => {
   })
 }
 
+
+
 exports.modelUpload = (req, res) => {
-  console.log(req.files)
+  console.log('xxxx', req.body.createdBy) 
+
+
   if (!req.files) {
-    return res.status(500).send({ msg: 'file is not found' })
+    return res.status(500).send({ msg: 'file is not found :modelUpload' })
   }
   console.log('In upload express.....', req.body.DocTypes)
   // accessing the file
@@ -2286,13 +2290,16 @@ exports.modelUpload = (req, res) => {
 }
 
 exports.batchDocumentsUpload = async (req, res) => {
+ // console.log('uploading......') 
 
   const uploadsDir = path.join(__dirname, '../../../..', 'uploads');
 
-  if (!req.files) {
-    return res.status(500).send({ msg: 'file is not found' })
-  }
+  console.log('uploading......',req.body) 
 
+  if (!req.files) {
+    return res.status(500).send({ msg: 'dbfile is not found :dbatchDocumentsUpload' })
+  }
+ 
   var myFiles = []
   if (Array.isArray(req.files.file)) {
 
@@ -2408,7 +2415,7 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
   const uploadsDir = path.join(__dirname, '../../../..', 'uploads');
 
   if (!req.files) {
-    return res.status(500).send({ msg: 'file is not found' })
+    return res.status(500).send({ msg: 'file is not found :batchDocumentsUploadByParentCode' })
   }
 
   var myFiles = []
@@ -2602,7 +2609,7 @@ exports.xReportDocumentationUpload = (req, res) => {
   console.log(req.files)
 
   if (!req.files) {
-    return res.status(500).send({ msg: 'file is not found' })
+    return res.status(500).send({ msg: 'file is not found:xReportDocumentationUpload' })
   }
   console.log('In upload express.....', req.body.DocTypes)
   // accessing the file
@@ -2705,7 +2712,7 @@ exports.ReportDocumentationUpload = async (req, res) => {
   var column = req.body.column
 
   if (!req.files) {
-    return res.status(500).send({ msg: 'file is not found' })
+    return res.status(500).send({ msg: 'file is not found:ReportDocumentationUpload' })
   }
   console.log('In upload single.....', req.files.file)
   console.log('In upload  multiple express.....', req.files.file.length)
@@ -2891,4 +2898,87 @@ exports.getFieldQUnique = async (req, res) => {
   }
 };
 
+
+
+
+
+const multer = require('multer');
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, '/uploads'); // Define the directory where uploaded files will be stored
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname); // Keep the original file name
+  },
+});
+
+const upload = multer({ storage: storage });
+
+exports.batchDocumentsUpload = (req, res) => {
+  // Use `upload.array('files')` middleware to handle multiple file uploads
+  // 'files' should match the name attribute of the file input(s) in your form
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.log(err);
+      // Handle multer errors, if any
+     // return res.status(400).json({ error: 'File upload failed.' });
+     return res.status(500).send({
+        message: 'Upload failed.',
+        code: '0000'
+      })
+    }
+
+    // The uploaded files can be accessed using `req.files`
+  console.log('files:', req.files);
+   var reg_model = 'document'
+    let myFiles = req.files
+    console.log(myFiles)
+    for (let i = 0; i < myFiles.length; i++) {
+      // Sin
+     // console.log(myFiles[i])
+      var obj = {}
+      var column = req.body.field_id
+      obj[column] = req.body[column]
+      obj.category = req.body.category
+      obj.format = req.body.format
+      obj.size = req.body.size
+      obj.createdBy = req.body.createdBy 
+      obj.protectedFile = req.body.protected 
+      obj.name = myFiles[i].originalname
+      obj.code = crypto.randomUUID()
+      obj.location = myFiles[i].path
+
+      console.log(obj)
+
+
+      try {
+        await db.models[reg_model].create(obj)
+      }
+            
+      catch (error) {
+        console.log(error)
+      }
+
+
+    }
+  
+
+    res.status(200).send({
+      message: 'Batch Upload  Successful',
+      code: '0000'
+    })
+  
+
+    // Other form fields (if any) can be accessed using `req.body`
+  //  console.log('other form fields:', req.body);
+
+    // Process the files or respond to the client accordingly
+   // res.json({ message: 'Form submission and file upload successful!' });
+  });
+};
+
+
+ 
 
