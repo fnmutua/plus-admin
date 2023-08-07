@@ -21,5 +21,8 @@ module.exports = (sequelize, DataTypes) => {
     // Add a custom name for the model
     // You can use "Role" or any other desired name
     modelName: 'Role',
+    // Add timestamps
+    timestamps: true,
+  
   });
 };
