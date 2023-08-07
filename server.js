@@ -31,7 +31,12 @@ const envt = 'DEV'   // PROD
 console.log("DEV: Switching on dotenv")
  
 const dotenv = require('dotenv')
-dotenv.config() 
+//dotenv.config() 
+
+   // Replace 'path-to-your-specific-env-file' with the actual path to your .env file
+const envFilePath = path.resolve(__dirname, '.env.kisip');
+dotenv.config({ path: envFilePath });
+
  }
  
 
