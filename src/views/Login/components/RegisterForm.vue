@@ -223,7 +223,7 @@ const passwordValidator = async (rule, value) => {
     return Promise.reject('Please enter the password.');
   } else if (value.length < 8 || value.length > 20) {
     return Promise.reject('The password must be between 8 and 20 characters long.');
-  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/.test(value)) {
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]+$/.test(value)) {
     return Promise.reject('Required: at least one uppercase letter, one lowercase letter, one digit, and one special character.');
   } else {
     return Promise.resolve();
