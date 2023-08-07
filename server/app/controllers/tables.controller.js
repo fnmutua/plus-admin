@@ -1728,8 +1728,11 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     qry.attributes = attributes
     qry.attributes.exclude = ['geom'] 
 
+
 }
      
+qry.order= [['updatedAt', 'DESC']]
+
 
 
 
