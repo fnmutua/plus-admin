@@ -22,6 +22,7 @@ interface Field {
   type: string;
   // min: number;
   // max: number;
+  adminUnit: boolean;
   multiselect: string; // Use boolean type instead of string
   options: Array<any>; // Specify the array type of options
 }
@@ -62,23 +63,24 @@ const formFields: Field[][] = [
   // Fields for 1 Profile
   //id, name, school_number, category, level, reg_status, ownership_type, owner, catchment, male_enrollment, female_enrollment, number_teachers, number_other_staff, number_classrooms, number_male_toilets, number_female_toilets, avg_fees_term, number_handwashing_stns, mhm, parcel_tenure, tenancy, settlement_id, county_id, subcounty_id, ward_id, 
   [
-    {
-      name: "location",
-      label: "Location",
-      type: "cascade",
-      multiselect: 'false',
-      options: cascadedAdminOptions.value,
-    },
-    { name: "name", label: "Name", type: "text", multiselect: 'false', options: [] },
+ 
+    { name: "county_id", label: "County", type: "select", multiselect: 'false', adminUnit: true, options: countyOptions.value },
+    { name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { name: "ward_id", label: "Ward", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { name: "settlement_id", label: "Settlement", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    
+
+
+    { name: "name", label: "Name", type: "text", multiselect: 'false',  adminUnit: false, options: [] },
    
       {
-      name: "level", label: "Level", type: "select", multiselect: 'false',  
+      name: "level", label: "Level", type: "select", multiselect: 'false',  adminUnit: false,  
         options:  HCFTypeOptions
     },
 
    
     {
-      name: "reg_status", label: "Registration", type: "select", multiselect: 'false',  
+      name: "reg_status", label: "Registration", type: "select", multiselect: 'false',   adminUnit: false, 
         options: [
           { label: 'Registered', value: 'Registered' },
           { label: 'Awaiting registration', value: 'Awaiting registration' },
@@ -87,7 +89,7 @@ const formFields: Field[][] = [
     
        
     {
-      name: "services", label: "Services", type: "select", multiselect: 'true',  
+      name: "services", label: "Services", type: "select", multiselect: 'true',   adminUnit: false, 
         options: [
           { label: 'Out-patient', value: 'Out-patient' },
           { label: 'In-patient', value: 'In-patient' },
@@ -102,7 +104,7 @@ const formFields: Field[][] = [
      
     
     {
-      name: "ownership_type", label: "Ownership", type: "select", multiselect: 'false',  
+      name: "ownership_type", label: "Ownership", type: "select", multiselect: 'false',   adminUnit: false, 
         options: [
           { label: 'Public', value: 'Public' },
           { label: 'Private', value: 'Private' },
@@ -113,17 +115,17 @@ const formFields: Field[][] = [
   
 
     },
-    { name: "owner", label: "Owner", type: "text", multiselect: 'false', options:[]},
+    { name: "owner", label: "Owner", type: "text", multiselect: 'false', adminUnit: false,  options:[]},
 
     {
-      name: "catchment", label: "Catchment", type: "select", multiselect: 'false',  
+      name: "catchment", label: "Catchment", type: "select", multiselect: 'false',  adminUnit: false,  
         options: catchment
     },
   
      
   
     {
-      name: "parcel_tenure", label: "Tenure", type: "select", multiselect: 'false',  
+      name: "parcel_tenure", label: "Tenure", type: "select", multiselect: 'false', adminUnit: false,   
         options: [
           { label: 'Public', value: 'Public' },
           { label: 'Private', value: 'Private' },
@@ -134,7 +136,7 @@ const formFields: Field[][] = [
     },
 
     {
-      name: "common_ailments", label: "Common Ailments", type: "select", multiselect: 'true',  
+      name: "common_ailments", label: "Common Ailments", type: "select", multiselect: 'true',   adminUnit: false, 
         options: [
           { label: 'Malaria', value: 'Malaria' },
           { label: 'TB', value: 'TB' },
@@ -151,7 +153,7 @@ const formFields: Field[][] = [
     },
   
     {
-      name: "inpatient", label: "Has Inpatient", type: "select", multiselect: 'false',  
+      name: "inpatient", label: "Has Inpatient", type: "select", multiselect: 'false',  adminUnit: false,  
         options: yes_no
     },
  
@@ -164,9 +166,9 @@ const formFields: Field[][] = [
     { name: "number_pharm", label: "Number of Pharmacists", type: "number",  min:"0",multiselect: 'false', options:[]},
     { name: "number_nurses", label: "Number of Nurses", type: "number", min:"0", multiselect: 'false', options:[]},
     
-    { name: "referrals", label: "Referrals To:", type: "text", multiselect: 'false', options:[]},
+    { name: "referrals", label: "Referrals To:", type: "text", multiselect: 'false',  adminUnit: false,  options:[]},
 
-     { name: "challenges", label: "Challenges/Issues", type: "text", multiselect: 'false', options:[]},
+     { name: "challenges", label: "Challenges/Issues", type: "text", multiselect: 'false',  adminUnit: false,  options:[]},
   
   
   
@@ -180,7 +182,7 @@ const formFields: Field[][] = [
   [
    // This is left empty for the  map 
     {
-      name: "location_option", label: "Location Option", type: "select", multiselect: 'false',
+      name: "location_option", label: "Location Option", type: "select", multiselect: 'false', adminUnit: false, 
       options: [
         { label: 'Digitize', value: 'digitize' },
         { label: 'Upload', value: 'upload' },
@@ -201,22 +203,25 @@ const formRules: FormRules = reactive({
     name: [
         { required: true, message: 'Name is required', trigger: 'blur' }
     ],
-    // // age: [
-    //     { required: true, message: 'Age is required', trigger: 'blur' },
-    //     { type: 'number', message: 'Age must be a number', trigger: 'blur' }
-    // ],
-    location: [
-      { required: true, message: 'Location is required', trigger: 'blur' },
-      {
-        validator: (rule, value, callback) => {
-          if (Array.isArray(value) && value.length === 4) {
-            callback();
-          } else {
-            callback(new Error('Location must include Settlement'));
-          }
-        }, 
-        trigger: 'blur'
-      }
+    
+    
+    county_id: [
+      { required: true, message: 'County is required', trigger: 'blur' },
+       
+    ],
+    
+    subcounty_id: [
+      { required: true, message: 'Constituency is required', trigger: 'blur' },
+       
+    ],
+
+    ward_id: [
+      { required: true, message: 'Ward is required', trigger: 'blur' },
+       
+    ],
+    settlement_id: [
+      { required: true, message: 'Settlement is required', trigger: 'blur' },
+       
     ],
     
   },

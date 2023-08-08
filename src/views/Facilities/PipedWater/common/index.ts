@@ -14,6 +14,7 @@ import { reactive, unref, ref } from 'vue'
 const settlementOptionsV2 = ref([])
 
  
+ 
 const getSettlements = async () => {
   const res = await getListWithoutGeo({
     params: {
@@ -35,6 +36,8 @@ const getSettlements = async () => {
       const parentOpt = {}
       parentOpt.value = arrayItem.id
       parentOpt.county_id = arrayItem.county_id
+      parentOpt.subcounty_id = arrayItem.subcounty_id
+      parentOpt.ward_id = arrayItem.ward_id
       parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
       //  console.log(countyOpt)
       settlementOptionsV2.value.push(parentOpt)
@@ -134,7 +137,7 @@ const wardOptions = ref([])
       pageIndex: 1,
       limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'subcounty',
+      model: 'ward',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'
