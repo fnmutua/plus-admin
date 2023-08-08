@@ -34,7 +34,11 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false,
      },
 
-   
+     project_code: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
     component_id: {
       type: DataTypes.INTEGER,
       allowNull: false
@@ -89,6 +93,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.ARRAY(DataTypes.INTEGER),
       allowNull: true
     },
+
+ 
+
+
 
 
     createdBy: {

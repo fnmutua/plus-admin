@@ -40,10 +40,10 @@ v-else-if="field.type === 'select' && field.multiselect === 'true'"
 v-for="option in field.options" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
-
+<!-- 
                  
               <el-cascader
-v-else-if="field.type === 'cascade' && !isMobile" v-model="formData[field.name]"
+v-else-if="field.type === 'xcascade' && !isMobile" v-model="formData[field.name]"
                 :filterable="true" clearable :options="field.options"   :props="props1"
                 @change="getFieldChangeHandler(field.name)"  />
               <div v-else-if="field.type === 'cascade' && isMobile">  
@@ -51,7 +51,15 @@ v-else-if="field.type === 'cascade' && !isMobile" v-model="formData[field.name]"
                 <div>
                   <span style="font-size: 10px;" >{{ selectAdmin }}</span>
                 </div>             
-              </div>
+              </div> -->
+
+              <el-tree-select
+              v-else-if="field.type === 'cascade' && !isMobile" v-model="formData[field.name]"
+                      :data="field.options"
+                      :render-after-expand="true"
+                      @change="getFieldChangeHandler(field.name)" 
+                    />
+                                
               <el-upload
                 v-else-if="field.type === 'upload' && visibleUpload"
                 v-model:file-list="fileList"
@@ -59,6 +67,7 @@ v-else-if="field.type === 'cascade' && !isMobile" v-model="formData[field.name]"
                 action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
                 :auto-upload="false"
                 :show-file-list="false"
+                node-key="nodeKey"
 
                 :on-change="handleUploadGeo"
               >
@@ -180,7 +189,7 @@ import {
   ElDatePicker,
   ElSteps,
   ElStep, ElRow, ElCol,
-  ElSelect, ElOption,
+  ElSelect, ElOption,ElTreeSelect,
   Form as ElFormInstance
 } from 'element-plus';
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
@@ -678,7 +687,8 @@ const loadMap = async () => {
 
   // Set the state of the layer to "draw" to enable drawing on it
   map.value.setFeatureState({'source': 'draw-layer', 'id': 'draw-layer'}, {'draw': true});
- 
+  toggleDrawToolbox('digitize')  // Load the digitizie by default 
+
   // draw.value = new MapboxDraw({
   //   displayControlsDefault: false,
   //   controls: {
@@ -877,31 +887,56 @@ const handleChangeLocationOption = async (value: any) => {
   toggleDrawToolbox(value)
  }
 
+
+ const findObjectByValue = (array, targetValue) => {
+  for (const item of array) {
+    if (item.value === targetValue) {
+      return item;
+    }
+    if (item.children) {
+      const result = findObjectByValue(item.children, targetValue);
+      if (result) {
+        return result;
+      }
+    }
+  }
+  return null;
+};
+
 const handleChangeLocation = async (value: any) => {
   console.log('Location field changed:', value);
   const location = formFields.flat().find((f) => f.name === 'location');
+  
+const targetValue = value; // Replace with the value you're looking for
+const foundAdminUnit = findObjectByValue(location.options, targetValue);
 
-  formData.county_id = value[0]
-  formData.subcounty_id = value[1]
-  formData.ward_id = value[2]
-  formData.settlement_id = value[3]
+var  level = foundAdminUnit.level
+if (foundAdminUnit && level=='settlement' ) {
+  console.log('Found foundAdminUnit:', foundAdminUnit);
+ 
+   formData.county_id =foundAdminUnit.county_id
+  formData.subcounty_id =foundAdminUnit.subcounty_id
+   formData.ward_id = foundAdminUnit.ward_id
+  formData.settlement_id = value
 
-     
-  if (value.length==1) {
-    var model = 'county'
-    var model_id = value[0]
-  } else if (value.length==2) {
-    var model = 'subcounty'
-    var model_id = value[1]
-  }
-  else if (value.length==3) {
-    var model = 'ward'
-    var model_id = value[2]
-  }
-  else {
+
+
+} else {
+  console.log('Object not found');
+}
+
+  
+
+  console.log(level)
+  // formData.county_id = value[0]
+  // formData.subcounty_id = value[1]
+  // formData.ward_id = value[2]
+  // formData.settlement_id = value[3]
+
+  
     var model = 'settlement'
-    var model_id = value[3]
-  }
+    var model_id = value 
+  
   
   const geoForm = {}
   geoForm.model = model
