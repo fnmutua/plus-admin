@@ -134,7 +134,7 @@ const wardOptions = ref([])
       pageIndex: 1,
       limit: 100,
       curUser: 1, // Id for logged in user
-      model: 'subcounty',
+      model: 'ward',
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC'

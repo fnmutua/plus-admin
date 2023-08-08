@@ -21,6 +21,7 @@ interface Field {
   type: string;
   multiselect: string; // Use boolean type instead of string
   options: Array<any>; // Specify the array type of options
+  adminUnit: boolean;
 }
 
 interface FormRules {
@@ -113,31 +114,38 @@ const formFields: Field[][] = [
   // Fields for 1 Profile
 
   [
+    // {
+    //   name: "location",
+    //   label: "Location",
+    //   type: "cascade",
+    //   multiselect: 'false',
+    //   options: cascadedAdminOptions.value,
+    // },
+
+
+    { name: "county_id", label: "County", type: "select", multiselect: 'false', adminUnit: true, options: countyOptions.value },
+    { name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { name: "ward_id", label: "Ward", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+  
+
+    { name: "name", label: "Name", type: "text", multiselect: 'false',  adminUnit: false, options: [] },
     {
-      name: "location",
-      label: "Location",
-      type: "cascade",
-      multiselect: 'false',
-      options: cascadedAdminOptions.value,
-    },
-    { name: "name", label: "Name", type: "text", multiselect: 'false', options: [] },
-    {
-      name: "settlement_type", label: "Type", type: "select", multiselect: 'false',  
+      name: "settlement_type", label: "Type", type: "select", multiselect: 'false',  dminUnit: false,
         options: [
           { label: 'Slum', value: 1 },
           { label: 'Informal', value: 2 }]},
 
-    { name: "parcel_number", label: "Parcel No.", type: "text", multiselect: 'false', options: []},
-    { name: "parcel_ownership", label: "Parcel Ownership", type: "select", multiselect: 'false', options:[{ label: 'Public', value: 'public'},
+    { name: "parcel_number", label: "Parcel No.", type: "text", multiselect: 'false', dminUnit: false, options: []},
+    { name: "parcel_ownership", label: "Parcel Ownership", type: "select", multiselect: 'false',dminUnit: false, options:[{ label: 'Public', value: 'public'},
     { label: 'Private', value: 'private' }]},
-    { name: "map_number", label: "RIM/Survey Plan", type: "text", multiselect: 'false', options:[]},
-    { name: "area", label: "Area (Ha)", type: "number", multiselect: 'false', options: []},
-    { name: "population", label: "Population", type: "number", multiselect: 'false', options: []},
-    { name: "dist_town", label: "Distance to Urban Center", type: "number", multiselect: 'false', options: []},
-    { name: "dist_trunk", label: "Distance to Trunk Road", type: "number", multiselect: 'false', options: []},
+    { name: "map_number", label: "RIM/Survey Plan", type: "text", multiselect: 'false',dminUnit: false, options:[]},
+    { name: "area", label: "Area (Ha)", type: "number", multiselect: 'false',dminUnit: false, options: []},
+    { name: "population", label: "Population", type: "number", multiselect: 'false',dminUnit: false, options: []},
+    { name: "dist_town", label: "Distance to Urban Center", type: "number",dminUnit: false, multiselect: 'false', options: []},
+    { name: "dist_trunk", label: "Distance to Trunk Road", type: "number",dminUnit: false, multiselect: 'false', options: []},
      
     {
-      name: "isActive", label: "Status", type: "select", multiselect: 'false',
+      name: "isActive", label: "Status", type: "select", multiselect: 'false',dminUnit: false,
       options: [
         { value: 'true', label: 'Active' },
         { value: 'false', label: 'Decommisioned' },
@@ -149,7 +157,7 @@ const formFields: Field[][] = [
   [
    // This is left empty for the  map 
     {
-      name: "location_option", label: "Location Option", type: "select", multiselect: 'false',
+      name: "location_option", label: "Location Option", type: "select", multiselect: 'false',adminUnit: false,
       options: [
         { label: 'Digitize', value: 'digitize' },
         { label: 'Upload', value: 'upload' },
@@ -174,20 +182,34 @@ const formRules: FormRules = reactive({
     //     { required: true, message: 'Age is required', trigger: 'blur' },
     //     { type: 'number', message: 'Age must be a number', trigger: 'blur' }
     // ],
-    location: [
-      { required: true, message: 'Location is required', trigger: 'blur' },
-      {
-        validator: (rule, value, callback) => {
-          if (Array.isArray(value) && value.length === 3) {
-            callback();
-          } else {
-            callback(new Error('Location must include Ward'));
-          }
-        }, 
-        trigger: 'blur'
-      }
+    // location: [
+    //   { required: true, message: 'Location is required', trigger: 'blur' },
+    //   {
+    //     validator: (rule, value, callback) => {
+    //       if (Array.isArray(value) && value.length === 3) {
+    //         callback();
+    //       } else {
+    //         callback(new Error('Location must include Ward'));
+    //       }
+    //     }, 
+    //     trigger: 'blur'
+    //   }
+    // ],
+    
+    county_id: [
+      { required: true, message: 'County is required', trigger: 'blur' },
+       
     ],
     
+    subcounty_id: [
+      { required: true, message: 'Constituency is required', trigger: 'blur' },
+       
+    ],
+
+    ward_id: [
+      { required: true, message: 'Ward is required', trigger: 'blur' },
+       
+    ],
   },
 
   step2: {
