@@ -62,6 +62,7 @@ var _document_category= require('./document_category')
 var _feedback= require('./feedback')
 var _frequency= require('./frequency')
 var _programme_implementation= require('./programme_implementation')
+var _contractor= require('./contractor')
 
 
 var _settlement_uploads = require('./settlement_uploads')
@@ -131,6 +132,7 @@ function initModels(sequelize) {
   var feedback = _feedback(sequelize, DataTypes)
   var frequency = _frequency(sequelize, DataTypes)
   var programme_implementation = _programme_implementation(sequelize, DataTypes)
+  var contractor = _contractor(sequelize, DataTypes)
   
   
   
@@ -197,7 +199,8 @@ function initModels(sequelize) {
     settlement_uploads,
     feedback,
     frequency,
-    programme_implementation
+    programme_implementation,
+    contractor
     
   }
 }

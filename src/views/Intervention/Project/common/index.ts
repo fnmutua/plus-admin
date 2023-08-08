@@ -98,7 +98,34 @@ const implementationOptions = ref([])
     })
   })
 }
+ 
 
+const contractorOptions = ref([])
+ const getContractors = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'contractor',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    //console.log('Received response:', response)
+    //tableDataList.value = response.data
+    const ret = response.data
+  
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      const parentOpt = {}
+      parentOpt.value = arrayItem.id
+       parentOpt.label = arrayItem.name
+      //  console.log(countyOpt)
+      contractorOptions.value.push(parentOpt)
+    })
+  })
+}
 
 
 const subcountyOptions = ref([])
@@ -305,9 +332,11 @@ getCounties()
 getSubCounties()
  
 getWards()
+getContractors()
 
 
 
 export {
-  countyOptions, settlementOptionsV2, activityOptions,subcountyOptions ,implementationOptions,   sewerTypes,wardOptions,cascadedAdminOptions
+  countyOptions, settlementOptionsV2,contractorOptions,
+  activityOptions, subcountyOptions, implementationOptions, sewerTypes, wardOptions, cascadedAdminOptions
 };

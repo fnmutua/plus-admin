@@ -8,11 +8,6 @@ module.exports = function(sequelize, DataTypes) {
       primaryKey: true
     },
    
-    
-    settlement_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
 
     county_id: {
       type: DataTypes.INTEGER,
@@ -28,6 +23,19 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+
+   
+    
+    settlement_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+    level: {
+      type: DataTypes.STRING,
+      allowNull: false,
+     },
+
 
     title: {
       type: DataTypes.STRING,
@@ -89,16 +97,12 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
-    contractor: {
-      type: DataTypes.ARRAY(DataTypes.INTEGER),
+    contractor_id: {
+      type: DataTypes.INTEGER,
       allowNull: true
     },
 
- 
-
-
-
-
+  
     createdBy: {
       type: DataTypes.INTEGER,
       allowNull: true
@@ -139,7 +143,9 @@ module.exports = function(sequelize, DataTypes) {
       },
      
     ]
-  });
+  }
+  
+  );
 };
 
 

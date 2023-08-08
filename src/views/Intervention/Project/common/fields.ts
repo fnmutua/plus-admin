@@ -6,6 +6,7 @@ import {
    activityOptions,
   cascadedAdminOptions,
   implementationOptions,
+  contractorOptions,
 } from "./index.ts";
  
 const steps = [
@@ -21,6 +22,7 @@ interface Field {
   // min: number;
   // max: number;
   multiselect: string; // Use boolean type instead of string
+  AddOption: boolean;
   options: Array<any>; // Specify the array type of options
 }
 
@@ -46,16 +48,11 @@ const yes_no = [
 
 const sourceFundingOptions = [
   { label: "Gok", value: 1 },
-  { label: "WorldBank", value: 2 },
+  { label: "Donor", value: 2 },
 ];
  
 
-
- const contractorOptions = [
-  { label: "ABC Contractors Limited", value: 1 },
-  { label: "Slum Upgrading Department", value: 2 },
- ];
-
+ 
 
 
 
@@ -103,44 +100,42 @@ const formFields: Field[][] = [
       label: "Location",
       type: "cascade",
       multiselect: 'false',
+      AddOption: false,    
       options: cascadedAdminOptions.value,
     },
-    { name: "title", label: "Title", type: "text", multiselect: 'false', options: [] },
-    { name: "project_code", label: "Project Code", type: "text", multiselect: 'false', options: [] },
-   
+    { name: "title", label: "Title", type: "text", multiselect: 'false', AddOption: false,     options: [] },
+    { name: "project_code", label: "Project Code", type: "text", multiselect: 'false', AddOption: false,      options: [] },
     {
-      name: "status", label: "Status", type: "select", multiselect: 'false',    options: statusOptions
+      name: "status", label: "Status", type: "select", multiselect: 'false', AddOption: false,       options: statusOptions
     },
 
-    {name: "implementation_id", label: "Delivery Unit", type: "select", multiselect: 'false',    options: implementationOptions.value },
+    {name: "implementation_id", label: "Delivery Unit", type: "select", multiselect: 'false', AddOption: false,       options: implementationOptions.value },
 
-    { name: "start_date", label: "Start Date", type: "date", multiselect: 'false',    options: [] },
-    { name: "end_date", label: "End Date", type: "date", multiselect: 'false',    options: [] },
-    { name: "cost", label: "Project Budget/Cost", min: "0", type: "number", multiselect: 'false', options: [] },
-    {name: "sourceFunding", label: "Source of Funding", type: "select", multiselect: 'true',    options: sourceFundingOptions },
-    { name: "male_beneficiaries", label: "Male Beneficiaries",  min:"0", type: "number", multiselect: 'false',    options: [] },
-    { name: "female_beneficiaries", label: "Female Beneficiaries",  min:"0", type: "number", multiselect: 'false',    options: [] },
-    { name: "contractor", label: "Contractor/Implementer", type: "select", multiselect: 'true',    options: contractorOptions },
+    { name: "start_date", label: "Commencement Date", type: "date", multiselect: 'false', AddOption: false,      options: [] },
+    { name: "end_date", label: "Completion Date", type: "date", multiselect: 'false',AddOption: false,     options: [] },
+    { name: "cost", label: "Total Project Cost", min: "0", type: "number", multiselect: 'false',AddOption: false,  options: [] },
+    {name: "sourceFunding", label: "Source of Funding", type: "select", multiselect: 'true',AddOption: true,     options: sourceFundingOptions },
+    { name: "male_beneficiaries", label: "Male Beneficiaries",  min:"0", type: "number", multiselect: 'false',AddOption: false,     options: [] },
+    { name: "female_beneficiaries", label: "Female Beneficiaries",  min:"0", type: "number", multiselect: 'false',  AddOption: false,     options: [] },
+    { name: "contractor", label: "Contractor/Implementer", type: "select", multiselect: 'false', AddOption: false,options: contractorOptions.value },
 
     
    
    
-    { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', options: activityOptions.value },
+    { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', AddOption: false,  options: activityOptions.value },
  
   
    
   
   ],
 
-
-
-
+ 
 
 
   [
    // This is left empty for the  map 
     {
-      name: "location_option", label: "Location Option", type: "select", multiselect: 'false',
+      name: "location_option", label: "Location Option", type: "select", multiselect: 'false',AddOption: false, 
       options: [
         { label: 'Digitize', value: 'digitize' },
         { label: 'Upload', value: 'upload' },
@@ -209,32 +204,32 @@ const formRules: FormRules = reactive({
     // ],
     location: [
       { required: true, message: 'Location is required', trigger: 'blur' },
-      {
-        validator: (rule, value, callback) => {
-          const findOption = (options, targetValue) => {
-            for (const option of options) {
-              if (option.value === targetValue) {
-                return option;
-              }
-              if (option.children) {
-                const nestedOption = findOption(option.children, targetValue);
-                if (nestedOption) {
-                  return nestedOption;
-                }
-              }
-            }
-            return null;
-          };
+      // {
+      //   validator: (rule, value, callback) => {
+      //     const findOption = (options, targetValue) => {
+      //       for (const option of options) {
+      //         if (option.value === targetValue) {
+      //           return option;
+      //         }
+      //         if (option.children) {
+      //           const nestedOption = findOption(option.children, targetValue);
+      //           if (nestedOption) {
+      //             return nestedOption;
+      //           }
+      //         }
+      //       }
+      //       return null;
+      //     };
     
-          const selectedOption = findOption(cascadedAdminOptions.value, value);
-          if (selectedOption && selectedOption.level === 'settlement') {
-            callback();
-          } else {
-            callback(new Error('Please select a settlement'));
-          }
-        },
-        trigger: 'blur',
-      },
+      //     const selectedOption = findOption(cascadedAdminOptions.value, value);
+      //     if (selectedOption && selectedOption.level === 'settlement') {
+      //       callback();
+      //     } else {
+      //       callback(new Error('Please select a settlement'));
+      //     }
+      //   },
+      //   trigger: 'blur',
+      // },
     ],
     
     

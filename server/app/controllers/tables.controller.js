@@ -1244,31 +1244,67 @@ exports.modelDeleteOneRecord = async (req, res) => {
     const associations = Object.keys(model.associations);
 
 
+    // for (let i = 0; i < associations.length; i++) {
+    //   const associationName = associations[i];
+
+    //   const association = model.associations[associationName];
+
+    //  // const association = model.associations;
+    //   let dependentRowsCount =0
+    //   const associationType = association.associationType;
+    //   if (associationType === 'HasMany') {
+    //     console.log('check assocatiation..', association.target, association.foreignKey,id )
+    //     let mdl = association.target
+     
+
+
+    //      dependentRowsCount = await mdl.count({
+    //       where: {
+    //         [association.foreignKey]: id
+    //       }
+    //      });
+        
+    //      console.log('dependentRowsCount',dependentRowsCount)
+
+        
+      
+    //   } else {
+        
+    //     dependentRowsCount = 0
+    //     }
+     
+
+    //   if (dependentRowsCount > 0) {
+    //     return res.status(500).send({
+    //       message: `Cannot delete '${modelName}' record, it has ${dependentRowsCount} dependent ${association.target.name}(s)`,
+    //       code: 'DEPENDENCY_FOUND'
+    //     });
+    //   }
+    // }
+    console.log('associations',associations)
+
     for (let i = 0; i < associations.length; i++) {
       const associationName = associations[i];
-
       const association = model.associations[associationName];
 
-     // const association = model.associations;
-      let dependentRowsCount =0
+      
+      let dependentRowsCount = 0;
       const associationType = association.associationType;
+    
       if (associationType === 'HasMany') {
-        console.log('check assocatiation..', association.target, association.foreignKey,id )
-        let mdl = association.target
-     
-         dependentRowsCount = await mdl.count({
+        const mdl = association.target; // Get the associated model's class reference
+    
+        dependentRowsCount = await mdl.count({
           where: {
             [association.foreignKey]: id
           }
-         });
-        
-      
+        });
+    
+        console.log('dependentRowsCount', dependentRowsCount);
       } else {
-        
-        dependentRowsCount = 0
-        }
-     
-
+        dependentRowsCount = 0;
+      }
+    
       if (dependentRowsCount > 0) {
         return res.status(500).send({
           message: `Cannot delete '${modelName}' record, it has ${dependentRowsCount} dependent ${association.target.name}(s)`,
@@ -1276,6 +1312,8 @@ exports.modelDeleteOneRecord = async (req, res) => {
         });
       }
     }
+
+    
 
     // Delete the record
     await model.destroy({ where: { id } });

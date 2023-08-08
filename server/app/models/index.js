@@ -252,6 +252,10 @@ db.models.project.hasMany(db.models.beneficiary, {
   foreignKey: 'project_id'
 })
  
+
+
+
+
 db.models.beneficiary.belongsTo(db.models.component, {
   foreignKey: 'component_id'
 })
@@ -617,6 +621,18 @@ db.models.indicator_category_report.belongsTo(db.models.project, {
 db.models.project.hasMany(db.models.indicator_category_report, {
   foreignKey: 'project_id'
 })
+
+// project  - contractor
+db.models.project.belongsTo(db.models.contractor, {
+  foreignKey: 'contractor_id'
+})
+
+db.models.contractor.hasMany(db.models.project, {
+  foreignKey: 'contractor_id'
+})
+
+
+
 
 // indicator_category_report  - programme_implementation
 db.models.indicator_category_report.belongsTo(db.models.programme_implementation, {
