@@ -22,6 +22,7 @@ interface Field {
   type: string;
   // min: number;
   // max: number;
+  relatives: Array<any>;
   multiselect: string; // Use boolean type instead of string
   options: Array<any>; // Specify the array type of options
 }
@@ -58,27 +59,27 @@ const formFields: Field[][] =reactive( [
   
 
   [
-    {
-      name: "location",
-      label: "Location",
-      type: "cascade",
-      multiselect: 'false',show:'true', 
-      options: cascadedAdminOptions.value,
-    },
-
+   
+    { name: "county_id", label: "County", type: "select", relatives:['all', ],multiselect: 'false', adminUnit: true, options: countyOptions.value },
+    { name: "subcounty_id", label: "Constituency", type: "select", relatives:['all', ],multiselect: 'false', adminUnit: true, options: [] },
+    { name: "ward_id", label: "Ward", type: "select", relatives:['all', ],multiselect: 'false', adminUnit: true, options: [] },
+    { name: "settlement_id", label: "Settlement", type: "select", relatives:['all', ],multiselect: 'false', adminUnit: true, options: [] },
+    
+  
     {
       name: "type",
       label: "Type",
       type: "cascade",show:'true', 
       multiselect: 'false',
+      relatives:'all',
       options: cascadeOptions,
     },  
 
-    { name: "name", label: "Name", type: "text", multiselect: 'false',show:'true',  options: [] },
+    { name: "name", label: "Name", type: "text",  relatives:'all',multiselect: 'false',show:'true',  options: [] },
       
   
     {
-      name: "ownership_type", label: "Ownership", type: "select", multiselect: 'false', show:'true', 
+      name: "ownership_type", label: "Ownership", type: "select",  relatives:['all', ],multiselect: 'false', show:'true', 
         options: [
           { label: 'Public', value: 'Public' },
           { label: 'Private', value: 'Private' },
@@ -89,10 +90,10 @@ const formFields: Field[][] =reactive( [
     },
   
   
-    { name: "owner", label: "Owner", type: "text", multiselect: 'false',show:'true',  options:[]},
+    { name: "owner", label: "Owner", type: "text",  relatives:['all', ],multiselect: 'false',show:'true',  options:[]},
   
     {
-      name: "parcel_tenure", label: "Tenure", type: "select", multiselect: 'false',   show:'true',
+      name: "parcel_tenure", label: "Tenure", type: "select", relatives:['all', ], multiselect: 'false',   show:'true',
         options: [
           { label: 'Public', value: 'Public' },
           { label: 'Private', value: 'Private' },
@@ -105,41 +106,40 @@ const formFields: Field[][] =reactive( [
 
 
     {
-      name: "condition", label: "Condition", type: "select", show:'true', multiselect: 'false',
+      name: "condition", label: "Condition", type: "select", relatives:['all', ],show:'true', multiselect: 'false',
       options: FacilityConditionOptions  },
      
-      { name: "challenges", label: "Challenges/Issues", type: "text", multiselect: 'false',show:'true',  options:[]},
+      { name: "challenges", label: "Challenges/Issues", type: "text", relatives:['all', ],multiselect: 'false',show:'true',  options:[]},
 
    
-    { name: "rating", label: "Rating", type: "text",  show:'false', multiselect: 'false', options: [] },
+    { name: "rating", label: "Rating", type: "text",  show:'false', relatives:['floodlight','secondary_substation','primary_substation','powerline'], multiselect: 'false', options: [] },
      {
-      name: "number_phases", label: "Phase", type: "select", multiselect: 'false',   show:'false',  
-        options:phase_options
+      name: "number_phases", label: "Phase", type: "select", relatives:['floodlight','secondary_substation','primary_substation','powerline'],multiselect: 'false',   show:'false', options:phase_options
     },
-    { name: "height", label: "Height", min:"0",  type: "number", show:'false', multiselect: 'false', options: [] },
+    { name: "height", label: "Height", min:"0",  type: "number", relatives:['floodlight','secondary_substation','primary_substation'],show:'false', multiselect: 'false', options: [] },
 
-    {
-      name: "type_waste", label: "Type of Waste", type: "select", multiselect: 'false',   show:'false',
+{
+   name: "type_waste", label: "Type of Waste", type: "select", relatives:['waste', ],multiselect: 'false',   show:'false',
         options:wasteOptions
     },
-    { name: "date_install", label: "Installation Date",   show:'false',  type: "date", multiselect: 'false', options: [] },
+{ name: "date_install", label: "Installation Date",   show:'false', relatives:['Toilet', 'Shower','handwashing'], type: "date", multiselect: 'false', options: [] },
 
 
-  { name: "number_stances", label: "Number of Stances", min:"0",  show:'false',  type: "number", multiselect: 'false', options: [] },
-  { name: "cost_per_use", label: "Cost Per Single Use", min:"0",   show:'false', type: "number", multiselect: 'false', options: [] },
-  { name: "size_reserve", label: "Reserve", min:"0",  type: "number",  show:'false',  multiselect: 'false', options: [] },
-  { name: "number_vehicles", label: "Number of Vehicles", min:"0",  show:'false', type: "number", multiselect: 'false', options: [] },
-  { name: "number_staff", label: "Number of Staff", min:"0",  show:'false', type: "number", multiselect: 'false', options: [] },
+  { name: "number_stances", label: "Number of Stances", min:"0",  show:'false', relatives:['Toilet', 'Shower','handwashing'], type: "number", multiselect: 'false', options: [] },
+  { name: "cost_per_use", label: "Cost Per Single Use", min:"0",   show:'false', relatives:['Toilet', 'Shower','handwashing'],type: "number", multiselect: 'false', options: [] },
+  { name: "size_reserve", label: "Reserve", min:"0",  type: "number",  show:'false',  relatives:['powerline', ],multiselect: 'false', options: [] },
+  { name: "number_vehicles", label: "Number of Vehicles", min:"0",  show:'false', relatives:['police_stn', 'police_post','chiefs_camp'],type: "number", multiselect: 'false', options: [] },
+  { name: "number_staff", label: "Number of Staff", min:"0",  show:'false', relatives:['police_stn', 'police_post','chiefs_camp'],type: "number", multiselect: 'false', options: [] },
  
 
 
   {
-    name: "frequency", label: "Frequency", type: "select", multiselect: 'false', show:'false',  
+    name: "frequency", label: "Frequency", type: "select", multiselect: 'false',  relatives:['hazard'],show:'false',  
       options:frequencyOptions
   },
 
   {
-    name: "hazard", label: "Hazard", type: "select", multiselect: 'false',   show:'false',
+    name: "hazard", label: "Hazard", type: "select", multiselect: 'false',  relatives:['hazard', ], show:'false',
       options: [
         { label: 'Conflicts', value: 'Conflicts' },
         { label: 'Drought', value: 'Drought' },
@@ -200,19 +200,27 @@ const formRules: FormRules = reactive({
     //     { required: true, message: 'Age is required', trigger: 'blur' },
     //     { type: 'number', message: 'Age must be a number', trigger: 'blur' }
     // ],
-    location: [
-      { required: true, message: 'Location is required', trigger: 'blur' },
-      {
-        validator: (rule, value, callback) => {
-          if (Array.isArray(value) && value.length === 4) {
-            callback();
-          } else {
-            callback(new Error('Location must include Settlement'));
-          }
-        }, 
-        trigger: 'blur'
-      }
+   
+    
+    county_id: [
+      { required: true, message: 'County is required', trigger: 'blur' },
+       
     ],
+    
+    subcounty_id: [
+      { required: true, message: 'Constituency is required', trigger: 'blur' },
+       
+    ],
+
+    ward_id: [
+      { required: true, message: 'Ward is required', trigger: 'blur' },
+       
+    ],
+    settlement_id: [
+      { required: true, message: 'Settlement is required', trigger: 'blur' },
+       
+    ],
+    
     
   },
 
