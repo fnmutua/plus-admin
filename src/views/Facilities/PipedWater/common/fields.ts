@@ -22,6 +22,7 @@ interface Field {
   type: string;
   // min: number;
   // max: number;
+  adminUnit: boolean;
   multiselect: string; // Use boolean type instead of string
   options: Array<any>; // Specify the array type of options
 }
@@ -57,13 +58,11 @@ const formFields: Field[][] =reactive( [
   //id, name, school_number, category, level, reg_status, ownership_type, owner, catchment, male_enrollment, female_enrollment, number_teachers, number_other_staff, number_classrooms, number_male_toilets, number_female_toilets, avg_fees_term, number_handwashing_stns, mhm, parcel_tenure, tenancy, settlement_id, county_id, subcounty_id, ward_id, 
   //id, name,    ,  , settlement_id, county_id, subcounty_id,
   [
-    {
-      name: "location",
-      label: "Location",
-      type: "cascade",
-      multiselect: 'false',show:'true', 
-      options: cascadedAdminOptions.value,
-    },
+    { name: "county_id", label: "County", type: "select", multiselect: 'false', adminUnit: true, options: countyOptions.value },
+    { name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { name: "ward_id", label: "Ward", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { name: "settlement_id", label: "Settlement", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    
 
 
     { name: "name", label: "Name", type: "text", multiselect: 'false',show:'true',  options: [] },
@@ -140,18 +139,23 @@ const formRules: FormRules = reactive({
     //     { required: true, message: 'Age is required', trigger: 'blur' },
     //     { type: 'number', message: 'Age must be a number', trigger: 'blur' }
     // ],
-    location: [
-      { required: true, message: 'Location is required', trigger: 'blur' },
-      {
-        validator: (rule, value, callback) => {
-          if (Array.isArray(value) && value.length === 4) {
-            callback();
-          } else {
-            callback(new Error('Location must include Settlement'));
-          }
-        }, 
-        trigger: 'blur'
-      }
+    county_id: [
+      { required: true, message: 'County is required', trigger: 'blur' },
+       
+    ],
+    
+    subcounty_id: [
+      { required: true, message: 'Constituency is required', trigger: 'blur' },
+       
+    ],
+
+    ward_id: [
+      { required: true, message: 'Ward is required', trigger: 'blur' },
+       
+    ],
+    settlement_id: [
+      { required: true, message: 'Settlement is required', trigger: 'blur' },
+       
     ],
     
   },

@@ -1414,7 +1414,7 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
 
 
 
-        <el-table :data="tableDataList" style="width: 100%" border :row-class-name="tableRowClassName"    @expand-change="handleExpand">
+        <el-table :data="tableDataList" style="width: 100%" border     @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1508,7 +1508,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           </span>
         </template>
 
-        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border     @expand-change="handleExpand" :row-class-name="tableRowClassName">
+        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border     @expand-change="handleExpand"  >
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
