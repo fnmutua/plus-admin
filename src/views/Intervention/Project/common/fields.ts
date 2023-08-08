@@ -106,6 +106,7 @@ const formFields: Field[][] = [
       options: cascadedAdminOptions.value,
     },
     { name: "title", label: "Title", type: "text", multiselect: 'false', options: [] },
+    { name: "project_code", label: "Project Code", type: "text", multiselect: 'false', options: [] },
    
     {
       name: "status", label: "Status", type: "select", multiselect: 'false',    options: statusOptions
@@ -169,9 +170,18 @@ const formRules: FormRules = reactive({
       { required: true, message: 'Activities are required', trigger: 'blur' }
     ],
 
-
     start_date: [
       { required: true, message: 'Start date is required', trigger: 'blur' }
+    ],
+    
+
+    implementation_id: [
+      { required: true, message: 'Delivery Unit required', trigger: 'blur' }
+    ],
+
+         
+    sourceFunding: [
+      { required: true, message: 'Source of Funding is required', trigger: 'blur' }
     ],
     
     end_date: [
@@ -201,15 +211,34 @@ const formRules: FormRules = reactive({
       { required: true, message: 'Location is required', trigger: 'blur' },
       {
         validator: (rule, value, callback) => {
-          if (Array.isArray(value) && value.length >=3) {
+          const findOption = (options, targetValue) => {
+            for (const option of options) {
+              if (option.value === targetValue) {
+                return option;
+              }
+              if (option.children) {
+                const nestedOption = findOption(option.children, targetValue);
+                if (nestedOption) {
+                  return nestedOption;
+                }
+              }
+            }
+            return null;
+          };
+    
+          const selectedOption = findOption(cascadedAdminOptions.value, value);
+          if (selectedOption && selectedOption.level === 'settlement') {
             callback();
           } else {
-            callback(new Error('Location must be at least  a ward/Settlement level'));
+            callback(new Error('Please select a settlement'));
           }
-        }, 
-        trigger: 'blur'
-      }
+        },
+        trigger: 'blur',
+      },
     ],
+    
+    
+    
     
   },
 

@@ -34,6 +34,18 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false
       },
 
+      target: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
+
+      baseline: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
+
+
+
       createdBy: {
         type: DataTypes.INTEGER,
         allowNull: true
