@@ -910,7 +910,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             icon: 'vaadin:options',
             hidden:true
           }
-        }
+          },
+        
         ]
       },
       {
@@ -1147,7 +1148,20 @@ export const adminRoutes: AppRouteRecordRaw[] = [
                 icon:'material-symbols:settings'
 
               }
-            }, 
+          }, 
+            
+          {
+            path: 'contractor',
+          //  component: 'views/Users/County',
+            component: () => import('@/views/settings/Contractor.vue'),
+            name: 'SettingsContractor',
+            meta: {
+              title: 'Contractor',
+              hidden: false,
+              icon:'mdi:construction'
+
+            }
+          }, 
             {
               path: 'focus',
             //  component: 'views/Users/County',

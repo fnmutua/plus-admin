@@ -25,7 +25,7 @@ v-else-if="field.type === 'number'" v-model="formData[field.name]"
               <!-- Add more conditions for other field types as needed -->
               <el-select
 v-else-if="field.type === 'select' && field.multiselect === 'false'"
-                v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Select"
+                v-model="formData[field.name]"  :allow-create =field.AddOption   :filterable="true" collapse-tags placeholder="Select"
                 @change="getFieldChangeHandler(field.name)">
                 <el-option
 v-for="option in field.options" :key="option.value" :label="option.label"
@@ -34,12 +34,16 @@ v-for="option in field.options" :key="option.value" :label="option.label"
 
               <el-select
 v-else-if="field.type === 'select' && field.multiselect === 'true'"
-                v-model="formData[field.name]" :filterable="true" multiple collapse-tags placeholder="Select"
+                v-model="formData[field.name]" :filterable="true"    :allow-create =field.AddOption     multiple collapse-tags placeholder="Select"
                 @change="getFieldChangeHandler(field.name)">
                 <el-option
 v-for="option in field.options" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
+
+
+
+
 <!-- 
                  
               <el-cascader
@@ -56,7 +60,9 @@ v-else-if="field.type === 'xcascade' && !isMobile" v-model="formData[field.name]
               <el-tree-select
               v-else-if="field.type === 'cascade' && !isMobile" v-model="formData[field.name]"
                       :data="field.options"
-                      :render-after-expand="true"
+                      check-strictly
+                    :render-after-expand="false"
+                    show-checkbox
                       @change="getFieldChangeHandler(field.name)" 
                     />
                                 
@@ -323,7 +329,8 @@ onMounted( async () => {
              // Handle the successful response here
              console.log(res.data)
              var curData = res.data
-           curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id, curData.settlement_id]
+             //curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id, curData.settlement_id]
+             curData.location = curData.settlement_id 
             curData.geom = curData.geom 
 
            console.log('curData',curData)
@@ -910,20 +917,51 @@ const handleChangeLocation = async (value: any) => {
 const targetValue = value; // Replace with the value you're looking for
 const foundAdminUnit = findObjectByValue(location.options, targetValue);
 
-var  level = foundAdminUnit.level
+  var level = foundAdminUnit.level
+
+  formData.level = level
+
 if (foundAdminUnit && level=='settlement' ) {
   console.log('Found foundAdminUnit:', foundAdminUnit);
- 
    formData.county_id =foundAdminUnit.county_id
   formData.subcounty_id =foundAdminUnit.subcounty_id
    formData.ward_id = foundAdminUnit.ward_id
   formData.settlement_id = value
 
+}
+else if (foundAdminUnit && level=='ward' ) {
+  console.log('Found foundAdminUnit:', foundAdminUnit);
+   formData.county_id =foundAdminUnit.county_id
+  formData.subcounty_id =foundAdminUnit.subcounty_id
+   formData.ward_id = value
+  formData.settlement_id = null
+
+}
+else if (foundAdminUnit && level=='subcounty' ) {
+  console.log('Found foundAdminUnit:', foundAdminUnit);
+   formData.county_id =foundAdminUnit.county_id
+  formData.subcounty_id =value
+   formData.ward_id = null
+  formData.settlement_id = null
+
+}
+else if (foundAdminUnit && level=='county' ) {
+  console.log('Found foundAdminUnit:', foundAdminUnit);
+   formData.county_id =value
+  formData.subcounty_id =null
+   formData.ward_id = null
+  formData.settlement_id = null
+
+}
 
 
-} else {
+
+else {
   console.log('Object not found');
 }
+
+ 
+
 
   
 
@@ -934,7 +972,7 @@ if (foundAdminUnit && level=='settlement' ) {
   // formData.settlement_id = value[3]
 
   
-    var model = 'settlement'
+    var model = level
     var model_id = value 
   
   
