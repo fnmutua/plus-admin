@@ -3,6 +3,7 @@ import { ref, reactive, computed, Ref } from "vue";
 
 import {
   countyOptions,
+  
    activityOptions,
   cascadedAdminOptions,
   implementationOptions,
@@ -22,7 +23,7 @@ interface Field {
   // min: number;
   // max: number;
   multiselect: string; // Use boolean type instead of string
-  AddOption: boolean;
+  adminUnit: boolean;
   options: Array<any>; // Specify the array type of options
 }
 
@@ -77,52 +78,36 @@ const statusOptions = [
 
     
 const formFields: Field[][] = [
-  // Fields for 1 Profile
-  //id, name, school_number, category, level, reg_status, ownership_type, owner, catchment, male_enrollment, female_enrollment, number_teachers, number_other_staff, number_classrooms, number_male_toilets, number_female_toilets, avg_fees_term, number_handwashing_stns, mhm, parcel_tenure, tenancy, settlement_id, county_id, subcounty_id, ward_id, 
   [
+   
   
- 
-  // title: '',
-  // type: '',
-  // component_id: component_id.value,
- 
-  // start_date: '',
-  // end_date: '',
-  // cost: 0,
-  // male_beneficiaries: 0,
-  // female_beneficiaries: 0,
-  // description: '',
-  // activities: [],
+    { name: "county_id", label: "County", type: "select", multiselect: 'false', adminUnit: true, options: countyOptions.value },
+    { name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { name: "ward_id", label: "Ward", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { name: "settlement_id", label: "Settlement", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    
 
 
+     { name: "title", label: "Title", type: "text", multiselect: 'false', adminUnit: false,     options: [] },
+    { name: "project_code", label: "Project Code", type: "text", multiselect: 'false', adminUnit: false,      options: [] },
     {
-      name: "location",
-      label: "Location",
-      type: "cascade",
-      multiselect: 'false',
-      AddOption: false,    
-      options: cascadedAdminOptions.value,
-    },
-    { name: "title", label: "Title", type: "text", multiselect: 'false', AddOption: false,     options: [] },
-    { name: "project_code", label: "Project Code", type: "text", multiselect: 'false', AddOption: false,      options: [] },
-    {
-      name: "status", label: "Status", type: "select", multiselect: 'false', AddOption: false,       options: statusOptions
+      name: "status", label: "Status", type: "select", multiselect: 'false', adminUnit: false,       options: statusOptions
     },
 
-    {name: "implementation_id", label: "Delivery Unit", type: "select", multiselect: 'false', AddOption: false,       options: implementationOptions.value },
+    {name: "implementation_id", label: "Delivery Unit", type: "select", multiselect: 'false', adminUnit: false,       options: implementationOptions.value },
 
-    { name: "start_date", label: "Commencement Date", type: "date", multiselect: 'false', AddOption: false,      options: [] },
-    { name: "end_date", label: "Completion Date", type: "date", multiselect: 'false',AddOption: false,     options: [] },
-    { name: "cost", label: "Total Project Cost", min: "0", type: "number", multiselect: 'false',AddOption: false,  options: [] },
-    {name: "sourceFunding", label: "Source of Funding", type: "select", multiselect: 'true',AddOption: true,     options: sourceFundingOptions },
-    { name: "male_beneficiaries", label: "Male Beneficiaries",  min:"0", type: "number", multiselect: 'false',AddOption: false,     options: [] },
-    { name: "female_beneficiaries", label: "Female Beneficiaries",  min:"0", type: "number", multiselect: 'false',  AddOption: false,     options: [] },
-    { name: "contractor", label: "Contractor/Implementer", type: "select", multiselect: 'false', AddOption: false,options: contractorOptions.value },
+    { name: "start_date", label: "Commencement Date", type: "date", multiselect: 'false', adminUnit: false,      options: [] },
+    { name: "end_date", label: "Completion Date", type: "date", multiselect: 'false',adminUnit: false,     options: [] },
+    { name: "cost", label: "Total Project Cost", min: "0", type: "number", multiselect: 'false',adminUnit: false,  options: [] },
+    {name: "sourceFunding", label: "Source of Funding", type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions },
+    { name: "male_beneficiaries", label: "Male Beneficiaries",  min:"0", type: "number", multiselect: 'false',adminUnit: false,     options: [] },
+    { name: "female_beneficiaries", label: "Female Beneficiaries",  min:"0", type: "number", multiselect: 'false',  adminUnit: false,     options: [] },
+    { name: "contractor", label: "Contractor/Implementer", type: "select", multiselect: 'false', adminUnit: false,options: contractorOptions.value },
 
     
    
    
-    { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', AddOption: false,  options: activityOptions.value },
+    { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
  
   
    
@@ -135,7 +120,7 @@ const formFields: Field[][] = [
   [
    // This is left empty for the  map 
     {
-      name: "location_option", label: "Location Option", type: "select", multiselect: 'false',AddOption: false, 
+      name: "location_option", label: "Location Option", type: "select", multiselect: 'false',adminUnit: false, 
       options: [
         { label: 'Digitize', value: 'digitize' },
         { label: 'Upload', value: 'upload' },
@@ -197,44 +182,23 @@ const formRules: FormRules = reactive({
         trigger: 'blur'
       }
     ],
-
-    // // age: [
-    //     { required: true, message: 'Age is required', trigger: 'blur' },
-    //     { type: 'number', message: 'Age must be a number', trigger: 'blur' }
-    // ],
-    location: [
-      { required: true, message: 'Location is required', trigger: 'blur' },
-      // {
-      //   validator: (rule, value, callback) => {
-      //     const findOption = (options, targetValue) => {
-      //       for (const option of options) {
-      //         if (option.value === targetValue) {
-      //           return option;
-      //         }
-      //         if (option.children) {
-      //           const nestedOption = findOption(option.children, targetValue);
-      //           if (nestedOption) {
-      //             return nestedOption;
-      //           }
-      //         }
-      //       }
-      //       return null;
-      //     };
+ 
     
-      //     const selectedOption = findOption(cascadedAdminOptions.value, value);
-      //     if (selectedOption && selectedOption.level === 'settlement') {
-      //       callback();
-      //     } else {
-      //       callback(new Error('Please select a settlement'));
-      //     }
-      //   },
-      //   trigger: 'blur',
-      // },
+    county_id: [
+      { required: true, message: 'County is required', trigger: 'blur' },
+       
     ],
     
-    
-    
-    
+    subcounty_id: [
+      { required: true, message: 'Constituency is required', trigger: 'blur' },
+       
+    ],
+
+    ward_id: [
+      { required: true, message: 'Ward is required', trigger: 'blur' },
+       
+    ],
+
   },
 
   step2: {
