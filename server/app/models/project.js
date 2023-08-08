@@ -31,10 +31,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
-    level: {
-      type: DataTypes.STRING,
-      allowNull: false,
-     },
+    
 
 
     title: {
