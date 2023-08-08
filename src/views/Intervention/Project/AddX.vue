@@ -237,14 +237,18 @@ const settlement_id = ref()
 
 
 const onSelectCounty = (county_id) => {
- formData.subcounty_id = null
+  formData.subcounty_id = null
+  formData.ward_id = null
+  formData.settlement_id = null
   subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == county_id);
   handleChangeLocation([county_id])
 };
 
 
 const onSelectSubcounty = (subcounty_id) => {
- formData.ward_id = null
+  formData.ward_id = null
+  formData.settlement_id = null
+
  wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == subcounty_id);
  handleChangeLocation([formData.county_id.value,subcounty_id ])
 
@@ -613,14 +617,15 @@ const nextStep = async () => {
     await new Promise(resolve => setTimeout(resolve, 100));  //delay for 2 seconds the call loadmap
 
     loadMap()
-    toggleDrawToolbox('digitize')
+   // toggleDrawToolbox('digitize')
 
   }
 };
 
-const loadMap = async () => {
+ 
+const loadMap = async () => { 
 
-  map.value = new mapboxgl.Map({
+map.value = new mapboxgl.Map({
     container: 'mapContainer',
     style: 'mapbox://styles/mapbox/streets-v12',
     center: [37.137343, 1.137451],
@@ -628,10 +633,10 @@ const loadMap = async () => {
   });
 
 
+
   map.value.addControl(new mapboxgl.NavigationControl());
   // add marker for project location
 
-  //   console.log(map.value)
 
   function updateRuleform(feature) {
     // do something with the new marker feature
@@ -639,171 +644,167 @@ const loadMap = async () => {
     feature.geometry.crs = crs
     console.log('----feature', feature);
 
+
+
     formData.geom = feature.geometry
     console.log(formData)
   }
 
-  // listen for the draw.create event
-  map.value.on('draw.create', function (e) {
-    // check if the new feature is a marker
-    //  if (e.features[0].geometry.type === 'Point') {
+// listen for the draw.create event
+map.value.on('draw.create', function (e) {
+  // check if the new feature is a marker
+ // if (e.features[0].geometry.type === 'Polygon') {
     // trigger your function here
     updateRuleform(e.features[0]);
 
-    //  }
+//  }
+});
+
+
+  // listen for the draw.se event
+  map.value.on('draw.update', function (e) {
+  // check if the new feature is a marker
+  //if (e.features[0].geometry.type === 'Polygon') {
+    // trigger your function here
+    updateRuleform(e.features[0]);
+
+ // }
+});
+
+// Listen for the draw.delete event
+map.value.on('draw.delete', function(event) {
+  // Get the IDs of the deleted features
+  var deletedFeatureIds = event.features.map(function(feature) {
+    return feature.id;
   });
 
-  // Listen for the draw.delete event
-  map.value.on('draw.delete', function (event) {
-    // Get the IDs of the deleted features
-    var deletedFeatureIds = event.features.map(function (feature) {
-      return feature.id;
-    });
+  // Remove the corresponding layers from the map
+  deletedFeatureIds.forEach(function(id) {
+    map.value.removeLayer(id);
+  });
+});
 
-    // Remove the corresponding layers from the map
-    deletedFeatureIds.forEach(function (id) {
-      map.value.removeLayer(id);
-    });
+map.value.on('mousemove', function (e) {
+  document.getElementById('coordinates').innerHTML =
+    'Lon: ' + e.lngLat.lng.toFixed(5) + ' Lat: ' + e.lngLat.lat.toFixed(5);
+});
+
+
+map.value.on('load', function () {
+  // code to execute after the map has finished loading
+  console.log("Map has loaded......")
+  //map.value.addControl(draw, 'top-left');
+
+
+   
+  map.value.addLayer({
+    id: 'Satellite',
+    source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+    type: "raster"
   });
 
-  map.value.on('mousemove', function (e) {
-    document.getElementById('coordinates').innerHTML =
-      'Lon: ' + e.lngLat.lng.toFixed(5) + ' Lat: ' + e.lngLat.lat.toFixed(5);
+  map.value.addLayer({
+    id: 'Streets',
+    source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
+    type: "raster"
+  }, 'Satellite');
+
+
+  
+  map.value.addSource('scope', {
+    type: 'geojson',
+    //data: projectPoly.value
+    data: (projectScopeGeo.value),
   });
 
+  
+  // Edit only if not a new record 
+  if (!newRecord.value) {
+    toggleDrawToolbox('digitize')
+    const geojson = JSON.parse(JSON.stringify(projectScopeGeo.value));
+  var feature = turf.feature(geojson);
+  var collection = turf.featureCollection([feature])
+  draw.set(collection);
+  // Check if the new feature is a polygon
+ // if (collection.features[0].type === 'Polygon') {
+    // Trigger your function here
+    updateRuleform(collection.features[0]);
+ //}
+  }
+  
 
-  map.value.on('load', function () {
-    // code to execute after the map has finished loading
-    console.log("Map has loaded......")
-
+  if (newRecord.value) {
+    toggleDrawToolbox('digitize')
+    // Load this outline only if its a new settlement 
     map.value.addLayer({
-      'id': 'draw-layer',
-      'type': 'fill',
-      'source': {
-        'type': 'geojson',
-        'data': {
-          'type': 'FeatureCollection',
-          'features': []
-        }
-      },
-      'paint': {
-        'fill-color': 'red',
-        'fill-opacity': 0.5
-      },
-      'layout': {}
-    });
-
-    // Set the state of the layer to "draw" to enable drawing on it
-    map.value.setFeatureState({ 'source': 'draw-layer', 'id': 'draw-layer' }, { 'draw': true });
-
-    // draw.value = new MapboxDraw({
-    //   displayControlsDefault: false,
-    //   controls: {
-    //     point: true,
-    //     line_string: true,
-    //     polygon: true,
-    //     trash: true
-    //   },
-
-    // });
-    // map.value.addControl(draw.value, 'top-left');
-
-    // Add the "Geolocate Control" to the map
-    var geolocate = new mapboxgl.GeolocateControl({
-      positionOptions: {
-        enableHighAccuracy: true,
-      },
-      trackUserLocation: true,
-      showUserLocation: true,
-    });
-    map.value.addControl(geolocate);
-
-
-    map.value.addLayer({
-      id: 'Satellite',
-      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
-      type: "raster"
-    });
-
-    map.value.addLayer({
-      id: 'Streets',
-      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
-      type: "raster"
-    }, 'Satellite');
-
-    // switch it off until the user selects to
-    map.value.setLayoutProperty('Satellite', 'visibility', 'none')
-
-
-    const layers: MapboxLayerDefinition[] = [
-
-      {
-        id: "Satellite",
-        title: "Satellite",
-        visibility: 'none',
-        type: 'base'
-      },
-
-      {
-        id: "Streets",
-        title: "Streets",
-        visibility: 'none',
-        type: 'base'
-      },
-
-    ];
-    map.value.addControl(new MapboxLayerSwitcherControl(layers));
-
-
-
-    map.value.addSource('scope', {
-      type: 'geojson',
-      //data: projectPoly.value
-      data: (projectScopeGeo.value),
-    });
-
-    if (newRecord.value) {
-      map.value.addLayer({
-        'id': 'projectScopeGeo',
-        'type': 'line',
-        'source': 'scope',
-        'layout': {},
-        'paint': {
-          'line-color': '#000',
-          'line-width': 3
-        }
-      });
-
+    'id': 'projectScopeGeo',
+    'type': 'line',
+    'source': 'scope',
+    'layout': {},
+    'paint': {
+      'line-color': '#000',
+      'line-width': 3
     }
-    else {
-      map.value.addLayer({
-        id: 'projectScopeGeo',
-        type: 'circle',
-        source: 'scope',
-        paint: {
-          'circle-radius': 6,
-          'circle-color': '#ff0000', // Red color
-          'circle-stroke-color': '#000',
-          'circle-stroke-width': 2
-        }
-      });
+  });  
+    
+  }
 
+  map.value.addLayer({
+  'id': 'draw-layer',
+  'type': 'fill',
+  'source': {
+    'type': 'geojson',
+    'data': {
+      'type': 'FeatureCollection',
+      'features': []
     }
+  },
+  'paint': {
+    'fill-color': 'red',
+    'fill-opacity': 0.5
+  },
+  'layout': {}
+});
+
+  // switch it off until the user selects to
+  map.value.setLayoutProperty('Satellite', 'visibility', 'none')
 
 
-    var bounds = turf.bbox((projectScopeGeo.value));
-    //map.value.fitBounds(bounds, {padding: 20,duration:1000 });
-    map.value.fitBounds(bounds, { padding: 20, maxZoom: 15 })
+  const layers: MapboxLayerDefinition[] = [
+
+    {
+      id: "Satellite",
+      title: "Satellite",
+      visibility: 'none',
+      type: 'base'
+    },
+
+    {
+      id: "Streets",
+      title: "Streets",
+      visibility: 'none',
+      type: 'base'
+    },
+
+  ];
+  map.value.addControl(new MapboxLayerSwitcherControl(layers));
 
 
 
-  });
+ 
+
+  var bounds = turf.bbox((projectScopeGeo.value));
+  map.value.fitBounds(bounds, {padding: 20,duration:1000 });
 
 
-  // Register the directive
+
+});
+
+    
+    // Register the directive
   //  mapContainer.value.__v_directives = [addHomeButton];
 
-}
+} 
 
 
 
