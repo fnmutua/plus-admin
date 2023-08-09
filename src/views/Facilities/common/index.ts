@@ -615,7 +615,10 @@ const cascadeOptions = [
     value: 'utility',
     label: 'Public utilities',
     children: [
-
+      {
+        value: 'market',
+        label: 'Market',
+      },
 
       {
         value: 'playground',
