@@ -109,6 +109,8 @@ function emptyRuleForm() {
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   indicator_category_id: '',
+  baseline: 0,
+  target:0,
   project_id: '',
   activity_id: '',
   programme_implementation_id: '',
@@ -127,6 +129,7 @@ const ruleForm = reactive({
   code: '',
   cumDisbursement: 0,
   cumProgress: 0,
+  prevAmount:0,
   cumAmount: 0,
   comments: '',
   units: 'Quantity',
@@ -383,7 +386,7 @@ const getIndicatorNames = async () => {
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
-  console.log('Idnicator_categor', res)
+  console.log('indicator_category', res)
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
     var opt = {}
@@ -400,6 +403,8 @@ const getIndicatorNames = async () => {
     opt.settlement_id = arrayItem.project.settlement_id
     opt.ward_id = arrayItem.project.ward_id
     opt.unit = arrayItem.indicator.unit
+    opt.baseline = arrayItem.baseline
+    opt.target = arrayItem.target
 
     // Here we collect Output indicators ONLY
     if (arrayItem.indicator.type=='outcome') {
@@ -502,8 +507,9 @@ const editReport = (data: TableSlotDefault) => {
   formHeader.value = 'Edit Report'
   fileUploadList.value = data.documents
 
+  getCumulativeProgressEditPhase( data.indicator_category_id)
+  changeIndicator(data.indicator_category_id)
 
-  getCumulativeProgressEditPhase()
   AddDialogVisible.value = true
 }
 
@@ -604,11 +610,13 @@ const changeActivity = async (activity: any) => {
 }
 
 
-const changeIndicator = async (indicator: any) => {
-  ruleForm.indicator_id = indicator
+const changeIndicator = async (indicator_category_id: any) => {
+  ruleForm.indicator_category_id = indicator_category_id
+
+  console.log('Filtre indicator_category_id', indicator_category_id)
 
   var filtredOptions = indicatorsOptions.value.filter(function (el) {
-    return el.value == indicator
+    return el.value == indicator_category_id
   });
 
   ruleForm.project_id = filtredOptions[0].project_id
@@ -621,9 +629,13 @@ const changeIndicator = async (indicator: any) => {
   console.log("Filtered Indicators", filtredOptions[0])
   ruleForm.units = "Quantity(" + filtredOptions[0].unit + ")"
   ruleForm.cumUnits = "Cumulative(" + filtredOptions[0].unit + ")"
+
+  ruleForm.baseline = filtredOptions[0].baseline
+  ruleForm.target = filtredOptions[0].target
+
   //ruleForm.indicator_category_title = filtredOptions[0].category_title
 
-  getCumulativeProgress()
+  getCumulativeProgress(indicator_category_id)
 }
 
 
@@ -651,12 +663,17 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.period = getQuarter()
       ruleForm.code = uuid.v4()
       ruleForm.userId = userInfo.id
-      ruleForm.cumDisbursement = ruleForm.cumDisbursement + ruleForm.disbursement
-      ruleForm.cumProgress = (ruleForm.cumProgress + ruleForm.progress) <= 100 ? (ruleForm.cumProgress + ruleForm.progress) : 100
+     // ruleForm.cumDisbursement = ruleForm.cumDisbursement + ruleForm.disbursement
+   //   ruleForm.cumProgress = (ruleForm.cumProgress + ruleForm.progress) <= 100 ? (ruleForm.cumProgress + ruleForm.progress) : 100
 
       console.log('cumProgress', ruleForm.cumProgress)
 
       ruleForm.cumAmount = ruleForm.cumAmount + ruleForm.amount
+
+      ruleForm.cumProgress =  (100*(ruleForm.cumAmount/ruleForm.target)).toFixed(2)
+   //   ruleForm.cumProgress =  100*((ruleForm.cumAmount - ruleForm.baseline )/(ruleForm.target - ruleForm.baseline )).toFixed(2)
+
+      //Progress towards target (%realized) [(B-A)/(C- A)]
 
       const report = await CreateRecord(ruleForm)   // first save the form on DB
       console.log("Report", report.data.id)
@@ -803,18 +820,24 @@ const submitBatchImport = async () => {
 
 
 
-const getCumulativeProgress = async () => {
+const getCumulativeProgress = async (indicator_category_id) => {
 
   var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 'programme_implementation_id',
   ]
 
+  var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
+  [ruleForm.project_id], [ruleForm.programme_implementation_id]  ]  // remember to change here!
+
+
+
   if (ruleForm.settlement_id) {
     filters.push('settlement_id')
+    filterValues.push([ruleForm.settlement_id])
   }
-  var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
-  [ruleForm.project_id], [ruleForm.programme_implementation_id], [ruleForm.settlement_id]]  // remember to change here!
 
 
+  console.log('filters', filters)
+  console.log('filterValues', filterValues)
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
@@ -861,25 +884,33 @@ const getCumulativeProgress = async () => {
   const objectWithLatestDate = getLatestReport(res.data);
   console.log('objectWithLatestDate', objectWithLatestDate);
 
-  ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
-  ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
-  ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
+ // ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
+ // ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
+ ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
+ ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
+ ruleForm.prevAmount = parseInt(objectWithLatestDate.amount)
 
   console.log('cumProgress ats tart', ruleForm);
 
 }
 
 
-const getCumulativeProgressEditPhase = async () => {
+const getCumulativeProgressEditPhase = async (indicator_category_id) => {
 
+  console.log('programme_implementation_id', [ruleForm.programme_implementation_id])
   var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 'programme_implementation_id',
   ]
 
+  var filterValues = [[userInfo.id], [indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
+  [ruleForm.project_id], [ruleForm.programme_implementation_id]]  // remember to change here!
+
+
   if (ruleForm.settlement_id) {
     filters.push('settlement_id')
+    filterValues.push([ruleForm.settlement_id])
+
+
   }
-  var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
-  [ruleForm.project_id], [ruleForm.programme_implementation_id], [ruleForm.settlement_id]]  // remember to change here!
 
 
   const formData = {}
@@ -934,10 +965,12 @@ const getCumulativeProgressEditPhase = async () => {
   console.log('objectWithLatestDate', objectWithLatestDate);
 
 
-  ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
-  ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
+  //ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
+  //ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
   ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
-
+  ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
+  ruleForm.prevAmount = parseInt(objectWithLatestDate.amount)
+  
   console.log('cumProgress ats tart', ruleForm);
 
 
@@ -1574,7 +1607,7 @@ function isGeomNull(geom) {
 </script>
 
 <template>
-  <ContentWrap :title="t('Monitoring and Evaluation Reports')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Monitoring and Evaluation Outcomes Reports(All)')" :message="t('Use the filters to subset')">
 
 
 
@@ -1613,6 +1646,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
     <el-table
 :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
       @expand-change="handleExpand">
+
       <el-table-column type="expand">
         <template #default="props">
           <div m="4">
@@ -1626,6 +1660,8 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
           </div>
         </template>
       </el-table-column>
+      <el-table-column label="#" width="80" prop="id" sortable />
+
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
       <el-table-column label="Settlement" prop="settlement.name" sortable />
       <!-- <el-table-column label="County" prop="county.name" sortable /> -->
@@ -1738,30 +1774,27 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
       <el-row :gutter="10">
 
         <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
-          <el-form-item label="Status">
-            <el-select filterable v-model="ruleForm.project_status" style="width: 100%" placeholder="Select Status">
-              <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-
+       
           <el-form-item :label="ruleForm.units">
             <el-input-number v-model="ruleForm.amount" />
           </el-form-item>
 
-          <el-form-item label="Disbursement (Ksh.)">
-            <el-input-number v-model="ruleForm.disbursement" :controls="false">
-              <template #prepend>Ksh.</template>
+          <el-form-item label="Baseline">
+            <el-input-number v-model="ruleForm.baseline" type="number" disabled>
+              <template #prepend>Baseline(Amount)</template>
             </el-input-number>
-
           </el-form-item>
-        </el-col>
 
-        <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
 
           <el-form-item label="Date">
             <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />
           </el-form-item>
 
+        </el-col>
+
+        <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
+
+    
           <el-form-item :label="ruleForm.cumUnits">
             <el-input-number v-model="ruleForm.cumAmount" type="number" disabled>
               <template #prepend>Cumulative(Amount)</template>
@@ -1769,23 +1802,37 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
           </el-form-item>
 
 
-          <el-form-item label="Cumulative(Ksh.)">
-            <el-input-number v-model="ruleForm.cumDisbursement" type="number" disabled>
-              <template #prepend>Cumulative(Ksh.)</template>
+          <el-form-item label="Target">
+            <el-input-number v-model="ruleForm.target" type="number" disabled>
+              <template #prepend>Target(Amount)</template>
+            </el-input-number>
+          </el-form-item>
+
+
+          <el-form-item label="Progress(%)">
+            <el-input-number v-model="ruleForm.cumProgress" type="number" disabled>
+              <template #prepend>Cumulative(Amount)</template>
             </el-input-number>
           </el-form-item>
 
         </el-col>
-        <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-          <el-form-item label="Progress todate (%)">
-            <el-slider v-model="ruleForm.progress" :min="ruleForm.cumProgress" />
-          </el-form-item>
-        </el-col>
+        
 
       </el-row>
 
       <el-row :gutter="10">
-        <el-col :xl="8" :lg="8" :md="24" :sm="24" :xs="24">
+         
+
+        <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+          <el-form-item label="Comments">
+            <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      
+      <el-row :gutter="10" style="text-align: center;">
+        <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
 
           <el-upload
 v-model:file-list="fileUploadList" class="upload-demo"
@@ -1796,11 +1843,7 @@ v-model:file-list="fileUploadList" class="upload-demo"
           </el-upload>
         </el-col>
 
-        <el-col :xl="16" :lg="16" :md="24" :sm="24" :xs="24">
-          <el-form-item label="Comments">
-            <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
-          </el-form-item>
-        </el-col>
+        
       </el-row>
 
     </el-form>
