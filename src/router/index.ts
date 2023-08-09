@@ -895,7 +895,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Indicators/indicator_category.vue'),
             name: 'IndicatorConfigs',
             meta: {
-              title: 'Configurations',
+              title: 'Indicator setup',
               icon:'material-symbols:settings',
               hidden: false
             }
@@ -972,6 +972,28 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         children: [
       
           {
+            path: 'new',
+          //  component: 'views/Indicators/indicator_category_report',
+          component: () => import('@/views/Indicators/indicator_category_report3.vue'),
+          name: 'OutcomeEvaluationNew',
+            meta: {
+              title: 'Outcomes(New)',
+              icon:'carbon:result-new',
+            }
+          },
+          {
+            path: 'outcomes',
+          //  component: 'views/Indicators/indicator_category_report',
+          component: () => import('@/views/Indicators/indicator_category_report2.vue'),
+          name: 'OutcomeEvaluation',
+            meta: {
+              title: 'Outcomes',
+              icon:'mdi:file-document-plus',
+            }
+          },
+
+
+          {
             path: 'all',
           //  component: 'views/Indicators/indicator_category_report',
             component: () => import('@/views/Evaluation/All.vue'),
@@ -989,16 +1011,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Add Evaluation',
               hidden:true,
-              icon:'mdi:file-document-plus',
-            }
-          },
-          {
-            path: 'outcome',
-          //  component: 'views/Indicators/indicator_category_report',
-            component: () => import('@/views/Indicators/indicator_category_report.vue'),
-            name: 'OutcomeEvaluation',
-            meta: {
-              title: 'Outcomes',
               icon:'mdi:file-document-plus',
             }
           },

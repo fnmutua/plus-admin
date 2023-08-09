@@ -19,7 +19,7 @@ import { ref, reactive, computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, ElOptionGroup, FormRules, ElPopconfirm
+  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm,ElRow, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, ElOptionGroup, FormRules, ElPopconfirm
 } from 'element-plus'
 
 
@@ -57,6 +57,19 @@ if (isMobile.value) {
 
 }
 
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  indicator_id: '',
+  indicator_name: '',
+  category_id: '',
+  baseline: null,
+  target: null,
+  category_title: '',
+  frequency: '',
+  activity_id: null,
+  code: null,
+  project_id: null
+})
 
 
 const { push } = useRouter()
@@ -648,17 +661,6 @@ const changeIndicator = async (indicator: any) => {
 
 
 
-const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
-  indicator_id: '',
-  indicator_name: '',
-  category_id: '',
-  category_title: '',
-  frequency: '',
-  activity_id: null,
-  code: null,
-  project_id: null
-})
 
 const rules = reactive<FormRules>({
   indicator_id: [
@@ -668,6 +670,8 @@ const rules = reactive<FormRules>({
   frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
   activity_id: [{ required: true, message: 'The Indicator Activity is required', trigger: 'blur' }],
   project_id: [{ required: true, message: 'Project is required', trigger: 'blur' }],
+  target: [{ required: true, message: 'Target is required', trigger: 'blur' }],
+  baseline: [{ required: true, message: 'Baseline is required', trigger: 'blur' }],
 
 })
 
@@ -1016,6 +1020,7 @@ v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multipl
       <el-table-column label="Id" prop="id" width="50px" sortable />
       <el-table-column label="Project" prop="project.title" sortable />
       <el-table-column label="Indicator" prop="indicator.name" sortable />
+      <el-table-column label="Target" prop="indicator.name" sortable />
       <!-- <el-table-column label="Reporting" prop="frequency" sortable /> -->
       <el-table-column label="Activity" prop="activity.title" sortable />
       <el-table-column label="Category" prop="category.category" sortable />
@@ -1102,6 +1107,25 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
           </el-select>
            <el-button type="primary" @click="AddIndicator" :icon="Plus" plain />
         </el-form-item>
+
+
+        <el-row>
+
+          <el-form-item label="Baseline" prop="baseline">
+          <el-input-number v-model="ruleForm.baseline" />
+
+         </el-form-item>
+
+  
+         <el-form-item label="Target" prop="target">
+          <el-input-number v-model="ruleForm.target" />
+         </el-form-item>
+
+
+        </el-row>
+      
+
+
 
         <el-form-item label="Category" prop="category_id">
           <el-select v-model="ruleForm.category_id" :onChange="changeCategory" placeholder="Select Category" style="width: 90%; margin-right: 10px;" >
