@@ -2445,7 +2445,7 @@ exports.ReportDocumentationUpload = async (req, res) => {
 
 
  
-exports.batchDocumentsUploadByParentCode = async (req, res) => {
+exports.xbatchDocumentsUploadByParentCode = async (req, res) => {
 
 
   upload.array('files')(req, res, async (err) => {
@@ -2677,6 +2677,114 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
   })
 }
 
+
+exports.batchDocumentsUploadByParentCode = (req, res) => {
+  // Use `upload.array('files')` middleware to handle multiple file uploads
+  // 'files' should match the name attribute of the file input(s) in your form
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.log(err);
+      // Handle multer errors, if any
+     // return res.status(400).json({ error: 'File upload failed.' });
+     return res.status(500).send({
+        message: 'Upload failed.',
+        code: '0000'
+      })
+    }
+
+    // The uploaded files can be accessed using `req.files`
+  console.log('files:', req.files);
+   var reg_model = 'document'
+    let myFiles = req.files
+
+    console.log(myFiles)
+    console.log(req.body)
+    
+    for (let i = 0; i < myFiles.length; i++) {
+   
+      let column  
+      var obj = {}
+
+      if (myFiles.length>1) {
+           // Sin
+     // console.log(myFiles[i])
+       column = req.body.field_id[i]
+      obj[column] = req.body[column][i]
+      obj.category = req.body.category[i]
+      obj.format = req.body.format[i]
+      obj.size = req.body.size[i]
+      obj.createdBy = req.body.createdBy[i] 
+      obj.protectedFile = req.body.protected[i] 
+      obj.name = myFiles[i].originalname
+      obj.code = crypto.randomUUID()
+      obj.location = myFiles[i].path
+      console.log(obj)
+      }
+      else {
+        
+          column = req.body.field_id
+        obj[column] = req.body[column]
+        obj.category = req.body.category
+        obj.format = req.body.format
+        obj.size = req.body.size
+        obj.createdBy = req.body.createdBy
+        obj.protectedFile = req.body.protected
+        obj.name = myFiles[i].originalname
+        obj.code = crypto.randomUUID()
+        obj.location = myFiles[i].path
+    
+      }
+      console.log(obj)
+
+
+      try {
+     //   await db.models[reg_model].create(obj)
+
+             await db.models[reg_model]
+          .findOne({
+            where: {
+              code: {
+                [Op.eq]: req.body.pcode
+              }
+            }
+          })
+          .then((record) => {
+            if (record) {
+              obj[column] = record.id;
+            } else {
+              obj[column] = null;
+            }
+          });
+        
+      }
+            
+      catch (error) {
+        console.log(error)
+
+        
+      res.status(500).send({
+        message: 'Upload failed. ' + error + ' errors',
+        code: '0000'
+      })
+      }
+
+
+    }
+  
+
+    res.status(200).send({
+      message: 'Batch Upload Successful',
+      code: '0000'
+    })
+  
+
+    // Other form fields (if any) can be accessed using `req.body`
+  //  console.log('other form fields:', req.body);
+
+    // Process the files or respond to the client accordingly
+   // res.json({ message: 'Form submission and file upload successful!' });
+  });
+};
 
 exports.modelUpload = (req, res) => {
   console.log('xxxx', req.body.createdBy) 
