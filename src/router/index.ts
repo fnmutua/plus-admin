@@ -921,7 +921,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         component: Layout,
         name: 'Reports',
         meta: {
-          icon: 'fluent-mdl2:analytics-report',
+          icon: 'ic:baseline-monitor-heart',
           title: 'Monitoring'
         },
         children: [
@@ -966,7 +966,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         component: Layout,
         name: 'Evaluation',
         meta: {
-          icon: 'fluent-mdl2:analytics-report',
+          icon: 'ph:exam-fill',
           title: 'Evaluation'
         },
         children: [
