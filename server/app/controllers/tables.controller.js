@@ -2708,8 +2708,9 @@ exports.batchDocumentsUploadByParentCode = (req, res) => {
       if (myFiles.length>1) {
            // Sin
      // console.log(myFiles[i])
-       column = req.body.field_id[i]
-      obj[column] = req.body[column][i]
+        column = req.body.field_id[i]
+        console.log('column', column)
+     // obj[column] = req.body[column][i]
       obj.category = req.body.category[i]
       obj.format = req.body.format[i]
       obj.size = req.body.size[i]
@@ -2722,8 +2723,8 @@ exports.batchDocumentsUploadByParentCode = (req, res) => {
       }
       else {
         
-          column = req.body.field_id
-        obj[column] = req.body[column]
+        column = req.body.field_id
+     //   obj[column] = req.body[column]
         obj.category = req.body.category
         obj.format = req.body.format
         obj.size = req.body.size
@@ -2734,7 +2735,6 @@ exports.batchDocumentsUploadByParentCode = (req, res) => {
         obj.location = myFiles[i].path
     
       }
-      console.log(obj)
 
 
       try {
