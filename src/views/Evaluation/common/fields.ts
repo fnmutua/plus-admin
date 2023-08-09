@@ -14,6 +14,7 @@ const steps = [
   { title: "Project Data" },
   { title: "Performance" },
   { title: "Effectiveness" },
+  { title: "Beneficiaries" },
   { title: "Efficiency" },
   { title: "Sustainability(1)" },
   { title: "Sustainability(2)" },
@@ -94,13 +95,14 @@ const formFields: Field[][] = [
 
     { name: "progress_project_purpose", label: "Progress on Dev. objective", type: "textarea", multiselect: 'false', options: [] },
     
+ 
+  ]
+  ,[
     { name: "planned_beneficiairies", label: "Beneficiaries (Planned)", type: "number", multiselect: 'false', options: [] },
     { name: "actual_beneficiairies", label: "Beneficiaries (Actual)", type: "number", multiselect: 'false', options: [] },
     { name: "prop_women_beneficiaries", label: "Women Beneficiaries (%)", type: "number",  max:100, multiselect: 'false', options: [] },
   
-    { name: "beneficiary_categories", label: "Beneficiary Categories", type: "textarea", multiselect: 'false', options: [] },
-
-    
+    { name: "beneficiary_categories", label: "Beneficiary Categories", type: "list", multiselect: 'false', options: [] },
 
 
     { name: "equality_performance", label: "Equality Performance", type: "textarea", multiselect: 'false', options: [] },

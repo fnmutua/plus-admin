@@ -212,6 +212,13 @@
 
     const route = useRoute()
     const { push } = useRouter()
+ 
+      const router = useRouter();
+
+      const goBack = () => {
+        router.back();
+      };
+
 
 
 const props = {   
@@ -390,7 +397,7 @@ const overallRating = async (obj) => {
     return null; // No valid ratings to calculate average
   }
 
-  return totalRatings / numRatings;
+  return (totalRatings / numRatings).toFixed(1);
 
 }
     

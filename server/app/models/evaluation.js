@@ -233,11 +233,28 @@ module.exports = function(sequelize, DataTypes) {
       },  
      
 
+      isApproved: {
+        type: DataTypes.STRING,
+        defaultValue: 'Pending'
+      },
+
 
     createdBy: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+
+    reviewerId: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+
+
+    reject_msg: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
  
   }, {
     sequelize,

@@ -653,6 +653,15 @@ db.models.users.hasMany(db.models.indicator_category_report, {
   foreignKey: 'userId'
 })
 
+// indicator_category_report  - programme_implementation
+db.models.evaluation.belongsTo(db.models.users, {
+  foreignKey: 'createdBy'
+})
+
+db.models.users.hasMany(db.models.evaluation, {
+  foreignKey: 'createdBy'
+})
+
 
 
 
