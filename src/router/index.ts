@@ -971,7 +971,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         },
         children: [
       
-          {
+          {  
             path: 'new',
           //  component: 'views/Indicators/indicator_category_report',
           component: () => import('@/views/Indicators/indicator_category_report3.vue'),

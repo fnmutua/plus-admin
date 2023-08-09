@@ -62,8 +62,19 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.DECIMAL,
         allowNull: false
       }, 
- 
+            
+      disbursement: {
+        type: DataTypes.DECIMAL,
+        allowNull: false
+      },  
+      
      
+      project_status: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      }, 
+
+    
       status: {
         type: DataTypes.STRING,
         allowNull: true,
@@ -103,9 +114,13 @@ module.exports = function (sequelize, DataTypes) {
         unique:true
       },  
       
-    
+      cumDisbursement: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      
       cumProgress: {
-        type: DataTypes.DECIMAL,
+        type: DataTypes.INTEGER,
         allowNull: true
       },
       cumAmount: {

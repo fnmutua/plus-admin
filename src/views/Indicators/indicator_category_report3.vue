@@ -1298,7 +1298,7 @@ const confirmReject = async () => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Monitoring and Evaluation Reports')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Monitoring and Evaluation Outcome Reports(New)')" :message="t('Use the filters to subset')">
  
 
 

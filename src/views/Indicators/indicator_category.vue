@@ -584,6 +584,8 @@ const editIndicator = async (data: TableSlotDefault) => {
   ruleForm.category_title = data.row.category_title
   ruleForm.activity_id = data.row.activity_id
   ruleForm.project_id = data.row.project_id
+  ruleForm.target = data.row.target
+  ruleForm.baseline = data.row.baseline
  
   formHeader.value = 'Edit Indicator'
   changeProject(data.row.project_id)
