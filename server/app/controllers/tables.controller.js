@@ -2571,7 +2571,7 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
         try {
           await db.models[reg_model].create(obj)
             .then(function (item) {
-              console.log("Moving to public...", location)
+             // console.log("Moving to public...", location)
            //   myFiles[i].mv(location)
             })
         }
