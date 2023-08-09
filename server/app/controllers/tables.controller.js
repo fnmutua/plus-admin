@@ -2445,7 +2445,7 @@ exports.ReportDocumentationUpload = async (req, res) => {
 
 
  
-exports.xbatchDocumentsUploadByParentCode = async (req, res) => {
+exports.batchDocumentsUploadByParentCode = async (req, res) => {
 
 
   upload.array('files')(req, res, async (err) => {
@@ -2467,7 +2467,7 @@ exports.xbatchDocumentsUploadByParentCode = async (req, res) => {
       return res.status(500).send({ msg: 'file is not found :batchDocumentsUploadByParentCode' })
     }
 
-    // var myFiles = []
+    var myFiles =req.files
     // if (Array.isArray(req.files.file)) {
 
     //   myFiles = req.files.file
@@ -2479,268 +2479,53 @@ exports.xbatchDocumentsUploadByParentCode = async (req, res) => {
     //   console.log('In upload single.....', req.files.file)
   
     // }
-
-    let myFiles = req.files
-
  
-    console.log(myFiles)
-    console.log(req.body)
-    
+    var errors = []
+
     for (let i = 0; i < myFiles.length; i++) {
-   
-      
-      if (myFiles.length>1) {
-           // Sin
-     // console.log(myFiles[i])
+      // Sin
       var obj = {}
-      var column = req.body.field_id[i]
-      obj[column] = req.body[column][i]
-      obj.category = req.body.category[i]
-      obj.format = req.body.format[i]
-      obj.size = req.body.size[i]
-      obj.createdBy = req.body.createdBy[i] 
-      obj.protectedFile = req.body.protected[i] 
-      obj.name = myFiles[i].originalname
-      obj.code = crypto.randomUUID()
-      obj.location = myFiles[i].path
-      console.log(obj)
-      }
-      else {
-        var obj = {}
+      if (myFiles.length > 1) {
+        var column = req.body.field_id[i]
+        obj.category = req.body.category[i]
+        obj.format = req.body.format[i]
+        obj.size = req.body.size[i]
+        obj.createdBy = req.body.createdBy[i]
+        obj.protectedFile = req.body.protected[i]
+
+
+        await db.models[req.body.model[i]]
+          .findOne({
+            where: {
+              code: {
+                [Op.eq]: req.body.pcode[i]
+              }
+            }
+          })
+          .then((record) => {
+            if (record) {
+              obj[column] = record.id;
+            } else {
+              obj[column] = '';
+            }
+          });
+    
+          // obj.name = myFiles[i].originalname
+          // obj.code = crypto.randomUUID()
+          // obj.location = myFiles[i].path
+      
+
+      } else {
         var column = req.body.field_id
-        obj[column] = req.body[column]
+        //obj[column] = req.body[column]
         obj.category = req.body.category
         obj.format = req.body.format
         obj.size = req.body.size
         obj.createdBy = req.body.createdBy
         obj.protectedFile = req.body.protected
-        obj.name = myFiles[i].originalname
-        obj.code = crypto.randomUUID()
-        obj.location = myFiles[i].path
-        console.log(obj)
-      }
 
 
-
-      try {
-        await db.models[reg_model].create(obj)
-      }
-            
-      catch (error) {
-        console.log(error)
-
-        
-      res.status(500).send({
-        message: 'Upload failed. ' + error + ' errors',
-        code: '0000'
-      })
-      }
-
-
-    }
-  
-
-    res.status(200).send({
-      message: 'Upload Successful',
-      code: '0000'
-    })
-    // var errors = []
-
-    // for (let i = 0; i < myFiles.length; i++) {
-    //   // Sin
-    //   var obj = {}
-    //   if (myFiles.length > 1) {
-    //     var column = req.body.field_id[i]
-    //     obj.category = req.body.category[i]
-    //     obj.format = req.body.format[i]
-    //     obj.size = req.body.size[i]
-    //     obj.createdBy = req.body.createdBy[i]
-    //     obj.protectedFile = req.body.protected[i]
-
-
-    //     await db.models[req.body.model[i]]
-    //       .findOne({
-    //         where: {
-    //           code: {
-    //             [Op.eq]: req.body.pcode[i]
-    //           }
-    //         }
-    //       })
-    //       .then((record) => {
-    //         if (record) {
-    //           obj[column] = record.id;
-    //         } else {
-    //           obj[column] = '';
-    //         }
-    //       });
-    
-    //       // obj.name = myFiles[i].originalname
-    //       // obj.code = crypto.randomUUID()
-    //       // obj.location = myFiles[i].path
-      
-
-    //   } else {
-    //     var column = req.body.field_id
-    //     //obj[column] = req.body[column]
-    //     obj.category = req.body.category
-    //     obj.format = req.body.format
-    //     obj.size = req.body.size
-    //     obj.createdBy = req.body.createdBy
-    //     obj.protectedFile = req.body.protected
-
-
-    //     await db.models[req.body.model]
-    //       .findOne({
-    //         where: {
-    //           code: {
-    //             [Op.eq]: req.body.pcode
-    //           }
-    //         }
-    //       })
-    //       .then((record) => {
-    //         if (record) {
-    //           obj[column] = record.id;
-    //         } else {
-    //           obj[column] = '';
-    //         }
-    //       });
-    
-
-      
-      
-    //     console.log("KEY>>>", column, obj[column])
-
-    //   }
-    //   if (obj[column] === '' || obj.category === 'undefined') {
-    //     errors.push('The field' + column + ' is required')
-
-    //   } else {
-    //     let fname = myFiles[i].originalname
-    //     //let location = `./public/${fname}`
-    //     //let location = uploadsDir + '/' + fname
-      
-      
-    //     console.log(i, '----', column)
-    //     obj.name = fname
-    //     obj.location =  myFiles[i].path
-  
-    //     obj.code = crypto.randomUUID()
-    //     var thisFile = {
-    //       type: req.body.format,
-    //       name: fname,
-    //       file_path: myFiles[i].path,
-    //     }
-    //     console.log('Thisfile', thisFile)
-    //     var reg_model = 'document'
-    //     console.log("insert Object", obj)
-  
-    //     try {
-    //       await db.models[reg_model].create(obj)
-    //         .then(function (item) {
-    //         //  console.log("Moving to public...", location)
-    //       //    myFiles[i].mv(location)
-    //         })
-    //     }
-            
-    //     catch (error) {
-    //       // handle error;
-    //       if (error.name === 'SequelizeUniqueConstraintError') {
-    //         error.errors.map((err) => {
-    //           errors.push(err.message)
-    //         });
-    //         // errors.push(validationErrors)
-    //       } else {
-    //         errors.push('Check your files again')
-    //       }
-    //     }
-
-    //   }
-  
-    // }
-
-    // // Send message
-
-    // if (errors.length === 0) {
-    //   res.status(200).send({
-    //     message: 'Upload via App Successful',
-    //     code: '0000'
-    //   })
-  
-
-    // } else {
-
-    //   res.status(500).send({
-    //     message: 'Upload failed. ' + errors + ' errors',
-    //     code: '0000'
-    //   })
-    // }
-  })
-}
-
-
-exports.batchDocumentsUploadByParentCode = (req, res) => {
-  // Use `upload.array('files')` middleware to handle multiple file uploads
-  // 'files' should match the name attribute of the file input(s) in your form
-  upload.array('files')(req, res, async (err) => {
-    if (err) {
-      console.log(err);
-      // Handle multer errors, if any
-     // return res.status(400).json({ error: 'File upload failed.' });
-     return res.status(500).send({
-        message: 'Upload failed.',
-        code: '0000'
-      })
-    }
-
-    // The uploaded files can be accessed using `req.files`
-  console.log('files:', req.files);
-   var reg_model = 'document'
-    let myFiles = req.files
-
-    console.log(myFiles)
-    console.log(req.body)
-    
-    for (let i = 0; i < myFiles.length; i++) {
-   
-      let column  
-      var obj = {}
-
-      if (myFiles.length>1) {
-           // Sin
-     // console.log(myFiles[i])
-        column = req.body.field_id[i]
-        console.log('column', column)
-     // obj[column] = req.body[column][i]
-      obj.category = req.body.category[i]
-      obj.format = req.body.format[i]
-      obj.size = req.body.size[i]
-      obj.createdBy = req.body.createdBy[i] 
-      obj.protectedFile = req.body.protected[i] 
-      obj.name = myFiles[i].originalname
-      obj.code = crypto.randomUUID()
-      obj.location = myFiles[i].path
-      console.log(obj)
-      }
-      else {
-        
-        column = req.body.field_id
-     //   obj[column] = req.body[column]
-        obj.category = req.body.category
-        obj.format = req.body.format
-        obj.size = req.body.size
-        obj.createdBy = req.body.createdBy
-        obj.protectedFile = req.body.protected
-        obj.name = myFiles[i].originalname
-        obj.code = crypto.randomUUID()
-        obj.location = myFiles[i].path
-    
-      }
-
-
-      try {
-     //   await db.models[reg_model].create(obj)
-
-             await db.models[reg_model]
+        await db.models[req.body.model]
           .findOne({
             where: {
               code: {
@@ -2752,38 +2537,82 @@ exports.batchDocumentsUploadByParentCode = (req, res) => {
             if (record) {
               obj[column] = record.id;
             } else {
-              obj[column] = null;
+              obj[column] = '';
             }
-
-                    
-            res.status(200).send({
-              message: 'Batch Upload Successful',
-              code: '0000'
-            })
-            
-            
           });
-        
-      }
-            
-      catch (error) {
-        console.log(error)
+    
 
-        
-      res.status(500).send({
-        message: 'Upload failed. ' + error + ' errors',
+      
+      
+        console.log("KEY>>>", column, obj[column])
+
+      }
+      if (obj[column] === '' || obj.category === 'undefined') {
+        errors.push('The field' + column + ' is required')
+
+      } else {
+        let fname = myFiles[i].originalname
+        //let location = `./public/${fname}`
+        //let location = uploadsDir + '/' + fname
+      
+      
+        console.log(i, '----', column)
+        obj.name = fname
+        obj.location =  myFiles[i].path
+  
+        obj.code = crypto.randomUUID()
+        var thisFile = {
+          type: req.body.format,
+          name: fname,
+          file_path: myFiles[i].path,
+        }
+        console.log('Thisfile', thisFile)
+        var reg_model = 'document'
+        console.log("insert Object", obj)
+  
+        try {
+          await db.models[reg_model].create(obj)
+            .then(function (item) {
+              console.log("Moving to public...", location)
+              myFiles[i].mv(location)
+            })
+        }
+            
+        catch (error) {
+          // handle error;
+          if (error.name === 'SequelizeUniqueConstraintError') {
+            error.errors.map((err) => {
+              errors.push(err.message)
+            });
+            // errors.push(validationErrors)
+          } else {
+            errors.push('Check your files again')
+          }
+        }
+
+      }
+  
+    }
+
+    // Send message
+
+    if (errors.length === 0) {
+      res.status(200).send({
+        message: 'Upload via App Successful',
         code: '0000'
       })
-      }
+  
 
+    } else {
 
+      res.status(500).send({
+        message: 'Upload failed. ' + errors + ' errors',
+        code: '0000'
+      })
     }
-  
+  })
+}
 
-  
- 
-  });
-};
 
 exports.modelUpload = (req, res) => {
   console.log('xxxx', req.body.createdBy) 
