@@ -2483,136 +2483,197 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
     let myFiles = req.files
 
  
-    var errors = []
-
-    for (let i = 0; i < myFiles.length; i++) {
-      // Sin
-      var obj = {}
-      if (myFiles.length > 1) {
-        var column = req.body.field_id[i]
-        obj.category = req.body.category[i]
-        obj.format = req.body.format[i]
-        obj.size = req.body.size[i]
-        obj.createdBy = req.body.createdBy[i]
-        obj.protectedFile = req.body.protected[i]
-
-
-        await db.models[req.body.model[i]]
-          .findOne({
-            where: {
-              code: {
-                [Op.eq]: req.body.pcode[i]
-              }
-            }
-          })
-          .then((record) => {
-            if (record) {
-              obj[column] = record.id;
-            } else {
-              obj[column] = '';
-            }
-          });
+    console.log(myFiles)
+    console.log(req.body)
     
-          // obj.name = myFiles[i].originalname
-          // obj.code = crypto.randomUUID()
-          // obj.location = myFiles[i].path
+    for (let i = 0; i < myFiles.length; i++) {
+   
       
-
-      } else {
+      if (myFiles.length>1) {
+           // Sin
+     // console.log(myFiles[i])
+      var obj = {}
+      var column = req.body.field_id[i]
+      obj[column] = req.body[column][i]
+      obj.category = req.body.category[i]
+      obj.format = req.body.format[i]
+      obj.size = req.body.size[i]
+      obj.createdBy = req.body.createdBy[i] 
+      obj.protectedFile = req.body.protected[i] 
+      obj.name = myFiles[i].originalname
+      obj.code = crypto.randomUUID()
+      obj.location = myFiles[i].path
+      console.log(obj)
+      }
+      else {
+        var obj = {}
         var column = req.body.field_id
-        //obj[column] = req.body[column]
+        obj[column] = req.body[column]
         obj.category = req.body.category
         obj.format = req.body.format
         obj.size = req.body.size
         obj.createdBy = req.body.createdBy
         obj.protectedFile = req.body.protected
+        obj.name = myFiles[i].originalname
+        obj.code = crypto.randomUUID()
+        obj.location = myFiles[i].path
+        console.log(obj)
+      }
 
 
-        await db.models[req.body.model]
-          .findOne({
-            where: {
-              code: {
-                [Op.eq]: req.body.pcode
-              }
-            }
-          })
-          .then((record) => {
-            if (record) {
-              obj[column] = record.id;
-            } else {
-              obj[column] = '';
-            }
-          });
+
+      try {
+        await db.models[reg_model].create(obj)
+      }
+            
+      catch (error) {
+        console.log(error)
+
+        
+      res.status(500).send({
+        message: 'Upload failed. ' + error + ' errors',
+        code: '0000'
+      })
+      }
+
+
+    }
+  
+
+    res.status(200).send({
+      message: 'Upload Successful',
+      code: '0000'
+    })
+    // var errors = []
+
+    // for (let i = 0; i < myFiles.length; i++) {
+    //   // Sin
+    //   var obj = {}
+    //   if (myFiles.length > 1) {
+    //     var column = req.body.field_id[i]
+    //     obj.category = req.body.category[i]
+    //     obj.format = req.body.format[i]
+    //     obj.size = req.body.size[i]
+    //     obj.createdBy = req.body.createdBy[i]
+    //     obj.protectedFile = req.body.protected[i]
+
+
+    //     await db.models[req.body.model[i]]
+    //       .findOne({
+    //         where: {
+    //           code: {
+    //             [Op.eq]: req.body.pcode[i]
+    //           }
+    //         }
+    //       })
+    //       .then((record) => {
+    //         if (record) {
+    //           obj[column] = record.id;
+    //         } else {
+    //           obj[column] = '';
+    //         }
+    //       });
+    
+    //       // obj.name = myFiles[i].originalname
+    //       // obj.code = crypto.randomUUID()
+    //       // obj.location = myFiles[i].path
+      
+
+    //   } else {
+    //     var column = req.body.field_id
+    //     //obj[column] = req.body[column]
+    //     obj.category = req.body.category
+    //     obj.format = req.body.format
+    //     obj.size = req.body.size
+    //     obj.createdBy = req.body.createdBy
+    //     obj.protectedFile = req.body.protected
+
+
+    //     await db.models[req.body.model]
+    //       .findOne({
+    //         where: {
+    //           code: {
+    //             [Op.eq]: req.body.pcode
+    //           }
+    //         }
+    //       })
+    //       .then((record) => {
+    //         if (record) {
+    //           obj[column] = record.id;
+    //         } else {
+    //           obj[column] = '';
+    //         }
+    //       });
     
 
       
       
-        console.log("KEY>>>", column, obj[column])
+    //     console.log("KEY>>>", column, obj[column])
 
-      }
-      if (obj[column] === '' || obj.category === 'undefined') {
-        errors.push('The field' + column + ' is required')
+    //   }
+    //   if (obj[column] === '' || obj.category === 'undefined') {
+    //     errors.push('The field' + column + ' is required')
 
-      } else {
-        let fname = myFiles[i].originalname
-        //let location = `./public/${fname}`
-        //let location = uploadsDir + '/' + fname
+    //   } else {
+    //     let fname = myFiles[i].originalname
+    //     //let location = `./public/${fname}`
+    //     //let location = uploadsDir + '/' + fname
       
       
-        console.log(i, '----', column)
-        obj.name = fname
-        obj.location =  myFiles[i].path
+    //     console.log(i, '----', column)
+    //     obj.name = fname
+    //     obj.location =  myFiles[i].path
   
-        obj.code = crypto.randomUUID()
-        var thisFile = {
-          type: req.body.format,
-          name: fname,
-          file_path: myFiles[i].path,
-        }
-        console.log('Thisfile', thisFile)
-        var reg_model = 'document'
-        console.log("insert Object", obj)
+    //     obj.code = crypto.randomUUID()
+    //     var thisFile = {
+    //       type: req.body.format,
+    //       name: fname,
+    //       file_path: myFiles[i].path,
+    //     }
+    //     console.log('Thisfile', thisFile)
+    //     var reg_model = 'document'
+    //     console.log("insert Object", obj)
   
-        try {
-          await db.models[reg_model].create(obj)
-            .then(function (item) {
-            //  console.log("Moving to public...", location)
-          //    myFiles[i].mv(location)
-            })
-        }
+    //     try {
+    //       await db.models[reg_model].create(obj)
+    //         .then(function (item) {
+    //         //  console.log("Moving to public...", location)
+    //       //    myFiles[i].mv(location)
+    //         })
+    //     }
             
-        catch (error) {
-          // handle error;
-          if (error.name === 'SequelizeUniqueConstraintError') {
-            error.errors.map((err) => {
-              errors.push(err.message)
-            });
-            // errors.push(validationErrors)
-          } else {
-            errors.push('Check your files again')
-          }
-        }
+    //     catch (error) {
+    //       // handle error;
+    //       if (error.name === 'SequelizeUniqueConstraintError') {
+    //         error.errors.map((err) => {
+    //           errors.push(err.message)
+    //         });
+    //         // errors.push(validationErrors)
+    //       } else {
+    //         errors.push('Check your files again')
+    //       }
+    //     }
 
-      }
+    //   }
   
-    }
+    // }
 
-    // Send message
+    // // Send message
 
-    if (errors.length === 0) {
-      res.status(200).send({
-        message: 'Upload via App Successful',
-        code: '0000'
-      })
+    // if (errors.length === 0) {
+    //   res.status(200).send({
+    //     message: 'Upload via App Successful',
+    //     code: '0000'
+    //   })
   
 
-    } else {
+    // } else {
 
-      res.status(500).send({
-        message: 'Upload failed. ' + errors + ' errors',
-        code: '0000'
-      })
-    }
+    //   res.status(500).send({
+    //     message: 'Upload failed. ' + errors + ' errors',
+    //     code: '0000'
+    //   })
+    // }
   })
 }
 
