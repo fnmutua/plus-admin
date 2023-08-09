@@ -2479,6 +2479,9 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
     //   console.log('In upload single.....', req.files.file)
   
     // }
+
+    console.log('files to upload',myFiles )
+    console.log('Properties Document',req.body )
  
     var errors = []
 
@@ -2561,12 +2564,7 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
         obj.location =  myFiles[i].path
   
         obj.code = crypto.randomUUID()
-        var thisFile = {
-          type: req.body.format,
-          name: fname,
-          file_path: myFiles[i].path,
-        }
-        console.log('Thisfile', thisFile)
+     
         var reg_model = 'document'
         console.log("insert Object", obj)
   
@@ -2580,7 +2578,7 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
             
         catch (error) {
           // handle error;
-          if (error.name === 'SequelizeUniqueConstraintError') {
+          if (error) {
             error.errors.map((err) => {
               errors.push(err.message)
             });
