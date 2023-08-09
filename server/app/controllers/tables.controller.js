@@ -2754,6 +2754,14 @@ exports.batchDocumentsUploadByParentCode = (req, res) => {
             } else {
               obj[column] = null;
             }
+
+                    
+            res.status(200).send({
+              message: 'Batch Upload Successful',
+              code: '0000'
+            })
+            
+            
           });
         
       }
@@ -2772,17 +2780,8 @@ exports.batchDocumentsUploadByParentCode = (req, res) => {
     }
   
 
-    res.status(200).send({
-      message: 'Batch Upload Successful',
-      code: '0000'
-    })
   
-
-    // Other form fields (if any) can be accessed using `req.body`
-  //  console.log('other form fields:', req.body);
-
-    // Process the files or respond to the client accordingly
-   // res.json({ message: 'Form submission and file upload successful!' });
+ 
   });
 };
 
