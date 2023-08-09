@@ -286,7 +286,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('Reports collected........', res)
-  tableDataList.value = res.data
+  //tableDataList.value = res.data
+  tableDataList.value= res.data.filter(item => item.indicator_category.indicator.type === 'output');
+
   total.value = res.total
 
   tblData = [] // reset the table data
