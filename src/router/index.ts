@@ -949,17 +949,63 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         ]
       },
 
+      // {
+      //   path: 'evaluation',
+      //   //component: 'views/Facilities/Water/Water',
+      //   component: () => import('@/views/Evaluation/All.vue'),
+      //   //component: Layout,
+      //   name: 'Evaluation',
+      //   meta: {
+      //     icon: 'pajamas:issue-type-test-case',
+      //     title: 'Evaluations'
+      //   },
+      // },
+
       {
-        path: 'evaluation',
-        //component: 'views/Facilities/Water/Water',
-        component: () => import('@/views/Indicators/evaluation.vue'),
-        //component: Layout,
-        name: 'Evaluation',
+        path: 'evaluations',
+        component: Layout,
+        name: 'Evaluations',
         meta: {
-          icon: 'pajamas:issue-type-test-case',
+          icon: 'fluent-mdl2:analytics-report',
           title: 'Evaluations'
         },
-      }
+        children: [
+          {
+            path: 'new',
+          //  component: 'views/Indicators/indicator_category_report',
+            component: () => import('@/views/Evaluation/All.vue'),
+            name: 'NewEvaluations',
+            meta: {
+              title: 'New',
+              icon:'carbon:result-new',
+            }
+          },
+          {
+            path: 'past',
+          //  component: 'views/Indicators/indicator_category_report',
+            component: () => import('@/views/Evaluation/All.vue'),
+            name: 'All',
+            meta: {
+              title: 'All',
+              icon:'solar:list-check-bold',
+            }
+          },
+          {
+            path: 'add',
+          //  component: 'views/Indicators/indicator_category_report',
+            component: () => import('@/views/Evaluation/AddX.vue'),
+            name: 'AddEvaluation',
+            meta: {
+              title: 'Add',
+              hidden:true,
+              icon:'mdi:file-document-plus',
+            }
+          },
+        ]
+      },
+
+
+
     ]
   },
   {
