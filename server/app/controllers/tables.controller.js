@@ -2572,20 +2572,15 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
           await db.models[reg_model].create(obj)
             .then(function (item) {
               console.log("Moving to public...", location)
-              myFiles[i].mv(location)
+           //   myFiles[i].mv(location)
             })
         }
             
         catch (error) {
           // handle error;
-          if (error) {
-            error.errors.map((err) => {
-              errors.push(err.message)
-            });
-            // errors.push(validationErrors)
-          } else {
-            errors.push('Check your files again')
-          }
+          console.log(error)
+          errors.push('Failed to upload attachments.')
+ 
         }
 
       }
