@@ -1177,6 +1177,7 @@ const Review = (data: TableSlotDefault) => {
 
   ruleForm.id = data.row.id
   ruleForm.type = data.row.type
+  ruleForm.name = data.row.name
   ruleForm.condition = data.row.condition
   ruleForm.type_waste = data.row.type_waste
   ruleForm.cost_per_use = data.row.cost_per_use
@@ -1449,7 +1450,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           </span>
         </template>
 
-        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border     @expand-change="handleExpand" :row-class-name="tableRowClassName">
+        <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand" :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1462,7 +1463,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
             </template>
           </el-table-column>
           <el-table-column label="Name" prop="name" sortable />
-
           <el-table-column label="Type" prop="type" sortable />
           <el-table-column label="Settlement" prop="settlement.name" sortable />
 
