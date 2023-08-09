@@ -2819,7 +2819,7 @@ exports.RemoveDocument = (req, res) => {
 
     //  var filePath = './public/' + req.body.filesToDelete[i].name;
 
-    const filePath = path.join('/data/', 'uploads', req.body.filesToDelete[i]);
+    const filePath = path.join('/data/', 'uploads', req.body.filesToDelete[i].name );
 
       fs.unlinkSync(filePath);
     
