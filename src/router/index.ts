@@ -868,23 +868,23 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     },
     children: [
          {
-        path: 'indicator',
+        path: 'framework',
         //component: 'views/Facilities/Water/Water',
         //component: () => import('@/views/Facilities/Water/Water.vue'),
         component: Layout,
         name: 'IdnicatorConfig',
         meta: {
           icon: 'icon-park-solid:dashboard-car',
-          title: 'Indicators'
+          title: 'Framework'
         },
         children: [
           {
-            path: 'list',
+            path: 'indicators',
          //   component: 'views/Indicators/indicator',
             component: () => import('@/views/Indicators/indicator.vue'),
             name: 'Indicators',
             meta: {
-              title: 'List',
+              title: 'Indicators',
               hidden: false,
               icon:'cil:gauge'
             }
@@ -931,7 +931,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Indicators/indicator_category_report_new.vue'),
             name: 'NewReports',
             meta: {
-              title: 'New',
+              title: 'Outputs(New)',
               icon:'carbon:result-new',
             }
           },
@@ -942,7 +942,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Indicators/indicator_category_report.vue'),
             name: 'PastReports',
             meta: {
-              title: 'Report',
+              title: 'Outputs',
               icon:'mdi:file-document-plus',
             }
           },
@@ -964,10 +964,10 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       {
         path: 'evaluations',
         component: Layout,
-        name: 'Evaluations',
+        name: 'Evaluation',
         meta: {
           icon: 'fluent-mdl2:analytics-report',
-          title: 'Evaluations'
+          title: 'Evaluation'
         },
         children: [
       
@@ -977,7 +977,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Evaluation/All.vue'),
             name: 'All',
             meta: {
-              title: 'All',
+              title: 'Evaluations',
               icon:'solar:list-check-bold',
             }
           },
@@ -987,8 +987,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Evaluation/AddX.vue'),
             name: 'AddEvaluation',
             meta: {
-              title: 'Add',
-              hidden:false,
+              title: 'Add Evaluation',
+              hidden:true,
+              icon:'mdi:file-document-plus',
+            }
+          },
+          {
+            path: 'outcome',
+          //  component: 'views/Indicators/indicator_category_report',
+            component: () => import('@/views/Indicators/indicator_category_report.vue'),
+            name: 'OutcomeEvaluation',
+            meta: {
+              title: 'Outcomes',
               icon:'mdi:file-document-plus',
             }
           },
