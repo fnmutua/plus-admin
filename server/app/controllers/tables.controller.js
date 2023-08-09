@@ -2467,18 +2467,21 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
       return res.status(500).send({ msg: 'file is not found :batchDocumentsUploadByParentCode' })
     }
 
-    var myFiles = []
-    if (Array.isArray(req.files.file)) {
+    // var myFiles = []
+    // if (Array.isArray(req.files.file)) {
 
-      myFiles = req.files.file
-      console.log('In upload  multiple express.....', req.files.file)
+    //   myFiles = req.files.file
+    //   console.log('In upload  multiple express.....', req.files.file)
 
-    } else {
-      // var myFiles = [req.files.file]
-      myFiles.push(req.files.file)
-      console.log('In upload single.....', req.files.file)
+    // } else {
+    //   // var myFiles = [req.files.file]
+    //   myFiles.push(req.files.file)
+    //   console.log('In upload single.....', req.files.file)
   
-    }
+    // }
+
+    let myFiles = req.files
+
  
     var errors = []
 

@@ -970,18 +970,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Evaluations'
         },
         children: [
+      
           {
-            path: 'new',
-          //  component: 'views/Indicators/indicator_category_report',
-            component: () => import('@/views/Evaluation/All.vue'),
-            name: 'NewEvaluations',
-            meta: {
-              title: 'New',
-              icon:'carbon:result-new',
-            }
-          },
-          {
-            path: 'past',
+            path: 'all',
           //  component: 'views/Indicators/indicator_category_report',
             component: () => import('@/views/Evaluation/All.vue'),
             name: 'All',
@@ -997,7 +988,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'AddEvaluation',
             meta: {
               title: 'Add',
-              hidden:true,
+              hidden:false,
               icon:'mdi:file-document-plus',
             }
           },
