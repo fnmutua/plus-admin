@@ -132,6 +132,10 @@ const uploadOptions = [
         label: 'Counties'
       },
       {
+        value: 'subcounty',
+        label: 'Constituencies'
+      },
+      {
         value: 'ward',
         label: 'Wards'
       }
@@ -363,6 +367,15 @@ const handleSelectType = async (type: any) => {
     getParentOptions()
   }
 
+  else if (type === 'subcounty') {
+    // fieldSet.value = beneficiary_parcels
+    model.value = 'subcounty'
+    parentModel.value = 'county'
+    parent_key.value = 'county_id'
+    code.value = 'pcode'
+    console.log('county_id------>', fieldSet.value)
+    getParentOptions()
+  }
 
 
 
