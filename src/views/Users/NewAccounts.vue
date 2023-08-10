@@ -5,12 +5,12 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { getUserRoles,getByName } from '@/api/users'
+import { getUserRoles, getByName } from '@/api/users'
 
 
 import {
-  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter,ElRow, ElDropdown, ElDropdownItem, ElCheckboxGroup,ElCheckbox,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar,  
+  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElRow, ElDropdown, ElDropdownItem, ElCheckboxGroup, ElCheckbox,
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar,
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
@@ -19,13 +19,13 @@ import {
   Edit,
   User,
   Plus,
-  Download,UserFilled,
+  Download, UserFilled,
   Filter,
   MessageBox
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider, ElCard, ElCol, ELRow } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
@@ -105,11 +105,11 @@ let tableDataList_orig = ref<UserType[]>([])
 
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = [ 'isactive']
-var filterValues = [ false ]
+var filters = ['isactive']
+var filterValues = [false]
 var tblData = []
 
-const associated_multiple_models = ['county' ]
+const associated_multiple_models = ['county']
 
 ////const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
 //const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
@@ -127,7 +127,7 @@ const form = reactive({
   phone: '',
   county_id: '',
   roles: [],
-  avatar:''
+  avatar: ''
 })
 
 
@@ -278,7 +278,7 @@ const xgetRoles = async () => {
       roleOpt.value = arrayItem.id
       roleOpt.label = arrayItem.name
       //  console.log(countyOpt)
-      if (arrayItem.name !=='super_admin') {
+      if (arrayItem.name !== 'super_admin') {
         RolesOptions.value.push(roleOpt)
 
       }
@@ -287,26 +287,26 @@ const xgetRoles = async () => {
 }
 
 const getRoles = async () => {
-  
+
   const formData = {}
   formData.limit = 100
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = 'roles'
   //-Search field--------------------------------------------
-  
+
   formData.currentUser = currentUser
- 
+
 
   //-------------------------
-   const res = await getUserRoles(formData)
+  const res = await getUserRoles(formData)
 
-   console.log('Get Roles.....',res.data)
+  console.log('Get Roles.....', res.data)
 
-    
+
   res.data.forEach(function (arrayItem) {
- 
-   
+
+
     //  generate the filter options
     var opt = {}
     opt.value = arrayItem.id
@@ -542,7 +542,7 @@ const updateUser = () => {
 }
 const search = ref('')
 
- 
+
 
 
 
@@ -644,18 +644,18 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           {{ scope.$index + 1 }}
         </template>
       </el-table-column>
-        <!-- Avatar column -->
-  <el-table-column label="Avatar" width="100">
-    <template #default="scope">
-      <el-avatar :src="scope.row.avatar" size="80px" />
-    </template>
-  </el-table-column>
+      <!-- Avatar column -->
+      <el-table-column label="Avatar" width="100">
+        <template #default="scope">
+          <el-avatar :src="scope.row.avatar" size="80px" />
+        </template>
+      </el-table-column>
 
- 
+
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="County" prop="county.name" sortable />
-      <el-table-column fixed="right" :label="isMobile ?'': 'Operations'" :width="actionColumnWidth">
+      <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
 
 
@@ -665,15 +665,15 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item
-v-if="showAdminButtons"  
-                 >
-                  <el-switch v-model="scope.row.isactive"   @click="activateDeactivate(scope as TableSlotDefault)" :icon="Edit" />
+                <el-dropdown-item v-if="showAdminButtons">
+                  <el-switch
+v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+                    :icon="Edit" />
 
-                
+
                 </el-dropdown-item>
 
-                <el-dropdown-item/>
+                <el-dropdown-item />
                 <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -707,37 +707,53 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
 
-    <el-dialog v-model="dialogFormVisible" title="User Details" width="40%">
+    <el-dialog v-model="dialogFormVisible" title="User Details" width="dialogWidth">
       <el-form :model="form">
- 
-            <el-form-item label="" :label-width="formLabelWidth" class="center-avatar">
-               <el-avatar shape="circle" :size="60"  fit="cover" :src="form.avatar"  />
-            </el-form-item>
-                <el-form-item label="Name" :label-width="formLabelWidth">
-                  <el-input v-model="form.name" autocomplete="off" />
-                </el-form-item>
 
-                <el-form-item label="Email" :label-width="formLabelWidth">
-                  <el-input v-model="form.email" autocomplete="off" disabled />
-                </el-form-item>
+        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12" >
 
-                <el-form-item label="Phone" :label-width="formLabelWidth">
-                  <el-input v-model="form.phone" autocomplete="off" />
-                </el-form-item>
-                <el-form-item label="County" :label-width="formLabelWidth">
-                  <el-select v-model="form.county_id" placeholder="Please select a zone">
-                    <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="Roles" :label-width="formLabelWidth">
-                  <el-checkbox-group v-model="form.roles">
-                    <el-row :gutter="20">
-                      <el-col v-for="item in RolesOptions" :key="item.value" :span="12">
-                        <el-checkbox :label="item.value">{{ item.label }}</el-checkbox>
-                      </el-col>
-                    </el-row>
-                  </el-checkbox-group>
-                </el-form-item>
+        <el-form-item label="Name" :label-width="formLabelWidth">
+          <el-input v-model="form.name" autocomplete="off" />
+        </el-form-item>
+
+        </el-col>
+        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12" >
+
+        <el-form-item label="Email" :label-width="formLabelWidth">
+          <el-input v-model="form.email" autocomplete="off" disabled />
+        </el-form-item>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12" >
+
+        <el-form-item label="Phone" :label-width="formLabelWidth">
+          <el-input v-model="form.phone" autocomplete="off" />
+        </el-form-item>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12" >
+
+        <el-form-item label="County" :label-width="formLabelWidth">
+          <el-select v-model="form.county_id" placeholder="Please select a zone">
+            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12" >
+        <el-form-item label="Roles" :label-width="formLabelWidth">
+          <el-checkbox-group v-model="form.roles">
+            <el-row :gutter="20">
+              <el-col v-for="item in RolesOptions" :key="item.value" :span="12">
+                <el-checkbox :label="item.value">{{ item.label }}</el-checkbox>
+              </el-col>
+            </el-row>
+          </el-checkbox-group>
+        </el-form-item>
+        </el-col>
+
+
+
 
       </el-form>
       <template #footer>

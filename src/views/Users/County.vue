@@ -709,37 +709,54 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
 
-    <el-dialog v-model="dialogFormVisible" title="User Details" width="40%">
+     
+    <el-dialog v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
       <el-form :model="form">
- 
-            <el-form-item label="" :label-width="formLabelWidth" class="center-avatar">
-               <el-avatar shape="circle" :size="60"  fit="cover" :src="form.avatar"  />
-            </el-form-item>
-                <el-form-item label="Name" :label-width="formLabelWidth">
-                  <el-input v-model="form.name" autocomplete="off" />
-                </el-form-item>
 
-                <el-form-item label="Email" :label-width="formLabelWidth">
-                  <el-input v-model="form.email" autocomplete="off" disabled />
-                </el-form-item>
+        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
 
-                <el-form-item label="Phone" :label-width="formLabelWidth">
-                  <el-input v-model="form.phone" autocomplete="off" />
-                </el-form-item>
-                <el-form-item label="County" :label-width="formLabelWidth">
-                  <el-select v-model="form.county_id" placeholder="Please select a zone">
-                    <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="Roles" :label-width="formLabelWidth">
-                  <el-checkbox-group v-model="form.roles">
-                    <el-row :gutter="20">
-                      <el-col v-for="item in RolesOptions" :key="item.value" :span="12">
-                        <el-checkbox :label="item.value">{{ item.label }}</el-checkbox>
-                      </el-col>
-                    </el-row>
-                  </el-checkbox-group>
-                </el-form-item>
+        <el-form-item label="Name" :label-width="formLabelWidth">
+          <el-input v-model="form.name" autocomplete="off" />
+        </el-form-item>
+
+        </el-col>
+        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
+
+        <el-form-item label="Email" :label-width="formLabelWidth">
+          <el-input v-model="form.email" autocomplete="off" disabled />
+        </el-form-item>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
+
+        <el-form-item label="Phone" :label-width="formLabelWidth">
+          <el-input v-model="form.phone" autocomplete="off" />
+        </el-form-item>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
+
+        <el-form-item label="County" :label-width="formLabelWidth">
+          <el-select v-model="form.county_id" placeholder="Please select a zone">
+            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
+        <el-form-item label="Roles" :label-width="formLabelWidth">
+          <el-checkbox-group v-model="form.roles">
+            <el-row :gutter="20">
+              <el-col v-for="item in RolesOptions" :key="item.value" :span="12">
+                <el-checkbox :label="item.value">{{ item.label }}</el-checkbox>
+              </el-col>
+            </el-row>
+          </el-checkbox-group>
+        </el-form-item>
+        </el-col>
+
+
+
 
       </el-form>
       <template #footer>
