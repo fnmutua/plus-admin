@@ -655,9 +655,8 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="County" prop="county.name" sortable />
-      <el-table-column fixed="right" label="Operations" :width="actionColumnWidth">
+      <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
-
 
           <el-dropdown v-if="isMobile">
             <span class="el-dropdown-link">
@@ -666,11 +665,14 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item
-v-if="showAdminButtons" @click="activateDeactivate(scope as TableSlotDefault)"
-                  :icon="Edit">Activate</el-dropdown-item>
-                <el-dropdown-item>
-                  <el-switch @click="activateDeactivate(scope as TableSlotDefault)" :icon="Edit" />
+v-if="showAdminButtons"  
+                 >
+                  <el-switch v-model="scope.row.isactive"   @click="activateDeactivate(scope as TableSlotDefault)" :icon="Edit" />
+
+              
                 </el-dropdown-item>
+
+                <el-dropdown-item/>
                 <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
               </el-dropdown-menu>
             </template>
