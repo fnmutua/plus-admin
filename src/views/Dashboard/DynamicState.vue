@@ -1477,9 +1477,6 @@ const getSectionsData = async () => {
 
   var filters = ['dashboard_id']
   var filterValues = [[dashboard_id.value]]  // make sure the inner array is array
-
-
-
   const formData = {}
   formData.curUser = 1 // Id for logged in user
   formData.model = 'dashboard_section'
@@ -1494,9 +1491,6 @@ const getSectionsData = async () => {
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
-
-
-
 
 
   console.log('sections>>', tabs.value)

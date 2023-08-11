@@ -144,7 +144,7 @@ programmeComponentOptions.value.push(activity)
   
         const prog = {}
         if (arrayItem.type==='intervention') {
-          prog.component = () => import('@/views/Dashboard/Dynamic.vue') // This is a template to hold info on interventions
+          prog.component = () => import('@/views/Dashboard/DynamicIntervention.vue') // This is a template to hold info on interventions
           prog.path = 'intervention_' + arrayItem.title.toLowerCase()
           prog.name = arrayItem.title 
     
@@ -215,7 +215,7 @@ programmeComponentOptions.value.push(activity)
   
         const prog = {}
         if (arrayItem.type==='intervention') {
-          prog.component = () => import('@/views/Dashboard/Dynamic.vue') // This is a template to hold info on interventions
+          prog.component = () => import('@/views/Dashboard/DynamicIntervention.vue') // This is a template to hold info on interventions
           prog.path = 'intervention_' + arrayItem.title.toLowerCase()
           prog.name = arrayItem.title 
     
