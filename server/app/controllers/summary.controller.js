@@ -632,12 +632,35 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
 
   let groupfields = []
   
+  // if (req.body.groupFields) {
+  //   for (let i = 0; i < req.body.groupFields.length; i++) {
+  //     let field = req.body.groupFields[i]
+  //     groupfields.push(field)
+  //   }
+  // }
+
+
   if (req.body.groupFields) {
     for (let i = 0; i < req.body.groupFields.length; i++) {
-      let field = req.body.groupFields[i]
-      groupfields.push(field)
+      let field = req.body.groupFields[i];
+      let formattedField;
+  
+      // Format the date field before pushing it into groupfields
+      if (field === "indicator_category_report.createdAt") {
+        // Apply TO_CHAR to format the date without the time part
+        formattedField = sequelize.literal(`TO_CHAR("indicator_category_report"."createdAt", 'YYYY-MM-DD')`);
+        //formattedField = sequelize.fn('date_trunc', 'day', sequelize.col('indicator_category_report.createdAt'));
+
+      } else {
+        // Escape and quote the field name to respect capitalization
+        formattedField = field
+      }
+  
+      groupfields.push(formattedField);
     }
   }
+  
+  
 
 
   // Add group fields to the query if provided
@@ -702,44 +725,6 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   }
 
  
-
-// // Add filter conditions to the query
-// if (req.body.filterField && req.body.filterValue && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
-//   let filterCols = req.body.filterField;
-//   let filterValues = req.body.filterValue;
-
-//   if (!Array.isArray(filterCols)) {
-//     filterCols = [filterCols];
-//     filterValues = [filterValues];
-//   }
-
-//   const operatorMappings = {
-//     eq: op.eq,
-//     gt: op.gt,
-//     lt: op.lt,
-//     // Add more operator mappings as needed
-//   };
-
-//   const filterConditions = [];
-
-//   for (let i = 0; i < filterCols.length; i++) {
-//     const filterCol = filterCols[i];
-//     const filterVal = filterValues[i];
-
-//     if (Array.isArray(filterVal)) {
-//     //  const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
-// 	        const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
-
-//       filterConditions.push({ [op.or]: nestedConditions });
-//     } else if (operator != "all") {
-//       filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
-//     }
-//   }
-
-//   if (operator != "all" && filterConditions.length > 0) {
-//     qry.where = { [op.and]: filterConditions };
-//   }
-//   }
  
 if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
   let filterCols = req.body.filterField;

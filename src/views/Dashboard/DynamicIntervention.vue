@@ -343,7 +343,7 @@ function transformData(data, chartType) {
   return result;
 }
 
-const getSummaryMultipleParentsGrouped = async (indicator_categories, chart) => {
+const xgetSummaryMultipleParentsGrouped = async (indicator_categories, chart) => {
 
   var chartType = chart.type
   
@@ -353,22 +353,30 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chart) => 
   let filterFields = ['indicator_category_id'] 
   let filterValues = [indicator_categories] 
   let groupFields = ['indicator_category.category_title'] 
-     let filterOperator =['eq']
+  let filterOperator = ['eq']
+ //   let filterOperator =[]
+
 
 
   var filter_value = chart.filter_value
   var filter_field = chart.filter_field
-  var filter_function = chart.filter_function
+  let filter_function = chart.filter_function
 
+  if (!filter_function) {
+    filter_function='eq'
+  }
+
+  console.log('chart.filter_function,',filter_function)
 
   
+ 
   if (filter_value && filter_field ) { 
     filterFields.push(filter_field)
-    //filterValues = [filter_value]
-    filterValues.push(filter_value)
-
+    filterValues = [filter_value]
     filterOperator.push(filter_function)
   }
+
+
 
 
 
@@ -496,10 +504,12 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chart) => 
 
       const uniqueKeys = [...new Set(keys)];
       const values = {};
+
+      console.log('uniqueKeys',uniqueKeys)
       uniqueKeys.forEach(key => {
         values[key] = amount.map(obj => obj[key] || null);
       });
-      categoryArray = values.createdAt
+      categoryArray = values.to_char
       seriesData = values.sum
     }
 
@@ -507,13 +517,14 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chart) => 
     else if (chartType == 6) {
       console.log('Multi-line chart ', indicator_categories, amount)
     //  Step 1: Extract and sort unique dates in ascending order
-      const dates = [...new Set(amount.map(item => item.createdAt))].sort();
+      const dates = [...new Set(amount.map(item => item.to_char))].sort();
 
        // Step 2: Rearrange the data
        const result = {};
  
-        for (const item of amount) {
-          const { createdAt, category_title, sum } = item;
+      for (const item of amount) {
+          
+          const { to_char, category_title, sum } = item;
 
           console.log('xxxx',item,category_title)
           if (!result[category_title]) {
@@ -525,7 +536,7 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chart) => 
             };
           }
           
-          const dateIndex = dates.indexOf(createdAt);
+          const dateIndex = dates.indexOf(to_char);
           result[category_title].data.push([dateIndex, Number(sum)]);
 
       }
@@ -609,6 +620,311 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories, chart) => 
 
 }
 
+
+function xtransformData(data, chartType, aggregationMethod, cfield) {
+
+
+// Create array of unique names (categories)
+const uniqueNames = [...new Set(data.map(item => item.name))];
+uniqueNames.sort();
+
+console.log('uniqueNames', uniqueNames)
+console.log('uniqueCategoryTitlesxdata', data)
+
+
+const uniqueCategoryTitles = [...new Set(data.map(item => item[cfield]))];
+uniqueCategoryTitles.sort();
+
+console.log('uniqueCategoryTitles', uniqueCategoryTitles)
+
+// Loop through categories and create the resulting object, padding as needed
+const result = uniqueCategoryTitles.map(category => {
+
+  const dataArr = []
+  uniqueNames.map(name => {
+    const filteredData = data.filter(item => item[cfield] === category && item.name === name);
+
+    console.log("Filtred", filteredData)
+    let arr = filteredData.length > 0 ? filteredData.map(item => (item[aggregationMethod] ? parseInt(item[aggregationMethod]) : 0)) : [0]
+    console.log("arr", arr)
+    dataArr.push(arr[0])
+
+
+  })
+
+  let objChart = {}
+  objChart.name = category
+  objChart.type = 'bar'
+  objChart.data = dataArr
+
+  if (chartType == 4) { //4-stackhed bar chart
+    objChart.stack = 'total'
+    objChart.label = {
+      show: true
+    }
+  }
+  else if (chartType == 3) { //3 pie bar chart
+    objChart.value = dataArr
+    objChart.name = category
+
+  }
+
+
+  if (category == 'Female') {
+    objChart.color = colorPalette[0];
+  } else if (category == 'Female') {
+    objChart.color = colorPalette[1];
+  }
+
+
+
+  return objChart
+
+
+});
+
+
+
+return result;
+}
+const getSummaryMultipleParentsGrouped = async (indicator_categories,thisChart) => {
+  
+  //var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+
+  let associated_Models = []
+  let filterFields = ['indicator_category_id'] 
+  let filterValues = indicator_categories
+  let groupFields = []
+  let filterOperator = []
+  let cmodel= 'indicator_category_report'
+
+  var cfield = 'amount'
+  var cAggregation = 'sum'
+  var chartType = thisChart.type
+  var categorizedField =thisChart.categorized
+  var unique = thisChart.unique?thisChart.unique:false 
+
+  console.log('unique',unique)
+
+
+  console.log('Chart Filters',thisChart )
+  // thisChart.card_model,thisChart.card_model_field,thisChart.aggregation,  thisChart.type);
+
+  // set admin level filtering
+
+
+  var filter_value = thisChart.filter_value
+  var filter_field = thisChart.filter_field
+  var filter_function = thisChart.filter_function
+
+  if (filter_value && filter_field ) { 
+    filterFields.push(filter_field)
+    filterValues = [filter_value]
+    filterOperator.push(filter_function)
+  }
+
+
+
+
+
+
+  if (categorizedField) {
+    groupFields.push(cmodel + '.' + cfield)
+
+  }
+
+  if (chartType == 5 || chartType == 6) {
+    // var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
+    groupFields.push(cmodel + '.createdAt')
+
+  }
+
+
+  if (filterLevel.value === 'county') {
+    associated_Models.push('subcounty')
+    filterFields.push('county_id')
+    filterValues.push([selectedCounties.value])
+    groupFields.push('subcounty.name')
+  }
+  else if (filterLevel.value === 'subcounty') { 
+    // filter by subcounty 
+    associated_Models.push('ward')
+    filterFields.push('subcounty_id')
+    filterValues.push([selectedSubCounties.value])
+    groupFields.push('ward.name')
+  }
+  else if (filterLevel.value === 'national') {
+    associated_Models.push('county')
+    groupFields.push('county.name')
+
+  }
+
+
+
+  console.log('xgroupFields', groupFields)
+  console.log('associated_Models', associated_Models)
+
+
+
+  const formData = {}
+  formData.model = cmodel
+  formData.summaryField = cmodel + '.' + cfield  // Remove ambiguous fields 
+  formData.summaryFunction = cAggregation
+  formData.assoc_models = associated_Models // ['county', 'indicator_category'] 
+  formData.groupFields = groupFields //['county.name','indicator_category.category_title']
+  // formData.filterField = ['indicator_category_id']
+  // formData.filterValue = [indicator_categories]  // Bitumen
+  formData.filterField = filterFields
+  formData.filterOperator = ['eq' ] // Bitumen
+  formData.filterValue = filterValues
+
+  // added for unique couts 
+  formData.uniqueCounts = unique
+
+  console.log(formData)
+
+  try {
+    const response = await getSummarybyFieldFromMultipleIncludes(formData);
+    const amount = response.Total;
+    console.log('Data xcounty', amount)
+
+
+    let categoryArray = [];
+    let seriesData = [];
+    amount.forEach(obj => {
+      if (!categoryArray.includes(obj.name)) {
+        categoryArray.push(obj.name);
+      }
+    });
+
+
+
+
+
+    if (chartType == 5) {
+      console.log('Data line chart2 ', amount)
+
+      const keys = amount.reduce((allKeys, obj) => {
+        return allKeys.concat(Object.keys(obj));
+      }, []);
+
+      const uniqueKeys = [...new Set(keys)];
+      const values = {};
+      uniqueKeys.forEach(key => {
+        values[key] = amount.map(obj => obj[key] || null);
+      });
+      categoryArray = values.to_char
+      seriesData = values[cAggregation]
+    }
+
+
+    else if (chartType == 6 ) {
+      console.log('Multi-line chart ', amount)
+      //  Step 1: Extract and sort unique dates in ascending order
+      const dates = [...new Set(amount.map(item => item.to_char))].sort();
+
+      // Step 2: Rearrange the data
+      const result = {};
+
+      for (const item of amount) {
+        const { to_char, cAggregation } = item;
+        //     console.log('xxxx',item,item[cfield])
+
+        if (!result[item[cfield]]) {
+          result[item[cfield]] = {
+            name: item[cfield],
+            type: 'line',
+            stack: 'Total',
+            data: []
+          };
+        }
+
+        const dateIndex = dates.indexOf(to_char);
+        result[item[cfield]].data.push([dateIndex, Number(cAggregation)]);
+
+      }
+
+
+      seriesData = Object.values(result);
+      categoryArray = dates
+      console.log('seriesData>>>>6', seriesData);
+
+
+
+    }
+
+
+    else if (chartType == 7) {
+      console.log('Map chart ', amount)
+
+
+      let maxSum = Number.MIN_SAFE_INTEGER;
+      let minSum = Number.MAX_SAFE_INTEGER;
+
+      for (const item of amount) {
+        const values = Object.values(item);
+        for (const value of values) {
+          if (!isNaN(value)) {
+            const numValue = parseInt(value);
+            maxSum = Math.max(maxSum, numValue);
+            minSum = Math.min(minSum, numValue);
+          }
+        }
+      }
+      // if only one value then use min=0
+      if (minSum === maxSum) {
+        minSum = 0
+      }
+
+      console.log("Maximum sum:", maxSum);
+      console.log("Minimum sum:", minSum);
+
+
+      // Rename the property to value 
+      const newPropertyName = "value";
+
+      for (let i = 0; i < amount.length; i++) {
+        const keys = Object.keys(amount[i]);
+        if (keys.length > 1) {
+          const oldValue = keys[1];
+          amount[i][newPropertyName] = amount[i][oldValue];
+          delete amount[i][oldValue];
+        }
+      }
+      categoryArray = [minSum, maxSum]
+      seriesData = amount
+
+      console.log('Map chart2 ', amount)
+
+
+    }
+
+
+    else {
+
+      //  const valuesArray = amount.map(obj => obj.sum);
+      seriesData = xtransformData(amount, chartType, cAggregation, cfield);
+      categoryArray.sort();
+
+
+      console.log('xseries', seriesData)
+    }
+
+
+
+
+
+    //   return amount;
+    return [categoryArray, seriesData];
+  } catch (error) {
+    // Handle any errors that occur during the asynchronous operation
+    console.error(error);
+    //return null; // or any default value you prefer
+    return []; // or any default value you prefer
+  }
+
+
+}
 
 
 const getCardData = async () => {

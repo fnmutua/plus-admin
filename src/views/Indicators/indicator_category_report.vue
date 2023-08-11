@@ -670,7 +670,14 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
       ruleForm.cumAmount = ruleForm.cumAmount + ruleForm.amount
 
-      ruleForm.cumProgress =  (100*(ruleForm.cumAmount/ruleForm.target)).toFixed(2)
+      let calculatedProgress = (100 * (ruleForm.cumAmount / ruleForm.target));
+
+            if (isFinite(calculatedProgress)) {
+              ruleForm.cumProgress = calculatedProgress.toFixed(2);
+            } else {
+              ruleForm.cumProgress = '0.00';
+            }
+
    //   ruleForm.cumProgress =  100*((ruleForm.cumAmount - ruleForm.baseline )/(ruleForm.target - ruleForm.baseline )).toFixed(2)
 
       //Progress towards target (%realized) [(B-A)/(C- A)]
