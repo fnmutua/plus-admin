@@ -20,9 +20,9 @@ VITE_SOURCEMAP=false
 VITE_OUT_DIR=dist-pro
 
 # 标题
-VITE_APP_TITLE=KeSMIS
+VITE_APP_TITLE=KeSMISProdLoc
 
 # Make sure to change here for production.
-VITE_APP_HOST=https://kesmis.go.ke   
+VITE_APP_HOST=http://localhost   
 AES_KEY='maluini'
 VUE_APP_PORT=4000
