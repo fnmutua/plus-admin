@@ -753,6 +753,7 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     gte: op.gte,
     lt: op.lt,
     lte: op.lte, // Added lte mapping
+    or: op.or, // Added lte mapping
 
     // Add more operator mappings as needed
   };
@@ -769,24 +770,42 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     // keep a record of the ops in ths querry 
     operators.push(operator)
 
-    if (operator === "all" ) {
+    // if (operator === "all" ) {
+    //   // No filter, retrieve all records for this field
+    //   continue; // Skip adding any condition for this field
+    // } else {
+
+    //   console.log('Operator---->S',operator, [operatorMappings[operator]] )
+
+    //   if (Array.isArray(filterVal)) {
+    //    // const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
+    //     const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
+  
+    //     filterConditions.push({ [op.or]: nestedConditions });
+    //   } else if (operator !== "all" && operator) {
+
+    //     filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
+    //   }
+    // }
+
+
+    if (operator === "all") {
       // No filter, retrieve all records for this field
       continue; // Skip adding any condition for this field
-    } else {
-
-      console.log('Operator---->S',operator, [operatorMappings[operator]] )
-
+    } else if (operator === "or") {
+      const orConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings['eq']]: nestedVal } }));
+      filterConditions.push({ [op.or]: orConditions });
+    } else if (operatorMappings[operator] && filterVal) {
       if (Array.isArray(filterVal)) {
-       // const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: nestedVal }));
         const nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
-  
         filterConditions.push({ [op.or]: nestedConditions });
-      } else if (operator !== "all" && operator) {
-
+      } else {
         filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
       }
     }
+    
 
+    
    
   }
 

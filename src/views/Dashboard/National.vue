@@ -253,33 +253,45 @@ const getSummary = async (card) => {
   let associated_Models = []
   let filterFields = []
   let filterValues = []
-  let filterOperator =[]
+  let filterOperators =[]
 
   if (filter_value) { 
     filterFields.push(cmodelField)
     filterValues = [filter_value]
-    filterOperator.push(filter_function)
+    filterOperators.push(filter_function)
   }
 
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
-    filterValues.push(selectedCounties.value)
+    // filterValues.push(selectedCounties.value)
 
-    for (let i = 0; i < selectedCounties.value.length; i++) { 
-      filterFields.push('county_id')
-      filterOperator.push(['eq'])
-    }
+    // for (let i = 0; i < selectedCounties.value.length; i++) { 
+    //   filterFields.push('county_id')
+    //   filterOperator.push(['eq'])
+    // }
+
+
+    filterFields.push('county_id')
+     filterValues.push(selectedCounties.value)
+    filterOperators.push('or')
+
+
   }
 
   else if (filterLevel.value === 'subcounty') { 
     // filter by subcounty 
     associated_Models.push('ward')
     //filterFields.push('subcounty_id')
-    filterValues.push(selectedSubCounties.value)
-    for (let i = 0; i < selectedSubCounties.value.length; i++) { 
-      filterFields.push('subcounty_id')
-      filterOperator.push(['eq'])
-    }
+    // filterValues.push(selectedSubCounties.value)
+    // for (let i = 0; i < selectedSubCounties.value.length; i++) { 
+    //   filterFields.push('subcounty_id')
+    //   filterOperator.push(['eq'])
+    // }
+
+    
+    filterFields.push('subcounty_id')
+     filterValues.push(selectedSubCounties.value)
+    filterOperators.push('or')
 
   }
    
@@ -308,7 +320,7 @@ const getSummary = async (card) => {
   formData.filterValue = filterValues
   formData.calculationType = computation
   formData.filter_function = filter_function
-  formData.filterOperator = filterOperator
+  formData.filterOperator = filterOperators
   formData.uniqueCounts =unique
 
   console.log('foxrmData',formData)
@@ -443,6 +455,8 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   let filterFields = []
   let filterValues = []
   let groupFields = []
+  let filterOperators = []
+
 
   var cmodel = thisChart.card_model
   var cfield = thisChart.card_model_field
@@ -477,10 +491,15 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
-    filterValues.push(selectedCounties.value)
-    for (let i = 0; i < selectedCounties.value.length; i++) { 
-      filterFields.push('county_id')
-    }
+    // filterValues.push(selectedCounties.value)
+    // for (let i = 0; i < selectedCounties.value.length; i++) { 
+    //   filterFields.push('county_id')
+    // }
+
+    filterFields.push('county_id')
+     filterValues.push(selectedCounties.value)
+    filterOperators.push('or')
+
     groupFields.push('subcounty.name')
 
   }
@@ -489,11 +508,17 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   else if (filterLevel.value === 'subcounty') { 
     // filter by subcounty 
     associated_Models.push('ward')
-    filterValues.push(selectedSubCounties.value)
+    // filterValues.push(selectedSubCounties.value)
 
-    for (let i = 0; i < selectedSubCounties.value.length; i++) { 
-      filterFields.push('subcounty_id')
-    }
+    // for (let i = 0; i < selectedSubCounties.value.length; i++) { 
+    //   filterFields.push('subcounty_id')
+    // }
+
+    filterFields.push('subcounty_id')
+     filterValues.push(selectedSubCounties.value)
+    filterOperators.push('or')
+
+
     groupFields.push('ward.name')
   }
 
@@ -522,11 +547,14 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   // formData.filterField = ['indicator_category_id']
   // formData.filterValue = [indicator_categories]  // Bitumen
   formData.filterField = filterFields
-  formData.filterOperator = ['eq' ] // Bitumen
+  formData.filterOperator =filterOperators // Bitumen
   formData.filterValue = filterValues
 
   // added for unique couts 
-  formData.uniqueCounts =unique
+  formData.uniqueCounts = unique
+
+  console.log('form-2-Data',formData)
+
 
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);

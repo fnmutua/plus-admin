@@ -7,4 +7,5 @@ dist-ssr
 /dist*
 *-lock.*
 .env.pro
+.env
 pnpm-debug

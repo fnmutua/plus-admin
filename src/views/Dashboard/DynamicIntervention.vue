@@ -194,7 +194,7 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
   let associated_Models = []
   let filterFields = ['indicator_category_id'] 
   let filterValues = [ids] 
-  let filterOperator =['eq']
+  let filterOperators =['eq']
 
 
   var filter_value = scards.filter_value
@@ -207,35 +207,43 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
     //filterValues = [filter_value]
     filterValues.push(filter_value)
 
-    filterOperator.push(filter_function)
+    filterOperators.push(filter_function)
   }
 
 
 
 
   if (filterLevel.value === 'county') {
-      associated_Models.push('subcounty')
-      filterFields.push('county_id')
-      filterValues.push([selectedCounties.value])
-      filterOperator.push(['eq'])
-
-
+    associated_Models.push('subcounty')
+     filterFields.push('county_id')
+     filterValues.push(selectedCounties.value)
+    filterOperators.push('or')
   }
 
   else if (filterLevel.value === 'subcounty') { 
     // filter by subcounty 
     associated_Models.push('ward')
-    filterFields.push('subcounty_id')
-    filterValues.push([selectedSubCounties.value])
-    filterOperator.push(['eq'])
+    // //filterFields.push('subcounty_id')
+    // filterValues.push(selectedSubCounties.value)
+    // for (let i = 0; i < selectedSubCounties.value.length; i++) { 
+    //   filterFields.push('subcounty_id')
+    //   filterOperator.push(['eq'])
+    // }
 
-   }
+
+    filterFields.push('subcounty_id')
+     filterValues.push(selectedSubCounties.value)
+    filterOperators.push('or')
+
+  }
+   
+
 
   else if (filterLevel.value === 'national') {
     associated_Models.push('county')
 
- 
-  } 
+
+  }
 
   
 
@@ -250,7 +258,7 @@ console.log('Found Indicator_cateory_ids', ids, indicator)
   // formData.filterValue = [ids]    
   formData.filterField =filterFields
   formData.filterValue =filterValues 
-  formData.filterOperator = filterOperator
+  formData.filterOperator = filterOperators
 
   console.log('Filter FormData : ', formData)
 
@@ -353,7 +361,7 @@ const xgetSummaryMultipleParentsGrouped = async (indicator_categories, chart) =>
   let filterFields = ['indicator_category_id'] 
   let filterValues = [indicator_categories] 
   let groupFields = ['indicator_category.category_title'] 
-  let filterOperator = ['eq']
+  let filterOperators = ['eq']
  //   let filterOperator =[]
 
 
@@ -373,26 +381,52 @@ const xgetSummaryMultipleParentsGrouped = async (indicator_categories, chart) =>
   if (filter_value && filter_field ) { 
     filterFields.push(filter_field)
     filterValues = [filter_value]
-    filterOperator.push(filter_function)
+    filterOperators.push(filter_function)
   }
 
 
 
 
 
+
+  
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
+    // filterValues.push(selectedCounties.value)
+    // for (let i = 0; i < selectedCounties.value.length; i++) { 
+    //   filterFields.push('county_id')
+    // }
+   
     filterFields.push('county_id')
-    filterValues.push([selectedCounties.value])
+     filterValues.push(selectedCounties.value)
+    filterOperators.push('or')
+
+
     groupFields.push('subcounty.name')
+
   }
+
+
   else if (filterLevel.value === 'subcounty') { 
     // filter by subcounty 
     associated_Models.push('ward')
+    // filterValues.push(selectedSubCounties.value)
+
+    // for (let i = 0; i < selectedSubCounties.value.length; i++) { 
+    //   filterFields.push('subcounty_id')
+    // }
+
     filterFields.push('subcounty_id')
-    filterValues.push([selectedSubCounties.value])
+     filterValues.push(selectedSubCounties.value)
+    filterOperators.push('or')
     groupFields.push('ward.name')
+
+
   }
+
+
+
+
   else if (filterLevel.value === 'national') {
     associated_Models.push('county')
     groupFields.push('county.name')
@@ -691,9 +725,9 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories,thisChart) 
 
   let associated_Models = []
   let filterFields = ['indicator_category_id'] 
-  let filterValues = indicator_categories
+  let filterValues = [indicator_categories]
   let groupFields = []
-  let filterOperator = []
+  let filterOperators = ['eq']
   let cmodel= 'indicator_category_report'
 
   var cfield = 'amount'
@@ -717,8 +751,8 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories,thisChart) 
 
   if (filter_value && filter_field ) { 
     filterFields.push(filter_field)
-    filterValues = [filter_value]
-    filterOperator.push(filter_function)
+    filterValues.push(filter_value)
+    filterOperators.push(filter_function)
   }
 
 
@@ -736,26 +770,39 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories,thisChart) 
     groupFields.push(cmodel + '.date')
 
   }
+ 
 
-
+  
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
+
     filterFields.push('county_id')
-    filterValues.push([selectedCounties.value])
+     filterValues.push(selectedCounties.value)
+    filterOperators.push('or')
     groupFields.push('subcounty.name')
+
   }
+
+
   else if (filterLevel.value === 'subcounty') { 
     // filter by subcounty 
     associated_Models.push('ward')
+    filterValues.push(selectedSubCounties.value)
+    filterOperators.push('or')
     filterFields.push('subcounty_id')
-    filterValues.push([selectedSubCounties.value])
+ 
     groupFields.push('ward.name')
   }
+
+
+
+
   else if (filterLevel.value === 'national') {
     associated_Models.push('county')
     groupFields.push('county.name')
 
   }
+
 
 
 
@@ -773,13 +820,13 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories,thisChart) 
   // formData.filterField = ['indicator_category_id']
   // formData.filterValue = [indicator_categories]  // Bitumen
   formData.filterField = filterFields
-  formData.filterOperator = ['eq' ] // Bitumen
+  formData.filterOperator = filterOperators // Bitumen
   formData.filterValue = filterValues
 
   // added for unique couts 
   formData.uniqueCounts = unique
 
-  console.log(formData)
+  console.log('form-Data',formData)
 
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
