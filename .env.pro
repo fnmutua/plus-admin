@@ -26,3 +26,4 @@ VITE_APP_TITLE=KeSMIS
 VITE_APP_HOST=https://kesmis.go.ke   
 AES_KEY='maluini'
 VUE_APP_PORT=4000
+AES_KEY='maluini'
