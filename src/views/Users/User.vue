@@ -311,7 +311,7 @@ const getRoles = async () => {
     //  generate the filter options
     var opt = {}
     opt.value = arrayItem.id
-    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    opt.label = arrayItem.name  
     //  console.log(countyOpt)
     RolesOptions.value.push(opt)
   })

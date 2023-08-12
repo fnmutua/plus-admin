@@ -292,7 +292,7 @@ exports.reset = (req, res) => {
         // res.status(403).send('email not in db');
         return res.status(404).send({ message: 'User Not found.' })
       } else {
-        username=user.userName
+        username=user.username
         var token = jwt.sign({ id: user.id }, config.secret, {
           expiresIn: 86400 // 24 hours
         })
@@ -326,17 +326,18 @@ exports.reset = (req, res) => {
         console.log(req.hostname)
 
         console.log('Reset-URL', CLIENT_URL)
-
+        
         const mailOptions = {
           from: 'kisip.mis@gmail.com',
           to: `${req.body.email}`,
           subject: 'Link To Reset Password',
           text:
-            'You are receiving this because you (or someone else) have requested the reset of the password for your account.'+username +'\n\n' +
+            'You are receiving this because you (or someone else) have requested the reset of the password for your account: ' + username + ' \n\n' +
             'Please click on the following link, or paste this into your browser to complete the process within one hour of receiving it:\n\n' +
-            CLIENT_URL+'#/reset/'+token+'\n\n' +
+            CLIENT_URL + '#/reset/' + token + '\n\n' +
             'If you did not request this, please ignore this email and your password will remain unchanged.\n'
-        }
+        };
+        
 
         console.log('sending mail')
 
