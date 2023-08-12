@@ -174,8 +174,6 @@ const getSummary = async (card) => {
 
     var selectModel = card.card_model
     var cmodelField = card.card_model_field
-    var filter_value = card.filter_value
-    var filter_field = card.filter_field
     var aggregMethod = card.aggregation
     var filter_value = card.filter_value
     var computation = card.computation
@@ -193,27 +191,48 @@ const getSummary = async (card) => {
   let associated_Models = []
   let filterFields = []
   let filterValues = []
-  let filterOperator =[]
+  let filterOperators =[]
 
-  if (filter_value && filter_field ) { 
-    filterFields.push(filter_field)
+  if (filter_value) { 
+    filterFields.push(cmodelField)
     filterValues = [filter_value]
-    filterOperator.push(filter_function)
+    filterOperators.push(filter_function)
   }
 
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
+    //filterValues.push(selectedCounties.value)
+
+    // for (let i = 0; i < selectedCounties.value.length; i++) { 
+    //   filterFields.push('county_id')
+    //   filterOperators.push(['eq'])
+    // }
+
+       
     filterFields.push('county_id')
-    filterValues.push([selectedCounties.value])
-    filterOperator.push(['eq'])
+     filterValues.push(selectedCounties.value)
+    filterOperators.push('or')
   }
 
   else if (filterLevel.value === 'subcounty') { 
     // filter by subcounty 
     associated_Models.push('ward')
+    //filterFields.push('subcounty_id')
+    //filterValues.push(selectedSubCounties.value)
+    // for (let i = 0; i < selectedSubCounties.value.length; i++) {
+    //   filterFields.push('subcounty_id')
+    //   filterOperator.push(['eq'])
+    // }
+
+     
     filterFields.push('subcounty_id')
-    filterValues.push([selectedSubCounties.value])
-   }
+     filterValues.push(selectedSubCounties.value)
+    filterOperators.push('or')
+
+  }
+   
+
+
   else if (filterLevel.value === 'national') {
     associated_Models.push('county')
 
@@ -237,7 +256,7 @@ const getSummary = async (card) => {
   formData.filterValue = filterValues
   formData.calculationType = computation
   formData.filter_function = filter_function
-  formData.filterOperator = filterOperator
+  formData.filterOperator = filterOperators
   formData.uniqueCounts =unique
 
   console.log('foxrmData',formData)
@@ -336,7 +355,7 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   let filterFields = []
   let filterValues = []
   let groupFields = []
-  let filterOperator =[]
+  let filterOperators =[]
 
   var cmodel = thisChart.card_model
   var cfield = thisChart.card_model_field
@@ -360,8 +379,8 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
   if (filter_value && filter_field ) { 
     filterFields.push(filter_field)
-    filterValues = [filter_value]
-    filterOperator.push(filter_function)
+    filterValues.push(filter_value)
+    filterOperators.push(filter_function)
   }
 
 
@@ -383,15 +402,26 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
+    // filterFields.push('county_id')
+    // filterValues.push([selectedCounties.value])
+
     filterFields.push('county_id')
-    filterValues.push([selectedCounties.value])
+     filterValues.push(selectedCounties.value)
+    filterOperators.push('or')
+
     groupFields.push('subcounty.name')
   }
+
   else if (filterLevel.value === 'subcounty') { 
     // filter by subcounty 
     associated_Models.push('ward')
+    // filterFields.push('subcounty_id')
+    // filterValues.push([selectedSubCounties.value])
+
     filterFields.push('subcounty_id')
-    filterValues.push([selectedSubCounties.value])
+     filterValues.push(selectedSubCounties.value)
+    filterOperators.push('or')
+
     groupFields.push('ward.name')
   }
   else if (filterLevel.value === 'national') {
@@ -416,7 +446,7 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   // formData.filterField = ['indicator_category_id']
   // formData.filterValue = [indicator_categories]  // Bitumen
   formData.filterField = filterFields
-  formData.filterOperator = ['eq' ] // Bitumen
+  formData.filterOperator =filterOperators// Bitumen
   formData.filterValue = filterValues
 
   // added for unique couts 
@@ -1739,11 +1769,11 @@ const formatNumber =   (value) => {
 </script>
 
 <template>
-  <el-select :style="{ width: '25% ', marginRight: '10px' }"   @change="filterCounty"   :onClear="handleClear"  v-model="selectCounty"    clearable filterable collapse-tags placeholder="Select County">
+  <el-select :style="{ width: '25% ', marginRight: '10px' }"   @change="filterCounty"   :onClear="handleClear"  multiple v-model="selectCounty"    clearable filterable collapse-tags placeholder="Select County">
     <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
   </el-select>
 
-  <el-select :style="{ width: '25% ' }"  @change="filterSubCounty"  :onClear="handleClear"  v-model="selectSubCounty" clearable   filterable collapse-tags placeholder="Select Constituency">
+  <el-select :style="{ width: '25% ' }"  @change="filterSubCounty"  :onClear="handleClear"  v-model="selectSubCounty" multiple clearable   filterable collapse-tags placeholder="Select Constituency">
     <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
   </el-select>
 
