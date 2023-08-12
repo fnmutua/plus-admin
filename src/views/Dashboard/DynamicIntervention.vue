@@ -411,15 +411,13 @@ const xgetSummaryMultipleParentsGrouped = async (indicator_categories, chart) =>
 
 
   else if (chartType == 5) {
-   // var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
-    groupFields.push('indicator_category_report.createdAt' )
+     groupFields.push('indicator_category_report.date' )
 
   }
 
 
   else if (chartType == 6) {
-   // var groupingFields = ['indicator_category_report.createdAt', 'indicator_category.category_title']
-      groupFields.push('indicator_category_report.createdAt')
+       groupFields.push('indicator_category_report.date')
 
   }
  
@@ -735,7 +733,7 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories,thisChart) 
 
   if (chartType == 5 || chartType == 6) {
     // var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
-    groupFields.push(cmodel + '.createdAt')
+    groupFields.push(cmodel + '.date')
 
   }
 

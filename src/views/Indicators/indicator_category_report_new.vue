@@ -1260,6 +1260,16 @@ const confirmReject = async () => {
 
 }
 
+
+function formatDate(dateString) {
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+
 </script>
 
 <template>
@@ -1317,7 +1327,13 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
             </template>
           </el-table-column>
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
-      <el-table-column label="Settlement" prop="settlement.name" sortable />
+ 
+      <el-table-column label="Date" prop="date" sortable>
+      <template #default="scope">
+        {{ formatDate(scope.row.date) }}
+      </template>
+    </el-table-column>
+
       <!-- <el-table-column label="County" prop="county.name" sortable /> -->
       <!-- <el-table-column label="Unit" prop="indicator_category.indicator.unit" sortable /> -->
       <el-table-column label="Category" prop="indicator_category.category_title" sortable />
