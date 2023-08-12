@@ -10,7 +10,7 @@ import { getUserRoles,getByName } from '@/api/users'
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElFooter,ElRow, ElDropdown, ElDropdownItem, ElCheckboxGroup,ElCheckbox,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar,  
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar,    ElRadio, ElRadioButton, ElRadioGroup
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
@@ -25,7 +25,7 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow, ElRadio, ElRadioGroup } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
@@ -744,16 +744,18 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         </el-col>
 
         <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-        <el-form-item label="Roles" :label-width="formLabelWidth">
-          <el-checkbox-group v-model="form.roles">
+        <el-form-item label="Role" :label-width="formLabelWidth">
+          <el-radio-group v-model="form.roles">
             <el-row :gutter="20">
               <el-col v-for="item in RolesOptions" :key="item.value" :span="12">
-                <el-checkbox :label="item.value">{{ item.label }}</el-checkbox>
-              </el-col>
+                <el-radio :label="item.value">{{ item.label }}</el-radio>
+              </el-col> 
+  
             </el-row>
-          </el-checkbox-group>
+          </el-radio-group>
         </el-form-item>
         </el-col>
+
 
 
 

@@ -10,7 +10,7 @@ import { getUserRoles,getByName } from '@/api/users'
 
 import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElFooter,ElRow, ElDropdown, ElDropdownItem, ElCheckboxGroup,ElCheckbox,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar,  
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRadio, ElRadioGroup
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
@@ -52,7 +52,7 @@ if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
 } else {
-  dialogWidth.value = "25%"
+  dialogWidth.value = "30%"
   actionColumnWidth.value = "160px"
 
 }
@@ -127,7 +127,8 @@ const form = reactive({
   phone: '',
   county_id: '',
   roles: [],
-  avatar:''
+  avatar: '',
+  username:null
 })
 
 
@@ -521,6 +522,7 @@ const EditUser = (data: TableSlotDefault) => {
   form.email = data.row.email
   form.phone = data.row.phone
   form.avatar = data.row.avatar
+  form.username = data.row.username
   let roles = []
   data.row.roles.forEach(function (arrayItem) {
     console.log(arrayItem.id)
@@ -528,14 +530,15 @@ const EditUser = (data: TableSlotDefault) => {
   })
 
 
-  form.roles = roles
+  form.roles = roles[0]
   console.log(form)
   dialogFormVisible.value = true
 }
 
+ 
 
 const updateUser = () => {
-
+  form.roles=[form.roles ]
   updateUserApi(form).then(() => { })
 
   dialogFormVisible.value = false
@@ -711,18 +714,27 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       <el-form :model="form">
 
         <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-
         <el-form-item label="Name" :label-width="formLabelWidth">
           <el-input v-model="form.name" autocomplete="off" />
         </el-form-item>
 
         </el-col>
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
 
+        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
         <el-form-item label="Email" :label-width="formLabelWidth">
           <el-input v-model="form.email" autocomplete="off" disabled />
         </el-form-item>
         </el-col>
+
+
+           
+        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
+        <el-form-item label="Username" :label-width="formLabelWidth">
+          <el-input v-model="form.username" autocomplete="off" disabled />
+        </el-form-item>
+        </el-col>
+
+
 
         <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
 
@@ -741,14 +753,15 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         </el-col>
 
         <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-        <el-form-item label="Roles" :label-width="formLabelWidth">
-          <el-checkbox-group v-model="form.roles">
+        <el-form-item label="Role" :label-width="formLabelWidth">
+          <el-radio-group v-model="form.roles">
             <el-row :gutter="20">
               <el-col v-for="item in RolesOptions" :key="item.value" :span="12">
-                <el-checkbox :label="item.value">{{ item.label }}</el-checkbox>
-              </el-col>
+                <el-radio :label="item.value">{{ item.label }}</el-radio>
+              </el-col> 
+  
             </el-row>
-          </el-checkbox-group>
+          </el-radio-group>
         </el-form-item>
         </el-col>
 
