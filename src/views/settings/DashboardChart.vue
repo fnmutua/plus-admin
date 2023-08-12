@@ -204,12 +204,45 @@ const handleClear = async () => {
   value1.value = ''
   value2.value = ''
   value3.value = ''
+  value4.value = ''
+  value5.value = ''
   pSize.value = 5
   currentPage.value = 1
   tblData = []
   //----run the get data--------
   getInterventionsAll()
 }
+
+
+
+const handleSelectDashboard = async (indicator: any) => {
+  var selectOption = 'dashboard_id'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
+  }
+  var index = filters.indexOf(selectOption) // 1
+  console.log('category : index--->', index)
+
+  // clear previously selected
+  if (filterValues[index]) {
+    // filterValues[index].length = 0
+    filterValues.splice(index, 1)
+  }
+
+  if (!filterValues.includes(indicator) && indicator.length > 0) {
+    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (indicator.length === 0) {
+    filters.splice(index, 1)
+  }
+
+  console.log('FilterValues:', filterValues)
+
+  getFilteredData(filters, filterValues)
+}
+
 
 
 const handleSelectDashboardSection = async (indicator: any) => {
@@ -345,10 +378,9 @@ const handleDownload = () => {
 }
 
 
-const DashBoardOptions = ref([])
-const selectDashboard = ref()
-
-const getDashboardOptions = async () => {
+const dashboardOptions = ref([])
+ 
+const getdashboardOptions = async () => {
   const res = await getCountyListApi({
     params: {
       pageIndex: 1,
@@ -360,11 +392,11 @@ const getDashboardOptions = async () => {
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received response:', response)
+    console.log('Received dashboardOptions:', response)
     //tableDataList.value = response.data
     var ret = response.data
 
-    loading.value = false
+   // loading.value = false
 
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
@@ -373,7 +405,7 @@ const getDashboardOptions = async () => {
       //  console.log(countyOpt)
       opt.type = arrayItem.type
 
-      DashBoardOptions.value.push(opt)
+      dashboardOptions.value.push(opt)
     })
   })
 }
@@ -413,35 +445,7 @@ const getDashSectionOptions = async () => {
   })
 }
 
-
-const strategicFocusOptions = ref([])
-const getStrategicFocusAreas = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'domain',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      strategicFocusOptions.value.push(countyOpt)
-    })
-  })
-}
+ 
 
 const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
@@ -765,22 +769,24 @@ const getIndicatorCategories = async ( ) => {
 }
 
 
+getdashboardOptions()
 
 getIndicatorOptions()
 getInterventionsAll()
-getDashboardOptions()
 getDashSectionOptions()
 
-getStrategicFocusAreas()
+//getStrategicFocusAreas()
 getIndicatorCategories()
 
 
 
 const handleFilterSections = async (dashboard_id) => {
   console.log('filtreing teh aggregators.....', dashboard_id)
-  let selDashboard = DashBoardOptions.value.filter(item => item.value === dashboard_id);
+  let selDashboard = dashboardOptions.value.filter(item => item.value == dashboard_id);
 
-  if (selDashboard[0].type==='status') {  // status dashabords 
+console.log('selDashboard',selDashboard[0].type)
+
+  if (selDashboard[0].type === 'status') {  // status dashabords
 showStatusExtras.value=true
   } else {
     showStatusExtras.value=false
@@ -789,6 +795,8 @@ showStatusExtras.value=true
     
      DashBoardSectionFilterdOptions.value = DashBoardSectionOptions.value.filter(option => option.dashboard_id  == dashboard_id);
    
+
+    // handleSelectDashboard(dashboard_id)
  }
 
 
@@ -874,6 +882,9 @@ chartOptions.value = [
   const hideCategorize =ref(true)
 
  const handleSelectModel = async (selModel) => {
+
+   fieldSet.value = []
+   ruleForm.card_model_field=''
   console.log('specs.....')
   getModeldefinition(selModel)
 
@@ -1240,22 +1251,33 @@ const showFilterValues=ref(false)
 const fieldOptions = ref([])
 const isMobile = computed(() => appStore.getMobile)
 
+const value5=ref()
 console.log('IsMobile', isMobile)
 </script>
 
 <template>
-  <ContentWrap :title="t('Dashboard Section Charts')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Dashboard Charts')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     
+    <div style="display: inline-block; margin-left: 20px">
+      <el-select
+v-model="value5" :onChange="handleFilterSections" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="Search Dashboard">
+        <el-option v-for="item in dashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+    </div>
+
+
 
     <div style="display: inline-block; margin-left: 20px">
       <el-select
 v-model="value3" :onChange="handleSelectDashboardSection" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Search Dashboard Section">
-        <el-option v-for="item in DashBoardSectionOptions" :key="item.value" :label="item.label" :value="item.value" />
+        <el-option v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
+
 
 
 
@@ -1273,27 +1295,7 @@ v-model="value3" :onChange="handleSelectDashboardSection" :onClear="handleClear"
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <!-- <Table
-:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
-        </el-tooltip>
-
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this record?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
-
-      </template>
-    </Table> -->
-
+ 
 
     
     <el-table :loading="loading"   :data="tableDataList" stripe="stripe">
@@ -1369,7 +1371,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
       <el-form-item label="Dashboard" prop="dashboard_id" >
         <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" :onChange="handleFilterSections">
-          <el-option v-for="item in DashBoardOptions" :key="item.value" :label="item.label" :value="item.value" />
+          <el-option v-for="item in dashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>  
 
@@ -1394,7 +1396,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
        <el-form-item label="Entity" v-if="showStatusExtras" prop="card_model">
         <el-select
 v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags  :onChange="handleSelectModel"
-          placeholder="Select Entity to summarize">
+          placeholder="Select Entity to summarize" style="width: 100%;">
           <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
@@ -1508,8 +1510,8 @@ v-model="ruleForm.filter_value" :onClear="handleClear"  multiple collapse-tags
 
               <el-row  >
 
-            <!-- fOR STATUS DASHBAORD ONLU  -->
-               <el-form-item label="Filter xFunction" prop="filter_function" v-if="ruleForm.filtered && showStatusExtras "  >
+            <!-- FOR STATUS DASHBAORD ONLU  -->
+               <el-form-item label="Filter Function" prop="filter_function" v-if="ruleForm.filtered && showStatusExtras "  >
               <el-select
                   v-model="ruleForm.filter_function" 
                   :onClear="handleClear" 
@@ -1540,11 +1542,7 @@ v-model="ruleForm.filter_value" :onClear="handleClear"  multiple collapse-tags
               </el-row>
 
 
-
-
-
-
-    
+ 
 
 
           <el-form-item label="Aggregation" prop="aggregation">

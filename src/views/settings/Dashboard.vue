@@ -22,7 +22,7 @@ import {
 
 import { ref, reactive } from 'vue'
 import {
-  ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,ElCol,ElRow,
+  ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,ElCol,ElRow,ElCheckbox,
   ElDatePicker, ElPopconfirm,ElSwitch
 } from 'element-plus'
 import { useRouter,useRoute } from 'vue-router'
@@ -479,7 +479,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
 }
 
 
-
+const infoDialog=ref(false)
 
 </script>
 
@@ -487,13 +487,13 @@ const editForm = async (formEl: FormInstance | undefined) => {
   <ContentWrap :title="t('Programmes/Projects')" :message="t('Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
-    <div style="display: inline-block; margin-left: 20px">
+    <!-- <div style="display: inline-block; margin-left: 20px">
       <el-select
 v-model="value3"   :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search Programme">
         <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
-    </div>
+    </div> -->
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleDownload" type="primary" :icon="Download" />
     </div>
@@ -547,6 +547,9 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
           placeholder="Select Type of dashboard">
           <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
+
+        <el-button  plain style="margin-left: 5px"  :icon="InfoFilled" @click="infoDialog = true"/>
+  
       </el-form-item>
       <el-row>
 
@@ -558,15 +561,29 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
 
 
     <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
-      <el-form-item label="Public" prop="public" v-if="showSuperAdminButtons" >
-        <el-switch v-model="ruleForm.public" />
+      <el-form-item  prop="public" v-if="showSuperAdminButtons" >
+         <el-checkbox v-model="ruleForm.public" label="Public" />
       </el-form-item>
     </el-col>
       </el-row>
       
 
       <el-form-item label="Icon" prop="icon">
-        <el-input v-model="ruleForm.icon" />
+        <el-tooltip class="item" effect="dark" placement="top">
+          <template #content>
+            <div>
+              <p>Get Icons from <a href="https://iconify.design/" target="_blank">https://iconify.design/</a></p>
+            </div>
+          </template>
+          <el-input v-model="ruleForm.icon" />
+        </el-tooltip>
+        <a
+          v-if="ruleForm.icon"
+          :href="'https://icnoffydesign.com/icons/' + ruleForm.icon"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+        </a>
       </el-form-item>
 
       <el-form-item label="Description" prop="description">
@@ -582,4 +599,69 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
       </span>
     </template>
   </el-dialog>
+
+
+
+  <el-dialog
+    v-model="infoDialog"
+     width="40%"
+  >
+    <div class="info-dialog-content">
+      <div class="info-dialog-section">
+        <h4  class="info-heading">Status Dashboard:</h4>
+        <p>
+          A dashboard that draws data from the entities within the system. It allows configurations of summaries related to settlements, facilities, etc.
+        </p>
+      </div>
+      <div class="info-dialog-section">
+        <h4 class="info-heading"> Interventions Dashboard:</h4>
+        <p>
+          A dashboard that draws data exclusively from slum interventions such as construction of infrastructure, issuance of titles, and more. The dashboard draws data from the indicator reports (output and outcomes).
+        </p>
+      </div>
+
+      <div class="info-dialog-section">
+        <h4  class="info-heading">Public Dashboard:</h4>
+        <p>
+          A dashboard  that is accessible to everyone with access to the system, else exclusive to the creator.
+        </p>
+      </div>
+
+      <div class="info-dialog-section">
+        <h4  class="info-heading">Main Dashboard:</h4>
+        <p>
+          The Default dashboard. There can only be on such dashboard.
+        </p>
+      </div>
+
+
+    </div>
+  </el-dialog>
+
+
 </template>
+
+<style scoped>
+.info-dialog-content {
+  padding: 5px;
+}
+
+.info-dialog-section {
+  margin-bottom: 5px;
+}
+
+.info-dialog-section h4 {
+  font-size: 1.2em;
+  margin-bottom: 10px;
+}
+
+.info-dialog-section p {
+  line-height: 1.5;
+}
+
+.info-heading {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+</style>

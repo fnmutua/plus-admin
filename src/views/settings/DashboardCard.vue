@@ -1058,11 +1058,24 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
        <el-row>
         <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
-            <el-form-item label="Icon"  prop="icon">
-              <el-tooltip content="Get icons from https://icon-sets.iconify.design/" placement="top">
+        
+          <el-form-item label="Icon" prop="icon">
+            <el-tooltip class="item" effect="dark" placement="top">
+              <template #content>
+                <div>
+                  <p>Get Icons from <a href="https://iconify.design/" target="_blank">https://iconify.design/</a></p>
+                </div>
+              </template>
               <el-input v-model="ruleForm.icon" />
             </el-tooltip>
-            </el-form-item>
+            <a
+              v-if="ruleForm.icon"
+              :href="'https://icnoffydesign.com/icons/' + ruleForm.icon"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+            </a>
+          </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
       <el-form-item label="Icon Color" prop="iconColor">
@@ -1071,18 +1084,22 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       </el-col>
 
       </el-row>
-
-      <el-form-item label="Indicator" v-if="!showStatusExtras"  prop="indicator_id">
+      <el-row :gutter="0">
+      <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+      <el-form-item label="Indicator" v-if="!showStatusExtras"  prop="indicator_id" >
         <el-select
+style="width: 100%"
 v-model="ruleForm.indicator_id" :onClear="handleClear"    clearable
         filterable collapse-tags placeholder="Filter by Project/Indicator">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
        </el-form-item>
+      </el-col>
+    </el-row>
       <el-row :gutter="0">
             
 
-      <el-col :xs="10" :sm="24" :md="10" :lg="10" :xl="10">
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
             <el-form-item label="Aggregation"   v-if="!showStatusExtras" prop="aggregation" >
             <el-select size="default" v-model="ruleForm.aggregation" :onClear="handleClear" style="width: 90%" clearable filterable collapse-tags placeholder="Select">
               <el-option v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
