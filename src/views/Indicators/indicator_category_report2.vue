@@ -1602,12 +1602,18 @@ function isGeomNull(geom) {
   return geom === null;
 }
 
-
+function formatDate(dateString) {
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
 
 </script>
 
 <template>
-  <ContentWrap :title="t('Monitoring and Evaluation Outcomes Reports(All)')" :message="t('Use the filters to subset')">
+  <ContentWrap :title="t('Monitoring and Evaluation Impact Reports(All)')" :message="t('Use the filters to subset')">
 
 
 
@@ -1663,7 +1669,14 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
       <el-table-column label="#" width="80" prop="id" sortable />
 
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
-      <el-table-column label="Settlement" prop="settlement.name" sortable />
+
+      <el-table-column label="Date" prop="date" sortable>
+      <template #default="scope">
+        {{ formatDate(scope.row.date) }}
+      </template>
+    </el-table-column>
+ 
+
       <!-- <el-table-column label="County" prop="county.name" sortable /> -->
       <!-- <el-table-column label="Unit" prop="indicator_category.indicator.unit" sortable /> -->
       <el-table-column label="Category" prop="indicator_category.category_title" sortable />

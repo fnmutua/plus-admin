@@ -977,7 +977,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           component: () => import('@/views/Indicators/indicator_category_report3.vue'),
           name: 'OutcomeEvaluationNew',
             meta: {
-              title: 'Outcomes(New)',
+              title: 'Impacts(New)',
               icon:'carbon:result-new',
             }
           },
@@ -987,7 +987,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           component: () => import('@/views/Indicators/indicator_category_report2.vue'),
           name: 'OutcomeEvaluation',
             meta: {
-              title: 'Outcomes',
+              title: 'Impacts',
               icon:'mdi:file-document-plus',
             }
           },

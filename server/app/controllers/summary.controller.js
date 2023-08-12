@@ -651,13 +651,23 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
         formattedField = sequelize.literal(`TO_CHAR("indicator_category_report"."createdAt", 'YYYY-MM-DD')`);
         //formattedField = sequelize.fn('date_trunc', 'day', sequelize.col('indicator_category_report.createdAt'));
 
-      } else {
+      } else if(field === "indicator_category_report.date")  {
+
+        formattedField = sequelize.literal(`TO_CHAR("indicator_category_report"."date", 'YYYY-MM-DD')`);
+
+      }
+      
+      else {
         // Escape and quote the field name to respect capitalization
         formattedField = field
       }
   
       groupfields.push(formattedField);
     }
+
+    
+
+
   }
   
   
