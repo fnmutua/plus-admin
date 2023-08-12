@@ -568,6 +568,8 @@ const ruleFormRef = ref<FormInstance>()
   cumDisbursement: 0,
   cumProgress: 0,
   cumAmount: 0,
+  prevAmount:0,
+
   comments: '',
   units: 'Quantity',
   cumUnits: 'Cumulative(qty)'
@@ -1170,40 +1172,7 @@ function handleExpand(row) {
 
 const report = ref({})
 
-const xeditIndicator = (data: TableSlotDefault) => {
-  showSubmitBtn.value = false
-  showEditSaveButton.value = true
-  console.log('review',data)
-
-  ruleForm.id = data.row.id
-  ruleForm.county_id = data.row.county_id
-  ruleForm.subcounty_id = data.row.subcounty_id
-  ruleForm.settlement_id = data.row.settlement_id
-  ruleForm.date = data.row.date
-  ruleForm.amount = parseInt(data.row.amount)
-  ruleForm.indicator_category_id = data.row.indicator_category_id
-  ruleForm.location = [data.row.county_id]
-  if (data.row.settlement_id) {
-    ruleForm.location.push(data.row.settlement_id)
-  }
-  ruleForm.code = data.row.code
-  ruleForm.ward_id = data.row.ward_id
-
-  formHeader.value = 'Review Report'
-
-  // make the descriptions dataset 
-  report.value.county =  data.row.county? data.row.county.name :''
-  report.value.indicator = data.row.indicator_category.indicator_name
-  report.value.status = data.row.status
-  report.value.date = data.row.date
-  report.value.amount = data.row.amount
-
-
-
-  console.log(' ruleForm.location', ruleForm.location)
-
-  ReviewDialog.value = true
-}
+ 
 
 const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
@@ -1213,11 +1182,15 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.id = data.row.id
   ruleForm.county_id = data.row.county_id
   ruleForm.subcounty_id = data.row.subcounty_id
+  ruleForm.ward_id = data.row.ward_id
 
   ruleForm.settlement_id = data.row.settlement_id
   ruleForm.project_id = data.row.project_id
   ruleForm.activity_id = data.row.activity_id
-
+  ruleForm.cumProgress = data.row.cumProgress
+  ruleForm.prevAmount = data.row.prevAmount
+  ruleForm.cumAmount = data.row.cumAmount
+ 
 
   ruleForm.date = data.row.date
   ruleForm.amount = data.row.amount
@@ -1231,19 +1204,10 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.project_status = data.row.project_status
   ruleForm.disbursement = data.row.disbursement
   ruleForm.comments = data.row.comments
-
-  // Nullify Cumulatives every time theres an edit to avoid multiple editign duplciations
-  ruleForm.cumDisbursement = 0
-  // ruleForm.cumProgress = 0
-  ruleForm.cumAmount = 0
-
+ 
   formHeader.value = 'Edit Report'
   fileUploadList.value = data.row.documents
-
-  ruleForm.location = [data.row.county_id]
-  if (data.row.settlement_id) {
-    ruleForm.location.push(data.row.settlement_id)
-  }
+ 
   
 
   formHeader.value = 'Review Report'
