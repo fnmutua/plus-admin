@@ -577,7 +577,10 @@ const editIndicator = (data: TableSlotDefault) => {
 // Funtions to populate lookups 
   
   handleFilterFunction(data.row.filter_function)
-  handleSelectModel(data.row.card_model) 
+  if (data.row.card_model) {
+    handleSelectModel(data.row.card_model)  
+  }
+
 
   if(data.row.filter_field) {
     // Get filter values only if the previous chart verison had fulters on
