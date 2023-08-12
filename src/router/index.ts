@@ -864,6 +864,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'M&E',
       icon: 'uis:graph-bar',
+      role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+
       alwaysShow: false
     },
     children: [
