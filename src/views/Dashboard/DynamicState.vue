@@ -1739,11 +1739,11 @@ const formatNumber =   (value) => {
 </script>
 
 <template>
-  <el-select :style="{ width: '25% ', marginRight: '10px' }"   @change="filterCounty"   :onClear="handleClear"  v-model="selectCounty"  multiple clearable filterable collapse-tags placeholder="Select County">
+  <el-select :style="{ width: '25% ', marginRight: '10px' }"   @change="filterCounty"   :onClear="handleClear"  v-model="selectCounty"    clearable filterable collapse-tags placeholder="Select County">
     <el-option v-for="item in countyList" :key="item.value" :label="item.label" :value="item.value" />
   </el-select>
 
-  <el-select :style="{ width: '25% ' }"  @change="filterSubCounty"  :onClear="handleClear"  v-model="selectSubCounty" clearable multiple filterable collapse-tags placeholder="Select Constituency">
+  <el-select :style="{ width: '25% ' }"  @change="filterSubCounty"  :onClear="handleClear"  v-model="selectSubCounty" clearable   filterable collapse-tags placeholder="Select Constituency">
     <el-option v-for="item in filteredSubCountyList" :key="item.value" :label="item.label" :value="item.value" />
   </el-select>
 

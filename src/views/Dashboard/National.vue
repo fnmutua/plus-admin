@@ -263,17 +263,28 @@ const getSummary = async (card) => {
 
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
-    filterFields.push('county_id')
-    filterValues.push([selectedCounties.value])
-    filterOperator.push(['eq'])
+    filterValues.push(selectedCounties.value)
+
+    for (let i = 0; i < selectedCounties.value.length; i++) { 
+      filterFields.push('county_id')
+      filterOperator.push(['eq'])
+    }
   }
 
   else if (filterLevel.value === 'subcounty') { 
     // filter by subcounty 
     associated_Models.push('ward')
-    filterFields.push('subcounty_id')
-    filterValues.push([selectedSubCounties.value])
-   }
+    //filterFields.push('subcounty_id')
+    filterValues.push(selectedSubCounties.value)
+    for (let i = 0; i < selectedSubCounties.value.length; i++) { 
+      filterFields.push('subcounty_id')
+      filterOperator.push(['eq'])
+    }
+
+  }
+   
+
+
   else if (filterLevel.value === 'national') {
     associated_Models.push('county')
 
@@ -461,21 +472,34 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
     groupFields.push(cmodel + '.createdAt')
 
   }
+ 
 
-
+  
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
-    filterFields.push('county_id')
-    filterValues.push([selectedCounties.value])
+    filterValues.push(selectedCounties.value)
+    for (let i = 0; i < selectedCounties.value.length; i++) { 
+      filterFields.push('county_id')
+    }
     groupFields.push('subcounty.name')
+
   }
+
+
   else if (filterLevel.value === 'subcounty') { 
     // filter by subcounty 
     associated_Models.push('ward')
-    filterFields.push('subcounty_id')
-    filterValues.push([selectedSubCounties.value])
+    filterValues.push(selectedSubCounties.value)
+
+    for (let i = 0; i < selectedSubCounties.value.length; i++) { 
+      filterFields.push('subcounty_id')
+    }
     groupFields.push('ward.name')
   }
+
+
+
+
   else if (filterLevel.value === 'national') {
     associated_Models.push('county')
     groupFields.push('county.name')

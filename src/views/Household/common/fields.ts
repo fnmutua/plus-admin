@@ -18,12 +18,14 @@ const steps = [
   { title: "Services" },
 ];
 
+
 interface Field {
   name: string;
   label: string;
   type: string;
   multiselect: string; // Use boolean type instead of string
   options: Array<any>; // Specify the array type of options
+  adminUnit: boolean;
 }
 
 interface FormRules {
@@ -116,13 +118,22 @@ const formFields: Field[][] = [
   // Fields for 1 Profile
 
   [
-    {
-      name: "location",
-      label: "Location",
-      type: "cascade",
-      multiselect: 'false',
-      options: cascadedAdminOptions.value,
-    },
+    // {
+    //   name: "location",
+    //   label: "Location",
+    //   type: "cascade",
+    //   multiselect: 'false',
+    //   options: cascadedAdminOptions.value,
+    // },
+
+    
+    { name: "county_id", label: "County", type: "select", multiselect: 'false', adminUnit: true, options: countyOptions.value },
+    { name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { name: "ward_id", label: "Ward", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { name: "settlement_id", label: "Settlement", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+
+
+
     { name: "name", label: "Name", type: "text", multiselect: 'false', options: [] },
     {
       name: "national_id",
@@ -1097,6 +1108,21 @@ const formRules: FormRules = reactive({
     ],
     owner_type: [
         { required: true, message: 'This is required', trigger: 'blur' }
+    ],
+
+    county_id: [
+      { required: true, message: 'County is required', trigger: 'blur' },
+       
+    ],
+    
+    subcounty_id: [
+      { required: true, message: 'Constituency is required', trigger: 'blur' },
+       
+    ],
+
+    ward_id: [
+      { required: true, message: 'Ward is required', trigger: 'blur' },
+       
     ],
   },
 
