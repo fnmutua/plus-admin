@@ -136,8 +136,8 @@ var tblData = []
 
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document','settlement', 'county']
-const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
+const associated_multiple_models = ['document','settlement', 'county', 'users','project']
+const nested_models = ['indicator_category', 'indicator'  ] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
 
@@ -1217,6 +1217,8 @@ report.value.indicator = data.row.indicator_category.indicator_name
 report.value.status = data.row.status
 report.value.date = data.row.date
 report.value.amount = data.row.amount
+report.value.user = data.row.user.name
+report.value.project = data.row.project.title
 
 
 
@@ -1486,10 +1488,12 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
   <el-dialog v-model="ReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
 
 <el-descriptions title="" direction="vertical" :column="2" size="small" border>
+  <el-descriptions-item label="Project">{{ report.project }}</el-descriptions-item>
   <el-descriptions-item label="Location">{{ report.county }}</el-descriptions-item>
   <el-descriptions-item label="Indicator" :span="2">{{ report.indicator }}</el-descriptions-item>
   <el-descriptions-item label="Amount">{{ report.amount }}</el-descriptions-item>
   <el-descriptions-item label="Date"> {{ report.date }} </el-descriptions-item>
+  <el-descriptions-item label="Submitted By"> {{ report.user }} </el-descriptions-item>
 </el-descriptions>
 
 
