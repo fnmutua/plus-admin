@@ -363,6 +363,7 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   var chartType = thisChart.type
   var categorizedField =thisChart.categorized
   var unique = thisChart.unique?thisChart.unique:false 
+  var ignoreEmpty = thisChart.ignore_empty?thisChart.ignore_empty:false
 
   console.log('unique',unique)
 
@@ -451,6 +452,7 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
   // added for unique couts 
   formData.uniqueCounts =unique
+  formData.ignoreEmpty = ignoreEmpty
 
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);

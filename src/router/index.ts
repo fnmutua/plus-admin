@@ -877,6 +877,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'IdnicatorConfig',
         meta: {
           icon: 'icon-park-solid:dashboard-car',
+          role: ['admin', 'super_admin' ,'staff'  ] ,
+
           title: 'Framework'
         },
         children: [
@@ -934,6 +936,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'NewReports',
             meta: {
               title: 'Outputs(New)',
+              role: ['admin', 'super_admin' ,'staff'  ] ,
+
               icon:'carbon:result-new',
             }
           },
@@ -969,6 +973,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'Evaluation',
         meta: {
           icon: 'ph:exam-fill',
+
           title: 'Evaluation'
         },
         children: [
@@ -980,6 +985,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           name: 'OutcomeEvaluationNew',
             meta: {
               title: 'Impacts(New)',
+              role: ['admin', 'super_admin' ,'staff'  ] ,
+
               icon:'carbon:result-new',
             }
           },
@@ -1002,6 +1009,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'All',
             meta: {
               title: 'Evaluations',
+              role: ['admin', 'super_admin' ,'staff'  ] ,
+
               icon:'solar:list-check-bold',
             }
           },
@@ -1012,7 +1021,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'AddEvaluation',
             meta: {
               title: 'Add Evaluation',
-              hidden:true,
+              hidden: true,
+              role: ['admin', 'super_admin' ,'staff'  ] ,
+
               icon:'mdi:file-document-plus',
             }
           },
