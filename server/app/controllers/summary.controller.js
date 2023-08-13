@@ -611,12 +611,14 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   let operator = req.body.filterOperator?req.body.filterOperator:[];
   let unique_counts = req.body.uniqueCounts?req.body.uniqueCounts:false;
   let operators = [] // to be used to check for unik results
+  let ignoreEmpty = req.body.ignoreEmpty !== undefined ? req.body.ignoreEmpty : false;
 
   
   
  // -------------------------------------------------------------------------------
 // if (req.body.model == 'settlement') {
   console.log('---------------------Sum unique_counts-----4---',req.body.model,  unique_counts ,'-------------------------------------')
+  console.log('Ignore Null Records.....',ignoreEmpty )
 
 //}
 
@@ -735,6 +737,33 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
   }
 
  
+
+  const operatorMappings = {
+    eq: op.eq,
+    gt: op.gt,
+    gte: op.gte,
+    lt: op.lt,
+    lte: op.lte, // Added lte mapping
+    or: op.or, // Added lte mapping
+     notEmpty: op.not, // Added lte mapping
+
+    // Add more operator mappings as needed
+  };
+
+  const filterConditions = [];
+
+// if ignoring empty is enabled
+
+const inputString = summaryField;
+const parts = inputString.split('.');
+//console.log(parts);  
+
+
+if (ignoreEmpty) {
+  filterConditions.push({ [parts[1]]: { [operatorMappings['notEmpty']]: null } });
+
+  }
+  console.log('filterConditions',filterConditions )
  
 if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
   let filterCols = req.body.filterField;
@@ -747,18 +776,10 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     filterOperators = [filterOperators];
   }
 
-  const operatorMappings = {
-    eq: op.eq,
-    gt: op.gt,
-    gte: op.gte,
-    lt: op.lt,
-    lte: op.lte, // Added lte mapping
-    or: op.or, // Added lte mapping
+ 
 
-    // Add more operator mappings as needed
-  };
 
-  const filterConditions = [];
+ 
   console.log('-----------------------------x--------------------------------',req.body.filterField)
 
   for (let i = 0; i < filterCols.length; i++) {
@@ -805,13 +826,14 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
     }
     
 
+
+ 
     
    
   }
 
-  if (filterConditions.length > 0) {
-    qry.where = { [op.and]: filterConditions };
-  }
+
+ 
   }
   
  
@@ -824,7 +846,9 @@ if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && re
   //   console.log("The array does not contain the string.");
   // }
 
-  
+  if (filterConditions.length > 0) {
+    qry.where = { [op.and]: filterConditions };
+  }
 
   // if (operator === "all") {
   //   // No filters, retrieve all records

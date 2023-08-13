@@ -735,6 +735,7 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories,thisChart) 
   var chartType = thisChart.type
   var categorizedField =thisChart.categorized
   var unique = thisChart.unique?thisChart.unique:false 
+  var ignoreEmpty = thisChart.ignore_empty?thisChart.ignore_empty:false
 
   console.log('unique',unique)
 
@@ -825,6 +826,7 @@ const getSummaryMultipleParentsGrouped = async (indicator_categories,thisChart) 
 
   // added for unique couts 
   formData.uniqueCounts = unique
+  formData.ignoreEmpty = ignoreEmpty
 
   console.log('form-Data',formData)
 

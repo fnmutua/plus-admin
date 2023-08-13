@@ -464,7 +464,7 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   var chartType = thisChart.type
   var categorizedField =thisChart.categorized
   var unique = thisChart.unique?thisChart.unique:false 
-
+  var ignoreEmpty = thisChart.ignore_empty?thisChart.ignore_empty:false
   console.log('unique',unique)
 
   // thisChart.card_model,thisChart.card_model_field,thisChart.aggregation,  thisChart.type);
@@ -552,6 +552,8 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
   // added for unique couts 
   formData.uniqueCounts = unique
+  formData.ignoreEmpty = ignoreEmpty
+  
 
   console.log('form-2-Data',formData)
 

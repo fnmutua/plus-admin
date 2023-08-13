@@ -22,7 +22,7 @@ import {
 
 import { ref, reactive } from 'vue'
 import {
-  ElPagination, ElTooltip, ElOption, ElDivider,ElSwitch,ElTable,ElTableColumn,
+  ElPagination, ElTooltip, ElOption, ElDivider,ElSwitch,ElTable,ElTableColumn,ElRow,ElCol,
   ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElCheckbox, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -467,6 +467,7 @@ const editIndicator = (data: TableSlotDefault) => {
 
   ruleForm.filter_function = data.row.filter_function
   ruleForm.filter_option = data.row.filter_option
+  ruleForm.ignore_empty = data.row.ignore_empty
 
 
   value4.value =  data.row.dashboard_section.dashboard.id
@@ -643,6 +644,7 @@ const ruleForm = reactive({
   filter_option:'',
   filtered:false,
   filter_field:'',
+  ignore_empty:true
 
 
 })
@@ -702,6 +704,14 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
+
+      if (isInterventionsDashboard.value) {
+        console.log('add interventions')
+        ruleForm.card_model='indicator_category_report'
+        ruleForm.card_model_field='amount'
+      }
+      
+
       const res = CreateRecord(ruleForm)
 
     } else {
@@ -779,8 +789,8 @@ getDashSectionOptions()
 getIndicatorCategories()
 
 
-
-const handleFilterSections = async (dashboard_id) => {
+const isInterventionsDashboard =ref(false)
+const handleFilterDashboards = async (dashboard_id) => {
   console.log('filtreing teh aggregators.....', dashboard_id)
   let selDashboard = dashboardOptions.value.filter(item => item.value == dashboard_id);
 
@@ -789,7 +799,9 @@ console.log('selDashboard',selDashboard[0].type)
   if (selDashboard[0].type === 'status') {  // status dashabords
 showStatusExtras.value=true
   } else {
-    showStatusExtras.value=false
+    showStatusExtras.value = false
+    isInterventionsDashboard.value=true
+    
 
   }
     
@@ -1262,7 +1274,7 @@ console.log('IsMobile', isMobile)
     
     <div style="display: inline-block; margin-left: 20px">
       <el-select
-v-model="value5" :onChange="handleFilterSections" :onClear="handleClear" multiple clearable filterable
+v-model="value5" :onChange="handleFilterDashboards" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search Dashboard">
         <el-option v-for="item in dashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -1370,7 +1382,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
 
       <el-form-item label="Dashboard" prop="dashboard_id" >
-        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" :onChange="handleFilterSections">
+        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" :onChange="handleFilterDashboards">
           <el-option v-for="item in dashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>  
@@ -1401,15 +1413,19 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
         </el-select>
       </el-form-item>
 
+ 
+ 
+          <el-form-item label="Chart Type"  prop="type">
+            <el-select
+style="width: 100%;"
+          v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags :onChange="handleSelectChart"
+              placeholder="Select Type of Chart">
+              <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>      
+          </el-form-item>
+          
 
-      
-      <el-form-item label="Chart Type"  prop="type">
-        <el-select
-v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags :onChange="handleSelectChart"
-          placeholder="Select Type of Chart">
-          <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
+          
 
 
        
@@ -1421,15 +1437,21 @@ v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable 
         </el-select>
       </el-form-item>
 
+  
+
       <el-form-item  v-if="showStatusExtras && !hideCategorize" prop="categorized">
         <el-checkbox v-model="ruleForm.categorized"  >Categorized  by selected field</el-checkbox>
 
       </el-form-item>
 
       <el-form-item label="Indicators" v-if="!showStatusExtras" prop="indicator_id">
-            <el-select v-model="ruleForm.indicator_id" filterable multiple placeholder="Select" style="width: 100%;">
+            <el-select v-model="ruleForm.indicator_id" filterable multiple placeholder="Select" collapse-tags style="width: 100%;">
               <el-option v-for="item in IndicatorCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
+          </el-form-item>
+    
+          <el-form-item  prop="ignore_empty">
+            <el-checkbox v-model="ruleForm.ignore_empty" label="Ignore records with missing data" />
           </el-form-item>
 
       <el-row>

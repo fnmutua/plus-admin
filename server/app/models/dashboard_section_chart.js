@@ -73,6 +73,13 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: true
     },
+         
+    ignore_empty: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true
+    },
+
+
 
  
     code: {
