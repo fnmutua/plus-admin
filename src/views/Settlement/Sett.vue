@@ -11,7 +11,7 @@ import {
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElOptionGroup, ElStep, ElSteps, ElCheckbox,ElCheckboxGroup, ElCheckboxButton
 } from 'element-plus'
 import { ElMessage, } from 'element-plus'
-import { Position, View, Plus, User, Download, Briefcase, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Loading } from '@element-plus/icons-vue'
+import { Position, View, Finished, Plus, User, Download, Briefcase, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Loading } from '@element-plus/icons-vue'
 
 import { ref, reactive, h, toRef, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
@@ -536,7 +536,7 @@ const getNewOrRejectedSettlements = async (tab) => {
 }
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   for (let key in obj) {
-    if (key !== 'geom' && key !== 'id' && key !== 'createdAt'&& key !== 'updatedAt'&& key !== 'email'&& key !== 'phone'&& key !== 'isApproved' && key !== 'createdBy' && key !== 'isActive' && key !== 'documents'&& key !== 'user' && key !== 'code' ) {
+    if (key !== 'geom' && key !== 'id' && key !== 'createdAt'&& key !== 'updatedAt'&& key !== 'email'&& key !== 'phone'&& key !== 'isApproved' && key !== 'createdBy' && key !== 'isActive' && key !== 'documents'&& key !== 'user'   ) {
       if ((typeof obj[key] !== 'object' || obj[key] === null) && key !== 'id' ) {
         res[extraKey + key] = obj[key];
       } else if (Array.isArray(obj[key]) ) {
@@ -551,6 +551,7 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
+ 
 
 const model_fields = ref([])
 const flattenedData = ref([])
@@ -1285,6 +1286,45 @@ const DownloadXlsx = async () => {
 
  } 
 
+ const DownloadAllXlsx = async () => {
+  
+  flattenedData.value=[]
+
+ await getListWithoutGeo({
+    params: {
+   //   pageIndex: 1,
+    //  limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'settlement',
+      associated_multiple_models:['county', 'subcounty', 'ward'],
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    // console.log('Received response:', response)
+    //tableDataList.value = response.data
+           
+          response.data.forEach(function (arrayItem) {
+          var dd = flattenJSON(arrayItem)
+
+          flattenedData.value.push(dd)
+          console.log(dd)
+        })
+
+   
+  })
+  
+ 
+ 
+
+   showSelectFields.value = true
+
+ } 
+
+
+
+
 
 const handleDownloadSelectFields = async () => {
    console.log('selectedFields ---', selectedFields.value)
@@ -1812,6 +1852,12 @@ v-model="search_string" :suffix-icon="Search" placeholder="Enter search text"
           <div style="display: inline-block; margin-left: 5px">
             <el-tooltip content="Download" placement="top">
               <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+            </el-tooltip>
+          </div>
+
+          <div style="display: inline-block; margin-left: 5px">
+            <el-tooltip content="Download All" placement="top">
+              <el-button :onClick="DownloadAllXlsx" type="primary" :icon="Finished" />
             </el-tooltip>
           </div>
         </div>
