@@ -539,7 +539,7 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
     if (key !== 'geom' && key !== 'id' && key !== 'createdAt'&& key !== 'updatedAt'&& key !== 'email'&& key !== 'phone'&& key !== 'isApproved' && key !== 'createdBy' && key !== 'isActive' && key !== 'documents'&& key !== 'user'   ) {
       if ((typeof obj[key] !== 'object' || obj[key] === null) && key !== 'id' ) {
         res[extraKey + key] = obj[key];
-      } else if (Array.isArray(obj[key]) ) {
+      } else if (Array.isArray(obj[key]) ) { 
         obj[key].forEach((item, index) => {
           flattenJSON(item, res, `${extraKey}${key}.${index}.`);
         });
