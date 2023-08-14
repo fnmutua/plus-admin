@@ -529,7 +529,7 @@ const getNewOrRejectedSettlements = async (tab) => {
    model_fields.value  = Object.keys(obj);
 
    
-  }
+  } 
 
  
 
