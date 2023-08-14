@@ -406,6 +406,7 @@ exports.modelAllDataNoGeo = (req, res) => {
   var ass_model = db.models[req.query.assocModel];
 
   var nestedModels = req.query.nested_models; // Comma-separated list of nested models
+  var associated_multiple_models = req.query.associated_multiple_models; // Comma-separated list of nested models
    var includeQuery = {};
   var modelsToInclude = [];
 
@@ -417,8 +418,30 @@ exports.modelAllDataNoGeo = (req, res) => {
     modelsToInclude.push(assocModelObject);
   }
 
+// multiple associated models 
+ 
 
-  if (nestedModels && nestedModels !== '') {
+if (associated_multiple_models && associated_multiple_models !== '') {
+  var modelList = associated_multiple_models.split(',');
+  modelList.forEach((assModel) => {
+    var assModelObject = {
+      model: db.models[assModel],
+      attributes: { exclude: ['geom'] }
+    };
+   // modelsToInclude.push(assModelObject);
+   
+    if (!modelsToInclude.some((model) => model.model === assModelObject.model)) {
+      modelsToInclude.push(assModelObject);
+    }
+
+  });
+}
+
+  
+  
+  
+
+  if (nestedModels && nestedModels !== '' ) {
     var nestedModelList = nestedModels.split(',');
 
     nestedModelList.forEach((nestedModel) => {
@@ -440,6 +463,10 @@ exports.modelAllDataNoGeo = (req, res) => {
     includeQuery.include = [modelsToInclude[0]];
   } else {
     console.log('No Nested Models');
+
+    includeQuery.include = modelsToInclude;
+
+    
   }
 
   includeQuery.attributes = { exclude: ['geom'] };
