@@ -196,20 +196,20 @@ const formRules: FormRules = reactive({
     ],
  
     
-    county_id: [
-      { required: true, message: 'County is required', trigger: 'blur' },
+    // county_id: [
+    //   { required: true, message: 'County is required', trigger: 'blur' },
        
-    ],
+    // ],
     
-    subcounty_id: [
-      { required: true, message: 'Constituency is required', trigger: 'blur' },
+    // subcounty_id: [
+    //   { required: true, message: 'Constituency is required', trigger: 'blur' },
        
-    ],
+    // ],
 
-    ward_id: [
-      { required: true, message: 'Ward is required', trigger: 'blur' },
+    // ward_id: [
+    //   { required: true, message: 'Ward is required', trigger: 'blur' },
        
-    ],
+    // ],
 
   },
 

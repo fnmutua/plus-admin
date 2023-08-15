@@ -2291,7 +2291,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
     <el-tabs @tab-click="onClickTab" v-model="activeName" type="border-card">
       <el-tab-pane label="Interventions" name="list">
         <el-table
-:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+:data="tableDataList" style="width: 100%; margin-top: 10px;" border  table-layout="fixed"  fit :row-class-name="tableRowClassName"
           @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
@@ -2301,7 +2301,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                   <el-tab-pane :label="locationLabel" name="Location">
 
                     <div>
-                      <el-table :data="projectLocations" style="width: 100%">
+                      <el-table :data="projectLocations" style="width: 100%" >
                         <el-table-column prop="id" label="id" />
                         <el-table-column prop="name" label="Location" />
  
@@ -2337,7 +2337,7 @@ style="margin-left: 10px; margin-top: 5px" size="small" v-if="showEditButtons"
             </template>
           </el-table-column>
 
-          <el-table-column label="Title" prop="title" width="200" sortable />
+          <el-table-column label="Title" prop="title" width="450" sortable />
           <!-- <el-table-column label="Settlement" prop="settlement.name" sortable /> -->
           <el-table-column label="Pogramme" prop="programme.acronym" sortable />
           <el-table-column label="Status" prop="status" sortable />
