@@ -24,6 +24,7 @@ interface Field {
   // max: number;
   multiselect: string; // Use boolean type instead of string
   adminUnit: boolean;
+  level: string;
   options: Array<any>; // Specify the array type of options
 }
 
@@ -72,7 +73,12 @@ const statusOptions = [
     { label: 'Completed', value: 'Completed' },
 ]  
 
-
+const levelOptions = [
+  { label: 'County', value: 'county' },
+  { label: 'Constituency', value: 'subcounty' },
+  { label: 'Ward', value: 'ward' },
+  { label: 'Settlement', value: 'settlement' },
+]  
 
 
 
@@ -81,33 +87,34 @@ const formFields: Field[][] = [
   [
    
   
-    { name: "county_id", label: "County", type: "select", multiselect: 'false', adminUnit: true, options: countyOptions.value },
-    { name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', adminUnit: true, options: [] },
-    { name: "ward_id", label: "Ward", type: "select", multiselect: 'false', adminUnit: true, options: [] },
-    { name: "settlement_id", label: "Settlement", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { name: "level", label: "Implementation Level", type: "select",level:'all', multiselect: 'false', adminUnit: false, options: levelOptions },
+    { name: "county_id", label: "County", type: "select", level:'county', multiselect: 'true', adminUnit: true, options: countyOptions.value },
+    { name: "subcounty_id", label: "Constituency", type: "select", level:'subcounty',multiselect: 'false', adminUnit: true, options: [] },
+    { name: "ward_id", label: "Ward", type: "select", level:'ward', multiselect: 'false', adminUnit: true, options: [] },
+    { name: "settlement_id", label: "Settlement", type: "select", level:'settlement',multiselect: 'false', adminUnit: true, options: [] },
     
 
 
-     { name: "title", label: "Title", type: "text", multiselect: 'false', adminUnit: false,     options: [] },
-    { name: "project_code", label: "Project Code", type: "text", multiselect: 'false', adminUnit: false,      options: [] },
+     { name: "title", label: "Title", type: "text", level:'all', multiselect: 'false', adminUnit: false,     options: [] },
+    { name: "project_code", label: "Project Code", type: "text",level:'all', multiselect: 'false', adminUnit: false,      options: [] },
     {
-      name: "status", label: "Status", type: "select", multiselect: 'false', adminUnit: false,       options: statusOptions
+      name: "status", label: "Status", type: "select", level:'all',multiselect: 'false', adminUnit: false,       options: statusOptions
     },
 
-    {name: "implementation_id", label: "Delivery Unit", type: "select", multiselect: 'false', adminUnit: false,       options: implementationOptions.value },
+    {name: "implementation_id", label: "Delivery Unit", type: "select",level:'all', multiselect: 'false', adminUnit: false,       options: implementationOptions.value },
 
-    { name: "start_date", label: "Commencement Date", type: "date", multiselect: 'false', adminUnit: false,      options: [] },
-    { name: "end_date", label: "Completion Date", type: "date", multiselect: 'false',adminUnit: false,     options: [] },
-    { name: "cost", label: "Total Project Cost", min: "0", type: "number", multiselect: 'false',adminUnit: false,  options: [] },
-    {name: "sourceFunding", label: "Source of Funding", type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions },
-    { name: "male_beneficiaries", label: "Male Beneficiaries",  min:"0", type: "number", multiselect: 'false',adminUnit: false,     options: [] },
-    { name: "female_beneficiaries", label: "Female Beneficiaries",  min:"0", type: "number", multiselect: 'false',  adminUnit: false,     options: [] },
-    { name: "contractor", label: "Contractor/Implementer", type: "select", multiselect: 'false', adminUnit: false,options: contractorOptions.value },
+    { name: "start_date", label: "Commencement Date", type: "date", level:'all',multiselect: 'false', adminUnit: false,      options: [] },
+    { name: "end_date", label: "Completion Date", type: "date",level:'all', multiselect: 'false',adminUnit: false,     options: [] },
+    { name: "cost", label: "Total Project Cost", min: "0", level:'all',type: "number", multiselect: 'false',adminUnit: false,  options: [] },
+    {name: "sourceFunding", label: "Source of Funding", level:'all',type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions },
+    { name: "male_beneficiaries", label: "Male Beneficiaries", level:'all', min:"0", type: "number", multiselect: 'false',adminUnit: false,     options: [] },
+    { name: "female_beneficiaries", label: "Female Beneficiaries",level:'all',  min:"0", type: "number", multiselect: 'false',  adminUnit: false,     options: [] },
+    { name: "contractor", label: "Contractor/Implementer", level:'all',type: "select", multiselect: 'false', adminUnit: false,options: contractorOptions.value },
 
     
    
    
-    { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
+    { name: "activities", label: "Project Activities", type: "select",level:'all', multiselect: 'true', adminUnit: false,  options: activityOptions.value },
  
   
    
@@ -117,20 +124,20 @@ const formFields: Field[][] = [
  
 
 
-  [
-   // This is left empty for the  map 
-    {
-      name: "location_option", label: "Location Option", type: "select", multiselect: 'false',adminUnit: false, 
-      options: [
-        { label: 'Digitize', value: 'digitize' },
-        { label: 'Upload', value: 'upload' },
-      ]
-    },
-    {
-      name: "upload", label: "", type: "upload", visible: 'false',
-      options: [ ]
-    },
-  ],
+  // [
+  //  // This is left empty for the  map 
+  //   {
+  //     name: "location_option", label: "Location Option",level:'all', type: "select", multiselect: 'false',adminUnit: false, 
+  //     options: [
+  //       { label: 'Digitize', value: 'digitize' },
+  //       { label: 'Upload', value: 'upload' },
+  //     ]
+  //   },
+  //   {
+  //     name: "upload", label: "", type: "upload",level:'all', visible: 'false',
+  //     options: [ ]
+  //   },
+  // ],
    
 ];
 
@@ -138,6 +145,11 @@ const formData: FormData = reactive({});
 const formRules: FormRules = reactive({
   // Validation rules for each step
   step1: {
+
+    level: [
+      { required: true, message: 'Implementation Level is required', trigger: 'blur' }
+  ],
+
     title: [
         { required: true, message: 'Name is required', trigger: 'blur' }
     ],

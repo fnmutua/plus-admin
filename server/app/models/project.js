@@ -8,30 +8,11 @@ module.exports = function(sequelize, DataTypes) {
       primaryKey: true
     },
    
-
-    county_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-    subcounty_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-    ward_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-   
-    
-    settlement_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-    
+  
+    level: {
+      type: DataTypes.STRING,
+      allowNull: false,
+     },
 
 
     title: {
@@ -134,8 +115,6 @@ module.exports = function(sequelize, DataTypes) {
           { name: "start_date" },
           { name: "end_date" },
           { name: "component_id" },
-          { name: "geom" },
-          { name: "county_id" },
         ]
       },
      
