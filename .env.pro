@@ -23,7 +23,7 @@ VITE_OUT_DIR=dist-pro
 VITE_APP_TITLE=KeSMIS
 
 # Make sure to change here for production.
-# VITE_APP_HOST=https://kesmis.go.ke   
+VITE_APP_HOST=https://kesmis.go.ke   
 # AES_KEY='maluini'
 # VUE_APP_PORT=4000
 # VITE_APP_DB_PORT=5432
