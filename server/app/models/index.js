@@ -723,42 +723,8 @@ db.models.users.hasMany(db.models.indicator_category_report, {
   foreignKey: 'userId'
 })
 
-// Proejct   - settleemnt
-db.models.project.belongsTo(db.models.settlement, {
-  foreignKey: 'settlement_id'
-})
-
-db.models.settlement.hasMany(db.models.project, {
-  foreignKey: 'settlement_id'
-})
-
-// Proejct   - ward
-
-db.models.project.belongsTo(db.models.ward, {
-  foreignKey: 'ward_id'
-})
-
-db.models.ward.hasMany(db.models.project, {
-  foreignKey: 'ward_id'
-})
 
  
-db.models.project.belongsTo(db.models.county, {
-  foreignKey: 'county_id'
-})
-
-db.models.county.hasMany(db.models.project, {
-  foreignKey: 'county_id'
-})
-
-db.models.project.belongsTo(db.models.subcounty, {
-  foreignKey: 'subcounty_id'
-})
-
-db.models.subcounty.hasMany(db.models.project, {
-  foreignKey: 'subcounty_id'
-})
-
 
 
 // Public Facility   - settleemnt/county/subc
@@ -1007,7 +973,7 @@ db.models.county.hasMany(db.models.subcounty, {
 })
 
 
-//Project    - Activty 
+//Project - Activity 
 db.models.project.belongsToMany(db.models.activity, {
   through: 'project_activity',
   foreignKey: 'project_id',
@@ -1020,6 +986,71 @@ db.models.activity.belongsToMany(db.models.project, {
   onDelete: 'CASCADE',
   onUpdate: 'CASCADE'
 })
+
+
+// Project -  County 
+db.models.project.belongsToMany(db.models.county, {
+  through: 'project_county',
+  foreignKey: 'project_id',
+  otherKey: 'county_id'
+})
+db.models.county.belongsToMany(db.models.project, {
+  through: 'project_county',
+  foreignKey: 'county_id',
+  otherKey: 'project_id',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+})
+
+ 
+
+// Project -  SUbCounty 
+db.models.project.belongsToMany(db.models.subcounty, {
+  through: 'project_subcounty',
+  foreignKey: 'project_id',
+  otherKey: 'subcounty_id'
+})
+db.models.subcounty.belongsToMany(db.models.project, {
+  through: 'project_subcounty',
+  foreignKey: 'subcounty_id',
+  otherKey: 'project_id',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+})
+
+
+
+// Project -  Ward 
+db.models.project.belongsToMany(db.models.ward, {
+  through: 'project_ward',
+  foreignKey: 'project_id',
+  otherKey: 'ward_id'
+})
+db.models.ward.belongsToMany(db.models.project, {
+  through: 'project_ward',
+  foreignKey: 'ward_id',
+  otherKey: 'project_id',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+})
+
+ // Project -  Ward 
+db.models.project.belongsToMany(db.models.settlement, {
+  through: 'project_settlement',
+  foreignKey: 'project_id',
+  otherKey: 'settlement_id'
+})
+db.models.settlement.belongsToMany(db.models.project, {
+  through: 'project_settlement',
+  foreignKey: 'settlement_id',
+  otherKey: 'project_id',
+  onDelete: 'CASCADE',
+  onUpdate: 'CASCADE'
+})
+
+ 
+ 
+
 
 
 //Activty - INDICATOR
@@ -1035,6 +1066,28 @@ db.models.activity.hasMany(db.models.indicator, {
   onDelete: 'CASCADE',
   onUpdate: 'CASCADE'
 })
+
+
+
+// Project - Locations
+
+
+
+// const projectLocation = sequelize.define('projectLocation', {
+//   selfGranted: DataTypes.BOOLEAN
+// }, { timestamps: false });
+
+// User.belongsToMany(Profile, { through: projectLocation });
+// Profile.belongsToMany(User, { through: projectLocation });
+
+
+
+
+
+
+
+
+
 
 
 // Evaluation - Evaluation Types

@@ -102,7 +102,7 @@ var filterValues = [[1, 2, 3, 4, 5, 7]]  // make sure the inner array is array
 var tblData = []
 
 const associated_Model = ''
-const associated_multiple_models = ['settlement', 'programme', 'document']
+const associated_multiple_models = ['settlement', 'programme', 'document', 'county', 'subcounty', 'ward']
 
 const model = 'project'
 //// ------------------parameters -----------------------////
@@ -134,38 +134,7 @@ const formatter = (row) => {
 
 }
 
-const columns: TableColumn[] = [
-  {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
-  },
-
-  {
-    field: 'title',
-    label: t('Title')
-  },
-
-  {
-    field: 'programme.title',
-    label: t('Programme')
-  },
-  {
-    field: 'settlement.name',
-    label: t('Settlement')
-  },
-  {
-    field: 'documentation',
-    label: t('Documents'),
-    formatter: formatter
-  },
-  {
-    field: 'action',
-    width: "300",
-    fixed: "right",
-    label: 'Operations'
-  }
-]
+ 
 const handleClear = async () => {
   console.log('cleared....')
 

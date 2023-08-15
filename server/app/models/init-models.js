@@ -48,7 +48,12 @@ var _document_type= require('./document_type')
 var _logs= require('./logs')
 var _piped_water= require('./piped_water')
 var _activity= require('./activity')
-var _project_activity= require('./project_activity')
+var _project_activity = require('./project_activity')
+var _project_county= require('./project_county')
+var _project_subcounty= require('./project_subcounty')
+var _project_ward= require('./project_ward')
+var _project_settlement= require('./project_settlement')
+
 var _evaluation_type= require('./evaluation_type')
 var _evaluation= require('./evaluation')
 var _ward= require('./ward')
@@ -120,6 +125,12 @@ function initModels(sequelize) {
   var piped_water = _piped_water(sequelize, DataTypes)
   var activity = _activity(sequelize, DataTypes)
   var project_activity = _project_activity(sequelize, DataTypes)
+  var project_county = _project_county(sequelize, DataTypes)
+  var project_subcounty = _project_subcounty(sequelize, DataTypes)
+  var project_ward = _project_ward(sequelize, DataTypes)
+  var project_settlement = _project_settlement(sequelize, DataTypes)
+ 
+
   var evaluation_type = _evaluation_type(sequelize, DataTypes)
   var evaluation = _evaluation(sequelize, DataTypes)
   var ward = _ward(sequelize, DataTypes)
@@ -187,6 +198,10 @@ function initModels(sequelize) {
     piped_water,
     activity,
     project_activity,
+    project_county,
+    project_subcounty,
+    project_ward,
+    project_settlement,
     evaluation_type,
     evaluation,
     ward,

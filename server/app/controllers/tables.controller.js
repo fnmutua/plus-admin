@@ -777,7 +777,7 @@ exports.modelImportDataUpsert = async (req, res) => {
 
 
 
-exports.modelCreateOneRecord = (req, res) => {
+exports.xmodelCreateOneRecord = (req, res) => {
 
 
   console.log(req.thisUser.id)
@@ -849,6 +849,131 @@ exports.modelCreateOneRecord = (req, res) => {
   
 
 }
+
+
+exports.modelCreateOneRecord = async (req, res) => {
+  try {
+    const reg_model = req.body.model;
+    const obj = { ...req.body, createdBy: req.thisUser.id };
+    delete obj.model;
+
+    if (JSON.stringify(req.body.geom) === "{}") {
+      delete obj.geom;
+    }
+
+    let item;
+
+    if (reg_model === 'project') {
+      const transaction = await db.sequelize.transaction();
+
+      try {
+        const activities = obj.activities;
+        const counties = obj.county_id;
+        const subcounties = obj.subcounty_id;
+        const wards = obj.ward_id;
+        const settlements = obj.settlement_id;
+        const level = obj.level;
+
+        delete obj.activities;
+        delete obj.county_id;
+        delete obj.subcounty_id;
+        delete obj.ward_id;
+        delete obj.settlement_id;
+
+        // Create the project
+        item = await db.models[reg_model].create(obj, { transaction });
+
+        // Associate activities with the project
+        if (activities) {
+          const activityItems = await db.models.activity.findAll({
+            where: {
+              id: activities,
+            },
+          });
+
+          await item.setActivities(activityItems, { transaction });
+        }
+
+        // Associate counties with the project
+        if (counties && level=='county') {
+          const countyItems = await db.models.county.findAll({
+            where: {
+              id: counties,
+            },
+          });
+          await item.setCounties(countyItems, { transaction });
+        }
+
+
+           // Associate subcounties with the project
+           if (subcounties && level=='subcounty') {
+            const subcountyItems = await db.models.subcounty.findAll({
+              where: {
+                id: subcounties,
+              },
+            });
+            await item.setSubcounties(subcountyItems, { transaction });
+        }
+        
+
+           // Associate wards with the project
+           if (wards && level=='ward') {
+            const wardsItems = await db.models.ward.findAll({
+              where: {
+                id: wards,
+              },
+            });
+            await item.setWards(wardsItems, { transaction });
+        }
+        
+
+
+           // Associate wards with the project
+           if (settlements && level=='settlement') {
+            const settItems = await db.models.settlement.findAll({
+              where: {
+                id: settlements,
+              },
+            });
+            await item.setSettlements(settItems, { transaction });
+        }
+        
+
+       
+
+        // Commit the transaction
+        await transaction.commit();
+      } catch (error) {
+        // Rollback the transaction in case of an error
+        await transaction.rollback();
+        throw error;
+      }
+    } else if (reg_model === 'dashboard_section_chart') {
+      const indicator_list = req.body.indicator_id;
+      const list_indicators = await db.models.indicator.findAll({
+        where: {
+          id: indicator_list,
+        },
+      });
+
+      item.addIndicators(list_indicators);
+    }
+
+    res.status(200).send({
+      message: 'Record Saved Successfully',
+      total: req.body.count,
+      data: item,
+      code: '0000',
+    });
+  } catch (err) {
+    console.log('Error:', err);
+    const message = err.message || 'An error occurred';
+    res.status(500).send({ message });
+  }
+};
+
+
+
 
 exports.modelAllGeo = async (req, res) => {
   var reg_model = req.body.model
@@ -1096,16 +1221,39 @@ exports.modelSelectGeo = async (req, res) => {
 
 exports.modelOneRecord = (req, res) => {
   var reg_model = req.body.model
-
+  var  assoc_models =  req.body.assocModels
   var ass_model = db.models[req.body.assocModel]
 
+  console.log( req.body)
+  var qry = {
+    include: []
+  };
+
+  var includeModels= []
   if (ass_model) {
-    var qry = {
-      include: [{ model: ass_model }]
-    }
-  } else {
-    var qry = {}
+    //  qry = {include: [{ model: ass_model }]
+   // qry.include.push({ model: ass_model }) 
+    includeModels.push({ model: ass_model })
+    
+} 
+  else {
+      qry = {}
   }
+
+  if (assoc_models &&assoc_models.length>0) {
+       assoc_models.forEach(assoc_model_name => {
+      const assoc_model = db.models[assoc_model_name];
+         if (assoc_model) {
+        console.log(assoc_model)
+         //  qry.include.push({ model: assoc_model });
+           includeModels.push({ model: assoc_model })
+
+      }
+    });
+  }
+
+  qry.include=includeModels
+
   qry.where = { id: { [op.eq]: req.body.id } } // Exclude the logged in user returing in the list
 
   // console.log("ID:----->", req.body.id)
@@ -1905,6 +2053,119 @@ console.log("req.body.cache_key")
 
 
 }
+
+exports.modelPaginatedDatafilterByColumnOptimized = async (req, res) => {
+  const { model, associated_multiple_models, nested_models, filters, filterValues, limit, page, cache_key } = req.body;
+  
+  const includeModels = buildIncludeModels(associated_multiple_models, nested_models);
+  const whereConditions = buildWhereConditions(filters, filterValues);
+
+  const qry = {
+    include: includeModels,
+    where: whereConditions,
+    limit: limit,
+    offset: (page - 1) * limit,
+    order: [['id', 'ASC']],
+  };
+
+  if (cache_key && cache_key !== '') {
+    // Cache handling code...
+  } else {
+    console.log('No Caching...');
+    console.log(qry);
+
+    try {
+      const list = await db.models[model].findAndCountAll(qry);
+      res.status(200).send({
+        fromCache: false,
+        data: list.rows,
+        total: list.count,
+        code: '0000',
+      });
+    } catch (error) {
+      res.status(500).send({
+        message: 'Internal server error',
+        code: 'SERVER_ERROR',
+      });
+    }
+  }
+};
+
+function buildIncludeModels(associated_multiple_models, nested_models) {
+  const includeModels = [];
+
+  if (associated_multiple_models) {
+    associated_multiple_models.forEach((modelName) => {
+      const modelIncl = {
+        model: db.models[modelName],
+      };
+
+      if (modelName === 'users') {
+        modelIncl.raw = true;
+        modelIncl.nested = true;
+        modelIncl.attributes = ['name', 'email', 'phone'];
+      }
+
+      includeModels.push(modelIncl);
+    });
+  }
+
+  if (nested_models) {
+    let parentInclude = null;
+
+    nested_models.forEach((modelName, index) => {
+      const model = db.models[modelName];
+
+      if (parentInclude) {
+        // Subsequent nested models, add to parent include
+        const nestedInclude = {
+          model: model,
+          include: [],
+          raw: true,
+          nested: true,
+        };
+
+        parentInclude.include.push(nestedInclude);
+        parentInclude = nestedInclude; // Update parentInclude for next iteration
+      } else {
+        // First nested model, create the parent include object
+        parentInclude = {
+          model: model,
+          include: [],
+          raw: true,
+          nested: true,
+        };
+
+        includeModels.push(parentInclude);
+      }
+    });
+  }
+
+  return includeModels;
+}
+
+
+
+
+
+function buildWhereConditions(filters, filterValues) {
+  const whereConditions = {};
+
+  if (filters && filters.length > 0 && filterValues.length === filters.length) {
+    filters.forEach((filter, index) => {
+      const values = filterValues[index];
+      if (values && values.length > 0) {
+        whereConditions[filter] = values;
+      }
+    });
+  }
+
+  return whereConditions;
+}
+
+
+
+
 
 exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
   console.log(' 003', req.body)

@@ -44,7 +44,6 @@ import { featureGroup } from 'leaflet'
 import { getAllGeo } from '@/api/settlements'
 
 import { StarFilled } from '@element-plus/icons-vue'
-//import { MapboxMap, MapboxNavigationControl, MapboxMarker, MapboxGeolocateControl, MapboxGeocoder } from '@studiometa/vue-mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 

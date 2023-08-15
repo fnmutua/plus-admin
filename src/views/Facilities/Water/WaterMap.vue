@@ -11,8 +11,7 @@ import { useRoute } from 'vue-router'
 import { ElMessag, ElCard } from 'element-plus'
 
 
-import { MapboxMap, MapboxMarker, MapboxLayer, MapboxCluster } from '@studiometa/vue-mapbox-gl'
-import 'mapbox-gl/dist/mapbox-gl.css'
+ import 'mapbox-gl/dist/mapbox-gl.css'
 
 const route = useRoute()
 

@@ -11,7 +11,7 @@ import {
   ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCol, FormRules, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
+import { Position, TopRight, Plus, User, CircleCloseFilled, Checked, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
 
 import { ref, reactive, h } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider, ElOptionGroup } from 'element-plus'
@@ -41,7 +41,6 @@ import {
 ////////////*************Map Imports***************////////
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
-import * as turf from '@turf/turf'
 import { Icon } from '@iconify/vue';
 
 import { onMounted, computed, watch } from 'vue'
@@ -57,10 +56,21 @@ import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
- 
+import * as turf from '@turf/turf'
+
+
+import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
+
+
+
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
+
+
 mapboxgl.accessToken = MapBoxToken;
+
+
 
 
 
@@ -161,7 +171,7 @@ let filterValues = [[component_id.value]]   // make sure the inner array is arra
 var tblData = []
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'programme_implementation',  'document']
+const associated_multiple_models = ['settlement', 'county', 'subcounty', 'ward', 'component', 'programme_implementation', 'document']
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
@@ -439,13 +449,12 @@ const flyTo = (data: TableSlotDefault) => {
       bounds.value = turf.bbox((data.row.geom));
     }
 
-    projectScopeGeo.value=data.row.geom
+    projectScopeGeo.value = data.row.geom
 
     console.log(bounds.value)
 
-    loadMap()
-    //loadMap()
-    // loadMap([data.row.geom.coordinates[0], data.row.geom.coordinates[1], data.row.title])
+
+
     activeName.value = 'Map' // Navigate to Beneficiary Tab
 
 
@@ -457,209 +466,6 @@ const flyTo = (data: TableSlotDefault) => {
 }
 
 
-const loadMap = () => {
-  var nmap = new mapboxgl.Map({
-    container: "mapContainer",
-    style: "mapbox://styles/mapbox/streets-v12",
-    center: [37.137343, 1.137451], // starting position
-    zoom: 6,
-
-  })
-
-
-  const nav = new mapboxgl.NavigationControl();
-  nmap.addControl(nav, "top-right");
-  nmap.on('load', () => {
- 
-      nmap.addSource('layer', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      //  data: turf.featureCollection(facilityGeoPolygons.value),
-      data: projectScopeGeo.value,
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
-
- 
-    // Add a black outline around the polygon.
-    nmap.addLayer({
-      'id': 'outline',
-      'type': 'line',
-      'source': 'layer',
-      'layout': {},
-      'paint': {
-        'line-color': 'black',
-        'line-width': 2
-      }
-    });
-
-    nmap.addLayer({
-      'id': 'pontLayer',
-      "type": "circle",
-      'source': 'layer',
-      'paint': {
-        'circle-radius': 4,
-        'circle-stroke-width': 2,
-        'circle-color':  'red',
-        'circle-stroke-color': 'white'
-      }
-    });
-
-  
-
- 
-
-    nmap.resize()
-
-
-
-    nmap.addLayer({
-      id: 'Satellite',
-      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
-      type: "raster"
-    }, 'outline');
-
-    nmap.addLayer({
-      id: 'Streets',
-      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
-      type: "raster"
-    }, 'outline');
-
-    // switch it off until the user selects to
-    nmap.setLayoutProperty('Satellite', 'visibility', 'none')
-
-
-    const layers: MapboxLayerDefinition[] = [
-
-      {
-        id: "Satellite",
-        title: "Satellite",
-        visibility: 'none',
-        type: 'base'
-      },
-
-      {
-        id: "Streets",
-        title: "Streets",
-        visibility: 'none',
-        type: 'base'
-      },
-
-    ];
-    nmap.addControl(new MapboxLayerSwitcherControl(layers));
-
-
-
-    var localBounds = turf.bbox((projectScopeGeo.value));
-    console.log(localBounds)
-
-    if (localBounds) {
-      console.log(localBounds)
-
-
-
-      if (localBounds[0] == localBounds[2]) {
-
-        // for points where the extent x1=x2
-        nmap.fitBounds(localBounds, { maxZoom: 15, padding: 20 });
-      } else {
-        nmap.fitBounds(localBounds, { padding: 20 });
-
-      }
-
-
-    }
-
-
-
-    nmap.on('click', 'points-layer', (e) => {
-      console.log("Onclikc..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.title;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-    });
-
-
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'points-layer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'points-layer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
-
-
-
-    nmap.on('click', 'lines-layer', (e) => {
-      console.log("click line..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.asset_type;
-      const condition = e.features[0].properties.asset_condition;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-
-    });
-
-
-    nmap.on('click', 'polygons-layer', (e) => {
-      console.log("click line..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.title;
-      const condition = e.features[0].properties.programme;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-
-    });
-
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.on('mouseenter', 'lines-layer', () => {
-      nmap.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change it back to a pointer when it leaves.
-    nmap.on('mouseleave', 'lines-layer', () => {
-      nmap.getCanvas().style.cursor = '';
-    });
-
-  });
-
-
-}
 
 
 const onClickTab = async (obj) => {
@@ -676,7 +482,7 @@ const onClickTab = async (obj) => {
       })
     }
     else {
-      loadMap()
+
       //console.log(map.value)
       //maxBounds.value = turf.bbox(facilityGeo.value);
     }
@@ -859,31 +665,7 @@ getBeneficiaries(filtersBen, filterValuesBen)  // First time
 
 //*****************************Create**************************** */
 
-///----------------------------------------------------------------------------------
-const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
-  component_id: '',
-  settlement_id: '',
-  county_id: '',
-  subcounty_id: null,
-  ward_id: null,
-  location_level: '',
-  title: '',
-  type: '',
-  programme_id: '',
-  domain_id: '',
-  category_id: null,
-  status: '',
-  start_date: null,
-  end_date: null,
-  activities: [],
-  cost: 0,
-  male_beneficiaries: 0,
-  female_beneficiaries: 0,
-  geom: null,
-  id: '',
-  code: ''
-})
+
 
 
 
@@ -933,6 +715,8 @@ const handleClose = () => {
 
 
 const activeName = ref('list')
+const activeNestedTab = ref('Location')
+
 const AddProject = () => {
 
   console.log("Adding Projects")
@@ -956,12 +740,12 @@ const AddProject = () => {
 
 
 const editProject = async (data: TableSlotDefault) => {
- 
+
   push({
     path: '/interventions/add/:domain',
     name: 'AddInterventionProjectsV2',
     query: { id: data.row.id },
-    params: { id:data.row.id, domain: component_id.value }
+    params: { id: data.row.id, domain: component_id.value }
   })
 
 
@@ -1053,7 +837,7 @@ const editProject = async (data: TableSlotDefault) => {
 const AddDialogVisible = ref(false)
 
 
- 
+
 
 
 const DeleteProject = (data: TableSlotDefault) => {
@@ -1902,14 +1686,43 @@ const DocumentComponentProps = ref({
 
 });
 
+const projectLocations = ref([]);
+const locationLabel = ref()
 
 function handleExpand(row) {
   dynamicDocumentComponent.value = null; // Unload the component
-  rowData.value = row
-  DocumentComponentProps.value.data = row
+  rowData.value = row;
+  DocumentComponentProps.value.data = row;
   setTimeout(() => {
     dynamicDocumentComponent.value = documentComponent; // Load the component
   }, 100); // 0.1 seconds
+
+  console.log('expading:', row)
+  if (row.level == 'county') {
+    projectLocations.value = row.counties;
+    locationLabel.value = 'Project Location(Counties)'
+
+  }
+  else if (row.level == 'subcounty') {
+    projectLocations.value = row.subcounties;
+    locationLabel.value = 'Project Location(Subcounties)'
+
+  }
+  else if (row.level == 'ward') {
+    projectLocations.value = row.wards;
+    locationLabel.value = 'Project Location(Wards)'
+
+  }
+  else {
+    locationLabel.value = 'Project Location(Settlements)'
+
+    projectLocations.value = row.settlements;
+
+  }
+
+
+
+  // ... Rest of your code ...
 }
 
 
@@ -1917,7 +1730,7 @@ function handleExpand(row) {
 //// Module foe adding benefiicair
 
 const AddBeneficiaryDialogVisible = ref(false)
-const disableBeneficiaryInputs =ref(false)
+const disableBeneficiaryInputs = ref(false)
 const AddBeneficiary = () => {
   // console.log("Adding Beneficiary")
   // push({
@@ -2062,7 +1875,7 @@ const getThisProject = async () => {
     var ret = response.data
     projectOptions.value = []
     loading.value = false
-    thisProject.value=response.data
+    thisProject.value = response.data
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
       opt.value = arrayItem.id
@@ -2073,30 +1886,341 @@ const getThisProject = async () => {
   })
 
   console.log(res)
- // return res
-   
+  // return res
+
 
 }
 
 const AddBeneficiaryFromWithin = async () => {
   console.log(selected_project.value)
-    await getThisProject()
+  await getThisProject()
   console.log(thisProject.value)
- 
-  BeneficaryForm.project_id=thisProject.value[0].id
-  BeneficaryForm.settlement_id=thisProject.value[0].settlement_id
-  BeneficaryForm.county_id=thisProject.value[0].county_id
-  BeneficaryForm.component_id=thisProject.value[0].component_id
-  
+
+  BeneficaryForm.project_id = thisProject.value[0].id
+  BeneficaryForm.settlement_id = thisProject.value[0].settlement_id
+  BeneficaryForm.county_id = thisProject.value[0].county_id
+  BeneficaryForm.component_id = thisProject.value[0].component_id
+
   handleSelectCounty(thisProject.value[0].county_id) // this will populate the subcounty widnoe
   console.log(BeneficaryForm)
   getSettlementProjects()
-  disableBeneficiaryInputs.value=true
+  disableBeneficiaryInputs.value = true
   AddBeneficiaryDialogVisible.value = true
 
 }
 
 
+
+///----------------------------------------------------------------------------------
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  model: '',
+  county_id: null,
+  id: null,
+  subcounty_id: null,
+  ward_id: null,
+  settlement_id: null,
+  project_id: null,
+  geom: null,
+})
+
+
+const dialogMap = ref(false)
+const parentGeometry = ref()
+const projectGeom = ref()
+const showMap = (row) => {
+  console.log(row)
+  dialogMap.value = true
+
+  if (row.project_county) {
+    ruleForm.county_id = row.project_county.county_id
+    ruleForm.project_id = row.project_county.project_id
+    ruleForm.model = 'project_county'
+    ruleForm.id = row.project_county.id
+    projectGeom.value = row.project_county.geom
+
+  }
+
+  else if (row.project_subcounty) {
+
+    ruleForm.subcounty_id = row.project_subcounty.subcounty_id
+    ruleForm.project_id = row.project_subcounty.project_id
+    ruleForm.model = 'project_subcounty'
+    ruleForm.id = row.project_subcounty.id
+    projectGeom.value = row.project_subcounty.geom
+
+
+  }
+
+  else if (row.project_ward) {
+
+    ruleForm.ward_id = row.project_ward.ward_id
+    ruleForm.project_id = row.project_ward.project_id
+    ruleForm.model = 'project_ward'
+    ruleForm.id = row.project_ward.id
+    projectGeom.value = row.project_ward.geom
+
+
+  }
+  else {
+
+    ruleForm.settlement_id = row.project_settlement.settlement_id
+    ruleForm.project_id = row.project_settlement.project_id
+    ruleForm.model = 'project_settlement'
+    ruleForm.id = row.project_settlement.id
+    projectGeom.value = row.project_settlement.geom
+
+
+
+  }
+
+
+  // ruleForm.subcounty_id=row.subcounty_id
+  // ruleForm.ward_id=row.ward_id
+  // ruleForm.settlement_id=row.settlement_id
+
+
+  parentGeometry.value = row.geom
+
+  setTimeout(loadProjectMap, 100); // delay for the dialog to fully load
+
+
+
+
+}
+
+const closeMap = () => {
+  dialogMap.value = false
+}
+
+
+const enableUpdateButton=ref(false)
+const updateGeometry = () => {
+  console.log('Update Geometrry')
+
+  console.log('before Updated', ruleForm);
+  updateOneRecord(ruleForm)
+    .then(() => {
+      // Further logic after updating record
+      console.log('success')
+    })
+    .catch(() => {
+      // Error handling for updateOneRecord
+      console.log('fail')
+
+    });
+
+
+}
+
+
+
+const loadProjectMap = () => {
+  var nmap = new mapboxgl.Map({
+    container: "mapContainer2",
+    style: "mapbox://styles/mapbox/streets-v12",
+    center: [37.137343, 1.137451], // starting position
+    zoom: 6,
+
+  })
+
+  // When the map fails to load, hide the base map and show only the overlays
+  //  nmap.on('error', function (e) {
+  // console.log('Failed.....', e.error)
+  // nmap.setStyle( './style.json');
+  //       console.log("Failed to load base map. Showing only overlays.");
+  //   });
+
+  console.log("resizing....")
+
+  const nav = new mapboxgl.NavigationControl();
+  nmap.addControl(nav, "top-right");
+
+
+  nmap.on('load', () => {
+
+
+
+
+    nmap.addLayer({
+      id: "Satellite",
+      source: { type: "raster", url: "mapbox://mapbox.satellite", tileSize: 256 },
+      type: "raster",
+    });
+
+    nmap.addLayer({
+      id: "Streets",
+      source: { type: "raster", url: "mapbox://mapbox.streets", tileSize: 256 },
+      type: "raster",
+    });
+
+    nmap.setLayoutProperty("Satellite", "visibility", "none");
+
+    const layers = [
+      {
+        id: "Satellite",
+        title: "Satellite",
+        visibility: "none",
+        type: "base",
+      },
+      {
+        id: "Streets",
+        title: "Streets",
+        visibility: "none",
+        type: "base",
+      },
+    ];
+    nmap.addSource('lines', {
+      type: 'geojson',
+      data: parentGeometry.value,
+    });
+
+    nmap.addSource('project', {
+      type: 'geojson',
+      data: projectGeom.value,
+    });
+
+
+
+    if (projectGeom.value && projectGeom.value.type == 'Point') {
+
+
+
+      console.log('projectGeom.value', projectGeom.value.type)
+
+
+      //     Add point layer
+      nmap.addLayer({
+        id: 'point-layer',
+        type: 'circle',
+        source: {
+          type: 'geojson',
+          data: projectGeom.value,
+        },
+        paint: {
+          'circle-color': 'green',
+          'circle-radius': 6,
+        },
+
+      });
+    }
+    else {
+      nmap.addLayer({
+        'id': 'project',
+        'type': 'line',
+        'source': 'project',
+        'paint': {
+          'line-width': 3,
+          // Use a get expression (https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-get)
+          // to set the line-color to a feature property value.
+          'line-color': 'black'
+        }
+      });
+    }
+
+
+    nmap.addLayer({
+      'id': 'lines',
+      'type': 'line',
+      'source': 'lines',
+      'paint': {
+        'line-width': 3,
+        // Use a get expression (https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-get)
+        // to set the line-color to a feature property value.
+        'line-color': 'red'
+      }
+    });
+
+
+
+
+
+
+
+    nmap.addControl(new MapboxLayerSwitcherControl(layers));
+
+
+    const draw = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: {
+        point: true,
+        line_string: true,
+        polygon: true,
+        trash: true
+      },
+
+    })
+
+
+    nmap.addControl(draw, 'top-left');
+
+    nmap.resize()
+
+
+
+    var bounds = turf.bbox((parentGeometry.value));
+
+    nmap.fitBounds(bounds, { padding: 20 });
+
+
+
+
+
+
+
+
+
+
+  });
+
+  function updateRuleform(feature) {
+    // do something with the new marker feature
+    var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+    feature.geometry.crs = crs
+    console.log('----feature', feature);
+    ruleForm.geom = feature.geometry
+    console.log(ruleForm)
+
+    enableUpdateButton.value=true
+  }
+
+
+  // listen for the draw.create event
+  nmap.on('draw.create', function (e) {
+    // check if the new feature is a marker
+    // if (e.features[0].geometry.type === 'Polygon') {
+    // trigger your function here
+    updateRuleform(e.features[0]);
+
+    //  }
+  });
+
+
+  // listen for the draw.se event
+  nmap.on('draw.update', function (e) {
+    // check if the new feature is a marker
+    //if (e.features[0].geometry.type === 'Polygon') {
+    // trigger your function here
+    updateRuleform(e.features[0]);
+
+    // }
+  });
+
+  // Listen for the draw.delete event
+  nmap.on('draw.delete', function (event) {
+    // Get the IDs of the deleted features
+    var deletedFeatureIds = event.features.map(function (feature) {
+      return feature.id;
+    });
+
+    // Remove the corresponding layers from the map
+    deletedFeatureIds.forEach(function (id) {
+      nmap.removeLayer(id);
+    });
+  });
+
+
+}
 
 </script>
 
@@ -2171,19 +2295,49 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
-              <div m="4">
-                <h3>Documents</h3>
-                <div>
-                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
-                </div>
-                <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                  :icon="Plus" circle @click="toggleComponent(props.row)" />
+              <div style="margin: 4px;">
+                <el-tabs v-model="activeNestedTab">
+                  <!-- Other Content Tab -->
+                  <el-tab-pane :label="locationLabel" name="Location">
+
+                    <div>
+                      <el-table :data="projectLocations" style="width: 100%">
+                        <el-table-column prop="id" label="id" />
+                        <el-table-column prop="name" label="Location" />
+ 
+                        <el-table-column label="Actions">
+                          <template #default="scope">
+                            <el-button type="primary" size="small" @click="showMap(scope.row)">View Map</el-button>
+                          </template>
+                        </el-table-column>
+
+                      </el-table>
+
+
+                    </div>
+                  </el-tab-pane>
+
+
+
+                  <!-- Documents Tab -->
+                  <el-tab-pane label="Documents" name="documents">
+                    <div>
+                      <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                    </div>
+
+                    <el-button
+style="margin-left: 10px; margin-top: 5px" size="small" v-if="showEditButtons"
+                      type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+                  </el-tab-pane>
+
+
+                </el-tabs>
+
               </div>
             </template>
           </el-table-column>
+
           <el-table-column label="Title" prop="title" width="200" sortable />
-          <el-table-column label="County" prop="county.name" sortable />
           <!-- <el-table-column label="Settlement" prop="settlement.name" sortable /> -->
           <el-table-column label="Pogramme" prop="programme.acronym" sortable />
           <el-table-column label="Status" prop="status" sortable />
@@ -2222,14 +2376,10 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
 type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
-                <el-tooltip content="View on Map" placement="top">
-                  <el-button
-type="warning" size="small" :icon="Position" @click="flyTo(scope as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
+   
                 <el-tooltip content="View Households" placement="top">
                   <el-button
-v-if="showAdminButtons" type="success" size="small" :icon="User"
+v-if="showAdminButtons" type="warning" size="small" :icon="User"
                     @click="viewBen(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip content="Delete" placement="top">
@@ -2259,17 +2409,13 @@ v-if="showAdminButtons" :label="beneficiaryTabTitle" name="Beneficiary"
 :columns="BeneficiaryColumns" :data="beneficiaryList" :loading="loadingBeneficiaries" :selection="true"
           :pageSize="pageSizeBen" :currentPage="currentPageBen" />
 
-          <el-tooltip content="Add Beneficiary" placement="top">
-              <el-button
-              style="margin-left: 10px; margin-top: 5px"
-               v-if="showEditButtons"
-              type="success"
-              circle
-              @click="AddBeneficiaryFromWithin()"
-            >
-              <Icon icon="octicon:person-add-24" />
-            </el-button>
-         </el-tooltip>
+        <el-tooltip content="Add Beneficiary" placement="top">
+          <el-button
+style="margin-left: 10px; margin-top: 5px" v-if="showEditButtons" type="success" circle
+            @click="AddBeneficiaryFromWithin()">
+            <Icon icon="octicon:person-add-24" />
+          </el-button>
+        </el-tooltip>
 
 
 
@@ -2379,19 +2525,22 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
 
 
     <el-dialog
-v-model="AddBeneficiaryDialogVisible" @close="handleClose"  title="Add Beneficiary" :width="dialogWidth"
+v-model="AddBeneficiaryDialogVisible" @close="handleClose" title="Add Beneficiary" :width="dialogWidth"
       draggable>
       <el-form ref="BeneficaryFormRef" :model="BeneficaryForm" :rules="rules" label-width="120px">
 
         <el-form-item label="County" prop="hh_id">
-          <el-select v-model="BeneficaryForm.county_id" filterable placeholder="Select" :disabled ="disableBeneficiaryInputs" :onChange="handleSelectCounty">
+          <el-select
+v-model="BeneficaryForm.county_id" filterable placeholder="Select"
+            :disabled="disableBeneficiaryInputs" :onChange="handleSelectCounty">
             <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="Settlement" prop="hh_id">
           <el-select
-v-model="BeneficaryForm.settlement_id" filterable  :disabled ="disableBeneficiaryInputs" placeholder="Select" :onChange="getSettlementProjects">
+v-model="BeneficaryForm.settlement_id" filterable :disabled="disableBeneficiaryInputs"
+            placeholder="Select" :onChange="getSettlementProjects">
             <el-option
 v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
               :value="item.value" />
@@ -2401,7 +2550,9 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
 
 
         <el-form-item label="Project" prop="project_id">
-          <el-select v-model="BeneficaryForm.project_id" filterable placeholder="Select" :onChange="handleSelectProject" :disabled ="disableBeneficiaryInputs">
+          <el-select
+v-model="BeneficaryForm.project_id" filterable placeholder="Select" :onChange="handleSelectProject"
+            :disabled="disableBeneficiaryInputs">
             <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
@@ -2427,6 +2578,19 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
     </el-dialog>
 
 
+    <el-dialog v-model="dialogMap" width="50%" draggable :before-close="closeMap" :show-close="false">
+      <template #header="{ titleId, titleClass }">
+        <div class="my-header">
+          <h4 :id="titleId" :class="titleClass">Reporting Location</h4>
+          <el-button type="success" :icon="Checked" :disabled="!enableUpdateButton" @click="updateGeometry">Update Location</el-button>
+          <el-button type="danger" :icon="CircleCloseFilled" @click="closeMap">Close Map</el-button>
+        </div>
+      </template>
+      <div id="mapContainer2" class="basemap"></div>
+
+    </el-dialog>
+
+
   </ContentWrap>
 </template>
  
@@ -2446,3 +2610,25 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   --el-table-tr-bg-color: var(--el-color-success-light-9);
 }
 </style>
+
+
+
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 450px;
+  border: 1px solid #e2dcdc;
+  /* Outline */
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+  /* Shadow */
+}
+</style>
+
+<style scoped>
+.my-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+</style>
+

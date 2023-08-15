@@ -19,6 +19,14 @@ export const getSettlementListByCounty = (
 }
 
 
+export const getOptimizedList = (
+  data: SettlementType
+): Promise<IResponse<SettlementType>> => {
+  return request.post({ url: prod + '/api/v1/data/column/optimized', data })
+}
+
+
+
 export const getHHsByCounty = (
   data: SettlementType
 ): Promise<IResponse<SettlementType>> => {

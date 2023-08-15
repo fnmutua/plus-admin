@@ -13,7 +13,7 @@ v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
         ref="dynamicFormRef">
         <el-row :gutter="16">
           <el-col
-v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="8"
+v-for="(field, index) in currentStepFieldsFiltered" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="8"
             :xl="8">
             <el-form-item :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
@@ -44,7 +44,7 @@ v-for="option in field.options" :key="option.value" :label="option.label"
 
               <el-select
 v-else-if="field.type === 'select'  && field.adminUnit && field.name==='county_id' "
-                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="County"
+                v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="County"
                 @change="getFieldChangeHandler(field.name)">
                 <el-option
 v-for="option in countyOptions" :key="option.value" :label="option.label"
@@ -53,7 +53,7 @@ v-for="option in countyOptions" :key="option.value" :label="option.label"
  
               <el-select
                 v-else-if="field.type === 'select'   && field.adminUnit && field.name==='subcounty_id' "
-                                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="Subcounty"
+                                v-model="formData[field.name]" :filterable="true" multiple   collapse-tags placeholder="Subcounty"
                                 @change="getFieldChangeHandler(field.name)">
                                 <el-option
                 v-for="option in subcountyOptionsFiltered" :key="option.value" :label="option.label"
@@ -63,7 +63,7 @@ v-for="option in countyOptions" :key="option.value" :label="option.label"
 
               <el-select
                 v-else-if="field.type === 'select'   && field.adminUnit && field.name==='ward_id' "
-                                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="Ward"
+                                v-model="formData[field.name]" :filterable="true" multiple  collapse-tags placeholder="Ward"
                                 @change="getFieldChangeHandler(field.name)">
                                 <el-option
                 v-for="option in wardOptionsFiltered" :key="option.value" :label="option.label"  :value="option.value" />
@@ -71,7 +71,7 @@ v-for="option in countyOptions" :key="option.value" :label="option.label"
 
               <el-select
                 v-else-if="field.type === 'select'   && field.adminUnit && field.name==='settlement_id' "
-                                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="Settlement"
+                                v-model="formData[field.name]" :filterable="true" multiple  collapse-tags placeholder="Settlement"
                                 @change="getFieldChangeHandler(field.name)">
                                 <el-option
                 v-for="option in settOptionsFiltered" :key="option.value" :label="option.label" :value="option.value" />
@@ -96,19 +96,21 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
       </el-form>
 
       <div class="button-container" style="margin-bottom: 10px;">
-        <el-button type="primary" @click="prevStep" v-if="currentStep > 0">
+        <!-- <el-button type="primary" @click="prevStep" v-if="currentStep > 0">
           Previous
         </el-button>
         <el-button type="primary" @click="nextStep" v-if="currentStep < totalSteps - 1">
           Next
-        </el-button>
-        <el-button type="success" @click="submitForm" v-else>
+        </el-button> -->
+        <el-button type="success" @click="submitForm" >
           Submit
         </el-button>
       </div>
+
+
       <!-- <pre>{{ JSON.stringify(formData, null, 2) }}</pre> -->
-      <div v-if="currentStep == totalSteps - 1" id="mapContainer" class="basemap"></div>
-      <div v-if="currentStep == totalSteps - 1" id='coordinates' class='coordinates'></div>
+      <!-- <div v-if="currentStep == totalSteps - 1" id="mapContainer" class="basemap"></div>
+      <div v-if="currentStep == totalSteps - 1" id='coordinates' class='coordinates'></div> -->
     </el-card>
     <el-dialog v-model="showDialog" title="Select Location" width="70%">
       <el-row>
@@ -148,7 +150,7 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
 
 
 <script lang="ts" setup>
-import { ref, reactive, onMounted, computed, Ref } from 'vue';
+import { ref, reactive, onMounted, computed,watch, Ref } from 'vue';
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { ElCard, ElCascader, ElCascaderPanel, ElDialog, ElMessage, ElUpload, ElSwitch } from 'element-plus'
@@ -235,37 +237,49 @@ const selectAdmin = ref()
 const settOptionsFiltered = ref([])
 const settlement_id = ref()
 
+const onSelectCounty = (counties) => {
+  formData.subcounty_id = null;
+  formData.ward_id = null;
+  formData.settlement_id = null;
+  subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => counties.includes(obj.county_id));
+  console.log('subcountyOptionsFiltered.value:', subcountyOptionsFiltered.value);
+  formData.county_id = counties
 
-const onSelectCounty = (county_id) => {
-  formData.subcounty_id = null
-  formData.ward_id = null
-  formData.settlement_id = null
-  subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == county_id);
-  handleChangeLocation([county_id])
+  // handleChangeLocation(counties);
 };
 
 
-const onSelectSubcounty = (subcounty_id) => {
+
+const onSelectSubcounty = (subcounties) => {
   formData.ward_id = null
   formData.settlement_id = null
+  formData.subcounty_id = subcounties
 
- wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == subcounty_id);
- handleChangeLocation([formData.county_id.value,subcounty_id ])
+ // wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == subcounty_id.value);
+  wardOptionsFiltered.value = wardOptions.value.filter((obj) => subcounties.includes(obj.subcounty_id));
+
+// handleChangeLocation([formData.county_id.value,subcounty_id ])
 
 };
  
 
-const onSelectWard = (ward_id) => {
+const onSelectWard = (wards) => {
 
   formData.settlement_id = null
-  settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == ward_id);
-  handleChangeLocation([ formData.county_id.value,formData.subcounty_id.value,ward_id ])
+  //settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == ward_id.value);
+
+  settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => wards.includes(obj.ward_id));
+  formData.ward_id = wards
+
+
+  //handleChangeLocation([ formData.county_id.value,formData.subcounty_id.value,ward_id ])
 
 };
 
 const onSelectSettlement = (sett_id) => {
   formData.settlement_id = sett_id
-  handleChangeLocation([ formData.county_id.value,formData.subcounty_id.value,formData.ward_id.value, sett_id ])
+
+ // handleChangeLocation([formData.county_id.value, formData.subcounty_id.value, formData.ward_id.value, sett_id])
 
  // const selectedSettlement = settOptionsFiltered.value.filter((obj) => obj.value === sett_id);
  // selectAdmin.value = selectAdmin.value + ' | ' + selectedSettlement[0].label
@@ -311,7 +325,7 @@ onMounted(async () => {
   const form = {}
   form.model = model
   form.id = route.query.id
-
+  form.assocModels=['county','subcounty','ward','settlement']
 
 
   if (route.query.id) {
@@ -324,7 +338,7 @@ onMounted(async () => {
         curData.geom = curData.geom
 
         console.log('curData', curData)
-        projectScopeGeo.value = curData.geom
+       // projectScopeGeo.value = curData.geom
 
        // curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id, curData.settlement_id]
 
@@ -332,18 +346,53 @@ onMounted(async () => {
       //   onSelectSubcounty(curData.subcounty_id)
       //   onSelectWard(curData.ward_id)
 
-      subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
-      wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id ==curData.subcounty_id);
-        settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == curData.ward_id);
+        //subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.counties);
+        //subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => curData.counties.includes(obj.county_id));
+       //  console.log(subcountyOptionsFiltered.value)
 
+
+       // wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == curData.subcounty_id);
+        //wardOptionsFiltered.value = wardOptions.value.filter((obj) => curData.wards.includes(obj.subcounty_id));
+
+
+        //settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == curData.ward_id);
+       // settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => curData.ward_id.includes(obj.ward_id));
+
+
+
+        // filter Subcounties 
+       const countyIds = curData.counties.map(county => county.id);
+       subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => {
+        return countyIds.includes(obj.county_id);
+       });
+
+               // filter Wards 
+       const subCountyIds = curData.subcounties.map(subcounty => subcounty.id);
+       wardOptionsFiltered.value = wardOptions.value.filter((obj) => {
+        return subCountyIds.includes(obj.subcounty_id);
+       });
       
+      
+
+        // filter Sett 
+       const wardIds = curData.wards.map(ward => ward.id);
+       settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => {
+        return wardIds.includes(obj.ward_id);
+       });
+      
+       const settIDs = curData.settlements.map(sett => sett.id);
+
+
         //  formData = res.data
         Object.assign(formData, curData);
         console.log(formData)
         newRecord.value = false
 
 
-
+        formData.county_id=countyIds
+        formData.subcounty_id=subCountyIds
+        formData.ward_id=wardIds
+        formData.settlement_id=settIDs
 
 
       })
@@ -377,6 +426,53 @@ const dynamicFormRef = ref<FormInstance>()
 
 const currentStepFields = computed(() => formFields[currentStep.value]);
 
+
+const currentStepFieldsFiltered = ref([...currentStepFields.value]);
+const formKey = ref(0)
+
+
+const handleChangeLocationLevel = async (value: string) => {
+  console.log('Actor changed:', value);
+  console.log(currentStepFields.value);
+  
+  if (value === 'county') {
+    currentStepFieldsFiltered.value = currentStepFields.value.filter(field => {
+      return field.level !== 'subcounty' && field.level !== 'ward' && field.level !== 'settlement';
+    });
+  } 
+  else if (value === 'subcounty') {
+    currentStepFieldsFiltered.value = currentStepFields.value.filter(field => {
+      return  field.level !== 'ward' && field.level !== 'settlement';
+    });
+  }
+
+  else if (value === 'ward') {
+    currentStepFieldsFiltered.value = currentStepFields.value.filter(field => {
+      return   field.level !== 'settlement';
+    });
+  }
+
+  else {
+    // retrun alll
+    currentStepFieldsFiltered.value = currentStepFields.value
+  }
+
+  console.log(currentStepFieldsFiltered.value);
+  formKey.value += 1;
+};
+
+
+
+
+watch(
+  currentStepFieldsFiltered,
+  () => {
+    console.log("Watching...............................", currentStepFieldsFiltered.value);
+  },
+  { deep: true, immediate: false }
+);
+
+
 const currentStepRules = computed(() => {
   const stepRulesKey = `step${currentStep.value + 1}`;
   return formRules[stepRulesKey];
@@ -387,7 +483,12 @@ const totalSteps = computed(() => steps.length);
 const prevStep = () => {
   if (currentStep.value > 0) {
     currentStep.value--;
+    handleChangeLocationLevel(formData['level'])
+
   }
+
+
+
 };
 
 
@@ -958,7 +1059,9 @@ const getFieldChangeHandler = (fieldName: string) => {
     onSelectSettlement(formData[fieldName])
   }
 
-
+  if (fieldName == 'level') {
+    handleChangeLocationLevel(formData[fieldName])
+  }
 
 
   if (fieldName == 'location_option') {

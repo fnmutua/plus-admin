@@ -61,7 +61,7 @@ echo
   now="$(date +'%d%m%Y')"
 
 #psql -f 20052023.kisip.sql  xkisip
-pg_restore  -d kisip 04082023.kisip.sql.tar
+pg_restore  -d kisip 15082023.kesmis.sql.tar 
 
  
 
