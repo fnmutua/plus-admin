@@ -242,6 +242,11 @@ const onSelectCounty = (counties) => {
   formData.ward_id = null;
   formData.settlement_id = null;
   subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => counties.includes(obj.county_id));
+  wardOptionsFiltered.value = wardOptions.value.filter((obj) => counties.includes(obj.county_id));
+  settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => counties.includes(obj.county_id));
+
+
+
   console.log('subcountyOptionsFiltered.value:', subcountyOptionsFiltered.value);
   formData.county_id = counties
 
