@@ -487,7 +487,6 @@ const ruleForm = reactive({
   computation:'',
   unique:false,
   filtered: false,
-  category:'',
   filter_field:''
 })
 
@@ -507,9 +506,6 @@ const editMode=ref(false)
   ruleForm.indicator_id = data.row.indicator_id
   ruleForm.card_model = data.row.card_model
   ruleForm.card_model_field = data.row.card_model_field
-  ruleForm.category = data.row.category
-
-
  // ruleForm.filter_value = data.row.filter_value
   ruleForm.computation = data.row.computation
   ruleForm.filter_function = data.row.filter_function
@@ -544,19 +540,16 @@ const editMode=ref(false)
     fieldSelected.value=false
 
   }
+  
 
-
-  if (data.row.category === 'Status') {
+  
+   if (data.row.dashboard.type=='status') {
      showStatusExtras.value = true
      fieldSelected.value=true
    } else {
     showStatusExtras.value=false
 
-   }
-
-   console.log('showStatusExtras',showStatusExtras.value)
-
-   
+  }
   
   
 
@@ -752,11 +745,11 @@ getProgrammeOptions()
 getStrategicFocusAreas()
 getIndicatorNames()
 
-const handleSelectType = async (status) => {
- //   let selDashboard = DashboardOptions.value.filter(item => item.value === dashboard_id);
+const handleSelectType = async (dashboard_id) => {
+    let selDashboard = DashboardOptions.value.filter(item => item.value === dashboard_id);
 
 
-  if (status==='Status') {  // status dashabords 
+  if (selDashboard[0].type==='status') {  // status dashabords 
 showStatusExtras.value=true
   } else {
     showStatusExtras.value=false
@@ -796,18 +789,8 @@ const handleSelectModel = async (selModel) => {
 
 const fieldSelected = ref(false)
 const fieldOptions = ref([])
-const disabledoptions = ref(false)
-
-const categoryOptions  = [
-         {
-            value: 'Status',
-            label: 'Status'
-          },
-          {
-            value: 'Intervention',
-            label: 'Intervention'
-    }
-  ] 
+const disabledoptions=ref(false)
+ 
 const handleFilterAggregators = async (selField) => {
  
    
@@ -864,8 +847,6 @@ const handleFilterAggregators = async (selField) => {
         ]
   }
 
-
-          
 
   console.log('Filter Fields 1.....', selField)
   const formData = {}
@@ -1016,9 +997,6 @@ const changeFilterForIndicators = async (val) => {
 
 }
 
-const infoDialog=ref(false)
-
-
 </script>
 
 <template>
@@ -1076,7 +1054,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
       <el-form-item label="Dashboard" prop="dashboard_id" >
-        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" >
+        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select"   :onChange="handleSelectType">
           <el-option v-for="item in DashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
@@ -1086,15 +1064,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
            <el-input v-model="ruleForm.title" />
        </el-form-item>
  
-
-       <el-form-item label="Category" prop="category" >
-        <el-select v-model="ruleForm.category" filterable placeholder="Select"   :onChange="handleSelectType" >
-          <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-        <el-button  plain style="margin-left: 5px"  :icon="InfoFilled" @click="infoDialog = true"/>
-
-      </el-form-item>
-        
 
        <el-form-item label="Description" prop="description">
            <el-input v-model="ruleForm.description" />
@@ -1290,65 +1259,9 @@ size="default" v-model="ruleForm.computation"  :onClear="handleClear"
       </span>
     </template>
   </el-dialog>
-
-  
-  <el-dialog
-    v-model="infoDialog"
-     width="40%"
-  >
-    <div class="info-dialog-content">
-      <div class="info-dialog-section">
-        <h4  class="info-heading">Status Chart:</h4>
-        <p>
-          A card that draws data from an entity within the system such as settlements, facilities, etc.
-        </p>
-      </div>
-      <div class="info-dialog-section">
-        <h4 class="info-heading"> Interventions Chart:</h4>
-        <p>
-          A card that draws data exclusively from slum interventions such as construction of infrastructure, 
-          issuance of titles, and more.  
-        </p>
-      </div>
-
-      
- 
-
-
-    </div>
-  </el-dialog>
-
-
-
 </template>
 <style>
 .gray-tooltip .el-tooltip__popper {
   background-color: gray;
-}
-</style>
-
-
-<style scoped>
-.info-dialog-content {
-  padding: 5px;
-}
-
-.info-dialog-section {
-  margin-bottom: 5px;
-}
-
-.info-dialog-section h4 {
-  font-size: 1.2em;
-  margin-bottom: 10px;
-}
-
-.info-dialog-section p {
-  line-height: 1.5;
-}
-
-.info-heading {
-  font-size: 1.2em;
-  font-weight: bold;
-  margin-bottom: 10px;
 }
 </style>

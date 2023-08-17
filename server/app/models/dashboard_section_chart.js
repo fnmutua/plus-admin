@@ -15,6 +15,14 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: false
     },
+
+    category: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+
+
+    
     type: {
       type: DataTypes.INTEGER,
       allowNull: false

@@ -143,17 +143,22 @@ programmeComponentOptions.value.push(activity)
         
   
         const prog = {}
-        if (arrayItem.type==='intervention') {
-          prog.component = () => import('@/views/Dashboard/DynamicIntervention.vue') // This is a template to hold info on interventions
-          prog.path = 'intervention_' + arrayItem.title.toLowerCase()
-          prog.name = arrayItem.title 
+        // if (arrayItem.type==='intervention') {
+        //   prog.component = () => import('@/views/Dashboard/DynamicIntervention.vue') // This is a template to hold info on interventions
+        //   prog.path = 'intervention_' + arrayItem.title.toLowerCase()
+        //   prog.name = arrayItem.title 
     
-        }
-        else {
-          prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
-          prog.path = 'status_' + arrayItem.title.toLowerCase()
-          prog.name =  arrayItem.title 
-        }
+        // }
+        // else {
+        //   prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
+        //   prog.path = 'status_' + arrayItem.title.toLowerCase()
+        //   prog.name =  arrayItem.title 
+        // }
+
+        prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
+        prog.path = 'status_' + arrayItem.title.toLowerCase()
+        prog.name =  arrayItem.title 
+
         
       //  prog.component =  Layout
     
@@ -214,17 +219,22 @@ programmeComponentOptions.value.push(activity)
         
   
         const prog = {}
-        if (arrayItem.type==='intervention') {
-          prog.component = () => import('@/views/Dashboard/DynamicIntervention.vue') // This is a template to hold info on interventions
-          prog.path = 'intervention_' + arrayItem.title.toLowerCase()
-          prog.name = arrayItem.title 
+        // if (arrayItem.type==='intervention') {
+        //   prog.component = () => import('@/views/Dashboard/DynamicIntervention.vue') // This is a template to hold info on interventions
+        //   prog.path = 'intervention_' + arrayItem.title.toLowerCase()
+        //   prog.name = arrayItem.title 
     
-        }
-        else {
-          prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
-          prog.path = 'status_' + arrayItem.title.toLowerCase()
-          prog.name =  arrayItem.title 
-        }
+        // }
+        // else {
+        //   prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
+        //   prog.path = 'status_' + arrayItem.title.toLowerCase()
+        //   prog.name =  arrayItem.title 
+        // }
+
+
+        prog.component = () => import('@/views/Dashboard/DynamicState.vue') // This is a template to hold info on interventions
+        prog.path = 'status_' + arrayItem.title.toLowerCase()
+        prog.name =  arrayItem.title 
         
       //  prog.component =  Layout
     
