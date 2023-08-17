@@ -468,6 +468,8 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.filter_function = data.row.filter_function
   ruleForm.filter_option = data.row.filter_option
   ruleForm.ignore_empty = data.row.ignore_empty
+  ruleForm.category = data.row.category
+  ruleForm.card_model_field = data.row.card_model_field
 
 
   value4.value =  data.row.dashboard_section.dashboard.id
@@ -480,10 +482,9 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.indicator_id = indicators
 
   ruleForm.card_model = data.row.card_model
-  ruleForm.card_model_field = data.row.card_model_field
   ruleForm.categorized = data.row.categorized
 
-   if (data.row.dashboard_section.dashboard.type==='status') {
+   if (data.row.category=='Status') {
     showStatusExtras.value=true
    } else {
     showStatusExtras.value=false
@@ -542,7 +543,7 @@ const editIndicator = (data: TableSlotDefault) => {
 
         ]
    } else {
-              chartOptions.value = [
+      chartOptions.value = [
           {
             value: 1,
             label: 'Simple Bar'
@@ -581,9 +582,12 @@ const editIndicator = (data: TableSlotDefault) => {
 
 // Funtions to populate lookups 
   
+
+  
+
   handleFilterFunction(data.row.filter_function)
   if (data.row.card_model) {
-    handleSelectModel(data.row.card_model)  
+ //   handleSelectModel(data.row.card_model)  
   }
 
 
@@ -597,6 +601,7 @@ const editIndicator = (data: TableSlotDefault) => {
   
   formHeader.value = 'Edit Section'
 
+  console.log('ruleForm',ruleForm)
 
   AddDialogVisible.value = true
 }
@@ -644,7 +649,8 @@ const ruleForm = reactive({
   filter_option:'',
   filtered:false,
   filter_field:'',
-  ignore_empty:true
+  ignore_empty:true,
+  category:''
 
 
 })
@@ -699,17 +705,26 @@ const AddCard = () => {
 
 
 const submitForm = async (formEl: FormInstance | undefined) => {
+
+  
+  if (!showStatusExtras.value) {
+    ruleForm.card_model = 'indicator_category_report'
+    ruleForm.card_model_field = 'id'
+  }
+
+
+
   if (!formEl) return
   await formEl.validate((valid, fields) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.code = uuid.v4()
 
-      if (isInterventionsDashboard.value) {
-        console.log('add interventions')
-        ruleForm.card_model='indicator_category_report'
-        ruleForm.card_model_field='amount'
-      }
+      // if (isInterventionsDashboard.value) {
+      //   console.log('add interventions')
+      //   ruleForm.card_model='indicator_category_report'
+      //   ruleForm.card_model_field='amount'
+      // }
       
 
       const res = CreateRecord(ruleForm)
@@ -796,14 +811,14 @@ const handleFilterDashboards = async (dashboard_id) => {
 
 console.log('selDashboard',selDashboard[0].type)
 
-  if (selDashboard[0].type === 'status') {  // status dashabords
-showStatusExtras.value=true
-  } else {
-    showStatusExtras.value = false
-    isInterventionsDashboard.value=true
+  // if (selDashboard[0].type === 'status') {  // status dashabords
+  //     showStatusExtras.value=true
+  // } else {
+  //   showStatusExtras.value = false
+  //   isInterventionsDashboard.value=true
     
 
-  }
+  // }
     
      DashBoardSectionFilterdOptions.value = DashBoardSectionOptions.value.filter(option => option.dashboard_id  == dashboard_id);
    
@@ -1265,6 +1280,33 @@ const isMobile = computed(() => appStore.getMobile)
 
 const value5=ref()
 console.log('IsMobile', isMobile)
+
+
+const categoryOptions  = [
+         {
+            value: 'Status',
+            label: 'Status'
+          },
+          {
+            value: 'Intervention',
+            label: 'Intervention'
+    }
+  ] 
+
+  const handleSelectType = async (status) => {
+ //   let selDashboard = DashboardOptions.value.filter(item => item.value === dashboard_id);
+
+
+  if (status==='Status') {  // status dashabords 
+showStatusExtras.value=true
+  } else {
+    showStatusExtras.value=false
+
+  }
+}
+
+const infoDialog=ref(false)
+
 </script>
 
 <template>
@@ -1399,6 +1441,18 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         <el-input v-model="ruleForm.title" />
       </el-form-item>
 
+
+      
+      <el-form-item label="Category" prop="category" >
+        <el-select v-model="ruleForm.category" filterable placeholder="Select"   :onChange="handleSelectType" >
+          <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+
+        <el-button  plain style="margin-left: 5px"  :icon="InfoFilled" @click="infoDialog = true"/>
+
+      </el-form-item>
+        
+
       <el-form-item label="Description" prop="description">
         <el-input v-model="ruleForm.description" />
       </el-form-item>
@@ -1440,7 +1494,7 @@ v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable 
   
 
       <el-form-item  v-if="showStatusExtras && !hideCategorize" prop="categorized">
-        <el-checkbox v-model="ruleForm.categorized"  >Categorized  by selected field</el-checkbox>
+        <el-checkbox v-model="ruleForm.categorized">Categorized  by selected field</el-checkbox>
 
       </el-form-item>
 
@@ -1586,9 +1640,64 @@ size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"
       </span>
     </template>
   </el-dialog>
+
+
+  
+  <el-dialog
+    v-model="infoDialog"
+     width="40%"
+  >
+    <div class="info-dialog-content">
+      <div class="info-dialog-section">
+        <h4  class="info-heading">Status Chart:</h4>
+        <p>
+          A chart that draws data from an entity within the system such as settlements, facilities, etc.
+        </p>
+      </div>
+      <div class="info-dialog-section">
+        <h4 class="info-heading"> Interventions Chart:</h4>
+        <p>
+          A chart that draws data exclusively from slum interventions such as construction of infrastructure, 
+          issuance of titles, and more.  
+        </p>
+      </div>
+
+      
+ 
+
+
+    </div>
+  </el-dialog>
+
 </template>
 <style>
 .gray-tooltip .el-tooltip__popper {
   background-color: gray;
+}
+</style>
+
+
+<style scoped>
+.info-dialog-content {
+  padding: 5px;
+}
+
+.info-dialog-section {
+  margin-bottom: 5px;
+}
+
+.info-dialog-section h4 {
+  font-size: 1.2em;
+  margin-bottom: 10px;
+}
+
+.info-dialog-section p {
+  line-height: 1.5;
+}
+
+.info-heading {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 10px;
 }
 </style>
