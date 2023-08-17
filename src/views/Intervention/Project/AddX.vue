@@ -17,6 +17,8 @@ v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm
             :xl="8">
             <el-form-item :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
+              <el-input v-if="field.type === 'textarea'"  type="textarea" v-model="formData[field.name]" />
+ 
               <el-input-number
 :min="field.min" v-else-if="field.type === 'number'" v-model="formData[field.name]"
                 @change="getFieldChangeHandler(field.name)" />
@@ -237,10 +239,17 @@ const settlement_id = ref()
 
 
 const onSelectCounty = (county_id) => {
+
   formData.subcounty_id = null
   formData.ward_id = null
   formData.settlement_id = null
   subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == county_id);
+  wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.county_id == county_id);
+  settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.county_id == county_id);
+
+
+
+  
   handleChangeLocation([county_id])
 };
 
@@ -248,6 +257,10 @@ const onSelectCounty = (county_id) => {
 const onSelectSubcounty = (subcounty_id) => {
   formData.ward_id = null
   formData.settlement_id = null
+
+  // update the county to county id of the current subcounty - backward copatibility 
+  var thisSubCountyOption=subcountyOptions.value.filter((obj) => obj.value == subcounty_id);
+  formData.county_id = thisSubCountyOption.county_id
 
  wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == subcounty_id);
  handleChangeLocation([formData.county_id.value,subcounty_id ])
@@ -258,14 +271,32 @@ const onSelectSubcounty = (subcounty_id) => {
 const onSelectWard = (ward_id) => {
 
   formData.settlement_id = null
+  // update the county to county id of the current subcounty - backward copatibility 
+  var thisWardOption=wardOptions.value.filter((obj) => obj.value == ward_id);
+  formData.county_id = thisWardOption[0].county_id
+   formData.subcounty_id = thisWardOption[0].subcounty_id
+   console.log('thisWardOption',thisWardOption[0])
+
+
   settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == ward_id);
-  handleChangeLocation([ formData.county_id.value,formData.subcounty_id.value,ward_id ])
+  handleChangeLocation([ formData.county_id,formData.subcounty_id,ward_id ])
 
 };
 
 const onSelectSettlement = (sett_id) => {
   formData.settlement_id = sett_id
-  handleChangeLocation([ formData.county_id.value,formData.subcounty_id.value,formData.ward_id.value, sett_id ])
+
+ // update the parenst based on current selection - backward copatibility 
+ var thisSettOption=settlementOptionsV2.value.filter((obj) => obj.value == sett_id);
+  formData.county_id = thisSettOption[0].county_id
+  formData.subcounty_id = thisSettOption[0].subcounty_id
+  formData.ward_id = thisSettOption[0].ward_id
+ 
+
+
+
+
+  handleChangeLocation([ formData.county_id,formData.subcounty_id,formData.ward_id, sett_id ])
 
  // const selectedSettlement = settOptionsFiltered.value.filter((obj) => obj.value === sett_id);
  // selectAdmin.value = selectAdmin.value + ' | ' + selectedSettlement[0].label
@@ -859,6 +890,12 @@ const submitForm = async () => {
       formData.component_id = component_id.value
       //formData.geom =projectScopeGeo.value
 
+      if (!formData.geom) {
+        console.log('projectScopeGeo.value', projectScopeGeo.value)
+        // if the proejct lcoation is not specified, take the lowest admin geom
+        formData.geom =projectScopeGeo.value.features[0].geometry
+ 
+      }
 
       if (newRecord.value) {
         formData.isApproved = 'Pending'

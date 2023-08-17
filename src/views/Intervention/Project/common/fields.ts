@@ -88,7 +88,7 @@ const formFields: Field[][] = [
     
 
 
-     { name: "title", label: "Title", type: "text", multiselect: 'false', adminUnit: false,     options: [] },
+     { name: "title", label: "Title", type: "textarea", multiselect: 'false', adminUnit: false,     options: [] },
     { name: "project_code", label: "Project Code", type: "text", multiselect: 'false', adminUnit: false,      options: [] },
     {
       name: "status", label: "Status", type: "select", multiselect: 'false', adminUnit: false,       options: statusOptions

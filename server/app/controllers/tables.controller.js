@@ -717,6 +717,14 @@ exports.modelImportDataUpsert = async (req, res) => {
       data.map(async (item) => {
         item.createdBy = req.thisUser.id;
         console.log('project......', item.activities)
+
+        const activities = JSON.parse(item.activities);
+        const sourceFunding = JSON.parse(item.sourceFunding);
+      
+        item.sourceFunding = sourceFunding
+        item.activities = activities
+
+
         try {
           const prj = await db.models[reg_model].create(item);
           if (reg_model === 'project') {
@@ -728,6 +736,7 @@ exports.modelImportDataUpsert = async (req, res) => {
                 id: arr,
               },
             });
+          
 
             await prj.addActivities(activities);
           }
