@@ -96,6 +96,7 @@ const value2 = ref([])
 var value3 = ref([])
 var value4 = ref([])
 var value5 = ref([])
+var value40 = ref([])
 
 const morefileList = ref<UploadUserFile[]>([])
 
@@ -221,6 +222,7 @@ const handleClear = async () => {
   value3.value = ''
   value4.value = ''
   value5.value = ''
+  value40.value = ''
 
   pSize.value = 5
   currentPage.value = 1
@@ -278,6 +280,33 @@ const onPageSizeChange = async (size: any) => {
 
 
 
+const implementationOptions = ref([])
+ const getImplementationSponsors = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'programme_implementation',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    //console.log('Received response:', response)
+    //tableDataList.value = response.data
+    const ret = response.data
+  
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      const parentOpt = {}
+      parentOpt.value = arrayItem.id
+       parentOpt.label = arrayItem.acronym
+      //  console.log(countyOpt)
+      implementationOptions.value.push(parentOpt)
+    })
+  })
+}
+ 
 
 const getAllProjects = async () => {
   getFilteredData(filters, filterValues)
@@ -853,7 +882,7 @@ const getInterventionComponents = async () => {
 getAllProjects()
 getInterventionComponents()
 getBeneficiaries(filtersBen, filterValuesBen)  // First time
-
+getImplementationSponsors()
 
 
 
@@ -1268,7 +1297,7 @@ const actionColumnWidth = ref()
 
 if (isMobile.value) {
   dialogWidth.value = "90%"
-  actionColumnWidth.value = "75px"
+  actionColumnWidth.value = "72px"
 } else {
   dialogWidth.value = "28%"
   actionColumnWidth.value = "160px"
@@ -1757,27 +1786,21 @@ const value7 = ref()
 
 
 
-const filterByCounty = async (county_id: any) => {
-
-  if (county_id) {
-    enableSubcounty.value = true   // allow selection of subcounty 
-    selectedCounty.value = county_id
-    getSubCountyNames()
-  }
-
+const filterByProgramme = async (prog_id: any) => {
+ 
   value5.value = '' // clear the subcounty 
   value6.value = null   // clear the ward sr
 
 
 
-  if (county_id.length > 0) {
-    filters.push('county_id')
-    filterValues.push(county_id)
+  if (prog_id.length > 0) {
+    filters.push('implementation_id')
+    filterValues.push(prog_id)
 
     getFilteredData(filters, filterValues)
   } else {
-    filters.splice(filters.indexOf('county_id'), 1);
-    filterValues.splice(filterValues.indexOf(county_id), 1);
+    filters.splice(filters.indexOf('implementation_id'), 1);
+    filterValues.splice(filterValues.indexOf(prog_id), 1);
     getFilteredData(filters, filterValues)
   }
 
@@ -1785,6 +1808,36 @@ const filterByCounty = async (county_id: any) => {
 
 }
 
+
+
+
+const filterByCounty = async (county_id: any) => {
+
+if (county_id) {
+  enableSubcounty.value = true   // allow selection of subcounty 
+  selectedCounty.value = county_id
+  getSubCountyNames()
+}
+
+value5.value = '' // clear the subcounty 
+value6.value = null   // clear the ward sr
+
+
+
+if (county_id.length > 0) {
+  filters.push('county_id')
+  filterValues.push(county_id)
+
+  getFilteredData(filters, filterValues)
+} else {
+  filters.splice(filters.indexOf('county_id'), 1);
+  filterValues.splice(filterValues.indexOf(county_id), 1);
+  getFilteredData(filters, filterValues)
+}
+
+
+
+}
 
 const filterBySubCounty = async (subcounty_id: any) => {
 
@@ -2108,7 +2161,16 @@ const AddBeneficiaryFromWithin = async () => {
     </div>
 
     <el-row>
-      <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+      <div style="display: inline-block; margin-top: 2px;  margin-right: 2px">
+        <el-select
+size="default" v-model="value40" :onChange="filterByProgramme" :onClear="handleClear" multiple clearable
+          filterable collapse-tags placeholder="By Programme">
+          <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </div>
+
+
+      <div style="display: inline-block; margin-top: 2px;  margin-right: 2px">
         <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
           filterable collapse-tags placeholder="By County">
@@ -2116,7 +2178,9 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
         </el-select>
       </div>
 
-      <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+
+
+      <div style="display: inline-block; margin-top: 2px;  margin-right: 2px">
         <el-select
 :disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
           clearable filterable collapse-tags placeholder="By Subcounty">
@@ -2124,14 +2188,14 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
         </el-select>
       </div>
 
-      <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+      <div style="display: inline-block; margin-top: 2px;  margin-right: 2px">
         <el-select
 :disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
           clearable filterable collapse-tags placeholder="By Ward">
           <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </div>
-      <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
+      <div style="display: inline-block; margin-top: 2px;  margin-right: 2px">
         <el-select
 :disabled="!enableSubcounty" size="default" v-model="value7" :onChange="filterBySettlement" multiple
           clearable filterable collapse-tags placeholder="By Settlement">
@@ -2139,23 +2203,23 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
         </el-select>
       </div>
 
-      <div style="display: inline-block; margin-bottom: 5px">
+      <div style="display: inline-block; margin-bottom: 2px">
         <el-select
 v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
           placeholder="Search by Title" style="width: 100%" />
       </div>
 
-      <div v-if="showEditButtons" style="display: inline-block; margin-left: 5px">
+      <div v-if="showEditButtons" style="display: inline-block; margin-left: 2px">
         <el-tooltip content="Add Project" placement="top">
           <el-button :onClick="AddProject" type="primary" :icon="Plus" />
         </el-tooltip>
       </div>
-      <div v-if="showEditButtons" style="display: inline-block; margin-left: 5px">
+      <div v-if="showEditButtons" style="display: inline-block; margin-left: 2px">
         <el-tooltip content="Add Beneficiary" placement="top">
           <el-button :onClick="AddBeneficiary" type="primary" :icon="User" />
         </el-tooltip>
       </div>
-      <div style="display: inline-block; margin-left: 5px">
+      <div style="display: inline-block; margin-left: 2px">
         <el-tooltip content="Download" placement="top">
           <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         </el-tooltip>
@@ -2177,7 +2241,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
                 <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+style="margin-left: 10px;margin-top: 2px" size="small" v-if="showEditButtons" type="success"
                   :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
@@ -2261,7 +2325,7 @@ v-if="showAdminButtons" :label="beneficiaryTabTitle" name="Beneficiary"
 
           <el-tooltip content="Add Beneficiary" placement="top">
               <el-button
-              style="margin-left: 10px; margin-top: 5px"
+              style="margin-left: 10px; margin-top: 2px"
                v-if="showEditButtons"
               type="success"
               circle

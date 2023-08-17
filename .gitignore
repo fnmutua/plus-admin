@@ -6,6 +6,5 @@ dist-ssr
 *.local
 /dist*
 *-lock.*
-.env.pro
 .env
 pnpm-debug
