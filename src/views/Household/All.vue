@@ -51,6 +51,7 @@ import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 
 import * as enums from '@/utils/enums'
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 import { getFilteredHouseholdsByColumn, getFilteredHouseholdsBykeyword, updateHousehold } from '@/api/households'
 import UploadComponent from '@/views/Components/UploadComponent.vue';
@@ -1036,6 +1037,8 @@ size="default" v-model="value3" multiple clearable filterable remote :remote-met
               <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
             </el-tooltip>
           </div>
+          <DownloadAll  v-if="showAdminButtons"   :model="model" :associated_models="associated_multiple_models"/>
+
         </div>
       </el-col>
     </el-row>

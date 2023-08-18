@@ -29,6 +29,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 
 const { wsCache } = useCache()
@@ -39,6 +40,14 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 console.log("userInfo--->", userInfo)
 
 
+
+const showEditButtons = ref(false)
+
+// Show Edit buttons 
+if (userInfo.roles.includes("staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
+}
 
 
 
@@ -238,6 +247,9 @@ const tableRowClassName = (data) => {
       <el-select
 v-model="value1" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name" />
+
+        <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+
     </div>
 
     <el-table

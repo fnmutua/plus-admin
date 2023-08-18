@@ -38,6 +38,7 @@ import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import { getFile } from '@/api/summary'
 import xlsx from "json-as-xlsx"
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 
 const { wsCache } = useCache()
@@ -689,6 +690,8 @@ v-model="value4" :onChange="handleSearchEvaluation" :onClear="handleClear" multi
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
     </div>
+    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>

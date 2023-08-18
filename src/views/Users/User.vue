@@ -32,6 +32,7 @@ import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 import { searchByKeyWord } from '@/api/settlements'
 interface Params {
@@ -109,7 +110,7 @@ var filters = ['county_id']
 var filterValues = [currentUser.county_id]
 var tblData = []
 
-const associated_multiple_models = ['county' ]
+const associated_multiple_models = ['county' ,'user_roles']
 
 ////const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
 //const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
@@ -625,6 +626,9 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
     </div>
+
+    <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
+
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>

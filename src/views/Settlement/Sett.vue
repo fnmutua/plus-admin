@@ -62,7 +62,8 @@ import proj4 from 'proj4';
 import UploadComponent from '@/views/Components/UploadComponent.vue';
  
 
- import ListDocuments from '@/views/Components/ListDocuments.vue';
+import ListDocuments from '@/views/Components/ListDocuments.vue';
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 
 
@@ -1856,9 +1857,11 @@ v-model="search_string" :suffix-icon="Search" placeholder="Enter search text"
           </div>
 
           <div style="display: inline-block; margin-left: 5px">
-            <el-tooltip content="Download All" placement="top">
+            <!-- <el-tooltip content="Download All" placement="top">
               <el-button :onClick="DownloadAllXlsx" type="primary" :icon="Finished" />
-            </el-tooltip>
+            </el-tooltip> -->
+            <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
+
           </div>
         </div>
       </el-col>

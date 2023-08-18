@@ -39,6 +39,7 @@ import { getUniqueFieldValues} from '@/api/households'
 import {  computed  } from 'vue'
 
 import { Icon } from '@iconify/vue';
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 
 const { wsCache } = useCache()
@@ -50,6 +51,13 @@ console.log("userInfo--->", userInfo)
 
 
 
+const showEditButtons = ref(false)
+
+// Show Edit buttons 
+if (userInfo.roles.includes("staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
+}
 
 
 
@@ -1338,6 +1346,8 @@ v-model="value3" :onChange="handleSelectDashboardSection" :onClear="handleClear"
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleDownload" type="primary" :icon="Download" />
     </div>
+    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>

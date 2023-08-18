@@ -471,7 +471,18 @@ if (associated_multiple_models && associated_multiple_models !== '') {
 
   includeQuery.attributes = { exclude: ['geom'] };
 
-  //includeQuery.order = [['name', 'ASC'], ['title', 'ASC']]; //sort either by title or name 
+  //includeQuery.order = [['name', 'ASC'], ['title', 'ASC']]; //sort either by title or name
+
+  
+  if (reg_model === 'users') {
+    // Exclude password fields if the model is users
+    includeQuery.attributes = {
+      exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken' ]
+    };
+  } else {
+    includeQuery.attributes = { exclude: ['geom'] };
+  }
+
 
   if (field && searchKeyword && searchKeyword !== '' && field !== '') {
     console.log('Filtered with no GEO');

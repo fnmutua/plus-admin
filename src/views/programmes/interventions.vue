@@ -54,6 +54,7 @@ import { getFile } from '@/api/summary'
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
@@ -2235,6 +2236,7 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
           <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         </el-tooltip>
       </div>
+      <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
 
     </el-row>
 
