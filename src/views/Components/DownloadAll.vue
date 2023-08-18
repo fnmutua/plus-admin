@@ -1,11 +1,11 @@
 <template>
-  <div style="display: inline-block; margin-left: 5px">
+  <div   v-loading="downloading"  style="display: inline-block; margin-left: 5px">
     <el-tooltip content="Download All" placement="top">
-      <el-button :onClick="DownloadViaComponent" type="primary" :icon="Finished" />
+      <el-button    :onClick="DownloadViaComponent" type="primary" :icon="Finished" />
     </el-tooltip>
   </div>
 
-  <el-dialog v-model="showSelectFields" title="Select Fields" width="70%">
+  <el-dialog  v-model="showSelectFields" title="Select Fields" width="70%">
     <div>
     <el-row v-if="model_fields && model_fields.length > 0">
       <el-col :span="6" v-for="(field, index) in model_fields" :key="index">
@@ -47,6 +47,7 @@ const { show } = toRefs(props);
 const flattenedData = ref([]);
 const showSelectFields = ref(false);
 const selectedFields =ref([])
+const downloading =ref(false)
 
 
 const model_fields = ref([])
@@ -95,7 +96,7 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 
 const DownloadViaComponent = async () => {
   flattenedData.value = [];
-
+  downloading.value=true
   try {
     const response = await getListWithoutGeo({
       params: {
@@ -117,6 +118,7 @@ const DownloadViaComponent = async () => {
 
     //  console.log(dd);
     });
+    downloading.value=false
 
     showSelectFields.value = true;
   } catch (error) {
