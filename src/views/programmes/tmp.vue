@@ -2399,7 +2399,7 @@ confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
 
         <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
+          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
       <el-tab-pane
@@ -2421,7 +2421,7 @@ style="margin-left: 10px; margin-top: 5px" v-if="showEditButtons" type="success"
 
         <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPageBen="currentPageBen"
-          v-model:page-size="pageSizeBen" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalBen" :background="true"
+          v-model:page-size="pageSizeBen" :page-sizes="[5, 10, 20, 50, 100]" :total="totalBen" :background="true"
           @size-change="onPageSizeChangeBen" @current-change="onPageChangeBen" class="mt-4" />
       </el-tab-pane>
 

@@ -391,7 +391,8 @@ console.log('CSV---->', csv)
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" multiple clearable filterable remote :remote-method="handleSelectHousehold"
+      <el-select
+v-model="value3" multiple clearable filterable remote :remote-method="handleSelectHousehold"
         reserve-keyword placeholder="Search by Household Name" />
     </div>
     <div style="display: inline-block; margin-left: 20px">
@@ -409,7 +410,8 @@ console.log('CSV---->', csv)
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+    <Table
+:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="View Profile" placement="top">
@@ -424,8 +426,9 @@ console.log('CSV---->', csv)
         </el-tooltip>
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
     <el-dialog v-model="visible" :show-close="false">
@@ -441,7 +444,8 @@ console.log('CSV---->', csv)
         </div>
       </template>
 
-      <vue-csv-import v-model="csv" :fields="{
+      <vue-csv-import
+v-model="csv" :fields="{
   name: { required: true, label: 'Name' },
   national_id: { required: true, label: 'National ID' }
 }">

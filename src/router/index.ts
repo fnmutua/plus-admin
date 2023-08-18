@@ -166,7 +166,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Settlement/Sett.vue'),
             name: 'List',
             meta: {
-              title: 'List',
+              title: 'Settlements',
+              affix: true,
               icon:'material-symbols:format-list-bulleted-rounded'
             }
           },
@@ -1428,7 +1429,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: t('Roles'),
           noCache: true,
           icon:'ic:round-bubble-chart',
-          affix: true,
+          affix: false,
           hidden: false,
           role: ['super_admin'] 
 

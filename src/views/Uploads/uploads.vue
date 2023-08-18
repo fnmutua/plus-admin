@@ -435,7 +435,8 @@ const UploadDocuments = (data: TableSlotDefault) => {
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Filter by Settlement">
         <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -448,7 +449,8 @@ const UploadDocuments = (data: TableSlotDefault) => {
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+    <Table
+:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="View Profile" placement="top">
@@ -456,7 +458,8 @@ const UploadDocuments = (data: TableSlotDefault) => {
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+          <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
             title="Are you sure to delete this indicator?" @confirm="DeleteUpload(data as TableSlotDefault)">
             <template #reference>
               <el-button type="danger" :icon="Delete" circle />
@@ -467,8 +470,9 @@ const UploadDocuments = (data: TableSlotDefault) => {
 
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
     <el-dialog v-model="uploadDialog" :show-close="false">

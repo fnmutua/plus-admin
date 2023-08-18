@@ -366,24 +366,28 @@ const viewOnMap = (data: TableSlotDefault) => {
 </script>
 
 <template>
-  <ContentWrap :title="t('Households')"
+  <ContentWrap
+:title="t('Households')"
     :message="t('The list of households in informal settlements. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value1" value-key="type" :onChange="handleSelectType" :onClear="handleClear" multiple filterable
+      <el-select
+v-model="value1" value-key="type" :onChange="handleSelectType" :onClear="handleClear" multiple filterable
         clearable collapse-tags placeholder="Filter by Intervention">
         <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value2" :onChange="handleSelectPhase" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value2" :onChange="handleSelectPhase" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by KISIP Phase">
         <el-option v-for="item in PhaseOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by Settlement Name">
         <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -396,7 +400,8 @@ const viewOnMap = (data: TableSlotDefault) => {
     </div>
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+    <Table
+:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="View Profile" placement="top">
@@ -411,8 +416,9 @@ const viewOnMap = (data: TableSlotDefault) => {
         </el-tooltip>
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true" @size-change="onPageSizeChange"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 </template>
