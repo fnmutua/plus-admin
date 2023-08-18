@@ -509,17 +509,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: { hidden: true, title: 'Add', noCache: true }
           },
       
-          {
-            path: 'roadasset/map/:id',
-          //  component: 'views/Facilities/Sewer/SewerMap',
-            component: () => import('@/views/Facilities/Roads/RoadAssetMap.vue'),
-            name: 'RoadAssetMap',
-            meta: {
-              hidden: true,
-              props: true,
-              title: 'Road Asset Map'
-            }
-          },
+         
     
     
     
