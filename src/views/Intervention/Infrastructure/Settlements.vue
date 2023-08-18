@@ -429,7 +429,7 @@ const viewOnMap = (data: TableSlotDefault) => {
       layout="sizes, prev, pager, next, total"
       v-model:currentPage="currentPage"
       v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 1000]"
+      :page-sizes="[5, 10, 20, 50, 100]"
       :total="total"
       :background="true"
       @size-change="onPageSizeChange"

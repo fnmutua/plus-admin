@@ -184,6 +184,17 @@ const uploadOptions = [
       },
  
     ]
+  },
+  {
+    label: 'Other',
+    options: [
+      {
+        value: 'project',
+        label: 'projects'
+      },
+     
+ 
+    ]
   }
 ]
 
@@ -378,6 +389,15 @@ const handleSelectType = async (type: any) => {
   }
 
 
+  else if (type === 'project') {
+    // fieldSet.value = beneficiary_parcels
+    model.value = 'project'
+    parentModel.value = 'ward'
+    parent_key.value = 'ward_id'
+    code.value = 'pcode'
+    console.log('county_id------>', fieldSet.value)
+    getParentOptions()
+  }
 
 
 

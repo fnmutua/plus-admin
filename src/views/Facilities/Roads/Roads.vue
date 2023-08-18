@@ -1576,7 +1576,7 @@ v-show="showAdminButtons" type="success" size="small" :icon="View"
 
         <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalNew" :background="true"
+          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="totalNew" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
 
@@ -1671,7 +1671,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
         <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalRejected" :background="true"
+          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="totalRejected" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
 

@@ -1728,8 +1728,8 @@ const getSettlementNames = async () => {
       limit: 100,
       curUser: 1, // Id for logged in user
       model: 'settlement',
-      searchField: 'ward_id',
-      searchKeyword: selectedWard.value,
+      searchField: 'subcounty_id',
+      searchKeyword: selectedSubCounty.value,
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
@@ -1848,6 +1848,12 @@ const filterBySubCounty = async (subcounty_id: any) => {
     selectedSubCounty.value = subcounty_id
     getWardNames()
   }
+
+  if (subcounty_id) {
+    selectedSubCounty.value = subcounty_id
+    getSettlementNames()
+  }
+
 
 
 
@@ -2161,6 +2167,15 @@ const AddBeneficiaryFromWithin = async () => {
     </div>
 
     <el-row>
+
+      <div style="display: inline-block; margin-bottom: 2px">
+        <el-select
+v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+          placeholder="Search by Title" style="width: 100%" />
+      </div>
+
+
+
       <div style="display: inline-block; margin-top: 2px;  margin-right: 2px">
         <el-select
 size="default" v-model="value40" :onChange="filterByProgramme" :onClear="handleClear" multiple clearable
@@ -2187,15 +2202,16 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
           <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </div>
-
+<!-- 
       <div style="display: inline-block; margin-top: 2px;  margin-right: 2px">
         <el-select
 :disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
           clearable filterable collapse-tags placeholder="By Ward">
           <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
-      </div>
-      <div style="display: inline-block; margin-top: 2px;  margin-right: 2px">
+      </div> -->
+
+      <div style="display: inline-block; margin-top: 2px;  margin-right: 3px">
         <el-select
 :disabled="!enableSubcounty" size="default" v-model="value7" :onChange="filterBySettlement" multiple
           clearable filterable collapse-tags placeholder="By Settlement">
@@ -2203,12 +2219,7 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
         </el-select>
       </div>
 
-      <div style="display: inline-block; margin-bottom: 2px">
-        <el-select
-v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-          placeholder="Search by Title" style="width: 100%" />
-      </div>
-
+     
       <div v-if="showEditButtons" style="display: inline-block; margin-left: 2px">
         <el-tooltip content="Add Project" placement="top">
           <el-button :onClick="AddProject" type="primary" :icon="Plus" />
@@ -2228,14 +2239,14 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
     </el-row>
 
 
-    <el-tabs @tab-click="onClickTab" v-model="activeName" type="border-card">
+    <el-tabs @tab-click="onClickTab" v-model="activeName" type="border-card" style="width: 100%; margin-top: 5px;" >
       <el-tab-pane label="Interventions" name="list">
         <el-table
-:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"  stripe flexible
           @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
-              <div m="4">
+              <div m="4"> 
                 <h3>Documents</h3>
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
@@ -2246,10 +2257,10 @@ style="margin-left: 10px;margin-top: 2px" size="small" v-if="showEditButtons" ty
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="Title" prop="title" width="200" sortable />
-          <el-table-column label="County" prop="county.name" sortable />
+          <el-table-column label="Title" prop="title" width="400" resizable sortable />
+          <el-table-column label="County" prop="county.name" width="120"  sortable />
           <!-- <el-table-column label="Settlement" prop="settlement.name" sortable /> -->
-          <el-table-column label="Pogramme" prop="programme.acronym" sortable />
+          <el-table-column label="Programme" prop="programme.acronym"  width="130"  sortable />
           <el-table-column label="Status" prop="status" sortable />
           <el-table-column label="Start" prop="start_date" :formatter="formatStartDate" sortable />
           <el-table-column label="End" prop="end_date" :formatter="formatEndDate" sortable />
@@ -2313,7 +2324,7 @@ confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
 
         <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
+          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
       <el-tab-pane
@@ -2339,7 +2350,7 @@ v-if="showAdminButtons" :label="beneficiaryTabTitle" name="Beneficiary"
 
         <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPageBen="currentPageBen"
-          v-model:page-size="pageSizeBen" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="totalBen" :background="true"
+          v-model:page-size="pageSizeBen" :page-sizes="[5, 10, 20, 50, 100]" :total="totalBen" :background="true"
           @size-change="onPageSizeChangeBen" @current-change="onPageChangeBen" class="mt-4" />
       </el-tab-pane>
 

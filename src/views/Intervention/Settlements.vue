@@ -578,24 +578,28 @@ const DownloadXlsx = async () => {
 </script>
 
 <template>
-  <ContentWrap :title="t('KISIP Settlements')"
+  <ContentWrap
+:title="t('KISIP Settlements')"
     :message="t('The list of tenure regularization settlements. Use the filters to subset')">
     <el-divider border-style="dashed" content-position="left">Filters</el-divider>
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value2" :onChange="handleSelectPhase" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value2" :onChange="handleSelectPhase" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="By KISIP Phase">
         <el-option v-for="item in PhaseOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value3" :onChange="handleSelectSettlement" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="By Settlement Name">
         <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-model="value4" :onChange="filterByType" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value4" :onChange="filterByType" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="By Intervention Type">
         <el-option v-for="item in interVentionTypeOtions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -618,7 +622,8 @@ const DownloadXlsx = async () => {
 
     <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
-    <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+    <Table
+:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="View Profile" placement="top">
@@ -626,7 +631,8 @@ const DownloadXlsx = async () => {
         </el-tooltip>
 
         <el-tooltip content="View Households" placement="top">
-          <el-button v-show="showAdminButtons" type="success" :icon="User" @click="viewHHs(data as TableSlotDefault)"
+          <el-button
+v-show="showAdminButtons" type="success" :icon="User" @click="viewHHs(data as TableSlotDefault)"
             circle />
         </el-tooltip>
         <el-tooltip content="View on Map" placement="top">
@@ -637,7 +643,8 @@ const DownloadXlsx = async () => {
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+          <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
             title="Are you sure to delete this record?" @confirm="DeleteIntervention(data as TableSlotDefault)">
             <template #reference>
               <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
@@ -648,8 +655,9 @@ const DownloadXlsx = async () => {
 
       </template>
     </Table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 1000]" :total="total" :background="true"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </ContentWrap>
 
@@ -660,7 +668,8 @@ const DownloadXlsx = async () => {
 
       <el-form-item label="Cluster">
         <el-select filterable v-model="ruleForm.cluster_id" placeholder="Select Cluster">
-          <el-option v-for="item in interVentionClusterOtions" :key="item.value" :label="item.label"
+          <el-option
+v-for="item in interVentionClusterOtions" :key="item.value" :label="item.label"
             :value="item.value" />
         </el-select>
       </el-form-item>

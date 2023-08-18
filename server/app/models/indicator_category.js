@@ -35,12 +35,12 @@ module.exports = function (sequelize, DataTypes) {
       },
 
       target: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.DECIMAL,
         allowNull: false
       },
 
       baseline: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.DECIMAL,
         allowNull: false
       },
 
