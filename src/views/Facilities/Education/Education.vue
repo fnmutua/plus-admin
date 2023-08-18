@@ -12,6 +12,7 @@ import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSwitch, ElDe
 import { computed, onMounted } from 'vue'
 import xlsx from "json-as-xlsx"
 import { getFile } from '@/api/summary'
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
  
 import { defineAsyncComponent } from 'vue';
@@ -1441,6 +1442,8 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
         </div>
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+          <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+
         </div>
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />

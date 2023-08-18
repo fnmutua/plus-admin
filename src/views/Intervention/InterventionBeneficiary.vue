@@ -31,6 +31,7 @@ import {
 import { useRoute } from 'vue-router'
 
 import { getAllHouseholds, getFilteredHouseholdsBykeyword, updateHousehold } from '@/api/households'
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 
 import 'element-plus/theme-chalk/display.css'
@@ -862,6 +863,8 @@ size="default" v-model="value5" :onChange="filterByHousehold" :onClear="handleCl
               <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
             </el-tooltip>
           </div>
+          <DownloadAll  v-if="showAdminButtons"   :model="model" :associated_models="associated_multiple_models"/>
+
         </div>
       </el-col>
     </el-row>

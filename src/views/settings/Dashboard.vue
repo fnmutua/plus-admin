@@ -32,6 +32,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 
 const { wsCache } = useCache()
@@ -77,7 +78,15 @@ if (userInfo.roles.includes("admin") || userInfo.roles.includes("staff")) {
   showAdminButtons.value = true
    
 }
- 
+
+const showEditButtons = ref(false)
+
+// Show Edit buttons 
+if (userInfo.roles.includes("staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
+}
+
 
 // filter Charts only admins can see all 
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin") ) {
@@ -497,6 +506,8 @@ v-model="value3"   :onClear="handleClear" multiple clearable filterable
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleDownload" type="primary" :icon="Download" />
     </div>
+    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>

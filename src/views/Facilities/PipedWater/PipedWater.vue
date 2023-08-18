@@ -78,6 +78,7 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 
 import ListDocuments from '@/views/Components/ListDocuments.vue';
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 
 
@@ -1322,6 +1323,8 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         </div>
+        <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </div>

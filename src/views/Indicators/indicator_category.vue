@@ -30,6 +30,7 @@ import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import xlsx from "json-as-xlsx"
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -55,6 +56,16 @@ if (isMobile.value) {
   dialogWidth.value = "25%"
   actionColumnWidth.value = "160px"
 
+}
+
+
+const showEditButtons = ref(false)
+
+
+// Show Edit buttons 
+if (userInfo.roles.includes("staff")|| userInfo.roles.includes("admin")
+  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
+    showEditButtons.value = true;
 }
 
 const ruleFormRef = ref<FormInstance>()
@@ -1008,6 +1019,8 @@ v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multipl
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
     </div>
+    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>

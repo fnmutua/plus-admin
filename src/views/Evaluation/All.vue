@@ -63,6 +63,7 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
  
 
  import ListDocuments from '@/views/Components/ListDocuments.vue';
+ import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 
 
@@ -1724,6 +1725,8 @@ v-model="search_string" :suffix-icon="Search" placeholder="Enter search text" st
               <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
             </el-tooltip>
           </div>
+          <!-- <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/> -->
+
         </div>
       </el-col>
     </el-row>
