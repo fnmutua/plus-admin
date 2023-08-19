@@ -1114,7 +1114,7 @@ exports.modelSelectGeo = async (req, res) => {
   });
 };
 
-exports.modelOneRecord = (req, res) => {
+exports.xmodelOneRecord = (req, res) => {
   var reg_model = req.body.model
 
   var ass_model = db.models[req.body.assocModel]
@@ -1140,6 +1140,39 @@ exports.modelOneRecord = (req, res) => {
     })
   })
 }
+
+exports.modelOneRecord = (req, res) => {
+  var reg_model = req.body.model;
+
+  var ass_model = db.models[req.body.assocModel];
+
+  var qry = {
+    include:[]
+  };
+
+  if (ass_model) {
+      qry.include= [{ model: ass_model }]
+    };
+  
+  
+  if (reg_model === 'project') {
+    // Include activities through the many-to-many relationship
+    qry.include.push({
+      model: db.models.activity,
+      as: 'activities', // Replace 'activities' with the actual alias for the many-to-many association
+      through: { attributes: [] } // Exclude join table attributes from the result
+    });
+  }
+
+  qry.where = { id: { [op.eq]: req.body.id } };
+
+  db.models[reg_model].findOne(qry).then((thisRecord) => {
+    res.status(200).send({
+      data: thisRecord,
+      code: '0000'
+    });
+  });
+};
 
 exports.modelEditOneRecord = (req, res) => {
   var reg_model = req.body.model;

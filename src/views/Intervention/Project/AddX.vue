@@ -363,11 +363,14 @@ onMounted(async () => {
       //   onSelectSubcounty(curData.subcounty_id)
       //   onSelectWard(curData.ward_id)
 
-      subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
-      wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id ==curData.subcounty_id);
+        subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
+        wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id ==curData.subcounty_id);
         settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == curData.ward_id);
 
-      
+        let  activityIds = curData.activities.map(activity => activity.id);
+        curData.activities=activityIds
+        
+
         //  formData = res.data
         Object.assign(formData, curData);
         console.log(formData)
