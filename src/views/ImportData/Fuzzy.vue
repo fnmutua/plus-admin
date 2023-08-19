@@ -4,7 +4,7 @@
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getParentIds, BatchImportUpsert } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
+import { getCountyListApi,getListWithoutGeo } from '@/api/counties'
 import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 import { postBatchHouseholds } from '@/api/households'
@@ -166,7 +166,7 @@ const getParentOptions = async () => {
 
     console.log("parent --Model", theParentModel.value)
 
-    await getCountyListApi({
+    await getListWithoutGeo({
         params: {
             pageIndex: 1,
             limit: 100,
@@ -539,9 +539,9 @@ const readXLSX = async (event) => {
                         return {
                             ...obj, // spread existing properties of the object
                             [pfield]: results[0].item.id, // add new property to the object
-                            ['county_id']: results[0].item.county_id, // add new property to the object
-                            ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
-                            ['ward_id']: results[0].item.ward_id,  // add new property to the object
+                        //    ['county_id']: results[0].item.county_id, // add new property to the object
+                         //   ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
+                        //    ['ward_id']: results[0].item.ward_id,  // add new property to the object
                             ['code']: shortid.generate(),
                             //['settlement_id']: results[0].item.settlement_id  // add new property to the object
                         };
@@ -791,14 +791,9 @@ const handleReset = async () => {
 }
  
 const DisablePostSubmit = ref(false)
-const handleSubmitData = async () => {
-    console.log(tableData.value)
-    // loadingPosting.value=true
-    console.log(matchedWithParent.value)
-    DisablePostSubmit.value = true  // Disable the submti button to avoid double sumbissions 
- 
 
-    function replaceObjectKeys(arr, dict) {
+
+function replaceObjectKeys(arr, dict) {
         return arr.map(obj => {
             const updatedObj = {};
             Object.keys(obj).forEach(key => {
@@ -825,6 +820,27 @@ const handleSubmitData = async () => {
             return obj;
         });
     }
+ 
+
+
+const xhandleSubmitData = async () => {
+    console.log(tableData.value)
+   console.log(matchedWithParent.value)
+
+    const updatedArr = replaceObjectKeys(matchedWithParent.value, tableData.value);
+    console.log(updatedArr)
+
+}
+
+
+
+
+const handleSubmitData = async () => {
+    console.log(tableData.value)
+    // loadingPosting.value=true
+    console.log(matchedWithParent.value)
+    DisablePostSubmit.value = true  // Disable the submti button to avoid double sumbissions 
+ 
 
     const updatedArr = replaceObjectKeys(matchedWithParent.value, tableData.value);
     console.log(updatedArr)
