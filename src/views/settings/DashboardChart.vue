@@ -17,6 +17,7 @@ import {
   MessageBox,
   Edit,
   InfoFilled,
+  CopyDocument,
   Delete
 } from '@element-plus/icons-vue'
 
@@ -618,6 +619,164 @@ const editIndicator = (data: TableSlotDefault) => {
   AddDialogVisible.value = true
 }
 
+
+const CloneChart = (data: TableSlotDefault) => {
+  showSubmitBtn.value = true
+  showEditSaveButton.value = false
+  console.log('Editing', data)
+
+
+   ruleForm.title = data.row.title
+  ruleForm.dashboard_section_id = data.row.dashboard_section_id
+  ruleForm.dashboard_id = data.row.dashboard_section.dashboard_id
+  ruleForm.description = data.row.description
+  ruleForm.iconColor = data.row.iconColor
+  ruleForm.icon = data.row.icon
+  ruleForm.aggregation = data.row.aggregation
+  ruleForm.type = data.row.type
+  ruleForm.filter_field = data.row.filter_field
+  ruleForm.filtered = data.row.filtered
+
+  ruleForm.filter_function = data.row.filter_function
+  ruleForm.filter_option = data.row.filter_option
+  ruleForm.ignore_empty = data.row.ignore_empty
+  ruleForm.category = data.row.category
+  ruleForm.card_model_field = data.row.card_model_field
+
+
+  value4.value =  data.row.dashboard_section.dashboard.id
+
+  let indicators =[]
+  data.row.indicators.forEach(function (arrayItem) {
+    indicators.push(arrayItem.id)
+  })
+
+  ruleForm.indicator_id = indicators
+
+  ruleForm.card_model = data.row.card_model
+  ruleForm.categorized = data.row.categorized
+
+   if (data.row.category=='Status') {
+    showStatusExtras.value=true
+   } else {
+    showStatusExtras.value=false
+
+  }
+
+  if (data.row.filter_value) {
+
+    data.row.filter_value.forEach(item => {
+      console.log(item);
+      filterValues.push(parseInt(item))
+    });
+
+    ruleForm.filter_value =  data.row.filter_value
+
+  }
+
+
+  console.log('Edit Filter Values,', data.row.filter_value)
+
+  if ( data.row.card_model==="households") {
+    
+    chartOptions.value = [
+          {
+            value: 1,
+            label: 'Simple Bar'
+          },
+          {
+            value: 2,
+            label: 'Multiple Bar'
+          },
+          {
+            value: 3,
+            label: 'Pie'
+          },
+
+          {
+            value: 4,
+            label: 'Stacked Bar'
+          },
+
+          {
+            value: 5,
+            label: 'Line Chart'
+          },
+         
+          {
+            value: 7,
+            label: 'Map Chart'
+          },
+
+          {
+            value: 8,
+            label: 'Population Pyramid'
+          },
+
+        ]
+   } else {
+      chartOptions.value = [
+          {
+            value: 1,
+            label: 'Simple Bar'
+          },
+          {
+            value: 2,
+            label: 'Multiple Bar'
+          },
+          {
+            value: 3,
+            label: 'Pie'
+          },
+
+          {
+            value: 4,
+            label: 'Stacked Bar'
+          },
+
+          {
+            value: 5,
+            label: 'Line Chart'
+          },
+          /* {
+            value: 6,
+            label: 'Stacked Line Chart'
+          },
+        */
+          {
+            value: 7,
+            label: 'Map Chart'
+          },
+ 
+
+        ]
+  }
+
+// Funtions to populate lookups 
+  
+
+  
+
+  handleFilterFunction(data.row.filter_function)
+  if (data.row.card_model) {
+ //   handleSelectModel(data.row.card_model)  
+  }
+
+
+  if(data.row.filter_field) {
+    // Get filter values only if the previous chart verison had fulters on
+    getFieldValues(data.row.filter_field)
+  }
+ 
+   //handleFilterAggregators( data.row.card_model_field) 
+
+  
+  formHeader.value = 'Edit Section'
+
+  console.log('ruleForm',ruleForm)
+
+  AddDialogVisible.value = true
+}
 
 
 const DeleteIndicator = async (data: TableSlotDefault) => {
@@ -1395,7 +1554,10 @@ v-model="value3" :onChange="handleSelectDashboardSection" :onClear="handleClear"
                 <el-dropdown-item
 v-if="showAdminButtons" @click="editIndicator(scope as TableSlotDefault)"
                   :icon="Edit">Edit</el-dropdown-item>
-                <el-dropdown-item
+                  <el-dropdown-item
+v-if="showAdminButtons" @click="CloneChart(scope as TableSlotDefault)"
+                  :icon="CopyDocument">Clone</el-dropdown-item>               
+                  <el-dropdown-item
 v-if="showAdminButtons" @click="DeleteIndicator(scope as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
@@ -1408,6 +1570,11 @@ v-if="showAdminButtons" type="success" :icon="Edit"
                 @click="editIndicator(scope as TableSlotDefault)" circle />
             </el-tooltip>
 
+            <el-tooltip content="Clone" placement="top">
+              <el-button
+v-if="showAdminButtons" type="warning" :icon="CopyDocument"
+                @click="CloneChart(scope as TableSlotDefault)" circle />
+            </el-tooltip>
              
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
@@ -1651,7 +1818,7 @@ size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
         <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
         <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-      </span>
+       </span>
     </template>
   </el-dialog>
 
