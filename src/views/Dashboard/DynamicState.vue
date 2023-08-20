@@ -176,6 +176,7 @@ const getSummary = async (card) => {
     var cmodelField = card.card_model_field
     var aggregMethod = card.aggregation
     var filter_value = card.filter_value
+    var filter_field = card.filter_field
     var computation = card.computation
     var filter_function = card.filter_function
     var unique = card.unique?card.unique:false 
@@ -194,7 +195,7 @@ const getSummary = async (card) => {
   let filterOperators =[]
 
   if (filter_value) { 
-    filterFields.push(cmodelField)
+    filterFields.push(filter_field)
     filterValues = [filter_value]
     filterOperators.push(filter_function)
   }
