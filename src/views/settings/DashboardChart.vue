@@ -122,6 +122,10 @@ const ModelOptions = [
     label: 'Household'
   },
   {
+    value: 'project',
+    label: 'Project'
+  },
+  {
     value: 'education_facility',
     label: 'Schools'
   },
