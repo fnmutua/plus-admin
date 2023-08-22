@@ -5,7 +5,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, FormInstance } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -1766,32 +1766,30 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
 
           <el-form-item label="Project">
-            <el-select
-filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width: 100%"
-              placeholder="Select Project">
-              <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
+            <el-select-v2
+              filterable 
+              v-model="ruleForm.project_id" 
+              :onChange="changeProject" 
+              style="width: 100%"
+              :options="projectOptions"
+              placeholder="Select Project"/>
           </el-form-item>
-
+    
           <el-form-item label="Activity">
-            <el-select
-filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
-              placeholder="Select Activity">
-              <el-option
-v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
-                :value="item.value" />
-            </el-select>
+            <el-select-v2
+            filterable v-model="ruleForm.activity_id" 
+          :onChange="changeActivity" 
+          style="width: 100%"
+          :options="activityOptionsFiltered" placeholder="Select Activity"/>
           </el-form-item>
 
 
           <el-form-item label="Indicator">
-            <el-select
-filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" style="width: 100%"
-              placeholder="Select Indicator">
-              <el-option
-v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
-                :value="item.value" />
-            </el-select>
+            <el-select-v2
+            filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" 
+            :options="indicatorsOptionsFiltered"
+            style="width: 100%"
+              placeholder="Select Indicator"/>
           </el-form-item>
         </el-col>
       </el-row>

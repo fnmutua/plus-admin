@@ -5,7 +5,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getListManyToMany } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
+import { ElButton, ElSelect, ElSelectV2 } from 'element-plus'
 
 import {
   Plus,
@@ -1097,11 +1097,25 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
       <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
-        <el-form-item label="Project" prop="project_id">
+        <!-- <el-form-item label="Project" prop="project_id">
           <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" placeholder="Select Project" style="width: 100%">
             <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
+        </el-form-item> -->
+ 
+          <el-form-item label="Project" prop="project_id">
+        <el-select-v2
+            v-model="ruleForm.project_id"
+            :options="projectOptions"
+            placeholder="Please select"
+            style="width: 100%; vertical-align: middle"
+            clearable
+            filterable
+            :onChange="changeProject"
+          />
+
         </el-form-item>
+
         <el-form-item label="Activity"  prop="activity_id">
           <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" placeholder="Select Activity" style="width: 100%" >
             <el-option
@@ -1143,7 +1157,7 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
 
 
         <el-form-item label="Category" prop="category_id">
-          <el-select v-model="ruleForm.category_id" :onChange="changeCategory" placeholder="Select Category" style="width: 90%; margin-right: 10px;" >
+          <el-select v-model="ruleForm.category_id" :onChange="changeCategory"  filterable placeholder="Select Category" style="width: 90%; margin-right: 10px;" >
             <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
           <el-button type="primary" @click="AddCategory" :icon="Plus" plain />  

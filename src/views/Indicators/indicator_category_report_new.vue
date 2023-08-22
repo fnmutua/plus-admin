@@ -5,7 +5,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, FormInstance } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
