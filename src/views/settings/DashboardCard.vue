@@ -418,7 +418,7 @@ const handleDownload = () => {
 }
 
 const DashboardOptions = ref([])
-const getProgrammeOptions = async () => {
+const getDashboardOptions = async () => {
   const res = await getCountyListApi({
     params: {
       pageIndex: 1,
@@ -756,7 +756,7 @@ const getIndicatorNames = async () => {
 
 getIndicatorOptions()
 getInterventionsAll()
-getProgrammeOptions()
+getDashboardOptions()
 getStrategicFocusAreas()
 getIndicatorNames()
 
@@ -984,7 +984,7 @@ const implementationOptions = ref([])
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       const parentOpt = {}
       parentOpt.value = arrayItem.id
-       parentOpt.label = arrayItem.acronym
+       parentOpt.label = arrayItem.acronym + "("+arrayItem.id +")"
       //  console.log(countyOpt)
       implementationOptions.value.push(parentOpt)
     })
