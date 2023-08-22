@@ -167,11 +167,134 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
 ///// ----------------Pocess the statistics card---------------------------------------
 ////-----------------------------------------------------------------------------------
 
+const getIndicatorConfigurations = async (indicator_id) => {
+  const formData = {}
+
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'indicator_category'
+  //-Search field--------------------------------------------
+  formData.searchField = ''
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = ''
+
+  // - multiple filters -------------------------------------
+  formData.filters = ['indicator_id']
+  formData.filterValues = [[indicator_id]]
+  formData.associated_multiple_models = []
+  //-------------------------
+  const res = await getSettlementListByCounty(formData)
+  console.log('indicator configs >>>>', res)
+  let ind_config_arr = []
+  res.data.forEach(function (arrayItem) {
+    ind_config_arr.push(arrayItem.id)
+  })
+
+  return ind_config_arr
+}
+
+
+const getSummaryIfIntervention = async (scards) => {
+
+console.log('scards',scards)
+
+let indicator= scards.indicator_id
+
+var ids = await getIndicatorConfigurations(indicator)
+
+console.log('Found Indicator_cateory_ids', ids, indicator)
+
+// set admin level filtering
+let associated_Models = []
+let filterFields = ['indicator_category_id'] 
+let filterValues = [ids] 
+  let filterOperators = ['eq']
+
+
+
+
+var filter_value = scards.filter_value
+var filter_field = scards.filter_field
+var filter_function = scards.filter_function
+
+
+if (filter_value && filter_field ) { 
+  filterFields.push(filter_field)
+  //filterValues = [filter_value]
+  filterValues.push(filter_value)
+
+  filterOperators.push(filter_function)
+}
+
+
+
+
+if (filterLevel.value === 'county') {
+  associated_Models.push('subcounty')
+   filterFields.push('county_id')
+   filterValues.push(selectedCounties.value)
+  filterOperators.push('or')
+}
+
+else if (filterLevel.value === 'subcounty') { 
+  // filter by subcounty 
+  associated_Models.push('ward')
+  
+
+
+  filterFields.push('subcounty_id')
+   filterValues.push(selectedSubCounties.value)
+  filterOperators.push('or')
+
+}
+ 
+
+
+else if (filterLevel.value === 'national') {
+  associated_Models.push('county')
+
+
+}
+
+
+
+const formData = {}
+formData.model = 'indicator_category_report'
+formData.summaryField = 'amount'
+formData.summaryFunction = 'sum'
+//formData.assoc_models = ['county']
+formData.assoc_models = associated_Models
+formData.groupFields = []
+// formData.filterField =['indicator_category_id']
+// formData.filterValue = [ids]    
+formData.filterField =filterFields
+formData.filterValue =filterValues 
+formData.filterOperator = filterOperators
+
+console.log('Filter FormData : ', formData)
+
+try {
+  const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
+  console.log("Cards sumamrye", response01.Total[0].sum)
+  console.log('ids', ids)
+
+ // const response = await getSumFilter(sumQuery);
+  const amount = response01.Total[0].sum ? parseInt(response01.Total[0].sum) : 0
+  //console.log('Cumulative Data', response.data)
+
+  return amount;
+} catch (error) {
+  // Handle any errors that occur during the asynchronous operation
+  console.error(error);
+  //return null; // or any default value you prefer
+  return 0; // or any default value you prefer
+}
+};
 
 const getSummary = async (card) => {
 
-    //  var result = getSummary(card.card_model, arrayItem.card_model_field, arrayItem.aggregation)
-
+ 
     var selectModel = card.card_model
     var cmodelField = card.card_model_field
     var aggregMethod = card.aggregation
@@ -182,8 +305,7 @@ const getSummary = async (card) => {
     var unique = card.unique?card.unique:false 
 
   console.log('unique',unique)
-  // getSummary(arrayItem.card_model,arrayItem.card_model_field)
-
+ 
   //var ids = await getIndicatorConfigurations(indicator)
 
   console.log('thisCard',card)
@@ -638,11 +760,16 @@ const getCardData = async () => {
       var cardSymbol = ''
        }
 
+       let result
+    if (arrayItem.category=='Intervention') {
+      result = getSummaryIfIntervention(arrayItem)
+      console.log('Intervention Card........')
 
+    } else {
+      result = getSummary(arrayItem)
 
-    var result = getSummary(arrayItem)
-  //  var result = getSummary(arrayItem.card_model, arrayItem.card_model_field, arrayItem.aggregation)
-
+    }
+ 
     result.then((crd) => {
       console.log('resultx',crd); // "Promise resolved!"
       let card = arrayItem
