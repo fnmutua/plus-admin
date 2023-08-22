@@ -682,7 +682,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
   if (!showStatusExtras.value) {
     ruleForm.card_model = 'indicator_category_report'
-    ruleForm.card_model_field = 'id'
+    ruleForm.card_model_field = 'amount'
   }
 
 
