@@ -754,10 +754,10 @@ const getCardData = async () => {
     var result = getSummary(arrayItem)
   //  var result = getSummary(arrayItem.card_model, arrayItem.card_model_field, arrayItem.aggregation)
 
-    result.then((result) => {
-      console.log('resultx',arrayItem); // "Promise resolved!"
+  result.then((crd) => {
+      console.log('resultx',crd); // "Promise resolved!"
       let card = arrayItem
-      card.value = result
+      card.value = crd
       card.symbol=cardSymbol
       cards.value.push(card)
     });
@@ -766,6 +766,7 @@ const getCardData = async () => {
 
 
   console.log('After Querry', res)
+  cards.value.sort((a, b) => a.id - b.id);
 
 }
 
@@ -1607,7 +1608,9 @@ const getCharts = async (section_id) => {
 
 
     // console.log('charts  :', charts)
-    return charts;
+ //   return charts;
+    return charts.sort((a, b) => a.id - b.id);
+
   } catch (error) {
     // Handle any errors that occur during the asynchronous operation
     console.error(error);
@@ -1664,9 +1667,13 @@ const getSectionsData = async () => {
     activeTab.value = tabs.value[0] ? tabs.value[0].name : ''
     console.log('activeTab', activeTab.value);
 
+    tabs.value.sort((a, b) => a.id - b.id);
+
   }
 
   processSectionsData();
+
+  
 
 
 
