@@ -5,7 +5,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
+import { ElButton, ElSelectV2, MessageParamsWithType } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Position,
@@ -671,18 +671,18 @@ const tableRowClassName = (data) => {
   <ContentWrap :title="t('Evaluations')" :message="t('Use the filters to subset')">
  
     <div style="display: inline-block; margin-left: 0px">
-      <el-select
+      <el-select-v2
 v-model="value3" :onChange="handleChangeProject" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by project intervention">
         <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+      </el-select-v2>
     </div>
     <div style="display: inline-block; margin-left: 20px">
-      <el-select
+      <el-select-v2
 v-model="value4" :onChange="handleSearchEvaluation" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search for an Evaluation">
         <el-option v-for="item in evaluationOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+      </el-select-v2>
     </div>
 
 
@@ -811,16 +811,16 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       </el-form-item>
 
       <el-form-item label="Project">
-        <el-select filterable v-model="ruleForm.project_id" placeholder="Select Project">
+        <el-select-v2 filterable v-model="ruleForm.project_id" placeholder="Select Project">
           <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
+        </el-select-v2>
       </el-form-item>
 
 
       <el-form-item label="Type">
-        <el-select filterable v-model="ruleForm.evaluation_type_id" placeholder="Select Type">
+        <el-select-v2 filterable v-model="ruleForm.evaluation_type_id" placeholder="Select Type">
           <el-option v-for="item in evaluationOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
+        </el-select-v2>
       </el-form-item>
 
 
@@ -850,11 +850,11 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
 
   <el-dialog v-model="addMoreDocuments" title="Upload More Documents" width="20%">
-    <el-select v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
+    <el-select-v2 v-model="documentCategory" placeholder="Select Type" clearable filterable class="mb-4">
       <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
         <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
       </el-option-group>
-    </el-select>
+    </el-select-v2>
 
     <el-upload
 v-model:file-list="morefileList" class="upload-demo "
