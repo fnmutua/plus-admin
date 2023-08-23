@@ -66,7 +66,6 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   for (let key in obj) {
     if (
       key !== 'geom' &&
-      key !== 'id' &&
       key !== 'createdAt' &&
       key !== 'updatedAt' &&
       key !== 'email' &&
@@ -78,8 +77,7 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
       key !== 'user'
     ) {
       if (
-        (typeof obj[key] !== 'object' || obj[key] === null) &&
-        key !== 'id'
+        (typeof obj[key] !== 'object' || obj[key] === null)
       ) {
         res[extraKey + key] = obj[key];
       } else if (Array.isArray(obj[key])) {
