@@ -203,15 +203,13 @@ let indicator= scards.indicator_id
 
 var ids = await getIndicatorConfigurations(indicator)
 
-console.log('Found Indicator_cateory_ids', ids, indicator)
+console.log('Found Indicator_category_ids', ids, indicator)
 
 // set admin level filtering
 let associated_Models = []
 let filterFields = ['indicator_category_id'] 
 let filterValues = [ids] 
-  let filterOperators = ['eq']
-
-
+let filterOperators = ['eq']
 
 
 var filter_value = scards.filter_value
@@ -221,9 +219,7 @@ var filter_function = scards.filter_function
 
 if (filter_value && filter_field ) { 
   filterFields.push(filter_field)
-  //filterValues = [filter_value]
   filterValues.push(filter_value)
-
   filterOperators.push(filter_function)
 }
 
@@ -721,6 +717,259 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
 }
 
+const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
+  
+  //var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
+
+  let associated_Models = []
+  let filterFields = ['indicator_category_id'] 
+  let filterValues = [indicator_categories]
+  let groupFields = []
+  let filterOperators = ['eq']
+  let cmodel= 'indicator_category_report'
+
+  var cfield = 'amount'
+  var cAggregation = 'sum'
+  var chartType = thisChart.type
+  var categorizedField =thisChart.categorized
+  var unique = thisChart.unique?thisChart.unique:false 
+  var ignoreEmpty = thisChart.ignore_empty?thisChart.ignore_empty:false
+
+  console.log('unique',unique)
+
+
+  console.log('Chart Filters',thisChart )
+  // thisChart.card_model,thisChart.card_model_field,thisChart.aggregation,  thisChart.type);
+
+  // set admin level filtering
+
+
+  var filter_value = thisChart.filter_value
+  var filter_field = thisChart.filter_field
+  var filter_function = thisChart.filter_function
+
+  if (filter_value && filter_field ) { 
+    filterFields.push(filter_field)
+    filterValues.push(filter_value)
+    filterOperators.push(filter_function)
+  }
+
+
+
+
+
+
+  if (categorizedField) {
+    groupFields.push(cmodel + '.' + cfield)
+
+  }
+
+  if (chartType == 5 || chartType == 6) {
+    // var groupingFields = ['indicator_category_report.createdAt','indicator_category.category_title']
+    groupFields.push(cmodel + '.date')
+
+  }
+ 
+
+  
+  if (filterLevel.value === 'county') {
+    associated_Models.push('subcounty')
+
+    filterFields.push('county_id')
+     filterValues.push(selectedCounties.value)
+    filterOperators.push('or')
+    groupFields.push('subcounty.name')
+
+  }
+
+
+  else if (filterLevel.value === 'subcounty') { 
+    // filter by subcounty 
+    associated_Models.push('ward')
+    filterValues.push(selectedSubCounties.value)
+    filterOperators.push('or')
+    filterFields.push('subcounty_id')
+ 
+    groupFields.push('ward.name')
+  }
+
+
+
+
+  else if (filterLevel.value === 'national') {
+    associated_Models.push('county')
+    groupFields.push('county.name')
+
+  }
+
+
+
+
+  console.log('xgroupFields', groupFields)
+  console.log('associated_Models', associated_Models)
+
+
+
+  const formData = {}
+  formData.model = cmodel
+  formData.summaryField = cmodel + '.' + cfield  // Remove ambiguous fields 
+  formData.summaryFunction = cAggregation
+  formData.assoc_models = associated_Models // ['county', 'indicator_category'] 
+  formData.groupFields = groupFields //['county.name','indicator_category.category_title']
+  // formData.filterField = ['indicator_category_id']
+  // formData.filterValue = [indicator_categories]  // Bitumen
+  formData.filterField = filterFields
+  formData.filterOperator = filterOperators // Bitumen
+  formData.filterValue = filterValues
+
+  // added for unique couts 
+  formData.uniqueCounts = unique
+  formData.ignoreEmpty = ignoreEmpty
+
+  console.log('form-Data',formData)
+
+  try {
+    const response = await getSummarybyFieldFromMultipleIncludes(formData);
+    const amount = response.Total;
+    console.log('Data xcounty', amount)
+
+
+    let categoryArray = [];
+    let seriesData = [];
+    amount.forEach(obj => {
+      if (!categoryArray.includes(obj.name)) {
+        categoryArray.push(obj.name);
+      }
+    });
+
+
+
+
+
+    if (chartType == 5) {
+      console.log('Data line chart2 ', amount)
+
+      const keys = amount.reduce((allKeys, obj) => {
+        return allKeys.concat(Object.keys(obj));
+      }, []);
+
+      const uniqueKeys = [...new Set(keys)];
+      const values = {};
+      uniqueKeys.forEach(key => {
+        values[key] = amount.map(obj => obj[key] || null);
+      });
+      categoryArray = values.to_char
+      seriesData = values[cAggregation]
+    }
+
+
+    else if (chartType == 6 ) {
+      console.log('Multi-line chart ', amount)
+      //  Step 1: Extract and sort unique dates in ascending order
+      const dates = [...new Set(amount.map(item => item.to_char))].sort();
+
+      // Step 2: Rearrange the data
+      const result = {};
+
+      for (const item of amount) {
+        const { to_char, cAggregation } = item;
+        //     console.log('xxxx',item,item[cfield])
+
+        if (!result[item[cfield]]) {
+          result[item[cfield]] = {
+            name: item[cfield],
+            type: 'line',
+            stack: 'Total',
+            data: []
+          };
+        }
+
+        const dateIndex = dates.indexOf(to_char);
+        result[item[cfield]].data.push([dateIndex, Number(cAggregation)]);
+
+      }
+
+
+      seriesData = Object.values(result);
+      categoryArray = dates
+      console.log('seriesData>>>>6', seriesData);
+
+
+
+    }
+
+
+    else if (chartType == 7) {
+      console.log('Map chart ', amount)
+
+
+      let maxSum = Number.MIN_SAFE_INTEGER;
+      let minSum = Number.MAX_SAFE_INTEGER;
+
+      for (const item of amount) {
+        const values = Object.values(item);
+        for (const value of values) {
+          if (!isNaN(value)) {
+            const numValue = parseInt(value);
+            maxSum = Math.max(maxSum, numValue);
+            minSum = Math.min(minSum, numValue);
+          }
+        }
+      }
+      // if only one value then use min=0
+      if (minSum === maxSum) {
+        minSum = 0
+      }
+
+      console.log("Maximum sum:", maxSum);
+      console.log("Minimum sum:", minSum);
+
+
+      // Rename the property to value 
+      const newPropertyName = "value";
+
+      for (let i = 0; i < amount.length; i++) {
+        const keys = Object.keys(amount[i]);
+        if (keys.length > 1) {
+          const oldValue = keys[1];
+          amount[i][newPropertyName] = amount[i][oldValue];
+          delete amount[i][oldValue];
+        }
+      }
+      categoryArray = [minSum, maxSum]
+      seriesData = amount
+
+      console.log('Map chart2 ', amount)
+
+
+    }
+
+
+    else {
+
+      //  const valuesArray = amount.map(obj => obj.sum);
+      seriesData = xtransformData(amount, chartType, cAggregation, cfield);
+      categoryArray.sort();
+
+
+      console.log('xseries', seriesData)
+    }
+
+
+
+
+
+    //   return amount;
+    return [categoryArray, seriesData];
+  } catch (error) {
+    // Handle any errors that occur during the asynchronous operation
+    console.error(error);
+    //return null; // or any default value you prefer
+    return []; // or any default value you prefer
+  }
+
+
+}
 
 const getCardData = async () => {
 
@@ -825,6 +1074,8 @@ const getCharts = async (section_id) => {
       console.log('This Chart:', thisChart)
 
 
+
+       
 
       // function to process processMultiBarChart charts 
       async function processPieChart() {
@@ -1583,40 +1834,594 @@ const getCharts = async (section_id) => {
         // Continue with the rest of your code here
       }
 
+      
+
+      // Now same funtions but now for intervnetions 
+      //---------
+ 
+ 
+
+
+      async function processPieChart2() {
+        const promises = thisChart.indicators.map(async function (indicator) {
+          console.log('This processPieChart:', indicator)
+
+          try {
+            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
+            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
+            var ids = await getIndicatorConfigurations(indicator.id)
+            // console.log("pie", ids) 
+            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            console.log('PIEx', cdata[1])
+
+            const UpdatedPieOptionsMultiple = {
+              ...pieOptions,
+              title: {
+                ...pieOptions.title,
+                text: thisChart.title
+              },
+
+              series: {
+                ...pieOptions.series[0],
+                data: cdata[1]    // data 
+              },
+
+
+            };
+
+            console.log('PIExs', UpdatedPieOptionsMultiple)
+
+            thisChart.chart = UpdatedPieOptionsMultiple
+
+           
+            
+              
+            // show no data 
+            if (cdata[1].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+                },
+                z: 100 // Higher z value to place it on top
+
+          }]
+            }
+
+
+
+
+          } catch (error) {
+            // Handle any errors that occurred during the process
+          }
+        });
+
+        await Promise.all(promises);
+        // The loop has completed and all promises have been resolved/rejected
+        console.log('Loop completed');
+
+
+
+
+
+        charts.push(thisChart)
+        // Continue with the rest of your code here
+      }
+
+
+ 
+           // function to process processMultiBarChart charts 
+      async function processSimpleBarChart2() {
+        const promises = thisChart.indicators.map(async function (indicator) {
+          console.log('This category:', indicator)
+
+          try {
+            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
+            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
+            var ids = await getIndicatorConfigurations(indicator.id)
+            console.log("bar", ids)
+            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            console.log(cdata)
+
+            const UpdatedBarOptionsMultiple = {
+              ...multipleBarChart,
+              title: {
+                ...multipleBarChart.title,
+                text: thisChart.title
+              },
+              xAxis: {
+                ...multipleBarChart.xAxis,
+                data: cdata[0]  // categories as recieved 
+              },
+
+            };
+
+
+            thisChart.chart = UpdatedBarOptionsMultiple
+
+            thisChart.chart.series = cdata[1]
+
+            // show no data 
+            if (cdata[1].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+                },
+                z: 100 // Higher z value to place it on top
+
+          }]
+            }
+        
+           
+
+            
+          } catch (error) {
+            // Handle any errors that occurred during the process
+          }
+        });
+
+        await Promise.all(promises);
+        // The loop has completed and all promises have been resolved/rejected
+        console.log('Loop completed');
+
+
+
+
+
+        charts.push(thisChart)
+        // Continue with the rest of your code here
+      }
+      // function to process processMultiBarChart charts 
+      async function processMultiBarChart2() {
+        const promises = thisChart.indicators.map(async function (indicator) {
+          console.log('This category:', indicator)
+
+          try {
+            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
+            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
+            var ids = await getIndicatorConfigurations(indicator.id)
+            console.log("bar", ids)
+            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            console.log(cdata)
+
+            const UpdatedBarOptionsMultiple = {
+              ...multipleBarChart,
+              title: {
+                ...multipleBarChart.title,
+                text: thisChart.title
+              },
+              xAxis: {
+                ...multipleBarChart.xAxis,
+                data: cdata[0]  // categories as recieved 
+              },
+
+            };
+
+
+            thisChart.chart = UpdatedBarOptionsMultiple
+
+            thisChart.chart.series = cdata[1]
+
+            // show no data 
+            if (cdata[0].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+                },
+                z: 100 // Higher z value to place it on top
+
+          }]
+            }
+        
+           
+
+            
+          } catch (error) {
+            // Handle any errors that occurred during the process
+          }
+        });
+
+        await Promise.all(promises);
+        // The loop has completed and all promises have been resolved/rejected
+        console.log('Loop completed');
+
+
+
+
+
+        charts.push(thisChart)
+        // Continue with the rest of your code here
+      }
+      // function to process processMultiBarChart charts 
+      async function processStackedBarChart2() {
+        const promises = thisChart.indicators.map(async function (indicator) {
+          console.log('This processStackedBarChart:', indicator)
+
+          try {
+            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
+            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
+            var ids = await getIndicatorConfigurations(indicator.id)
+            console.log("bar", ids)
+            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            console.log(cdata)
+
+            const UpdatedBarOptionsMultiple = {
+              ...barMaleFemaleOptions,
+              title: {
+                ...barMaleFemaleOptions.title,
+                text: thisChart.title
+              },
+              xAxis: {
+                ...barMaleFemaleOptions.xAxis,
+                data: cdata[0]  // categories as recieved 
+              },
+
+            };
+
+            console.log(UpdatedBarOptionsMultiple)
+
+
+            thisChart.chart = UpdatedBarOptionsMultiple
+
+            thisChart.chart.series = cdata[1]
+
+
+            
+            // show no data 
+            if (cdata[0].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+                },
+                z: 100 // Higher z value to place it on top
+
+          }]
+            }
+          } catch (error) {
+            // Handle any errors that occurred during the process
+          }
+        });
+
+        await Promise.all(promises);
+        // The loop has completed and all promises have been resolved/rejected
+        console.log('Loop completed');
+
+
+
+
+
+        charts.push(thisChart)
+        // Continue with the rest of your code here
+      }
+
+      // function to process processMultiBarChart charts 
+      async function processLineChart2() {
+        const promises = thisChart.indicators.map(async function (indicator) {
+          console.log('This processLineChart:', indicator)
+
+          try {
+            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
+            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
+            var ids = await getIndicatorConfigurations(indicator.id)
+            console.log("line-IDS", ids)
+            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            console.log('lichecrt data', cdata)
+
+            const UpdatedBarOptionsMultiple = {
+              ...lineOptions,
+              title: {
+                ...lineOptions.title,
+                text: thisChart.title
+              },
+              xAxis: {
+                ...lineOptions.xAxis,
+                data: cdata[0]  // categories as recieved 
+              },
+              series: {
+                ...lineOptions.series[0],
+                data: cdata[1]  // categories as recieved 
+              },
+            };
+
+
+            thisChart.chart = UpdatedBarOptionsMultiple
+            
+            // show no data 
+            if (cdata[1].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+                },
+                z: 100 // Higher z value to place it on top
+
+          }]
+            }
+
+          } catch (error) {
+            // Handle any errors that occurred during the process
+          }
+        });
+
+        await Promise.all(promises);
+        // The loop has completed and all promises have been resolved/rejected
+        console.log('Loop completed');
+
+
+
+
+
+        charts.push(thisChart)
+        // Continue with the rest of your code here
+      }
+      // function to process processMultiBarChart charts 
+      async function processStackLineChart2() {
+        const promises = thisChart.indicators.map(async function (indicator) {
+          console.log('This processLineChart:', indicator)
+
+          try {
+            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
+            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
+            var ids = await getIndicatorConfigurations(indicator.id)
+            console.log("line-IDS", ids)
+            var cdata = await getSummaryMultipleParentsGrouped(ids, thisChart)   // first array is the categories // second is the data
+            console.log('lichecrt data', cdata)
+
+
+            // sort the data such that the graphs start and end proper
+            
+                       
+            cdata[1].forEach(obj => {
+              obj.data.sort((a, b) => a[0] - b[0]); // theres a nested data array 
+          });
+ 
+            const UpdatedBarOptionsMultiple = {
+              ...stacklineOptions,
+              title: {
+                ...stacklineOptions.title,
+                text: thisChart.title
+              },
+             xAxis: {
+                 ...stacklineOptions.xAxis,
+                  data: cdata[0]  // categories as recieved 
+                },
+           
+            };
+            UpdatedBarOptionsMultiple.series=cdata[1]
+
+
+            console.log("old chart",stacklineOptions)
+            console.log("New chart",UpdatedBarOptionsMultiple)
+
+            thisChart.chart = UpdatedBarOptionsMultiple
+            
+            // show no data 
+            if (cdata[1].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: '#999',
+              fontSize: 16
+                },
+                z: 100 // Higher z value to place it on top
+
+          }]
+            }
+
+          } catch (error) {
+            // Handle any errors that occurred during the process
+          }
+        });
+
+        await Promise.all(promises);
+        // The loop has completed and all promises have been resolved/rejected
+        console.log('Loop completed');
+
+
+
+
+
+        charts.push(thisChart)
+        // Continue with the rest of your code here
+      }
+
+   // function to process processMultiBarChart charts 
+   async function processMapChart2() {
+        const promises = thisChart.indicators.map(async function (indicator) {
+          console.log('This processLineChart:', indicator)
+
+          try {
+            //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
+            //  get the indicator configruation IDS for the indicators in this chart. These could be 1 or more 
+            var ids = await getIndicatorConfigurations(indicator.id)
+            console.log("line-IDS", ids)
+            var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
+            console.log('map data', cdata)
+            var MaxMin = cdata[0]
+            await getCountyGeo()
+            //await getSubsetGeo(model,filterFields, filterValues)
+            if (selectedCounties.value.length > 0 && filterLevel.value === 'county') {
+              await getSubsetGeo('subcounty', ['county_id'], selectedCounties.value)
+
+
+              
+            }
+            if (selectedSubCounties.value.length > 0 && filterLevel.value === 'subcounty') {
+              await getSubsetGeo('ward', ['subcounty_id'], selectedSubCounties.value)
+
+            }
+
+
+
+            console.log('apsect',aspect.value)
+
+
+            const UpdatedMapOtions = {
+              ...mapChartOptions,
+              title: {
+                ...mapChartOptions.title,
+                text: thisChart.title
+              },
+              visualMap: {
+                ...mapChartOptions.visualMap,
+                min: MaxMin[0],
+                max: MaxMin[1]
+
+              },
+              // visualMap: {
+              //   ...mapChartOptions.visualMap,
+              //   max: MaxMin[1]
+              // },
+
+              series: {
+                ...mapChartOptions.series[0],
+                data: cdata[1],  // categories as recieved ,
+                aspectScale: aspect.value
+              },
+              // series: {
+              //   ...mapChartOptions.series[0],
+              //   aspectScale: 0.88  // categories as recieved 
+              // },
+             
+
+            };
+         //   UpdatedMapOtions.series[0].aspectScale=aspect.value
+
+            // sort the data such that the graphs start and end proper
+  
+            thisChart.chart = UpdatedMapOtions
+            
+            // show no data 
+            if (cdata[1].length===0) {
+              thisChart.chart.graphic= [{
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: 'No data  available',
+              fill: 'red',
+              fontSize: 16
+                },
+                z: 100 // Higher z value to place it on top
+
+          }]
+            }
+
+          } catch (error) {
+            // Handle any errors that occurred during the process
+          }
+        });
+
+        await Promise.all(promises);
+        // The loop has completed and all promises have been resolved/rejected
+        console.log('Loop completed');
+
+
+
+
+
+        charts.push(thisChart)
+        // Continue with the rest of your code here
+      }
+
+
+   
+
       // Run the approriate funtion 
-      if (thisChart.type == 1) {
+      if (thisChart.type == 1 && thisChart.category=="Status"  ) {
         console.log('processSimpleBarChart')
         processSimpleBarChart()
       }
 
-      else if (thisChart.type == 2) {
+      else if (thisChart.type == 2 && thisChart.category=="Status") {
         processMultiBarChart();
       }
 
-      else if (thisChart.type == 3) {
+      else if (thisChart.type == 3 && thisChart.category=="Status") {
         processPieChart();
       }
 
-      else if (thisChart.type == 4) {
+      else if (thisChart.type == 4 && thisChart.category=="Status") {
         processStackedBarChart();
       }
 
-      else if (thisChart.type == 5) {
+      else if (thisChart.type == 5 && thisChart.category=="Status") {
         processLineChart();
       }
 
-      else if (thisChart.type == 6) {
+      else if (thisChart.type == 6 && thisChart.category=="Status") {
         processStackLineChart();
       }
 
-      else if (thisChart.type == 7) {
+      else if (thisChart.type == 7 && thisChart.category=="Status") {
         processMapChart();
       }
 
-      else if (thisChart.type == 8) {
+      else if (thisChart.type == 8 && thisChart.category=="Status") {
         processPyramid();
       }
 
+
+      // For Interventions
+
+      if (thisChart.type == 1 && thisChart.category=="Intervention"  ) {
+        console.log('processSimpleBarChart')
+        processSimpleBarChart2()
+      }
+
+      else if (thisChart.type == 2 && thisChart.category=="Intervention") {
+        processMultiBarChart2();
+      }
+
+      else if (thisChart.type == 3 && thisChart.category=="Intervention") {
+        processPieChart2();
+      }
+
+      else if (thisChart.type == 4 && thisChart.category=="Intervention") {
+        processStackedBarChart2();
+      }
+
+      else if (thisChart.type == 5 && thisChart.category=="Intervention") {
+        processLineChart2();
+      }
+
+      else if (thisChart.type == 6 && thisChart.category=="Intervention") {
+        processStackLineChart2();
+      }
+
+      else if (thisChart.type == 7 && thisChart.category=="Intervention") {
+        processMapChart2();
+      }
+
+      else if (thisChart.type == 8 && thisChart.category=="Intervention") {
+        processPyramid();
+      }
 
 
     })

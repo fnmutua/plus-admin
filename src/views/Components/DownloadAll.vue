@@ -114,7 +114,7 @@ const DownloadViaComponent = async () => {
       model_fields.value  = Object.keys(dd);
 
 
-    //  console.log(dd);
+  console.log(dd);
     });
     downloading.value=false
 
