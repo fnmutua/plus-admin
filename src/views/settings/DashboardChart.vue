@@ -866,6 +866,20 @@ const rules = reactive<FormRules>({
 
     type: [
     { required: true, message: 'Chart Type   is required', trigger: 'blur' }, ],
+
+  card_model_field: [
+    { required: true, message: 'Field  is required', trigger: 'blur' }, ],
+
+    card_model: [
+    { required: true, message: 'Entity is required  is required', trigger: 'blur' }, ],
+    
+    category: [
+    { required: true, message: 'Category is required  is required', trigger: 'blur' }, ],
+    
+    
+    
+    indicator_id: [
+    { required: true, message: 'Indicator(s) is required  is required', trigger: 'blur' }, ],
     
 
 })

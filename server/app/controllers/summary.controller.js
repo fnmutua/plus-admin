@@ -743,6 +743,7 @@ exports.sumModelAssociatedMultipleModels = async (req, res) => {
     gt: op.gt,
     gte: op.gte,
     lt: op.lt,
+    in: op.in,
     lte: op.lte, // Added lte mapping
     or: op.or, // Added lte mapping
      notEmpty: op.not, // Added lte mapping
