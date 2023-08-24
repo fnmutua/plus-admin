@@ -727,16 +727,19 @@ exports.modelImportDataUpsert = async (req, res) => {
     await Promise.all(
       data.map(async (item) => {
         item.createdBy = req.thisUser.id;
-        console.log('project......', item.activities)
 
         const activities = JSON.parse(item.activities);
         const sourceFunding = JSON.parse(item.sourceFunding);
-      
-        item.sourceFunding = sourceFunding
-        item.activities = activities
+        
+        item.sourceFunding = Array.isArray(sourceFunding) ? sourceFunding : [sourceFunding];
+        item.activities = Array.isArray(activities) ? activities : [activities];
+        
 
 
         try {
+
+          console.log('cehck......', item)
+
           const prj = await db.models[reg_model].create(item);
           if (reg_model === 'project') {
             const list_activities = item.activities;

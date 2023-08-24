@@ -206,7 +206,7 @@ const getModeldefinition = async (selModel) => {
   console.log(selModel)
   var formData = {}
   formData.model = selModel
-  console.log("gettign fields")
+  console.log("gettign fields",selModel )
 
 
   await getModelSpecs(formData).then((response) => {
@@ -221,9 +221,18 @@ const getModeldefinition = async (selModel) => {
       return (obj.field !== 'geom');
     });
 
-    console.log("fields:", fields2)
     //health_facility_fields.value = response.data
     fieldSet.value = fields2
+
+    if (selModel=='project') {
+
+       
+      var activities = { field: 'activities', type: 'ARRAY', match: '' }
+      fieldSet.value.push(activities)
+
+      console.log("fields:", fieldSet)
+
+    }
   })
 
 
@@ -316,8 +325,6 @@ const handleSelectType = async (type: any) => {
     console.log('parcel------>', fieldSet.value)
 
   }
-
-
 
   else if (type === 'health_facility') {
     // fieldSet.value = beneficiary_parcels
