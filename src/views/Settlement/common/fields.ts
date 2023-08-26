@@ -181,9 +181,11 @@ const formFields: Field[][] = [
     { name: "near_river", label: "Near River?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo.value},
     { name: "on_wayleave", label: "On a utility way-leave?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo.value},
     { name: "on_road_reserve", label: "On a road reserve?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo.value},
+     { name: "structure_types", label: "Types of Structures", type: "select", multiselect: 'true',adminUnit: false, options: structureTypes.value},
     { name: "development", label: "Level of Development", type: "select", multiselect: 'true',adminUnit: false, options: levelDevt.value},
-    { name: "structure_types", label: "Types of Structures", type: "select", multiselect: 'true',adminUnit: false, options: structureTypes.value},
-    { name: "typical_building_materials", label: "Typical Building Materials", type: "select", multiselect: 'true',adminUnit: false, options: buildingMaterials.value},
+    
+    
+    { name: "typical_building_materials", label: "Typical Building Materials", type: "select", multiselect: 'true', adminUnit: false, options: buildingMaterials.value },
     { name: "avg_dist_between", label: "Dist. between structures (M)", type: "number", multiselect: 'true',adminUnit: false, options:[]},
     
  

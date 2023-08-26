@@ -111,7 +111,6 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true,
        }, 
       
-
  
        structure_types: {
         type: DataTypes.ARRAY(DataTypes.STRING),
