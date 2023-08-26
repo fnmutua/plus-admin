@@ -669,7 +669,8 @@ exports.settlementController = (req, res) => {
   } else {
 
     db.models[reg_model]
-    .findAndCountAll({attributes: { exclude: ['geom' ] }})
+   // .findAndCountAll({attributes: { exclude: ['geom' ] }})
+    .findAndCountAll()
     .then((list) => {
       //console.log(list.rows)
       res.status(200).send(list.rows)
