@@ -105,6 +105,26 @@ module.exports = function (sequelize, DataTypes) {
         defaultValue:false
       }, 
       
+   
+      development: {
+        type: DataTypes.ARRAY(DataTypes.STRING),
+        allowNull: true,
+       }, 
+      
+
+ 
+       structure_types: {
+        type: DataTypes.ARRAY(DataTypes.STRING),
+        allowNull: true,
+      },  
+       
+       typical_building_materials: {
+         type: DataTypes.ARRAY(DataTypes.STRING),
+         allowNull: true,
+        }, 
+
+
+
 
        dist_town: {
         type: DataTypes.INTEGER,
