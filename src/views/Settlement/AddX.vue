@@ -52,7 +52,7 @@ v-for="option in countyOptions" :key="option.value" :label="option.label"
               </el-select>
  
               <el-select
-                v-else-if="field.type === 'select'   && field.adminUnit && field.name==='subcounty_id' "
+                v-else-if="field.type === 'select' && field.adminUnit && field.name==='subcounty_id'"
                                 v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="Subcounty"
                                 @change="getFieldChangeHandler(field.name)">
                                 <el-option
@@ -241,7 +241,10 @@ const onSelectCounty = (county_id) => {
   formData.ward_id = null
   formData.settlement_id = null
   subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == county_id);
+  console.log('changed county')
+  console.log(subcountyOptionsFiltered)
   handleChangeLocation([county_id])
+
 };
 
 

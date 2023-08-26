@@ -66,8 +66,46 @@ module.exports = function (sequelize, DataTypes) {
        parcel_owner: {
         type: DataTypes.STRING,
         allowNull: true
+      },  
+       
+      surveyed: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },   
+      
+      landuse: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },  
 
-       },   
+      near_river: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue:false
+      },   
+      on_wayleave: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue:false
+      },   
+      on_road_reserve: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue:false
+      },   
+  
+      avg_dist_between: {
+        type: DataTypes.DOUBLE,
+        allowNull: true
+      },   
+      
+      encumbrance: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue:false
+      }, 
+      
+
        dist_town: {
         type: DataTypes.INTEGER,
         allowNull: true

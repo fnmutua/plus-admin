@@ -539,9 +539,9 @@ const readXLSX = async (event) => {
                         return {
                             ...obj, // spread existing properties of the object
                             [pfield]: results[0].item.id, // add new property to the object
-                        //    ['county_id']: results[0].item.county_id, // add new property to the object
-                         //   ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
-                        //    ['ward_id']: results[0].item.ward_id,  // add new property to the object
+                            ['county_id']: results[0].item.county_id, // add new property to the object
+                            ['subcounty_id']: results[0].item.subcounty_id,  // add new property to the object
+                           ['ward_id']: results[0].item.ward_id,  // add new property to the object
                             ['code']: shortid.generate(),
                             //['settlement_id']: results[0].item.settlement_id  // add new property to the object
                         };

@@ -21,7 +21,7 @@ interface Field {
   type: string;
   multiselect: string; // Use boolean type instead of string
   options: Array<any>; // Specify the array type of options
-  adminUnit: boolean;
+  aadminUnit: boolean;
 }
 
 interface FormRules {
@@ -158,12 +158,12 @@ const formFields: Field[][] = [
     // },
 
 
-    { name: "county_id", label: "County", type: "select", multiselect: 'false', adminUnit: true, options: countyOptions.value },
-    { name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', adminUnit: true, options: [] },
-    { name: "ward_id", label: "Ward", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { name: "county_id", label: "County", type: "select", multiselect: 'false', aadminUnit: true, options: countyOptions.value },
+    { name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', aadminUnit: true, options: [] },
+    { name: "ward_id", label: "Ward", type: "select", multiselect: 'false', aadminUnit: true, options: [] },
   
 
-    { name: "name", label: "Name", type: "text", multiselect: 'false',  adminUnit: false, options: [] },
+    { name: "name", label: "Name", type: "text", multiselect: 'false',  aadminUnit: false, options: [] },
     {
       name: "settlement_type", label: "Type", type: "select", multiselect: 'false',  adminUnit: false,
         options: [
@@ -176,21 +176,21 @@ const formFields: Field[][] = [
     { name: "map_number", label: "RIM/Survey Plan", type: "text", multiselect: 'false',adminUnit: false, options:[]},
     { name: "area", label: "Area (Ha)", type: "number", multiselect: 'false',adminUnit: false, options: []},
     { name: "population", label: "Population", type: "number", multiselect: 'false',adminUnit: false, options: []},
-    { name: "surveyed", label: "Is parcel Surveyed?", type: "select", multiselect: 'false',adminUnit: false, options: yesNoUnknown.value},
+    { name: "surveyed", label: "Is parcel the settlement on Surveyed?", type: "select", multiselect: 'false',adminUnit: false, options: yesNoUnknown},
     { name: "landuse", label: "Pre-Dorminant Landuse", type: "text", multiselect: 'false',adminUnit: false, options: []},
-    { name: "near_river", label: "Near River?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo.value},
-    { name: "on_wayleave", label: "On a utility way-leave?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo.value},
-    { name: "on_road_reserve", label: "On a road reserve?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo.value},
-    { name: "development", label: "Level of Development", type: "select", multiselect: 'true',adminUnit: false, options: levelDevt.value},
-    { name: "structure_types", label: "Types of Structures", type: "select", multiselect: 'true',adminUnit: false, options: structureTypes.value},
-    { name: "typical_building_materials", label: "Typical Building Materials", type: "select", multiselect: 'true',adminUnit: false, options: buildingMaterials.value},
-    { name: "avg_dist_between", label: "Dist. between structures (M)", type: "number", multiselect: 'true',adminUnit: false, options:[]},
+    { name: "near_river", label: "Near River?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo},
+    { name: "on_wayleave", label: "On a utility way-leave?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo},
+    { name: "on_road_reserve", label: "On a road reserve?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo},
+    { name: "development", label: "Level of Development", type: "select", multiselect: 'true',adminUnit: false, options: levelDevt},
+    { name: "structure_types", label: "Types of Structures", type: "select", multiselect: 'true',adminUnit: false, options: structureTypes},
+    { name: "typical_building_materials", label: "Typical Building Materials", type: "select", multiselect: 'true',adminUnit: false, options: buildingMaterials},
+    { name: "avg_dist_between", label: "Average Distance between structures (M)", type: "number", multiselect: 'true',adminUnit: false, options:[]},
+    { name: "encumbrance", label: "Any Legal encumbrances/ court cases/ claims", type: "select", multiselect: 'false',adminUnit: false, options:yesNoUnknown},
     
  
     { name: "dist_town", label: "Distance to Urban Center", type: "number", adminUnit: false, multiselect: 'false', options: [] },
     { name: "dist_trunk", label: "Distance to Trunk Road", type: "number",adminUnit: false, multiselect: 'false', options: []},
-    { name: "encumbrance", label: "Any court cases/claims?", type: "select", multiselect: 'false',adminUnit: false, options:yesNoUnknown.value},
-
+     
     {
       name: "isActive", label: "Status", type: "select", multiselect: 'false',adminUnit: false,
       options: [
