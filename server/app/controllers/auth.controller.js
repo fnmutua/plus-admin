@@ -659,7 +659,7 @@ exports.settlementController = (req, res) => {
             [Op.eq]: county
           }
         },
-        attributes: { exclude: ['geom'] }
+      //  attributes: { exclude: ['geom'] }
       })
     .then((list) => {
       //console.log(list.rows)
