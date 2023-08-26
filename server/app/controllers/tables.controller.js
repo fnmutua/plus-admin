@@ -1179,6 +1179,7 @@ exports.modelOneRecord = (req, res) => {
 
 exports.modelEditOneRecord = (req, res) => {
   var reg_model = req.body.model;
+  console.log('Editing thus record',req.body)
 
   // Get the record and update it by replacing the whole document
   db.models[reg_model].findOne({ where: { id: req.body.id } })
