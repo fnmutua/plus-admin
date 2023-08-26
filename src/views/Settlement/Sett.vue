@@ -584,7 +584,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   //-------------------------
   console.log('FormSubmitted', formData)
   const res = await getSettlementListByCounty(formData)
-
+ // const res = await getListWithoutGeo(formData)
+  
   console.log('After Querry - associated_multiple_models', res)
   tableDataList.value = res.data
   total.value = res.total
