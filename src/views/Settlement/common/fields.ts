@@ -124,8 +124,8 @@ const yesNo =ref([
 ]) 
 
 const levelDevt =ref([
-  { label: 'Single Storey', value: 'single_storey' },
-  { label: 'Multi-Storey', value: 'multi_storey' },
+  { label: 'Single Storey', value: 'singleStorey' },
+  { label: 'Multi-Storey', value: 'multiStorey' },
 ]) 
   
 const structureTypes =ref([
@@ -205,17 +205,17 @@ const formFields: Field[][] = [
 
   [
    // This is left empty for the  map 
-    {
-      name: "location_option", label: "Location Option", type: "select", multiselect: 'false',aadminUnit: false,
-      options: [
-        { label: 'Digitize', value: 'digitize' },
-        { label: 'Upload', value: 'upload' },
-      ]
-    },
-    {
-      name: "upload", label: "", type: "upload", visible: 'false',
-      options: [ ]
-    },
+    // {
+    //   name: "location_option", label: "Location Option", type: "select", multiselect: 'false',aadminUnit: false,
+    //   options: [
+    //     { label: 'Digitize', value: 'digitize' },
+    //     { label: 'Upload', value: 'upload' },
+    //   ]
+    // },
+    // {
+    //   name: "upload", label: "", type: "upload", visible: 'false',
+    //   options: [ ]
+    // },
   ],
    
 ];

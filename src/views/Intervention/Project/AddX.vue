@@ -79,7 +79,7 @@ v-for="option in countyOptions" :key="option.value" :label="option.label"
                 v-for="option in settOptionsFiltered" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
  
-
+<!-- 
               <el-upload
 v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList"
                 class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
@@ -89,7 +89,7 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
                   }}</el-button>
                   <span class="upload-filename" v-if="fileList.length > 0">{{ fileList[0].name }}</span>
                 </template>
-              </el-upload>
+              </el-upload> -->
 
 
             </el-form-item>
@@ -145,6 +145,26 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
         </div>
       </template>
     </el-dialog>
+
+    
+    <el-dialog
+      v-model="showUploadDialog"
+      title="Upload a Zipped Shapefile/Geojson"
+      width="30%" 
+    >
+          <el-upload
+        v-model:file-list="fileList"
+                        class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+                        :auto-upload="false" :show-file-list="false" :on-change="handleUploadGeo">
+                        <template #default>
+                          <el-button type="primary">{{ fileList.length > 0 ? fileList[0].name : 'Select Geojson/Zipped Shp'
+                          }}</el-button>
+                          <span class="upload-filename" v-if="fileList.length > 0">{{ fileList[0].name }}</span>
+                        </template>
+          </el-upload>
+   
+    </el-dialog>
+
   </div>
 </template>
 
@@ -197,7 +217,7 @@ const props1 = {
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-
+const showUploadDialog=ref(false)
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
@@ -520,8 +540,9 @@ const readJson = (event) => {
     map.value.getSource("scope").setData(projectScopeGeo.value);
     bounds.value = turf.bbox((projectScopeGeo.value))
     console.log("From geo", bounds.value)
-    map.value.fitBounds(bounds, { padding: 20, maxZoom: 18 })
-
+    map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 18 })
+    
+      loadMap()
   }
 
 }
@@ -605,6 +626,7 @@ const handleUploadGeo = async (uploadFile) => {
 
   }
 
+  showUploadDialog.value=false
 
 }
 
@@ -837,6 +859,27 @@ map.value.on('load', function () {
     
     // Register the directive
   //  mapContainer.value.__v_directives = [addHomeButton];
+
+
+  function addHomeButton(map) {
+  class HomeButton {
+    onAdd(map) {
+      const div = document.createElement("div");
+      div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+      div.innerHTML = `<button>
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M17 9.00195C19.175 9.01406 20.3529 9.11051 21.1213 9.8789C22 10.7576 22 12.1718 22 15.0002V16.0002C22 18.8286 22 20.2429 21.1213 21.1215C20.2426 22.0002 18.8284 22.0002 16 22.0002H8C5.17157 22.0002 3.75736 22.0002 2.87868 21.1215C2 20.2429 2 18.8286 2 16.0002L2 15.0002C2 12.1718 2 10.7576 2.87868 9.87889C3.64706 9.11051 4.82497 9.01406 7 9.00195" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round"></path> <path d="M12 15L12 2M12 2L15 5.5M12 2L9 5.5" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>
+		
+  </button>`;      div.addEventListener("contextmenu", (e) => e.preventDefault());
+      div.addEventListener("click", () => showUploadDialog.value=true);
+
+      return div;
+    }
+  }
+  const homeButton = new HomeButton();
+  map.addControl(homeButton, "top-left");
+}
+addHomeButton(map.value)
+
 
 } 
 
