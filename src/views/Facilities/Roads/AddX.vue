@@ -887,7 +887,7 @@ const draw = new MapboxDraw({
   controls: {
     point: true,
     line_string: true,
-    polygon: true,
+    polygon: false,
     trash: true
   },
 
