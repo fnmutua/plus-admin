@@ -180,18 +180,18 @@ const formFields: Field[][] = [
 
 
   [
-   // This is left empty for the  map 
-    {
-      name: "location_option", label: "Location Option", type: "select", multiselect: 'false', adminUnit: false, 
-      options: [
-        { label: 'Digitize', value: 'digitize' },
-        { label: 'Upload', value: 'upload' },
-      ]
-    },
-    {
-      name: "upload", label: "", type: "upload", visible: 'false',
-      options: [ ]
-    },
+  //  // This is left empty for the  map 
+  //   {
+  //     name: "location_option", label: "Location Option", type: "select", multiselect: 'false', adminUnit: false, 
+  //     options: [
+  //       { label: 'Digitize', value: 'digitize' },
+  //       { label: 'Upload', value: 'upload' },
+  //     ]
+  //   },
+  //   {
+  //     name: "upload", label: "", type: "upload", visible: 'false',
+  //     options: [ ]
+  //   },
   ],
    
 ];

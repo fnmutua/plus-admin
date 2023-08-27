@@ -110,17 +110,17 @@ const formFields: Field[][] =reactive( [
 
   [
    // This is left empty for the  map 
-    {
-      name: "location_option", label: "Location Option", type: "select", multiselect: 'false',show:'true', 
-      options: [
-        { label: 'Digitize', value: 'digitize' },
-        { label: 'Upload', value: 'upload' },
-      ]
-    },
-    {
-      name: "upload", label: "", type: "upload", visible: 'false',show:'true', 
-      options: [ ]
-    },
+    // {
+    //   name: "location_option", label: "Location Option", type: "select", multiselect: 'false',show:'true', 
+    //   options: [
+    //     { label: 'Digitize', value: 'digitize' },
+    //     { label: 'Upload', value: 'upload' },
+    //   ]
+    // },
+    // {
+    //   name: "upload", label: "", type: "upload", visible: 'false',show:'true', 
+    //   options: [ ]
+    // },
   ],
    
 ]);

@@ -17,6 +17,8 @@ v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm
             :xl="8">
             <el-form-item :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
+              <el-input v-if="field.type === 'textarea'"  type="textarea" v-model="formData[field.name]" />
+ 
               <el-input-number
 :min="field.min" v-else-if="field.type === 'number'" v-model="formData[field.name]"
                 @change="getFieldChangeHandler(field.name)" />
@@ -77,7 +79,7 @@ v-for="option in countyOptions" :key="option.value" :label="option.label"
                 v-for="option in settOptionsFiltered" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
  
-
+<!-- 
               <el-upload
 v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList"
                 class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
@@ -87,7 +89,7 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
                   }}</el-button>
                   <span class="upload-filename" v-if="fileList.length > 0">{{ fileList[0].name }}</span>
                 </template>
-              </el-upload>
+              </el-upload> -->
 
 
             </el-form-item>
@@ -143,6 +145,26 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
         </div>
       </template>
     </el-dialog>
+
+    
+    <el-dialog
+      v-model="showUploadDialog"
+      title="Upload a Zipped Shapefile/Geojson"
+      width="30%" 
+    >
+          <el-upload
+        v-model:file-list="fileList"
+                        class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+                        :auto-upload="false" :show-file-list="false" :on-change="handleUploadGeo">
+                        <template #default>
+                          <el-button type="primary">{{ fileList.length > 0 ? fileList[0].name : 'Select Geojson/Zipped Shp'
+                          }}</el-button>
+                          <span class="upload-filename" v-if="fileList.length > 0">{{ fileList[0].name }}</span>
+                        </template>
+          </el-upload>
+   
+    </el-dialog>
+
   </div>
 </template>
 
@@ -185,7 +207,7 @@ import {
 } from 'element-plus';
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
-import { countyOptions } from './common';
+import { countyOptions } from '../common';
 
 
 const props1 = {
@@ -195,7 +217,7 @@ const props1 = {
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-
+const showUploadDialog=ref(false)
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
@@ -237,10 +259,17 @@ const settlement_id = ref()
 
 
 const onSelectCounty = (county_id) => {
+
   formData.subcounty_id = null
   formData.ward_id = null
   formData.settlement_id = null
   subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == county_id);
+  wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.county_id == county_id);
+  settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.county_id == county_id);
+
+
+
+  
   handleChangeLocation([county_id])
 };
 
@@ -248,6 +277,10 @@ const onSelectCounty = (county_id) => {
 const onSelectSubcounty = (subcounty_id) => {
   formData.ward_id = null
   formData.settlement_id = null
+
+  // update the county to county id of the current subcounty - backward copatibility 
+  var thisSubCountyOption=subcountyOptions.value.filter((obj) => obj.value == subcounty_id);
+  formData.county_id = thisSubCountyOption.county_id
 
  wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == subcounty_id);
  handleChangeLocation([formData.county_id.value,subcounty_id ])
@@ -258,14 +291,32 @@ const onSelectSubcounty = (subcounty_id) => {
 const onSelectWard = (ward_id) => {
 
   formData.settlement_id = null
+  // update the county to county id of the current subcounty - backward copatibility 
+  var thisWardOption=wardOptions.value.filter((obj) => obj.value == ward_id);
+  formData.county_id = thisWardOption[0].county_id
+   formData.subcounty_id = thisWardOption[0].subcounty_id
+   console.log('thisWardOption',thisWardOption[0])
+
+
   settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == ward_id);
-  handleChangeLocation([ formData.county_id.value,formData.subcounty_id.value,ward_id ])
+  handleChangeLocation([ formData.county_id,formData.subcounty_id,ward_id ])
 
 };
 
 const onSelectSettlement = (sett_id) => {
   formData.settlement_id = sett_id
-  handleChangeLocation([ formData.county_id.value,formData.subcounty_id.value,formData.ward_id.value, sett_id ])
+
+ // update the parenst based on current selection - backward copatibility 
+ var thisSettOption=settlementOptionsV2.value.filter((obj) => obj.value == sett_id);
+  formData.county_id = thisSettOption[0].county_id
+  formData.subcounty_id = thisSettOption[0].subcounty_id
+  formData.ward_id = thisSettOption[0].ward_id
+ 
+
+
+
+
+  handleChangeLocation([ formData.county_id,formData.subcounty_id,formData.ward_id, sett_id ])
 
  // const selectedSettlement = settOptionsFiltered.value.filter((obj) => obj.value === sett_id);
  // selectAdmin.value = selectAdmin.value + ' | ' + selectedSettlement[0].label
@@ -292,7 +343,7 @@ const newRecord = ref(true)
 const map = ref()
 
 const mapContainer = ref(null);
-const geomScope = ref([])
+const projectScopeGeo = ref([])
 const model = 'water_point'
 const component_id = ref()
 
@@ -324,7 +375,7 @@ onMounted(async () => {
         curData.geom = curData.geom
 
         console.log('curData', curData)
-        geomScope.value = curData.geom
+        projectScopeGeo.value = curData.geom
 
        // curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id, curData.settlement_id]
 
@@ -332,11 +383,13 @@ onMounted(async () => {
       //   onSelectSubcounty(curData.subcounty_id)
       //   onSelectWard(curData.ward_id)
 
-      subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
-      wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id ==curData.subcounty_id);
+        subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
+        wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id ==curData.subcounty_id);
         settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == curData.ward_id);
 
-      
+  
+        
+
         //  formData = res.data
         Object.assign(formData, curData);
         console.log(formData)
@@ -482,12 +535,13 @@ const readJson = (event) => {
     formData.geom = geom
 
 
-    geomScope.value = geom
-    map.value.getSource("scope").setData(geomScope.value);
-    bounds.value = turf.bbox((geomScope.value))
+    projectScopeGeo.value = geom
+    map.value.getSource("scope").setData(projectScopeGeo.value);
+    bounds.value = turf.bbox((projectScopeGeo.value))
     console.log("From geo", bounds.value)
-    map.value.fitBounds(bounds, { padding: 20, maxZoom: 18 })
-
+    map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 18 })
+    
+      loadMap()
   }
 
 }
@@ -525,9 +579,9 @@ const readShp = async (file) => {
         console.log('>>', geom)
         formData.geom = geom
 
-        geomScope.value = geom
-        map.value.getSource("scope").setData(geomScope.value);
-        bounds.value = turf.bbox((geomScope.value))
+        projectScopeGeo.value = geom
+        map.value.getSource("scope").setData(projectScopeGeo.value);
+        bounds.value = turf.bbox((projectScopeGeo.value))
         console.log("From shp", bounds.value)
         map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 15 })
       }
@@ -571,6 +625,7 @@ const handleUploadGeo = async (uploadFile) => {
 
   }
 
+  showUploadDialog.value=false
 
 }
 
@@ -714,14 +769,14 @@ map.value.on('load', function () {
   map.value.addSource('scope', {
     type: 'geojson',
     //data: projectPoly.value
-    data: (geomScope.value),
+    data: (projectScopeGeo.value),
   });
 
   
   // Edit only if not a new record 
   if (!newRecord.value) {
     toggleDrawToolbox('digitize')
-    const geojson = JSON.parse(JSON.stringify(geomScope.value));
+    const geojson = JSON.parse(JSON.stringify(projectScopeGeo.value));
   var feature = turf.feature(geojson);
   var collection = turf.featureCollection([feature])
   draw.set(collection);
@@ -737,7 +792,7 @@ map.value.on('load', function () {
     toggleDrawToolbox('digitize')
     // Load this outline only if its a new settlement 
     map.value.addLayer({
-    'id': 'geomScope',
+    'id': 'projectScopeGeo',
     'type': 'line',
     'source': 'scope',
     'layout': {},
@@ -793,7 +848,7 @@ map.value.on('load', function () {
 
  
 
-  var bounds = turf.bbox((geomScope.value));
+  var bounds = turf.bbox((projectScopeGeo.value));
   map.value.fitBounds(bounds, {padding: 20,duration:1000 });
 
 
@@ -804,6 +859,27 @@ map.value.on('load', function () {
     // Register the directive
   //  mapContainer.value.__v_directives = [addHomeButton];
 
+
+  function addHomeButton(map) {
+  class HomeButton {
+    onAdd(map) {
+      const div = document.createElement("div");
+      div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+      div.innerHTML = `<button>
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M17 9.00195C19.175 9.01406 20.3529 9.11051 21.1213 9.8789C22 10.7576 22 12.1718 22 15.0002V16.0002C22 18.8286 22 20.2429 21.1213 21.1215C20.2426 22.0002 18.8284 22.0002 16 22.0002H8C5.17157 22.0002 3.75736 22.0002 2.87868 21.1215C2 20.2429 2 18.8286 2 16.0002L2 15.0002C2 12.1718 2 10.7576 2.87868 9.87889C3.64706 9.11051 4.82497 9.01406 7 9.00195" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round"></path> <path d="M12 15L12 2M12 2L15 5.5M12 2L9 5.5" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>
+		
+  </button>`;      div.addEventListener("contextmenu", (e) => e.preventDefault());
+      div.addEventListener("click", () => showUploadDialog.value=true);
+
+      return div;
+    }
+  }
+  const homeButton = new HomeButton();
+  map.addControl(homeButton, "top-left");
+}
+addHomeButton(map.value)
+
+
 } 
 
 
@@ -812,8 +888,8 @@ const draw = new MapboxDraw({
   displayControlsDefault: false,
   controls: {
     point: true,
-    line_string: false,
-    polygon: false,
+    line_string: true,
+    polygon: true,
     trash: true
   },
 
@@ -857,8 +933,14 @@ const submitForm = async () => {
       formData.code = shortid.generate()
       formData.createdBy = userInfo.id
       formData.component_id = component_id.value
-      //formData.geom =geomScope.value
+      //formData.geom =projectScopeGeo.value
 
+      if (!formData.geom) {
+        console.log('projectScopeGeo.value', projectScopeGeo.value)
+        // if the proejct lcoation is not specified, take the lowest admin geom
+        formData.geom =projectScopeGeo.value.features[0].geometry
+ 
+      }
 
       if (newRecord.value) {
         formData.isApproved = 'Pending'
@@ -926,7 +1008,7 @@ const handleChangeLocation = async (value: any) => {
 
 
   if (newRecord.value) {
-    geomScope.value = res.data[0].json_build_object
+    projectScopeGeo.value = res.data[0].json_build_object
 
   }
   //const lastElement = array[array.length - 1];
