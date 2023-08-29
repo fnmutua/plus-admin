@@ -387,7 +387,7 @@ const getIndicatorNames = async () => {
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
-  console.log('indicator_category', res)
+  console.log('indicator_category Re', res)
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
     var opt = {}

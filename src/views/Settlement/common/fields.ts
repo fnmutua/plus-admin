@@ -125,7 +125,7 @@ const yesNo =ref([
 
 const levelDevt =ref([
   { label: 'Single Storey', value: 'singleStorey' },
-  { label: 'Multi-Storey', value: 'multiStorey' },
+  { label: 'Multi Storey', value: 'multiStorey' },
 ]) 
   
 const structureTypes =ref([

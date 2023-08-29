@@ -20,6 +20,7 @@ ALTER SEQUENCE beneficiary_id_seq  RESTART WITH 1013 ;
 
 ALTER SEQUENCE users_id_seq  RESTART WITH 33 ;
 
+ALTER SEQUENCE indicator_category_id_seq  RESTART WITH 47 ;
 
 
 #Backup Railway DB
