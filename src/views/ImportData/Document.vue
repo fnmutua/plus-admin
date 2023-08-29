@@ -602,7 +602,7 @@ const beforeUpload: UploadProps['beforeUpload'] = (files) => {
 
 
 
-        const isLt5M = files[i].raw.size / 1024 / 1024 < 20
+        const isLt5M = files[i].raw.size / 1024 / 1024 < 50
 
         if (!isXls && !isXlsx && !isPdf && !isZip && !isDoc && !isDocx && !isPng && !isJPG
             && !isCSV && !isJSON && !isPPT && !isPPTX && !isRAR && !isTIF && !isTEXT
@@ -613,7 +613,7 @@ const beforeUpload: UploadProps['beforeUpload'] = (files) => {
         }
         if (!isLt5M) {
             // this.$message.error('File size should not exceed 5MB')
-            ElMessage.error('File size should not exceed 20MB')
+            ElMessage.error('File size should not exceed 50MB')
         }
         return (isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG || isCSV || isJSON || isPPT ||
             isPPTX || isRAR || isTIF || isTEXT)
