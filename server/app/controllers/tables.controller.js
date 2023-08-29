@@ -1963,6 +1963,312 @@ console.log("req.body.cache_key")
 
 }
 
+exports.modelPaginatedDatafilterByColumnNoGeo = async (req, res) => {
+  console.log('Req-body 002 - ', req.body)
+   // console.log('nested filters....>', req.body.nested_filter[0])
+ 
+   var reg_model = req.body.model
+ 
+   // Associated Models
+   var associated_multiple_models = req.body.associated_multiple_models
+   console.log('associated_multiple_models', associated_multiple_models.length)
+ 
+   // nested Models
+   // here me limit to two nesting levels only
+   var nested_models = req.body.nested_models
+   if (req.body.nested_models) {
+     var child_model = db.models[req.body.nested_models[0]]
+     var grand_child_model = db.models[req.body.nested_models[1]]
+     var nestedQuery = {}
+ 
+     // create the criterial for the grandchild 
+     if (req.body.nested_filter) {
+       nestedQuery[req.body.nested_filter[0]] = req.body.nested_filter[1]
+     }
+ 
+   }
+ 
+   var qry = {}
+   var includeModels = []
+ 
+   // loop through the include models
+   for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
+     var modelIncl = {}
+     modelIncl.model = db.models[req.body.associated_multiple_models[i]]
+ 
+     if (req.body.associated_multiple_models[i] === 'users') {
+          modelIncl.raw = true
+          modelIncl.nested = true
+          modelIncl.attributes = ['name', 'email', 'phone'];
+ 
+     }
+ 
+     includeModels.push(modelIncl)
+ 
+ 
+   }
+   var lstQuerries = []
+ 
+   //console.log(includeModels)
+   if (associated_multiple_models) {
+    if (nested_models) {
+      if (req.body.nested_filter) {
+        var nestedModels = { model: child_model, include: [{ model: grand_child_model, where: nestedQuery }], raw: true, nested: true }
+      } else {
+        var nestedModels = { model: child_model, include: grand_child_model, raw: true, nested: true }
+      }
+    
+      // Adjust attributes for included/nested models
+      if (child_model) {
+        nestedModels.attributes = Object.keys(child_model.rawAttributes).filter(attr => attr !== 'geom');
+      }
+      if (grand_child_model) {
+        nestedModels.include[0].attributes = Object.keys(grand_child_model.rawAttributes).filter(attr => attr !== 'geom');
+      }
+    
+      includeModels.push(nestedModels);
+      var qry = {
+        include: includeModels
+      };
+    } else {
+      console.log('---no---');
+    
+      // Adjust attributes for included models
+      for (const inclModel of includeModels) {
+        inclModel.attributes = Object.keys(inclModel.model.rawAttributes).filter(attr => attr !== 'geom');
+      }
+    
+      var qry = {
+        include: includeModels
+      };
+    }
+    
+ 
+ 
+ 
+ 
+   } else {
+     var qry = {}
+   }
+ 
+   console.log('The Querry----->', qry)
+   if (req.body.limit ) {
+     qry.limit = req.body.limit 
+   }
+   if (req.body.page ) {
+     qry.offset = (req.body.page - 1) * req.body.limit
+   }
+ 
+ 
+ 
+   if (req.body.filters) {
+     if (req.body.filters.length > 0 && req.body.filterValues.length > 0 && req.body.filterValues.length === req.body.filters.length )  {
+      
+       var queryFields = {}
+       for (let i = 0; i < req.body.filters.length; i++) {
+         
+         //lstQuerries.push(queryFields)
+         var lstValues  = []
+         for (let j = 0; j < req.body.filterValues[i].length; j++) {
+           lstValues.push(req.body.filterValues[i][j])
+         }
+         queryFields[req.body.filters[i]] = lstValues
+         lstQuerries.push(queryFields)
+ 
+       }
+       console.log('Final-7-object------------>', lstQuerries)
+ 
+     }
+  
+     qry.where = lstQuerries
+   }
+  
+  
+   console.log('Final-3-object-------excluding----->', qry)
+ 
+   qry.order=[['id', 'ASC']]
+ 
+   // if involving households decryot the HH name
+ 
+ 
+ 
+   const searchString = 'households';
+   if (associated_multiple_models) {
+ 
+     console.log(associated_multiple_models)
+     if (associated_multiple_models.includes(searchString) ) {
+       console.log(`${searchString} is in the array`);
+       console.log(qry)
+     
+               console.log('getting households--x2-->')
+               var attributes = []
+          
+               for( let key in   db.models[reg_model].rawAttributes ){
+                 attributes.push(key)
+             }
+             //   console.log('attributes',attributes)
+               var index = attributes.indexOf('name');
+               if (index !== -1) {
+                   attributes.splice(index, 1);
+               }
+     
+               let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('household.name'), 'bytea'),'maluini'),'name']
+               attributes.push(encrytpedField)
+       
+           console.log('these attributes', attributes)
+       
+               
+       qry.attributes = attributes
+       qry.attributes.exclude = ['password', 'resetPasswordExpires', 'resetPasswordToken','geom'] 
+     } else {
+ 
+       console.log('Not hosuehdols.....')
+ 
+       var attributes = []
+          
+       for( let key in db.models[reg_model].rawAttributes ){
+         attributes.push(key)
+       }
+       
+       console.log('excluding.........>>' )
+   
+       qry.attributes = attributes
+       qry.attributes.exclude = ['geom'] 
+ 
+       
+     }
+     
+ 
+ 
+ 
+   }
+ 
+   else {
+     
+     var attributes = []
+          
+     for( let key in db.models[reg_model].rawAttributes ){
+       attributes.push(key)
+     }
+     
+     console.log('excluding.........>>' )
+ 
+     qry.attributes = attributes
+     qry.attributes.exclude = ['geom'] 
+  
+ 
+ }
+      
+ qry.order= [['createdAt', 'DESC']]
+ 
+ 
+ 
+ 
+ //qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only
+ 
+ console.log("req.body.cache_key")
+   if (req.body.cache_key && req.body.cache_key != '') { 
+ 
+     const cache_key = req.body.cache_key;   
+     const cacheDuration = 3600; // Cache duration in seconds
+ 
+     
+     // get last time it was modified 
+     const lastRow = await db.models[reg_model].findOne({
+       attributes: ['updatedAt'],
+       order: [['updatedAt', 'DESC']]
+     });
+     
+     const lastModified = lastRow ? lastRow.updatedAt: Date.now()
+    // console.log(lastModified,req.body.cache_key)
+    // console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+ 
+ 
+     try {
+       const cacheResults = await redisClient.get(cache_key);
+       if (cacheResults) {
+         const result = JSON.parse(cacheResults);
+          if (lastModified && lastModified > result.lastModified) {
+           // If the database was updated after the cached data was generated, update the cache
+           const response = await db.models[reg_model].findAndCountAll(qry);
+           await redisClient.set(cache_key, JSON.stringify({
+             data: response.rows,
+             total: response.count,
+             lastModified: Date.now() // Update the last modified timestamp
+           }), {
+             EX: cacheDuration,
+             NX: true,
+           });
+           res.status(200).send({
+             fromCache: false,
+             cache_key: cache_key,
+             data: response.rows,
+             total: response.count,
+             code: '0000'
+           });
+         } else {
+           // If the cached data is still valid, return it from the cache
+           res.status(200).send({
+             fromCache: true,
+             cache_key: cache_key,
+             data: result.data,
+             total: result.total,
+             code: '0000'
+           });
+         }
+       } else {
+ 
+         // If no cache data exists, generate new data and store it in the cache
+         const response = await db.models[reg_model].findAndCountAll(qry);
+         await redisClient.set(cache_key, JSON.stringify({
+           data: response.rows,
+           total: response.count,
+           lastModified: Date.now() // Set the last modified timestamp to current time
+         }), {
+           EX: cacheDuration,
+           NX: true,
+         });
+ 
+           //  return it from the cache
+           res.status(200).send({
+             fromCache: true,
+             cache_key: cache_key,
+             data: result.data,
+             total: result.total,
+             code: '0000'
+           });
+     }
+     }
+     catch(error) {
+       res.status(500).send({
+         message: 'Internal server error',
+         code: 'SERVER_ERROR'
+       });
+     }
+ 
+ 
+ 
+ 
+   } else {
+ 
+     console.log("123xxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+     console.log(qry)
+ 
+     db.models[reg_model].findAndCountAll(qry).then((list) => {
+       res.status(200).send({
+         fromCache: false,
+         data: list.rows,
+         total: list.count,
+         code: '0000'
+       })
+     })
+ 
+   }
+ 
+ 
+ 
+ }
+
 exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
   console.log(' 003', req.body)
    // console.log('nested filters....>', req.body.nested_filter[0])

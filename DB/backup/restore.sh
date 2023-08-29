@@ -12,18 +12,6 @@ echo
 echo "Setting up Resource Paths"
 echo
 
-# root/project/scripts/operations/databases
-DATABASES_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-# root/project/scripts/operations
-OPERATIONS_DIR="$(dirname "$DATABASES_DIR")"
-
-# root/project/scripts
-SCRIPTS_DIR="$(dirname "$OPERATIONS_DIR")"
-
-# root/project/
-PROJECT_DIR="$(dirname "$SCRIPTS_DIR")"
-
 # Connection Details
 # ----------------------------------------------------------------------------------
 
@@ -31,7 +19,6 @@ PROJECT_DIR="$(dirname "$SCRIPTS_DIR")"
 
  
 
-if [ $CLOUD_SERVER -eq 1 ]; then
 
   echo
   echo "Setting up cloud host connection details"
@@ -41,9 +28,6 @@ if [ $CLOUD_SERVER -eq 1 ]; then
   export PGPORT="5432"
   export PGUSER="postgres"
   export PGPASSWORD="Admin@2011"
-
-fi
-
 
  
 echo
@@ -61,9 +45,7 @@ echo
   now="$(date +'%d%m%Y')"
 
 #psql -f 20052023.kisip.sql  xkisip
-pg_restore  -d kisip 23082023.kesmis.sql.tar
-
- 
+pg_restore  -d 29082023.kesmis.sql.tar
 
 
 

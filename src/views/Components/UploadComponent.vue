@@ -164,14 +164,14 @@ for (var i = 0; i < files.length; i++) {
   }
 
 
-  const isLt5M = files[i].raw.size / 1024 / 1024 < 20
+  const isLt50M = files[i].raw.size / 1024 / 1024 < 50;
 
 
-  if (!isLt5M) {
+  if (!isLt50M) {
     // this.$message.error('File size should not exceed 5MB')
     ElMessage.error('File size should not exceed 20MB')
   }
-  return (isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG) && isLt5M
+  return (isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG) && isLt50M
 }
 }
 
