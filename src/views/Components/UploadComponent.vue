@@ -185,7 +185,7 @@ console.log('loadingPosting.value.......', morefileList.value.length)
  
  
   if (morefileList.value.length == 0) {
-    ElMessage.error('Select atleast one file!')
+    ElMessage.error('Select at least one file!')
   }
 
  

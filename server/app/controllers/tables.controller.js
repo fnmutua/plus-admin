@@ -2617,7 +2617,6 @@ exports.getFieldQUnique = async (req, res) => {
 
 
 
-
 const multer = require('multer');
 
 // Configure multer for file uploads
@@ -2630,7 +2629,13 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit (adjust as needed)
+  },
+});
+
 
 exports.batchDocumentsUpload = (req, res) => {
   // Use `upload.array('files')` middleware to handle multiple file uploads
