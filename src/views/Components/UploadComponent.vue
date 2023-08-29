@@ -169,7 +169,7 @@ for (var i = 0; i < files.length; i++) {
 
   if (!isLt50M) {
     // this.$message.error('File size should not exceed 5MB')
-    ElMessage.error('File size should not exceed 20MB')
+    ElMessage.error('File size should not exceed 50MB')
   }
   return (isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG) && isLt50M
 }
