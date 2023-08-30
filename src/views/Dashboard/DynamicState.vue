@@ -1162,13 +1162,13 @@ const getCharts = async (section_id) => {
             console.log(cdata);
 
             const UpdatedBarOptionsMultiple = {
-              ...multipleBarChart,
+              ...simpleBarChart,
               title: {
-                ...multipleBarChart.title,
+                ...simpleBarChart.title,
                 text: thisChart.title
               },
               xAxis: {
-                ...multipleBarChart.xAxis,
+                ...simpleBarChart.xAxis,
                 data: cdata[0] // categories as received 
               },
             };

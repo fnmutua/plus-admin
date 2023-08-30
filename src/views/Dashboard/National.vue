@@ -11,8 +11,8 @@ import { use } from "echarts/core";
 import { Icon } from '@iconify/vue';
 
 import {
-  pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,
-  lineOptions, stackedbarOptions, barMaleFemaleOptions,toggleFullScreen
+  pieOptions,  multipleBarChart, stacklineOptions, mapChartOptions,
+  lineOptions, stackedbarOptions, barMaleFemaleOptions, simpleBarChart
 } from './chart-types'
 import { EChartsOption, registerMap } from 'echarts'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -22,7 +22,7 @@ import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getfilteredGeo } from '@/api/settlements'
 
-import { getSummarybyField, getSummaryGroupByMultipleFields, getSummarybyFieldNested } from '@/api/summary'
+import {  getSummaryGroupByMultipleFields, getSummarybyFieldNested } from '@/api/summary'
 
 import * as turf from '@turf/turf'
 import { getAllGeo } from '@/api/settlements'
@@ -895,13 +895,13 @@ const getCharts = async (section_id) => {
             console.log(cdata);
 
             const UpdatedBarOptionsMultiple = {
-              ...multipleBarChart,
+              ...simpleBarChart,
               title: {
-                ...multipleBarChart.title,
+                ...simpleBarChart.title,
                 text: thisChart.title
               },
               xAxis: {
-                ...multipleBarChart.xAxis,
+                ...simpleBarChart.xAxis,
                 data: cdata[0] // categories as received 
               },
             };

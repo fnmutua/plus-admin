@@ -443,6 +443,7 @@ exports.getOneHousehold = (req, res) => {
       let name = data[i].name;
       obj.name = sequelize.fn('PGP_SYM_ENCRYPT', name, 'maluini');
       delete obj.model;
+      console.log(obj)
   
       await db.models.households
         .upsert(obj, { 
@@ -455,7 +456,7 @@ exports.getOneHousehold = (req, res) => {
           console.log(created ? 'Created' : 'Updated', row.toJSON());
         })
         .catch((err) => {
-           
+           console.log(err)
           errors.push(err.original);
         });
     }
