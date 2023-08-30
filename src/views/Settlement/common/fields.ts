@@ -200,6 +200,8 @@ const formFields: Field[][] = [
         { value: 'false', label: 'Decommisioned' },
       ]
     },
+    { name: "comments", label: "Comments/Remarks", type: "textarea", multiselect: 'false', adminUnit: false, options: []},
+
   ],
 
 

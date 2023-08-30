@@ -17,6 +17,9 @@ v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm
             :xl="8">
             <el-form-item :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
+              <el-input v-else-if="field.type === 'textarea'" type="textarea" v-model="formData[field.name]" />
+
+              
               <el-input-number
 :min="field.min" v-else-if="field.type === 'number'" v-model="formData[field.name]"
                 @change="getFieldChangeHandler(field.name)" />
