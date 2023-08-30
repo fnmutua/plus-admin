@@ -180,8 +180,7 @@ export const stacklineOptions: EChartsOption = {
 };
 
 
-
-export const pieOptions  = reactive({
+export const pieOptions = reactive({
   title: {
     text: '',
     subtext: 'National Slum Database, 2023',
@@ -195,71 +194,63 @@ export const pieOptions  = reactive({
   },
   toolbox: {
     show: true,
-          feature: {
-        myFullScreenButton: {
-          show: true,
-          title: 'Full Screen',
-              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
-            
-             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
- 
-              onclick: function () {
-            
-            const chart = this.api; // Get the chart instance
-            const chartName = chart.getOption().title[0].text; // Get the chart title
-    
-            console.log('Chart Name:', chartName);
-    
-            const containerDiv = chart.getDom(); // Get the container div element
-            const containerId = containerDiv.id; // Get the container ID
-    
-            console.log('Container ID:', containerId);
-            toggleFullScreen(containerId);
-          }
-        },
-
+    feature: {
+      myFullScreenButton: {
+        show: true,
+        title: 'Full Screen',
+        icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+        onclick: function () {
+          const chart = this.api; // Get the chart instance
+          const chartName = chart.getOption().title[0].text; // Get the chart title
+          console.log('Chart Name:', chartName);
+          const containerDiv = chart.getDom(); // Get the container div element
+          const containerId = containerDiv.id; // Get the container ID
+          console.log('Container ID:', containerId);
+          toggleFullScreen(containerId);
+        }
+      },
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 4 }
     }
   },
-  tooltip: {
-    trigger: 'item',
-    formatter: '{a} <br/>{b} : {c} ({d}%)'
-  },
-  
-  legend: {
-    type: 'scroll',
-    orient: 'vertical',
-    left: 10,
-    top: 20,
-    bottom: 20,
- },
-  selectedMode: true,
+  // legend: {
+  //   type: 'scroll',
+  //   orient: 'vertical',
+  //   left: 10,
+  //   top: 20,
+  //   bottom: 20,
+  // },
 
+  legend: {
+    top: 'bottom',
+    type: 'scroll'
+  },
+  selectedMode: true,
   series: [
     {
       name: '',
       type: 'pie',
-   //   radius: '70%',
       center: ['50%', '50%'],
       radius: ['10%', '70%'],
-
-      roseType: 'area',
-  //    color: colorPalette,
-      // itemStyle: {
-      //   borderRadius: 1,
-      //   borderColor: '#fff',
-      //   borderWidth: 1
-      // },
+      // roseType: 'area',
       backgroundStyle: {
         color: 'rgba(180, 180, 180, 0.2)'
+      },
+      label: {  // Set the label options to remove labels
+        show: false, // Hide labels
+      },
+      emphasis: {
+        label: {
+          show: true  // Hide labels on hover as well
+        }
       },
       data: []
     }
   ]
 });
+
 
 
 
@@ -317,7 +308,18 @@ export const simpleBarChart: EChartsOption = {
             toggleFullScreen(containerId);
           }
         },
-
+      // Add a custom feature to toggle legend visibility
+      toggleLegend: {
+        show: true,
+        title: 'Toggle Legend',
+        icon: 'image://https://cdn.svgapi.com/vector/22674/switch.svg',
+        onclick: function () {
+          const chart = this.api;
+          const option = chart.getOption();
+          option.legend[0].show = !option.legend[0].show; // Toggle legend visibility
+          chart.setOption(option);
+        }
+      },
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
@@ -349,6 +351,9 @@ export const simpleBarChart: EChartsOption = {
     type: 'value',
     name:'Number',
 
+  },
+  legend: {
+    data: [ ]
   },
   series: [
     {
@@ -382,7 +387,7 @@ export const multipleBarChart: EChartsOption = {
           feature: {
         myFullScreenButton: {
           show: true,
-          title: 'Full Screen',
+          title: 'Fullx Screen',
               //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
             
              icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
@@ -401,7 +406,26 @@ export const multipleBarChart: EChartsOption = {
             toggleFullScreen(containerId);
           }
         },
-
+        myFullScreenButton2: {
+          show: true,
+          title: 'Toggle Legend',
+              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+            
+             icon: 'image://https://cdn.svgapi.com/vector/22674/switch.svg',
+ 
+          onclick: function () {
+            let chartInstance
+                chartInstance = this.api; // Get the chart instance using _model.api
+               const option = chartInstance.getOption();
+               console.log(chartInstance)
+              option.legend[0].show = !option.legend[0].show; // Toggle legend visibility
+                 chartInstance = option;
+                        // Force a redraw of the chart
+                  chartInstance.resize();
+            }
+        },
+      // Add a custom feature to toggle legend visibility
+   
       mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
@@ -414,13 +438,20 @@ export const multipleBarChart: EChartsOption = {
       type: 'shadow'
     }
   },
-  legend: {
-    type: 'scroll',
-    orient: 'vertical',
-    left: 10,
-    top: 20,
-    bottom: 20,
- },
+//   legend: {
+//     type: 'scroll',
+//     orient: 'vertical',
+//     left: 10,
+//     top: 20,
+//     bottom: 20,
+//  },
+  
+legend: {
+  top: 'bottom',
+  type: 'scroll',
+  
+},
+
   grid: {
     left: '3%',
     right: '4%',
@@ -434,19 +465,14 @@ export const multipleBarChart: EChartsOption = {
   xAxis: {
     type: 'category',
     name:'Number',
-    data: ['Brazil', 'Indonesia', 'USA', 'India', 'China', 'World']
+    data: [],
+    // axisLabel: {
+    //   inside: true,
+    //   color: '#fff'
+    // },
   },
   series: [
-    {
-      name: '2011',
-      type: 'bar',
-      data: [18203, 23489, 29034, 104970, 131744, 630230]
-    },
-    {
-      name: '2012',
-      type: 'bar',
-      data: [19325, 23438, 31000, 121594, 134141, 681807]
-    }
+    
   ]
 };
 

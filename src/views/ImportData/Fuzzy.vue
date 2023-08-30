@@ -442,16 +442,13 @@ const handleSelectParentModel = async (parent: any) => {
 
 
 const tableData = ref()
-const selectOptions = ref()
+const selectOptions = ref([])
 
 
 const selectedValues = ref()
 
 const readXLSX = async (event) => {
- //   console.log('on file change.......', event)
-    // console.log('loadingPosting.value.......', loadingPosting.value)
-
-
+ 
     
     //file.value = event.target.files ? event.target.files[0] : null;   // Direct upload 
     file.value = event   // called from the uplaod funtion 
@@ -478,8 +475,7 @@ const readXLSX = async (event) => {
                 var f = fields[i]
                 var v = rows[j][i]
                 record[f] = v
-                // console.log(f)
-            }
+             }
             record['createdBy'] = userInfo.id   // Add a 
 
 
@@ -599,31 +595,68 @@ const readXLSX = async (event) => {
 
 
         // Match the Database fields with the Uplaoded fields 
+        const uniqueKey2Values = new Set(); // To keep track of unique key2 values
         tableData.value = databaseColumns.map(field => {
-            let input = field
+            let input = field;
             const fuse = new Fuse(uploadColumns, FieldMatchOptions);
 
             let results = fuse.search(input);
-       //     console.log(field, results)
-            let obj = {}
-            obj.key1 = field
+
+            let obj = {};
+            obj.key1 = field;
+
             if (results.length > 0) {
-                obj.key2 = results[0].item
-            } else {
-                obj.key2 = []
+                const key2 = results[0].item;
+
+                if (!uniqueKey2Values.has(key2)) {
+                    uniqueKey2Values.add(key2);
+                    obj.key2 = key2;
+                    obj.disabled = true;
+                } else {
+                    obj.key2 = ''; // Duplicate, so set as empty array
+                    obj.disabled = false;
+
+                }
+
+                let opt = {}
+                opt.value = obj.key2 
+                opt.label = obj.key2 
+                opt.disabled = obj.disabled;
+                console.log('Add Options', opt)
+        
+                if ( obj.key2 !='') {
+                    selectOptions.value.push(opt)   
+                }
             }
-            return obj
-        });
 
 
-        selectOptions.value = uploadColumns.map(uploadedField => {
-            let obj = {}
-            obj.value = uploadedField
-            obj.label = uploadedField
-            obj.disabled = false
-            return obj
+            else {
+                obj.key2 = [];
+                obj.disabled = false;
 
-        });
+                    }
+
+                    return obj;
+                });
+
+  console.log(" tableData.value ", tableData.value )
+
+  //selectOptions.value = [];
+for (let i = 0; i < uploadColumns.length; i++) {
+    const uploadedField = uploadColumns[i];
+
+    // Check if the uploadedField is already in selectOptions
+    const exists = selectOptions.value.some(option => option.value === uploadedField);
+
+    if (!exists) {
+        let obj = {};
+        obj.value = uploadedField;
+        obj.label = uploadedField;
+        obj.disabled = false;
+        selectOptions.value.push(obj);
+    }
+}
+
 
         selectedValues.value = uploadColumns
 
@@ -640,91 +673,8 @@ const readXLSX = async (event) => {
 
 }
 
-const options = {
-  includeScore: true,
-  shouldSort: true,
-  keys: ["parent_code"]
-};
-
-const pfield = theParentModelField.value;
-
-const xreadXLSX = async (event) => {
-  file.value = event;
-
-  const rows = await readXlsxFile(file.value);
-  const fields = Object.values(rows[0]);
-
-  if (!fields.includes('pcode')) {
-    ElMessage.error('The uploaded file is missing "pcode" field. Present: [' + fields + ']');
-    handleReset();
-    return;
-  }
-
-  uploadObj.value = rows.slice(1).map((row) => {
-    const record = {};
-    fields.forEach((f, i) => {
-      const v = row[i];
-      record[f] = v;
-    });
-    record['createdBy'] = userInfo.id;
-    return record;
-  });
-
-  if (selectedparent.value != 'none') {
-    const fuse = new Fuse(parentObj.value, options);
-    matchedWithParent.value = uploadObj.value.map(obj => {
-      const { pcode } = obj;
-      const results = fuse.search(pcode);
-      if (results.length > 0) {
-        return {
-          ...obj,
-          [pfield]: results[0].item.id,
-          ['county_id']: results[0].item.county_id,
-          ['subcounty_id']: results[0].item.subcounty_id,
-          ['ward_id']: results[0].item.ward_id,
-          ['code']: shortid.generate(),
-        };
-      } else {
-        ElMessage.error("No parent exists with the provided pcode: " + pcode);
-        return { ...obj };
-      }
-    });
-  } else {
-    matchedWithParent.value = uploadObj.value;
-  }
-
-  const uploadColumns = Object.keys(matchedWithParent.value[0]);
-  const databaseColumns = fieldSet.value.map(obj => obj.field);
-
-  const FieldMatchOptions = {
-    includeScore: true,
-    shouldSort: true,
-    threshold: 0.4,
-    keys: ["parent_code"]
-  };
-
-  tableData.value = databaseColumns.map(field => {
-    const fuse = new Fuse(uploadColumns, FieldMatchOptions);
-    const results = fuse.search(field);
-    return {
-      key1: field,
-      key2: results.length > 0 ? results[0].item : []
-    };
-  });
-
-  selectOptions.value = uploadColumns.map(uploadedField => ({
-    value: uploadedField,
-    label: uploadedField,
-    disabled: false
-  }));
-
-  selectedValues.value = uploadColumns;
-
-  show.value = true;
-  showTable.value = true;
-  loadingPosting.value = false;
-};
-
+ 
+ 
 
 
 const handleFileUpload = async () => {
@@ -751,11 +701,9 @@ const handleFileUpload = async () => {
 const prevValue = ref()
 
 const updateSelect = async (row, index) => {
-
     // Remove the previously selected value for this row from the selectedValues array
+    console.log(row)
     prevValue.value = selectedValues.value[index];
-
-
     if (prevValue.value) {
         const prevIndex = selectOptions.value.findIndex((option) => option.value === prevValue.value);
         if (prevIndex !== -1) {
@@ -773,7 +721,14 @@ const updateSelect = async (row, index) => {
     selectedValues.value[index] = row.key2;
 
     console.log('selectedValues', selectedValues)
+    console.log('selectOptions', selectOptions);
 }
+
+ 
+
+
+
+
 const handleReset = async () => {
     selectedparent.value = null
     type.value=null
@@ -938,10 +893,7 @@ v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Se
         </div>
 
         <el-divider border-style="dashed" content-position="left">Upload</el-divider>
-        <!-- <el-upload
-v-if="showUploadSpace" class="upload-demo"  
-            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"   v-model:file-list="fileList"
-            :auto-upload="false"/> -->
+ 
 
 
          

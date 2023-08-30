@@ -728,11 +728,11 @@ exports.modelImportDataUpsert = async (req, res) => {
       data.map(async (item) => {
         item.createdBy = req.thisUser.id;
 
-        const activities = JSON.parse(item.activities);
-        const sourceFunding = JSON.parse(item.sourceFunding);
+      //  const activities = JSON.parse(item.activities);
+      //  / const sourceFunding = JSON.parse(item.sourceFunding);
         
-        item.sourceFunding = Array.isArray(sourceFunding) ? sourceFunding : [sourceFunding];
-        item.activities = Array.isArray(activities) ? activities : [activities];
+        item.sourceFunding = Array.isArray(item.sourceFunding) ? item.sourceFunding : [item.sourceFunding];
+        item.activities = Array.isArray(item.activities) ? item.activities : [item.activities];
         
 
 
