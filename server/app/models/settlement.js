@@ -149,6 +149,10 @@ module.exports = function (sequelize, DataTypes) {
         defaultValue: 'true'
       },
 
+      comments: {
+        type: DataTypes.STRING,
+        defaultValue: 'true'
+      },
       createdBy: {
         type: DataTypes.INTEGER,
         allowNull: true
