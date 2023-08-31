@@ -163,7 +163,10 @@ const uploadOptions = [
         label: 'Water Points'
       },
 
-
+      {
+        value: 'households',
+        label: 'Households'
+      },
 
       {
         value: 'other_facility',
@@ -407,6 +410,15 @@ const handleSelectType = async (type: any) => {
   }
 
 
+  else if (type === 'households') {
+    // fieldSet.value = beneficiary_parcels
+    model.value = 'households'
+    parentModel.value = 'settlement'
+    parent_key.value = 'settlement_id'
+    code.value = 'pcode'
+    console.log('county_id------>', fieldSet.value)
+    getParentOptions()
+  }
 
 }
 
@@ -1089,36 +1101,7 @@ v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlem
   </el-button-group>
 </div>
 
-
-
-
-
-
-      <!-- <el-upload
-       v-if="showUploadinput" ref="upload" v-model:file-list="fileList" class="upload-demo"
-        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :limit="1" :on-exceed="handleExceed"
-        :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :on-change="handleFileChange"
-        :auto-upload="false">
-        <template #trigger>
-          <el-button  :disabled="disableUploadSubmit" type="plain">Select File <el-icon class="el-icon--right"> <UploadFilled/> </el-icon>
-          </el-button>
-        </template>
-
-            
-        <el-button
-v-if="showUploadinput" class="mt-3" :disabled="disableProcess"  
-            @click="submitFiles" type="primary" plain>
-            Process
-            <el-icon class="el-icon--right"> <Promotion/> </el-icon>
-                </el-button>
-                <el-button v-if="showUploadinput"  @click="reset" type="warning" plain>
-                  Reset
-                  <el-icon class="el-icon--right">  <Close/> </el-icon>
-          </el-button>
-
-      </el-upload> -->
-
-
+ 
   
 
         </div>

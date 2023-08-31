@@ -434,21 +434,23 @@ exports.getOneHousehold = (req, res) => {
 
   
   exports.batchHouseholdImport = async (req, res) => {
-    var reg_model = req.body.model;
     let data = req.body.data;
     let errors = [];
-  
+ 
+    console.log(req.body)
     for (let i = 0; i < data.length; i++) {
       var obj = data[i];
       let name = data[i].name;
-      obj.name = sequelize.fn('PGP_SYM_ENCRYPT', name, 'maluini');
+      console.log(name)
+      obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, 'maluini')
+
       delete obj.model;
       console.log(obj)
-  
+
       await db.models.households
         .upsert(obj, { 
-          returning: true, 
-          plain: true, 
+          returning: false, 
+          plain: false, 
           onDuplicate: 'update',
          
         })

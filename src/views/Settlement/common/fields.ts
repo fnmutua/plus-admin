@@ -167,8 +167,8 @@ const formFields: Field[][] = [
     {
       name: "settlement_type", label: "Type", type: "select", multiselect: 'false',  adminUnit: false,
         options: [
-          { label: 'Slum', value: 1 },
-          { label: 'Informal', value: 2 }]},
+          { label: 'Slum', value: "1" },
+          { label: 'Informal', value: "2" }]},
 
     { name: "parcel_number", label: "Parcel No.", type: "text", multiselect: 'false', adminUnit: false, options: []},
     { name: "parcel_ownership", label: "Parcel Ownership", type: "select", multiselect: 'false',adminUnit: false, options:[{ label: 'Public', value: 'public'},
