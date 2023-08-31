@@ -582,7 +582,7 @@ const readXLSX = async (event) => {
             // findAllMatches: false,
             // minMatchCharLength: 1,
             // location: 0,
-            threshold: 0.4,   // anythong beyond 0.4 is ignored 
+              threshold: 0.3,   // anythong beyond 0.4 is ignored 
             // distance: 100,
             // useExtendedSearch: false,
             // ignoreLocation: false,
@@ -611,7 +611,7 @@ const readXLSX = async (event) => {
                 if (!uniqueKey2Values.has(key2)) {
                     uniqueKey2Values.add(key2);
                     obj.key2 = key2;
-                    obj.disabled = true;
+                   // obj.disabled = true;
                 } else {
                     obj.key2 = ''; // Duplicate, so set as empty array
                     obj.disabled = false;
@@ -621,7 +621,7 @@ const readXLSX = async (event) => {
                 let opt = {}
                 opt.value = obj.key2 
                 opt.label = obj.key2 
-                opt.disabled = obj.disabled;
+                //opt.disabled = obj.disabled;
                 console.log('Add Options', opt)
         
                 if ( obj.key2 !='') {
@@ -639,7 +639,6 @@ const readXLSX = async (event) => {
                     return obj;
                 });
 
-  console.log(" tableData.value ", tableData.value )
 
   //selectOptions.value = [];
 for (let i = 0; i < uploadColumns.length; i++) {
@@ -657,8 +656,15 @@ for (let i = 0; i < uploadColumns.length; i++) {
     }
 }
 
+console.log(" selectOptions.value ", selectOptions.value )
 
-        selectedValues.value = uploadColumns
+
+    //    selectedValues.value = uploadColumns
+
+        // Initialize selectOptions with objects containing values, labels, and disabled status
+        selectedValues.value = selectOptions.value.map(opt => opt.value);
+
+        console.log("selectedValues.value -->1", selectedValues.value);
 
 
      //   console.log(selectOptions.value)
@@ -701,8 +707,9 @@ const handleFileUpload = async () => {
 const prevValue = ref()
 
 const updateSelect = async (row, index) => {
+    console.log('row', row);
+
     // Remove the previously selected value for this row from the selectedValues array
-    console.log(row)
     prevValue.value = selectedValues.value[index];
     if (prevValue.value) {
         const prevIndex = selectOptions.value.findIndex((option) => option.value === prevValue.value);
@@ -711,18 +718,30 @@ const updateSelect = async (row, index) => {
         }
     }
 
-    // Disable the selected value in the selectOptions array
-    const selectedIndex = selectOptions.value.findIndex((option) => option.value === row.key2);
-    if (selectedIndex !== -1) {
-        selectOptions.value[selectedIndex].disabled = true;
+    // If the value is cleared, enable the previously selected option
+    if (!row.key2) {
+        const prevIndex = selectOptions.value.findIndex((option) => option.value === prevValue.value);
+        if (prevIndex !== -1) {
+            selectOptions.value[prevIndex].disabled = false;
+        }
+    } else {
+        // Disable the selected value in the selectOptions array
+        const selectedIndex = selectOptions.value.findIndex((option) => option.value === row.key2);
+        if (selectedIndex !== -1) {
+            selectOptions.value[selectedIndex].disabled = true;
+        }
     }
 
     // Update the selectedValues array
     selectedValues.value[index] = row.key2;
 
-    console.log('selectedValues', selectedValues)
+    console.log('selectedValues', selectedValues);
     console.log('selectOptions', selectOptions);
-}
+};
+
+
+ 
+
 
  
 
@@ -824,7 +843,10 @@ const handleSubmitData = async () => {
                     type: 'error',
                     duration: 3000 // the message will be displayed for 3 seconds before closing
                 })
- 
+                formData.data = []
+                
+   
+
                 DisablePostSubmit.value=false
 
             })
@@ -945,9 +967,14 @@ v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type
             <el-table-column prop="key1" label="Database Field" />
             <el-table-column label="From XLSX">
                 <template #default="scope">
-                    <el-select v-model="scope.row.key2" @change="updateSelect(scope.row, scope.$index)" filterable clearable>
-                        <el-option
-v-for="(option, index) in selectOptions" :key="index" :label="option.label"
+                    <el-select
+v-model="scope.row.key2" 
+                    @change="updateSelect(scope.row,scope.$index)" 
+                     filterable 
+                    clearable>
+                        
+                    <el-option
+                     v-for="(option, index) in selectOptions" :key="index" :label="option.label"
                             :value="option.value" :disabled="option.disabled" />
                     </el-select>
                 </template>

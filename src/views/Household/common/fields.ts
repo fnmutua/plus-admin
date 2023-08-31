@@ -43,6 +43,28 @@ interface FormData {
   [key: string]: any;
 }
 
+
+const hh_age = [
+  { label: "0-17", value: "0-17" },
+  { label: "18-25", value: "18-25" },
+  { label: "26-35", value: "26-35" },
+  { label: "36-45", value: "36-45" },
+  { label: "46-55", value: "46-55" },
+  { label: "56-65", value: "56-65" },
+  { label: "≥ 70", value: "≥ 70" },
+];
+
+
+
+ 
+
+
+
+ 
+
+
+
+
 const yes_no = [
   { label: "Yes", value: "yes" },
   { label: "No", value: "no" },
@@ -152,7 +174,16 @@ const formFields: Field[][] = [
         { label: "Male", value: "male" },
         { label: "Female", value: "female" },
       ],
-    },
+    }, 
+
+    {
+      name: "hh_age",
+      label: "Household Head Age",
+      type: "select",
+      multiselect: 'false',
+      options:hh_age,
+    }, 
+
     {
       name: "owner_tenant",
       label: "Tenure",
@@ -1100,6 +1131,12 @@ const formRules: FormRules = reactive({
     gender: [
         { required: true, message: 'Gender is required', trigger: 'blur' }
     ],
+    hh_age: [
+      { required: true, message: 'Household head is required', trigger: 'blur' }
+  ],
+    
+
+
     national_id: [
         { required: true, message: 'ID is required', trigger: 'blur' }
     ],

@@ -166,7 +166,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Settlement/Sett.vue'),
             name: 'List',
             meta: {
-              title: 'Settlements',
+              title: 'Slums',
               affix: true,
               icon:'material-symbols:format-list-bulleted-rounded'
             }
