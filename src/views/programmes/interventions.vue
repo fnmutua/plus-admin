@@ -2034,7 +2034,7 @@ const getSettlementProjects = async () => {
   // get households within those settleemnts
   // Get Households 
   const formData = {}
-  formData.limit = pSize.value // 
+  formData.limit = 1000// 
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = 'households'

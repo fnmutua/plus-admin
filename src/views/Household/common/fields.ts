@@ -54,14 +54,7 @@ const hh_age = [
   { label: "≥ 70", value: "≥ 70" },
 ];
 
-
-
  
-
-
-
- 
-
 
 
 
@@ -69,6 +62,8 @@ const yes_no = [
   { label: "Yes", value: "yes" },
   { label: "No", value: "no" },
 ];
+
+
 const residence = [
   { label: "In this village", value: "within_village" },
   { label: "Inside this settlement", value: "inside_settlement" },

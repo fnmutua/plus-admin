@@ -249,19 +249,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               title: 'Households'
             }
           },  
-          {
-            path: 'hh/add',
-            component: () => import('@/views/Household/Add.vue'),
-            name: 'AddHousehold',
-            props: {
-              name: String
-            },
-            meta: {
-              hidden: true,
-              icon:'bi:house-add',
-              title: 'Add HH'
-            }
-          },  
+     
           {
             path: 'hh/addx',
             component: () => import('@/views/Household/AddX.vue'),
@@ -779,6 +767,20 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               icon: 'mdi:file-upload-outline',
             }
           },
+
+          {
+            path: 'collector',
+        //    component: 'views/ImportData/excel',
+            component: () => import('@/views/ImportData/Collector.vue'),
+    
+            name: 'Integration',
+            meta: {
+              title: 'Integration',
+              icon: 'icon-park-solid:api',
+    
+            }
+          },
+
         ]
       },
       {

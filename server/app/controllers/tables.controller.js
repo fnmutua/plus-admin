@@ -353,51 +353,7 @@ exports.modelAllData = (req, res) => {
 }
 
 
-exports.xmodelAllDataNoGeo = (req, res) => {
-  var reg_model = req.query.model;
-  var field = req.query.searchField;
-  var searchKeyword = req.query.searchKeyword;
-
-  var ass_model = db.models[req.query.assocModel];
-
-  console.log('All Model Data-----> 30/10', req.query)
-
-  var includeQuery = {};
-  if (ass_model) {
-    includeQuery.include = [{ model: ass_model, attributes: { exclude: ['geom'] } }];
-  } else {
-    console.log('No Associated Model');
-  }
-  console.log('the Query', includeQuery);
-  includeQuery.attributes = { exclude: ['geom'] }; // will be applicable to users only
-
-  if (field && searchKeyword && searchKeyword !== '' && field !== '') {
-    console.log('Filtered with no GEO');
-
-    includeQuery.where = {
-      [field]: Number.isInteger(parseInt(searchKeyword)) ? parseInt(searchKeyword) : { [Op.iLike]: `%${searchKeyword.toLowerCase()}%` }
-    };
-
-    db.models[reg_model]
-      .findAndCountAll(includeQuery)
-      .then((list) => {
-        //console.log(list.rows);
-        res.status(200).send({
-          data: list.rows,
-          total: list.count,
-          code: '0000'
-        });
-      });
-  } else {
-    db.models[reg_model].findAndCountAll(includeQuery).then((list) => {
-      res.status(200).send({
-        data: list.rows,
-        total: list.count,
-        code: '0000'
-      });
-    });
-  }
-};
+ 
 
 exports.modelAllDataNoGeo = (req, res) => {
   var reg_model = req.query.model;
@@ -1000,58 +956,7 @@ exports.modelOneGeo = async (req, res) => {
   } 
 }
 
-exports.xxmodelSelectGeo = async (req, res) => {
-
-  console.log('Geoid arrays ----------------------------------->',  req.body)
-
-
-  var reg_model = req.body.model
-  var columnFilterField = req.body.columnFilterField
-
-  if (req.body.selectedParents.length > 0) {
-    var arr = req.body.selectedParents //req.body // [80,64] }
-
-  } else if (req.body.filtredGeoIds.length >0) {
-    var arr = [req.body.filtredGeoIds] //req.body // [80,64] }
-  }
-  else {
-    var arr = [req.body.id] //req.body // [80,64] }
-  }
  
- // console.log('Geoid arrays  length----------------------------------->', arr[0].length)
-  //if (arr[0].length > 0) { // Fixed bug where the query fails when the array is null
-    
-    if (arr[0] === undefined || arr[0].length == 0) {
-
-    var qry2 =
-    " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
-    reg_model  + ' where geom is not null  ' + ' ) as f ) as fc'
-      
-
-  } else {
-   
-    var qry2 =
-    " select row_to_json(fc)  as json_build_object   from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
-    reg_model  + ' where geom is not null and   '+ columnFilterField +  ' IN (' +  arr + ')' + ' ) as f ) as fc'
-     
-    
-  }
-
-  
-
-   
-
-  const result_geo = await sequelize.query(qry2, {
-    model: db.models[reg_model],
-    mapToModel: false // pass true here if you have any mapped fields
-  })
-
-  res.status(200).send({
-    data: result_geo,
-    code: '0000'
-  })
-}
-
 exports.modelSelectGeo = async (req, res) => {
   console.log('Geoid arrays ----------------------------------->', req.body);
 
@@ -1116,6 +1021,46 @@ exports.modelSelectGeo = async (req, res) => {
     code: '0000'
   });
 };
+
+ 
+exports.modelGetByCode= async (req, res) => {
+  console.log('Codes  ----------------------------------->', req.query);
+
+ 
+  var reg_model = req.query.model;
+  var arrayCodes = req.query.code;
+
+  
+// Query your database to retrieve records based on the array of IDs
+db.models[reg_model].findAll({
+  where: {
+    code: arrayCodes // Use the 'id' column to filter by the array of IDs
+  },
+  attributes: {
+    exclude: ['geom'] // Exclude the 'geom' column from the result
+  }
+})
+  .then((results) => {
+    console.log(results);
+    
+        res.status(200).send({
+          data: results,
+          code: '0000'
+        });
+          
+  
+  })
+  .catch((error) => {
+    console.error('Error fetching records:', error);
+    res.status(500).send({ message: 'Getting Parents failed' })
+
+  });
+
+};
+
+ 
+
+
 
 exports.xmodelOneRecord = (req, res) => {
   var reg_model = req.body.model

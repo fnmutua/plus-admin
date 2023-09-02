@@ -814,7 +814,7 @@ const activeName = ref('list')
 const AddHH = () => {
   push({
     path: '/settlement/hh/add',
-    name: 'AddHousehold'
+    name: 'AddHouseholdx'
   })
 }
 

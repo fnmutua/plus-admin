@@ -17,6 +17,7 @@ module.exports = function (app) {
   // Gets the  All dataes
   app.get('/api/v1/data/all',  [authJwt.verifyToken],controller.modelAllData)
   app.get('/api/v1/data/all/nogeo',  [authJwt.verifyToken],controller.modelAllDataNoGeo)
+  app.get('/api/v1/data/code',   controller.modelGetByCode)
 
   // Gets the  All dataes
   app.get('/api/v1/data/filter',  [authJwt.verifyToken],controller.modelAllDatafilter)
@@ -101,6 +102,8 @@ module.exports = function (app) {
 
   // get parent IDS
   app.post('/api/v1/data/parentids',  [authJwt.verifyToken],controller.modelGetParentIDS)
+
+
 
   
   app.post(

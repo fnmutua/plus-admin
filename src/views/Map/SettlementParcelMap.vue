@@ -3,8 +3,7 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getOneGeo, getfilteredGeo } from '@/api/settlements'
 import { ref } from 'vue'
-import 'leaflet/dist/leaflet.css'
-
+ 
 import { useRoute } from 'vue-router'
 
 
@@ -16,8 +15,7 @@ import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { Download, ArrowDown, ArrowLeft } from '@element-plus/icons-vue'
 
-import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
-import "mapbox-layer-switcher/styles.css";
+ import "mapbox-layer-switcher/styles.css";
 
 import writeShapefile from '@/utils/writeShapefile'
 import * as download from 'downloadjs'
@@ -31,10 +29,7 @@ import axios from 'axios';
 
 
 import { Icon } from '@iconify/vue';
-import waterOutline from '@iconify-icons/mdi/water-outline';
-import { before } from 'lodash-es'
-import { composeEventHandlers } from 'element-plus/es/utils'
-
+ 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 mapboxgl.accessToken = MapBoxToken;
@@ -986,17 +981,7 @@ for (let i = 0; i < baselayers.value.length; i++) {
   </el-card>
 </template>  
 
-
-
-
-<style>
-.leaflet-demo-control {
-  background: white;
-  border: 1px solid rgb(193, 215, 233);
-  border-radius: 0.2em;
-  padding: 0.5em;
-}
-</style>
+ 
 
  
 <style scoped>

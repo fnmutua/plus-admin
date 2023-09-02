@@ -3,7 +3,6 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getOneGeo, getfilteredGeo } from '@/api/settlements'
 import { ref } from 'vue'
-import 'leaflet/dist/leaflet.css'
 import { LMap, LGeoJson, LTileLayer, LControlLayers } from '@vue-leaflet/vue-leaflet'
 import { featureGroup } from 'leaflet'
 import { nextTick } from 'vue'
@@ -81,10 +80,12 @@ console.log(model)
 <template>
   <ContentWrap :title="toTitleCase(model.replace('_', ' '))" :message="t('Settlement  Map ')">
     <l-map ref="map" :zoom="16" :center="[-1.30853, 36.917257]" style="height: 66vh">
-      <l-tile-layer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
+      <l-tile-layer
+url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'"
         layer-type="base" min-zoom="1" max-zoom="21" useBounds="true" class="map" :max-bounds="maxBounds"
         name="Satellite" />
-      <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" layer-type="base" min-zoom="1"
+      <l-tile-layer
+url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" layer-type="base" min-zoom="1"
         max-zoom="21" useBounds="true" class="map" name="OpenStreetMap" />
 
       <l-geo-json ref="geo" layer-type="overlay" name="Settlement" :geojson="filtergeo" />

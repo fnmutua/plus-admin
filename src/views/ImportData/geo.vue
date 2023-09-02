@@ -14,7 +14,7 @@ import {
   ElIcon,
   ElTableColumn,
   ElInput,
-  ElSwitch,ElCol, ElRow,ElButtonGroup,
+  ElSkeleton,ElCol, ElRow,ElButtonGroup,
   ElUpload,
   ElOption,
   ElMessage, ElDivider, ElMessageBox, UploadProps, UploadUserFile, ElOptionGroup, ElNotification,
@@ -1068,6 +1068,8 @@ v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlem
     v-if="showUploadinput" ref="upload" v-model:file-list="fileList"
     :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :on-change="handleFileChange"
         :auto-upload="false"
+        :accept="'application/zip,.geojson,.json'" 
+
   >
     <el-icon class="el-icon--upload"><upload-filled /></el-icon>
     <div class="el-upload__text">
@@ -1108,6 +1110,8 @@ v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlem
       </el-col>
   
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12"> 
+        <el-skeleton  v-if="!showTable" :rows="10" />
+
         <div class="grid-content ep-bg-purple-light" > 
 
           <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 400px; overflow-y: scroll;" border >

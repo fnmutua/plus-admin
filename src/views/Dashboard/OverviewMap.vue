@@ -16,11 +16,9 @@ import { getSummarybyField, getSummarybyFieldNested } from '@/api/summary'
 
 import { LControlLayers, LGeoJson, LMap, LTileLayer } from '@vue-leaflet/vue-leaflet'
 import { featureGroup } from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 import { nextTick } from 'vue'
 
-import * as ss from 'simple-statistics'   // clasification of data 
-import chroma from "chroma-js"   // color scheme 
+ import chroma from "chroma-js"   // color scheme 
 import { getAllGeo } from '@/api/settlements'
 
 
@@ -419,7 +417,8 @@ var osm_tile = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/Worl
       <el-col :xl="8" :lg="14" :md="24" :sm="24" :xs="24">
         <el-card>
           <l-map ref="map" :zoom="6" :center="[0.606, 37.817]" style="height: 410px">
-            <l-tile-layer url='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' layer-type="base"
+            <l-tile-layer
+url='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' layer-type="base"
               min-zoom="1" max-zoom="21" useBounds="true" class="map" name="OpenStreetMap" />
             <l-geo-json ref="geo" layer-type="overlay" name="Counties" :geojson="countyGeo" @ready="updateStyle" />
             <l-control-layers position="topright" />

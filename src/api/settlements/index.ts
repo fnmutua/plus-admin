@@ -128,6 +128,8 @@ export const uploadFilesBatch = (data: SettlementType): Promise<IResponse<Settle
 
 
 
+
+
 // const response = await service.post('/upload', formData, {
 //   uploadProgressCallback: (uploadPercentage: number) => {
 //     console.log('Upload Percentage:', uploadPercentage);

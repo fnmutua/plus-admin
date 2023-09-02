@@ -14,6 +14,7 @@ const turf = require('@turf/turf');
 
 const fs = require('fs');
 const path = require('path');
+const requestIp = require('request-ip');
 
  
 exports.signup = (req, res) => {
@@ -384,9 +385,11 @@ exports.signin = async (req, res) => {
   instlog.table='auth'
   instlog.action='Login'
   instlog.date = new Date();
-  let ip = req.header('x-forwarded-for') || req.connection.remoteAddress;
-  console.log(ip)
-  instlog.source = ip
+  // let ip = req.header('x-forwarded-for') || req.connection.remoteAddress;
+  console.log(req)
+  const clientIp = req.connection.remoteAddress; // This will give you the remote IP address of the client
+  console.log(clientIp);
+  instlog.source = clientIp;
 
   console.log('Logging in:', req.body.username)
  // const username = req.body.username.trim();
