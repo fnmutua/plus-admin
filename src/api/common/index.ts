@@ -9,3 +9,5 @@ export const getDictApi = (): Promise<IResponse> => {
 export const getDictOneApi = async (): Promise<IResponse> => {
   return request.get({ url: '/dict/one' })
 }
+
+

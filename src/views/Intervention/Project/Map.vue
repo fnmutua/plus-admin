@@ -4,7 +4,6 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getOneGeo, getfilteredGeo } from '@/api/settlements'
 import { ref } from 'vue'
-import 'leaflet/dist/leaflet.css'
 
 import { useRoute } from 'vue-router'
 

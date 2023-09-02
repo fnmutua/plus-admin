@@ -212,8 +212,7 @@ import proj4 from 'proj4';
 import { countyOptions } from './common';
 
 import { Icon } from '@iconify/vue';
-import uploadIcon from '@iconify-icons/icon-park-outline/upload';
-
+ 
 const props1 = {
   checkStrictly: true,
 }

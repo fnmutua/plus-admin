@@ -33,26 +33,13 @@ import { createApp } from 'vue'
 import App from './App.vue'
 
 import './permission'
-import VueApexCharts from "vue3-apexcharts";
-
-import JsonExcel from "vue-json-excel3";
-
-/* import the fontawesome core */
-import { library } from '@fortawesome/fontawesome-svg-core'
-
  
-/* import font awesome icon component */
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { FontAwesomeLayers, FontAwesomeLayersText } from '@fortawesome/vue-fontawesome'
-
+ 
 /* import specific icons */
-import {faTimes, faMapMarkerAlt, faGlassWaterDroplet, faDownload, faCertificate, faRoadCircleCheck, faCircle, faCheck, faRoadBridge, faUserSecret,faHouse, faCity,faPeopleRoof,faPeopleGroup,faMoneyCheckDollar,faDollarSign, faHouseLock, faFilterCircleDollar, faRoad, faHandsHoldingChild, faFileLines, faCalendarDays, faMap, faSackDollar} from '@fortawesome/free-solid-svg-icons'
-
+ 
 /* add icons to the library */
-library.add(faTimes,faMapMarkerAlt, faGlassWaterDroplet,faCertificate,faDownload, faRoadCircleCheck, faCircle, faCheck,faRoadBridge, faUserSecret,faCity,faPeopleGroup,faPeopleRoof,faMoneyCheckDollar,faMap,faFilterCircleDollar,faHouseLock, faDollarSign,faHandsHoldingChild,faFileLines,faRoad,faHouse,faSackDollar,faCalendarDays)
-
-import JsonCSV from 'vue-json-csv'
-
+ 
+ 
 // 创建实例
 const setupAll = async () => {
   const app = createApp(App)
@@ -69,16 +56,10 @@ const setupAll = async () => {
   setupRouter(app)
 
   setupPermission(app)
-
-  app.component('font-awesome-icon', FontAwesomeIcon)
-  app.component('fa-layers-text', FontAwesomeLayersText)
-  app.component('font-awesome-layers', FontAwesomeLayers)
-  app.use(VueApexCharts);
-  app.use( JsonCSV)
+ 
 
   // Excel dowload 
-  app.component("downloadExcel", JsonExcel);
-
+ 
 
   app.mount('#app')
 }
