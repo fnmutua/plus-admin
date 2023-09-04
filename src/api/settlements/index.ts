@@ -160,3 +160,6 @@ export const getListManyToMany = (
 ): Promise<IResponse<SettlementType>> => {
   return request.post({ url: prod + '/api/v1/data/column/mm', data })
 }
+
+
+
