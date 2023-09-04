@@ -3,11 +3,13 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { getParentIds, BatchImportUpsert } from '@/api/settlements'
-import { getCountyListApi,getListWithoutGeo } from '@/api/counties'
+import { getParentIds,   BatchImportUpsert } from '@/api/settlements'
+import { getCountyListApi, getListWithoutGeo ,getEntitiesByCode} from '@/api/counties'
 import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 import { postBatchHouseholds } from '@/api/households'
+import { getCollectorProjects, loginCollector} from '@/api/collector'
+import { Icon } from '@iconify/vue';
 
 
 import {
@@ -16,10 +18,12 @@ import {
     ElTable,
     ElIcon,
     ElTableColumn,
-    ElInput,
+     ElInput,
     ElDialog,
     ElSwitch,
+    ElSkeleton,
     ElOptionGroup,
+    ElCol, ElRow,ElCard,
     ElOption
 } from 'element-plus'
 import { ElUpload } from 'element-plus'
@@ -28,6 +32,7 @@ import {
     Refresh,
     CaretRight,
     RefreshLeft,
+    UploadFilled,
     Tools
 } from '@element-plus/icons-vue'
 
@@ -36,7 +41,8 @@ import { ElDivider } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import type { UploadProps, UploadUserFile } from 'element-plus'
-import readXlsxFile from 'read-excel-file'
+
+
 import { useVueFuse } from 'vue-fuse'
 import Fuse from 'fuse.js';
 
@@ -44,8 +50,13 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { useRouter } from 'vue-router'
 import shortid from 'shortid';
-import {   onMounted    } from 'vue'
-import axios from 'axios';
+
+
+import { readSheetNames } from 'read-excel-file'
+
+import readXlsxFile from 'read-excel-file'
+
+
 
 const loadingPosting = ref(false)
 
@@ -57,7 +68,6 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 
 
-const settlement = ref()
 const settlementOptions = ref([])
 const parentObj = ref([])
 const value_switch = ref(false)
@@ -77,59 +87,21 @@ const file = ref()
 
 
 //// ------------------parameters -----------------------////
-const matchOptions = ref([])
-const assocModel = ref()
 const uploadObj = ref([])
-const matchedObj = ref([])
 const theParentModel = ref() // default is settlement for projects
 const theParentModelField = ref()
 
-const matchedObjwithparent = ref([])
 const fieldSet = ref([])
 const show = ref(false)
 const showSwitch = ref(false)
 const showSettleementSelect = ref(false)
 const { t } = useI18n()
 const parentOptions = ref([])
-const parentKeys = ref([])
 const showTable = ref(false)
 
 const showUploadSpace = ref(false)
 const showUploadButton = ref(false)
 const disableDoubeUpload = ref(false)
-
-
-
-onMounted( () => {
-
-console.log('mounted...')
- 
-const url = 'https://collector.kesmis.go.ke/v1/sessions';
-const data = {
-    email: 'felix.mutua@gmail.com',
-    password: 'Admin@2011'
-};
-
- 
-try {
-        const response =  axios.post(url, data, {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        console.log('Status:', response.status);
-        console.log('Data:', response.data);
-      } catch (error) {
-        console.error('Error:', error);
-      }
-
-  
-
-        
-
-})
-
 
 
 
@@ -142,98 +114,8 @@ function toTitleCase(str) {
         }
     );
 }
-const getModeldefinition = async (selModel) => {
 
-    console.log(selModel)
-    var formData = {}
-    formData.model = selModel
-    console.log("gettign fields")
-
-
-    await getModelSpecs(formData).then((response) => {
-
-        var data = response.data
-
-        var fields = data.filter(function (obj) {
-            return (obj.field !== 'id' &&  obj.field !== 'code');
-        });
-
-        var fields2 = fields.filter(function (obj) {
-            return (obj.field !== 'geom');
-        });
-
-        if (selModel === 'project') {
-            var additional = {}
-            additional.field = 'activities'
-            additional.match = ''
-            fields2.push(additional)
-        }
-
-        console.log("fields:", fields2)
-        //health_facility_fields.value = response.data
-        fieldSet.value = fields2
-    })
-
-    await getModelRelatives(formData).then((response) => {
-        console.log(response)
-        response.models.forEach(function (relative) {
-            var parentOpt = {}
-            parentOpt.value = relative.model
-            parentOpt.label = toTitleCase(relative.model)
-            parentOpt.key = relative.key
-            parentOptions.value.push(parentOpt)
-        })
-        let na_opt = {}
-        na_opt.value = 'none'
-        na_opt.label = 'N/A'
-        parentOptions.value.push(na_opt)
-
-
-        //parentKeys.value.push(response.keys)
-
-        // console.log("keys---->", parentKeys.value)
-    })
-
-}
-
-
-const getParentOptions = async () => {
-
-    console.log("parent --Model", theParentModel.value)
-
-    await getListWithoutGeo({
-        params: {
-            pageIndex: 1,
-            limit: 100,
-            curUser: 1, // Id for logged in user
-            model: theParentModel.value,
-            searchField: 'name',
-            assocModel: '',
-            searchKeyword: '',
-            sort: 'ASC'
-        }
-    }).then((response: { data: any }) => {
-
-        //tableDataList.value = response.data
-        const ret = response.data
-        console.log('Received response:', ret)
-        parentObj.value = ret.map(elem => {
-            elem[parent_key.value] = elem.id    // add the parent_key as is representd on the child 
-            elem['parent_code'] = elem.code     // add the parent  as is representd on the child 
-            return elem;
-        });
-        console.log('Received 3:', parentObj.value)
-        ret.forEach(function (arrayItem: { id: string; type: string }) {
-            var settOpt = {}
-            settOpt.value = arrayItem.id
-            settOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-            //  console.log(countyOpt)
-            settlementOptions.value.push(settOpt)
-        })
-
-        console.log('Options', settlementOptions)
-    })
-}
+ 
 
 
 
@@ -261,8 +143,7 @@ const handleSelectType = async (type: any) => {
         parent_key.value = 'county_id'
         code.value = 'county_code'
         // fieldSet.value = settlement_fields
-        // getParentOptions()
-
+ 
         console.log('settlements------>', type)
     } else if (type === 'parcel') {
 
@@ -271,8 +152,7 @@ const handleSelectType = async (type: any) => {
         parent_key.value = 'settlement_id'
         code.value = 'pcode'
         // fieldSet.value = settlement_fields
-        //  getParentOptions()
-
+ 
 
     }
     else if (type === 'households') {
@@ -291,8 +171,7 @@ const handleSelectType = async (type: any) => {
 
         code.value = 'pcode'
         //assocModel.value = 'settlement'
-        //   getParentOptions()
-    }
+     }
 
 
 
@@ -302,8 +181,7 @@ const handleSelectType = async (type: any) => {
         parentModel.value = 'settlement'
         parent_key.value = 'settlement_id'
         code.value = 'pcode'
-        //   getParentOptions()
-    }
+     }
 
 
     else if (type === 'project') {
@@ -312,8 +190,7 @@ const handleSelectType = async (type: any) => {
         parentModel.value = theParentModel.value
         parent_key.value = theParentModelField.value
         code.value = 'pcode'
-        //  getParentOptions()
-    }
+     }
 
 
     else if (type === 'beneficiary_parcel') {
@@ -322,8 +199,7 @@ const handleSelectType = async (type: any) => {
         parentModel.value = 'beneficiary'
         parent_key.value = 'beneficiary_id'
         code.value = 'pcode'
-        //   getParentOptions()
-    }
+     }
 
 
 
@@ -333,8 +209,7 @@ const handleSelectType = async (type: any) => {
         parentModel.value = 'settlement'
         parent_key.value = 'settlement_id'
         code.value = 'pcode'
-        // getParentOptions()
-    }
+     }
 
 
 
@@ -344,8 +219,7 @@ const handleSelectType = async (type: any) => {
         parentModel.value = ''
         parent_key.value = ''
         code.value = ''
-        // getParentOptions()
-    }
+     }
 
 
     else if (type === 'category') {
@@ -367,9 +241,7 @@ const handleSelectType = async (type: any) => {
 
 }
 
-
-const fileList = ref<UploadUserFile[]>([])
-
+ 
 
 
 const uploadOptions = [
@@ -464,10 +336,9 @@ const handleSelectParentModel = async (parent: any) => {
         );
         theParentModel.value = parent
         theParentModelField.value = filtered[0].key
-        getParentOptions()
-    }
+     }
 
-
+    console.log(theParentModel.value, theParentModelField.value)
 
     showUploadButton.value = true
     showUploadSpace.value = true
@@ -477,50 +348,112 @@ const handleSelectParentModel = async (parent: any) => {
 
 
 const tableData = ref()
-const selectOptions = ref([])
+
+
+const selectedSheet = ref()
+const sheets = ref([])
+
+
+const getModeldefinition = async (selModel) => {
+
+console.log(selModel)
+var formData = {}
+formData.model = selModel
+console.log("gettign fields")
+
+
+await getModelSpecs(formData).then((response) => {
+
+    var data = response.data
+
+    var fields = data.filter(function (obj) {
+        return (obj.field !== 'id' && obj.field !== 'code');
+    });
+
+    var fields2 = fields.filter(function (obj) {
+        return (obj.field !== 'geom');
+    });
+
+    if (selModel === 'project') {
+        var additional = {}
+        additional.field = 'activities'
+        additional.match = ''
+        fields2.push(additional)
+    }
+
+    console.log("fields:", fields2)
+    //health_facility_fields.value = response.data
+    fieldSet.value = fields2
+})
+
+await getModelRelatives(formData).then((response) => {
+    console.log(response)
+    response.models.forEach(function (relative) {
+        var parentOpt = {}
+        parentOpt.value = relative.model
+        parentOpt.label = toTitleCase(relative.model)
+        parentOpt.key = relative.key
+        parentOptions.value.push(parentOpt)
+    })
+    let na_opt = {}
+    na_opt.value = 'none'
+    na_opt.label = 'N/A'
+    parentOptions.value.push(na_opt)
+
+
+    //parentKeys.value.push(response.keys)
+
+    // console.log("keys---->", parentKeys.value)
+})
+
+}
+
 
 
 const selectedValues = ref()
+const selectOptions = ref([])
 
-const readXLSX = async (event) => {
- 
+const getParentOptions = async (pcodes) => {
+console.log("parent --Model", theParentModel.value)
+await getEntitiesByCode({
+    params: {
+        pageIndex: 1,
+        limit: 100,
+        curUser: 1, // Id for logged in user
+        model: theParentModel.value,
+        code:pcodes,
+        searchField: 'name',
+        assocModel: '',
+        searchKeyword: '',
+        sort: 'ASC'
+    }
+}).then((response: { data: any }) => {
+
+    //tableDataList.value = response.data
+    const ret = response.data
+    console.log('Received response:', ret)
+    parentObj.value = ret.map(elem => {
+        elem[parent_key.value] = elem.id    // add the parent_key as is representd on the child 
+        elem['parent_code'] = elem.code     // add the parent  as is representd on the child 
+        return elem;
+    });
+    console.log('Received 3:', parentObj.value)
+
+
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+        var settOpt = {}
+        settOpt.value = arrayItem.id
+        settOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+        //  console.log(countyOpt)
+        settlementOptions.value.push(settOpt)
+    })
+
+
     
-    //file.value = event.target.files ? event.target.files[0] : null;   // Direct upload 
-    file.value = event   // called from the uplaod funtion 
-
-  //  console.log('The file---->', file)
-
-    readXlsxFile(file.value).then((rows) => {
-        const fields = Object.values(rows[0]) //  get all proterit4s of the first feature
-      //  console.log("fields-->", fields)
-
-        if (!fields.includes('pcode')) {
-            console.log('Has Pcode', fields.includes('pcode')); //true
-            ElMessage.error('The uploaded file is missing "pcode" field. Present: [' +fields +']')
-            handleReset()
-            return 
-            
-       }
-
- 
-
-        for (let j = 1; j < rows.length; j++) {
-            var record = {}
-            for (let i = 0; i < fields.length; i++) {
-                var f = fields[i]
-                var v = rows[j][i]
-                record[f] = v
-             }
-            record['createdBy'] = userInfo.id   // Add a 
-
-
-            uploadObj.value.push(record) // Push to the temporary holder
-        }  // remove header row
-
-     //   console.log('rows-uploadObj------>', uploadObj)
-      //  console.log('rows-parentObj------>', parentObj)
-
-
+        console.log('rows-uploadObj------>', uploadObj.value)
+        console.log('rows-parentObj------>', parentObj.value)
+        
         const options = {
             // isCaseSensitive: false,
             includeScore: true,
@@ -591,11 +524,11 @@ const readXLSX = async (event) => {
             matchedWithParent.value = uploadObj.value
         }
 
+        console.log('matched >>>', matchedWithParent.value)
 
-     //   console.log('matched >>>', matchedWithParent.value)
+  //--------------------------------------------------------------------------------
 
-        //--------------------------------------------------------------------------------
-
+    
         // FUSE match 002 - Mathc the uplaoded  XLXS  fields with the Database Fields 
         //--------------------------------------------------------------------------------
         // Get the columns for the now matched array
@@ -675,66 +608,154 @@ const readXLSX = async (event) => {
                 });
 
 
-  //selectOptions.value = [];
-for (let i = 0; i < uploadColumns.length; i++) {
-    const uploadedField = uploadColumns[i];
+            //selectOptions.value = [];
+            for (let i = 0; i < uploadColumns.length; i++) {
+                const uploadedField = uploadColumns[i];
 
-    // Check if the uploadedField is already in selectOptions
-    const exists = selectOptions.value.some(option => option.value === uploadedField);
+                // Check if the uploadedField is already in selectOptions
+                const exists = selectOptions.value.some(option => option.value === uploadedField);
 
-    if (!exists) {
-        let obj = {};
-        obj.value = uploadedField;
-        obj.label = uploadedField;
-        obj.disabled = false;
-        selectOptions.value.push(obj);
-    }
+                if (!exists) {
+                    let obj = {};
+                    obj.value = uploadedField;
+                    obj.label = uploadedField;
+                    obj.disabled = false;
+                    selectOptions.value.push(obj);
+                }
+            }
+
+            console.log(" selectOptions.value ", selectOptions.value )
+
+
+                //    selectedValues.value = uploadColumns
+
+                    // Initialize selectOptions with objects containing values, labels, and disabled status
+                    selectedValues.value = selectOptions.value.map(opt => opt.value);
+
+                    console.log("selectedValues.value -->1", selectedValues.value);
+
+
+                //   console.log(selectOptions.value)
+
+                     showTable.value = true
+  
+
+            console.log('matchedColumns  tableData>>>', tableData)
+
+
+ 
+})
 }
 
-console.log(" selectOptions.value ", selectOptions.value )
+
+const getSheets = async (file) => {
+
+    console.log("attmept, read", file)
+
+    file.value = file // called from the uplaod funtion 
 
 
-    //    selectedValues.value = uploadColumns
+    readSheetNames(file).then((sheetNames) => {
 
-        // Initialize selectOptions with objects containing values, labels, and disabled status
-        selectedValues.value = selectOptions.value.map(opt => opt.value);
+        console.log('sheetNames : ' + JSON.stringify(sheetNames));
+        sheets.value = sheetNames
+    })
 
-        console.log("selectedValues.value -->1", selectedValues.value);
 
 
-     //   console.log(selectOptions.value)
+    // reset later 
+    loadingPosting.value = false
+ 
 
-        show.value = true
-        showTable.value = true
-     loadingPosting.value = false
+}
 
+const readXLSXSheet = async (selSheet) => {
+
+
+
+    readXlsxFile(UploadedFile.value, { sheet: selSheet }).then((rows) => {
+        console.log(rows)
+
+
+        const fields = Object.values(rows[0]) //  get all proterit4s of the first feature
+        console.log("fields-->", fields)
+
+        if (!fields.includes('pcode')) {
+            console.log('Has Pcode', fields.includes('pcode')); //true
+            ElMessage.error('The uploaded file is missing "pcode" field. Present: [' + fields + ']')
+
+            return
+
+        }
+
+
+        
+            for (let j = 1; j < rows.length; j++) {
+                var record = {}
+                for (let i = 0; i < fields.length; i++) {
+                    var f = fields[i]
+                    var v = rows[j][i]
+                    record[f] = v
+                 }
+                record['createdBy'] = userInfo.id   // Add a 
+                uploadObj.value.push(record) // Push to the temporary holder
+            }  // remove header row
+
+            // Get the unique Pcodes so that you get the parents 
+            const uniquePcodes = new Set();
+            // Iterate over the array and add the unique names to the Set
+            uploadObj.value.forEach(item => {
+            uniquePcodes.add(item.pcode);
+            });
+            // Convert the Set to an array (if needed)
+            const uniquePcodesArray = [...uniquePcodes];
+            console.log(uniquePcodesArray);
+            // Now get those unique parents only !
+             getParentOptions(uniquePcodesArray)
+
+
+        
 
     })
 
 
 }
 
- 
- 
+const UploadedFile = ref()
+const handleFileUpload = async (response, file) => {
 
+    console.log('File uploaded successfully.', response, file);
 
-const handleFileUpload = async () => {
-    console.log('uploading.....')
-     loadingPosting.value = true
+    showUploadButton.value = true
 
-    if (fileList.value.length == 0) {
-        ElMessage.error('Select a  File first!')
- 
-    } else {
-     disableDoubeUpload.value = true   // Disable the button to prevent double upload
-      const rfile = fileList.value[0].raw
     let reader = new FileReader()
-        reader.onload = readXLSX(rfile)
-    
-    }
+    reader.onload = getSheets(file[0].raw)
+
+    UploadedFile.value = file[0].raw
+
+}
+
+const readSelectedSheet = async (sheet) => {
+
+    showTable.value = false   // hide table whenever the user chanes sheet
+
+    console.log('Sheet to read.', sheet);
+    let reader = new FileReader()
+
+    reader.onload = readXLSXSheet(sheet)
 
 
 
+}
+
+
+
+
+const handleRemove = async () => {
+    showTable.value = false
+    showUploadButton.value = true
+    UploadedFile.value = null
+    sheets.value=null
 }
 
 
@@ -775,30 +796,7 @@ const updateSelect = async (row, index) => {
 };
 
 
- 
 
-
- 
-
-
-
-
-const handleReset = async () => {
-    selectedparent.value = null
-    type.value=null
-    selectedValues.value = []
-    fileList.value = []
-    selectOptions.value = []
-    tableData.value = []
-    uploadObj.value = []
-    theParentModel.value = null
-    theParentModelField.value = null
-    showUploadButton.value = false
-    showUploadSpace.value = false
-    showTable.value = false
-    disableDoubeUpload.value=false
-}
- 
 const DisablePostSubmit = ref(false)
 
 
@@ -830,17 +828,12 @@ function replaceObjectKeys(arr, dict) {
         });
     }
  
-
- 
-
-
-
 const handleSubmitData = async () => {
     console.log(tableData.value)
     // loadingPosting.value=true
     console.log(matchedWithParent.value)
     DisablePostSubmit.value = true  // Disable the submti button to avoid double sumbissions 
- 
+
 
     const updatedArr = replaceObjectKeys(matchedWithParent.value, tableData.value);
     console.log(updatedArr)
@@ -853,27 +846,27 @@ const handleSubmitData = async () => {
     if (type.value == 'households') {
         await postBatchHouseholds(formData)
             .then((response: { data: any }) => {
-              
-                     push({
+
+                push({
                     path: '/settlement/hh/all',
                     name: 'AllHouseholds'
-                    })   
-             
-                    DisablePostSubmit.value=false
+                })
+
+                DisablePostSubmit.value = false
 
             })
             .catch((error) => {
                 console.log('Error------>', error.response.data.message)
-                ElMessage( {
+                ElMessage({
                     message: error.response.data.message,
                     type: 'error',
                     duration: 3000 // the message will be displayed for 3 seconds before closing
                 })
                 formData.data = []
-                
-   
 
-                DisablePostSubmit.value=false
+
+
+                DisablePostSubmit.value = false
 
             })
 
@@ -884,33 +877,80 @@ const handleSubmitData = async () => {
         await BatchImportUpsert(formData)
             .catch((error) => {
                 console.log('Error------>', error.response.data.message)
-              //  ElMessage.error(error.response.data.message)
-                ElMessage( {
+                //  ElMessage.error(error.response.data.message)
+                ElMessage({
                     message: 'error.response.data.message',
                     type: 'error',
                     duration: 3000 // the message will be displayed for 3 seconds before closing
                 })
- 
-                                 DisablePostSubmit.value = false
+
+                DisablePostSubmit.value = false
             })
             .then((response: { data: any }) => {
 
-                
+
                 push({
                     path: '/data/fuzzy',
                     name: 'Fuzzy'
-                }) 
-                    
-                DisablePostSubmit.value=false
- 
+                })
+
+                DisablePostSubmit.value = false
+
             })
     }
 
-  //  loadingPosting.value=false
+    //  loadingPosting.value=false
 
 
 
 }
+
+
+
+const loginUserToCollector = async () => {
+
+    var formData = {}
+    formData.email="felix.mutua@gmail.com"
+    formData.password="Admin@2011"
+ 
+console.log("gettign fields")
+
+
+await loginCollector(formData).then((response) => {    
+     // Assuming the token is in the response data
+     const token = response.token;
+        // Save the token to localStorage
+        localStorage.setItem('collectorToken', token);
+        console.log('collectorToken:', token);
+
+})
+
+ 
+
+}
+
+
+
+const getCollector = async ( ) => {
+ await getCollectorProjects({
+    params: {
+        pageIndex: 1,
+        limit: 100,
+        curUser: 1, // Id for logged in user
+         searchField: 'name',
+        assocModel: '',
+        searchKeyword: '',
+        sort: 'ASC'
+    }
+    }).then((response: { data: any }) => {
+    console.log(response)
+
+
+
+})
+}
+
+ getCollector()
 
 
 </script>
@@ -918,103 +958,131 @@ const handleSubmitData = async () => {
 <template>
     <ContentWrap
 v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait......."
-:title="t('Upload Excel Data')" :message="t('Ensure you have column codes ')" >
+        :title="t('Integrations')" :message="t('Allows integration...')">
 
-        <div  >
-            <div style="display: inline-block;">
-            <el-select
-v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Select data to import"
-                style=" margin-right: 20px">
-                <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
-                    <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-                </el-option-group>
-            </el-select>
+      
+        <el-row :gutter="20">
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12"> 
+    
 
-            <el-select v-model="selectedparent" :onChange="handleSelectParentModel" placeholder="Select Parent Model">
-                <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-
-            <div style="display: inline-block; margin-left: 20px">
-                <el-button :onClick="handleReset" type="primary" :icon="RefreshLeft" />
-            </div>
-
+     <el-row :gutter="12">
+    <el-col :span="12">
+      <el-card shadow="hover" @click="loginUserToCollector" >
+        <div class="card-content">
+          <!-- Add an image here -->
+           <img src="@/assets/svgs/odk.svg" key="1"  fit="fill" alt="" class="w-100px" />
+          ODK Collector
         </div>
-
-        <el-divider border-style="dashed" content-position="left">Upload</el-divider>
+      </el-card>
+    </el-col>
+    <el-col :span="12">
+      <el-card shadow="hover">
+        <div class="card-content">
+          <!-- Add an image here -->
+           <img src="@/assets/svgs/geoserver.svg" key="2"  fit="fill" alt="" class="w-50px" />
+           Geoserver
+        </div>
+      </el-card>
+    </el-col>
+  </el-row>
  
 
 
-         
-            <el-upload
-                        v-if="showUploadButton"
-                        ref="upload"
-                        v-model:file-list="fileList"
-                        class="upload-demo"
-                        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-                        :limit="1"
-                        :on-exceed="handleExceed"
-                        :auto-upload="false"
-                             >
-                        <template #trigger>
-                        <el-button type="primary">select file</el-button>
+
+ 
+
+
+        <div style="display: inline-block; margin-top: 20px">
+                <el-select
+v-model="type" :onChange="handleSelectType" filterable clearable
+                    placeholder="Select data to import" style=" margin-right: 20px">
+                    <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
+                        <el-option
+v-for="item in group.options" :key="item.value" :label="item.label"
+                            :value="item.value" />
+                    </el-option-group>
+                </el-select>
+
+                <el-select v-model="selectedparent" :onChange="handleSelectParentModel" placeholder="Select Parent Model">
+                    <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+
+                <div style="display: inline-block; margin-left: 20px">
+                    <el-button :onClick="handleReset" type="primary" :icon="RefreshLeft" />
+                </div>
+
+                <el-divider border-style="dashed" content-position="left">Upload</el-divider>
+ 
+
+ 
+
+
+                <el-upload
+                    v-if="showUploadButton" 
+                    class="upload-demo"
+                    drag
+                    :limit="1"  
+                    :on-change="handleFileUpload" 
+                    :auto-upload="false"
+                    :on-remove="handleRemove"
+                    :accept="'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'" 
+
+
+                >
+                    <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                    <div class="el-upload__text">
+                    Drop XLSX file here or <em>click to upload</em>
+                    </div>
+                </el-upload>
+
+                <el-select
+                    class="mb-3" v-if="showUploadButton" v-model="selectedSheet" placeholder="Select Sheet"
+                            @change="readSelectedSheet">
+                            <el-option v-for="sheet in sheets" :key="sheet" :label="sheet" :value="sheet" />
+                        </el-select>
+
+
+ 
+            </div>
+
+
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12"> 
+        <el-skeleton  v-if="!showTable" :rows="10" />
+
+ 
+                    <el-table v-if="showTable" :data="tableData" :size="small" border  height="60vh" style="width: 100%" >
+                    <el-table-column prop="key1" label="Database Field"    />
+                    <el-table-column label="From XLSX"   >
+                        <template #default="scope">
+                            <el-select
+                v-model="scope.row.key2" 
+                            @change="updateSelect(scope.row,scope.$index)" 
+                                filterable 
+                            clearable>
+                                
+                            <el-option
+                                v-for="(option, index) in selectOptions" :key="index" :label="option.label"
+                                    :value="option.value" :disabled="option.disabled" />
+                            </el-select>
                         </template>
-                        <el-button class="ml-3" type="success" @click="handleFileUpload"  :disabled="disableDoubeUpload">
-                        upload
-                        </el-button>
-                        <template #tip>
-                        <div class="el-upload__tip text-red">
-                            limit 1 file, new file will cover the old file
+                    </el-table-column>
+                </el-table>
+                <div class="button-container"> <!-- Wrap the buttons in a div -->
+                        <span class="dialog-footer">
+                            <el-button v-if="showTable" @click="showTable = false">Cancel</el-button>
+                            <el-button v-if="showTable" type="primary" @click="handleSubmitData">Submit Data</el-button>
+                        </span>
                         </div>
-                        </template>
-                    </el-upload>
-<!-- 
-        <el-button
-v-if="showUploadButton" class="mt-4" style="width: 100%" @click="handleFileUpload" type="primary"
-            :disabled="disableDoubeUpload">
-            Upload<el-icon class="el-icon--right">
-                <Upload />
-            </el-icon>
-        </el-button> -->
 
-        <el-button
-v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type="success"
-            :disabled="DisablePostSubmit">
-            Submit<el-icon class="el-icon--right">
-                <CaretRight />
-            </el-icon>
-        </el-button>
-        </div>
-        
+ 
+                 
+       </el-col>
+  </el-row>
+
+   
 
 
-        <el-dialog title="Match Fields" v-model="showTable"   width="60%">
-       
-            <el-table v-if="showTable" :data="tableData" :size="small">
-            <el-table-column prop="key1" label="Database Field" />
-            <el-table-column label="From XLSX">
-                <template #default="scope">
-                    <el-select
-v-model="scope.row.key2" 
-                    @change="updateSelect(scope.row,scope.$index)" 
-                     filterable 
-                    clearable>
-                        
-                    <el-option
-                     v-for="(option, index) in selectOptions" :key="index" :label="option.label"
-                            :value="option.value" :disabled="option.disabled" />
-                    </el-select>
-                </template>
-            </el-table-column>
-        </el-table>
-        <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="showTable = false">Cancel</el-button>
-        <el-button type="primary" @click="handleSubmitData ">
-          Confirm
-        </el-button>
-      </span>
-    </template>
-         </el-dialog>
 
 
     </ContentWrap>
@@ -1032,3 +1100,94 @@ v-model="scope.row.key2"
 }
 </style>
 
+
+
+<style>
+.fixed-header {
+  position: sticky;
+  top: 0;
+  background-color: white;
+  z-index: 1;
+}
+</style>
+
+
+
+<style>
+.button-container {
+  display: flex;
+  justify-content: center; /* Center horizontally */
+  align-items: center; /* Center vertically */
+  padding-top: 20px; /* Add padding to the top */
+
+}
+</style>
+
+
+ 
+<style scoped>
+.chart {
+  height: 40vh;
+}
+
+.card-content {
+  display: flex;
+  align-items: center;
+}
+
+.card-icon {
+  margin-right: 10px;
+}
+
+.card-divider {
+  width: 1px;
+  height: 80%;
+  background-color: #e4e7ed;
+  margin: 0 10px;
+}
+
+.card-value {
+  flex-grow: 1;
+}
+
+.value-text {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.value-label {
+  font-size: 14px;
+  color: #999999;
+}
+
+.tabs-container {
+  margin-top: 10px;
+}
+
+.cards-container {
+  margin-top: 5px;
+}
+
+
+.icon-container {
+  display: inline-block;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(34, 35, 35, 0.2);
+  padding: 5px;
+  /* optional padding around the icon */
+  border-radius: 10%;
+  /* optional border radius for circular icon */
+}
+</style>
+
+
+<style scoped>
+.card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+</style>
+ 

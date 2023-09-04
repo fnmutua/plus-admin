@@ -98,18 +98,22 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
         </el-row>
       </el-form>
 
-      <div class="button-container" style="margin-bottom: 10px;">
-        <el-button type="primary" @click="prevStep" v-if="currentStep > 0">
-          Previous
-        </el-button>
-        <el-button type="primary" @click="nextStep" v-if="currentStep < totalSteps - 1">
-          Next
-        </el-button>
-        <el-button type="success" @click="submitForm" v-else>
-          Submit
-        </el-button>
+      <div class="button-container" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div>
+          <el-button type="primary" @click="prevStep" v-if="currentStep > 0">
+            Previous
+          </el-button>
+          <el-button type="primary" @click="nextStep" v-if="currentStep < totalSteps - 1">
+            Next
+          </el-button>
+          <el-button type="success" @click="submitForm" v-else>
+            Submit
+          </el-button>
+        </div>
+        <h3 v-if="currentStep == totalSteps - 1 && showMessage" style="color: rgb(228, 30, 30); font-style: italic;">{{ wardMessage }}</h3>
       </div>
-      <!-- <pre>{{ JSON.stringify(formData, null, 2) }}</pre> -->
+
+       <!-- <pre>{{ wardMessage}}</pre>  -->
       <div v-if="currentStep == totalSteps - 1" id="mapContainer" class="basemap"></div>
       <div v-if="currentStep == totalSteps - 1" id='coordinates' class='coordinates'></div>
     </el-card>
@@ -340,6 +344,8 @@ onMounted(async () => {
   form.model = model
   form.id = route.query.id
 
+  let ward_id
+
 
 
   if (route.query.id) {
@@ -348,23 +354,21 @@ onMounted(async () => {
         // Handle the successful response here
         console.log(res.data)
         var curData = res.data
-        //curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id, curData.settlement_id]
-        curData.geom = curData.geom
+         curData.geom = curData.geom
 
         console.log('curData', curData)
         geomScope.value = curData.geom
 
-       // curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id, curData.settlement_id]
-
-      //  onSelectCounty(curData.county_id)
-      //   onSelectSubcounty(curData.subcounty_id)
-      //   onSelectWard(curData.ward_id)
-
+   
       subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
       wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id ==curData.subcounty_id);
         settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == curData.ward_id);
 
+        ward_id=curData.ward_id
       
+
+
+
         //  formData = res.data
         Object.assign(formData, curData);
         console.log(formData)
@@ -379,6 +383,23 @@ onMounted(async () => {
         // Handle the error here
         console.log('Error:', error);
       });
+
+
+      if (!geomScope.value) {
+          // if the settlement does not have geomtery, allocated the ward geom to the settlement 
+
+          const wform = {}
+          wform.model = 'ward'
+          wform.id = ward_id
+
+            geomScope.value= await getWard(wform)
+
+           console.log("wardGeom - geomScope.value",geomScope.value)
+
+           showMessage.value=true
+
+        }
+
   } else {
 
     Object.keys(formData).forEach((key) => {
@@ -388,6 +409,17 @@ onMounted(async () => {
 })
 
 
+
+
+const getWard = async (wform) => {
+  console.log(wform)
+
+  let ward =   await getOneSettlement(wform)
+          console.log("ward", ward)
+
+  return ward.data.geom
+   
+};
 
 const showDialog = ref(false)
 const cascadeOptions = ref([])
@@ -1033,6 +1065,12 @@ const getFieldChangeHandler = (fieldName: string) => {
   }
   return undefined;
 };
+
+
+// Addd message if project Geometry is not found 
+const   wardMessage = "This settlement does not have location geometry defined. The ward geometry is shown instead. Edit to reflect the actual settlement location"
+
+const showMessage =ref(false)
 
 
 </script>

@@ -177,5 +177,6 @@ require('./server/app/routes/all.routes')(app)
 require('./server/app/routes/summary.routes')(app)
 require('./server/app/routes/household.routes')(app)
 require('./server/app/routes/role.routes')(app)
+require('./server/app/routes/collector.routes')(app)
 
 // set port, listen for requests
