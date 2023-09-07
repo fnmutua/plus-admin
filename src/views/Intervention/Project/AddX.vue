@@ -347,6 +347,18 @@ const projectScopeGeo = ref([])
 const model = 'project'
 const component_id = ref()
 
+
+const getSett = async (sform) => {
+  console.log(sform)
+
+  let sett =   await getOneSettlement(sform)
+          console.log("settlement", sett)
+
+  return sett.data.geom
+   
+};
+
+
 onMounted(async () => {
 
   //formData.value = JSON.parse(route.query.formData);
@@ -362,7 +374,7 @@ onMounted(async () => {
   const form = {}
   form.model = model
   form.id = route.query.id
-
+  let settlement_id
 
 
   if (route.query.id) {
@@ -389,7 +401,8 @@ onMounted(async () => {
 
         let  activityIds = curData.activities.map(activity => activity.id);
         curData.activities=activityIds
-        
+
+        settlement_id = curData.settlement_id
 
         //  formData = res.data
         Object.assign(formData, curData);
@@ -405,7 +418,29 @@ onMounted(async () => {
         // Handle the error here
         console.log('Error:', error);
       });
+
+
+
+      if (!projectScopeGeo.value) {
+          // if the settlement does not have geomtery, allocated the ward geom to the settlement 
+        console.log("gettign settlemnt")
+          const sform = {}
+          sform.model = 'settlement'
+          sform.id = settlement_id
+
+          projectScopeGeo.value= await getSett(sform)
+
+           console.log("wardGeom - geomScope.value",projectScopeGeo.value)
+
+           //showMessage.value=true
+
+        }
+
+
   } else {
+
+
+
 
     Object.keys(formData).forEach((key) => {
       formData[key] = undefined;
@@ -850,7 +885,15 @@ map.value.on('load', function () {
  
 
   var bounds = turf.bbox((projectScopeGeo.value));
-  map.value.fitBounds(bounds, {padding: 20,duration:1000 });
+  console.log("projectScopeGeo.value", projectScopeGeo.value)
+
+  if (projectScopeGeo.value.type =="Point") {
+    map.value.fitBounds(bounds, { padding: 20, maxZoom: 15 })
+
+  } else {
+    map.value.fitBounds(bounds, {padding: 20,duration:1000 });
+
+  }
 
 
 

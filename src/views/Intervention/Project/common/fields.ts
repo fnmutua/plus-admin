@@ -94,7 +94,7 @@ const formFields: Field[][] = [
       name: "status", label: "Status", type: "select", multiselect: 'false', adminUnit: false,       options: statusOptions
     },
 
-    {name: "implementation_id", label: "Delivery Unit", type: "select", multiselect: 'false', adminUnit: false,       options: implementationOptions.value },
+    {name: "implementation_id", label: "Delivery Unit", type: "select", multiselect: 'false', adminUnit: false,options: implementationOptions.value },
 
     { name: "start_date", label: "Commencement Date", type: "date", multiselect: 'false', adminUnit: false,      options: [] },
     { name: "end_date", label: "Completion Date", type: "date", multiselect: 'false',adminUnit: false,     options: [] },
