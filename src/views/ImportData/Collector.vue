@@ -336,9 +336,10 @@ const uploadOptions = [
 ]
 
 
+const processingLoading=ref(false)
 
 const handleSelectParentModel = async (parent: any) => {
-
+    processingLoading.value=true
 
     if (parent != 'none') {
         var filtered = parentOptions.value.filter(function (item) {
@@ -650,7 +651,7 @@ const getParentOptions = async (pcodes) => {
         //   console.log(selectOptions.value)
 
         showTable.value = true
-
+        processingLoading.value=false
 
         console.log('matchedColumns  tableData>>>', tableData)
 
@@ -694,7 +695,7 @@ const readXLSXSheet = async (selSheet) => {
 
         if (!fields.includes('pcode')) {
             console.log('Has Pcode', fields.includes('pcode')); //true
-            ElMessage.error('The uploaded file is missing "pcode" field. Present: [' + fields + ']')
+            ElMessage.error('The data missing "pcode" field. Present: [' + fields + ']')
 
             return
 
@@ -1070,7 +1071,7 @@ const matchCollectedData = async (rows) => {
 
 
  const collectorData=ref([])
-
+ const showChildParent =ref(false)
 const getCollector = async () => {
     projectListOptions.value = []
     formListOptions.value = []
@@ -1102,6 +1103,7 @@ const getCollector = async () => {
         }
        // collectoreData.value=JSON.parse(response.data)
         console.log("collectorData-", collectorData.value)
+        showChildParent.value=true
       //  matchCollectedData( collectorData.value)
 
 
@@ -1163,8 +1165,7 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                      <el-button  type="primary" @click="getCollector" :icon="Download" >Get Data</el-button>
 
                      </div>
-
-                    <div style="display: inline-block; margin-top: 20px">
+                    <div v-if="showChildParent" style="display: inline-block; margin-top: 20px">
                         <el-select v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Select data to import" style=" margin-right: 20px">
                             <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label"> 
                                 <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
@@ -1174,45 +1175,18 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                         <el-select v-model="selectedparent" :onChange="handleSelectParentModel" placeholder="Select Parent Model">
                             <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                         </el-select>
-
-
-
-
-
+ 
 
                     </div>
 
-
-                    <el-divider border-style="dashed" content-position="left">Upload</el-divider>
-
-
-
-
-
-                    <el-upload
-v-if="showUploadButton" class="upload-demo" drag :limit="1" :on-change="handleFileUpload"
-                        :auto-upload="false" :on-remove="handleRemove"
-                        :accept="'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'">
-                        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-                        <div class="el-upload__text">
-                            Drop XLSX file here or <em>click to upload</em>
-                        </div>
-                    </el-upload>
-
-                    <el-select
-class="mb-3" v-if="showUploadButton" v-model="selectedSheet" placeholder="Select Sheet"
-                        @change="readSelectedSheet">
-                        <el-option v-for="sheet in sheets" :key="sheet" :label="sheet" :value="sheet" />
-                    </el-select>
-
-
+ 
 
                 </div>
 
 
             </el-col>
             <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                <el-skeleton v-if="!showTable" :rows="10" />
+                <el-skeleton v-if="!showTable" :animated="processingLoading"  :rows="10" />
 
 
                 <el-table v-if="showTable" :data="tableData" :size="small" border height="60vh" style="width: 100%">
