@@ -33,6 +33,9 @@ exports.modelLoginCollector = (req, res) => {
     password: password
   };
 
+  let projects
+  
+  // Login and get a token 
   request({
     method: 'POST',
     url: 'https://collector.kesmis.go.ke/v1/sessions',
@@ -41,9 +44,7 @@ exports.modelLoginCollector = (req, res) => {
     },
     body: JSON.stringify(requestBody) // Convert the object to a JSON string
   }, function (error, response, body) {
-    console.log('Status:', response.statusCode);
-    console.log('Headers:', JSON.stringify(response.headers));
-    console.log('Response:', body);
+   
 
     if (!error && response.statusCode === 200) {
       // Parse the JSON response
@@ -55,11 +56,33 @@ exports.modelLoginCollector = (req, res) => {
       // Do something with the token (e.g., store it, send it in the response, etc.)
       console.log('Token:', token);
 
-      res.status(200).send({
-        data: "Login",
-        code: '0000',
-        token: token // Include the token in the response
+
+        // Define your bearer token
+ 
+      // Set up the options for the HTTP request, including the 'Authorization' header
+      const requestOptions = {
+        url: 'https://collector.kesmis.go.ke/v1/projects?forms=true',
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      };
+
+      // Send the HTTP request
+      request(requestOptions, function (error, response, body) {
+
+        projects = body;
+        console.log(projects)
+        res.status(200).send({
+          data: projects,
+          code: '0000',
+          token: token // Include the token in the response
+        });
+
       });
+
+
+ 
     } else {
       // Handle errors here
       console.error('Error:', error);
@@ -70,5 +93,56 @@ exports.modelLoginCollector = (req, res) => {
   });
 }
 
+
+
+exports.modelDataCollector = (req, res) => {
+  console.log('Body', req.body);
+
+  // Extract email and password from req.body
+  const { project, form, token } = req.body;
+ 
+
+  let projects
+  //https://private-anon-3f136944c0-odkcentral.apiary-mock.com/v1/projects/7/forms/simple.svc/Submissions
+  
+  let url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions'
+   
+  // Login and get a token 
+  request({
+    method: 'GET',
+    url: url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+
+    },
+  }, function (error, response, body) {
+   
+
+    console.log('------>', error)
+
+    if (!error && response.statusCode === 200) {
+       
+   
+        projects = body;
+        console.log(projects)
+        res.status(200).send({
+          data: projects,
+          code: '0000',
+          token: token // Include the token in the response
+        });
+ 
+
+
+ 
+    } else {
+      // Handle errors here
+      console.error('Error:', error);
+      res.status(500).send({
+        error: 'Internal Server Error'
+      });
+    }
+  });
+}
 
  

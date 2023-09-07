@@ -15,7 +15,8 @@ module.exports = function(app) {
   app.get("/api/v1/collector/project", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelGetProjects);
   app.post("/api/v1/collector", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelLoginCollector);
  
- 
+  app.post("/api/v1/collector/project/data", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelDataCollector);
+
 
   
 

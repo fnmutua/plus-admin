@@ -13,10 +13,20 @@ export const loginCollector = (data)  => {
     url: prod + '/api/v1/collector',
     data    
   });
-  
-
 };
  
+
+
+
+export const getCollectorData = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/project/data',
+   data    
+ });
+};
+
+
+
  
 export const getCollectorProjects = ({ params }: AxiosConfig) => {
   return request.get<{
