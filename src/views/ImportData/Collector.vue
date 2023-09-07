@@ -696,7 +696,7 @@ const readXLSXSheet = async (selSheet) => {
         if (!fields.includes('pcode')) {
             console.log('Has Pcode', fields.includes('pcode')); //true
             ElMessage.error('The data missing "pcode" field. Present: [' + fields + ']')
-
+ 
             return
 
         }
