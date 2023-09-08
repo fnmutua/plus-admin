@@ -26,6 +26,13 @@ export const getCollectorData = (data)  => {
 };
 
 
+export const getCollectorDataCSV = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/project/csv',
+   data    
+ });
+};
+
 
  
 export const getCollectorProjects = ({ params }: AxiosConfig) => {
