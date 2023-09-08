@@ -1060,7 +1060,9 @@ size="default" v-model="value3" multiple clearable filterable remote :remote-met
               </div>
             </template>
           </el-table-column>
+          <el-table-column label="#" width="200" prop="id" sortable />
           <el-table-column label="Name" width="200" prop="name" sortable />
+
           <el-table-column label="Gender" prop="gender" sortable />
           <el-table-column label="Ownership Status" prop="owner_tenant" sortable />
           <el-table-column label="Settlement" prop="settlement.name" sortable />
