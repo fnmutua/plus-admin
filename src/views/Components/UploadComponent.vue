@@ -3,7 +3,7 @@ import { ref, toRefs, onMounted } from 'vue'
 import { ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElTooltip, ElOption, ElOptionGroup, ElCheckbox  } from 'element-plus';
 import {
   Position, View, Plus, User, Download, Briefcase, Delete, Edit,
-  Filter, InfoFilled, CopyDocument, Search, Setting, Loading, UploadFilled, CircleCloseFilled
+  Filter, InfoFilled, CopyDocument, Search, Setting, Loading, UploadFilled, CircleCloseFilled,
 } from '@element-plus/icons-vue'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { ElMessage,  } from 'element-plus'
@@ -254,19 +254,28 @@ const handleFileChange = async (file, fileList) => {
 
       // Start tracking the file availability
       trackFileAvailability();
+}
+
+const showUpload = ref(false)
+
+const handleSelect = async (selected) => {
+  showUpload.value=true 
     }
 
     const dialogWidth = '30%'
+
 </script>
+
 <template>
   <div class="responsive-container">
-    <el-dialog v-model="addMoreDocuments" title="Upload More Documents"  >
+    <el-dialog v-model="addMoreDocuments" title="Upload More Documents" :width="dialogWidth" >
       <el-select
         class="dialog-select"
         v-model="documentCategory"
         placeholder="Select Type"
         clearable
         filterable
+        :onChange="handleSelect"
       >
         <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
           <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
@@ -276,14 +285,15 @@ const handleFileChange = async (file, fileList) => {
       <div class="dialog-upload">
         <el-upload
           ref="upload"
+          v-if="showUpload"
           v-model:file-list="morefileList"
-          action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-          multiple
+           multiple
           :limit="5"
           :on-exceed="onExceeed"
           :auto-upload="false"
         >
-          <el-button class="full-width" type="primary">Select File(s)</el-button>
+           <el-button class="full-width"  type="primary" :icon="UploadFilled"> Select File(s)  </el-button>
+
         </el-upload>
       </div>
 
@@ -323,7 +333,7 @@ const handleFileChange = async (file, fileList) => {
 
 <style scoped>
 .responsive-container {
-  max-width: 100%;
+  max-width: 30%;
   padding: 10px;
 }
 
