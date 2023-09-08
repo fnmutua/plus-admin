@@ -137,6 +137,7 @@ exports.getAllHouseholds = (req, res) => {
 
     attributes.push(encrytpedField)
     qry.attributes=attributes
+    qry.order = [['id', 'DESC']]
 
 
 
@@ -260,9 +261,8 @@ exports.getHouseholdsfilterByColumn = (req, res) => {
      }
     let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('households.name'), 'bytea'),'maluini'),'name']
     attributes.push(encrytpedField)
-    qry.attributes=attributes
-
-    
+  qry.attributes = attributes
+  qry.order = [['id', 'DESC']]
 
   db.models.households.findAndCountAll(qry).then((list) => {
     console.log(list.rows)
@@ -346,8 +346,7 @@ exports.getHouseholdsfilterBykeyWord = (req, res) => {
     attributes.push(encrytpedField)
     qry.attributes=attributes
       
- 
- 
+    qry.order = [['id', 'DESC']]
 
 // if key word is r
     if (req.body.searchKeyword) {
@@ -364,10 +363,7 @@ exports.getHouseholdsfilterBykeyWord = (req, res) => {
         qry.where = queryCondition
 
  }
-  
-    
- 
-
+   
   //  console.log(fqry)
     console.log('--------------search Condition-----------', qry)
  
@@ -433,7 +429,7 @@ exports.getOneHousehold = (req, res) => {
 
 
   
-  exports.batchHouseholdImport = async (req, res) => {
+  exports.xbatchHouseholdImport = async (req, res) => {
     let data = req.body.data;
     let errors = [];
     let objectsToUpsert=[]
@@ -478,6 +474,123 @@ exports.getOneHousehold = (req, res) => {
       res.status(200).send({
         message: 'HH import Successful',
         code: '0000',
+      });
+    }
+  };
+  
+  exports.xxbatchHouseholdImport = async (req, res) => {
+    let data = req.body.data;
+    let errors = [];
+    let newRecords = 0;
+    let updatedRecords = 0;
+    let unchangedRecords = 0;
+  
+    for (let i = 0; i < data.length; i++) {
+      const obj = data[i];
+      const national_id = obj.national_id;
+      const name = obj.name;
+
+      obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, 'maluini')
+
+      // Check if a record with the same unique key constraint exists
+      const existingRecord = await db.models.households.findOne({
+        where: { national_id: national_id }, // Replace 'name' with your unique key field
+      });
+  
+      if (existingRecord) {
+        // Compare the existing record with the submitted data
+        const isDifferent = !isEqual(existingRecord.toJSON(), obj);
+  
+        if (isDifferent) {
+          // Update the record if the submitted data is different
+          try {
+            await db.models.households.update(obj, {
+              where: { national_id: national_id }, // Replace 'name' with your unique key field
+            });
+            updatedRecords++;
+          } catch (err) {
+            console.error(err);
+            errors.push(err);
+          }
+        } else {
+          unchangedRecords++;
+        }
+      } else {
+        // If no existing record, create a new one
+        try {
+          await db.models.households.create(obj);
+          newRecords++;
+        } catch (err) {
+          console.error(err);
+          errors.push(err);
+        }
+      }
+    }
+  
+    if (errors.length > 0) {
+      console.error('HH import errors', errors);
+      res.status(500).send({ message: 'Import/Update failed:' + errors[0] });
+    } else {
+      res.status(200).send({
+        message: 'HH import Successful',
+        code: '0000',
+        summary: {
+          newRecords,
+          updatedRecords,
+          unchangedRecords,
+        },
+      });
+    }
+  };
+  
+
+  exports.batchHouseholdImport = async (req, res) => {
+    let data = req.body.data;
+    let errors = [];
+    let newRecords = 0;
+    let updatedRecords = 0;
+  
+    for (let i = 0; i < data.length; i++) {
+      const obj = data[i];
+      const name = obj.name;
+
+      const national_id = obj.national_id;
+ 
+      obj.name=sequelize.fn('PGP_SYM_ENCRYPT',name, 'maluini')
+
+  
+      try {
+        // Update the record if it exists or create a new one if it doesn't
+       // Try to find an existing record
+      const [record, created] = await db.models.households.findOrCreate({
+        where: { national_id: national_id }, // Replace 'name' with your unique key field
+        defaults: obj, // Set the default values to obj
+      });
+
+      if (!created) {
+        // Record already existed, and we didn't update it
+        updatedRecords++;
+      } else {
+        // New record was created
+        newRecords++;
+      }
+      } catch (err) {
+        console.error(err);
+        errors.push(err);
+      }
+    }
+  
+    if (errors.length > 0) {
+      console.error('HH import errors', errors);
+      res.status(500).send({ message: 'Import/Update failed:' + errors[0] });
+    } else {
+      res.status(200).send({
+        message: 'HH import Successful. New:' +newRecords+ ', Updated:'+updatedRecords,
+        code: '0000',
+        summary: {
+          newRecords,
+          updatedRecords,
+        },
       });
     }
   };
