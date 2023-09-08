@@ -8,7 +8,7 @@ import { getCountyListApi, getListWithoutGeo, getEntitiesByCode } from '@/api/co
 import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 import { postBatchHouseholds } from '@/api/households'
-import { getCollectorData, loginCollector } from '@/api/collector'
+import { getCollectorData, loginCollector,getCollectorDataCSV } from '@/api/collector'
 import { Icon } from '@iconify/vue';
 
 
@@ -32,7 +32,8 @@ import {
     Refresh,
     CaretRight,
     RefreshLeft,
-    Download,
+    RefreshRight,
+     Download,
     UploadFilled,
     Tools
 } from '@element-plus/icons-vue'
@@ -1004,6 +1005,42 @@ const getCollector = async () => {
 
 }
 
+const downloadCsv = async () => {
+    projectListOptions.value = []
+    formListOptions.value = []
+
+    var formData = {}
+    formData.project = project.value
+    formData.form = form.value 
+
+    var userToken = localStorage.getItem('collectorToken');
+
+    formData.token = userToken
+
+    console.log("Getting fields")
+
+
+    await getCollectorDataCSV(formData).then((response) => {
+        const dataURI = `data:application/zip;base64,${response.data}`;
+
+        // Create a temporary anchor element
+        const anchor = document.createElement('a');
+        anchor.href = dataURI;
+        anchor.download = 'response.zip'; // Set the filename for the download
+
+        // Trigger a click event to initiate the download
+        anchor.click();
+
+        // Clean up the anchor element
+        document.body.removeChild(anchor);
+  
+
+    })
+
+
+
+}
+
 const loading = ref(false)
 
 const disableGet=ref(true)
@@ -1019,7 +1056,7 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
         :title="t('Integrations')" :message="t('Allows integration...')">
 
 
-        <el-row :gutter="20">
+        <el-row :gutter="10">
             <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
 
 
@@ -1054,10 +1091,13 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                         <el-option v-for="item in filteredForms" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                    
-                    <div style="display: inline-block; margin-left: 20px">
-                     <el-button :disabled="disableGet" type="primary" @click="getCollector" :icon="Download" >Get Data</el-button>
-
+                    <div style="display: inline-block; margin-left: 10px">
+                        <el-button :disabled="disableGet" type="primary" @click="getCollector" :icon="RefreshRight" >Sync</el-button>
+                      </div>
+                     <div style="display: inline-block; margin-left: 10px">
+                         <el-button :disabled="disableGet" type="primary" @click="downloadCsv" :icon="Download" >CSV</el-button>
                      </div>
+
                     <div v-if="showChildParent" style="display: inline-block; margin-top: 20px">
                         <el-select v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Select data to import" style=" margin-right: 20px">
                             <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label"> 
@@ -1068,12 +1108,8 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                         <el-select v-model="selectedparent" :onChange="handleSelectParentModel" placeholder="Select Parent Model">
                             <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
                         </el-select>
- 
-
                     </div>
                     <el-text v-if="showMatching" class="button-container"> Matching data with database... Please wait</el-text>
-
-
                     <div >
                         <el-progress
                         v-if="showMatching"
@@ -1083,12 +1119,10 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                         :indeterminate="true"
                         :duration="1"
                         :show-text="false"
-
                         />
 
                     </div>
-                    
-
+                
                 </div>
 
 
@@ -1099,7 +1133,7 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
 
                 <el-table v-if="showTable" :data="tableData" :size="small" border height="60vh" style="width: 100%">
                     <el-table-column prop="key1" label="Database Field" />
-                    <el-table-column label="From XLSX">
+                    <el-table-column label="From Collector">
                         <template #default="scope">
                             <el-select
 v-model="scope.row.key2" @change="updateSelect(scope.row, scope.$index)" filterable
