@@ -18,7 +18,7 @@ import {
     ElTable,
     ElIcon,
     ElTableColumn,
-    ElInput,
+    ElProgress,
     ElDialog,
     ElSwitch,
     ElSkeleton,
@@ -252,6 +252,7 @@ const handleSelectProject = async (project: any) => {
 
 const handleSelectForm= async (form: any) => {
     console.log(form)
+    disableGet.value=false
 }
 
 
@@ -339,7 +340,8 @@ const uploadOptions = [
 const processingLoading=ref(false)
 
 const handleSelectParentModel = async (parent: any) => {
-    processingLoading.value=true
+    processingLoading.value = true
+    showMatching.value=true
 
     if (parent != 'none') {
         var filtered = parentOptions.value.filter(function (item) {
@@ -362,10 +364,7 @@ const handleSelectParentModel = async (parent: any) => {
 
 const tableData = ref()
 
-
-const selectedSheet = ref()
-const sheets = ref([])
-
+ 
 
 const getModeldefinition = async (selModel) => {
 
@@ -652,7 +651,7 @@ const getParentOptions = async (pcodes) => {
 
         showTable.value = true
         processingLoading.value=false
-
+        showMatching.value=false
         console.log('matchedColumns  tableData>>>', tableData)
 
 
@@ -660,120 +659,12 @@ const getParentOptions = async (pcodes) => {
     })
 }
 
-
-const getSheets = async (file) => {
-
-    console.log("attmept, read", file)
-
-    file.value = file // called from the uplaod funtion 
-
-
-    readSheetNames(file).then((sheetNames) => {
-
-        console.log('sheetNames : ' + JSON.stringify(sheetNames));
-        sheets.value = sheetNames
-    })
-
-
-
-    // reset later 
-    loadingPosting.value = false
-
-
-}
-
-const readXLSXSheet = async (selSheet) => {
-
-
-
-    readXlsxFile(UploadedFile.value, { sheet: selSheet }).then((rows) => {
-        console.log(rows)
-
-
-        const fields = Object.values(rows[0]) //  get all proterit4s of the first feature
-        console.log("fields-->", fields)
-
-        if (!fields.includes('pcode')) {
-            console.log('Has Pcode', fields.includes('pcode')); //true
-            ElMessage.error('The data missing "pcode" field. Present: [' + fields + ']')
  
-            return
 
-        }
-
+  
 
 
-        for (let j = 1; j < rows.length; j++) {
-
-            if (rows[j].reviewState!="rejected") {                
-                var record = {}
-                for (let i = 0; i < fields.length; i++) {
-                    var f = fields[i]
-                    var v = rows[j][i]
-                    record[f] = v
-                }
-                record['createdBy'] = userInfo.id   // Add a 
-                uploadObj.value.push(record) // Push to the temporary holder
-            }
-            
-        }  // remove header row
-
-        // Get the unique Pcodes so that you get the parents 
-        const uniquePcodes = new Set();
-        // Iterate over the array and add the unique names to the Set
-        uploadObj.value.forEach(item => {
-            uniquePcodes.add(item.pcode);
-        });
-        // Convert the Set to an array (if needed)
-        const uniquePcodesArray = [...uniquePcodes];
-        console.log(uniquePcodesArray);
-        // Now get those unique parents only !
-        getParentOptions(uniquePcodesArray)
-
-
-
-
-    })
-
-
-}
-
-const UploadedFile = ref()
-const handleFileUpload = async (response, file) => {
-
-    console.log('File uploaded successfully.', response, file);
-
-    showUploadButton.value = true
-
-    let reader = new FileReader()
-    reader.onload = getSheets(file[0].raw)
-
-    UploadedFile.value = file[0].raw
-
-}
-
-const readSelectedSheet = async (sheet) => {
-
-    showTable.value = false   // hide table whenever the user chanes sheet
-
-    console.log('Sheet to read.', sheet);
-    let reader = new FileReader()
-
-    reader.onload = readXLSXSheet(sheet)
-
-
-
-}
-
-
-
-
-const handleRemove = async () => {
-    showTable.value = false
-    showUploadButton.value = true
-    UploadedFile.value = null
-    sheets.value = null
-}
+ 
 
 
 
@@ -1115,7 +1006,9 @@ const getCollector = async () => {
 
 const loading = ref(false)
 
+const disableGet=ref(true)
 
+const showMatching=ref(false)
 
 
 </script>
@@ -1162,7 +1055,7 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                     </el-select>
                    
                     <div style="display: inline-block; margin-left: 20px">
-                     <el-button  type="primary" @click="getCollector" :icon="Download" >Get Data</el-button>
+                     <el-button :disabled="disableGet" type="primary" @click="getCollector" :icon="Download" >Get Data</el-button>
 
                      </div>
                     <div v-if="showChildParent" style="display: inline-block; margin-top: 20px">
@@ -1178,8 +1071,23 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
  
 
                     </div>
+                    <el-text v-if="showMatching" class="button-container"> Matching data with database... Please wait</el-text>
 
- 
+
+                    <div >
+                        <el-progress
+                        v-if="showMatching"
+                        class="button-container"
+                         :percentage="100"
+                        status="success"
+                        :indeterminate="true"
+                        :duration="1"
+                        :show-text="false"
+
+                        />
+
+                    </div>
+                    
 
                 </div>
 
