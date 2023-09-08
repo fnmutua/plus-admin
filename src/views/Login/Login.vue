@@ -39,7 +39,7 @@ const toLogin = () => {
             <img src="@/assets/svgs/logo_animates.svg" key="1" alt="" class="w-350px" />
 
             <div class="text-2xl text-white text-center" key="2">{{
-              t('Kenya Slum Information System')
+              t('Kenya Slum Management Information System')
             }}</div>
           </TransitionGroup>
         </div>
