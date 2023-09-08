@@ -1026,7 +1026,7 @@ const downloadCsv = async () => {
         // Create a temporary anchor element
         const anchor = document.createElement('a');
         anchor.href = dataURI;
-        anchor.download = 'response.zip'; // Set the filename for the download
+        anchor.download = 'submissions.zip'; // Set the filename for the download
 
         // Trigger a click event to initiate the download
         anchor.click();
