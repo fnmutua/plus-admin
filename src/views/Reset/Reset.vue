@@ -36,10 +36,10 @@ const { t } = useI18n()
             enter-active-class="animate__animated animate__bounceInLeft"
           >
             <!-- <img src="@/assets/svgs/login-box-bg.svg" key="1" alt="" class="w-350px" /> -->
-            <img src="@/assets/svgs/Coat_of_arms_of_Kenya.svg" key="1" alt="" class="w-350px" />
+            <img src="@/assets/svgs/logo_animates.svg" key="1" alt="" class="w-350px" />
 
             <div class="text-2xl text-white text-center" key="2">{{
-              t('Kenya Slum Information System')
+              t('Kenya Slum Management Information System')
             }}</div>
           </TransitionGroup>
         </div>
