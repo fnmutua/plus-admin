@@ -883,7 +883,8 @@ function extractInnermostValues(obj) {
         result = { ...result, ...innerResult };
       } else {
         // Check if the key is "settlement" and replace it with "pcode"
-        const newKey = key === "settlement" ? "pcode" : key;
+        //const newKey = key === "settlement" ? "pcode" : key;
+        const newKey =  key;
         result[newKey] = obj[key];
       }
     }
