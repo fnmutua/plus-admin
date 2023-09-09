@@ -15,6 +15,7 @@ const User = db.user;
 const redis = require("redis");
 const Progress = require('progress');
 const { v4: uuidv4 } = require('uuid');
+var request = require('request');
 
 
 const nodemailer = require('nodemailer')
@@ -709,7 +710,9 @@ exports.modelImportDataUpsert = async (req, res) => {
           
 
             await prj.addActivities(activities);
-          }
+          } 
+         
+
 
           insertedDocuments.push(prj); // Add the inserted document to the array
         } catch (err) {
@@ -728,7 +731,18 @@ exports.modelImportDataUpsert = async (req, res) => {
           const [insertedData, created] = await db.models[reg_model].upsert(item);
           if (created) {
             insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
+
+            if (reg_model === 'settlement') {
+              sendSettDataToODK([insertedData])
+  
+            }
+            
+
           }
+
+        
+
+          
         } catch (err) {
           console.log(err);
           errors.push(err.original);
@@ -788,7 +802,12 @@ exports.modelCreateOneRecord = (req, res) => {
   .create(obj)
   .then(async function (item) {
     // Special for projects where we store the project-activity relation
-    console.log('temI',item)
+    console.log('temI', item)
+    
+    if (reg_model === 'settlement') {
+      // send the ouput to be put send to ODK central
+      sendSettDataToODK([item])
+     }
     if (reg_model === 'project') {
       var activity_list = req.body.activities;
       const list_activities = await db.models.activity.findAll({
@@ -1227,29 +1246,16 @@ exports.modelActivateUser = (req, res) => {
 }
 
 
-
-exports.xmodelDeleteOneRecord = (req, res) => {
-  var reg_model = req.body.model
-  // get this one  record and update it by replacing the whole docuemnt
-
-  
-  
-  db.models[reg_model].destroy({ where: { id: req.body.id } }).then((result) => {
-    if (result) {
-      // res.status(200).send(result);
-      res.status(200).send({
-        message: 'Delete successful',
-        code: '0000'
-      })
-    }
-  })
-}
+ 
 
 exports.modelDeleteOneRecord = async (req, res) => {
   try {
     const modelName = req.body.model;
     const model = db.models[modelName];
     const id = req.body.id;
+
+ 
+
 
     // Check if the model exists
     if (!model) {
@@ -1267,6 +1273,8 @@ exports.modelDeleteOneRecord = async (req, res) => {
         code: 'RECORD_NOT_FOUND'
       });
     }
+
+    
 
  
     // Check for dependencies in associated models
@@ -1346,6 +1354,13 @@ exports.modelDeleteOneRecord = async (req, res) => {
 
     // Delete the record
     await model.destroy({ where: { id } });
+
+    if (modelName == 'settlement') { 
+      deleteSettlementDataFromODK(record)
+
+    }
+
+ 
 
     res.status(200).send({
       message: 'Delete successful',
@@ -3210,4 +3225,187 @@ exports.RemoveDocument = (req, res) => {
 
 
 
+}
+
+
+
+
+/// Submit  New settlments to ODK Central
+ 
+// Define the endpoint URL and bearer token
+
+ 
+// Function to send a POST request with the array of JSON objects
+async function sendSettDataToODK(settArray) {
+
+  // Construct the request body as a JSON object
+  const requestBody = {
+    email: 'felix.mutua@gmail.com',
+    password: 'Admin@2011'
+  };
+
+  let token;
+
+  // Login and get a token
+  request({
+    method: 'POST',
+    url: 'https://collector.kesmis.go.ke/v1/sessions',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(requestBody) // Convert the object to a JSON string
+  }, async function (error, response, body) {
+    if (!error && response.statusCode === 200) {
+      // Parse the JSON response
+      const responseBody = JSON.parse(body);
+      // Extract the token from the response
+      token = responseBody.token;
+
+      const endpointUrl = 'https://collector.kesmis.go.ke/v1/projects/1/datasets/settlements/entities';
+      const bearerToken = token; // Use the extracted token here
+
+      try {
+        for (let i = 0; i < settArray.length; i++) {
+          // Send a POST request to the endpoint with the array of JSON objects as the request body
+
+          // get the county where this settlement belongs
+          let county = await db.models.county.findOne({
+            where: {
+              id: {
+                [Op.eq]: settArray[i].county_id,
+              }
+            }
+          });
+
+          let settObj = {
+            "uuid": uuidv4(),
+            "label": settArray[i].name,
+            "data": {
+              "county_name": county.name,
+              "sett_name": settArray[i].name,
+              "code": settArray[i].code,
+            }
+          };
+
+          request({
+            method: 'POST',
+            url: endpointUrl,
+            headers: {
+              'Authorization': `Bearer ${bearerToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(settObj) // Convert the object to a JSON string
+          }, function (error, response) {
+            if (!error && response.statusCode === 200) {
+              console.log(`Successfully sent data: ${JSON.stringify(settObj)}`);
+            } else {
+              console.error(`Failed to send data: ${JSON.stringify(settObj)}`);
+              console.error(`Response status code: ${response.statusCode}`);
+              console.error(`Response content: ${response.body}`);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    } else {
+      // Handle errors here
+      console.error('Error:', error);
+    }
+  });
+}
+
+
+// Function to send a POST request with the array of JSON objects
+async function deleteSettlementDataFromODK(settToDelete) {
+
+  console.log("here to delete the settlement from ODJ")
+  // Construct the request body as a JSON object
+  const requestBody = {
+    email: 'felix.mutua@gmail.com',
+    password: 'Admin@2011'
+  };
+
+  let token;
+
+  // Login and get a token
+  request({
+    method: 'POST',
+    url: 'https://collector.kesmis.go.ke/v1/sessions',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(requestBody) // Convert the object to a JSON string
+  }, async function (error, response, body) {
+    if (!error && response.statusCode === 200) {
+      console.log('Logged in')
+      const responseBody = JSON.parse(body);
+
+      token = responseBody.token;
+
+      // get all entities 
+      request({
+        method: 'GET',
+        url: 'https://collector.kesmis.go.ke/v1/projects/1/datasets/settlements.svc/entities',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      }, function (error, response, body) {
+        
+        if (!error && response.statusCode === 200) {
+          console.log(body)
+          let entities = JSON.parse(body);
+
+          console.log(entities)
+
+          const targetCode =settToDelete.code; // The code you want to filter by
+
+ 
+          const filteredEntity = entities.value.filter(item => item.code === targetCode);
+          console.log("filteredEntity",filteredEntity,settToDelete.code )
+
+          // Now we have the entity - Delete it from dataasets
+         //   /projects/16/datasets/people/entities/54a405a0-53ce-4748-9788-d23a30cc3afa
+          // delete only if such an entiry is found 
+          if (filteredEntity.length>0) {
+            let url = 'https://collector.kesmis.go.ke/v1/projects/1/datasets/settlements/entities/'+filteredEntity[0].__id
+   
+            request({
+              method: 'DELETE',
+              url: url,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+            },
+              function (error, response, body) { 
+                console.log('Delete Successful')
+                console.log(response)
+              }
+            )
+          }
+       
+              
+     
+        } else {
+          // Handle errors here
+          console.error('Error:', error);
+          
+        }
+      });
+
+
+
+
+
+
+
+
+
+    } else {
+      // Handle errors here
+      console.error('Error:', error);
+    }
+  });
 }
