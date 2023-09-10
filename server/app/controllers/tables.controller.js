@@ -729,15 +729,14 @@ exports.modelImportDataUpsert = async (req, res) => {
 
         try {
           const [insertedData, created] = await db.models[reg_model].upsert(item);
+
+          if (reg_model === 'settlement') {
+            sendSettDataToODK([item])
+
+          }
           if (created) {
             insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
-
-            if (reg_model === 'settlement') {
-              sendSettDataToODK([insertedData])
-  
-            }
-            
-
+ 
           }
 
         
@@ -746,7 +745,10 @@ exports.modelImportDataUpsert = async (req, res) => {
         } catch (err) {
           console.log(err);
           errors.push(err.original);
-        }
+      }
+      
+
+      
       })
     );
   }
