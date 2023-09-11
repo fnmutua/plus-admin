@@ -1051,6 +1051,14 @@ exports.modelGetByCode= async (req, res) => {
   var reg_model = req.query.model;
   var arrayCodes = req.query.code;
 
+  if (typeof arrayCodes === 'string' && arrayCodes.includes(',')) {
+    // Split the pcodes string into an array using commas
+    arrayCodes = arrayCodes.split(',');
+}
+
+// Now pcodes will either be the original value (if it's not a string or doesn't contain a comma)
+// or it will be an array of strings if it contains a comma
+
   
 // Query your database to retrieve records based on the array of IDs
 db.models[reg_model].findAll({

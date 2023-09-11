@@ -428,6 +428,9 @@ const selectOptions = ref([])
 
 const getParentOptions = async (pcodes) => {
     console.log("parent --Model-codes", theParentModel.value, pcodes)
+
+  
+
     await getEntitiesByCode({
         params: {
             pageIndex: 1,
@@ -941,20 +944,23 @@ const matchCollectedData = async (rows) => {
          
         }  // remove header row
 
-        // Get the unique Pcodes so that you get the parents 
-        const uniquePcodes = new Set();
-        // Iterate over the array and add the unique names to the Set
-        uploadObj.value.forEach(item => {
-            uniquePcodes.add(item.pcode);
-        });
-        // Convert the Set to an array (if needed)
-        const uniquePcodesArray = [...uniquePcodes];
-      //  console.log(uniquePcodesArray);
-        // Now get those unique parents only !
+            // Get the unique Pcodes so that you get the parents 
+            const uniquePcodes = new Set();
 
-        console.log("uniquePcodesArray",uniquePcodesArray)
+            // Iterate over the array and add the unique names to the Set
+            uploadObj.value.forEach(item => {
+                if (item.pcode !== null) { // Only add non-null values to the Set
+                    uniquePcodes.add(item.pcode);
+                }
+            });
 
-        getParentOptions(uniquePcodesArray)  
+            // Convert the Set to an array of strings
+            const filteredUniquePcodesArray = Array.from(uniquePcodes);
+
+            // Now get those unique parents only!
+            console.log("uniquePcodesArray", filteredUniquePcodesArray);
+                getParentOptions(filteredUniquePcodesArray);
+
 }
 
 
@@ -1006,9 +1012,11 @@ const getCollector = async () => {
 
 }
 
+const downloadingCsv=ref(false)
 const downloadCsv = async () => {
     projectListOptions.value = []
     formListOptions.value = []
+    downloadingCsv.value = true
 
     var formData = {}
     formData.project = project.value
@@ -1020,8 +1028,8 @@ const downloadCsv = async () => {
 
     console.log("Getting fields")
 
-
-    await getCollectorDataCSV(formData).then((response) => {
+    try {
+        const response = await getCollectorDataCSV(formData);
         const dataURI = `data:application/zip;base64,${response.data}`;
 
         // Create a temporary anchor element
@@ -1034,13 +1042,15 @@ const downloadCsv = async () => {
 
         // Clean up the anchor element
         document.body.removeChild(anchor);
-  
-
-    })
-
-
-
+    } catch (error) {
+        // Handle any errors here
+        console.error(error);
+    } finally {
+        // Set downloadingCsv to false in the finally block
+        downloadingCsv.value = false;
+    }
 }
+
 
 const loading = ref(false)
 
@@ -1096,7 +1106,7 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                         <el-button :disabled="disableGet" type="primary" @click="getCollector" :icon="RefreshRight" >Sync</el-button>
                       </div>
                      <div style="display: inline-block; margin-left: 10px">
-                         <el-button :disabled="disableGet" type="primary" @click="downloadCsv" :icon="Download" >CSV</el-button>
+                         <el-button  v-loading="downloadingCsv" :disabled="disableGet" type="primary" @click="downloadCsv" :icon="Download" >CSV</el-button>
                      </div>
 
                     <div v-if="showChildParent" style="display: inline-block; margin-top: 20px">
