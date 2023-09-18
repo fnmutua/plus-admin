@@ -5,12 +5,12 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { getUserRoles,getByName } from '@/api/users'
+import { getUserRoles, getByName } from '@/api/users'
 
 
 import {
-  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter,ElRow, ElDropdown, ElDropdownItem, ElCheckboxGroup,ElCheckbox,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRadio, ElRadioGroup
+  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter, ElRow, ElDropdown, ElDropdownItem, ElCheckboxGroup, ElCheckbox,
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar,ElRadio, ElRadioGroup
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
@@ -19,20 +19,19 @@ import {
   Edit,
   User,
   Plus,
-  Download,UserFilled,
+  Download, UserFilled,
   Filter,
   MessageBox
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider, ElCard, ElCol, ELRow } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
-import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 import { searchByKeyWord } from '@/api/settlements'
 interface Params {
@@ -106,13 +105,11 @@ let tableDataList_orig = ref<UserType[]>([])
 
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
- 
-var tblData = []
-
 var filters = ['isactive']
 var filterValues = [false]
+var tblData = []
 
-const associated_multiple_models = ['county' ,'user_roles']
+const associated_multiple_models = ['county']
 
 ////const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
 //const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
@@ -130,8 +127,7 @@ const form = reactive({
   phone: '',
   county_id: '',
   roles: [],
-  avatar: '',
-  username:null
+  avatar: ''
 })
 
 
@@ -282,7 +278,7 @@ const xgetRoles = async () => {
       roleOpt.value = arrayItem.id
       roleOpt.label = arrayItem.name
       //  console.log(countyOpt)
-      if (arrayItem.name !=='super_admin') {
+      if (arrayItem.name !== 'super_admin') {
         RolesOptions.value.push(roleOpt)
 
       }
@@ -291,30 +287,30 @@ const xgetRoles = async () => {
 }
 
 const getRoles = async () => {
-  
+
   const formData = {}
   formData.limit = 100
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = 'roles'
   //-Search field--------------------------------------------
-  
+
   formData.currentUser = currentUser
- 
+
 
   //-------------------------
-   const res = await getUserRoles(formData)
+  const res = await getUserRoles(formData)
 
-   console.log('Get Roles.....',res.data)
+  console.log('Get Roles.....', res.data)
 
-    
+
   res.data.forEach(function (arrayItem) {
- 
-   
+
+
     //  generate the filter options
     var opt = {}
     opt.value = arrayItem.id
-    opt.label = arrayItem.name  
+    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
     //  console.log(countyOpt)
     RolesOptions.value.push(opt)
   })
@@ -525,7 +521,6 @@ const EditUser = (data: TableSlotDefault) => {
   form.email = data.row.email
   form.phone = data.row.phone
   form.avatar = data.row.avatar
-  form.username = data.row.username
   let roles = []
   data.row.roles.forEach(function (arrayItem) {
     console.log(arrayItem.id)
@@ -533,22 +528,21 @@ const EditUser = (data: TableSlotDefault) => {
   })
 
 
-  form.roles = roles[0]
+  form.roles = roles
   console.log(form)
   dialogFormVisible.value = true
 }
 
- 
 
 const updateUser = () => {
-  form.roles=[form.roles ]
+
   updateUserApi(form).then(() => { })
 
   dialogFormVisible.value = false
 }
 const search = ref('')
 
- 
+
 
 
 
@@ -628,9 +622,6 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
     </div>
-
-    <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
-
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
@@ -653,19 +644,20 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           {{ scope.$index + 1 }}
         </template>
       </el-table-column>
-        <!-- Avatar column -->
-  <el-table-column label="Avatar" width="100">
-    <template #default="scope">
-      <el-avatar :src="scope.row.avatar" size="80px" />
-    </template>
-  </el-table-column>
+      <!-- Avatar column -->
+      <el-table-column label="Avatar" width="100">
+        <template #default="scope">
+          <el-avatar :src="scope.row.avatar" size="80px" />
+        </template>
+      </el-table-column>
 
- 
+
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="County" prop="county.name" sortable />
       <el-table-column fixed="right" :label="isMobile ? '' : 'Operations'" :width="actionColumnWidth">
         <template #default="scope">
+
 
           <el-dropdown v-if="isMobile">
             <span class="el-dropdown-link">
@@ -673,15 +665,15 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item
-v-if="showAdminButtons"  
-                 >
-                  <el-switch v-model="scope.row.isactive"   @click="activateDeactivate(scope as TableSlotDefault)" :icon="Edit" />
+                <el-dropdown-item v-if="showAdminButtons">
+                  <el-switch
+v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+                    :icon="Edit" />
 
-              
+
                 </el-dropdown-item>
 
-                <el-dropdown-item/>
+                <el-dropdown-item />
                 <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -715,7 +707,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
 
- 
+
       <el-dialog v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
       <el-form :model="form">
 

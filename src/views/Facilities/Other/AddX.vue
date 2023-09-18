@@ -1029,8 +1029,6 @@ const getFieldChangeHandler = (fieldName: string) => {
   }
 
 
-
-
   if (fieldName == 'location_option') {
     handleChangeLocationOption(formData[fieldName])
   }
