@@ -10,6 +10,10 @@ import { getModelSpecs, getModelRelatives } from '@/api/fields'
 import { postBatchHouseholds } from '@/api/households'
 import { getCollectorData, loginCollector,getCollectorDataCSV } from '@/api/collector'
 import { Icon } from '@iconify/vue';
+ 
+import axios from 'axios';
+ import { XMLParser } from 'fast-xml-parser';
+
 
 
 import {
@@ -873,6 +877,40 @@ const loginUserToCollector = async () => {
 
 }
 
+const geoserverLoading=ref(false)
+const geoserverLayers=ref([])
+const getGeoserverLayers = async () => {
+    geoserverLoading.value=true
+   console.log("Geoserver.....")
+
+
+          // get the drone
+          await axios.get('https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+        .then((response) => {
+          const xml = response.data;
+          // console.log(xml)
+          const parser = new XMLParser();
+          const json = parser.parse(xml);
+          const glayers = json.WMS_Capabilities.Capability.Layer.Layer.map(layer => ({
+            name: layer.Name,
+            title: layer.Title,
+            label: layer.Name,
+            value: layer.Name,
+            bbox: layer.EX_GeographicBoundingBox
+
+          }));
+
+          console.log('Drone Layers >>',glayers) 
+  
+          geoserverLayers.value=glayers
+
+        
+        });
+
+}
+
+
+
 function extractInnermostValues(obj) {
   function isObject(item) {
     return (typeof item === "object" && !Array.isArray(item) && item !== null);
@@ -1081,11 +1119,13 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                             </div>
                         </el-card>
                     </el-col>
+
+                    
                     <el-col :span="12">
-                        <el-card shadow="hover">
+                        <el-card shadow="hover" v-loading="geoserverLoading" >
                             <div class="card-content">
                                 <!-- Add an image here -->
-                                <img src="@/assets/svgs/geoserver.svg" key="2" fit="fill" alt="" class="w-50px" />
+                                <img src="@/assets/svgs/geoserver.svg" key="2" fit="fill" alt="" class="w-50px"  @click="getGeoserverLayers" />
                                 Geoserver
                             </div>
                         </el-card>
