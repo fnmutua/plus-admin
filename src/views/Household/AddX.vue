@@ -823,50 +823,7 @@ const toggleDrawToolbox = (value) => {
 };
 
 
-
-const xsubmitForm = async () => {
-  const formInstance = dynamicFormRef
-  formInstance.value.validate(async (valid: boolean) => {
-    if (valid) {
-      // Perform form submission logic
-
-      formData.model = model
-      formData.code = shortid.generate()
-      formData.createdBy = userInfo.id
-      formData.component_id = component_id.value
-      //formData.geom =geomScope.value
-
-
-      if (newRecord.value) {
-        formData.isApproved = 'Pending'
-
-        await CreateRecord(formData)
-
-        console.log('New form', formData);
-
-      } else {
-        await updateOneRecord(formData)
-
-        console.log('Edited form', formData);
-
-
-      }
-
-
-      goBack()
-
-      // push({
-      //    name: 'Health'
-      // })
-
-    } else {
-      // Handle form validation errors
-      console.log('fail validation')
-    }
-  });
-
-};
-
+ 
 
  
 const submitForm = async () => {
@@ -881,9 +838,10 @@ const submitForm = async () => {
                 formData.hh_size_female =  sizes[1]
                  
                 formData.model = 'households'
+
+              if (newRecord.value) {
                 formData.code = shortid.generate()
 
-                if (newRecord.value) {
                     await createHousehold(formData)
                      console.log('New form', formData);
 

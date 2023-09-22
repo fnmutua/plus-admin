@@ -153,7 +153,7 @@ exports.modelDataCollectorCSV = (req, res) => {
   // Extract email and password from req.body
   const { project, form, token } = req.body;
 
-  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip`;
+  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip?attachments=false`;
 
   // Login and get a token
   request({

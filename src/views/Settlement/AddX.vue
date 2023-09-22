@@ -374,7 +374,7 @@ onMounted(async () => {
         console.log(formData)
         newRecord.value = false
 
-
+        console.log("This is not a new record........")
 
 
 
@@ -940,7 +940,6 @@ const submitForm = async () => {
       // Perform form submission logic
 
       formData.model = model
-      formData.code = shortid.generate()
       formData.createdBy = userInfo.id
       formData.component_id = component_id.value
 
@@ -952,7 +951,7 @@ const submitForm = async () => {
           const areaHectares = areaSquareMeters / 10000;
             formData.area = areaHectares.toFixed(4)
 
-    console.log('formData.value', formData.value)
+           console.log('formData.value', formData.value)
 
 
     
@@ -961,6 +960,7 @@ const submitForm = async () => {
 
       if (newRecord.value) {
         formData.isApproved = 'Pending'
+        formData.code = shortid.generate()
 
         await CreateRecord(formData)
 

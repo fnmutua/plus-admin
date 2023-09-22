@@ -408,7 +408,6 @@ const submitForm = async () => {
       // Perform form submission logic
 
       formData.model = 'evaluation'
-      formData.code = shortid.generate()
       formData.createdBy = userInfo.id
       console.log('Overall Rating',  await overallRating(formData))
        formData.overall_rating = await overallRating(formData)
@@ -418,6 +417,7 @@ const submitForm = async () => {
 
       if (newRecord.value) {
         formData.isApproved = 'Pending'
+        formData.code = shortid.generate()
 
         await CreateRecord(formData)
 
