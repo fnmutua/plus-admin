@@ -237,7 +237,7 @@ const onPageChange = async (selPage: any) => {
   //console.log('', activeTab.value)
   if (activeTab.value == 'list') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Approved'],]  // make sure the inner array is array
+    filterValues.value = [[1, 2], ['Approved'],['true']]  // make sure the inner array is array
   } else if (activeTab.value == 'New') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
     filterValues.value = [[1, 2], ['Pending'], ['true']]  // make sure the inner array is array
@@ -825,6 +825,12 @@ const searchByName = async (filterString: any) => {
   console.log('filterString', filterString)
   value3.value = filterString
   search_string.value = filterString
+
+    filters.value.push('isActive')
+    filterValues.value.push(['true'] )  // make sure the inner array is array
+
+
+  
 
   getFilteredBySearchData(activeTab.value, search_string.value)
 }

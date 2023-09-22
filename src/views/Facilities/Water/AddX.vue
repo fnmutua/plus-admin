@@ -930,7 +930,6 @@ const submitForm = async () => {
       // Perform form submission logic
 
       formData.model = model
-      formData.code = shortid.generate()
       formData.createdBy = userInfo.id
       formData.component_id = component_id.value
       //formData.geom =projectScopeGeo.value
@@ -944,6 +943,7 @@ const submitForm = async () => {
 
       if (newRecord.value) {
         formData.isApproved = 'Pending'
+        formData.code = shortid.generate()
 
         await CreateRecord(formData)
 

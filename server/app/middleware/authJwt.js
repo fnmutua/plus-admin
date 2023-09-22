@@ -130,14 +130,19 @@ isStaffOrAdmin = (req, res, next) => {
     user.getRoles({raw:true}).then(roles => {
       for (let i = 0; i < roles.length; i++) {
           console.log(roles[i].name)
-        if (roles[i].name === "kisip_staff") {
+        if (roles[i].name === "staff") {
           next();
           return;
         }
-        if (roles[i].name === "sud_staff") {
+        if (roles[i].name === "super_admin") {
           next();
           return;
-        }      
+        }   
+        if (roles[i].name === "county_admin") {
+          next();
+          return;
+        }   
+        
         if (roles[i].name === "admin") {
           next();
           return;
