@@ -485,9 +485,9 @@ const loadMap = async () => {
       "type": "line",
       'source': 'polygons',
       'paint': {
-        'line-color': 'black',
-        'line-width': 1,
-        'line-dasharray'  :[3,4]
+        'line-color': 'red',
+        'line-width':2,
+        'line-dasharray'  :[2,4]
       }
     });
 
