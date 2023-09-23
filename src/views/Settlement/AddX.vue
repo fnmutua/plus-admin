@@ -967,6 +967,17 @@ const submitForm = async () => {
         console.log('New form', formData);
 
       } else {
+
+
+          // Calculate the area using Turf.js
+          const areaSquareMeters = turf.area(formData.geom);
+
+          // Convert square meters to hectares
+          const areaHectares = areaSquareMeters / 10000;
+            formData.area = areaHectares.toFixed(4)
+
+
+
         await updateOneRecord(formData)
 
         console.log('Edited form', formData);
