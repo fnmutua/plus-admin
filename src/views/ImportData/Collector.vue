@@ -8,12 +8,13 @@ import { getCountyListApi, getListWithoutGeo, getEntitiesByCode } from '@/api/co
 import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 import { postBatchHouseholds } from '@/api/households'
-import { getCollectorData, loginCollector,getCollectorDataCSV } from '@/api/collector'
+import { getCollectorData, loginCollector,getCollectorDataCSV, getCollectorDataFlattened } from '@/api/collector'
 import { Icon } from '@iconify/vue';
  
 import axios from 'axios';
  import { XMLParser } from 'fast-xml-parser';
 
+ import xlsx from "json-as-xlsx"
 
 
 import {
@@ -27,7 +28,7 @@ import {
     ElSwitch,
     ElSkeleton,
     ElOptionGroup,
-    ElCol, ElRow, ElCard,
+    ElCol, ElRow, ElCard, ElDropdown, ElDropdownItem, ElDropdownMenu, 
     ElOption
 } from 'element-plus'
 import { ElUpload } from 'element-plus'
@@ -37,8 +38,8 @@ import {
     CaretRight,
     RefreshLeft,
     RefreshRight,
-     Download,
-    UploadFilled,
+     Download,ArrowDown,
+    UploadFilled,CircleCheck, CirclePlus, Position, 
     Tools
 } from '@element-plus/icons-vue'
 
@@ -1089,12 +1090,97 @@ const downloadCsv = async () => {
     }
 }
 
+const downloadData = ref()
+const form_name =ref()
+const downloadFlattenedCsv = async () => {
+    projectListOptions.value = []
+    formListOptions.value = []
+    downloadingCsv.value = true
+
+    var formData = {}
+    formData.project = project.value
+    formData.form = form.value 
+    form_name.value=form.value  
+
+    var userToken = localStorage.getItem('collectorToken');
+
+    formData.token = userToken
+
+    console.log("Getting fields")
+
+    try {
+        const response = await getCollectorDataFlattened(formData);
+        console.log(response.data)
+        downloadData.value=response.data
+        DownloadXlsx()
+    } catch (error) {
+        // Handle any errors here
+        console.error(error);
+    } finally {
+        // Set downloadingCsv to false in the finally block
+        downloadingCsv.value = false;
+    }
+}
 
 const loading = ref(false)
 
 const disableGet=ref(true)
 
 const showMatching=ref(false)
+
+
+const DownloadXlsx = async () => {
+  console.log(downloadData.value)
+ 
+
+  const fields = [];
+    const keys =  Object.keys(downloadData.value[0]);  
+ 
+  for (const key of keys) {
+    fields.push({ label: key, value: key });
+  }
+ 
+
+
+
+  // Preprae the data object 
+  var dataObj = {}
+  dataObj.sheet = 'data'
+  dataObj.columns = fields
+ 
+  dataObj.content = downloadData.value
+
+
+
+
+  let settings = {
+    fileName: form_name.value, // Name of the resulting spreadsheet
+    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  }
+
+  // Enclose in array since the fucntion expects an array of sheets
+  xlsx([dataObj], settings) //  download the excel file
+
+}
+
+const handleCommand = (command: string | number | object) => {
+    ElMessage(`Downloading ${command}.  Please be patient. This may take a while` )
+
+    if (command=='raw') {
+        console.log(raw)
+        
+        downloadCsv()
+    } else if (command=='xlsx'){
+        downloadFlattenedCsv()
+    } else {
+
+        // geojson  remember to change 
+        downloadFlattenedCsv()
+    }
+
+
+}
 
 
 </script>
@@ -1106,7 +1192,7 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
 
 
         <el-row :gutter="10">
-            <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14">
 
 
                 <el-row :gutter="12">
@@ -1145,9 +1231,28 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                     <div style="display: inline-block; margin-left: 10px">
                         <el-button :disabled="disableGet" type="primary" @click="getCollector" :icon="RefreshRight" >Sync</el-button>
                       </div>
-                     <div style="display: inline-block; margin-left: 10px">
-                         <el-button  v-loading="downloadingCsv" :disabled="disableGet" type="primary" @click="downloadCsv" :icon="Download" >CSV</el-button>
-                     </div>
+                     <!-- <div style="display: inline-block; margin-left: 10px">
+                         <el-button  v-loading="downloadingCsv" :disabled="disableGet" type="primary" @click="downloadFlattenedCsv" :icon="Download" >XLSX</el-button>
+                 
+                        </div> -->
+                        <div style="display: inline-block; margin-left: 10px">
+
+                            <el-dropdown   v-loading="downloadingCsv"   @command="handleCommand" class="el-button    el-button--plain  ">
+                                <span class="el-dropdown-link">
+                                Download
+                                <el-icon class="el-icon--right">
+                                    <arrow-down />
+                                </el-icon>
+                                </span>
+                                <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item  command="raw" :icon="CirclePlus">Raw Data</el-dropdown-item>
+                                    <el-dropdown-item  command="xlsx" :icon="CircleCheck">XLSX</el-dropdown-item>
+                                    <el-dropdown-item  command="geojson" :icon="Position">GeoJSOn</el-dropdown-item>
+                                </el-dropdown-menu>
+                                </template>
+                            </el-dropdown>
+                        </div>
 
                     <div v-if="showChildParent" style="display: inline-block; margin-top: 20px">
                         <el-select v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Select data to import" style=" margin-right: 20px">
@@ -1178,7 +1283,7 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
 
 
             </el-col>
-            <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10">
                 <el-skeleton v-if="!showTable" :animated="processingLoading"  :rows="10" />
 
 
@@ -1323,3 +1428,28 @@ v-for="(option, index) in selectOptions" :key="index" :label="option.label"
 }
 </style>
  
+
+<style>
+.dropdown-button .el-dropdown-link {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 10px 20px; /* Adjust padding as needed */
+  border: 1px solid #409EFF; /* Button border color */
+  background-color: #409EFF; /* Button background color */
+  color: #fff; /* Button text color */
+  border-radius: 4px; /* Button border radius */
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+.dropdown-button .el-dropdown-link:hover {
+  background-color: #66b1ff; /* Button background color on hover */
+  border-color: #66b1ff; /* Button border color on hover */
+}
+
+.dropdown-button .el-icon-arrow-down {
+  margin-left: 5px; /* Adjust the arrow's position */
+}
+</style>
+ 
+

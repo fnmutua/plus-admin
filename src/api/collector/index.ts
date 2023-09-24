@@ -33,6 +33,12 @@ export const getCollectorDataCSV = (data)  => {
  });
 };
 
+export const getCollectorDataFlattened = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/project/flat',
+   data    
+ });
+};
 
  
 export const getCollectorProjects = ({ params }: AxiosConfig) => {
