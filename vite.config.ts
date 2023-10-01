@@ -115,7 +115,13 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
           drop_debugger: env.VITE_DROP_DEBUGGER === 'true',
           drop_console: env.VITE_DROP_CONSOLE === 'true'
         }
-      }
+      },
+      rollupOptions: {
+        external: ['@watergis/mapbox-gl-export'], // Add the external module here
+      },
+
+
+
     }, 
     server: {
       host: false,
