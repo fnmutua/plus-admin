@@ -116,9 +116,9 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
           drop_console: env.VITE_DROP_CONSOLE === 'true'
         }
       },
-      rollupOptions: {
-        external: ['@watergis/mapbox-gl-export'], // Add the external module here
-      },
+      // rollupOptions: {
+      //   external: ['@watergis/mapbox-gl-export'], // Add the external module here
+      // },
 
 
 
