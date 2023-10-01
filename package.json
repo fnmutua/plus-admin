@@ -38,7 +38,6 @@
     "@vueuse/core": "^9.1.1",
     "@wangeditor/editor": "^5.1.14",
     "@wangeditor/editor-for-vue": "^5.1.10",
-    "@watergis/mapbox-gl-export": "^2.0.1",
     "@zxcvbn-ts/core": "^2.0.4",
     "animate.css": "^4.1.1",
     "axios": "^0.27.2",
