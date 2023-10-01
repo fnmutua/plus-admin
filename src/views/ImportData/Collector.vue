@@ -8,7 +8,11 @@ import { getCountyListApi, getListWithoutGeo, getEntitiesByCode } from '@/api/co
 import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 import { postBatchHouseholds } from '@/api/households'
-import { getCollectorData, loginCollector,getCollectorDataCSV, getCollectorDataFlattened } from '@/api/collector'
+import {
+    getCollectorData, loginCollector,
+    getCollectorDataCSV, getWithMedia,
+    getCollectorDataFlattened,getGeoJSON,getRawCSV
+} from '@/api/collector'
 import { Icon } from '@iconify/vue';
  
 import axios from 'axios';
@@ -38,6 +42,7 @@ import {
     CaretRight,
     RefreshLeft,
     RefreshRight,
+    LocationFilled,Files,List,Document,CameraFilled,
      Download,ArrowDown,
     UploadFilled,CircleCheck, CirclePlus, Position, 
     Tools
@@ -1010,7 +1015,7 @@ const matchCollectedData = async (rows) => {
 
  const collectorData=ref([])
  const showChildParent =ref(false)
-const getCollector = async () => {
+const syncData = async () => {
     projectListOptions.value = []
     formListOptions.value = []
 
@@ -1051,6 +1056,10 @@ const getCollector = async () => {
 
 }
 
+
+ 
+
+
 const downloadingCsv=ref(false)
 const downloadCsv = async () => {
     projectListOptions.value = []
@@ -1090,9 +1099,54 @@ const downloadCsv = async () => {
     }
 }
 
+ 
+
+
+
+
+const getMedia = async () => {
+    projectListOptions.value = []
+    formListOptions.value = []
+    downloadingCsv.value = true
+
+    var formData = {}
+    formData.project = project.value
+    formData.form = form.value 
+
+    var userToken = localStorage.getItem('collectorToken');
+
+    formData.token = userToken
+
+    console.log("Getting fields")
+
+    try {
+        const response = await getWithMedia(formData);
+        const dataURI = `data:application/zip;base64,${response.data}`;
+
+        // Create a temporary anchor element
+        const anchor = document.createElement('a');
+        anchor.href = dataURI;
+        anchor.download = 'submissions.zip'; // Set the filename for the download
+
+        // Trigger a click event to initiate the download
+        anchor.click();
+
+        // Clean up the anchor element
+        document.body.removeChild(anchor);
+    } catch (error) {
+        // Handle any errors here
+        console.error(error);
+    } finally {
+        // Set downloadingCsv to false in the finally block
+        downloadingCsv.value = false;
+    }
+}
+
+
+
 const downloadData = ref()
 const form_name =ref()
-const downloadFlattenedCsv = async () => {
+const downloadFlattenedXLSX = async () => {
     projectListOptions.value = []
     formListOptions.value = []
     downloadingCsv.value = true
@@ -1121,6 +1175,62 @@ const downloadFlattenedCsv = async () => {
         downloadingCsv.value = false;
     }
 }
+
+
+const downloadGeoJSON = async () => {
+    projectListOptions.value = [];
+    formListOptions.value = [];
+    downloadingCsv.value = true;
+
+    var formData = {};
+    formData.project = project.value;
+    formData.form = form.value;
+    form_name.value = form.value;
+
+    var userToken = localStorage.getItem('collectorToken');
+    formData.token = userToken;
+
+    console.log("Getting fields");
+
+    try {
+        const response = await getGeoJSON(formData);
+        console.log(response.data);
+
+        // Create a Blob from the GeoJSON data
+        const geoJSONBlob = new Blob([JSON.stringify(response.data)], {
+            type: 'application/json'
+        });
+
+        // Create a temporary URL for the Blob
+        const dataURI = window.URL.createObjectURL(geoJSONBlob);
+
+        // Create a temporary anchor element
+        const anchor = document.createElement('a');
+        anchor.href = dataURI;
+        anchor.download = 'data.geojson'; // Set the filename for the download
+
+        // Trigger a click event to initiate the download
+        anchor.click();
+
+        // Clean up the anchor element and URL
+        document.body.removeChild(anchor);
+        window.URL.revokeObjectURL(dataURI);
+    } catch (error) {
+        // Handle any errors here
+        console.error(error);
+    } finally {
+        // Set downloadingCsv to false in the finally block
+        downloadingCsv.value = false;
+    }
+};
+
+
+
+
+
+
+ 
+
 
 const loading = ref(false)
 
@@ -1165,18 +1275,45 @@ const DownloadXlsx = async () => {
 }
 
 const handleCommand = (command: string | number | object) => {
-    ElMessage(`Downloading ${command}.  Please be patient. This may take a while` )
 
     if (command=='raw') {
-        console.log(raw)
-        
+               ElMessage(`Downloading ${command}.  Please be patient. This may take a while` )
+
         downloadCsv()
-    } else if (command=='xlsx'){
-        downloadFlattenedCsv()
-    } else {
+    } else if (command == 'xlsx') {
+        ElMessage(`Downloading ${command}.  Please be patient. This may take a while` )
+
+        downloadFlattenedXLSX()
+    } 
+
+    else if (command == 'geojson') {
+        ElMessage(`Downloading ${command}.  Please be patient. This may take a while` )
+
+        downloadGeoJSON()
+    } 
+
+    else if (command == 'sync') {
+        ElMessage(`Please wait as we fetch  and match with the database...` )
+
+        syncData()
+    } 
+
+    else if (command == 'media') {
+        ElMessage(`Downloading data inclusive of all attachments.  Please be patient. This may take a while` )
+
+        getMedia()
+    } 
+
+
+
+
+    
+
+
+    else {
 
         // geojson  remember to change 
-        downloadFlattenedCsv()
+        downloadFlattenedXLSX()
     }
 
 
@@ -1228,11 +1365,11 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                         <el-option v-for="item in filteredForms" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                    
-                    <div style="display: inline-block; margin-left: 10px">
-                        <el-button :disabled="disableGet" type="primary" @click="getCollector" :icon="RefreshRight" >Sync</el-button>
-                      </div>
+                    <!-- <div style="display: inline-block; margin-left: 10px">
+                        <el-button :disabled="disableGet" type="primary" @click="syncData" :icon="RefreshRight" >Sync</el-button>
+                      </div> -->
                      <!-- <div style="display: inline-block; margin-left: 10px">
-                         <el-button  v-loading="downloadingCsv" :disabled="disableGet" type="primary" @click="downloadFlattenedCsv" :icon="Download" >XLSX</el-button>
+                         <el-button  v-loading="downloadingCsv" :disabled="disableGet" type="primary" @click="downloadFlattenedXLSX" :icon="Download" >XLSX</el-button>
                  
                         </div> -->
                         <div style="display: inline-block; margin-left: 10px">
@@ -1246,9 +1383,11 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                                 </span>
                                 <template #dropdown>
                                 <el-dropdown-menu>
-                                    <el-dropdown-item  command="raw" :icon="CirclePlus">Raw Data</el-dropdown-item>
-                                    <el-dropdown-item  command="xlsx" :icon="CircleCheck">XLSX</el-dropdown-item>
-                                    <el-dropdown-item  command="geojson" :icon="Position">GeoJSOn</el-dropdown-item>
+                                    <el-dropdown-item  command="raw" :icon="Document">Raw Data</el-dropdown-item>
+                                    <el-dropdown-item  command="xlsx" :icon="List">XLSX</el-dropdown-item>
+                                    <el-dropdown-item  command="geojson" :icon="LocationFilled">GeoJSOn</el-dropdown-item>
+                                    <el-dropdown-item  command="media" :icon="CameraFilled">Attachments</el-dropdown-item>
+                                    <el-dropdown-item  command="sync" :icon="Refresh">Sync</el-dropdown-item>
                                 </el-dropdown-menu>
                                 </template>
                             </el-dropdown>

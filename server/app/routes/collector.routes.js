@@ -20,6 +20,9 @@ module.exports = function(app) {
   app.post("/api/v1/collector/project/flat",  controller.modelDataCollectorGetFlattened);
  
 
+  app.post("/api/v1/collector/project/geo",  controller.modelDataCollectorGetGeoJSON);
+  app.post("/api/v1/collector/project/media",  controller.modelDataCollectorCSVWithMedia);
+
   
 
 };
