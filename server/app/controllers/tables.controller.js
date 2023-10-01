@@ -3479,7 +3479,7 @@ async function updateSettlementDataInODK(settToUpdate) {
 
  
           const filteredEntity = entities.value.filter(item => item.code === targetCode);
-          console.log("filteredEntity",filteredEntity[0].__id )
+        //  console.log("filteredEntity",filteredEntity[0].__id )
 
           // Now we have the entity - Delete it from dataasets
          //   /projects/16/datasets/people/entities/54a405a0-53ce-4748-9788-d23a30cc3afa

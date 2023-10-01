@@ -263,6 +263,7 @@ const selectAdmin = ref()
 
 const settOptionsFiltered = ref([])
 const settlement_id = ref()
+const area_ha = ref(0)
 
 
 const onSelectCounty = (county_id) => {
@@ -286,6 +287,21 @@ const onSelectSubcounty = (subcounty_id) => {
 
 };
  
+const centroid =ref(37,1)
+
+const calculateArea = (geom) => {
+   // Calculate the area using Turf.js
+   const areaSquareMeters = turf.area(geom);
+
+// Convert square meters to hectares
+const areaHectares = areaSquareMeters / 10000;
+area_ha.value= areaHectares.toFixed(4)
+ 
+var centre = turf.centroid(geom);
+  centroid.value = centre.geometry.coordinates
+
+ };
+
 
 const onSelectWard = (ward_id) => {
 
@@ -374,6 +390,7 @@ onMounted(async () => {
         console.log(formData)
         newRecord.value = false
 
+        calculateArea(formData.geom)
         console.log("This is not a new record........")
 
 
@@ -545,8 +562,10 @@ const readJson = (event) => {
     geomScope.value = geom
     map.value.getSource("scope").setData(geomScope.value);
     bounds.value = turf.bbox((geomScope.value))
-    console.log("From geo", bounds.value)
-    map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 18 })
+    console.log("From geojson", geomScope.value)
+ 
+    calculateArea(geom)
+    //map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 18 })
 
      loadMap()
 
@@ -562,6 +581,7 @@ const readShp = async (file) => {
   readShapefileAndConvertToGeoJSON(file)
     .then((geojson) => {
 
+      console.log("Geo>", geojson)
       console.log("Geo>", geojson.length)
       console.log("Geo1>", geojson[0])
 
@@ -576,29 +596,30 @@ const readShp = async (file) => {
 
         var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
 
-        let geom = {
+        let geomX = {
           type: geojson[0].geometry.type,
           coordinates: geojson[0].geometry.coordinates,
-          crs: crs
-
+ 
         }
 
 
-        console.log('>>', geom)
-        formData.geom = geom
+        formData.geom = geomX
 
-        geomScope.value = geom
+        geomScope.value = geomX
         map.value.getSource("scope").setData(geomScope.value);
         bounds.value = turf.bbox((geomScope.value))
-        console.log("From shp", bounds.value)
-        map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 15 })
+        console.log("From SHP/KML", geomScope.value)
+        //map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 18 })
+        calculateArea(geomX)
+        loadMap()
+
       }
 
 
     })
     .catch((error) => {
       console.error(error)
-      ElMessage.error('Invalid shapefiles. Check your zipped file to contain (.shp, .dbf and .prj)')
+      ElMessage.error('Invalid files. Check your zipped file to contain (.shp, .dbf and .prj) or a proper kml/kmz')
 
 
     })
@@ -623,7 +644,7 @@ const handleUploadGeo = async (uploadFile) => {
     reader.onload = readJson
     reader.readAsText(rfile)
   }
-  else if (fileType === 'zip') {
+  else if (fileType === 'zip' ||fileType === 'kml' ||fileType === 'kmz'  ) {
     readShp(rfile)
 
     // reader.readAsArrayBuffer(rfile)
@@ -710,6 +731,26 @@ map.value = new mapboxgl.Map({
 
     formData.geom = feature.geometry
     console.log(formData)
+    calculateArea(feature.geometry)
+
+    console.log('centroid.value', centroid.value )
+
+    map.value.getSource('labels').setData({
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates:  centroid.value , // Update with the actual coordinates
+        },
+        properties: {
+          title: area_ha.value  + " Ha.", // Update with the desired label text (area)
+        },
+      },
+    ],
+  });
+
   }
 
 // listen for the draw.create event
@@ -744,6 +785,27 @@ map.value.on('draw.delete', function(event) {
   deletedFeatureIds.forEach(function(id) {
     map.value.removeLayer(id);
   });
+
+
+  map.value.getSource('labels').setData({
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates:  centroid.value , // Update with the actual coordinates
+        },
+        properties: {
+          title: '', // Update with the desired label text (area)
+        },
+      },
+    ],
+  });
+
+
+
+
 });
 
 map.value.on('mousemove', function (e) {
@@ -776,8 +838,56 @@ map.value.on('load', function () {
   map.value.addSource('scope', {
     type: 'geojson',
     //data: projectPoly.value
-    data: (geomScope.value),
+    data: geomScope.value,
   });
+
+
+
+
+  map.value.addLayer({
+  id: 'labels',
+  type: 'symbol',
+  source: {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates:  centroid.value, // Replace with initial coordinates
+          },
+          properties: {
+            title: area_ha.value + " Ha.", // Initialize with an empty string
+          },
+        },
+      ],
+    },
+  },
+  layout: {
+    'text-field': ['get', 'title'],
+    'text-size': 16,
+    'text-anchor': 'top',
+  },
+  paint: {
+    'text-color': '#FF0000', // Red text color
+    'text-halo-color': '#FFFFFF', // White halo color
+    'text-halo-width': 2, // Adjust the halo width as needed    
+  },
+
+  
+});
+
+
+
+
+
+
+
+
+
+
 
   
   // Edit only if not a new record 

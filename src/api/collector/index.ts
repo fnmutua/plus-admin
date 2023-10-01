@@ -44,6 +44,31 @@ export const getCollectorDataFlattened = (data)  => {
 export const getCollectorProjects = ({ params }: AxiosConfig) => {
   return request.get<{
 then(arg0: (response: { data: any }) => void): unknown
- 
-   }>({ url: prod + '/api/v1/collector/project', params })
+    }>({ url: prod + '/api/v1/collector/project', params })
 }
+
+
+
+export const getWithMedia = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/project/media',
+   data    
+ });
+};
+
+
+export const getGeoJSON= (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/project/geo',
+   data    
+ });
+};
+
+
+
+export const getRawCSV = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/project/raw',
+   data    
+ });
+};

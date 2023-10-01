@@ -83,18 +83,23 @@ service.interceptors.response.use(
     } else {
       console.log(response.data.message)
      // ElMessage.error(response.data.message)
-      if (response.data.message='Unauthorized'){
-        router.push({
-          path: '/login',
-          name: 'Login',
-         })
-      }
+     
     }
   },
   (error) => {
-    console.log('the Error-->', error.response.data    ); // Log the error message to the console for debugging
+    console.log('the Error-0->', error.response.data    ); // Log the error message to the console for debugging
     console.log(error.response.data.message); // Log any specific message from the response (if available)
   
+    if (error.response.data.message == 'Unauthorized!') {
+      
+      console.log("Unauth-Redirecting...")
+      router.push({
+        path: '/login',
+        name: 'Login',
+       })
+    }
+
+    
      ElMessage.error(error.response.data.message )   /// Revist Felix 
     return Promise.reject(error)
   }

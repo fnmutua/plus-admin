@@ -357,8 +357,139 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
   });
 }
 
+
+function createGeoJSONFeatures(dataArray) {
+  const features = [];
+
+  for (const data of dataArray) {
+      // Find the key containing the GeoJSON geometry dynamically
+      let geojsonGeometry = null;
+      for (const key in data) {
+          if (data[key] && data[key].type && data[key].coordinates) {
+              geojsonGeometry = data[key];
+              break;
+          }
+      }
+
+      if (geojsonGeometry) {
+          // Create a GeoJSON Feature object with the dynamic geometry
+          const geojsonFeature = {
+              type: "Feature",
+              geometry: geojsonGeometry,
+              properties: data
+          };
+          
+          features.push(geojsonFeature);
+      } else {
+          console.error("No valid GeoJSON geometry found in the data.");
+      }
+  }
+
+  // Create a GeoJSON FeatureCollection
+  const geojsonCollection = {
+      type: "FeatureCollection",
+      features: features
+  };
+
+  return geojsonCollection;
+}
  
-exports.modelDataCollectorCSV = (req, res) => {
+ 
+
+exports.modelDataCollectorGetGeoJSON= (req, res) => {
+  console.log('Body', req.body);
+
+  // Extract email and password from req.body
+  const { project, form, token } = req.body;
+ 
+
+  let projects
+  //https://private-anon-3f136944c0-odkcentral.apiary-mock.com/v1/projects/7/forms/simple.svc/Submissions
+  
+  let url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions?%24expand=*'
+  //https://collector.kesmis.go.ke/v1/projects/1/forms/grc_officials.svc/Submissions?%24expand=*
+
+  // Login and get a token 
+  request({
+    method: 'GET',
+    url: url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+
+    },
+  }, async function (error, response, body) {
+   
+
+    console.log('------>', error)
+
+    if (!error && response.statusCode === 200) {
+       
+      let objResults = JSON.parse(body)
+        console.log(objResults.value )
+      let objs = objResults.value
+
+      const  setlements =   await getEntities(token, project)
+
+
+     // console.log(setlements)
+
+     let subsetEntities=[]       
+      if (setlements) {
+           
+            // Select the properties you want
+            for (const sett of setlements.value) { 
+              const selectedProperties = {
+                settlement_id: sett.__id,
+                county_name: sett.county_name,
+                settlement_name: sett.sett_name,
+                settlement_code: sett.code,
+  
+                // Add more properties as needed
+              };
+             // console.log(sett)
+             // console.log(selectedProperties);
+              subsetEntities.push(selectedProperties)
+            }
+        
+          } else {
+            console.error('Error: Received empty or invalid dataset from API');
+          }
+
+     
+              // Call the function to create the GeoJSON Feature
+          const geojsonFeature = createGeoJSONFeatures(objs);
+
+          if (geojsonFeature) {
+              // Convert the GeoJSON object to a string if needed
+            const geojsonString = JSON.stringify(geojsonFeature);
+            console.log('geojsonString',geojsonString)
+
+              // You can use the `geojsonFeature` or `geojsonString` as needed in your application.
+          }
+   
+        res.status(200).send({
+          data: geojsonFeature,
+          code: '0000',
+          token: token // Include the token in the response
+        });
+ 
+
+
+ 
+    } else {
+      // Handle errors here
+      console.error('Error:', error);
+      res.status(500).send({
+        error: 'Internal Server Error'
+      });
+    }
+  });
+}
+
+
+
+ exports.modelDataCollectorCSV = (req, res) => {
   console.log('Body', req.body);
 
   // Extract email and password from req.body
@@ -393,7 +524,55 @@ exports.modelDataCollectorCSV = (req, res) => {
 
       res.status(200).json(responseData);
       
-    } else {
+    }
+    else {
+      // Handle errors here
+      console.error('Error:', error);
+      res.status(500).send({
+        error: 'Internal Server Error'
+      });
+    }
+  });
+};
+
+
+exports.modelDataCollectorCSVWithMedia = (req, res) => {
+  console.log('Body', req.body);
+
+  // Extract email and password from req.body
+  const { project, form, token } = req.body;
+
+  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip?attachments=true`;
+
+  // Login and get a token
+  request({
+    method: 'GET',
+    url: url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    encoding: null, // This option ensures that the response is treated as binary data
+  }, function (error, response, body) {
+    if (!error && response.statusCode === 200) {
+      const filename = 'submissions.csv.zip';
+
+      // Set the response headers for a zip file
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+      // Send the binary data as the response
+      //res.status(200).send(body);
+      const responseData = {
+        message: 'Data acquired Successfully',
+        code: '0000',
+        data: body.toString('base64'), // Convert binary data to base64
+      };
+
+      res.status(200).json(responseData);
+      
+    }
+    else {
       // Handle errors here
       console.error('Error:', error);
       res.status(500).send({
