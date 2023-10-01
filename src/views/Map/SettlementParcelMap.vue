@@ -30,9 +30,12 @@ import axios from 'axios';
 
 import { Icon } from '@iconify/vue';
 
-import { MapboxExportControl, Size, PageOrientation, Format, DPI} from "@watergis/mapbox-gl-export";
-import '@watergis/mapbox-gl-export/css/styles.css';
+// import { MapboxExportControl, Size, PageOrientation, Format, DPI} from "@/watergis/mapbox-gl-export";
+// import '@watergis/mapbox-gl-export/css/styles.css';
  
+
+ 
+
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw'
 mapboxgl.accessToken = MapBoxToken;
@@ -603,14 +606,16 @@ const loadMap = async () => {
     const nav = new mapboxgl.NavigationControl();
     nmap.value.addControl(nav, "top-right");
 
-    nmap.value.addControl(new MapboxExportControl({
-    PageSize: Size.A3,
-    PageOrientation: PageOrientation.Portrait,
-    Format: Format.PNG,
-    DPI: DPI[96],
-    Crosshair: true,
-    PrintableArea: true
-}), 'top-right');
+     /// to fix later 
+
+      //     nmap.value.addControl(new MapboxExportControl({
+      //     PageSize: Size.A3,
+      //     PageOrientation: PageOrientation.Portrait,
+      //     Format: Format.PNG,
+      //     DPI: DPI[96],
+      //     Crosshair: true,
+      //     PrintableArea: true
+      // }), 'top-right');
 
 
   })
