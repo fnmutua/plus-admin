@@ -168,6 +168,8 @@ const getAll = async () => {
     facilityGeoLines.value = lines
     facilityGeoPolygons.value = polygons
 
+    console.log("facilityGeoPolygons",facilityGeoPolygons.value)
+
     // Now check if there are any drone images
 
   }
@@ -368,11 +370,17 @@ const loadMap = async () => {
       }
     });
 
+
+
+
+
+
     // Load facility data here
     for (let prop in facilityData.value) {
       //console.log(prop, facilityData.value[prop].features[0].geometry.type);
       facilityLayers.value.push(prop)
       filteredLayers.value.push(prop)
+
       nmap.value.addSource(prop, {
         type: 'geojson',
         data: facilityData.value[prop],
@@ -491,7 +499,24 @@ const loadMap = async () => {
       }
     });
 
- 
+    nmap.value.addLayer({
+        'id': 'AreaLabels',
+        'type': 'symbol',
+        'source': 'polygons',
+        'layout': {
+          'text-field': [
+            'concat',
+            ['to-string', ['get', 'area']],
+            ' Ha.' // Add ' ha' after the area value
+          ],
+          'text-size': 14,
+          'text-offset': [0, 1]
+        },
+        'paint': {
+          'text-color': 'red'
+        }
+      });
+
 
 
     nmap.value.addLayer({
@@ -510,6 +535,7 @@ const loadMap = async () => {
 
 
      
+
 
 
 
