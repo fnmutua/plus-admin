@@ -1243,12 +1243,29 @@ const DownloadXlsx = async () => {
   console.log(downloadData.value)
  
 
-  const fields = [];
-    const keys =  Object.keys(downloadData.value[0]);  
+//   const fields = [];
+//     const keys =  Object.keys(downloadData.value[0]);  
  
-  for (const key of keys) {
-    fields.push({ label: key, value: key });
+//   for (const key of keys) {
+//     fields.push({ label: key, value: key });
+//   }
+
+
+  const fields = [];
+  
+  // Iterate through all records in downloadData.value
+  for (const record of downloadData.value) {
+    const keys = Object.keys(record);
+    
+    // Iterate through the keys of each record and add them to the fields array
+    for (const key of keys) {
+      fields.push({ label: key, value: key });
+    }
   }
+  
+  // Now, fields will contain properties from all records
+  console.log(fields);
+
  
 
 

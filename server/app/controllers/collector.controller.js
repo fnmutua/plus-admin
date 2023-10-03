@@ -181,25 +181,30 @@ async function removeDot(item) {
         
         if (Array.isArray(current[key])) {
           if (current[key].length > 0 && typeof current[key][0] === 'object') {
-            //console.log('KEY', current[key])
-            hasChildren=true
+            // console.log('KEY', current[key],current[key].length )
+            hasChildren = true
+           // let tmp = []
             // If it's an array of objects, get child details and append as a new outer object
             current[key].forEach(async (item) => {
               const nestedResult = { ...result }; // Copy the parent object
               recurse(item, newKey); // Recurse into the nested object
-              const res = await removeDot(nestedResult) 
-             console.log('-----')
+              const res = await removeDot(result) 
+             console.log('-----', res )
               tmp.push(res); // Add the flattened object to the result array
             });
+
           }
           else {
             // If it's an array of primitive values, add it to the result object
             result[newKey] = current[key];
           }
-        } else if (typeof current[key] === 'object' && current[key] !== null) {
+        }
+        else if (typeof current[key] === 'object' && current[key] !== null) {
           await recurse(current[key], newKey);
-        } else {
+        }
+        else {
           result[newKey] = current[key];
+          //console.log("XXX--XXX_--")
           //console.log(result[newKey] )
         }
       }
@@ -209,17 +214,79 @@ async function removeDot(item) {
     if (hasChildren) {
         
         
-      // remove the first array thats before the children 
-      flattenedArray.push(...tmp.slice(0));
+      // remove the first array thats before the children
+      //console.log(tmp.slice(1))
+     flattenedArray.push(...tmp);
 
     } else {
-    //  flattenedArray.push(result);
     }
 
   }
 
   return flattenedArray;
 }
+
+// async function flattenArray(arr) {
+//   let flattenedArray = [];
+
+//   for (const obj of arr) {
+//     let result = {};
+//     let hasChildren = false;
+//     let tmp = [];
+
+//     async function recurse(current, parentKey = '') {
+//       for (const key in current) {
+//         const newKey = parentKey ? `${parentKey}.${key}` : key;
+
+//         if (Array.isArray(current[key])) {
+//           if (current[key].length > 0 && typeof current[key][0] === 'object') {
+//             hasChildren = true;
+//             // Create an array of promises for the child processing
+//             const childPromises = current[key].map(async (item) => {
+//               const nestedResult = { ...result }; // Copy the parent object
+//               await recurse(item, newKey); // Recurse into the nested object
+//               const res = await removeDot(nestedResult);
+//               console.log(result)
+//              // console.log(res)
+//               return res;
+//             });
+
+//             // Wait for all promises to resolve
+//             const childResults = await Promise.all(childPromises);
+//             tmp.push(...childResults); // Add the flattened objects to the result array
+//           } else {
+//             // If it's an array of primitive values, add it to the result object
+//             result[newKey] = current[key];
+//            // const res = await removeDot(result);
+//             //console.log('last one......', res)
+            
+//           }
+//         }
+
+//         else if (typeof current[key] === 'object' && current[key] !== null) {
+//           await recurse(current[key], newKey);
+//         }
+//         else {
+//           result[newKey] = current[key];
+         
+          
+//         }
+//       }
+//     }
+
+//     await recurse(obj);
+//     if (hasChildren) {
+//       flattenedArray.push(...tmp);
+//     } else {
+//       flattenedArray.push(result);
+//     }
+//   }
+
+//   return flattenedArray;
+// }
+
+ 
+
 
 
 async function getEntities(token, project) {
