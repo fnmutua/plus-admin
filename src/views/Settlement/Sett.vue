@@ -1294,56 +1294,74 @@ const DownloadXlsx = async () => {
 
  } 
 
- const DownloadAllXlsx = async () => {
-  
-  flattenedData.value=[]
-
- await getListWithoutGeo({
-    params: {
-   //   pageIndex: 1,
-    //  limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      associated_multiple_models:['county', 'subcounty', 'ward'],
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    // console.log('Received response:', response)
-    //tableDataList.value = response.data
-           
-          response.data.forEach(function (arrayItem) {
-          var dd = flattenJSON(arrayItem)
-
-          flattenedData.value.push(dd)
-          console.log(dd)
-        })
-
-   
-  })
-  
- 
  
 
-   showSelectFields.value = true
 
- } 
+ const getFilteredDownloadData = async (selFilters, selfilterValues) => {
+ 
+   const formData = {}
+  // formData.limit = 100
+  // formData.page = page.value
+  // formData.curUser = 1 // Id for logged in user
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = selFilters
+  formData.filterValues = selfilterValues
+  formData.associated_multiple_models = associated_multiple_models
+  formData.nested_models = nested_models
 
 
+  //-------------------------
+  console.log('FormSubmitted', formData)
+  const res = await getSettlementListByCounty(formData)
+ // const res = await getListWithoutGeo(formData)
+  
+  console.log('After Querry - associated_multiple_models', res)
+ return res.data
+ 
 
 
+}
 
 const handleDownloadSelectFields = async () => {
    console.log('selectedFields ---', selectedFields.value)
 
-  if (selectedFields.value.length < 1) {
+   let dataToDownload =[]
+
+   if (selectedFields.value.length < 1) {
     ElMessage.warning('Specify the fields you want on the exported file')
     return 
     
    }
+  if (filters.value.length>2 && filterValues.value.length>1) {
+    console.log(filters.value)
+      console.log('get all filtered data ')
 
- 
+    const downData =  await getFilteredDownloadData(filters.value,filterValues.value)
+    console.log('downData ', downData)
+
+    downData.forEach(function (arrayItem) {
+        var dd = flattenJSON(arrayItem)
+       dataToDownload.push(dd)
+    })
+  
+
+       }
+  else {
+    dataToDownload.push(...flattenedData.value)
+
+     }
+
+
+     console.log('dataToDownload ---', flattenedData.value)
+
 
   let fields =[]
 
@@ -1367,7 +1385,7 @@ const handleDownloadSelectFields = async () => {
   let dataHolder = []
   // loop through the table data and sort the data 
   // change here !
-  for (let i = 0; i < flattenedData.value.length; i++) {
+  for (let i = 0; i < dataToDownload.length; i++) {
     let thisRecord = {}
 
  //   console.log('flattened ??',i,  flattenedData.value[i])
@@ -1376,21 +1394,13 @@ const handleDownloadSelectFields = async () => {
 
     for (let j = 0; j < fields.length; j++) {
       var fld = fields[j].label
-      thisRecord[fld] = flattenedData.value[i][fld]
+      thisRecord[fld] = dataToDownload[i][fld]
 
-      console.log('fld',thisRecord)
+     // console.log('fld',thisRecord)
 
 
     }
-    // thisRecord.name = tableDataList.value[i].name
-    // thisRecord.county = tableDataList.value[i].county.name
-    // thisRecord.population = tableDataList.value[i].population
-    // thisRecord.area = tableDataList.value[i].area
-    // thisRecord.description = tableDataList.value[i].description
-    // thisRecord.code = tableDataList.value[i].code
-    // thisRecord.CountyID = tableDataList.value[i].county_id
-    // thisRecord.SubcountyID = tableDataList.value[i].subcounty ? tableDataList.value[i].subcounty.id : null;
-
+  
 
     dataHolder.push(thisRecord)
   }
