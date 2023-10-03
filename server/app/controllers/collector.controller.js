@@ -210,7 +210,7 @@ async function removeDot(item) {
         
         
       // remove the first array thats before the children 
-      flattenedArray.push(...tmp.slice(1));
+      flattenedArray.push(...tmp.slice(0));
 
     } else {
     //  flattenedArray.push(result);
@@ -266,6 +266,8 @@ function mergeObjectsByKeys(arr1, arr2, key1, key2) {
   return mergedArray;
 }
 
+
+
 exports.modelDataCollectorGetFlattened = (req, res) => {
   console.log('Body', req.body);
 
@@ -277,6 +279,7 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
   //https://private-anon-3f136944c0-odkcentral.apiary-mock.com/v1/projects/7/forms/simple.svc/Submissions
   
   let url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions?%24expand=*'
+  let xurl = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions'
   //https://collector.kesmis.go.ke/v1/projects/1/forms/grc_officials.svc/Submissions?%24expand=*
 
   // Login and get a token 
@@ -329,17 +332,18 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
       
      // join the enties to form data 
       
-          const flattenedObject = await flattenArray(objs);
+         const flattenedObject = await flattenArray(objs);
          
       
       // Call the function to merge arrays of objects based on a common key
-    const mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode',  'settlement_code' );
+     const mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode',  'settlement_code' );
       
           // Print the merged array1
          // console.log(mergedArray);
    
         res.status(200).send({
           data: mergedArray,
+          //data: objs,
           code: '0000',
           token: token // Include the token in the response
         });
@@ -403,12 +407,9 @@ exports.modelDataCollectorGetGeoJSON= (req, res) => {
   const { project, form, token } = req.body;
  
 
-  let projects
-  //https://private-anon-3f136944c0-odkcentral.apiary-mock.com/v1/projects/7/forms/simple.svc/Submissions
-  
+    
   let url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions?%24expand=*'
-  //https://collector.kesmis.go.ke/v1/projects/1/forms/grc_officials.svc/Submissions?%24expand=*
-
+ 
   // Login and get a token 
   request({
     method: 'GET',
