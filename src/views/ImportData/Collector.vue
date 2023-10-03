@@ -1164,7 +1164,7 @@ const downloadFlattenedXLSX = async () => {
 
     try {
         const response = await getCollectorDataFlattened(formData);
-        console.log(response.data)
+        console.log("flatData", response.data)
         downloadData.value=response.data
         DownloadXlsx()
     } catch (error) {
