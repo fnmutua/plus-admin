@@ -189,7 +189,7 @@ async function removeDot(item) {
               const nestedResult = { ...result }; // Copy the parent object
               recurse(item, newKey); // Recurse into the nested object
               const res = await removeDot(result) 
-             console.log('-----', res )
+            // console.log('-----', res )
               tmp.push(res); // Add the flattened object to the result array
             });
 
