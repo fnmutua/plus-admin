@@ -401,8 +401,8 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
          const flattenedObject = await flattenArray(objs);
          
       
-        // Call the function to merge arrays of objects based on a common key
-          const mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode',  'settlement_code' );
+      // Call the function to merge arrays of objects based on a common key
+      const mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode',  'settlement_code' );
       
           // Print the merged array1
          // console.log(mergedArray);
@@ -536,9 +536,7 @@ exports.modelDataCollectorGetGeoJSON= (req, res) => {
           }
    
         res.status(200).send({
-        data: geojsonFeature,
-        //  data: objs,
-         
+          data: geojsonFeature,
           code: '0000',
           token: token // Include the token in the response
         });
