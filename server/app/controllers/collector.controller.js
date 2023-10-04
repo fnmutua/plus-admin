@@ -346,7 +346,6 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
   //https://private-anon-3f136944c0-odkcentral.apiary-mock.com/v1/projects/7/forms/simple.svc/Submissions
   
   let url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions?%24expand=*'
-  let xurl = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions'
   //https://collector.kesmis.go.ke/v1/projects/1/forms/grc_officials.svc/Submissions?%24expand=*
 
   // Login and get a token 
@@ -402,8 +401,8 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
          const flattenedObject = await flattenArray(objs);
          
       
-      // Call the function to merge arrays of objects based on a common key
-     const mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode',  'settlement_code' );
+        // Call the function to merge arrays of objects based on a common key
+          const mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode',  'settlement_code' );
       
           // Print the merged array1
          // console.log(mergedArray);
@@ -537,7 +536,9 @@ exports.modelDataCollectorGetGeoJSON= (req, res) => {
           }
    
         res.status(200).send({
-          data: geojsonFeature,
+        data: geojsonFeature,
+        //  data: objs,
+         
           code: '0000',
           token: token // Include the token in the response
         });
