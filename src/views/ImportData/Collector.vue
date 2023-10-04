@@ -260,17 +260,17 @@ const handleSelectProject = async (project: any) => {
     filteredForms.value = formListOptions.value.filter((obj) => obj.projectId == project);
 
 }
-const disableXLSX= ref(false)
+const disableDownloadOption= ref(false)
 
 const handleSelectForm= async (form: any) => {
     console.log(form)
     disableGet.value = false
-    if (form=='infrastructure_prioritization') {
-        disableXLSX.value = true
+    if (form=='infrastructure_prioritization' || form == 'County Project Coordinating Teams (CPCT) Data'  ) {
+        disableDownloadOption.value = true
         console.log("add disabled")
 
     } else {
-        disableXLSX.value = false
+        disableDownloadOption.value = false
         console.log("remove disabled")
     }
     
@@ -1154,6 +1154,8 @@ const getMedia = async () => {
 
 
 
+
+
 const downloadData = ref()
 const form_name =ref()
 const downloadFlattenedXLSX = async () => {
@@ -1411,10 +1413,10 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                                 <template #dropdown>
                                 <el-dropdown-menu>
                                     <el-dropdown-item  command="raw" :icon="Document">Raw Data</el-dropdown-item>
-                                    <el-dropdown-item  command="xlsx" :disabled="disableXLSX" :icon="List">XLSX</el-dropdown-item>
-                                    <el-dropdown-item  command="geojson"   :icon="LocationFilled">GeoJSOn</el-dropdown-item>
-                                    <el-dropdown-item  command="media" :icon="CameraFilled">Attachments</el-dropdown-item>
-                                    <el-dropdown-item  command="sync" :icon="Refresh">Sync</el-dropdown-item>
+                                    <el-dropdown-item  command="xlsx" :disabled="disableDownloadOption" :icon="List">XLSX</el-dropdown-item>
+                                    <el-dropdown-item  command="geojson" disabled  :icon="LocationFilled">GeoJSOn</el-dropdown-item>
+                                    <el-dropdown-item  command="media" disabled :icon="CameraFilled">Attachments</el-dropdown-item>
+                                    <el-dropdown-item  command="sync" :disabled="disableDownloadOption"  :icon="Refresh">Sync</el-dropdown-item>
                                 </el-dropdown-menu>
                                 </template>
                             </el-dropdown>
