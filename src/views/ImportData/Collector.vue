@@ -260,10 +260,20 @@ const handleSelectProject = async (project: any) => {
     filteredForms.value = formListOptions.value.filter((obj) => obj.projectId == project);
 
 }
+const disableXLSX= ref(false)
 
 const handleSelectForm= async (form: any) => {
     console.log(form)
-    disableGet.value=false
+    disableGet.value = false
+    if (form=='infrastructure_prioritization') {
+        disableXLSX.value = true
+        console.log("add disabled")
+
+    } else {
+        disableXLSX.value = false
+        console.log("remove disabled")
+    }
+    
 }
 
 
@@ -1401,8 +1411,8 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                                 <template #dropdown>
                                 <el-dropdown-menu>
                                     <el-dropdown-item  command="raw" :icon="Document">Raw Data</el-dropdown-item>
-                                    <el-dropdown-item  command="xlsx" :icon="List">XLSX</el-dropdown-item>
-                                    <el-dropdown-item  command="geojson" :icon="LocationFilled">GeoJSOn</el-dropdown-item>
+                                    <el-dropdown-item  command="xlsx" :disabled="disableXLSX" :icon="List">XLSX</el-dropdown-item>
+                                    <el-dropdown-item  command="geojson"   :icon="LocationFilled">GeoJSOn</el-dropdown-item>
                                     <el-dropdown-item  command="media" :icon="CameraFilled">Attachments</el-dropdown-item>
                                     <el-dropdown-item  command="sync" :icon="Refresh">Sync</el-dropdown-item>
                                 </el-dropdown-menu>
