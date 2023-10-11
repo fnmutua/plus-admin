@@ -72,3 +72,11 @@ export const getRawCSV = (data)  => {
    data    
  });
 };
+
+
+export const getSubmitters = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/project/submitter',
+   data    
+ });
+};

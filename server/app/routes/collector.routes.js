@@ -17,7 +17,10 @@ module.exports = function(app) {
  
   app.post("/api/v1/collector/project/data", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelDataCollector);
   app.post("/api/v1/collector/project/csv", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelDataCollectorCSV);
-  app.post("/api/v1/collector/project/flat",  controller.modelDataCollectorGetFlattened);
+  app.post("/api/v1/collector/project/flat", controller.modelDataCollectorGetFlattened);
+  
+  app.post("/api/v1/collector/project/submitter", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelGetSubmitters);
+ 
  
 
   app.post("/api/v1/collector/project/geo",  controller.modelDataCollectorGetGeoJSON);
