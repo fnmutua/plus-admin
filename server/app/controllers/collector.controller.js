@@ -94,6 +94,40 @@ exports.modelLoginCollector = (req, res) => {
 }
 
 
+exports.modelGetSubmitters = (req, res) => {
+  console.log('Body', req.body);
+
+  // Extract email and password from req.body
+  const { form, token } = req.body;
+
+  
+   let submitters
+       // Set up the options for the HTTP request, including the 'Authorization' header
+       const requestOptions = {
+        url: 'https://collector.kesmis.go.ke/v1/projects/1/forms/'+form+'/submissions/submitters',
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      };
+
+    //https://collector.kesmis.go.ke/v1/projects/1/forms/{form_name}/submissions/submitters
+  
+      // Send the HTTP request
+      request(requestOptions, function (error, response, body) {
+        submitters = body;
+        console.log(submitters)
+        res.status(200).send({
+          data: submitters,
+          code: '0000',
+          token: token // Include the token in the response
+        });
+
+      });
+  
+  
+}
+
 
 exports.modelDataCollector = (req, res) => {
   console.log('Body', req.body);
@@ -339,15 +373,23 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
   console.log('Body', req.body);
 
   // Extract email and password from req.body
-  const { project, form, token } = req.body;
+  const { project, form, token, submitter_filter } = req.body;
  
 
-  let projects
-  //https://private-anon-3f136944c0-odkcentral.apiary-mock.com/v1/projects/7/forms/simple.svc/Submissions
-  
-  let url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions?%24expand=*'
-  //https://collector.kesmis.go.ke/v1/projects/1/forms/grc_officials.svc/Submissions?%24expand=*
+  let url
+  if (submitter_filter != 0) {
+ 
+     url = 'https://collector.kesmis.go.ke/v1/projects/'+project+'/forms/'+form+'.svc/Submissions?$expand=*&$filter=(__system%2FsubmitterId eq '+submitter_filter+')'
 
+   }
+   else {
+      url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions?%24expand=*'
+
+  }
+   
+  console.log(url)
+
+ 
   // Login and get a token 
   request({
     method: 'GET',
@@ -365,7 +407,7 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
     if (!error && response.statusCode === 200) {
        
       let objResults = JSON.parse(body)
-        console.log(objResults.value[1])
+        console.log(objResults.value)
       let objs = objResults.value
 
       const  setlements =   await getEntities(token, project)
@@ -560,10 +602,25 @@ exports.modelDataCollectorGetGeoJSON= (req, res) => {
   console.log('Body', req.body);
 
   // Extract email and password from req.body
-  const { project, form, token } = req.body;
+  const { project, form, token,submitter_filter } = req.body;
 
-  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip?attachments=false`;
+  //let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip?attachments=false`;
 
+   
+  let url 
+  if (submitter_filter != 0) { 
+    //url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip?attachments=true`;
+    url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip?attachments=true&%24filter=(__system%2FsubmitterId eq ${submitter_filter})`;
+
+  }
+  else {
+    url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip?attachments=false`;
+
+
+   }
+   console.log(url)
+
+   
   // Login and get a token
   request({
     method: 'GET',
@@ -607,9 +664,20 @@ exports.modelDataCollectorCSVWithMedia = (req, res) => {
   console.log('Body', req.body);
 
   // Extract email and password from req.body
-  const { project, form, token } = req.body;
+  const { project, form, token, submitter_filter } = req.body;
 
-  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip?attachments=true`;
+  let url 
+  if (submitter_filter != 0) { 
+    //url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip?attachments=true`;
+    url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip?attachments=true&%24filter=(__system%2FsubmitterId eq 1)`;
+
+  }
+  else {
+    url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions.csv.zip?attachments=true`;
+
+
+  }
+
 
   // Login and get a token
   request({

@@ -11,7 +11,7 @@ import { postBatchHouseholds } from '@/api/households'
 import {
     getCollectorData, loginCollector,
     getCollectorDataCSV, getWithMedia,
-    getCollectorDataFlattened,getGeoJSON,getRawCSV
+    getCollectorDataFlattened,getGeoJSON,getRawCSV, getSubmitters
 } from '@/api/collector'
 import { Icon } from '@iconify/vue';
  
@@ -264,6 +264,9 @@ const disableDownloadOption= ref(false)
 
 const handleSelectForm= async (form: any) => {
     console.log(form)
+    submitter_filter.value=0   // initialize fileter to all 
+
+   await  submitterList()
     disableGet.value = false
     if (form=='infrastructure_prioritization' || form == 'County Project Coordinating Teams (CPCT) Data'  ) {
         disableDownloadOption.value = true
@@ -1079,6 +1082,7 @@ const downloadCsv = async () => {
     var formData = {}
     formData.project = project.value
     formData.form = form.value 
+    formData.submitter_filter = submitter_filter.value 
 
     var userToken = localStorage.getItem('collectorToken');
 
@@ -1157,7 +1161,8 @@ const getMedia = async () => {
 
 
 const downloadData = ref()
-const form_name =ref()
+const form_name = ref()
+
 const downloadFlattenedXLSX = async () => {
     projectListOptions.value = []
     formListOptions.value = []
@@ -1166,6 +1171,7 @@ const downloadFlattenedXLSX = async () => {
     var formData = {}
     formData.project = project.value
     formData.form = form.value 
+    formData.submitter_filter = submitter_filter.value 
     form_name.value=form.value  
 
     var userToken = localStorage.getItem('collectorToken');
@@ -1237,8 +1243,47 @@ const downloadGeoJSON = async () => {
 };
 
 
+const submitterOptions = ref([])
+const submitter_filter = ref()
 
+const submitterList = async () => {
+    submitterOptions.value=[]
+     let all = {value:0, label:"All"}
+     submitterOptions.value.push(all)
+    projectListOptions.value = [];
+    
 
+    var formData = {};
+    formData.form = form.value;
+    form_name.value = form.value;
+
+    var userToken = localStorage.getItem('collectorToken');
+    formData.token = userToken;
+
+    console.log("Getting fields");
+
+    try {
+        const response = await getSubmitters(formData);
+        console.log(response.data);
+        const ret = JSON.parse(response.data)
+        
+        ret.forEach(function (arrayItem) {
+            const opt ={}
+                opt.value = arrayItem.id
+                opt.label = arrayItem.displayName  
+                 console.log(opt)
+                submitterOptions.value.push(opt)
+                })
+
+      
+    } catch (error) {
+        // Handle any errors here
+        console.error(error);
+    } finally {
+        // Set downloadingCsv to false in the finally block
+        console.log(".....")
+     }
+};
 
 
  
@@ -1358,7 +1403,7 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
 
 
         <el-row :gutter="10">
-            <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14">
+            <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
 
 
                 <el-row :gutter="12">
@@ -1401,8 +1446,15 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                          <el-button  v-loading="downloadingCsv" :disabled="disableGet" type="primary" @click="downloadFlattenedXLSX" :icon="Download" >XLSX</el-button>
                  
                         </div> -->
-                        <div style="display: inline-block; margin-left: 10px">
+                        <div style="display: inline-block; margin-top: 20px; margin-left: 10px">
 
+                        <el-select v-model="submitter_filter"  placeholder="Filter by Submitter">
+                        <el-option v-for="item in submitterOptions" :key="item.value" :label="item.label" :value="item.value" />
+                        </el-select>
+                        </div>
+
+
+                        <div style="display: inline-block; margin-left: 10px">
                             <el-dropdown   v-loading="downloadingCsv"   @command="handleCommand" class="el-button    el-button--plain  ">
                                 <span class="el-dropdown-link">
                                 Download
@@ -1421,6 +1473,7 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                                 </template>
                             </el-dropdown>
                         </div>
+                    
 
                     <div v-if="showChildParent" style="display: inline-block; margin-top: 20px">
                         <el-select v-model="type" :onChange="handleSelectType" filterable clearable placeholder="Select data to import" style=" margin-right: 20px">
@@ -1451,7 +1504,7 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
 
 
             </el-col>
-            <el-col :xs="24" :sm="24" :md="10" :lg="10" :xl="10">
+            <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
                 <el-skeleton v-if="!showTable" :animated="processingLoading"  :rows="10" />
 
 
