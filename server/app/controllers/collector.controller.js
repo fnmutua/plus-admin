@@ -7,6 +7,7 @@ const Sequelize = require('sequelize')
  const op = Sequelize.Op
  var request = require('request');
 
+ const { XMLParser } = require('fast-xml-parser');
  
  
  
@@ -201,6 +202,39 @@ async function removeDot(item) {
   return modifiedItem
 }
 
+
+function hasNavigationProperty(xmlString) {
+  // Parse the XML string
+  const options = {
+    attributeNamePrefix: '@_',
+    ignoreAttributes: false,
+  };
+  const parser = new XMLParser();
+
+ 
+  const jsonObj = parser.parse(xmlString, options);
+   
+ 
+
+  
+  try {
+  
+    jsonObj['edmx:Edmx']['edmx:DataServices'].Schema[1].EntityType[0].NavigationProperty
+    console.log("In")
+    return true;
+    
+  } catch (error) {
+    console.log("OUT")
+      // Handle the TypeError (e.g., log an error message)
+       return false;
+   
+  }
+ 
+}
+
+ 
+
+
  async function flattenArray(arr) {
   let flattenedArray = [];
 
@@ -260,66 +294,41 @@ async function removeDot(item) {
   return flattenedArray;
 }
 
-// async function flattenArray(arr) {
-//   let flattenedArray = [];
+ 
+ 
+ 
+function flattenPlainArray(arr) {
+  const flattenedData = [];
 
-//   for (const obj of arr) {
-//     let result = {};
-//     let hasChildren = false;
-//     let tmp = [];
+  for (const obj of arr) {
+    const processedObj = flattenPlain(obj);
+    flattenedData.push(processedObj);
+  }
 
-//     async function recurse(current, parentKey = '') {
-//       for (const key in current) {
-//         const newKey = parentKey ? `${parentKey}.${key}` : key;
+  return flattenedData;
+}
 
-//         if (Array.isArray(current[key])) {
-//           if (current[key].length > 0 && typeof current[key][0] === 'object') {
-//             hasChildren = true;
-//             // Create an array of promises for the child processing
-//             const childPromises = current[key].map(async (item) => {
-//               const nestedResult = { ...result }; // Copy the parent object
-//               await recurse(item, newKey); // Recurse into the nested object
-//               const res = await removeDot(nestedResult);
-//               console.log(result)
-//              // console.log(res)
-//               return res;
-//             });
+function flattenPlain(obj, parentKey = '') {
 
-//             // Wait for all promises to resolve
-//             const childResults = await Promise.all(childPromises);
-//             tmp.push(...childResults); // Add the flattened objects to the result array
-//           } else {
-//             // If it's an array of primitive values, add it to the result object
-//             result[newKey] = current[key];
-//            // const res = await removeDot(result);
-//             //console.log('last one......', res)
-            
-//           }
-//         }
+  let result = {};
 
-//         else if (typeof current[key] === 'object' && current[key] !== null) {
-//           await recurse(current[key], newKey);
-//         }
-//         else {
-//           result[newKey] = current[key];
-         
-          
-//         }
-//       }
-//     }
+  for (const key in obj) {
+    if (obj[key] !== null && typeof obj[key] === 'object') {
+      const flattened = flattenPlain(obj[key], parentKey ? `${parentKey}_${key}` : key);
+      result = { ...result, ...flattened };
+    } else {
+     // result[parentKey ? `${parentKey}_${key}` : key] = obj[key];
+      result[ key] = obj[key];
+    }
+  }
 
-//     await recurse(obj);
-//     if (hasChildren) {
-//       flattenedArray.push(...tmp);
-//     } else {
-//       flattenedArray.push(result);
-//     }
-//   }
+  return result;
+}
 
-//   return flattenedArray;
-// }
+
 
  
+
 
 
 
@@ -348,7 +357,40 @@ async function getEntities(token, project) {
     });
   });
 }
+
+
+
+async function checkifhasRepeats(token,project,  form) {
+  return new Promise((resolve, reject) => {
+    //const url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/datasets/settlements.svc/Entities';
+     const url = 'https://collector.kesmis.go.ke/v1/projects/'+project+ '/forms/'+form+'.svc/$metadata'
+
+
+    request({
+      method: 'GET',
+      url: url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    }, (error, response, body) => {
+      if (error) {
+        reject(error);
+      } else if (response.statusCode === 200) {
+        const dataset = body;
+
+        resolve(dataset);
  
+         
+
+         
+
+      } else {
+        reject(`Error: Status Code ${response.statusCode}`);
+      }
+    });
+  });
+}
 
  
 function mergeObjectsByKeys(arr1, arr2, key1, key2) {
@@ -375,6 +417,14 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
   // Extract email and password from req.body
   const { project, form, token, submitter_filter } = req.body;
  
+
+
+  // Make a get request to check if form has reapeats...
+
+
+
+
+
 
   let url
   if (submitter_filter != 0) {
@@ -411,7 +461,7 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
       let objs = objResults.value
 
       const  setlements =   await getEntities(token, project)
-
+      
 
      // console.log(setlements)
 
@@ -438,16 +488,40 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
           }
 
       
-     // join the enties to form data 
+     // join the enties to form data
       
-         const flattenedObject = await flattenArray(objs);
-         
+  
+        let flattenedObject  
+
+        const xmlData = await checkifhasRepeats(token, project, form)
+        var hasProperty =  hasNavigationProperty(xmlData)
+     
+      if (hasProperty) {
+        console.log("has")
+        flattenedObject = await flattenArray(objs);
+           
+      } else {
+        console.log("has not -------")
+        
+       flattenedObject = await flattenPlainArray(objs)
+        console.log(flattenedObject)
+
+      }
+      
+
+      let mergedArray
+
+      if (flattenedObject.hasOwnProperty('pcode')) { 
+          mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode',  'settlement_code' );
+
+      } else {
+        mergedArray=flattenedObject
+      }
       
       // Call the function to merge arrays of objects based on a common key
-      const mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode',  'settlement_code' );
       
           // Print the merged array1
-         // console.log(mergedArray);
+          console.log(mergedArray);
    
         res.status(200).send({
           data: mergedArray,

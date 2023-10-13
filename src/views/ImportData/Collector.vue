@@ -268,7 +268,8 @@ const handleSelectForm= async (form: any) => {
 
    await  submitterList()
     disableGet.value = false
-    if (form=='infrastructure_prioritization' || form == 'County Project Coordinating Teams (CPCT) Data'  ) {
+    //if (form=='infrastructure_prioritization' || form == 'County Project Coordinating Teams (CPCT) Data'  ) {
+    if (form=='infrastructure_prioritization'   ) {
         disableDownloadOption.value = true
         console.log("add disabled")
 
