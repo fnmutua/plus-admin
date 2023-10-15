@@ -504,17 +504,21 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
         console.log("has not -------")
         
        flattenedObject = await flattenPlainArray(objs)
-        console.log(flattenedObject)
+       // console.log(flattenedObject)
 
       }
       
 
       let mergedArray
 
-      if (flattenedObject.hasOwnProperty('pcode')) { 
+      if (flattenedObject[0]&&flattenedObject[0].hasOwnProperty('pcode')) { 
+
+        console.log('Pcode presente')
           mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode',  'settlement_code' );
 
       } else {
+        console.log('Pcode Missing...')
+
         mergedArray=flattenedObject
       }
       
