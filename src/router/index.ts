@@ -697,6 +697,20 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         ]
       }, 
       {
+        path: 'survey',
+    //    component: 'views/ImportData/excel',
+        component: () => import('@/views/ImportData/Surveys.vue'),
+
+        name: 'Surveys',
+        meta: {
+          title: 'Surveys',
+          icon: 'carbon:report',
+          role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+
+        }
+      },
+
+      {
         path: 'data',
         component: Layout,
         redirect: '/data/import',
@@ -720,6 +734,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     
             }
           },
+         
           {
             path: 'xlsx',
         //    component: 'views/ImportData/excel',
@@ -777,7 +792,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Integration',
               icon: 'icon-park-solid:api',
-    
+              role: ['admin', 'super_admin',  'staff' ]
+
             }
           },
 
