@@ -348,7 +348,8 @@ const disableDownloadOption = ref(false)
 const handleSelectForm = async (form: any) => {
     console.log(form)
     submitter_filter.value = 0   // initialize fileter to all 
-
+    showReport.value = false
+    showCharts.value=false 
     await submitterList()
     disableGet.value = false
     //if (form=='infrastructure_prioritization' || form == 'County Project Coordinating Teams (CPCT) Data'  ) {
@@ -1801,11 +1802,11 @@ const computationOptions = [
 const chartOptions = [
     {
         value: 'pie',
-        label: 'pie',
+        label: 'Pie Chart',
     },
     {
         value: 'bar',
-        label: 'Bar',
+        label: 'Bar Chart',
     }]
 
 
@@ -1900,7 +1901,6 @@ command="media" disabled
                         </el-dropdown>
                     </div>
                     <div v-if="showReport"  style="display: inline-block; margin-top: 10px">
-                        <el-scrollbar height="400px">
 
                             <el-divider content-position="left">Chart Options</el-divider>
                         <el-row>
@@ -1922,10 +1922,12 @@ v-for="item in chartOptions" :key="item.value" :label="item.label"
                             </el-select>
                             
                         </el-row>
+                        <el-scrollbar height="400px">
+
                         <el-row>
 
                             <el-col :span="6" v-for="(option, index) in fields" :key="index">
-                                <el-checkbox v-model="selectedFields" :label="option" size="large" :onChange="generateReport" />
+                                <el-checkbox v-model="selectedFields" :label="option" size="small" :onChange="generateReport" />
                             </el-col>
                         </el-row>   
                         <br />
