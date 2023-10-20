@@ -1982,11 +1982,11 @@ command="media" disabled
 
                     <div v-if="showReport" style="margin-top: 10px; display: flex; flex-wrap: wrap; align-items: flex-start;">
 
-                    <el-select v-model="filterField" clearable placeholder="Filter By" style="margin-right: 5px; flex: 1;" size="small" :onChange="getUniqueValues">
+                    <el-select v-model="filterField" filterable clearable placeholder="Filter By" style="margin-right: 5px; flex: 1;" size="small" :onChange="getUniqueValues">
                         <el-option v-for="item in filterFieldOptions" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
 
-                    <el-select :onChange="filterCustom" :onClear="clearfilterCustom" v-model="filterValue" clearable placeholder="Filter Value" style="margin-right: 5px; flex: 1;" size="small">
+                    <el-select :onChange="filterCustom"  filterable :onClear="clearfilterCustom" v-model="filterValue" clearable placeholder="Filter Value" style="margin-right: 5px; flex: 1;" size="small">
                         <el-option v-for="item in filterValueOptions" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
 
