@@ -339,9 +339,15 @@ const showForms = ref(false)
 const filteredForms = ref([])
 const handleSelectProject = async (project: any) => {
     console.log(project)
+      //  empty the filtered data once form is changed 
+      downloadData.value = []
+    downloadDataFiltered.value = []
 
     filteredForms.value = formListOptions.value.filter((obj) => obj.projectId == project);
     showForms.value = true
+
+      
+    
 }
 const disableDownloadOption = ref(false)
 
@@ -352,6 +358,10 @@ const handleSelectForm = async (form: any) => {
     showCharts.value = false
     await submitterList()
     disableGet.value = false
+
+    //  empty the filtered data once form is changed 
+    downloadData.value = []
+    downloadDataFiltered.value=[]
     //if (form=='infrastructure_prioritization' || form == 'County Project Coordinating Teams (CPCT) Data'  ) {
     if (form == 'infrastructure_prioritization') {
         disableDownloadOption.value = true
@@ -1436,10 +1446,14 @@ const downloadFlattenedXLSX = async () => {
     console.log("Getting fields")
 
     try {
+        // get fresh data only 
+        if ( downloadDataFiltered.value.length==0) {
         const response = await getCollectorDataFlattened(formData);
         console.log("flatData", response.data)
         downloadData.value = response.data
-        downloadDataFiltered.value=response.data
+        downloadDataFiltered.value=response.data 
+        }
+     
         DownloadXlsx()
     } catch (error) {
         // Handle any errors here
@@ -1756,15 +1770,8 @@ const showMatching = ref(false)
 
 
 const DownloadXlsx = async () => {
-    console.log(downloadDataFiltered.value)
-
-
-    //   const fields = [];
-    //     const keys =  Object.keys(downloadData.value[0]);  
-
-    //   for (const key of keys) {
-    //     fields.push({ label: key, value: key });
-    //   }
+    console.log('downloadDataFiltered', downloadDataFiltered.value)
+ 
 
 
     const fields = [];
@@ -1929,14 +1936,7 @@ v-for="item in projectListOptions" :key="item.value" :label="item.label"
 v-for="item in filteredForms" :key="item.value" :label="item.label"
                             :value="item.value" />
                     </el-select>
-
-                    <!-- <div style="display: inline-block; margin-left: 10px">
-                        <el-button :disabled="disableGet" type="primary" @click="syncData" :icon="RefreshRight" >Sync</el-button>
-                      </div> -->
-                    <!-- <div style="display: inline-block; margin-left: 10px">
-                         <el-button  v-loading="downloadingCsv" :disabled="disableGet" type="primary" @click="downloadFlattenedXLSX" :icon="Download" >XLSX</el-button>
-                 
-                        </div> -->
+ 
                     <div style="display: inline-block; margin-top: 20px; margin-left: 10px">
 
                         <el-select
