@@ -339,7 +339,10 @@ const showForms = ref(false)
 const filteredForms = ref([])
 const handleSelectProject = async (project: any) => {
     console.log(project)
-
+  //  empty the filtered data once foprojectrm is changed 
+  downloadData.value = []
+    downloadDataFiltered.value = []
+    
     filteredForms.value = formListOptions.value.filter((obj) => obj.projectId == project);
     showForms.value = true
 }
@@ -352,6 +355,13 @@ const handleSelectForm = async (form: any) => {
     showCharts.value = false
     await submitterList()
     disableGet.value = false
+
+
+      //  empty the filtered data once form is changed 
+      downloadData.value = []
+    downloadDataFiltered.value=[]
+
+
     //if (form=='infrastructure_prioritization' || form == 'County Project Coordinating Teams (CPCT) Data'  ) {
     if (form == 'infrastructure_prioritization') {
         disableDownloadOption.value = true
@@ -1438,10 +1448,13 @@ const downloadFlattenedXLSX = async () => {
     console.log("Getting fields")
 
     try {
+       // get fresh data only 
+       if ( downloadDataFiltered.value.length==0) {
         const response = await getCollectorDataFlattened(formData);
         console.log("flatData", response.data)
         downloadData.value = response.data
-        downloadDataFiltered.value=response.data
+        downloadDataFiltered.value=response.data 
+        }
         DownloadXlsx()
     } catch (error) {
         // Handle any errors here
