@@ -41,7 +41,7 @@ import {
     CaretRight,
     RefreshLeft,
     RefreshRight,
-    LocationFilled, Files, List, Document, CameraFilled,
+    LocationFilled, Files, List, Document, CameraFilled,Histogram,
     Download, ArrowDown,
     UploadFilled, CircleCheck, CirclePlus, Position,
     Tools
@@ -335,13 +335,13 @@ const handleSelectType = async (type: any) => {
 
 
 }
-
+const showForms = ref(false)
 const filteredForms = ref([])
 const handleSelectProject = async (project: any) => {
     console.log(project)
 
     filteredForms.value = formListOptions.value.filter((obj) => obj.projectId == project);
-
+    showForms.value = true
 }
 const disableDownloadOption = ref(false)
 
@@ -349,7 +349,7 @@ const handleSelectForm = async (form: any) => {
     console.log(form)
     submitter_filter.value = 0   // initialize fileter to all 
     showReport.value = false
-    showCharts.value=false 
+    showCharts.value = false
     await submitterList()
     disableGet.value = false
     //if (form=='infrastructure_prioritization' || form == 'County Project Coordinating Teams (CPCT) Data'  ) {
@@ -364,6 +364,12 @@ const handleSelectForm = async (form: any) => {
 
 }
 
+const handleSelectSubmitter = async (form: any) => {
+    showReport.value = false
+    showCharts.value = false
+
+
+}
 
 const uploadOptions = [
     {
@@ -1260,18 +1266,23 @@ const generatePropertyFrequencies = async (arr, properties) => {
             // Get the value of the current property.
             const propertyValue = item[property];
 
-            // Initialize the property value count to 0 if it doesn't exist.
-            if (!frequencies[property].hasOwnProperty(propertyValue)) {
-                frequencies[property][propertyValue] = 0;
-            }
+            // Exclude null or empty values.
+            if (propertyValue !== null && propertyValue !== undefined && propertyValue !== "") {
+                // Initialize the property value count to 0 if it doesn't exist.
+                if (!frequencies[property].hasOwnProperty(propertyValue)) {
+                    frequencies[property][propertyValue] = 0;
+                }
 
-            // Increment the count for the current property value.
-            frequencies[property][propertyValue]++;
+                // Increment the count for the current property value.
+                frequencies[property][propertyValue]++;
+            }
         });
     });
 
     return frequencies;
 };
+
+
 
 const generatePropertyProportions = async (arr, properties) => {
     // Create an empty object to store the proportions.
@@ -1311,7 +1322,15 @@ const generatePropertyProportions = async (arr, properties) => {
     return proportions;
 };
 
+function getUniquePropertyValues(arr, property) {
+  const uniqueValues = new Set();
 
+  for (const obj of arr) {
+    uniqueValues.add(obj[property]);
+  }
+
+  return Array.from(uniqueValues);
+}
 
 function extractAllProperties(array) {
     const properties = [];
@@ -1325,28 +1344,80 @@ function extractAllProperties(array) {
     return properties;
 }
 
-
-
+const filterField = ref( )
+const filterValue = ref( )
+const filterFieldOptions = ref([])
+const filterValueOptions = ref([])
 const showReport = ref(false)
 const fields = ref([])
 const selectedFields = ref([])
+
+
 const makeReport = async () => {
 
     await getThedata()
 
-    console.log("te data......", downloadData.value)
+    console.log("te data......", downloadDataFiltered.value)
 
-    fields.value = extractAllProperties(downloadData.value);
+    fields.value = extractAllProperties(downloadDataFiltered.value);
     console.log(fields.value);
     showReport.value = true
+ 
 
+    for (let i = 0; i < fields.value.length; i++) {
+            const currentString = fields.value[i];
+            let opt = {}
+            opt.value = currentString
+            opt.label = currentString 
+            filterFieldOptions.value.push(opt)
+            }
+
+
+    console.log(filterFieldOptions.value)
+
+}
+
+const getUniqueValues = async (e) => { 
+    filterValueOptions.value=[]
+    console.log('Uniuks, ', e)
+    const uniqueValues = getUniquePropertyValues(downloadDataFiltered.value, e)
+    
+    for (let i = 0; i < uniqueValues.length; i++) {
+            const currentString = uniqueValues[i];
+            let opt = {}
+            opt.value = currentString
+            opt.label = currentString 
+            filterValueOptions.value.push(opt)
+     }
 
 }
 
 
 
+const filterCustom = async (e) => { 
+    // filterValueOptions.value = []
+    generateReport() // reset charts
+    console.log("Filter Fied:",filterField.value )
+    console.log("Filter Value:",e )
+
+    downloadDataFiltered.value = downloadData.value.filter(obj => obj[filterField.value] == e);
+
+    console.log(downloadDataFiltered.value)
+
+}
+
+const clearfilterCustom = async () => { 
+    generateReport() // reset charts
+
+    downloadDataFiltered.value = downloadData.value 
+
+    console.log("Cleared, ", downloadDataFiltered.value)
+  
+
+}
 
 const downloadData = ref()
+const downloadDataFiltered = ref()
 const form_name = ref()
 
 const downloadFlattenedXLSX = async () => {
@@ -1370,6 +1441,7 @@ const downloadFlattenedXLSX = async () => {
         const response = await getCollectorDataFlattened(formData);
         console.log("flatData", response.data)
         downloadData.value = response.data
+        downloadDataFiltered.value=response.data
         DownloadXlsx()
     } catch (error) {
         // Handle any errors here
@@ -1401,6 +1473,7 @@ const getThedata = async () => {
         const response = await getCollectorDataFlattened(formData);
         console.log("flatData", response.data)
         downloadData.value = response.data
+        downloadDataFiltered.value=response.data
 
     } catch (error) {
         // Handle any errors here
@@ -1470,10 +1543,10 @@ const generateReport = async () => {
 
     var frequencies
     if (computationMethod.value == 'count') {
-        frequencies = await generatePropertyFrequencies(downloadData.value, selectedFields.value);
+        frequencies = await generatePropertyFrequencies(downloadDataFiltered.value, selectedFields.value);
 
     } else {
-        frequencies = await generatePropertyProportions(downloadData.value, selectedFields.value);
+        frequencies = await generatePropertyProportions(downloadDataFiltered.value, selectedFields.value);
         console.log("Proportions", frequencies)
 
     }
@@ -1685,7 +1758,7 @@ const showMatching = ref(false)
 
 
 const DownloadXlsx = async () => {
-    console.log(downloadData.value)
+    console.log(downloadDataFiltered.value)
 
 
     //   const fields = [];
@@ -1699,7 +1772,7 @@ const DownloadXlsx = async () => {
     const fields = [];
 
     // Iterate through all records in downloadData.value
-    for (const record of downloadData.value) {
+    for (const record of downloadDataFiltered.value) {
         const keys = Object.keys(record);
 
         // Iterate through the keys of each record and add them to the fields array
@@ -1720,7 +1793,7 @@ const DownloadXlsx = async () => {
     dataObj.sheet = 'data'
     dataObj.columns = fields
 
-    dataObj.content = downloadData.value
+    dataObj.content = downloadDataFiltered.value
 
 
 
@@ -1787,6 +1860,8 @@ const handleCommand = (command: string | number | object) => {
 }
 
 const computationMethod = ref('count')
+
+
 const typeChart = ref('bar')
 
 const computationOptions = [
@@ -1818,7 +1893,8 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
         :title="t('Surveys')" :message="t('Data Collected via collector.kesmis...')">
 
 
-        <el-row :gutter="10">
+        <el-row :gutter="7">
+ 
             <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                 <el-row :gutter="12">
                     <el-col :span="12">
@@ -1832,23 +1908,23 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                     </el-col>
 
                     <el-col :span="12">
-                        <el-card v-loading="loading" shadow="hover" @click="loginUserToCollector">
-                            <div class="card-content">
+                        <el-card v-loading="loading" shadow="hover">
+                            <div v-if="showSelect" class="card-content">
                                 <el-select
 v-model="project" :onChange="handleSelectProject" filterable clearable
-                        placeholder="Select Project" style=" margin-right: 20px">
-                        <el-option
+                                    placeholder="Select Project" style=" margin-right: 20px">
+                                    <el-option
 v-for="item in projectListOptions" :key="item.value" :label="item.label"
-                            :value="item.value" />
-                    </el-select>
+                                        :value="item.value" />
+                                </el-select>
                             </div>
                         </el-card>
                     </el-col>
                 </el-row>
 
 
-                <div v-if="showSelect" style="display: inline-block; margin-top: 10px">
-                  
+                <div v-if="showForms" style="display: inline-block; margin-top: 10px">
+
 
                     <el-select v-model="form" :onChange="handleSelectForm" placeholder="Select Form">
                         <el-option
@@ -1865,7 +1941,9 @@ v-for="item in filteredForms" :key="item.value" :label="item.label"
                         </div> -->
                     <div style="display: inline-block; margin-top: 20px; margin-left: 10px">
 
-                        <el-select v-model="submitter_filter" placeholder="Filter by Submitter">
+                        <el-select
+v-model="submitter_filter" placeholder="Filter by Submitter"
+                            :onChange="handleSelectSubmitter">
                             <el-option
 v-for="item in submitterOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
@@ -1895,46 +1973,44 @@ command="geojson" disabled
                                     <el-dropdown-item
 command="media" disabled
                                         :icon="CameraFilled">Attachments</el-dropdown-item>
-                                    <el-dropdown-item command="report" :icon="CameraFilled">Charts</el-dropdown-item>
+                                    <el-dropdown-item command="report" :icon="Histogram">Charts</el-dropdown-item>
                                 </el-dropdown-menu>
                             </template>
                         </el-dropdown>
                     </div>
-                    <div v-if="showReport"  style="display: inline-block; margin-top: 10px">
+                    <el-divider content-position="left" style="flex: 1;">Chart Options</el-divider>
 
-                            <el-divider content-position="left">Chart Options</el-divider>
-                        <el-row>
-                            <el-select
-:onChange="generateReport" 
-v-model="computationMethod" clearable placeholder="Computation"
-                                style="display: inline-block; margin-right: 10px">
-                                <el-option
-v-for="item in computationOptions" :key="item.value" :label="item.label"
-                                    :value="item.value" />
-                            </el-select>
-                            <el-select
-:onChange="generateReport" 
-v-model="typeChart" clearable placeholder="Type of Chart"
-                                style="display: inline-block; margin-right: 10px">
-                                <el-option
-v-for="item in chartOptions" :key="item.value" :label="item.label"
-                                    :value="item.value" />
-                            </el-select>
-                            
-                        </el-row>
-                        <el-scrollbar height="400px">
+                    <div v-if="showReport" style="margin-top: 10px; display: flex; flex-wrap: wrap; align-items: flex-start;">
 
-                        <el-row>
+                    <el-select v-model="filterField" clearable placeholder="Filter By" style="margin-right: 5px; flex: 1;" size="small" :onChange="getUniqueValues">
+                        <el-option v-for="item in filterFieldOptions" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-select>
 
-                            <el-col :span="6" v-for="(option, index) in fields" :key="index">
-                                <el-checkbox v-model="selectedFields" :label="option" size="small" :onChange="generateReport" />
-                            </el-col>
-                        </el-row>   
-                        <br />
-                       
+                    <el-select :onChange="filterCustom" :onClear="clearfilterCustom" v-model="filterValue" clearable placeholder="Filter Value" style="margin-right: 5px; flex: 1;" size="small">
+                        <el-option v-for="item in filterValueOptions" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-select>
 
-                    </el-scrollbar>
-                    </div>
+                    <el-select :onChange="generateReport" v-model="computationMethod" clearable placeholder="Computation" style="margin-right: 10px; flex: 1;" size="small">
+                        <el-option v-for="item in computationOptions" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-select>
+
+                    <el-select :onChange="generateReport" v-model="typeChart" clearable placeholder="Type of Chart" style="margin-right: 10px; flex: 1;" size="small">
+                        <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-select>
+
+                </div>
+
+                <el-scrollbar height="400px" style="flex: 1;">
+
+                <el-row>
+
+                    <el-col :span="6" v-for="(option, index) in fields" :key="index">
+                        <el-checkbox v-model="selectedFields" :label="option" size="small" :onChange="generateReport" class="ellipsis-checkbox" />
+                    </el-col>
+                </el-row>
+                <br />
+
+                </el-scrollbar>
 
                     <div v-if="showChildParent" style="display: inline-block; margin-top: 20px">
                         <el-select
@@ -1968,59 +2044,59 @@ v-if="showMatching" class="button-container" :percentage="100" status="success"
 
             </el-col>
             <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-                <el-skeleton v-if=" !showCharts" :animated="processingLoading" :rows="10" />
+                <el-skeleton v-if="!showCharts" :animated="processingLoading" :rows="20" />
                 <el-scrollbar height="600px">
 
 
 
-                <el-table v-if="showTable" :data="tableData" :size="small" border height="60vh" style="width: 100%">
-                    <el-table-column prop="key1" label="Database Field" />
-                    <el-table-column label="From Collector">
-                        <template #default="scope">
-                            <el-select
-v-model="scope.row.key2" @change="updateSelect(scope.row, scope.$index)" filterable
-                                clearable>
+                    <el-table v-if="showTable" :data="tableData" :size="small" border height="60vh" style="width: 100%">
+                        <el-table-column prop="key1" label="Database Field" />
+                        <el-table-column label="From Collector">
+                            <template #default="scope">
+                                <el-select
+v-model="scope.row.key2" @change="updateSelect(scope.row, scope.$index)"
+                                    filterable clearable>
 
-                                <el-option
+                                    <el-option
 v-for="(option, index) in selectOptions" :key="index" :label="option.label"
-                                    :value="option.value" :disabled="option.disabled" />
-                            </el-select>
-                        </template>
-                    </el-table-column>
-                </el-table>
+                                        :value="option.value" :disabled="option.disabled" />
+                                </el-select>
+                            </template>
+                        </el-table-column>
+                    </el-table>
 
-                <div v-if="showCharts">
-                <el-col
+                    <div v-if="showCharts">
+                        <el-col
 v-for="(chart) in customCharts" :key="chart" :span="24" :xl="24" :lg="24" :md="24" :sm="24"
-            :xs="24">
-            <div class="tabs-container"  >
-              <el-card >
+                            :xs="24">
+                            <div class="tabs-container">
+                                <el-card>
 
-                <ElSkeleton :loading="loading" animated >
-                  <v-chart  class="chart" :option="chart" autoresize  />
-                </ElSkeleton>
+                                    <ElSkeleton :loading="loading" animated>
+                                        <v-chart class="chart" :option="chart" autoresize />
+                                    </ElSkeleton>
 
-              </el-card>
-            </div>
+                                </el-card>
+                            </div>
 
-          </el-col>
+                        </el-col>
 
-            </div>
-                <div class="button-container"> <!-- Wrap the buttons in a div -->
-                    <span class="dialog-footer">
-                        <el-button v-if="showTable" @click="showTable = false">Cancel</el-button>
-                        <el-button v-if="showTable" type="primary" @click="handleSubmitData">Submit Data</el-button>
-                    </span>
-                </div>
+                    </div>
+                    <div class="button-container"> <!-- Wrap the buttons in a div -->
+                        <span class="dialog-footer">
+                            <el-button v-if="showTable" @click="showTable = false">Cancel</el-button>
+                            <el-button v-if="showTable" type="primary" @click="handleSubmitData">Submit Data</el-button>
+                        </span>
+                    </div>
 
 
 
-            </el-scrollbar>
+                </el-scrollbar>
 
             </el-col>
         </el-row>
 
-   </ContentWrap>
+    </ContentWrap>
 </template>
 
 <style scoped>
@@ -2158,6 +2234,14 @@ v-for="(chart) in customCharts" :key="chart" :span="24" :xl="24" :lg="24" :md="2
 .dropdown-button .el-icon-arrow-down {
     margin-left: 5px;
     /* Adjust the arrow's position */
+}
+
+.ellipsis-checkbox {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    /* You can adjust this width as needed */
 }
 </style>
  
