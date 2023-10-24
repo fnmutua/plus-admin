@@ -1332,6 +1332,68 @@ const generatePropertyProportions = async (arr, properties) => {
     return proportions;
 };
 
+const generatePropertySummation = (arr, properties) => {
+    // Create an empty object to store the summations.
+    const summations = {};
+
+    // Iterate through the properties array and initialize a summation object for each property.
+    properties.forEach((property) => {
+        summations[property] = 0;
+    });
+
+    // Iterate through the array of objects.
+    arr.forEach((item) => {
+        properties.forEach((property) => {
+            // Get the value of the current property.
+            const propertyValue = item[property];
+
+            // Add the property value to the current summation.
+            summations[property] += propertyValue;
+        });
+    });
+
+    return summations;
+};
+
+
+const generatePropertyAverage = (arr, properties) => {
+    // Create an empty object to store the averages.
+    const averages = {};
+
+    // Create an empty object to store the count of values for each property.
+    const counts = {};
+
+    // Iterate through the properties array and initialize an average object for each property.
+    properties.forEach((property) => {
+        averages[property] = 0;
+        counts[property] = 0;
+    });
+
+    // Iterate through the array of objects.
+    arr.forEach((item) => {
+        properties.forEach((property) => {
+            // Get the value of the current property.
+            const propertyValue = item[property];
+
+            // Add the property value to the current average.
+            averages[property] += propertyValue;
+
+            // Increment the count for the current property.
+            counts[property]++;
+        });
+    });
+
+    // Calculate the average for each property.
+    properties.forEach((property) => {
+        if (counts[property] > 0) {
+            averages[property] = (averages[property] / counts[property]).toFixed(2);
+        }
+    });
+
+    return averages;
+};
+
+
 function getUniquePropertyValues(arr, property) {
   const uniqueValues = new Set();
 
@@ -1558,11 +1620,28 @@ const generateReport = async () => {
     if (computationMethod.value == 'count') {
         frequencies = await generatePropertyFrequencies(downloadDataFiltered.value, selectedFields.value);
 
-    } else {
+    } 
+    
+    else if (computationMethod.value == 'sum') {
+        frequencies = await generatePropertySummation(downloadDataFiltered.value, selectedFields.value);
+
+    }   
+    
+  
+    else if (computationMethod.value == 'ave') {
+        frequencies = await generatePropertyAverage(downloadDataFiltered.value, selectedFields.value);
+
+    }   
+    else {
         frequencies = await generatePropertyProportions(downloadDataFiltered.value, selectedFields.value);
         console.log("Proportions", frequencies)
 
     }
+
+
+
+
+
 
     //const result = await generatePropertyFrequencies(data, 'name');
     console.log('frequencies', frequencies);
@@ -1882,10 +1961,23 @@ const computationOptions = [
         value: 'count',
         label: 'Count',
     },
+    // {
+    //     value: 'sum',
+    //     label: 'Sum',
+    // },
+    // {
+    //     value: 'ave',
+    //     label: 'Average',
+    // },
+
     {
         value: 'proportion',
         label: 'Proportion (%)',
-    }]
+    }
+
+
+
+]
 
 const chartOptions = [
     {
