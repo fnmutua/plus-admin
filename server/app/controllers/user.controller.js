@@ -344,7 +344,7 @@ exports.modelCountyUsers = (req, res) => {
   var user = req.body.currentUser
   var currentUserRoles = user.roles
 
-  console.log('Current User Roles, ', currentUserRoles)
+  console.log('Current User xRoles, ', currentUserRoles)
   
   var filters = req.body.filters
   var filterValues = req.body.filterValues
@@ -387,30 +387,54 @@ exports.modelCountyUsers = (req, res) => {
            where: {  }, // Filter users based on the county_id
               limit: limit,
               offset: (page - 1) * limit,
-                };
+                 };
+    
+
+
+               // Add conditions based on filters and filterValues arrays
+               if (filters && filterValues && filters.length === filterValues.length) {
+                const filterConditions = filters.map((filter, index) => ({
+                  [filter]: {
+                    [op.eq]: filterValues[index], // You can use different operators like 'Op.eq' for equal, 'Op.gt' for greater than, etc.
+                  },
+                }));
+
+                // Use 'Op.or' to combine multiple filter conditions with OR
+                findAndCountOptions.where[op.or] = filterConditions;
+              }
                 
                 // If the user has the 'county_admin' role, apply the county filter
                 if (currentUserRoles.includes('county_admin')) {
-                  console.log('here....',  userCounty, findAndCountOptions )
+                  console.log('county_admin ....',  userCounty, findAndCountOptions )
 
                   findAndCountOptions.where.county_id = userCounty;
-                }
-                
-    
-               // Add conditions based on filters and filterValues arrays
-                  if (filters && filterValues && filters.length === filterValues.length) {
-                    const filterConditions = filters.map((filter, index) => ({
-                      [filter]: {
-                        [op.eq]: filterValues[index], // You can use different operators like 'Op.eq' for equal, 'Op.gt' for greater than, etc.
-                      },
-                    }));
-
-                    // Use 'Op.or' to combine multiple filter conditions with OR
-                    findAndCountOptions.where[op.or] = filterConditions;
                   }
+    
+              /// Super admin overide 
+                
+                if (currentUserRoles.includes('super_admin')) {
+                  console.log('here....', userCounty, findAndCountOptions)
+                  findAndCountOptions.include = {
+                    model: Role,
+                    through: 'user_roles',
+                  }
+                  findAndCountOptions.limit=limit
+                  findAndCountOptions.where={}
+                  findAndCountOptions.offset=(page - 1) * limit
+              
+                  
+                }
+    
+     
+    
 
-            console.log(' Subordinate Roles for this user:', uniqueSubordinates);
+            console.log(' Subordinate Roles sss for this 123 user:', uniqueSubordinates);
 
+    
+    
+                  
+    
+    
 
             User.findAndCountAll(findAndCountOptions)
               .then(({ count, rows: usersWithSubordinates }) => {
@@ -431,10 +455,7 @@ exports.modelCountyUsers = (req, res) => {
                 return res.status(500).send({ message: 'Unable to retrieve county users. Please try again later.' })
 
               });
-     
-
-            
-    
+      
      
                 })
               .catch((error) => {
@@ -445,7 +466,7 @@ exports.modelCountyUsers = (req, res) => {
             
 
 
-
+       
 
 
  
