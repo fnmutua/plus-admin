@@ -825,7 +825,8 @@ v-model="ruleForm.parcel_tenure" class="mb-2" inline-prompt size="large"
 <style scoped>
 .basemap {
   width: 100%;
-  height: 500px;
+  width: 100%;
+  height: 65vh; /* Set the height to 75% of the viewport height */
 }
 
 

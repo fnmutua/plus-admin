@@ -379,7 +379,7 @@ console.log(model)
 <style scoped>
 .basemap {
   width: 100%;
-  height: 500px;
+  height: 75vh;
 }
 </style>
 

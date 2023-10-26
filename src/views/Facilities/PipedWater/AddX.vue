@@ -1114,7 +1114,7 @@ const getFieldChangeHandler = (fieldName: string) => {
 <style scoped>
 .basemap {
   width: 100%;
-  height: 400px;
+  height: 75vh; /* Set the height to 75% of the viewport height */
 }
 
 

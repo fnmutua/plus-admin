@@ -26,8 +26,16 @@ defineProps({
         </ElTooltip>
       </div>
     </template>
-    <div>
+    <div class="full-height">
       <slot></slot>
     </div>
   </ElCard>
 </template>
+
+<style scoped>
+.full-height {
+  height: 75vh; /* Set the height to 75% of the viewport height */
+  overflow: auto; /* Add scrollbars if content exceeds viewport height */
+}
+</style>
+

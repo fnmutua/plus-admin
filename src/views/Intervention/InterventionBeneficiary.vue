@@ -1016,7 +1016,7 @@ v-model:file-list="morefileList" class="upload-demo"
 <style scoped>
 .basemap {
   width: 100%;
-  height: 400px;
+  height: 75vh;
 }
 </style>
 

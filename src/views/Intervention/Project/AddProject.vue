@@ -1572,7 +1572,7 @@ v-if="checkList == 'Upload' && showGeoFields" class="upload-demo" drag ref="uplo
 <style scoped>
 .basemap {
   width: 100%;
-  height: 450px;
+  height: 65vh;
 }
 
 .coordinates {

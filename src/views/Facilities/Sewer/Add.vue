@@ -640,7 +640,7 @@ v-for="item in generalOwnership" :key="item.value" :label="item.label"
 <style scoped>
 .basemap {
   width: 100%;
-  height: 500px;
+  height: 65vh;
 }
 
 

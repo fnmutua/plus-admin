@@ -2597,7 +2597,7 @@ v-model="BeneficaryForm.project_id" filterable placeholder="Select" :onChange="h
 <style scoped>
 .basemap {
   width: 100%;
-  height: 400px;
+  height: 75vh;
 }
 </style>
 
