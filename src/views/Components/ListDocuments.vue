@@ -98,9 +98,10 @@ if (userInfo.roles.includes("public")) {
    
 }
 
- 
 
-const downloadFile = async (data) => {
+const downloadStarted = ref(false)
+
+const xdownloadFile = async (data) => {
 
 console.log(data.name)
 
@@ -126,8 +127,44 @@ await getFile(formData)
 }
 
 
+const downloadFile = async (data) => {
+  console.log(data.name);
+  downloadStarted.value = true;
+  const formData = {};
+  formData.filename = data.name;
+  formData.doc_id = data.id;
+  formData.responseType = 'blob';
+
+  // Add a flag to track if the download has started
+ 
+
+  // Attach a 'beforeunload' event listener to the window
+  window.addEventListener('beforeunload', () => {
+    if (downloadStarted.value) {
+      console.log('Download has started.');
+      downloadStarted.value = false;
+    }
+  });
+
+  try {
+    const response = await getFile(formData);
+    console.log(response);
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', data.name);
+    document.body.appendChild(link);
+    link.click();
+  } catch (error) {
+    ElMessage.error('Failed');
+  }
+};
+
+
+
 const docFormats = []
-const viewDocument = async (data) => {
+const xviewDocument = async (data) => {
   const documentUrl = data.url; // Use 'data.url' to access the document URL
 
   const formData = {};
@@ -146,6 +183,41 @@ const viewDocument = async (data) => {
   }
 };
 
+const viewLoading = ref(false)
+
+const viewDocument = async (data) => {
+  viewLoading.value=true
+  const documentUrl = data.url; // Use 'data.url' to access the document URL
+
+  const formData = {};
+  formData.filename = data.name;
+  formData.doc_id = data.id;
+  formData.responseType = 'blob';
+
+  try {
+    const response = await getFile(formData);
+    const blobData = new Blob([response.data], { type: response.headers['content-type'] });
+    const url = window.URL.createObjectURL(blobData);
+    const newTab = window.open(url, '_blank');
+
+    if (newTab) {
+      // Attach a load event listener to the new tab's window object
+      newTab.addEventListener('load', () => {
+        // The new tab has fully loaded
+        console.log('New tab has fully loaded.');
+        viewLoading.value=false
+      });
+    } else {
+      console.error('Failed to open a new tab.');
+      ElMessage.error('Failed to open the document.');
+      viewLoading.value=false
+    }
+  } catch (error) {
+    console.error(error);
+    ElMessage.error('Failed to load the document.');
+    viewLoading.value=false
+  }
+};
 
 
 
@@ -189,11 +261,11 @@ const removeDocument = (data) => {
       </el-dropdown>
       <div v-else>
         <el-tooltip content="Download" placement="top">
-        <el-button type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
+        <el-button v-loading="downLoading"  type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
       </el-tooltip>
 
       <el-tooltip content="View" placement="top">
-        <el-button type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
+        <el-button v-loading="viewLoading" type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
 
       </el-tooltip>
       <el-tooltip content="Delete" placement="top">
