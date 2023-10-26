@@ -128,7 +128,7 @@ await getFile(formData)
 
 
 const downloadFile = async (data) => {
-  loadingRow.value=data
+  loadingRow.value=data.id
 
   console.log(data.name,loadingRow );
   downloadStarted.value = true;
@@ -193,7 +193,7 @@ const viewLoading = ref(false)
 
 const viewDocument = async (data) => {
   viewLoading.value=true
-  loadingRow.value=data
+  loadingRow.value=data.id
 
 
   const documentUrl = data.url; // Use 'data.url' to access the document URL
@@ -277,7 +277,7 @@ const removeDocument = (data) => {
       <div v-else>
         <el-tooltip content="Download" placement="top">
           <el-button
-            :v-loading="scope.row === loadingRow"
+            :v-loading="scope.row.id == loadingRow"
             type="success"
             @click="downloadFile(scope.row)"
             :icon="Download"
@@ -287,7 +287,7 @@ const removeDocument = (data) => {
 
         <el-tooltip content="View" placement="top">
           <el-button
-            :v-loading="scope.row === loadingRow"
+            :v-loading="scope.row.id === loadingRow"
             type="primary"
             @click="viewDocument(scope.row)"
             :icon="TopRight"
