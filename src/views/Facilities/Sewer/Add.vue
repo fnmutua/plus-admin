@@ -644,9 +644,21 @@ v-for="item in generalOwnership" :key="item.value" :label="item.label"
 }
 
 
+
 .coordinates {
   display: block;
-  position: relative;
+  position: absolute; /* Use absolute positioning to position it within the container */
+  width: 10%;
+  bottom: 15; /* Set to 0 to align it at the bottom */
+  left: 50%; /* Set to 50% to horizontally center it */
+  transform: translateX(-50%); /* Use transform to horizontally center it */
+  background-color: rgba(10, 10, 10, 0.85);
+  color: #fbfbfb;
+  text-align: center;
+  font-size: 10px;
+  z-index: 10;
+  border-radius: 5px;
+}
   width: 24%;
   bottom: 20px;
   left: 40%;
