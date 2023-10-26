@@ -261,7 +261,7 @@ const removeDocument = (data) => {
       </el-dropdown>
       <div v-else>
         <el-tooltip content="Download" placement="top">
-        <el-button v-loading="downLoading"  type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
+        <el-button v-loading="downloadStarted"  type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
       </el-tooltip>
 
       <el-tooltip content="View" placement="top">
