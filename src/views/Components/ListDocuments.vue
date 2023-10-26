@@ -101,33 +101,9 @@ if (userInfo.roles.includes("public")) {
 
 const downloadStarted = ref(false)
 
+
+
 const xdownloadFile = async (data) => {
-
-console.log(data.name)
-
-const formData = {}
-formData.filename = data.name
-formData.doc_id = data.id
-formData.responseType = 'blob'
-await getFile(formData)
-  .then(response => {
-    console.log(response)
-
-    const url = window.URL.createObjectURL(new Blob([response.data]))
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', data.name)
-    document.body.appendChild(link)
-    link.click()
-
-  })
-  .catch(error => {
-    ElMessage.error('Failed')  });
-
-}
-
-
-const downloadFile = async (data) => {
   console.log(data.name);
   downloadStarted.value = true;
   rowLoading.value=data.id
@@ -229,6 +205,32 @@ const viewDocument = async (data) => {
 };
 
 
+const downloadFile = async (data) => {
+  viewLoading.value=true
+
+console.log(data.name)
+
+const formData = {}
+formData.filename = data.name
+formData.doc_id = data.id
+formData.responseType = 'blob'
+await getFile(formData)
+  .then(response => {
+    console.log(response)
+    viewLoading.value=false
+
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', data.name)
+    document.body.appendChild(link)
+    link.click()
+
+  })
+  .catch(error => {
+    ElMessage.error('Failed')  });
+
+}
 
 const removeDocument = (data) => {
   console.log('----->', data)
@@ -254,7 +256,7 @@ const removeDocument = (data) => {
 
 <template>
   
-  <el-table :data="tableDocumentsFiltered" border style="width: 100%">
+  <el-table :data="tableDocumentsFiltered" border style="width: 100%"  v-loading="viewLoading ">
   <el-table-column label="Name" prop="name" />
   <el-table-column label="Type" prop="document_type.type" />
   <el-table-column label="Size(mb)" prop="size" />
@@ -270,11 +272,11 @@ const removeDocument = (data) => {
       </el-dropdown>
       <div v-else>
         <el-tooltip content="Download" placement="top">
-        <el-button  :v-loading="viewLoading && scope.row.id == rowLoading"  type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
+        <el-button  type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
       </el-tooltip>
 
       <el-tooltip content="View" placement="top">
-        <el-button   :v-loading="viewLoading && scope.row.id == rowLoading"  type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
+        <el-button   type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
 
       </el-tooltip>
       <el-tooltip content="Delete" placement="top">
