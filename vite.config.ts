@@ -12,6 +12,7 @@ import PurgeIcons from 'vite-plugin-purge-icons'
 import { viteMockServe } from 'vite-plugin-mock'
 import { createHtmlPlugin } from 'vite-plugin-html'
 import VueMarcos from 'unplugin-vue-macros/vite'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://vitejs.dev/config/
 const root = process.cwd()
@@ -37,6 +38,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       Vue(),
       VueJsx(),
       WindiCSS(),
+      nodePolyfills(),
       createStyleImportPlugin({
         resolves: [ElementPlusResolve()],
         libs: [{
