@@ -100,7 +100,7 @@ if (userInfo.roles.includes("public")) {
 
 
 const downloadStarted = ref(false)
-const loadingRow = ref()
+
 const xdownloadFile = async (data) => {
 
 console.log(data.name)
@@ -128,9 +128,7 @@ await getFile(formData)
 
 
 const downloadFile = async (data) => {
-  loadingRow.value=data.id
-
-  console.log(data.name,loadingRow );
+  console.log(data.name);
   downloadStarted.value = true;
   const formData = {};
   formData.filename = data.name;
@@ -142,8 +140,6 @@ const downloadFile = async (data) => {
 
   // Attach a 'beforeunload' event listener to the window
   window.addEventListener('beforeunload', () => {
-    loadingRow.value=null
-
     if (downloadStarted.value) {
       console.log('Download has started.');
       downloadStarted.value = false;
@@ -193,9 +189,6 @@ const viewLoading = ref(false)
 
 const viewDocument = async (data) => {
   viewLoading.value=true
-  loadingRow.value=data.id
-
-
   const documentUrl = data.url; // Use 'data.url' to access the document URL
 
   const formData = {};
@@ -215,22 +208,16 @@ const viewDocument = async (data) => {
         // The new tab has fully loaded
         console.log('New tab has fully loaded.');
         viewLoading.value=false
-        loadingRow.value=null
-
       });
     } else {
       console.error('Failed to open a new tab.');
       ElMessage.error('Failed to open the document.');
       viewLoading.value=false
-      loadingRow.value=null
-
     }
   } catch (error) {
     console.error(error);
     ElMessage.error('Failed to load the document.');
     viewLoading.value=false
-    loadingRow.value=null
-
   }
 };
 
@@ -264,62 +251,39 @@ const removeDocument = (data) => {
   <el-table-column label="Name" prop="name" />
   <el-table-column label="Type" prop="document_type.type" />
   <el-table-column label="Size(mb)" prop="size" />
-  <el-table-column v-if="!denyDownload" label="Actions">
+  <el-table-column  v-if="!denyDownload"  label="Actions">
     <template #default="scope">
       <el-dropdown v-if="isMobile">
         <span class="el-dropdown-link">Actions</span>
         <el-dropdown-menu>
           <el-dropdown-item @click="downloadFile(scope.row)">Download</el-dropdown-item>
-          <el-dropdown-item @click="viewDocument(scope.row)">View</el-dropdown-item>
-          <el-dropdown-item v-if="userIsAdmin || documentOwner" @click="removeDocument(scope.row)">Remove</el-dropdown-item>
+          <el-dropdown-item @click="viewDocument(scope.row)">View</el-dropdown-item> <!-- New "View" button -->
+          <el-dropdown-item v-if="userIsAdmin || documentOwner"  @click="removeDocument(scope.row)">Remove</el-dropdown-item>
         </el-dropdown-menu>
       </el-dropdown>
       <div v-else>
         <el-tooltip content="Download" placement="top">
-          <el-button
-            :v-loading="scope.row.id == loadingRow"
-            type="success"
-            @click="downloadFile(scope.row)"
-            :icon="Download"
-            circle
-          />
-        </el-tooltip>
+        <el-button v-loading="downloadStarted"  type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
+      </el-tooltip>
 
-        <el-tooltip content="View" placement="top">
-          <el-button
-            :v-loading="scope.row.id === loadingRow"
-            type="primary"
-            @click="viewDocument(scope.row)"
-            :icon="TopRight"
-            circle
-          />
-        </el-tooltip>
+      <el-tooltip content="View" placement="top">
+        <el-button v-loading="viewLoading" type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
 
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm
-            confirm-button-text="Yes"
-            cancel-button-text="No"
-            :icon="InfoFilled"
-            width="290px"
-            icon-color="#626AEF"
-            title="Are you sure to delete this document?"
-            @confirm="removeDocument(scope.row)"
-          >
-            <template #reference>
-              <el-button
-                type="danger"
-                v-if="userIsAdmin || documentOwner"
-                :icon="Delete"
-                circle
-              />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
-      </div>
+      </el-tooltip>
+      <el-tooltip content="Delete" placement="top">
+        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="290px" icon-color="#626AEF"
+              title="Are you sure to delete this document?" @confirm="removeDocument(scope.row)">
+              <template #reference>
+                <el-button type="danger"  v-if="userIsAdmin || documentOwner"   :icon="Delete" circle />
+
+               </template>
+            </el-popconfirm>
+          </el-tooltip>
+
+       </div>
     </template>
   </el-table-column>
 </el-table>
-
 
 </template>
  
