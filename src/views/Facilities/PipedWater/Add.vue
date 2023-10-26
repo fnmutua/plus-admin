@@ -631,16 +631,5 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
   z-index: 10;
   border-radius: 5px;
 }
-  width: 24%;
-  bottom: 20px;
-  left: 40%;
-  background-color: rgba(7, 7, 7, 0.85);
-  color: #fbfbfb;
-  text-align: center;
-  /* Center the text inside the paragraph element */
-  font-size: 10px;
-  z-index: 10;
-  border-radius: 5px;
 
-}
 </style>
