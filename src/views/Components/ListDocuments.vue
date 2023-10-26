@@ -156,8 +156,10 @@ const downloadFile = async (data) => {
     link.setAttribute('download', data.name);
     document.body.appendChild(link);
     link.click();
+    downloadStarted.value = false;
   } catch (error) {
     ElMessage.error('Failed');
+    downloadStarted.value = false;
   }
 };
 
@@ -269,8 +271,7 @@ const removeDocument = (data) => {
 
       </el-tooltip>
       <el-tooltip content="Delete" placement="top">
-        <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="290px" icon-color="#626AEF"
+        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="290px" icon-color="#626AEF"
               title="Are you sure to delete this document?" @confirm="removeDocument(scope.row)">
               <template #reference>
                 <el-button type="danger"  v-if="userIsAdmin || documentOwner"   :icon="Delete" circle />
