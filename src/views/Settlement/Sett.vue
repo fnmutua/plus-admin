@@ -1843,7 +1843,6 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
           v-model="search_string"
           clearable
           :onClear="handleClear"
-          :onChange="searchByNewName"
           placeholder="Please input"
           class="input-with-select"
         >
