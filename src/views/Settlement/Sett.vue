@@ -205,7 +205,7 @@ if (isMobile.value) {
 const handleClear = async () => {
   console.log('cleared....')
   enableSubcounty.value = false
-
+  search_string.value = ''
   // clear all the fileters -------
   filterValues.value = []
   filters.value = []
@@ -789,13 +789,13 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   formData.filterValues = filterValues.value
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
-  formData.cache_key = 'SeacrchByKey_' + search_string.value
+  //formData.cache_key = 'SeacrchByKey_' + search_string.value
 
   //-------------------------
   console.log(formData)
   console.log('activeTab', tab)
   const res = await searchByKeyWord(formData)
-
+  searchLoading.value=false 
   if (tab === 'list') {
 
     tableDataList.value = res.data
@@ -818,6 +818,21 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   loading.value = false
 
 
+}
+const searchLoading=ref(false)
+const searchByNewName = async () => {
+
+console.log('filterString', search_string.value)
+//value3.value = filterString
+//search_string.value = filterString
+
+  filters.value.push('isActive')
+  filterValues.value.push(['true'] )  // make sure the inner array is array
+  searchLoading.value=true 
+
+
+
+getFilteredBySearchData(activeTab.value, search_string.value)
 }
 
 const searchByName = async (filterString: any) => {
@@ -1763,34 +1778,7 @@ function handleExpand(row) {
 
 
 // Revised molde for downlaod
-
-const getModeldefinition = async ( ) => {
  
-var formData = {}
-formData.model = model
-console.log("gettign fields")
-
-
-await getModelSpecs(formData).then((response) => {
-
-  var data = response.data
-
-  var fields = data.filter(function (obj) {
-    return (obj.field !== 'id');
-  });
-
-  var fields2 = fields.filter(function (obj) {
-    return (obj.field !== 'geom' && obj.field !=='isApproved' && obj.field !=='createdBy' && obj.field !=='updatedAt'  && obj.field !=='createdAt'     );
-  });
-
-  fields2.forEach(function (arrayItem: { field: string }) {
-       model_fields.value.push(arrayItem.field)
-  })
-    console.log(model_fields.value)
-})
-
-
-}
 
 
 // get model fields 
@@ -1849,12 +1837,24 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
       <el-col :xs="24" :sm="24" :md="6" :lg="4" :xl="4">
         <div style="display: inline-block; margin-top: 5px">
 
-          <el-input
-v-model="search_string" :suffix-icon="Search" placeholder="Enter search text"
-            :onInput="searchByName" />
+        <!-- <el-input v-model="search_string" :suffix-icon="Search" placeholder="Type search text then press Enter"  :onChange="searchByName" /> -->
+
+        <el-input
+          v-model="search_string"
+          
+          placeholder="Please input"
+          class="input-with-select"
+        >
+  
+      <template #append>
+        <el-button  v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
+      </template>
+    </el-input>
 
         </div>
       </el-col>
+
+      
       <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
         <div style="display: inline-block; margin-top: 5px">
           <div style="display: inline-block; margin-left: 5px">

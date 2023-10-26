@@ -154,20 +154,29 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
 
       <el-dialog
       v-model="showUploadDialog"
-      title="Upload a Zipped Shapefile/Geojson"
+      title="Upload a Zipped Shapefile/Geojson/KML/KMZ"
       width="30%" 
     >
 
-          <el-upload
+    <el-upload
         v-model:file-list="fileList"
-                        class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-                        :auto-upload="false" :show-file-list="false" :on-change="handleUploadGeo">
-                        <template #default>
-                          <el-button type="primary">{{ fileList.length > 0 ? fileList[0].name : 'Select Geojson/Zipped Shp'
-                          }}</el-button>
-                          <span class="upload-filename" v-if="fileList.length > 0">{{ fileList[0].name }}</span>
-                        </template>
-                      </el-upload>
+        class="upload-demo"
+        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+        :auto-upload="false"
+        :show-file-list="false"
+        :on-change="handleUploadGeo"
+      >
+        <template #trigger>
+          <el-button type="primary">
+            <i class="el-icon-upload"></i> <!-- Prepend upload icon here -->
+            {{ fileList.length > 0 ? fileList[0].name : 'Select File' }}
+          </el-button>
+        </template>
+        <template #default>
+          <span class="upload-filename" v-if="fileList.length > 0">{{ fileList[0].name }}</span>
+        </template>
+      </el-upload>
+
    
     </el-dialog>
 
@@ -649,7 +658,7 @@ const handleUploadGeo = async (uploadFile) => {
 
     // reader.readAsArrayBuffer(rfile)
   } else {
-    ElMessage.error('Only geojson or zipped shapefiles are supported at the moment')
+    ElMessage.error('Only GeoJSON, KML, KMZ or zipped shapefiles are supported at the moment')
 
 
   }
@@ -1008,7 +1017,7 @@ const draw = new MapboxDraw({
   displayControlsDefault: false,
   controls: {
     point: true,
-    line_string: true,
+    line_string: false,
     polygon: true,
     trash: true
   },
