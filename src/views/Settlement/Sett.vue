@@ -1839,9 +1839,10 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
 
         <!-- <el-input v-model="search_string" :suffix-icon="Search" placeholder="Type search text then press Enter"  :onChange="searchByName" /> -->
 
-        <el-input
+        <el-input 
           v-model="search_string"
-          
+          clearable
+          :onClear="handleClear"
           placeholder="Please input"
           class="input-with-select"
         >
