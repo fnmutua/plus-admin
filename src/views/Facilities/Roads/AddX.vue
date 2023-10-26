@@ -1112,7 +1112,7 @@ const getFieldChangeHandler = (fieldName: string) => {
 <style scoped>
 .basemap {
   width: 100%;
-  height: 400px;
+  height: 65vh;
 }
 
 

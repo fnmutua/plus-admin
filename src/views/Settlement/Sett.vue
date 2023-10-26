@@ -2391,7 +2391,7 @@ v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
 <style scoped>
 .basemap {
   width: 100%;
-  height: 400px;
+  height: 75vh;
 }
 </style>
 

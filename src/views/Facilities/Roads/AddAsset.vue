@@ -560,7 +560,7 @@ v-model="ruleForm.longitude" :precision="5" :step="0.01" :min="33.9" :max="42"
 <style scoped>
 .basemap {
   width: 100%;
-  height: 500px;
+  height: 65vh;
 }
 
 

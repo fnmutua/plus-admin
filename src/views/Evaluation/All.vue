@@ -2130,7 +2130,7 @@ v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPa
 <style scoped>
 .basemap {
   width: 100%;
-  height: 400px;
+  height: 75vh;
 }
 </style>
 
@@ -2197,7 +2197,7 @@ v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPa
 <style scoped>
 .basemap {
   width: 100%;
-  height: 400px;
+  height: 75vh; /* Set the height to 75% of the viewport height */
   border: 1px solid #e2dcdc; /* Outline */
   box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4); /* Shadow */
 }

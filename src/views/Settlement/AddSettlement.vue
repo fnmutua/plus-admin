@@ -1013,7 +1013,7 @@ v-if="showGeoFields && geoSource" class="upload-demo" drag ref="uploadRef" :auto
 <style scoped>
 .basemap {
   width: 100%;
-  height: 500px;
+  height: 65vh;
 }
 
 
