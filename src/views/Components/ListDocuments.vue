@@ -130,6 +130,9 @@ await getFile(formData)
 const downloadFile = async (data) => {
   console.log(data.name);
   downloadStarted.value = true;
+  rowLoading.value=data.id
+
+
   const formData = {};
   formData.filename = data.name;
   formData.doc_id = data.id;
@@ -143,6 +146,7 @@ const downloadFile = async (data) => {
     if (downloadStarted.value) {
       console.log('Download has started.');
       downloadStarted.value = false;
+      rowLoading.value=null
     }
   });
 
@@ -186,11 +190,12 @@ const xviewDocument = async (data) => {
 };
 
 const viewLoading = ref(false)
+const rowLoading = ref()
 
 const viewDocument = async (data) => {
   viewLoading.value=true
   const documentUrl = data.url; // Use 'data.url' to access the document URL
-
+  rowLoading.value=data.id
   const formData = {};
   formData.filename = data.name;
   formData.doc_id = data.id;
@@ -208,6 +213,8 @@ const viewDocument = async (data) => {
         // The new tab has fully loaded
         console.log('New tab has fully loaded.');
         viewLoading.value=false
+        rowLoading.value=null
+
       });
     } else {
       console.error('Failed to open a new tab.');
@@ -263,11 +270,11 @@ const removeDocument = (data) => {
       </el-dropdown>
       <div v-else>
         <el-tooltip content="Download" placement="top">
-        <el-button v-loading="downloadStarted"  type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
+        <el-button  :v-loading="viewLoading && scope.row.id == rowLoading"  type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
       </el-tooltip>
 
       <el-tooltip content="View" placement="top">
-        <el-button v-loading="viewLoading" type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
+        <el-button   :v-loading="viewLoading && scope.row.id == rowLoading"  type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
 
       </el-tooltip>
       <el-tooltip content="Delete" placement="top">
@@ -275,7 +282,6 @@ const removeDocument = (data) => {
               title="Are you sure to delete this document?" @confirm="removeDocument(scope.row)">
               <template #reference>
                 <el-button type="danger"  v-if="userIsAdmin || documentOwner"   :icon="Delete" circle />
-
                </template>
             </el-popconfirm>
           </el-tooltip>
