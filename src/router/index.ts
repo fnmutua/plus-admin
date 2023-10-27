@@ -244,7 +244,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               name: String
             },
             meta: {
-              hidden: false,
+              hidden: true,
               icon:'mdi:house-circle',
               title: 'Households'
             }
