@@ -1895,7 +1895,7 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
           </span>
         </template>
 
-        <el-table :data="tableDataList" style="width: 100%" border :row-class-name="tableRowClassName"    @expand-change="handleExpand">
+        <el-table :data="tableDataList" :show-overflow-tooltip="true"	 style="width: 100%" border :row-class-name="tableRowClassName"    @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -2008,7 +2008,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
           </span>
         </template>
 
-        <el-table :data="tableDataListNew" style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+        <el-table :data="tableDataListNew" :show-overflow-tooltip="true"		style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -2118,7 +2118,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
             </el-badge>
           </span>
         </template>
-        <el-table :data="tableDataListRejected" style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+        <el-table :data="tableDataListRejected" :show-overflow-tooltip="true"	 style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">

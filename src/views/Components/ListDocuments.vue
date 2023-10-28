@@ -129,7 +129,7 @@ await getFile(formData)
 
 const downloadFile = async (data) => {
   console.log(data.name);
-  downloadStarted.value = true;
+  viewLoading.value = true;
   const formData = {};
   formData.filename = data.name;
   formData.doc_id = data.id;
@@ -140,9 +140,9 @@ const downloadFile = async (data) => {
 
   // Attach a 'beforeunload' event listener to the window
   window.addEventListener('beforeunload', () => {
-    if (downloadStarted.value) {
+    if (viewLoading.value) {
       console.log('Download has started.');
-      downloadStarted.value = false;
+      viewLoading.value = false;
     }
   });
 
@@ -156,10 +156,10 @@ const downloadFile = async (data) => {
     link.setAttribute('download', data.name);
     document.body.appendChild(link);
     link.click();
-    downloadStarted.value = false;
+    viewLoading.value = false;
   } catch (error) {
     ElMessage.error('Failed');
-    downloadStarted.value = false;
+    viewLoading.value = false;
   }
 };
 
@@ -260,7 +260,7 @@ currentPage.value = newPage;
 
 <template>
   
-  <el-table :data="tableDocumentsFiltered.slice((currentPage - 1) * pageSize, currentPage * pageSize)" border style="width: 100%">
+  <el-table v-loading="viewLoading" :data="tableDocumentsFiltered.slice((currentPage - 1) * pageSize, currentPage * pageSize)" border style="width: 100%">
 
     
   <el-table-column label="Name" prop="name"  sortable />
@@ -282,7 +282,7 @@ currentPage.value = newPage;
       </el-tooltip>
 
       <el-tooltip content="View" placement="top">
-        <el-button v-loading="viewLoading" type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
+        <el-button type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
 
       </el-tooltip>
       <el-tooltip content="Delete" placement="top">

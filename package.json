@@ -46,7 +46,7 @@
     "downloadjs": "^1.4.7",
     "echarts": "^5.3.3",
     "echarts-wordcloud": "^2.0.0",
-    "element-plus": "2.2.15",
+    "element-plus": "^2.2.30",
     "export-from-json": "^1.7.3",
     "express": "^4.18.1",
     "express-fileupload": "^1.4.0",
