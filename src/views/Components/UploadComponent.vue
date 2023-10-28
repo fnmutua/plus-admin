@@ -240,7 +240,7 @@ console.log('loadingPosting.value.......', morefileList.value.length)
 }
 
 const onExceeed = async () => {
- ElMessage.warning("Maximum number of files exceeded")
+ ElMessage.warning("Maximum number of files (10) exceeded!")
 }
 
 const trackFileAvailability = async (progress) => {
@@ -288,7 +288,7 @@ const handleSelect = async (selected) => {
           v-if="showUpload"
           v-model:file-list="morefileList"
            multiple
-          :limit="5"
+          :limit="10"
           :on-exceed="onExceeed"
           :auto-upload="false"
         >

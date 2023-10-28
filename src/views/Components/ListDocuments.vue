@@ -9,7 +9,7 @@ import {
   Filter, InfoFilled, CopyDocument, Search, Setting, Loading
 } from '@element-plus/icons-vue'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
-import { ElMessage,  } from 'element-plus'
+import { ElMessage, ElPagination } from 'element-plus'
 import { uuid } from 'vue-uuid'
 import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
 import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
@@ -242,16 +242,31 @@ const removeDocument = (data) => {
 
  
 
+  const totalItems=ref(10)
+ 
+const pageSize = ref(5)
+const currentPage = ref(1)
+const handlePageChange = async (newPage) => {
 
+currentPage.value = newPage;
+}
+
+//<el-table  :data="docs.slice((currentPage - 1) * pageSize, currentPage * pageSize)"
+
+ 
 </script>
+
+
 
 <template>
   
-  <el-table :data="tableDocumentsFiltered" border style="width: 100%">
-  <el-table-column label="Name" prop="name" />
-  <el-table-column label="Type" prop="document_type.type" />
-  <el-table-column label="Size(mb)" prop="size" />
-  <el-table-column  v-if="!denyDownload"  label="Actions">
+  <el-table :data="tableDocumentsFiltered.slice((currentPage - 1) * pageSize, currentPage * pageSize)" border style="width: 100%">
+
+    
+  <el-table-column label="Name" prop="name"  sortable />
+  <el-table-column label="Type" prop="document_type.type"  sortable/>
+  <el-table-column label="Size(mb)" prop="size"  sortable/>
+  <el-table-column  v-if="!denyDownload"  label="Actions" >
     <template #default="scope">
       <el-dropdown v-if="isMobile">
         <span class="el-dropdown-link">Actions</span>
@@ -271,7 +286,8 @@ const removeDocument = (data) => {
 
       </el-tooltip>
       <el-tooltip content="Delete" placement="top">
-        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="290px" icon-color="#626AEF"
+        <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="290px" icon-color="#626AEF"
               title="Are you sure to delete this document?" @confirm="removeDocument(scope.row)">
               <template #reference>
                 <el-button type="danger"  v-if="userIsAdmin || documentOwner"   :icon="Delete" circle />
@@ -285,7 +301,32 @@ const removeDocument = (data) => {
   </el-table-column>
 </el-table>
 
+
+<div class="pagination-wrapper" v-if="tableDocumentsFiltered.length > 5">
+    <div class="pagination-center">
+      <el-pagination
+        :page-size="5"
+         small
+        layout="prev, pager, next"
+        :total="tableDocumentsFiltered.length"
+        @current-change="handlePageChange"
+      />
+    </div>
+  </div>
 </template>
  
 
 
+
+<style scoped>
+.pagination-wrapper {
+  margin-top: 5px;
+  display: flex;
+  justify-content: center;
+}
+
+.pagination-center {
+  text-align: center;
+
+}
+</style>

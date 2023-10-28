@@ -953,7 +953,7 @@ const loginUserToCollector = async () => {
 
     loading.value = true
     var formData = {}
-    formData.email = "felix.mutua@gmail.com"
+    formData.email = "kisip.mis@gmail.com"
     formData.password = "Admin@2011"
 
     console.log("gettign fields")

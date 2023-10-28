@@ -3260,7 +3260,7 @@ async function sendSettDataToODK(settArray) {
 
   // Construct the request body as a JSON object
   const requestBody = {
-    email: 'felix.mutua@gmail.com',
+    email: 'kisip.mis@gmail.com',
     password: 'Admin@2011'
   };
 
@@ -3342,7 +3342,7 @@ async function deleteSettlementDataFromODK(settToDelete) {
   console.log("here to delete the settlement from ODK")
   // Construct the request body as a JSON object
   const requestBody = {
-    email: 'felix.mutua@gmail.com',
+    email: 'kisip.mis@gmail.com',
     password: 'Admin@2011'
   };
 
@@ -3438,7 +3438,7 @@ async function updateSettlementDataInODK(settToUpdate) {
   console.log("here to update the settlement in ODK")
   // Construct the request body as a JSON object
   const requestBody = {
-    email: 'felix.mutua@gmail.com',
+    email: 'kisip.mis@gmail.com',
     password: 'Admin@2011'
   };
 
