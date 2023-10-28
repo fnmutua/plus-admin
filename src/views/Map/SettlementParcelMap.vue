@@ -1031,7 +1031,7 @@ for (let i = 0; i < baselayers.value.length; i++) {
 <style scoped>
 .basemap {
   width: 100%;
-  height: 500px;
+  height: 75vh; /* Set the height to 75% of the viewport height */
 }
 </style>
 
@@ -1129,5 +1129,11 @@ h1 {
 .checkbox-group-vertical {
   display: flex;
   flex-direction: column;
+}
+
+
+.full-height {
+  height: 100vh; /* Set the height to 100% of the viewport height */
+  overflow: auto; /* Add scrollbars if content exceeds viewport height */
 }
 </style>
