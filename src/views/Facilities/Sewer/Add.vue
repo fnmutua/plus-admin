@@ -640,23 +640,24 @@ v-for="item in generalOwnership" :key="item.value" :label="item.label"
 <style scoped>
 .basemap {
   width: 100%;
-  height: 500px;
+  height: 65vh;
 }
+
 
 
 .coordinates {
   display: block;
-  position: relative;
-  width: 24%;
-  bottom: 20px;
-  left: 40%;
-  background-color: rgba(7, 7, 7, 0.85);
+  position: absolute; /* Use absolute positioning to position it within the container */
+  width: 10%;
+  bottom: 15; /* Set to 0 to align it at the bottom */
+  left: 50%; /* Set to 50% to horizontally center it */
+  transform: translateX(-50%); /* Use transform to horizontally center it */
+  background-color: rgba(10, 10, 10, 0.85);
   color: #fbfbfb;
   text-align: center;
-  /* Center the text inside the paragraph element */
   font-size: 10px;
   z-index: 10;
   border-radius: 5px;
-
 }
+
 </style>

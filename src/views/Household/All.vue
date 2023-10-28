@@ -1180,7 +1180,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 <style scoped>
 .basemap {
   width: 100%;
-  height: 400px;
+  height: 75vh;
 }
 </style>
 

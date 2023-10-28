@@ -1985,7 +1985,7 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
 <style scoped>
 .basemap {
   width: 100%;
-  height: 450px;
+   height: 75vh; /* Set the height to 75% of the viewport height */
 }
 </style>
 
@@ -1996,7 +1996,7 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
 <style scoped>
 .basemap {
   width: 100%;
-  height: 400px;
+  height: 75vh;
 }
 </style>
 
