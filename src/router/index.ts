@@ -267,7 +267,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Intervention/InterventionBeneficiary.vue'),
             meta: {
               title: 'Beneficiaries',
-              icon:'bi:people-fill'
+              icon:'bi:people-fill',
+                            hidden: true,
+
             },
        
           },
