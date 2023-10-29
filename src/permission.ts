@@ -122,9 +122,7 @@ router.beforeEach(async (to, from, next) => {
     } else if (to.path.startsWith("/reset") ){
       next()  // for reset do not redirect
     }
-    else if (to.path.startsWith("/landing") ){
-      next()  // for reset do not redirect
-    }
+     
          
     
     else {
