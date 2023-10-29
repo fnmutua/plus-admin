@@ -90,6 +90,7 @@ const filters = ref([])
 const filterValues = ref([])
 const searchTerm = ref('')
 const currentlyFiltered = ref(false)
+const downloading = ref(false)
  
  
 
@@ -142,7 +143,7 @@ const filterLiveDocsBackup = ref([])
 
 
 const downloadFile = async (data) => {
-
+  downloading.value=true
   console.log(data)
   console.log(data.row.name)
 
@@ -152,13 +153,14 @@ const downloadFile = async (data) => {
   await getFile(formData)
     .then(response => {
       console.log(response)
-
+      downloading.value=false
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
       link.setAttribute('download', data.row.name)
       document.body.appendChild(link)
       link.click()
+      downloading.value=false
 
     })
     .catch(error => {
@@ -523,7 +525,7 @@ function getIconForGroup(groupName) {
               </template>
 
               <el-table
-:data="filterLiveDocs"
+:data="filterLiveDocs" v-loading="downloading" 
               style="width: 100%; margin-left: 30px" size="small">
               <el-table-column label="#" type="index" width="50">
                 <template #default="{ $index }">
@@ -536,7 +538,7 @@ function getIconForGroup(groupName) {
               <el-table-column prop="size" label="Size(Mb)" />
               <el-table-column label="Action">
                 <template #default="scope">
-                  <el-button @click="downloadFile(scope)" type="primary" icon="el-icon-download">Download</el-button>
+                  <el-button   @click="downloadFile(scope)" type="primary" icon="el-icon-download">Download</el-button>
                 </template>
               </el-table-column>
             </el-table>
