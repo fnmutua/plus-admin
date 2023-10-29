@@ -108,11 +108,11 @@ const columns: TableColumn[] = [
 
   {
     field: 'name',
-    label: t('Name')
+    label: t('Contractor')
   },
   {
-    field: 'address',
-    label: t('Address')
+    field: 'contract_number',
+    label: t('Contract')
   },
   {
     field: 'phone',
@@ -306,6 +306,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.name = data.row.name
   ruleForm.address = data.row.address
   ruleForm.phone = data.row.phone
+  ruleForm.contract_number = data.row.contract_number
 
 
   formHeader.value = 'Edit Contractor'
@@ -358,6 +359,7 @@ const ruleForm = reactive({
   name: '',
   address: '',
   phone: '',
+  contract_number:''
  
 })
 
@@ -466,11 +468,11 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-      <el-form-item label="Name">
+      <el-form-item label="Contractor">
         <el-input v-model="ruleForm.name" />
       </el-form-item>
-      <el-form-item label="Address">
-        <el-input v-model="ruleForm.address" />
+      <el-form-item label="Contract">
+        <el-input v-model="ruleForm.contract_number" />
       </el-form-item>
 
       <el-form-item label="Phone">
