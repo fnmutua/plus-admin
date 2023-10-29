@@ -164,7 +164,11 @@ const downloadFile = async (data) => {
 
     })
     .catch(error => {
-      console.error('Error downloading file:', error);
+      console.error('Error downloading file2:', error);
+       ElMessage.error('Download failed.');
+
+      downloading.value=false
+
     });
 
 }
@@ -271,21 +275,11 @@ const getFilteredDataV2 = async () => {
 
       console.log('filteredObjs --v1', filteredObjs)
 
-      if(response.total >100) {
-
-      }
-      else {
- filterLiveDocs.value=filteredObjs
+     
+      filterLiveDocs.value=filteredObjs
       filterLiveDocsBackup.value=filteredObjs
       totalDocs.value=response.total
-      // groups.value = groupByProperties(filteredObjs, ['document_type.group', 'document_type.type'])
-
-
-      // groups_backup.value = groupByProperties(filteredObjs, ['document_type.group', 'document_type.type'])
-
-
-      // loading.value = false
-      }
+      
      
 
     });
