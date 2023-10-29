@@ -1089,20 +1089,20 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
     },
     children: [
-      {
-        path: 'users',
-       // component: 'views/Users/User',
-        component: () => import('@/views/Users/AllUsers.vue'),
-        name: 'AllUsers',
-        meta: {
-          title: 'All Users',
-          hidden: false,
-          icon: 'fa6-solid:users-rectangle',
-          //role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] 
-          role: ['super_admin' ] 
+      // {
+      //   path: 'users',
+      //  // component: 'views/Users/User',
+      //   component: () => import('@/views/Users/AllUsers.vue'),
+      //   name: 'AllUsers',
+      //   meta: {
+      //     title: 'All Users',
+      //     hidden: false,
+      //     icon: 'fa6-solid:users-rectangle',
+      //     //role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] 
+      //     role: ['super_admin' ] 
 
-        }
-      },
+      //   }
+      // },
 
 
       {
