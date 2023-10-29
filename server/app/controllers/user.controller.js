@@ -528,6 +528,7 @@ exports.modelCountyUsers = async (req, res) => {
     }
 
     // Super admin override
+   
     if (currentUserRoles.includes('super_admin')) {
       console.log('Super Admin Override:', userCounty, findAndCountOptions);
       findAndCountOptions.include = {
@@ -535,37 +536,23 @@ exports.modelCountyUsers = async (req, res) => {
         through: 'user_roles',
       };
       findAndCountOptions.limit = limit;
-      if (filters.length === filterValues.length) {
-        const filterConditions = filters.map((filter, index) => {
-          console.log('filter', filter); // Log the filter name
-          if(filter=='isactive'){
-            return {
-              [filter]: {
-                [op.eq]: filterValues[index], 
-              },
-            };
-          } else {
-            return
-          }
-        });
-
-        console.log('filterConditions---->',filterConditions)
-        if(filterConditions === 'undefined') {
-          findAndCountOptions.where[op.or] = filterConditions; // Combine filter conditions with OR
-
-        }
-        else{
-          findAndCountOptions.where = {}; // Set the filter conditions to an empty object
-  
-        }
-
-      } else {
-        findAndCountOptions.where = {}; // Set the filter conditions to an empty object
-      }
+      findAndCountOptions.where = {};
       
+      // Check if 'isactive' is part of the filters array
+      if (filters.includes('isactive')) {
+        // Add 'isactive' filter condition when specified
+        // Replace 'filterValueForIsactive' with the actual value for 'isactive' filter
+        findAndCountOptions.where.isactive = {
+          [op.eq]: false,
+        };
+      }
       
       findAndCountOptions.offset = (page - 1) * limit;
     }
+    
+    
+
+
 
     console.log('Subordinate Roles for this user:', findAndCountOptions);
 
