@@ -89,18 +89,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
       noTagsView: true
     }
   },
-
-
-  {
-    path: '/landing',
-    component: () => import('@/views/Landing/Landing.vue'),
-    name: 'Landing',
-    meta: {
-      hidden: true,
-      title: 'Landing',
-      noTagsView: true
-    }
-  }
+ 
 ]
  
  
