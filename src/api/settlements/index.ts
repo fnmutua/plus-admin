@@ -162,4 +162,8 @@ export const getListManyToMany = (
 }
 
 
-
+export const getDocumentsBySearch = (
+  data: SettlementType
+): Promise<IResponse<SettlementType>> => {
+  return request.post({ url: prod + '/api/v1/docs/search', data })
+}
