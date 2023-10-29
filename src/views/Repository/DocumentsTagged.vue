@@ -8,7 +8,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 
 import { ref, reactive, watch, computed } from 'vue'
 import {
-  ElTable, ElTableColumn, ElCollapse, ElCollapseItem, ElPagination,
+  ElTable, ElTableColumn, ElCollapse, ElCollapseItem, ElPagination, 
   ElFormItem, ElInput, ElMessage, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -492,7 +492,7 @@ function getIconForGroup(groupName) {
   <ContentWrap
 :title="t('Document Repository')" :message="t('Use the filters to subset')" v-loading="loading"
     element-loading-text="Getting the documents.......">
-    <el-input v-model="searchTerm" placeholder="Search documents by name/settlement/format" class="search-input" clearable  @change="handleInputChange" @clear="getCategoryCounts" />
+    <el-input v-model="searchTerm" placeholder="Search documents by name/settlement/county/format" class="search-input" clearable  @change="handleInputChange" @clear="getCategoryCounts" />
     <el-collapse accordion>
       <el-collapse-item v-for="(group, groupName) in groups_v2" :key="groupName">
         <template #title>
