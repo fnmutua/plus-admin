@@ -3151,14 +3151,15 @@ exports.downloadFile = (req, res) => {
   fs.access(uploadedFile, fs.constants.F_OK, (err) => {
     if (err) {
       console.log(err);
-      res.status(404).send({
-        message: 'File not found.',
-        code: '0000'
-      });
+   
 
-      db.models.document.destroy({ where: { id: req.body.doc_id } })
+      db.models.document.destroy({ where: { name: req.body.filename } })
       .then((result) => {
-     console.log('succeed')
+        console.log('succeed')
+        res.status(500).send({
+          message: 'File not found.',
+          code: '0000'
+        });
     }) 
 
       
@@ -3174,6 +3175,10 @@ exports.downloadFile = (req, res) => {
         } else {
           // File sent successfully
           // Handle success logic here if needed
+          res.status(200).send({
+            message: 'File Found. Downloading...',
+            code: '0000'
+          });
         }
       });
     }

@@ -81,13 +81,13 @@ service.interceptors.response.use(
 
       return response.data
     } else {
-      console.log(response.data.message)
+      console.log('xxxx', response)
      // ElMessage.error(response.data.message)
      
     }
   },
   (error) => {
-    console.log('the Error-0->', error.response.data    ); // Log the error message to the console for debugging
+    console.log('the Error-0->', response    ); // Log the error message to the console for debugging
     console.log(error.response.data.message); // Log any specific message from the response (if available)
   
     if (error.response.data.message == 'Unauthorized!') {
