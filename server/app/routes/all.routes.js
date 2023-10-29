@@ -104,6 +104,7 @@ module.exports = function (app) {
   app.post('/api/v1/data/parentids',  [authJwt.verifyToken],controller.modelGetParentIDS)
 
 
+  app.post('/api/v1/docs/search',  controller.filterRepository)
 
   
   app.post(

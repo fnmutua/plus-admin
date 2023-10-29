@@ -9,12 +9,12 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { ref, reactive, watch, computed } from 'vue'
 import {
   ElTable, ElTableColumn, ElCollapse, ElCollapseItem, ElPagination,
-  ElFormItem, ElInput, FormRules, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm
+  ElFormItem, ElInput, ElMessage, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
  import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, getDocumentsBySearch } from '@/api/settlements'
  import xlsx from "json-as-xlsx"
 
  import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldSimple } from '@/api/summary'
@@ -89,7 +89,8 @@ const totalDocs = ref()
 const filters = ref([])
 const filterValues = ref([])
 const searchTerm = ref('')
-
+const currentlyFiltered = ref(false)
+ 
  
 
 
@@ -130,6 +131,7 @@ function flattenArrayOfJSON(arr) {
 
 
 const filterLiveDocs = ref([])
+const filterLiveDocsBackup = ref([])
  
 //console.log('TBL-4f', liveDocs.value)
 
@@ -196,7 +198,7 @@ function reformatData(data) {
 
 
 const getCategoryCounts = async () => {
-
+  loading.value=true
   const formData = {}
   formData.model = 'document'
   formData.summaryField = 'document_type.group'
@@ -212,7 +214,7 @@ const getCategoryCounts = async () => {
   console.log('Filter FormData : ', formData)
   const response = await getSummarybyFieldFromMultipleIncludes(formData);
   console.log('groups...', response)
-
+  loading.value=false
 
   groups_v2.value=reformatData(response.Total)
 
@@ -265,8 +267,14 @@ const getFilteredDataV2 = async () => {
 
         console.log(response.total)
 
-      console.log('filteredObjs --v2', filteredObjs)
-      filterLiveDocs.value=filteredObjs
+      console.log('filteredObjs --v1', filteredObjs)
+
+      if(response.total >100) {
+
+      }
+      else {
+ filterLiveDocs.value=filteredObjs
+      filterLiveDocsBackup.value=filteredObjs
       totalDocs.value=response.total
       // groups.value = groupByProperties(filteredObjs, ['document_type.group', 'document_type.type'])
 
@@ -275,6 +283,8 @@ const getFilteredDataV2 = async () => {
 
 
       // loading.value = false
+      }
+     
 
     });
 
@@ -328,12 +338,46 @@ const handlePageChange = async (newPage) => {
   await getFilteredDataV2()
 }
 
+
+const getFilteredCategoryCounts = async (filterIDs) => {
+
+const formData = {}
+formData.model = 'document'
+formData.summaryField = 'document_type.group'
+formData.summaryFunction = 'count'
+//formData.assoc_models = ['county']
+formData.assoc_models = associated_multiple_models
+formData.groupFields = ['document_type.group', 'document_type.type']
+
+formData.filterField =['id']
+formData.filterValue =[filterIDs] 
+formData.filterOperator = ['eq']
+
+console.log('Filter FormData : ', formData)
+const response = await getSummarybyFieldFromMultipleIncludes(formData);
+console.log('groups.Filtredt..', response)
+
+
+groups_v2.value=reformatData(response.Total)
+
+console.log('groups_v2', groups_v2.value)
+
+console.log('groups_v1', groups)
+}
+
+
 const handleItemCollapse = async (type) => {
-    // clear daata and filers  before laoding next 
+ 
+  console.log('type',type)
+
+    console.log('currentlyFiltered',currentlyFiltered)
+
+    if (!currentlyFiltered.value) {
+         // clear daata and filers  before laoding next 
       filterLiveDocs.value=[]
+      filterLiveDocsBackup.value=[]
       filters.value =[]
       filterValues.value=[]
-
       // now run the querry 
       console.log(`Item "${type}" is uncollapsed.`);
       const SelectedDocType = docTypes.value.filter(obj => obj.type ==type);
@@ -343,6 +387,10 @@ const handleItemCollapse = async (type) => {
         filterValues.value = [[SelectedDocType[0].id]]
 
       await getFilteredDataV2()
+    } 
+    else {
+       filterLiveDocs.value = filterLiveDocsBackup.value.filter(obj => obj['document_type.type'] === type);
+    }
 }
 
 
@@ -367,7 +415,74 @@ function getIconForGroup(groupName) {
   }
 
 
+  const handleInputChange = async (keyword) => { 
+    loading.value=true
+    
+    
+    if(keyword) {
+      currentlyFiltered.value=true
+      console.log(keyword)
 
+      const formData = {}
+        formData.limit = 5
+   
+        //-Search field--------------------------------------------
+        formData.searchTerm = keyword
+         //--Single Filter -----------------------------------------
+ 
+      
+        //-------------------------
+        console.log(formData)
+
+        let resultsIDs = []
+        
+      await getDocumentsBySearch(formData)
+            .then(response => {
+              console.log('response.Total',response.Total)
+              if(response.Total>100) {
+                console.log("Too many..Refine")
+                ElMessage.error('Too Many Results. Refine your search keyword');
+
+                loading.value=false
+              } else {
+                var flattenedObj = flattenArrayOfJSON(response.data);
+                //create the subcategories 
+                var filteredObjs = flattenedObj.filter(function (doc) {
+                // console.log("userIsAdmin.value", userIsAdmin.value)
+                  console.log("doc", doc.id )
+                  resultsIDs.push(doc.id)
+
+                  if (userIsAdmin.value) {
+                    return doc
+                  } else {
+                    return (doc.createdBy === userInfo.id || !doc.protectedFile)
+                  }
+
+                });
+
+                getFilteredCategoryCounts(resultsIDs)
+            console.log('filteredObjs --v2', filteredObjs)
+            filterLiveDocs.value=filteredObjs
+            filterLiveDocsBackup.value=filteredObjs
+            totalDocs.value=response.total
+            loading.value=false
+              }
+               
+
+
+
+      });
+
+    }
+
+    else {
+      getCategoryCounts()
+    }
+   
+
+
+ 
+  }
 
 
  
@@ -377,7 +492,7 @@ function getIconForGroup(groupName) {
   <ContentWrap
 :title="t('Document Repository')" :message="t('Use the filters to subset')" v-loading="loading"
     element-loading-text="Getting the documents.......">
-    <el-input v-model="searchTerm" placeholder="Search documents by name/settlement/format" class="search-input" />
+    <el-input v-model="searchTerm" placeholder="Search documents by name/settlement/format" class="search-input" clearable  @change="handleInputChange" @clear="getCategoryCounts" />
     <el-collapse accordion>
       <el-collapse-item v-for="(group, groupName) in groups_v2" :key="groupName">
         <template #title>

@@ -3544,3 +3544,108 @@ async function updateSettlementDataInODK(settToUpdate) {
     }
   });
 }
+
+ 
+ 
+exports.filterRepository = async (req, res) => {
+  try {
+    const searchTerm = req.body.searchTerm; // Assuming you get the filter value in the request body
+    console.log(req.body);
+
+    const page = req.body.page || 1; // Page number (default to 1)
+    const pageSize = 5; // Number of records per page
+    const offset = (page - 1) * pageSize; // Calculate the offset based on the page and page size
+
+
+
+
+    const filteredData = await db.models.document.findAll({
+      where: {
+        [Op.or]: [
+          {
+            // Search in the main model (Document) columns
+            name: {
+              [Op.iLike]: `%${searchTerm.toLowerCase()}%`,
+            },
+          },
+
+          {
+            // Search in the main model (Document) columns
+            format: {
+              [Op.iLike]: `%${searchTerm.toLowerCase()}%`,
+            },
+          },
+
+          {
+            // Search in the related model (Settlement) columns
+            '$settlement.name$': {
+              [Op.iLike]: `%${searchTerm.toLowerCase()}%`,
+            },
+          },
+          {
+            // Search in the related model (document_type) columns
+            '$document_type.type$': {
+              [Op.iLike]: `%${searchTerm.toLowerCase()}%`,
+            },
+          },
+          {
+            // Search in the related model (document_type) columns
+            '$document_type.group$': {
+              [Op.iLike]: `%${searchTerm.toLowerCase()}%`,
+            },
+          },
+          {
+            // Search in the related model (Settlement > County) columns
+            '$settlement.county.name$': {
+              [Op.iLike]: `%${searchTerm.toLowerCase()}%`,
+            },
+          },
+        ],
+      },
+
+      include: [
+        {
+          model: db.models.settlement,
+          as: 'settlement', // This should match the alias you defined in your association
+          attributes: ['id', 'name', 'county_id' ], // Specify the attributes for the 'settlement' model
+
+          include: [
+            {
+              model: db.models.county, // Include the 'county' model within 'settlement'
+              as: 'county', // This should match the alias you defined in your association
+              attributes: ['id', 'name' ], // Specify the attributes for the 'settlement' model
+
+            },
+          ],
+        },
+        {
+          model: db.models.document_type,
+          as: 'document_type', // This should match the alias you defined in your association
+          attributes: ['id', 'type', 'group'], // Specify the attributes for the 'settlement' model
+
+        },
+      ],
+    //  limit: pageSize, // Limit the number of records per page
+    //  offset: offset, // Set the offset to paginate
+
+    });
+
+    const count = filteredData.length;
+    const totalPages = Math.ceil(count / pageSize); // Calculate the total number of pages
+
+    console.log('pageSize', pageSize);
+    console.log('offset', offset);
+    console.log('totalPages', totalPages);
+
+    res.status(200).send({
+      data: filteredData,
+      Total: count, // Add the count to the response
+      code: '0000',
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'An error occurred while filtering data.' });
+  }
+};
+
+
