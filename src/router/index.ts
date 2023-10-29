@@ -824,17 +824,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               icon:'bi:clipboard2-data-fill'
             }
           },
-          {
-            path: 'data',
-          //  component: 'views/Users/County',
-            component: () => import('@/views/Repository/Data.vue'),
-            name: 'RepositoryData',
-            meta: {
-              title: 'Data',
-              hidden: false,
-              icon:'fluent:calendar-data-bar-16-regular'
-            }
-          },
+          // {
+          //   path: 'data',
+          // //  component: 'views/Users/County',
+          //   component: () => import('@/views/Repository/Data.vue'),
+          //   name: 'RepositoryData',
+          //   meta: {
+          //     title: 'Data',
+          //     hidden: false,
+          //     icon:'fluent:calendar-data-bar-16-regular'
+          //   }
+          // },
     
           {
             path: 'imagery',
