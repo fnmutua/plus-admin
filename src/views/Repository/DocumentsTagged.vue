@@ -363,7 +363,7 @@ console.log('groups_v1', groups)
 
 
 const handleItemCollapse = async (type) => {
- 
+ loading.value=true
   console.log('type',type)
 
     console.log('currentlyFiltered',currentlyFiltered)
@@ -383,9 +383,12 @@ const handleItemCollapse = async (type) => {
         filterValues.value = [[SelectedDocType[0].id]]
 
       await getFilteredDataV2()
+      loading.value=false
     } 
     else {
        filterLiveDocs.value = filterLiveDocsBackup.value.filter(obj => obj['document_type.type'] === type);
+       loading.value=false
+
     }
 }
 
@@ -435,9 +438,9 @@ function getIconForGroup(groupName) {
       await getDocumentsBySearch(formData)
             .then(response => {
               console.log('response.Total',response.Total)
-              if(response.Total>100) {
+              if(response.Total>150) {
                 console.log("Too many..Refine")
-                ElMessage.error('Too Many Results. Refine your search keyword');
+                ElMessage.error('Too Many Results (>150). Refine your search keyword');
 
                 loading.value=false
               } else {
