@@ -437,7 +437,9 @@ const getFilteredBySearchData = async (searchString) => {
 
 }
 
+ 
 const getFilteredData = async (selFilters, selfilterValues) => {
+  loading.value=true
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
@@ -471,16 +473,13 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   loading.value = false
 
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
+ 
   res.data.forEach(function (arrayItem) {
     console.log('arrayItem ----->', arrayItem)
-    delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
-    delete arrayItem['photo'] //  remove the geometry column
+   // delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
+   // delete arrayItem['photo'] //  remove the geometry column
 
-    var dd = destructure(arrayItem)
-    tblData.push(dd)
-    //  generate the filter options
+ 
     var opt = {}
     opt.value = arrayItem.id
     opt.label = arrayItem.name + '(' + arrayItem.id + ')'
@@ -489,6 +488,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   })
 
   console.log('TBL-4f', tblData)
+  loading.value=false
 }
 
 const searchByName = async (filterString: any) => {
@@ -643,7 +643,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
 
 
-    <el-table :data="tableDataList" style="width: 100%" fit>
+    <el-table :data="tableDataList" style="width: 100%" fit v-loading="loading">
 
       <el-table-column type="index" label="#" width="50">
         <!-- Use the 'index' slot to customize the index column -->

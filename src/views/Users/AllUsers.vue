@@ -436,6 +436,7 @@ const getFilteredBySearchData = async (searchString) => {
 }
 
 const getFilteredData = async (selFilters, selfilterValues) => {
+  loading.value=true
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
@@ -486,6 +487,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
     userOptions.value.push(opt)
   })
 
+  loading.value=false
   console.log('TBL-4f', tblData)
 }
 
@@ -641,7 +643,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
 
 
-    <el-table :data="tableDataList" style="width: 100%" fit>
+    <el-table :data="tableDataList" style="width: 100%" fit v-loading="loading">
 
       <el-table-column type="index" label="#" width="50">
         <!-- Use the 'index' slot to customize the index column -->

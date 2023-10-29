@@ -167,12 +167,12 @@ isAdminOrCountyAdmin = (req, res, next) => {
            next();
            return;
          }
-         if (roles[i].name === "sud_staff") {
+         if (roles[i].name === "staff") {
           next();
           return;
          }  
              
-         if (roles[i].name === "kisip_staff") {
+         if (roles[i].name === "super_admin") {
           next();
           return;
         }

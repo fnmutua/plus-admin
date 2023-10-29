@@ -338,7 +338,7 @@ let limit = 5; // Set the number of items per page
 
 
 
-exports.modelCountyUsers = (req, res) => {
+exports.xmodelCountyUsers = (req, res) => {
  
   console.log(req.body.currentUser)
   var user = req.body.currentUser
@@ -424,35 +424,25 @@ exports.modelCountyUsers = (req, res) => {
               
                   
                 }
-    
      
-    
-
             console.log(' Subordinate Roles sss for this 123 user:', uniqueSubordinates);
-
-    
-    
-                  
-    
-    
-
+ 
             User.findAndCountAll(findAndCountOptions)
               .then(({ count, rows: usersWithSubordinates }) => {
                  console.log('Total Users with Subordinate Roles in userCounty:', count);
-
                               
               res.status(200).send({
                 data: usersWithSubordinates,
                 total: count,
                 code: '0000',
-                message: 'County Users retrieved Successfully'
+                message: 'Users retrieved Successfully'
               })
 
                 
               })
               .catch((error) => {
                 console.error('Error fetching users:', error);
-                return res.status(500).send({ message: 'Unable to retrieve county users. Please try again later.' })
+                return res.status(500).send({ message: 'Unable to retrieve users. Please try again later.' })
 
               });
       
@@ -460,7 +450,7 @@ exports.modelCountyUsers = (req, res) => {
                 })
               .catch((error) => {
                 console.error('Error fetching roles:', error);
-                return res.status(500).send({ message: 'Unable to retrieve county users. Please try again later.' })
+                return res.status(500).send({ message: 'Unable to retrieve  users. Please try again later.' })
 
               });
             
@@ -471,6 +461,130 @@ exports.modelCountyUsers = (req, res) => {
 
  
 }
+
+ 
+exports.modelCountyUsers = async (req, res) => {
+  try {
+    console.log(req.body.currentUser);
+    const user = req.body.currentUser;
+    const currentUserRoles = user.roles;
+
+    console.log('Current User Roles:', currentUserRoles);
+
+    const filters = req.body.filters || [];
+    const filterValues = req.body.filterValues || [];
+
+    const userCounty = user.county_id;
+
+    const limit = req.body.limit || 10;
+    const page = req.body.page || 1;
+
+    // Use the findAll() method to retrieve all roles from the database
+    const roles = await Role.findAll();
+
+    // Filter roles based on currentUserRoles
+    const filteredRoles = roles.filter((role) => currentUserRoles.includes(role.name));
+
+    // Extract the 'subordinates' column and merge into one array
+    const allSubordinates = filteredRoles.reduce((subordinates, role) => {
+      if (role.subordinates && role.subordinates.length > 0) {
+        subordinates.push(...role.subordinates);
+      }
+      return subordinates;
+    }, []);
+
+    // Remove duplicates from allSubordinates using Set
+    const uniqueSubordinates = [...new Set(allSubordinates)];
+
+    // Define the findAndCountOptions for querying users
+    const findAndCountOptions = {
+      include: {
+        model: Role,
+        through: 'user_roles', // Name of the middle table
+        where: { id: uniqueSubordinates },
+      },
+      where: {
+        county_id: userCounty, // Filter users based on the county_id
+      },
+      limit,
+      offset: (page - 1) * limit,
+    };
+
+    // Add conditions based on filters and filterValues arrays
+    if (filters.length === filterValues.length) {
+      const filterConditions = filters.map((filter, index) => ({
+        [filter]: {
+          [op.eq]: filterValues[index], // You can use different operators like 'Op.eq' for equal, 'Op.gt' for greater than, etc.
+        },
+      }));
+
+      // Use 'Op.or' to combine multiple filter conditions with OR
+      findAndCountOptions.where[op.or] = filterConditions;
+    }
+
+    // If the user has the 'county_admin' role, apply the county filter
+    if (currentUserRoles.includes('county_admin')) {
+      console.log('County Admin Filter:', userCounty, findAndCountOptions);
+    }
+
+    // Super admin override
+    if (currentUserRoles.includes('super_admin')) {
+      console.log('Super Admin Override:', userCounty, findAndCountOptions);
+      findAndCountOptions.include = {
+        model: Role,
+        through: 'user_roles',
+      };
+      findAndCountOptions.limit = limit;
+      if (filters.length === filterValues.length) {
+        const filterConditions = filters.map((filter, index) => {
+          console.log('filter', filter); // Log the filter name
+          if(filter=='isactive'){
+            return {
+              [filter]: {
+                [op.eq]: filterValues[index], 
+              },
+            };
+          } else {
+            return
+          }
+        });
+
+        console.log('filterConditions---->',filterConditions)
+        if(filterConditions === 'undefined') {
+          findAndCountOptions.where[op.or] = filterConditions; // Combine filter conditions with OR
+
+        }
+        else{
+          findAndCountOptions.where = {}; // Set the filter conditions to an empty object
+  
+        }
+
+      } else {
+        findAndCountOptions.where = {}; // Set the filter conditions to an empty object
+      }
+      
+      
+      findAndCountOptions.offset = (page - 1) * limit;
+    }
+
+    console.log('Subordinate Roles for this user:', findAndCountOptions);
+
+    const { count, rows: usersWithSubordinates } = await User.findAndCountAll(findAndCountOptions);
+
+    console.log('Total Users with Subordinate Roles in userCounty:', count);
+
+    res.status(200).send({
+      data: usersWithSubordinates,
+      total: count,
+      code: '0000',
+      message: 'Users retrieved Successfully',
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send({ message: 'Unable to retrieve users. Please try again later.' });
+  }
+};
+
 
 
 exports.modelUserByName = (req, res) => {
@@ -549,14 +663,14 @@ exports.modelUserByName = (req, res) => {
                 data: usersWithSubordinates,
                 total: count,
                 code: '0000',
-                message: 'County Users retrieved Successfully'
+                message: ' Users retrieved Successfully'
               })
 
                 
               })
               .catch((error) => {
                 console.error('Error fetching users:', error);
-                return res.status(500).send({ message: 'Unable to retrieve county users. Please try again later.' })
+                return res.status(500).send({ message: 'Unable to retrieve  users. Please try again later.' })
 
               });
      
@@ -567,7 +681,7 @@ exports.modelUserByName = (req, res) => {
                 })
               .catch((error) => {
                 console.error('Error fetching roles:', error);
-                return res.status(500).send({ message: 'Unable to retrieve county users. Please try again later.' })
+                return res.status(500).send({ message: 'Unable to retrieve  users. Please try again later.' })
 
               });
             
@@ -580,119 +694,7 @@ exports.modelUserByName = (req, res) => {
 }
  
  
-exports.xmodelCountyUsers = (req, res) => {
  
-
-
-  var currentUserRoles = req.body.currentUser;
-
-  // Get the roleNamesToIds mapping from db.models.roles
-  const roleNamesToIds = {};
-  db.models.roles.forEach((role) => {
-    roleNamesToIds[role.name] = role.id;
-  });
-
-
-
-
-  console.log('County User roles',req.body)
-  var currentUserRoles = req.roles
-  
-  // control the levels of users the loogend in user can see
-  if (currentUserRoles.includes(0)) {
-    var RoleFilters = [1,5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins
-  }
-  // control the levels of users the loogend in user can see
-  else if (currentUserRoles.includes(1)) {
-    var RoleFilters = [5,6,7,8,9,10,11,12,13,14,15,16] // all staff except national admins
-  }
-  else if (currentUserRoles.includes(11) || currentUserRoles.includes(10))  {   // SUD/KSIP staff
-    var RoleFilters = [9,12,13,14] //   
-  }
-  
-  else if (currentUserRoles.includes(16)) {   // 16 National M&E
-    var RoleFilters = [6] // county M&E 
-  }
-  
-  else if (currentUserRoles.includes(5)) {   // 5 County Admin
-    var RoleFilters = [7] // county staff
-  }
-  
-
-
-  var reg_model = req.body.model 
-
-  // Associated Models
-  var associated_multiple_models = req.body.associated_multiple_models
- 
-    var child_model = db.models.user_roles
-    var grand_child_model = db.models.roles
-    var nestedQuery = {}
-    nestedQuery[req.body.nested_filter[0]] = RoleFilters
-
-
-  var qry = {}
-  var includeModels = []
-
-  // loop through the include models
-  for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
-    var modelIncl = {}
-    modelIncl.model = db.models[req.body.associated_multiple_models[i]]
-    modelIncl.raw = true
-    modelIncl.nested = true
-    includeModels.push(modelIncl)
-
-
-  }
-
-  //console.log(includeModels)
-  if (associated_multiple_models) {
-         var nestedModels = { model: child_model, include: [{ model: grand_child_model, where: nestedQuery }], raw: true, nested: true }
-          includeModels.push(nestedModels)
-      var qry = {
-        include: includeModels
-      }
-     
-  } else {
-    var qry = {}
-  }
-
-  console.log('The Querry XXX',  qry)
-  if (req.body.limit ) {
-    qry.limit = req.body.limit 
-  }
-  if (req.body.page ) {
-    qry.offset = (req.body.page - 1) * req.body.limit
-  }
-
-
-  /// use the multpiple filters
-  var queryFields = {}
-  if (req.body.filters) {
-    if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
-      for (let i = 0; i < req.body.filters.length; i++) {
-        queryFields[req.body.filters[i]] = req.body.filterValues[i]
-      }
-      console.log('Final-5-object------------>', queryFields)
-      qry.where = queryFields
-    }
-  }
-  qry.distinct=true
-
-  qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only 
-  console.log('Final-6-object------------>', qry)
-
-  db.models[reg_model].findAndCountAll(qry).then((list) => {
-    console.log(list)
-    res.status(200).send({
-      data: list.rows,
-      total: list.count,
-      code: '0000',
-      message: 'Users retrived xsuccessfully'
-    })
-  })
-}
-
 
 exports.rolesController = (req, res) => {
  
