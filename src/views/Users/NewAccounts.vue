@@ -110,7 +110,7 @@ let tableDataList_orig = ref<UserType[]>([])
 var tblData = []
 
 var filters = ['isactive']
-var filterValues = [false]
+var filterValues = [[false]]
 
 const associated_multiple_models = ['county' ,'user_roles']
 
