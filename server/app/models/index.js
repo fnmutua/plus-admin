@@ -631,6 +631,16 @@ db.models.contractor.hasMany(db.models.project, {
   foreignKey: 'contractor_id'
 })
 
+// document  - contractor
+db.models.document.belongsTo(db.models.contractor, {
+  foreignKey: 'contractor_id'
+})
+
+db.models.contractor.hasMany(db.models.document, {
+  foreignKey: 'contractor_id'
+})
+
+
 
 
 

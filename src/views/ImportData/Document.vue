@@ -184,14 +184,20 @@ const getparentOptions = async () => {
         ret.forEach(function (arrayItem: { id: string; type: string }) {
             var countyOpt = {}
             countyOpt.value = arrayItem.id
-            if (arrayItem.name) {
+            console.log(arrayItem)
+
+            if (arrayItem.contract_number) {
+                countyOpt.label = arrayItem.contract_number  
+            }
+            else if (arrayItem.name) {
                 countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
             }
+ 
             else {
                 countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
 
             }
-            //  console.log(countyOpt)
+            console.log(countyOpt)
             parentOptions.value.push(countyOpt)
         })
     })
@@ -322,6 +328,16 @@ const uploadOptions = [
                 label: 'M&E Reports'
             },
         ]
+    },
+    {
+        label: 'Contracts',
+        options: [
+
+            {
+                value: 'contractor',
+                label: 'Contract Documents'
+            },
+        ]
     }
 ]
 
@@ -404,21 +420,15 @@ const handleSelectType = async (type: string) => {
     if (type === 'settlement') {
         document_field.value = 'settlement_id'
         getparentOptions()
-
-
-
     }
     else if (type === 'households') {
         document_field.value = 'hh_id'
         getparentHouseholdOptions()
-
-
     }
 
     else if (type === 'beneficiary') {
         document_field.value = 'beneficiary_id'
         getparentOptions()
-
     }
 
     else if (type === 'project') {
@@ -427,7 +437,11 @@ const handleSelectType = async (type: string) => {
 
     }
 
+    else if (type === 'contractor') {
+        document_field.value = 'contractor_id'
+        getparentOptions()
 
+    }
 
     else if (type === 'health_facility') {
         document_field.value = 'health_facility_id'

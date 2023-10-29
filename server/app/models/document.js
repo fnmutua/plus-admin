@@ -24,6 +24,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+    contractor_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
 
     category: {
       type: DataTypes.INTEGER,
