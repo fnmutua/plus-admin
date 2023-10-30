@@ -183,7 +183,7 @@ onMounted(() => {
 
   </el-select>
     </div>
-    <div id="mapContainer" style="height: 450px"></div>
+     <div id="mapContainer" class="basemap"></div>
 
    </ContentWrap>
  
@@ -191,7 +191,10 @@ onMounted(() => {
 
 </template>
  <style>
-
+.basemap {
+  width: 100%;
+  height: 65vh;
+}
 .el-select {
   width: 100%;
   margin-bottom: 20px;
