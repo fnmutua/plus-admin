@@ -40,13 +40,7 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 console.log("userInfo--->", userInfo)
 
 
-const showEditButtons = ref(false)
 
-// Show Edit buttons 
-if (userInfo.roles.includes("staff")|| userInfo.roles.includes("admin")
-  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
-    showEditButtons.value = true;
-}
 
 
 

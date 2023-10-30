@@ -59,14 +59,7 @@ if (isMobile.value) {
 }
 
 
-const showEditButtons = ref(false)
-
-
-// Show Edit buttons 
-if (userInfo.roles.includes("staff")|| userInfo.roles.includes("admin")
-  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
-    showEditButtons.value = true;
-}
+ 
 
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
