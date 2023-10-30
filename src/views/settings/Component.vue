@@ -46,14 +46,7 @@ const allRoutes = router.getRoutes();
 console.log('All Routes:', allRoutes);
  
 
-const showEditButtons = ref(false)
-
-// Show Edit buttons 
-if (userInfo.roles.includes("staff")|| userInfo.roles.includes("admin")
-  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
-    showEditButtons.value = true;
-}
-
+c 
 
 
 
