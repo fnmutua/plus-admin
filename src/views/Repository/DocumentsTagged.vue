@@ -498,7 +498,7 @@ function getIconForGroup(groupName) {
               <Icon icon="material-symbols:folder-open-outline" class="collapsible-header-icon  " width="48" />
               <span class="collapsible-header-text">{{ formatText(groupName) }}</span>
             </template>
-            <el-collapse>
+            <el-collapse accordion>
             <el-collapse-item
               v-for="(typeCount, type) in group"
               :key="type"
