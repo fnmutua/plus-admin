@@ -76,13 +76,8 @@ const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 const tabDisabled = ref(true)
 
-// Hide buttons if not admin 
-const showAdminButtons = ref(false)
-const showEditButtons = ref(false)
-
-if (userInfo.roles.includes("admin")) {
-  showAdminButtons.value = true
-}
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
 
 
 // Show Edit buttons 

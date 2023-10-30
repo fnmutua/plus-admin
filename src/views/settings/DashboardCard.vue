@@ -117,29 +117,19 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
-const showAdminButtons = ref(false)
+
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
 
 let filters =[]
 let filterValues = []
 
-// flag for admin buttons
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("staff")) {
-  showAdminButtons.value = true
-   
-}
-const showEditButtons = ref(false)
-
-// Show Edit buttons 
-if (userInfo.roles.includes("staff")|| userInfo.roles.includes("admin")
-  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
-    showEditButtons.value = true;
-}
+ 
 
 
 // filter Charts only admins can see all 
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin") ) {
-  showAdminButtons.value = true
-  filters = []
+   filters = []
   filterValues = []
 }
 else {

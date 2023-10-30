@@ -96,9 +96,9 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
-const showAdminButtons = ref(false)
-const showEditButtons = ref(false)
-
+ 
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
 
 // Function to empty all fields in ruleForm
 function emptyRuleForm() {
@@ -155,21 +155,7 @@ const rules = reactive<FormRules>({
 
 
 
-
-
-
-// flag for admin buttons
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
-  showAdminButtons.value = true
-}
-
-// Show Edit buttons 
-if (userInfo.roles.includes("staff") || userInfo.roles.includes("admin")
-  || userInfo.roles.includes("county_admin") || userInfo.roles.includes("national_monitoring")) {
-  showEditButtons.value = true;
-}
-console.log("Show Buttons -->", showAdminButtons)
-
+ 
 
 const AddDialogVisible = ref(false)
 const ImportDialogVisible = ref(false)

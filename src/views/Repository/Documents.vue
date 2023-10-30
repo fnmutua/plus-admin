@@ -73,13 +73,10 @@ const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
- const showAdminButtons = ref(false)
+ 
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
 
-// flag for admin buttons
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
-  showAdminButtons.value = true
-  userIsAdmin.value=true
-}
 
 
 console.log("Show Buttons -->", showAdminButtons)

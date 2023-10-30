@@ -112,21 +112,29 @@ const search_string = ref()
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
 
 
-// Hide buttons if not admin 
-const showAdminButtons = ref(false)
-const showEditButtons = ref(false)
+console.log('xshowAdminButtons',showAdminButtons)
+console.log('xshowEditButtons',showEditButtons)
 
-if (userInfo.roles.includes("admin") ||(userInfo.roles.includes("super_admin")  )) {
-  showAdminButtons.value = true
-}
 
-// Show Edit buttons 
-if (userInfo.roles.includes("staff") || userInfo.roles.includes("admin") || (userInfo.roles.includes("super_admin"))  
-  || userInfo.roles.includes("county_admin") || userInfo.roles.includes("national_monitoring")) {
-  showEditButtons.value = true;
-}
+
+
+// // Hide buttons if not admin 
+// const showAdminButtons = ref(false)
+// const showEditButtons = ref(false)
+
+// if (userInfo.roles.includes("admin") ||(userInfo.roles.includes("super_admin")  )) {
+//   showAdminButtons.value = true
+// }
+
+// // Show Edit buttons 
+// if (userInfo.roles.includes("staff") || userInfo.roles.includes("admin") || (userInfo.roles.includes("super_admin"))  
+//   || userInfo.roles.includes("county_admin") || userInfo.roles.includes("national_monitoring")) {
+//   showEditButtons.value = true;
+// }
 
 
 

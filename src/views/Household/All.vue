@@ -78,14 +78,8 @@ const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 
-// Hide buttons if not admin 
-const showAdminButtons = ref(false)
-const showEditButtons = ref(false)
-
-if (userInfo.roles.includes("admin")) {
-  showAdminButtons.value = true
-  showEditButtons.value = true
-}
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
 
 const { push } = useRouter()
 const value1 = ref([])

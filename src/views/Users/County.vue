@@ -61,12 +61,8 @@ if (isMobile.value) {
 
 const currentUser = wsCache.get(appStore.getUserInfo)
 
-// Hide buttons if not admin 
-const showAdminButtons = ref(false)
-
-if (currentUser.roles.includes("admin")) {
-  showAdminButtons.value = true
-}
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
 
 
 

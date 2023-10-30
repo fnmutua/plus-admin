@@ -155,10 +155,12 @@ const signIn = async () => {
 
           appStore.dynamicRouter = true    // felix to edit 
           console.log("Dynamic router--->", appStore.getDynamicRouter)
+
+
           if (appStore.getDynamicRouter) {
 
 
-            getRole(res)
+             getRole(userDeatilsAfterLogin)
           } else {
             //getRole() // temp 
             await permissionStore.generateRoutes('none').catch(() => { })
@@ -181,21 +183,34 @@ const getRole = async (authenitcatedUser) => {
 
   const { getFormData } = methods
   const formData = await getFormData<UserType>()
-  console.log('authenitcatedUser', authenitcatedUser)
+  console.log('authenitcatedUser roles', authenitcatedUser)
 
   // use the user details to set paths to see
   if (authenitcatedUser.roles.includes("admin")) {
     formData.role = 'admin';
-  } else if (
-    authenitcatedUser.roles.includes("sud_staff") ||
-    authenitcatedUser.roles.includes("kisip_staff") ||
-    authenitcatedUser.roles.includes("national_monitoring")
-  ) {
+    appStore.setAdminButtons(true)
+    appStore.setEditButtons(true)
+
+  } 
+  else if (authenitcatedUser.roles.includes("staff")  ) 
+  {
     formData.role = 'staff';
-  } else if (authenitcatedUser.roles.includes("county_admin")) {
+    appStore.setEditButtons(true)
+    console.log("is user editir?--->", appStore.getEditButtons)
+
+    //appStore.setAdminButtons(true)
+
+  }
+   else if (authenitcatedUser.roles.includes("county_admin")) 
+   {
     formData.role = 'county_admin';
-  } else if (authenitcatedUser.roles.includes("super_admin")) {
+  } 
+  else if (authenitcatedUser.roles.includes("super_admin")) {
     formData.role = 'super_admin';
+    appStore.setAdminButtons(true)
+    appStore.setEditButtons(true)
+
+
   } else if (
     authenitcatedUser.roles.includes("county_staff") ||
     authenitcatedUser.roles.includes("county_mon") ||
@@ -233,35 +248,35 @@ const getRole = async (authenitcatedUser) => {
 
   // const color = d.y >= 70 ? "green" : (d.y < 50 ? "red" : "yellow");
   let res;
-  switch (formData.role) {
-    case 'admin':
-      res = await getAdminRoleApi(params)
-      break;
-    case 'super_admin':
-      res = await getSuperAdminRoleApi(params)
-      break;
+  // switch (formData.role) {
+  //   case 'admin':
+  //     res = await getAdminRoleApi(params)
+  //     break;
+  //   case 'super_admin':
+  //     res = await getSuperAdminRoleApi(params)
+  //     break;
 
-    case 'staff':
-      res = await getOtherRoutesApi(params)
-      break;
-    case 'county_admin':
-      res = await getOtherRoutesApi(params)
-      break;
-    case 'county_user':
-      res = await getAdminRoleApi(params)
-      break;
-    case 'others':
-      res = await getTestRoleApi(params)
-      break;
-  }
+  //   case 'staff':
+  //     res = await getAdminRoleApi(params)
+  //     break;
+  //   case 'county_admin':
+  //     res = await getOtherRoutesApi(params)
+  //     break;
+  //   case 'county_user':
+  //     res = await getAdminRoleApi(params)
+  //     break;
+  //   case 'others':
+  //     res = await getTestRoleApi(params)
+  //     break;
+  // }
 
 
   // const res = formData.role === 'admin' ? await getAdminRoleApi(params) : await getTestRoleApi(params)
-  if (res) {
+ // if (res) {
 
-    console.log('revised Res', res)
+   // console.log('revised Res', res)
     const { wsCache } = useCache()
-    const routers = res.data || []
+    const routers =   []
     wsCache.set('roleRouters', routers)
     console.log("  formData.role >>", formData.role)
 
@@ -274,9 +289,11 @@ const getRole = async (authenitcatedUser) => {
       await permissionStore.generateRoutes('county_admin', routers).catch(() => { })
       console.log('0003')
     }
-    else if (formData.role === 'staff' || formData.role === 'sud_staff' ) {
-      await permissionStore.generateRoutes('kisip_staff', routers).catch(() => { })
+    else if (formData.role === 'staff'  ) {
+      await permissionStore.generateRoutes('staff', routers).catch(() => { })
       console.log('0003')
+      console.log("is user getEditButtons?--->", appStore.getEditButtons)
+
     }
     else if (formData.role === 'county_user') {
       await permissionStore.generateRoutes('county_staff', routers).catch(() => { })
@@ -302,7 +319,7 @@ const getRole = async (authenitcatedUser) => {
     permissionStore.setIsAddRouters(true)
     push({ path: redirect.value || permissionStore.addRouters[0].path })
   }
-}
+//}
 
 
 const toRegister = () => {
