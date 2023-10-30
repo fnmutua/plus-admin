@@ -28,6 +28,9 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
+
 
 // // Hide buttons if not admin 
 const userIsAdmin = ref(false)
@@ -44,7 +47,7 @@ console.log("userInfo--->", userInfo)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const loading = ref(false)
-const showAdminButtons = ref(false)
+ 
 const isMobile = computed(() => appStore.getMobile)
 
 console.log('IsMobile', isMobile)
@@ -60,13 +63,7 @@ if (isMobile.value) {
   actionColumnWidth.value = "160px"
 
 }
-// flag for admin buttons
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
-  showAdminButtons.value = true
-}
-
-
-console.log("Show Buttons -->", showAdminButtons)
+ 
 
 
 

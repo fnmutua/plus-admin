@@ -55,18 +55,13 @@ if (isMobile.value) {
   actionColumnWidth.value = "160px"
 
 }
-
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
 
 
 const currentUser = wsCache.get(appStore.getUserInfo)
 
-// Hide buttons if not admin 
-const showAdminButtons = ref(false)
-
-if (currentUser.roles.includes("admin")) {
-  showAdminButtons.value = true
-}
-
+ 
 
 
 const { push } = useRouter()

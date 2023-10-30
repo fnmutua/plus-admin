@@ -97,13 +97,11 @@ const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
-const downloadLoading = ref(false)
-const showAdminButtons = ref(false)
 
-// flag for admin buttons
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
-  showAdminButtons.value = true
-}
+
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
+
 
 const AddDialogVisible = ref(false)
 const formHeader = ref('Add Indicator')

@@ -87,7 +87,24 @@ export const useAppStore = defineStore({
     },
     getFooter(): boolean {
       return this.footer
+    },
+    getAdmin(): boolean {
+      return this.isAdmin
+    },
+    getStaff(): boolean {
+      return this.isStaff
+    },
+
+    getAdminButtons(): boolean {
+      return this.showAdminButtons
+    },
+
+    getEditButtons(): boolean {
+      return this.showEditButtons
     }
+
+
+
   },
   actions: {
     setBreadcrumb(breadcrumb: boolean) {
@@ -176,7 +193,25 @@ export const useAppStore = defineStore({
     },
     setFooter(footer: boolean) {
       this.footer = footer
-    }
+    },
+ 
+    setStaff(isStaff: boolean) {
+      this.isStaff = isStaff
+    },
+    setAdmin(isAdmin: boolean) {
+      this.isAdmin = isAdmin
+    },
+
+    setAdminButtons(showAdminButtons: boolean) {
+      this.showAdminButtons = showAdminButtons
+    },
+
+    setEditButtons(showEditButtons: boolean) {
+      this.showEditButtons = showEditButtons
+    },
+
+
+
   }
 })
 

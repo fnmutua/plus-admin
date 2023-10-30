@@ -86,19 +86,9 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const tabDisabled = ref(true)
 
 // Hide buttons if not admin 
-const showAdminButtons = ref(false)
-const showEditButtons = ref(false)
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
 
-if (userInfo.roles.includes("admin")) {
-  showAdminButtons.value = true
-}
-
-
-// Show Edit buttons 
-if (userInfo.roles.includes("staff") || userInfo.roles.includes("admin")
-  || userInfo.roles.includes("county_admin") || userInfo.roles.includes("national_monitoring")) {
-  showEditButtons.value = true;
-}
 
 const { push } = useRouter()
 const value1 = ref([])

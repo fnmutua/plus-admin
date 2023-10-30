@@ -35,6 +35,8 @@ import type { FormInstance } from 'element-plus'
 import { getFile } from '@/api/summary'
 import xlsx from "json-as-xlsx"
 
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -47,8 +49,7 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const loading = ref(false)
 
-const showAdminButtons = ref(false)
-const isMobile = computed(() => appStore.getMobile)
+ const isMobile = computed(() => appStore.getMobile)
 
 console.log('IsMobile', isMobile)
 
@@ -63,14 +64,7 @@ if (isMobile.value) {
   actionColumnWidth.value = "160px"
 
 }
-// flag for admin buttons
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
-  showAdminButtons.value = true
-}
-
-
-console.log("Show Buttons -->", showAdminButtons)
-
+ 
 
 
 //// ------------------parameters -----------------------////
@@ -533,7 +527,8 @@ console.log("groups<<<---->>>", groups)
 </script>
 
 <template>
-  <ContentWrap :title="t('Data Repository')" :message="t('Use the filters to subset')" v-loading="loading"
+  <ContentWrap
+:title="t('Data Repository')" :message="t('Use the filters to subset')" v-loading="loading"
     element-loading-text="Getting the documents.......">
     <el-input v-model="searchTerm" placeholder="Search uploaded by name/settlement/county/format" class="search-input" />
     <el-collapse accordion>
@@ -547,22 +542,28 @@ console.log("groups<<<---->>>", groups)
         <el-collapse accordion>
           <el-collapse-item v-for="(docs, format) in formats" :key="format">
             <template #title>
-              <Icon v-if="category === 'Report'" icon="ion:document-outline" color='gray'
+              <Icon
+v-if="category === 'Report'" icon="ion:document-outline" color='gray'
                 class="collapsible-nested-header-icon " width="36" />
-              <Icon v-if="category === 'Map'" icon="ri:road-map-line" class="collapsible-nested-header-icon "
+              <Icon
+v-if="category === 'Map'" icon="ri:road-map-line" class="collapsible-nested-header-icon "
                 color='green' width="36" />
-              <Icon v-if="category === 'Data'" icon="material-symbols:chart-data-outline"
+              <Icon
+v-if="category === 'Data'" icon="material-symbols:chart-data-outline"
                 class="collapsible-nested-header-icon " color='gray' width="36" />
-              <Icon v-if="category === 'Other'" icon="material-symbols:linked-camera-outline"
+              <Icon
+v-if="category === 'Other'" icon="material-symbols:linked-camera-outline"
                 class="collapsible-nested-header-icon " color='gray' width="24" />
-              <Icon v-if="category === 'Plan'" icon="carbon:heat-map-03" class="collapsible-nested-header-icon "
+              <Icon
+v-if="category === 'Plan'" icon="carbon:heat-map-03" class="collapsible-nested-header-icon "
                 color='gray' width="24" />
 
               <span class="format-header-text">{{ formatText(format) }}</span>
               <el-badge v-if="docs.length > 0" :value="docs.length" class="collapsible-header-badge" />
 
             </template>
-            <el-table :data="docs.slice((currentPage - 1) * pageSize, currentPage * pageSize)"
+            <el-table
+:data="docs.slice((currentPage - 1) * pageSize, currentPage * pageSize)"
               style="width: 100%; margin-left: 30px" size="small">
               <el-table-column label="#" type="index" width="50">
                 <template #default="{ $index }">
@@ -580,7 +581,8 @@ console.log("groups<<<---->>>", groups)
               </el-table-column>
             </el-table>
             <div class="pagination-wrapper" v-if="docs.length > 5">
-              <el-pagination :page-size="5" background small layout="prev, pager, next" :total="docs.length"
+              <el-pagination
+:page-size="5" background small layout="prev, pager, next" :total="docs.length"
                 @current-change="handlePageChange" />
             </div>
           </el-collapse-item>
