@@ -21,6 +21,9 @@ import {
     ElTableColumn,
      ElSwitch,
     ElOptionGroup,
+    ElRow,
+    ElCol,
+    ElSkeleton,
     ElOption
 } from 'element-plus'
 import { ElUpload } from 'element-plus'
@@ -29,6 +32,9 @@ import {
     Refresh,
     CaretRight,
     RefreshLeft,
+    Promotion,
+    CircleCheckFilled,
+    CircleCloseFilled,
     Tools
 } from '@element-plus/icons-vue'
 
@@ -338,78 +344,23 @@ const uploadOptions = [
                 label: 'Contract Documents'
             },
         ]
-    }
-]
-
-const documentOptions = [
+    },
     {
-        label: 'Reports',
+        label: 'Others',
         options: [
-            {
-                value: 'socio_economic',
-                label: 'Socio Economic Report'
-            },
-            {
-                value: 'stakeholder_report',
-                label: 'Stakeholder Report'
-            },
-            {
-                value: 'planning_report',
-                label: 'Planning Report'
-            },
 
             {
-                value: 'basemap_report',
-                label: 'Basemap Report'
+                value: 'other_documents',
+                label: 'Other Documents'
             },
-            {
-                value: 'esia_report',
-                label: 'Environmental Screening Report'
-            }
-        ]
-    },
-    {
-        label: 'Plans',
-        options: [
-            {
-                value: 'ldpdp',
-                label: 'Local Development Plan'
-            },
-            {
-                value: 'pdp',
-                label: 'Part Development Plan'
-            }
-        ]
-    },
-    {
-        label: 'Maps',
-        options: [
-            {
-                value: 'survey_plan',
-                label: 'Survey Plan'
-            },
-            {
-                value: 'rim',
-                label: 'Registry Index Map'
-            }
-        ]
-    },
-    {
-        label: 'Drawings',
-        options: [
-            {
-                value: 'design',
-                label: 'Design Proposals'
-            },
-            {
-                value: 'built',
-                label: 'As Built Designs'
-            }
         ]
     }
 ]
 
+ 
 const document_field = ref()
+const hide_parent = ref(false)
+ 
 const handleSelectType = async (type: string) => {
     theParentModel.value = type
     console.log('Selected.....>', type)
@@ -492,6 +443,14 @@ const handleSelectType = async (type: string) => {
         getparentOptions()
 
     }
+    else if (type === 'other_documents') {
+        //document_field.value = 'indicator_category_report'
+        //getparentOptions()
+        hide_parent.value=true
+
+
+    }
+
 
     console.log(theParentModel.value)
 
@@ -541,6 +500,7 @@ const handleReset = async () => {
     showUploadButton.value = false
     showUploadSpace.value = false
     showTable.value = false
+    console.log('resetting.....')
 }
 const loadingPosting = ref(false)
 
@@ -548,7 +508,7 @@ const DisablePostSubmit = ref(false)
 const handleSubmitData = async () => {
     console.log(fileList)
     loadingPosting.value = true
-    const fileTypes = []
+ 
     const formData = new FormData()
     for (var i = 0; i < fileList.value.length; i++) {
         console.log('------>file', fileList.value[i])
@@ -560,8 +520,12 @@ const handleSubmitData = async () => {
         formData.append('files', fileList.value[i].raw)
         formData.append('format', fileList.value[i].name.split('.').pop())
         formData.append('category', fileList.value[i].type)
-        formData.append('field_id', fileList.value[i].field_id)
-        formData.append(column, fileList.value[i][column])
+        // do not append if file not tagged with sett/proj id
+        if(!hide_parent.value) {
+            formData.append('field_id', fileList.value[i].field_id)
+            formData.append(column, fileList.value[i][column])
+        }
+     
         formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
         formData.append('createdBy', userInfo.id)
         formData.append('protected', fileList.value[i].protected?fileList.value[i].protected:false)
@@ -646,8 +610,11 @@ const handleFileUpload = async () => {
     }
 
 
-    if (proceed) {
-        showTable.value = true
+    if (proceed   ) {
+
+
+        if (!hide_parent.value){
+            showTable.value = true
         fileList.value.map(file => {
             file['model'] = theParentModel.value // add the model column
             file[document_field.value] = null // add the column to hold selected parent ID
@@ -655,8 +622,22 @@ const handleFileUpload = async () => {
 
             return file;
         });
+        }
+        else {
+            showTable.value = true
+            fileList.value.map(file => {
+            file['model'] = theParentModel.value // add the model column
+           // file[document_field.value] = null // add the column to hold selected parent ID
+           // file['field_id'] = document_field.value // add the column to hold selected parent ID
+
+            return file;
+        });
+        }
+       
+        
 
     }
+     
 
 
 
@@ -674,7 +655,11 @@ const handleFileUpload = async () => {
 :title="t('Upload Documents')" v-loading.fullscreen.lock="loadingPosting"
         element-loading-text="Saving the data.. Please wait.......">
 
-        <div style="display: inline-block;">
+
+        <el-row :gutter="10">
+            <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+          
+                <div style="display: inline-block;">
             <el-select
 v-model="type" :onChange="handleSelectType" placeholder="Select Model" style=" margin-right: 20px;"
                 filterable clearable>
@@ -688,16 +673,12 @@ v-model="type" :onChange="handleSelectType" placeholder="Select Model" style=" m
             </div>
 
         </div>
-
         <el-divider border-style="dashed" content-position="left">Upload</el-divider>
         <el-upload
 v-if="showUploadSpace" class="upload-demo" drag :auto-upload="false"
             action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList">
             <div class="el-upload__text"> Drop files here or <em>click to upload</em> </div>
         </el-upload>
-
-
-
 
         <el-button
 v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload" type="primary"
@@ -706,11 +687,12 @@ v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload
                 <Upload />
             </el-icon>
         </el-button>
+          </el-col>
+        <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16" >
+     
+            <el-skeleton v-if="!showTable"  :rows="10" animated />
 
-
-
- 
-        <el-table v-if="showTable" :data="fileList" style="height: 200px; overflow-y: scroll;">
+            <el-table v-if="showTable" :data="fileList"  class="tblMatch"  border >
             <el-table-column prop="name" label="Name" />
             <el-table-column prop="type" label="Type">
                 <template #default="{ row }">
@@ -724,7 +706,7 @@ v-for="item in group.options" :key="item.value" :label="item.label"
                 </template>
             </el-table-column>
 
-            <el-table-column prop="type" :label="toTitleCase(theParentModel)">
+            <el-table-column v-if="!hide_parent" prop="type" :label="toTitleCase(theParentModel)">
                 <template #default="{ row }">
                     <el-select v-model="row[document_field]" placeholder="Select" clearable filterable>
                         <el-option
@@ -740,13 +722,38 @@ v-for="item in parentOptions" :key="item.value" :label="item.label"
             </el-table-column>
 
         </el-table>
-         <el-button
-v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type="success"
-            :disabled="DisablePostSubmit">
-            Submit<el-icon class="el-icon--right">
-                <CaretRight />
-            </el-icon>
-        </el-button>
+        <!-- <el-button v-if="showTable" class="mb-4 mt-4" style="width: 20%" @click="handleSubmitData" type="success" :disabled="DisablePostSubmit">
+        Submit
+        <el-icon class="el-icon--right">
+            <CaretRight />
+        </el-icon>
+    </el-button> -->
+    <div v-if="showTable" class="flex mt-4" style="justify-content: flex-end;">
+    <el-button type="primary" :icon="Promotion" @click="handleSubmitData" :disabled="DisablePostSubmit">Submit</el-button>
+    <el-button type="danger" :onClick="handleReset" >
+        Cancel<el-icon class="el-icon--right"><CircleCloseFilled /></el-icon>
+    </el-button>
+    </div>
+
+
+    
+        </el-col>
+    
+      </el-row>
+
+
+  
+
+
+
+
+
+
+
+
+
+
+ 
     </ContentWrap>
 </template>
 
@@ -767,6 +774,13 @@ v-if="showTable" class="mb-4" style="width: 100%" @click="handleSubmitData" type
   }
 </style>
 
+
+<style scoped>
+.tblMatch {
+  width: 100%;
+  height: 45vh;
+}
+</style>
 
 
   
