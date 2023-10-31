@@ -707,7 +707,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         redirect: '/data/import',
         name: 'Data',
         meta: {
-          title: 'Import Data',
+          title: 'Upload',
           icon: 'mdi:database-plus',
           alwaysShow: false
         },
