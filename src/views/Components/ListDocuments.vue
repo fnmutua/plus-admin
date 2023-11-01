@@ -121,6 +121,7 @@ await getFile(formData)
       // Check if the filename has an extension
       if (!/\.\w+$/.test(filename)) {
         link.setAttribute('download', `${filename}.${data.row.format}`);
+        
       } else {
         link.setAttribute('download', filename);
       }

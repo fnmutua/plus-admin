@@ -144,6 +144,9 @@ const downloadFile = async (data) => {
   console.log(data)
   console.log(data.row.name)
 
+ 
+
+
   const formData = {}
   formData.filename = data.row.name
   formData.responseType = 'blob'
@@ -159,8 +162,11 @@ const downloadFile = async (data) => {
       // Check if the filename has an extension
       if (!/\.\w+$/.test(filename)) {
         link.setAttribute('download', `${filename}.${data.row.format}`);
+        console.log("file name has no extension")
       } else {
         link.setAttribute('download', filename);
+        console.log("file name has   extension")
+
       }
 
       document.body.appendChild(link)
