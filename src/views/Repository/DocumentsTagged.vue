@@ -154,7 +154,7 @@ const downloadFile = async (data) => {
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', data.row.name)
+      link.setAttribute('download', data.row.name + data.row.format )
       document.body.appendChild(link)
       link.click()
       downloading.value = false
