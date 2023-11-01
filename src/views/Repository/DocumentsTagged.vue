@@ -154,7 +154,15 @@ const downloadFile = async (data) => {
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', data.row.name + data.row.format )
+      //link.setAttribute('download', data.row.name + data.row.format )
+      const filename = data.row.name;
+      // Check if the filename has an extension
+      if (!/\.\w+$/.test(filename)) {
+        link.setAttribute('download', `${filename}.${data.row.format}`);
+      } else {
+        link.setAttribute('download', filename);
+      }
+
       document.body.appendChild(link)
       link.click()
       downloading.value = false

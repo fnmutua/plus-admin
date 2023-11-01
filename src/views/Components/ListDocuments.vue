@@ -116,7 +116,16 @@ await getFile(formData)
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', data.name)
+   // link.setAttribute('download', data.name)
+    const filename = data.row.name;
+      // Check if the filename has an extension
+      if (!/\.\w+$/.test(filename)) {
+        link.setAttribute('download', `${filename}.${data.row.format}`);
+      } else {
+        link.setAttribute('download', filename);
+      }
+
+
     document.body.appendChild(link)
     link.click()
 
