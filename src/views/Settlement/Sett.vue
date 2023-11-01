@@ -1852,6 +1852,7 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
           clearable
           :onClear="handleClear"
           placeholder="Please input"
+          @change="searchByNewName"
           class="input-with-select"
         >
   
