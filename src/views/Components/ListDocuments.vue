@@ -52,7 +52,6 @@ const tableDocumentsFiltered = ref([])
 //tableDocuments.value = []
 tableDocuments.value = props.data.documents ? props.data.documents : []
 
-console.log('tableDocuments',tableDocuments)
  //const cmodel = ref(props.data.docmodel)
  
 // // Hide buttons if not admin 
@@ -61,10 +60,11 @@ const showEditButtons = ref(false)
 const documentOwner = ref(false)
 const denyDownload = ref(false)
 
-if (userInfo.roles.includes("admin")) {
+if (userInfo.roles.includes("admin") || (userInfo.roles.includes("super_admin") ) ){
   userIsAdmin.value = true
   showEditButtons.value = true
 }
+console.log('tableDocuments',tableDocuments)
 
 
 const protectedFile = ref(false)

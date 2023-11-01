@@ -707,7 +707,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         redirect: '/data/import',
         name: 'Data',
         meta: {
-          title: 'Upload',
+          title: 'Import',
           icon: 'mdi:database-plus',
           alwaysShow: false
         },
@@ -719,7 +719,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     
             name: 'ImportData',
             meta: {
-              title: 'List',
+              title: 'Excel',
               icon: 'bi:filetype-xlsx',
               hidden: true
     
@@ -746,7 +746,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     
             name: 'Fuzzy',
             meta: {
-              title: 'List(xlsx)',
+              title: 'Excel',
               icon: 'bi:filetype-xlsx',
     
             }
@@ -758,7 +758,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     
             name: 'Importgeo',
             meta: {
-              title: 'Spatial',
+              title: 'GIS',
               icon: 'mdi:file-location-outline',
     
             }
@@ -1186,7 +1186,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'Settings',
       icon: 'material-symbols:settings',
       alwaysShow: true,
-      role: ['admin', 'super_admin'] 
+      role: ['admin', 'super_admin' ,'staff'  ] ,
 
     },
     children: [
@@ -1199,6 +1199,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Common'),
           icon: 'mdi:map-legend',
+          role: ['admin', 'super_admin' ,'staff'  ] ,
+
           alwaysShow: true
         },
         children: [
@@ -1299,6 +1301,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Programme'),
           icon: 'mdi:map-legend',
+          role: ['admin', 'super_admin'   ] ,
+
           alwaysShow: true
         },
         children: [
@@ -1312,7 +1316,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           meta: {
             title: 'Programmes',
             hidden: false,
-            icon:'material-symbols:settings'
+            icon:'material-symbols:settings',
+            role: ['admin', 'super_admin' ,'staff'  ] ,
+
 
           }
           }, 
@@ -1368,6 +1374,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Dashboards'),
           icon: 'mdi:map-legend',
+          role: ['admin', 'super_admin'   ] ,
+
           alwaysShow: true
         },
         children: [

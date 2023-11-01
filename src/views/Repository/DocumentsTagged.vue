@@ -4,7 +4,10 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
  import { getSettlementListByCounty } from '@/api/settlements'
  import { ElButton, ElBadge   } from 'element-plus'
-  
+ import {
+  Position, View, Plus, User, TopRight, Briefcase, Download, Delete, Edit,
+  Filter, InfoFilled, CopyDocument, Search, Setting, Loading
+} from '@element-plus/icons-vue'
 
 import { ref, reactive, watch, computed } from 'vue'
 import {
@@ -23,19 +26,15 @@ import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, getDocumen
  import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
  import { getFile } from '@/api/summary'
 
-
+ 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
-
-
+ 
 // // Hide buttons if not admin 
 const userIsAdmin = ref(false)
  
-if (userInfo.roles.includes("admin")) {
+if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin") ) {
   userIsAdmin.value = true
 }
 
@@ -43,6 +42,7 @@ if (userInfo.roles.includes("admin")) {
 
 
 console.log("userInfo--->", userInfo)
+console.log("userIsAdmin--->", userIsAdmin)
 
 const pageSize = ref(5)
 const currentPage = ref(1)
@@ -480,6 +480,22 @@ function getIconForGroup(groupName) {
  
   }
 
+  const removeDocument = (data) => {
+  console.log('----->', data.row)
+  let formData = {}
+  formData.id = data.row.id
+  formData.model = 'document'
+  formData.filesToDelete = [data.row.name]
+  deleteDocument(formData)
+
+
+   // remove the deleted object from array list 
+   let index = filterLiveDocs.value.indexOf(data);
+  if (index !== -1) {
+    filterLiveDocs.value.splice(index, 1);
+  }
+
+}
 
  
 </script>
@@ -532,10 +548,18 @@ function getIconForGroup(groupName) {
               <el-table-column prop="size" label="Size(Mb)" />
               <el-table-column label="Action">
                 <template #default="scope">
-                  <el-button   @click="downloadFile(scope)" type="primary" icon="el-icon-download">Download</el-button>
+                  <!-- <el-button   @click="downloadFile(scope)" type="primary" icon="el-icon-download">Download</el-button> -->
+                  <el-button    type="success"  @click="downloadFile(scope)"  :icon="Download" circle />
+                  <el-button  v-if="userIsAdmin"  type="danger"   @click="removeDocument(scope)"     :icon="Delete" circle />
+
+                  
+
+
                 </template>
               </el-table-column>
             </el-table>
+
+            
             <div class="pagination-wrapper"  v-if="totalDocs > 5">
               <el-pagination
 :page-size="5" background small layout="prev, pager, next" :total="totalDocs"
