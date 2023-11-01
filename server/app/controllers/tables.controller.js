@@ -2626,12 +2626,12 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit (adjust as needed)
+    fileSize: 1000 * 1024 * 1024, // 100MB limit (adjust as needed)
   },
 });
 
 
-exports.batchDocumentsUpload = (req, res) => {
+exports.xbatchDocumentsUpload = (req, res) => {
   // Use `upload.array('files')` middleware to handle multiple file uploads
   // 'files' should match the name attribute of the file input(s) in your form
   upload.array('files')(req, res, async (err) => {
@@ -2721,6 +2721,53 @@ exports.batchDocumentsUpload = (req, res) => {
   });
 };
 
+exports.batchDocumentsUpload = (req, res) => {
+  // Use `upload.array('files')` middleware to handle multiple file uploads
+  // 'files' should match the name attribute of the file input(s) in your form
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.log(err);
+      return res.status(500).send({
+        message: 'Upload failed.',
+        code: '0000'
+      });
+    }
+
+    const reg_model = 'document';
+    const myFiles = req.files;
+    const { field_id, category, format, size, createdBy, protected } = req.body;
+
+    for (let i = 0; i < myFiles.length; i++) {
+      const obj = {
+        [field_id[i]]: req.body[field_id[i]],
+        category: category[i],
+        format: format[i],
+        size: size[i],
+        createdBy: createdBy[i],
+        protectedFile: protected[i],
+        name: myFiles[i].originalname,
+        code: crypto.randomUUID(),
+        location: myFiles[i].path
+      };
+
+      try {
+        console.log('try upload.......')
+        await db.models[reg_model].create(obj);
+      } catch (error) {
+        console.log(error);
+        return res.status(500).send({
+          message: 'Upload failed. ' + error + ' errors',
+          code: '0000'
+        });
+      }
+    }
+
+    res.status(200).send({
+      message: 'Batch Upload Successful',
+      code: '0000'
+    });
+  });
+};
 
  
 
