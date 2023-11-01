@@ -2633,7 +2633,7 @@ const upload = multer({
 
 exports.batchDocumentsUpload = (req, res) => {
       // The uploaded files can be accessed using `req.files`
-      console.log('files:', req.files);
+      console.log('files:', req.body);
   // Use `upload.array('files')` middleware to handle multiple file uploads
   // 'files' should match the name attribute of the file input(s) in your form
   upload.array('files')(req, res, async (err) => {
@@ -2651,15 +2651,14 @@ exports.batchDocumentsUpload = (req, res) => {
    var reg_model = 'document'
     let myFiles = req.files
     let objs = []
-    console.log(myFiles)
-    console.log(req.body)
+ 
     
     for (let i = 0; i < myFiles.length; i++) {
    
       
       if (myFiles.length>1) {
            // Sin
-     // console.log(myFiles[i])
+      
       var obj = {}
       var column = req.body.field_id
       obj[column] = req.body[column][i]
@@ -2673,6 +2672,7 @@ exports.batchDocumentsUpload = (req, res) => {
       obj.location = myFiles[i].path
       console.log(obj)
       objs.push(obj)
+      console.log(obj)
       }
       else {
         var obj = {}
@@ -2686,8 +2686,9 @@ exports.batchDocumentsUpload = (req, res) => {
         obj.name = myFiles[i].originalname
         obj.code = crypto.randomUUID()
         obj.location = myFiles[i].path
+         objs.push(obj)
         console.log(obj)
-        objs.push(obj)
+
 
       }
 

@@ -560,7 +560,7 @@ const handleSubmitData = async () => {
    // fileTypes.push(format)
     // formData.append('files', fileList.value[i])
     // formData.file = fileList.value[i]
-
+    var column = fileList.value[i].field_id
     formData.append('model', theParentModel.value)
     formData.append('createdBy', userInfo.id)
 
@@ -692,7 +692,7 @@ const handleFileUpload = async () => {
 
 <template>
     <ContentWrap
-:title="t('Upload Documents')" v-loading.fullscreen.lock="loadingPosting"
+:title="t('Upload Documents')" v-loading ="loadingPosting"
         element-loading-text="Saving the data.. Please wait.......">
 
 
