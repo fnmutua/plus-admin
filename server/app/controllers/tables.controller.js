@@ -2661,7 +2661,7 @@ exports.batchDocumentsUpload = (req, res) => {
            // Sin
      // console.log(myFiles[i])
       var obj = {}
-      var column = req.body.field_id[i]
+      var column = req.body.field_id
       obj[column] = req.body[column][i]
       obj.category = req.body.category[i]
       obj.format = req.body.format[i]
