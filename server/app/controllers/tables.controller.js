@@ -2651,15 +2651,19 @@ exports.batchDocumentsUpload = (req, res) => {
    var reg_model = 'document'
     let myFiles = req.files
     let objs = []
+
+    if (!Array.isArray(myFiles)) {
+      myFiles = [myFiles]; // Convert to an array with one element
+    }
  
     
     for (let i = 0; i < myFiles.length; i++) {
+      
    
       
-      if (myFiles.length>1) {
+     // if (myFiles.length>1) {
            // Sin
-      
-      var obj = {}
+       var obj = {}
       var column = req.body.field_id[i]
       obj[column] = req.body[column][i]
       obj.category = req.body.category[i]
@@ -2670,35 +2674,35 @@ exports.batchDocumentsUpload = (req, res) => {
       obj.name = myFiles[i].originalname
       obj.code = crypto.randomUUID()
       obj.location = myFiles[i].path
-      console.log(obj)
+     // console.log(obj)
       objs.push(obj)
       console.log(obj)
-      }
-      else {
-        var obj = {}
-        var column = req.body.field_id
-        obj[column] = req.body[column]
-        obj.category = req.body.category
-        obj.format = req.body.format
-        obj.size = req.body.size
-        obj.createdBy = req.body.createdBy
-        obj.protectedFile = req.body.protected
-        obj.name = myFiles[i].originalname
-        obj.code = crypto.randomUUID()
-        obj.location = myFiles[i].path
-         objs.push(obj)
-        console.log(obj)
+    //  }
+      // else {
+      //   var obj = {}
+      //   var column = req.body.field_id
+      //   obj[column] = req.body[column]
+      //   obj.category = req.body.category
+      //   obj.format = req.body.format
+      //   obj.size = req.body.size
+      //   obj.createdBy = req.body.createdBy
+      //   obj.protectedFile = req.body.protected
+      //   obj.name = myFiles[i].originalname
+      //   obj.code = crypto.randomUUID()
+      //   obj.location = myFiles[i].path
+      //    objs.push(obj)
+      //   //console.log(obj)
 
 
-      }
+      // }
 
 
 
       try {
-      //  await db.models[reg_model].create(obj)
-        for (const obj of objs) {
-          await db.models[reg_model].create(obj);
-        }
+         await db.models[reg_model].create(obj)
+        // for (const obj of objs) {
+        //   await db.models[reg_model].create(obj);
+        // }
 
       }
             
