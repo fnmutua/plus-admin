@@ -23,7 +23,8 @@ import { ElMessage } from 'element-plus'
 import { ElCollapse, ElCollapseItem } from 'element-plus';
 import { onMounted, computed, reactive } from 'vue'
 import { useAppStoreWithOut } from '@/store/modules/app'
- 
+import { useRouter } from 'vue-router'
+
 import axios from 'axios';
  import { XMLParser } from 'fast-xml-parser';
 
@@ -45,7 +46,7 @@ mapboxgl.accessToken = MapBoxToken;
 const appStore = useAppStoreWithOut()
 
 
-
+const { push } = useRouter()
 const title = ref('')
 
 const route = useRoute()
@@ -627,6 +628,18 @@ const loadMap = async () => {
 //console.log('healthgeo',healthgeo)
 getAll()
 
+
+const editSettlement = () => {
+  console.log(route.params.id)
+  push({
+  name: 'AddSettlementX',
+    query: { id: route.params.id }
+  
+  });
+}
+
+
+
 const downloadMap = () => {
   ElMessage({
     message: 'Downloading in GeoJson format.....',
@@ -943,11 +956,18 @@ for (let i = 0; i < baselayers.value.length; i++) {
             </template>
           </el-dropdown> -->
            
-          <el-tooltip content="Download Data" placement="top">
-            <el-button type="primary" :onClick="downloadMap" style="  margin-left: 5px">
-              <Icon :size=24 icon='ic:sharp-file-download' />
+          <el-tooltip content="Edit Settlement" placement="top"> 
+         
+            <el-button type="success" :onClick="editSettlement" style="  margin-left: 5px">
+              <Icon :size=24 icon='uil:edit' />
             </el-button>
           </el-tooltip>
+          <el-tooltip content="Download Data" placement="top"> 
+         
+         <el-button type="primary" :onClick="downloadMap" style="  margin-left: 5px">
+           <Icon :size=24 icon='ic:sharp-file-download' />
+         </el-button>
+       </el-tooltip>
 
 
         </div>

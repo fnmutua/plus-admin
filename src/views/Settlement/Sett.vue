@@ -22,7 +22,7 @@ import { getFile } from '@/api/summary'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { uuid } from 'vue-uuid'
-import { defineAsyncComponent } from 'vue';
+import { defineAsyncComponent,onMounted } from 'vue';
 
 import xlsx from "json-as-xlsx"
 import { getAllGeo } from '@/api/settlements'
@@ -75,7 +75,13 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+const showAdminButtons =  ref(false)
+const showEditButtons =  ref(false)
 
+console.log('userInfo',userInfo)
 
 //*****************************Create**************************** */
 
@@ -109,18 +115,17 @@ const selectedSubCounty = ref(null)
 
 const search_string = ref()
 
-const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
-const userInfo = wsCache.get(appStore.getUserInfo)
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
 
 
-console.log('xshowAdminButtons',showAdminButtons)
+
+
+
+onMounted(async () => { 
+  showAdminButtons.value =   (appStore.getAdminButtons)
+  showEditButtons.value =   (appStore.getEditButtons)
+  console.log('xshowAdminButtons',showAdminButtons)
 console.log('xshowEditButtons',showEditButtons)
-
-
-
+})
 
 // // Hide buttons if not admin 
 // const showAdminButtons = ref(false)
