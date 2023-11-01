@@ -509,46 +509,86 @@ const handleSubmitData = async () => {
     console.log(fileList)
     loadingPosting.value = true
  
-    const formData = new FormData()
-    for (var i = 0; i < fileList.value.length; i++) {
-        console.log('------>file', fileList.value[i])
-        var column = fileList.value[i].field_id
+    // const formData = new FormData()
+    // for (var i = 0; i < fileList.value.length; i++) {
+    //     console.log('------>file', fileList.value[i])
+    //     var column = fileList.value[i].field_id
         
 
-        console.log('------>Field_ID', fileList.value[i].field_id)
+    //     console.log('------>Field_ID', fileList.value[i].field_id)
 
-        formData.append('files', fileList.value[i].raw)
-        formData.append('format', fileList.value[i].name.split('.').pop())
-        formData.append('category', fileList.value[i].type)
-        // do not append if file not tagged with sett/proj id
-        if(!hide_parent.value) {
+    //     formData.append('files', fileList.value[i].raw)
+    //     formData.append('format', fileList.value[i].name.split('.').pop())
+    //     formData.append('category', fileList.value[i].type)
+    //     // do not append if file not tagged with sett/proj id
+    //     if(!hide_parent.value) {
+    //         formData.append('field_id', fileList.value[i].field_id)
+    //         formData.append(column, fileList.value[i][column])
+    //     }
+     
+    //     formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
+    //     formData.append('createdBy', userInfo.id)
+    //     formData.append('protected', fileList.value[i].protected?fileList.value[i].protected:false)
+ 
+    // }
+
+    // formData.append('code', uuid.v4())
+
+
+
+    // console.log('Befoer submit', formData)
+    // await uploadFilesBatch(formData)
+    //     .then((response: { data: any }) => {
+    //         loadingPosting.value = false
+    //         if (response.code === "0000") {
+    //     // code 0000 is successfule
+    //                 push({
+    //             path: '/repository/docs',
+    //             name: 'RepositoryTagged'
+    //             })
+    //             }
+
+    //     })
+
+ const formData = new FormData()
+  let files = []
+
+  for (var i = 0; i < fileList.value.length; i++) {
+    console.log('------>file', fileList.value[i])
+    //var format = fileList.value[i].name.split('.').pop() // get file extension
+    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+   // fileTypes.push(format)
+    // formData.append('files', fileList.value[i])
+    // formData.file = fileList.value[i]
+
+    formData.append('model', theParentModel.value)
+    formData.append('createdBy', userInfo.id)
+
+    formData.append('files', fileList.value[i].raw)
+    formData.append('format', fileList.value[i].name.split('.').pop())
+    formData.append('category', fileList.value[i].type)
+   // formData.append('field_id', props.field)
+    if(!hide_parent.value) {
             formData.append('field_id', fileList.value[i].field_id)
             formData.append(column, fileList.value[i][column])
         }
-     
-        formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
-        formData.append('createdBy', userInfo.id)
-        formData.append('protected', fileList.value[i].protected?fileList.value[i].protected:false)
- 
-    }
 
+    formData.append('protected',  fileList.value[i].protected?fileList.value[i].protected:false)
+
+    formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
     formData.append('code', uuid.v4())
+    //formData.append(props.field, props.data.id)
 
+   // console.log('formData',props.field)
 
+  }
 
-    console.log('Befoer submit', formData)
-    await uploadFilesBatch(formData)
-        .then((response: { data: any }) => {
-            loadingPosting.value = false
-            if (response.code === "0000") {
-        // code 0000 is successfule
-                    push({
-                path: '/repository/docs',
-                name: 'RepositoryTagged'
-                })
-                }
+ // addMoreDocuments.value = false
+ console.log('formData',formData)
+ const res = await uploadFilesBatch(formData)
 
-        })
+ 
+
 
 }
 
