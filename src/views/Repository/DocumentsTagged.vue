@@ -256,7 +256,15 @@ const getFilteredDataV2 = async () => {
       //create the subcategories 
       var filteredObjs = flattenedObj.filter(function (doc) {
        // console.log("userIsAdmin.value", userIsAdmin.value)
-        console.log("createdBy", doc.createdBy === userInfo.id || !doc.protectedFile)
+      // console.log("createdBy", doc.createdBy === userInfo.id || !doc.protectedFile)
+
+       if(doc.createdBy === userInfo.id  || userIsAdmin.value ) {
+        doc.deletable = true 
+        
+       } else {
+        doc.deletable = false 
+       }
+       console.log("Deletable", doc.deletable )
 
         if (userIsAdmin.value) {
           return doc
@@ -448,6 +456,17 @@ function getIconForGroup(groupName) {
                   console.log("doc", doc.id )
                   resultsIDs.push(doc.id)
 
+                  if(doc.createdBy === userInfo.id  || userIsAdmin.value ) {
+                      doc.deletable = true 
+                      
+                    } else {
+                      doc.deletable = false 
+                    }
+                    console.log("Deletable", doc.deletable )
+
+
+                    
+
                   if (userIsAdmin.value) {
                     return doc
                   } else {
@@ -550,7 +569,7 @@ function getIconForGroup(groupName) {
                 <template #default="scope">
                   <!-- <el-button   @click="downloadFile(scope)" type="primary" icon="el-icon-download">Download</el-button> -->
                   <el-button    type="success"  @click="downloadFile(scope)"  :icon="Download" circle />
-                  <el-button  v-if="userIsAdmin"  type="danger"   @click="removeDocument(scope)"     :icon="Delete" circle />
+                  <el-button  v-if="scope.row.deletable"  type="danger"   @click="removeDocument(scope)" :icon="Delete" circle />
 
                   
 
