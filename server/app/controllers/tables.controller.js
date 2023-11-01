@@ -2650,7 +2650,7 @@ exports.batchDocumentsUpload = (req, res) => {
 
    var reg_model = 'document'
     let myFiles = req.files
-
+    let objs = []
     console.log(myFiles)
     console.log(req.body)
     
@@ -2672,6 +2672,7 @@ exports.batchDocumentsUpload = (req, res) => {
       obj.code = crypto.randomUUID()
       obj.location = myFiles[i].path
       console.log(obj)
+      objs.push(obj)
       }
       else {
         var obj = {}
@@ -2686,12 +2687,18 @@ exports.batchDocumentsUpload = (req, res) => {
         obj.code = crypto.randomUUID()
         obj.location = myFiles[i].path
         console.log(obj)
+        objs.push(obj)
+
       }
 
 
 
       try {
-        await db.models[reg_model].create(obj)
+      //  await db.models[reg_model].create(obj)
+        for (const obj of objs) {
+          await db.models[reg_model].create(obj);
+        }
+
       }
             
       catch (error) {
