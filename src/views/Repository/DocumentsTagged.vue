@@ -148,7 +148,21 @@ const downloadFile = async (data) => {
 
 
   const formData = {}
-  formData.filename = data.row.name
+
+  let fname 
+  const filename = data.row.name;
+      // Check if the filename has an extension
+      if (!/\.\w+$/.test(filename)) {
+         fname=filename + '.'+data.row.format
+      } else {
+        fname = filename
+
+      }
+
+  formData.filename =fname
+  console.log("file name:", formData)
+
+
   formData.responseType = 'blob'
   await getFile(formData)
     .then(response => {
