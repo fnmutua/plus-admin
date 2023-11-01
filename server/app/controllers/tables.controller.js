@@ -1158,6 +1158,8 @@ exports.modelEditOneRecord = (req, res) => {
   // Get the record and update it by replacing the whole document
   db.models[reg_model].findOne({ where: { id: req.body.id } })
     .then(async (result) => {
+
+
       // Special for projects where we store the project-activity relation
       if (reg_model === 'project') {
         var activity_list = req.body.activities;
@@ -1173,6 +1175,18 @@ exports.modelEditOneRecord = (req, res) => {
         await result.setActivities(list_activities);
       }
 
+      if (reg_model === 'document' && req.body.edited_name) {
+        const oldFilePath = `/data/uploads/${result.name}`;
+        const newFilePath = `/data/uploads/${req.body.edited_name}`;
+        
+        fs.rename(oldFilePath, newFilePath, (err) => {
+          if (err) {
+            console.log('Error renaming the file:', err);
+          } else {
+            console.log('File renamed successfully.');
+          }
+        });
+      }
      
 
       console.log("Edit", result);
