@@ -2659,12 +2659,17 @@ exports.batchDocumentsUpload = (req, res) => {
     
     for (let i = 0; i < myFiles.length; i++) {
       
-         
-     // if (myFiles.length>1) {
-           // Sin
+ 
        var obj = {}
-      var column = req.body.field_id[i]
-      obj[column] = req.body[column][i]
+     // var column = req.body.field_id[i]
+     // obj[column] = req.body[column][i]
+
+        // Check if 'field_id' exists in 'req.body' before adding 'column' property to 'obj'
+      if (req.body.field_id) {
+        var column = req.body.field_id[i]
+        obj[column] = req.body[column][i];
+      }
+
       obj.category = req.body.category[i]
       obj.format = req.body.format[i]
       obj.size = req.body.size[i]
@@ -2673,27 +2678,10 @@ exports.batchDocumentsUpload = (req, res) => {
       obj.name = myFiles[i].originalname
       obj.code = crypto.randomUUID()
       obj.location = myFiles[i].path
-     // console.log(obj)
-      objs.push(obj)
+       objs.push(obj)
       console.log(obj)
-    //  }
-      // else {
-      //   var obj = {}
-      //   var column = req.body.field_id
-      //   obj[column] = req.body[column]
-      //   obj.category = req.body.category
-      //   obj.format = req.body.format
-      //   obj.size = req.body.size
-      //   obj.createdBy = req.body.createdBy
-      //   obj.protectedFile = req.body.protected
-      //   obj.name = myFiles[i].originalname
-      //   obj.code = crypto.randomUUID()
-      //   obj.location = myFiles[i].path
-      //    objs.push(obj)
-      //   //console.log(obj)
-
-
-      // }
+  
+   
 
 
 
