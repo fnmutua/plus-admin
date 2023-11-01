@@ -2660,7 +2660,7 @@ exports.batchDocumentsUpload = (req, res) => {
            // Sin
       
       var obj = {}
-      var column = req.body.field_id
+      var column = req.body.field_id[i]
       obj[column] = req.body[column][i]
       obj.category = req.body.category[i]
       obj.format = req.body.format[i]
