@@ -585,9 +585,24 @@ const handleSubmitData = async () => {
 
  // addMoreDocuments.value = false
  console.log('formData',formData)
- const res = await uploadFilesBatch(formData)
+// const res = await uploadFilesBatch(formData)
 
- 
+     console.log('Befoer submit', formData)
+    await uploadFilesBatch(formData)
+        .then((response: { data: any }) => {
+            loadingPosting.value = false
+            if (response.code === "0000") {
+        // code 0000 is successfule
+                    push({
+                path: '/repository/docs',
+                name: 'RepositoryTagged'
+                })
+                }
+                else {
+                    loadingPosting.value = false  
+                }
+
+        })
 
 
 }

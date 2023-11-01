@@ -2659,8 +2659,7 @@ exports.batchDocumentsUpload = (req, res) => {
     
     for (let i = 0; i < myFiles.length; i++) {
       
-   
-      
+         
      // if (myFiles.length>1) {
            // Sin
        var obj = {}
