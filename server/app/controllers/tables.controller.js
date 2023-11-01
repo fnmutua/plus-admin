@@ -2735,6 +2735,7 @@ exports.batchDocumentsUpload = (req, res) => {
 
     const reg_model = 'document';
     const myFiles = req.files;
+    console.log('req.files',req.files)
     const { field_id, category, format, size, createdBy, protected } = req.body;
 
     for (let i = 0; i < myFiles.length; i++) {
