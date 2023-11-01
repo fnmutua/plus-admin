@@ -801,17 +801,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           alwaysShow: true
         },
         children: [
-           {
-            path: 'manage',
-          //  component: 'views/Users/County',
-            component: () => import('@/views/Repository/Documents.vue'),
-            name: 'RepositoryDocs',
-            meta: {
-              title: 'Manage',
-              hidden: false,
-              icon:'bi:clipboard2-data-fill'
-            }
-          },
+          //  {
+          //   path: 'manage',
+          // //  component: 'views/Users/County',
+          //   component: () => import('@/views/Repository/Documents.vue'),
+          //   name: 'RepositoryDocs',
+          //   meta: {
+          //     title: 'Manage',
+          //     hidden: false,
+          //     icon:'material-symbols:folder-managed'
+          //   }
+          // },
     
           {
             path: 'docs',
