@@ -528,17 +528,16 @@ const downloadFile = async (data) => {
 
 const viewDocument = async (data) => {
   downloading.value=true
-  const documentUrl = data.url; // Use 'data.url' to access the document URL
-
+ 
   const formData = {};
  
 
   
   let fname 
-  const filename = data.row.name;
+  const filename = data.name;
       // Check if the filename has an extension
       if (!/\.\w+$/.test(filename)) {
-         fname=filename + '.'+data.row.format
+         fname=filename + '.'+data.format
       } else {
         fname = filename
 
