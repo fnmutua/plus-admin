@@ -139,68 +139,6 @@ const filterLiveDocsBackup = ref([])
 
 
 
-const downloadFile = async (data) => {
-  downloading.value = true
-  console.log(data)
-  console.log(data.row.name)
-
- 
-
-
-  const formData = {}
-
-  let fname 
-  const filename = data.row.name;
-      // Check if the filename has an extension
-      if (!/\.\w+$/.test(filename)) {
-         fname=filename + '.'+data.row.format
-      } else {
-        fname = filename
-
-      }
-
-  formData.filename =fname
-  console.log("file name:", formData)
-
-
-  formData.responseType = 'blob'
-  await getFile(formData)
-    .then(response => {
-      console.log(response)
-      downloading.value = false
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      //link.setAttribute('download', data.row.name + data.row.format )
-      const filename = data.row.name;
-      // Check if the filename has an extension
-      if (!/\.\w+$/.test(filename)) {
-        link.setAttribute('download', `${filename}.${data.row.format}`);
-        console.log("file name has no extension")
-      } else {
-        link.setAttribute('download', filename);
-        console.log("file name has   extension")
-
-      }
-
-      document.body.appendChild(link)
-      link.click()
-      downloading.value = false
-
-    })
-    .catch(error => {
-      console.error('Error downloading file2:', error);
-      ElMessage.error('Download failed.');
-
-      downloading.value = false
-
-    });
-
-}
-
-
-
-
 
 
 function formatText(str) {
@@ -526,6 +464,116 @@ const handleInputChange = async (keyword) => {
 
 
 }
+
+
+
+
+
+const downloadFile = async (data) => {
+  downloading.value = true
+  console.log(data)
+  console.log(data.row.name)
+ 
+
+  const formData = {}
+
+  let fname 
+  const filename = data.row.name;
+      // Check if the filename has an extension
+      if (!/\.\w+$/.test(filename)) {
+         fname=filename + '.'+data.row.format
+      } else {
+        fname = filename
+
+      }
+
+  formData.filename =fname
+  console.log("file name:", formData)
+
+
+  formData.responseType = 'blob'
+  await getFile(formData)
+    .then(response => {
+      console.log(response)
+      downloading.value = false
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      //link.setAttribute('download', data.row.name + data.row.format )
+      const filename = data.row.name;
+      // Check if the filename has an extension
+      if (!/\.\w+$/.test(filename)) {
+        link.setAttribute('download', `${filename}.${data.row.format}`);
+        console.log("file name has no extension")
+      } else {
+        link.setAttribute('download', filename);
+        console.log("file name has   extension")
+
+      }
+
+      document.body.appendChild(link)
+      link.click()
+      downloading.value = false
+
+    })
+    .catch(error => {
+      console.error('Error downloading file2:', error);
+      ElMessage.error('Download failed.');
+
+      downloading.value = false
+
+    });
+
+}
+
+const viewDocument = async (data) => {
+  downloading.value=true
+  const documentUrl = data.url; // Use 'data.url' to access the document URL
+
+  const formData = {};
+ 
+
+  
+  let fname 
+  const filename = data.row.name;
+      // Check if the filename has an extension
+      if (!/\.\w+$/.test(filename)) {
+         fname=filename + '.'+data.row.format
+      } else {
+        fname = filename
+
+      }
+      formData.filename =fname
+
+
+  formData.doc_id = data.id;
+  formData.responseType = 'blob';
+
+  try {
+    const response = await getFile(formData);
+    const blobData = new Blob([response.data], { type: response.headers['content-type'] });
+    const url = window.URL.createObjectURL(blobData);
+    const newTab = window.open(url, '_blank');
+
+    if (newTab) {
+      // Attach a load event listener to the new tab's window object
+      newTab.addEventListener('load', () => {
+        // The new tab has fully loaded
+        console.log('New tab has fully loaded.');
+        downloading.value=false
+      });
+    } else {
+      console.error('Failed to open a new tab.');
+      ElMessage.error('Failed to open the document.');
+      downloading.value=false
+    }
+  } catch (error) {
+    console.error(error);
+    ElMessage.error('Failed to load the document.');
+    downloading.value=false
+  }
+};
+
 
 const removeDocument = (data) => {
   console.log('----->', data.row)
@@ -895,6 +943,10 @@ const handleSubmitData = async () => {
     dialogVisible.value = false
 
 }
+
+
+
+
 </script>
 
 <template>
@@ -935,6 +987,9 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
                   <!-- <el-button   @click="downloadFile(scope)" type="primary" icon="el-icon-download">Download</el-button> -->
                   <el-button v-if="scope.row.deletable" type="success" @click="editDocument(scope)" :icon="Edit" circle />
                   <el-button type="warning" @click="downloadFile(scope)" :icon="Download" circle />
+
+                  <el-button type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
+
                   <el-button
 v-if="scope.row.deletable" type="danger" @click="removeDocument(scope)" :icon="Delete"
                     circle />
