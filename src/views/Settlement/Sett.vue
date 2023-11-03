@@ -121,11 +121,11 @@ const pageSize = ref(10)
 console.log('window.innerHeight1',window.innerHeight)
 
 if (window.innerHeight < 600) {
-        pageSize.value = 5; // Set page size to 5 for small screens
+        pageSize.value = 4; // Set page size to 5 for small screens
       } else if (window.innerHeight < 900) {
-        pageSize.value = 10; // Set page size to 10 for medium screens
+        pageSize.value = 6; // Set page size to 10 for medium screens
       } else {
-        pageSize.value = 20; // Set page size to 15 for large screens
+        pageSize.value = 8; // Set page size to 15 for large screens
       }
 
 onMounted(async () => { 
@@ -502,7 +502,7 @@ const getNewOrRejectedSettlements = async (tab) => {
 
 
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit =  pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -593,7 +593,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   console.log("loadingGetData", loadingGetData.value)
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -802,7 +802,7 @@ const getFilteredBySearchData = async (tab, searchKey) => {
 
 
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit =  pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -2247,7 +2247,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
       <ElPagination
 v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-        v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
+        v-model:page-size="pageSize" :page-sizes="[4,6,8,12,20,100]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </el-tabs>
     <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
