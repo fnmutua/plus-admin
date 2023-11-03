@@ -117,14 +117,31 @@ const search_string = ref()
 
 
 
+const pageSize = ref(10)
+console.log('window.innerHeight1',window.innerHeight)
 
-
+if (window.innerHeight < 600) {
+        pageSize.value = 5; // Set page size to 5 for small screens
+      } else if (window.innerHeight < 900) {
+        pageSize.value = 10; // Set page size to 10 for medium screens
+      } else {
+        pageSize.value = 20; // Set page size to 15 for large screens
+      }
 
 onMounted(async () => { 
   showAdminButtons.value =   (appStore.getAdminButtons)
   showEditButtons.value =   (appStore.getEditButtons)
   console.log('xshowAdminButtons',showAdminButtons)
 console.log('xshowEditButtons',showEditButtons)
+
+console.log('window.innerHeight',window.innerHeight)
+
+
+
+
+
+
+
 })
 
 // // Hide buttons if not admin 
@@ -162,7 +179,7 @@ const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
 const loading = ref(true)
-const pageSize = ref(5)
+
 const currentPage = ref(1)
 const activeTab = ref('list')
 const enableSubcounty = ref(false)
