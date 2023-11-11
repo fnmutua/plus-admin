@@ -34,8 +34,7 @@ import { getFile } from '@/api/summary'
 
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
-import ListDocuments from '@/views/Components/ListDocuments.vue';
-import DownloadAll from '@/views/Components/DownloadAll.vue';
+ 
 
 
 
@@ -193,7 +192,7 @@ const getCategoryCounts = async () => {
   formData.summaryFunction = 'count'
   //formData.assoc_models = ['county']
   formData.assoc_models = associated_multiple_models
-  formData.groupFields = ['document_type.group', 'document_type.type']
+  formData.groupFields = ['document_type.category_id', 'document_type.type']
 
   formData.filterField = []
   formData.filterValue = []
@@ -203,8 +202,26 @@ const getCategoryCounts = async () => {
   const response = await getSummarybyFieldFromMultipleIncludes(formData);
   console.log('groups...', response)
   loading.value = false
+ 
+ 
 
-  groups_v2.value = reformatData(response.Total)
+  let joinedArray = response.Total.map(item => {
+    let documentCategory = item.category_id;
+    let matchInAnotherArray = docGroups.value.find(entry => entry.id == item.category_id);
+
+    if (matchInAnotherArray) {
+        return {
+             count: item.count,
+            type: item.type,
+            group: matchInAnotherArray.title,
+         };
+    }
+});
+
+console.log('joinedArray',joinedArray)
+
+
+  groups_v2.value = reformatData(joinedArray)
 
   console.log('groups_v2', groups_v2.value)
 
@@ -281,6 +298,7 @@ const getFilteredDataV2 = async () => {
 }
 
 const docTypes = ref([])
+const docGroups = ref([])
 const getDocumentTypes = async () => {
 
   try {
@@ -288,7 +306,7 @@ const getDocumentTypes = async () => {
       params: {
         curUser: 1,
         model: 'document_type',
-        associated_multiple_models: [],
+        associated_multiple_models: ['document_category'],
         searchField: 'name',
         searchKeyword: '',
         sort: 'ASC'
@@ -297,6 +315,22 @@ const getDocumentTypes = async () => {
 
     console.log('Doc Types', response.data)
     docTypes.value = response.data
+
+    response.data.forEach(item => {
+      let documentCategory = item.document_category;
+    let existingEntry = docGroups.value.find(entry => entry.id === documentCategory.id);
+
+    if (!existingEntry) {
+      docGroups.value.push({
+            id: documentCategory.id,
+            title: documentCategory.title
+        });
+    }
+});
+
+    console.log('Doc docGroups', docGroups.value)
+
+
 
   } catch (error) {
     console.error('Error fetching data:', error);
