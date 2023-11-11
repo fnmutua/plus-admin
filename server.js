@@ -12,7 +12,7 @@ var corsOptions = {
 };
 
 const path = require('path')
-const fileUpload = require('express-fileupload')
+//const fileUpload = require('express-fileupload')
 
 
 const uploadsDir = path.join(__dirname, '..', 'uploads'); // path to the uploads folder
@@ -46,7 +46,7 @@ app.use(cors(corsOptions))
 // middle ware
 // app.use(express.static('public')); //to access the files in public folder
 // app.use(cors()); // it enables all cors requests
-app.use(fileUpload())
+//app.use(fileUpload())
 
 // parse requests of content-type - application/json
 app.use(bodyParser.json({ limit: '200mb' }))

@@ -22,6 +22,10 @@ import xlsx from "json-as-xlsx"
 
 import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldSimple } from '@/api/summary'
 
+import moment from "moment";
+
+
+
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getFile } from '@/api/summary'
@@ -65,14 +69,18 @@ if (isMobile.value) {
 }
 
 
+const formatEndDate = (data) => {
 
+return moment(data.end_date).format("YYYY-MM-DD");
+
+}
 
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 
 const model = 'document'
 
-const associated_multiple_models = ['project', 'indicator_category_report', 'document_type']
+const associated_multiple_models = ['project', 'indicator_category_report', 'document_type', 'users']
 //// ------------------parameters -----------------------////
 const nested_models = ['settlement', 'county'] // The mother, then followed by the child
 
@@ -979,17 +987,20 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
               </el-table-column>
               <el-table-column prop="name" label="Title" />
               <el-table-column prop="settlement.name" label="Settlement" />
-              <el-table-column prop="settlement.county.name" label="County" />
+              <!-- <el-table-column prop="settlement.county.name" label="County" /> -->
+              <el-table-column prop="date" label="Date" :formatter="formatEndDate" />
+               <el-table-column prop="user.name" label="User" />
               <el-table-column prop="size" label="Size(Mb)" />
               <el-table-column label="Action">
                 <template #default="scope">
                   <!-- <el-button   @click="downloadFile(scope)" type="primary" icon="el-icon-download">Download</el-button> -->
-                  <el-button v-if="scope.row.deletable" type="success" @click="editDocument(scope)" :icon="Edit" circle />
-                  <el-button type="warning" @click="downloadFile(scope)" :icon="Download" circle />
+                  <el-button  size="small"  v-if="scope.row.deletable" type="success" @click="editDocument(scope)" :icon="Edit" circle />
+                  <el-button type="warning" size="small" @click="downloadFile(scope)" :icon="Download" circle />
 
-                  <el-button type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
+                  <el-button type="primary" size="small"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
 
                   <el-button
+size="small" 
 v-if="scope.row.deletable" type="danger" @click="removeDocument(scope)" :icon="Delete"
                     circle />
 

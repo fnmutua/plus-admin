@@ -2631,7 +2631,7 @@ const upload = multer({
 });
 
 
-exports.batchDocumentsUpload = (req, res) => {
+exports.xbatchDocumentsUpload = (req, res) => {
       // The uploaded files can be accessed using `req.files`
       console.log('files:', req.body);
   // Use `upload.array('files')` middleware to handle multiple file uploads
@@ -2721,6 +2721,156 @@ exports.batchDocumentsUpload = (req, res) => {
   });
 };
 
+
+exports.batchDocumentsUpload = (req, res) => {
+  // The uploaded files can be accessed using `req.files`
+// Use `upload.array('files')` middleware to handle multiple file uploads
+// 'files' should match the name attribute of the file input(s) in your form
+upload.array('files')(req, res, async (err) => {
+if (err) {
+  console.log(err);
+  // Handle multer errors, if any
+ // return res.status(400).json({ error: 'File upload failed.' });
+ return res.status(500).send({
+    message: 'Upload failed.',
+    code: '0000'
+  })
+}
+
+
+var reg_model = 'document'
+let myFiles = req.files
+let objs = []
+
+
+ console.log('req.field_id:', req.field_id);
+
+
+
+if (!Array.isArray(myFiles)) {
+  myFiles = [myFiles]; // Convert to an array with one element
+}
+
+
+for (let i = 0; i < myFiles.length; i++) {
+  
+  console.log('doc#',i, myFiles[i], req.body )
+  
+   var obj = {}
+ // var column = req.body.field_id[i]
+ // obj[column] = req.body[column][i]
+
+    // Check if 'field_id' exists in 'req.body' before adding 'column' property to 'obj'
+  if (req.body.field_id) {
+    var column = req.body.field_id[i]
+          if (myFiles.length >1) {
+            obj[column] = req.body[column][i];
+            obj.category = req.body.category[i]
+            obj.format = req.body.format[i]
+            obj.size = req.body.size[i]
+            obj.createdBy = req.body.createdBy[i] 
+            obj.protectedFile = req.body.protected[i] 
+            obj.name = myFiles[i].originalname
+            obj.location = myFiles[i].path
+            obj.code = crypto.randomUUID()
+            objs.push(obj)
+
+          } else {
+            var column = req.body.field_id
+            obj[column] = req.body[column];
+            obj.format = req.body.format 
+            obj.size = req.body.size 
+            obj.createdBy = req.body.createdBy[i] 
+            obj.protectedFile = req.body.protected[i] 
+            obj.name = myFiles[i].originalname
+            obj.location = myFiles[i].path
+            obj.code = crypto.randomUUID()
+
+            obj.format = req.body.format 
+            obj.category = req.body.category
+ 
+            objs.push(obj)
+
+          }
+       } else {
+
+        if (myFiles.length >1) {
+          obj.category = req.body.category[i]
+          obj.format = req.body.format[i]
+          obj.size = req.body.size[i]
+          obj.createdBy = req.body.createdBy[i] 
+          obj.protectedFile = req.body.protected[i] 
+          obj.name = myFiles[i].originalname
+          obj.location = myFiles[i].path
+          obj.code = crypto.randomUUID()
+          objs.push(obj)
+
+        } else {
+          obj.format = req.body.format 
+          obj.size = req.body.size 
+          obj.createdBy = req.body.createdBy[i] 
+          obj.protectedFile = req.body.protected[i] 
+          obj.name = myFiles[i].originalname
+          obj.location = myFiles[i].path
+          obj.code = crypto.randomUUID()
+
+          obj.format = req.body.format 
+          obj.category = req.body.category
+
+
+
+          objs.push(obj)
+
+        }
+
+  }
+
+
+
+
+}
+
+console.log('objs#',  objs )
+
+
+
+
+try {
+  //await db.models[reg_model].create(obj)
+ for (const nobj of objs) {
+  console.log('inserting....., ', nobj)
+   await db.models[reg_model].create(nobj);
+
+
+ }
+
+ res.status(200).send({
+  message: 'xxBatch Upload Successful',
+  code: '0000'
+})
+
+}
+     
+catch (error) {
+ console.log(error)
+
+ 
+res.status(500).send({
+ message: 'Upload failed. ' + error + ' errors',
+ code: '0000'
+})
+}
+
+
+
+
+// Other form fields (if any) can be accessed using `req.body`
+//  console.log('other form fields:', req.body);
+
+// Process the files or respond to the client accordingly
+// res.json({ message: 'Form submission and file upload successful!' });
+});
+};
 
  
 

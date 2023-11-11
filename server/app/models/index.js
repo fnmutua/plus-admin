@@ -1008,6 +1008,18 @@ db.models.settlement.hasMany(db.models.document, {
 })
 
 
+// Docuemnt by User
+
+db.models.document.belongsTo(db.models.users, {
+  foreignKey: 'createdBy',
+})
+
+db.models.users.hasMany(db.models.document, {
+  foreignKey: 'createdBy'
+})
+
+
+
 db.models.subcounty.belongsTo(db.models.county, {
   foreignKey: 'county_id',
 })
