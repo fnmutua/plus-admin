@@ -23,6 +23,7 @@ import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import {  activateUserApi } from '@/api/users'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
+import { uuid } from 'vue-uuid'
 
 import {
    searchByKeyWord

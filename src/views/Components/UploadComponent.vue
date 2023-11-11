@@ -321,7 +321,15 @@ const handleSelect = async (selected) => {
         </el-upload>
       </div>
 
-      <el-checkbox v-model="protectedFile">Protected File</el-checkbox>
+
+      <el-tooltip
+        class="box-item"
+        effect="dark"
+        content="Only the Owner and Admin can view Private documents"
+        placement="right-end"
+      >
+      <el-checkbox v-model="protectedFile">Private File</el-checkbox>
+      </el-tooltip>
 
       <div class="dialog-progress">
         <el-progress
