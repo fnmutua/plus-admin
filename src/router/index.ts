@@ -134,7 +134,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: t('Data'),
       icon: 'mdi:map-legend',
       alwaysShow: true,
-      role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] 
+      //role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon','consultant' ] 
 
     },
     children: [
@@ -709,6 +709,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Import',
           icon: 'mdi:database-plus',
+          role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+
           alwaysShow: false
         },
         children: [
@@ -798,6 +800,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Repository',
           icon: 'material-symbols:home-storage-rounded',
+         // role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon','consultant' ] ,
+
           alwaysShow: true
         },
         children: [
