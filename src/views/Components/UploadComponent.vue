@@ -29,7 +29,9 @@ const props = defineProps({
   showDialog: Boolean,
   data: Array,
   umodel: String,
-  field: String
+  field: String,
+  filterOptions:String
+
 })
 const { show } = toRefs(props)
 
@@ -48,13 +50,17 @@ onMounted(() => {
   console.log(props.message)
   console.log(props.showDialog)
   console.log('data----x', props.data)
-  console.log('umodel----x', props.umodel)
+ 
+  console.log('filterOptions----x', props.filterOptions)
+  console.log('DocTypes----x', DocTypes.value)
 
 
 })
 
 
 const DocTypes = ref([])
+const DocTypesFiltered = ref([])
+const DocTypesAll = ref([])
 const getDocumentTypes = async () => {
   const res = await getCountyListApi({
     params: {
@@ -69,6 +75,7 @@ const getDocumentTypes = async () => {
   }).then((response) => {
      //tableDataList.value = response.data
     var ret = response.data
+    console.log('filterOptions---Docypes-x', response.data)
 
 
     const nestedData = ret.reduce((acc, cur) => {
@@ -80,7 +87,7 @@ const getDocumentTypes = async () => {
       return acc;
     }, {});
 
-    console.log(nestedData.Map)
+    //console.log(nestedData.Map)
     for (let property in nestedData) {
       let opts = nestedData[property];
       var doc = {}
@@ -94,12 +101,29 @@ const getDocumentTypes = async () => {
         doc.options.push(opt)
 
       })
+      console.log('doc, ',doc)
+      
       DocTypes.value.push(doc)
+
+      if (props.filterOptions &&  doc.label == props.filterOptions) {
+        console.log("Filtred", props.filterOptions)
+        DocTypesFiltered.value.push(doc)
+
+      } else {
+        console.log("Not Filtred", props.filterOptions)
+        DocTypesAll.value.push(doc)
+
+        //
+      }
 
     }
     console.log(DocTypes)
 
   })
+
+  if (props.filterOptions  ) {
+    DocTypes.value = DocTypesFiltered.value
+  }
 }
 getDocumentTypes()
 

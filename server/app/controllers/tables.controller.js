@@ -2845,7 +2845,7 @@ try {
  }
 
  res.status(200).send({
-  message: 'xxBatch Upload Successful',
+  message: 'Batch Upload Successful',
   code: '0000'
 })
 
