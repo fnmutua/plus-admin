@@ -364,8 +364,13 @@ const editForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = model
 
-      updateOneRecord(ruleForm).then(() => { })
+        updateOneRecord(ruleForm).then(() => {
 
+      getFilteredData(filters, filterValues)
+
+      })
+
+      
       // dialogFormVisible.value = false
 
 
