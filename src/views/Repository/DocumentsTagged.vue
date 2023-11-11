@@ -6,7 +6,7 @@ import { getSettlementListByCounty } from '@/api/settlements'
 import { ElButton, ElBadge } from 'element-plus'
 import {
   Position, View, Plus, User, TopRight, Briefcase, Download, Delete, Edit,
-  Filter, InfoFilled, CopyDocument, Search, Setting, Loading
+  Filter, InfoFilled, CopyDocument, Search, Setting, Loading,UploadFilled
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, watch, computed } from 'vue'
@@ -23,12 +23,21 @@ import xlsx from "json-as-xlsx"
 import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldSimple } from '@/api/summary'
 
 import moment from "moment";
+import { defineAsyncComponent,onMounted } from 'vue';
 
 
 
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getFile } from '@/api/summary'
+
+
+
+import UploadComponent from '@/views/Components/UploadComponent.vue';
+import ListDocuments from '@/views/Components/ListDocuments.vue';
+import DownloadAll from '@/views/Components/DownloadAll.vue';
+
+
 
 
 const { wsCache } = useCache()
@@ -41,6 +50,8 @@ const userIsAdmin = ref(false)
 if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin")) {
   userIsAdmin.value = true
 }
+
+
 
 
 
@@ -954,12 +965,53 @@ const handleSubmitData = async () => {
 
 
 
+/// Uplaod docuemnts from a central component 
+
+const currentRow = ref()
+const addMoreDocuments = ref(false)
+
+
+
+
+const mfield = null
+const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
+const selectedRow = ref([])
+const dynamicComponent = ref();
+ const componentProps = ref({
+      message: 'Hello from parent',
+      showDialog:addMoreDocuments,
+      data:currentRow.value,
+      umodel:null,
+      field:mfield,
+      filterOptions:null
+    });
+
+
+    function toggleComponent(groupName) {
+  console.log('Compnnent data', [])
+      componentProps.value.data=[];
+      componentProps.value.filterOptions=groupName;
+      dynamicComponent.value = null; // Unload the component
+      addMoreDocuments.value = true; // Set any additional props
+ 
+      setTimeout(() => {
+        dynamicComponent.value = ChildComponent; // Load the component
+  }, 100); // 0.1 seconds
+
+
+    }
+
+
 </script>
 
 <template>
   <ContentWrap
 :title="t('Document Repository')" :message="t('Use the filters to subset')" v-loading="loading"
     element-loading-text="Getting the documents.......">
+
+    <div v-if="dynamicComponent">
+      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
+    </div>
     <el-input
 v-model="searchTerm" placeholder="Search documents by name/settlement/county/format" class="search-input"
       clearable @change="handleInputChange" @clear="getCategoryCounts" />
@@ -1018,7 +1070,12 @@ v-if="scope.row.deletable" type="danger" @click="removeDocument(scope)" :icon="D
                 @current-change="handlePageChange" />
 
             </div>
+    
           </el-collapse-item>
+         
+
+          <el-button class="full-width"   style="margin-left: 10px;margin-bottom: 5px ;margin-top: 5px"  type="success"   size="small"   @click="toggleComponent(groupName)" :icon="UploadFilled"> Upload {{ groupName }} files </el-button>
+
         </el-collapse>
 
       </el-collapse-item>
