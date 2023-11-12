@@ -218,6 +218,13 @@ const getCategoryCounts = async () => {
     }
 });
 
+// Remove undefined entries if any
+joinedArray = joinedArray.filter(item => item !== undefined);
+
+// Sort the array by the 'group' property
+joinedArray.sort((a, b) => a.group.localeCompare(b.group));
+
+
 console.log('joinedArray',joinedArray)
 
 
@@ -257,6 +264,13 @@ let joinedArray = response.Total.map(item => {
        };
   }
 });
+
+// Remove undefined entries if any
+joinedArray = joinedArray.filter(item => item !== undefined);
+
+// Sort the array by the 'group' property
+joinedArray.sort((a, b) => a.group.localeCompare(b.group));
+
 
 console.log('joinedArray filteretd',joinedArray)
 
