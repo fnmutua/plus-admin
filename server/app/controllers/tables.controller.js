@@ -3727,7 +3727,6 @@ exports.filterRepository = async (req, res) => {
 
 
 
-
     const filteredData = await db.models.document.findAll({
       where: {
         [Op.or]: [
@@ -3769,6 +3768,13 @@ exports.filterRepository = async (req, res) => {
               [Op.iLike]: `%${searchTerm.toLowerCase()}%`,
             },
           },
+
+          {
+            // Search in the related model (Settlement > County) columns
+            '$user.name$': {
+              [Op.iLike]: `%${searchTerm.toLowerCase()}%`,
+            },
+          },
         ],
       },
 
@@ -3791,6 +3797,12 @@ exports.filterRepository = async (req, res) => {
           model: db.models.document_type,
           as: 'document_type', // This should match the alias you defined in your association
           attributes: ['id', 'type', 'group'], // Specify the attributes for the 'settlement' model
+
+        },
+        {
+          model: db.models.users,
+          as: 'user', // This should match the alias you defined in your association
+          attributes: ['id', 'name' ], // Specify the attributes for the 'settlement' model
 
         },
       ],

@@ -80,9 +80,10 @@ if (isMobile.value) {
 
 
 const formatEndDate = (data) => {
+ // console.log(data.createdAt)
 
 //return moment(data.end_date).format("YYYY-MM-DD (HH:MM A)");
-return moment(data.end_date).format('lll')
+return moment(data.createdAt).format('lll')
 
 }
 
@@ -474,6 +475,8 @@ const handleInputChange = async (keyword) => {
 
     //-Search field--------------------------------------------
     formData.searchTerm = keyword
+    formData.assoc_models = associated_multiple_models
+
     //--Single Filter -----------------------------------------
 
 
@@ -1077,7 +1080,7 @@ getDocumentTypes()
       <upload-component :is="dynamicComponent" v-bind="componentProps"/>
     </div>
     <el-input
-v-model="searchTerm" placeholder="Search documents by name/settlement/county/format" class="search-input"
+v-model="searchTerm" placeholder="Search documents by name/settlement/county/format/uploader name" class="search-input"
       clearable @change="handleInputChange" @clear="getCategoryCounts" />
     <el-collapse accordion>
       <el-collapse-item v-for="(group, groupName) in groups_v2" :key="groupName">
