@@ -710,7 +710,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       @current-change="onPageChange" class="mt-4" />
 
  
-      <el-dialog v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
+      <el-dialog draggable v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
       <el-form :model="form">
 
         <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
