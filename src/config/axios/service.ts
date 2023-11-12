@@ -87,17 +87,17 @@ service.interceptors.response.use(
     }
   },
   (error) => {
-    console.log('the Error-0->', response    ); // Log the error message to the console for debugging
-    console.log(error.response.data.message); // Log any specific message from the response (if available)
+    console.log('the Error-0->', error    ); // Log the error message to the console for debugging
+    //console.log(error.response.data.message); // Log any specific message from the response (if available)
   
-    if (error.response.data.message == 'Unauthorized!') {
+    // if (error.response.data.message && error.response.data.message == 'Unauthorized!') {
       
-      console.log("Unauth-Redirecting...")
-      router.push({
-        path: '/login',
-        name: 'Login',
-       })
-    }
+    //   console.log("Unauth-Redirecting...")
+    //   router.push({
+    //     path: '/login',
+    //     name: 'Login',
+    //    })
+    // }
 
     
      ElMessage.error(error.response.data.message )   /// Revist Felix 

@@ -292,7 +292,9 @@ const handleSelect = async (selected) => {
 
 <template>
   <div class="responsive-container">
-    <el-dialog v-model="addMoreDocuments" title="Upload More Documents" :width="dialogWidth" >
+    <el-col  :xs="24" :sm="24" :md="8" :lg="6" :xl="6"> 
+
+    <el-dialog v-model="addMoreDocuments" title="Upload Documents"   >
       <el-select
         class="dialog-select"
         v-model="documentCategory"
@@ -349,10 +351,7 @@ const handleSelect = async (selected) => {
           <el-tooltip content="Cancel" placement="top">
           <el-button type="danger"   :icon="CircleCloseFilled"  @click="addMoreDocuments = false"  circle />
         </el-tooltip>
-
-          <!-- <el-button type="primary" @click="submitMoreDocuments()">
-            <i class="el-icon-check"></i>
-          </el-button> -->
+ 
           <el-tooltip content="Submit" placement="top">
           <el-button type="success"   :icon="UploadFilled" @click="submitMoreDocuments()"   circle />
         </el-tooltip>
@@ -360,6 +359,8 @@ const handleSelect = async (selected) => {
     </span>
       </template>
     </el-dialog>
+  </el-col>
+
   </div>
 </template>
 

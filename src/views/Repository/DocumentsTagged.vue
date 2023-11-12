@@ -81,7 +81,8 @@ if (isMobile.value) {
 
 const formatEndDate = (data) => {
 
-return moment(data.end_date).format("YYYY-MM-DD");
+//return moment(data.end_date).format("YYYY-MM-DD (HH:MM A)");
+return moment(data.end_date).format('lll')
 
 }
 
@@ -96,8 +97,6 @@ const nested_models = ['settlement', 'county'] // The mother, then followed by t
 
 const { t } = useI18n()
 
-
-const groups = ref()
 
 
 const totalDocs = ref()
@@ -153,12 +152,6 @@ const filterLiveDocsBackup = ref([])
 
 
 
-
-
-
-
-
-
 function formatText(str) {
   // Replace underscores with spaces
   str = str.replace(/_/g, ' ');
@@ -173,16 +166,24 @@ function formatText(str) {
 // 29-10-2023 // 
 const groups_v2 = ref([])
 function reformatData(data) {
+  console.log('------------------------data>>>>>,',data)
+
+
   return data.reduce((result, item) => {
+
+    console.log('------------------------item>>>>>,',item)
     const { group, type, count } = item;
     if (!result[group]) {
       result[group] = {};
     }
     result[group][type] = count;
+    loading.value = false
     return result;
   }, {});
 }
 
+const docTypes = ref([])
+const docGroups = ref([])
 
 const getCategoryCounts = async () => {
   loading.value = true
@@ -200,13 +201,12 @@ const getCategoryCounts = async () => {
 
   console.log('Filter FormData : ', formData)
   const response = await getSummarybyFieldFromMultipleIncludes(formData);
-  console.log('groups...', response)
-  loading.value = false
+  console.log('getCategoryCounts...', response)
+ 
  
  
 
   let joinedArray = response.Total.map(item => {
-    let documentCategory = item.category_id;
     let matchInAnotherArray = docGroups.value.find(entry => entry.id == item.category_id);
 
     if (matchInAnotherArray) {
@@ -223,15 +223,54 @@ console.log('joinedArray',joinedArray)
 
   groups_v2.value = reformatData(joinedArray)
 
-  console.log('groups_v2', groups_v2.value)
-
-  console.log('groups_v1', groups)
+  
 }
+
+
+const getFilteredCategoryCounts = async (filterIDs) => {
+
+const formData = {}
+formData.model = 'document'
+formData.summaryField = 'document_type.group'
+formData.summaryFunction = 'count'
+//formData.assoc_models = ['county']
+formData.assoc_models = associated_multiple_models
+formData.groupFields = ['document_type.category_id', 'document_type.type']
+
+formData.filterField = ['id']
+formData.filterValue = [filterIDs]
+formData.filterOperator = ['eq']
+
+console.log('Filter FormData : ', formData)
+const response = await getSummarybyFieldFromMultipleIncludes(formData);
+console.log('getFilteredCategoryCounts.Filtredt..', response)
+
+
+let joinedArray = response.Total.map(item => {
+  let matchInAnotherArray = docGroups.value.find(entry => entry.id == item.category_id);
+
+  if (matchInAnotherArray) {
+      return {
+           count: item.count,
+          type: item.type,
+          group: matchInAnotherArray.title,
+       };
+  }
+});
+
+console.log('joinedArray filteretd',joinedArray)
+
+
+groups_v2.value = reformatData(joinedArray)
+
+
+}
+
 
 const getFilteredDataV2 = async () => {
   //loading.value = true
   const formData = {}
-  formData.limit = 5
+  formData.limit = 10
   formData.page = currentPage.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -297,8 +336,7 @@ const getFilteredDataV2 = async () => {
 
 }
 
-const docTypes = ref([])
-const docGroups = ref([])
+
 const getDocumentTypes = async () => {
 
   try {
@@ -329,17 +367,13 @@ const getDocumentTypes = async () => {
 });
 
     console.log('Doc docGroups', docGroups.value)
-
+    getCategoryCounts()
 
 
   } catch (error) {
     console.error('Error fetching data:', error);
   }
 };
-
-getDocumentTypes()
-getCategoryCounts()
-
 
 
 
@@ -359,31 +393,6 @@ const handlePageChange = async (newPage) => {
 }
 
 
-const getFilteredCategoryCounts = async (filterIDs) => {
-
-  const formData = {}
-  formData.model = 'document'
-  formData.summaryField = 'document_type.group'
-  formData.summaryFunction = 'count'
-  //formData.assoc_models = ['county']
-  formData.assoc_models = associated_multiple_models
-  formData.groupFields = ['document_type.group', 'document_type.type']
-
-  formData.filterField = ['id']
-  formData.filterValue = [filterIDs]
-  formData.filterOperator = ['eq']
-
-  console.log('Filter FormData : ', formData)
-  const response = await getSummarybyFieldFromMultipleIncludes(formData);
-  console.log('groups.Filtredt..', response)
-
-
-  groups_v2.value = reformatData(response.Total)
-
-  console.log('groups_v2', groups_v2.value)
-
-  console.log('groups_v1', groups)
-}
 
 
 const handleItemCollapse = async (type) => {
@@ -1036,6 +1045,13 @@ const dynamicComponent = ref();
     }
 
 
+
+
+getDocumentTypes()
+
+
+
+
 </script>
 
 <template>
@@ -1065,7 +1081,7 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
               <el-badge :value="typeCount" class="collapsible-header-badge" />
             </template>
 
-            <el-table :data="filterLiveDocs" v-loading="downloading" style="width: 100%; margin-left: 30px" size="small">
+            <el-table :data="filterLiveDocs" v-loading="downloading" style="width: 100%; margin-left: 30px" size="small" class="thin-rows-table" border >
               <el-table-column label="#" type="index" width="50">
                 <template #default="{ $index }">
                   <span>{{ ($index + 1) + ((currentPage - 1) * pageSize) }}</span>
@@ -1098,9 +1114,9 @@ v-if="scope.row.deletable" type="danger" @click="removeDocument(scope)" :icon="D
             </el-table>
 
 
-            <div class="pagination-wrapper" v-if="totalDocs > 5">
+            <div class="pagination-wrapper" v-if="totalDocs > 10">
               <el-pagination
-:page-size="5" background small layout="prev, pager, next" :total="totalDocs"
+:page-size="10" background small layout="prev, pager, next" :total="totalDocs"
                 @current-change="handlePageChange" />
 
             </div>
@@ -1233,3 +1249,8 @@ v-if="scope.row.deletable" type="danger" @click="removeDocument(scope)" :icon="D
 }
 </style>
 
+<style scoped>
+.thin-rows-table .el-table__body tr {
+  height: 10px; /* You can adjust the height according to your preference */
+}
+</style>
