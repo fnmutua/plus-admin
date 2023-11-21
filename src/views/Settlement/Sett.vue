@@ -19,7 +19,7 @@ import { useRouter } from 'vue-router'
 import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
 import { getFile } from '@/api/summary'
 
-import { useAppStoreWithOut } from '@/store/modules/app'
+import { useAppStoreWithOut,useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { uuid } from 'vue-uuid'
 import { defineAsyncComponent,onMounted } from 'vue';
@@ -76,7 +76,7 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
+const appStore = useAppStore()
 const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons =  ref(false)
 const showEditButtons =  ref(false)
@@ -129,34 +129,28 @@ if (window.innerHeight < 600) {
       }
 
 onMounted(async () => { 
-  showAdminButtons.value =   (appStore.getAdminButtons)
-  showEditButtons.value =   (appStore.getEditButtons)
-  console.log('xshowAdminButtons',showAdminButtons)
-console.log('xshowEditButtons',showEditButtons)
+// showAdminButtons.value =   (appStore.getAdminButtons)
+// showEditButtons.value =   (appStore.getEditButtons)
+// console.log('appStore.getAdminButtons--->',appStore.getAdminButtons)
+// console.log('xshowEditButtons--->',showEditButtons)
 
-console.log('window.innerHeight',window.innerHeight)
-
-
-
-
-
-
-
+// console.log('window.innerHeight',window.innerHeight)
+ 
 })
 
 // // Hide buttons if not admin 
 // const showAdminButtons = ref(false)
 // const showEditButtons = ref(false)
 
-// if (userInfo.roles.includes("admin") ||(userInfo.roles.includes("super_admin")  )) {
-//   showAdminButtons.value = true
-// }
+if (userInfo.roles.includes("admin") ||(userInfo.roles.includes("super_admin")  )) {
+  showAdminButtons.value = true
+}
 
-// // Show Edit buttons 
-// if (userInfo.roles.includes("staff") || userInfo.roles.includes("admin") || (userInfo.roles.includes("super_admin"))  
-//   || userInfo.roles.includes("county_admin") || userInfo.roles.includes("national_monitoring")) {
-//   showEditButtons.value = true;
-// }
+// Show Edit buttons 
+if (userInfo.roles.includes("staff") || userInfo.roles.includes("admin") || (userInfo.roles.includes("super_admin"))  
+  || userInfo.roles.includes("county_admin") || userInfo.roles.includes("national_monitoring")) {
+  showEditButtons.value = true;
+}
 
 
 

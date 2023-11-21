@@ -1670,6 +1670,8 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
   // console.log('nested filters....>', req.body.nested_filter[0])
 
   var reg_model = req.body.model
+  const count = await db.models[reg_model].count();
+
 
   // Associated Models
   var associated_multiple_models = req.body.associated_multiple_models
@@ -1881,7 +1883,7 @@ console.log("req.body.cache_key")
           const response = await db.models[reg_model].findAndCountAll(qry);
           await redisClient.set(cache_key, JSON.stringify({
             data: response.rows,
-            total: response.count,
+            total: count,
             lastModified: Date.now() // Update the last modified timestamp
           }), {
             EX: cacheDuration,
@@ -1891,7 +1893,7 @@ console.log("req.body.cache_key")
             fromCache: false,
             cache_key: cache_key,
             data: response.rows,
-            total: response.count,
+            total: count,
             code: '0000'
           });
         } else {
@@ -1900,7 +1902,7 @@ console.log("req.body.cache_key")
             fromCache: true,
             cache_key: cache_key,
             data: result.data,
-            total: result.total,
+            total: count,
             code: '0000'
           });
         }
@@ -1910,7 +1912,7 @@ console.log("req.body.cache_key")
         const response = await db.models[reg_model].findAndCountAll(qry);
         await redisClient.set(cache_key, JSON.stringify({
           data: response.rows,
-          total: response.count,
+          total: count,
           lastModified: Date.now() // Set the last modified timestamp to current time
         }), {
           EX: cacheDuration,
@@ -1922,7 +1924,7 @@ console.log("req.body.cache_key")
             fromCache: true,
             cache_key: cache_key,
             data: result.data,
-            total: result.total,
+            total: count,
             code: '0000'
           });
     }
@@ -1946,7 +1948,7 @@ console.log("req.body.cache_key")
       res.status(200).send({
         fromCache: false,
         data: list.rows,
-        total: list.count,
+        total: count,
         code: '0000'
       })
     })
