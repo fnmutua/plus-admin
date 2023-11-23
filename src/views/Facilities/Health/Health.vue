@@ -890,55 +890,7 @@ const addMoreDocs = (data: TableSlotDefault) => {
 
 }
 
-const submitMoreDocuments = async () => {
-  console.log('More files.....', morefileList)
-
-
-  const proceed = beforeUpload(morefileList.value)
-
-  if (morefileList.value.length == 0) {
-    ElMessage.error('Select atleast one!')
-  }
-
-
-  if (proceed) {
-
-
-    // uploading the documents 
-    const fileTypes = []
-    const formData = new FormData()
-    let files = []
-    for (var i = 0; i < morefileList.value.length; i++) {
-      console.log('------>file', morefileList.value[i])
-      var format = morefileList.value[i].name.split('.').pop() // get file extension
-      //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-      fileTypes.push(format)
-      // formData.append('files', fileList.value[i])
-      // formData.file = fileList.value[i]
-
-      formData.append('model', model)
-
-      formData.append('files', morefileList.value[i].raw)
-      formData.append('format', morefileList.value[i].name.split('.').pop())
-      formData.append('category', documentCategory.value)
-      formData.append('field_id', 'health_facility_id')
-
-      formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
-      formData.append('code', uuid.v4())
-      formData.append('health_facility_id', currentRow.value.id)
-
-    }
-
-    console.log(currentRow.value.id)
-    await uploadFilesBatch(formData)
-
-  }
-
-
-
-
-}
-
+ 
 
 const DocTypes = ref([])
 const getDocumentTypes = async () => {
@@ -991,62 +943,7 @@ const getDocumentTypes = async () => {
 getDocumentTypes()
 
 
-//const beforeUpload = async (file) => {
-const beforeUpload: UploadProps['beforeUpload'] = (files) => {
-
-
-  for (var i = 0; i < files.length; i++) {
-
-
-    var isPng = false;
-    var isJPG = false;
-    var isXls = false;
-    var isXlsx = false;
-    var isPdf = false;
-    var isDoc = false;
-    var isZip = false;
-    var isDocx = false;
-    if (documentCategory.value === 21) {   // Photos
-      console.log('Photos', documentCategory.value, files[i].raw.type)
-      isPng = files[i].raw.type === 'image/png'
-      isJPG = files[i].raw.type === 'image/jpeg'
-
-      if (!isPng && !isJPG) {
-        //this.$message.error('Upload only Excel files')
-        ElMessage.error('Use png/jpg  formats for photos')
-
-      }
-
-    }
-    else {
-
-      isXls = files[i].raw.type === 'application/vnd.ms-excel'
-      isXlsx = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      isPdf = files[i].raw.type === 'application/pdf'
-      isZip = files[i].raw.type === 'application/zip'
-      isZip = files[i].raw.type === 'application/x-zip-compressed'
-      isDoc = files[i].raw.type === 'application/msword'
-      isDocx = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-
-      if (!isXls && !isXlsx && !isPdf && !isZip && !isDoc && !isDocx) {
-        //this.$message.error('Upload only Excel files')
-        ElMessage.error('Upload only pdf/xls/xlsx/zip/doc/docx files')
-
-      }
-
-    }
-
-
-    const isLt5M = files[i].raw.size / 1024 / 1024 < 50
-
-
-    if (!isLt5M) {
-      // this.$message.error('File size should not exceed 5MB')
-      ElMessage.error('File size should not exceed 50MB')
-    }
-    return (isXls || isXlsx || isPdf || isZip || isDoc || isDocx || isPng || isJPG) && isLt5M
-  }
-}
+ 
 
 
 const legendItems = [
@@ -1284,15 +1181,7 @@ const confirmReject = async () => {
 
 
 const showSubcountyOpts =ref(false)
-
-const tableRowClassName = (data) => {
-  // console.log('Row Styling --------->', data.row)
-  if (data.row.documents.length > 0) {
-    return 'warning-row'
-  }
-  return ''
-}
-
+ 
 
 /// Uplaod docuemnts from a central component 
 const mfield = 'health_facility_id'

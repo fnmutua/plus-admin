@@ -19,6 +19,7 @@ import axios from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 
 import xlsx from "json-as-xlsx"
+import writeXlsxFile from 'write-excel-file'
 
 
 import {
@@ -1782,7 +1783,7 @@ const DownloadXlsx = async () => {
 
         // Iterate through the keys of each record and add them to the fields array
         for (const key of keys) {
-            fields.push({ label: key, value: key });
+            fields.push({ fontWeight: 'Bold', value: key });
         }
     }
 
@@ -1793,26 +1794,113 @@ const DownloadXlsx = async () => {
 
 
 
-    // Preprae the data object 
-    var dataObj = {}
-    dataObj.sheet = 'data'
-    dataObj.columns = fields
-
-    dataObj.content = downloadDataFiltered.value
+            const resultRows = convertObjectsToRows(downloadDataFiltered.value);
+           //  console.log('resultRows',resultRows);
 
 
 
+    const HEADER_ROW = [
+  {
+    value: 'Name',
+    fontWeight: 'bold'
+  },
+  {
+    value: 'Date of Birth',
+    fontWeight: 'bold'
+  },
+  {
+    value: 'Cost',
+    fontWeight: 'bold'
+  },
+  {
+    value: 'Paid',
+    fontWeight: 'bold'
+  }
+]
 
-    let settings = {
-        fileName: form_name.value, // Name of the resulting spreadsheet
-        writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-        writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-    }
+const DATA_ROW_1 = [
+  // "Name"
+  {
+    type: String,
+    value: 'John Smith'
+  },
 
-    // Enclose in array since the fucntion expects an array of sheets
-    xlsx([dataObj], settings) //  download the excel file
+  // "Date of Birth"
+  {
+    type: Date,
+    value: new Date(),
+    format: 'mm/dd/yyyy'
+
+   },
+
+  // "Cost"
+  {
+    type: Number,
+    value: 1800
+  },
+
+  // "Paid"
+  {
+    type: Boolean,
+    value: true
+  }
+]
+
+const data = [
+  HEADER_ROW,
+  DATA_ROW_1,
+ ]
+ 
+
+ console.log("Name",submitter_filter.value,form.value )
+ 
+ submitterOptions
+
+ const filteredArray = submitterOptions.value.filter(item => item['value'] === submitter_filter.value);
+console.log('submitter_filter.value', filteredArray[0].label);
+
+
+await writeXlsxFile(resultRows, {
+   fileName:  form.value +'_'+filteredArray[0].label
+})
+
 
 }
+
+function convertObjectsToRows(objectsArray) {
+            // Extract all unique property names from the array of objects
+            // const allProperties = Array.from(
+            //     new Set(objectsArray.flatMap(obj => Object.keys(obj)))
+            // );
+
+
+            const allProperties = Array.from(
+                    new Set(
+                    objectsArray
+                        .flatMap(obj => Object.keys(obj))
+                        .filter(property => property !== 'coordinates')
+                    )
+                );
+
+
+            // Generate the header row based on the properties
+            const headerRow = allProperties.map(property => ({
+                value: property,
+                fontWeight: 'bold',
+            }));
+
+            // Generate data rows based on the objects
+            const dataRows = objectsArray.map(obj =>
+                allProperties.map(property => ({
+                type: typeof obj[property] === 'string' ?  String  :  Number ,
+                value: obj[property],
+                }))
+            );
+
+            return [headerRow, ...dataRows];
+            }
+
+
 
 const handleCommand = (command: string | number | object) => {
 
