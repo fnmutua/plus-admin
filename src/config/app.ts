@@ -149,7 +149,7 @@ export const appModules: AppState = {
         // 主题色
         elColorPrimary: '#684035',
         // 左侧菜单边框颜色
-        leftMenuBorderColor: 'inherit',
+        leftMenuBorderColor: '#191b24',
         // 左侧菜单背景颜色
         leftMenuBgColor: '#191b24',
         // 左侧菜单浅色背景颜色

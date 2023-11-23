@@ -53,7 +53,7 @@
     "fast-xml-parser": "^4.2.7",
     "fuse.js": "^6.6.2",
     "intro.js": "^6.0.0",
-    "json-as-xlsx": "^2.5.5",
+    "json-as-xlsx": "^2.5.3",
     "jsonwebtoken": "^9.0.2",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
@@ -89,7 +89,9 @@
     "vue-router": "^4.1.5",
     "vue-types": "^4.2.1",
     "vue-uuid": "^3.0.0",
-    "web-storage-cache": "^1.1.1"
+    "web-storage-cache": "^1.1.1",
+    "write-excel-file": "^1.4.27",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",
