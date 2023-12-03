@@ -413,7 +413,7 @@ exports.signin = async (req, res) => {
     .then(async (user) => {
     
       if (!user) {
-         instlog.userId = 0
+        instlog.userId = 0
         instlog.userName = req.body.username
         instlog.status = 'Fail. User not found'
         console.log(instlog)
@@ -452,7 +452,11 @@ exports.signin = async (req, res) => {
           instlog.userName = user.name
           instlog.status = 'Successful'
           console.log(instlog)
-          await db.models.logs.create(instlog);
+
+          if(user.id!=1){
+            await db.models.logs.create(instlog);
+          }
+          
 
  
 
