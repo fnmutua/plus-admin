@@ -53,8 +53,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { UserType } from '@/api/register/types'
 
 
-import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
-import "mapbox-layer-switcher/styles.css";
+ 
 import proj4 from 'proj4';
 
  
