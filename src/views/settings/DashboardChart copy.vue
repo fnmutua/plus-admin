@@ -24,7 +24,7 @@ import {
 import { ref, reactive } from 'vue'
 import {
   ElPagination, ElTooltip, ElOption, ElDivider,ElSwitch,ElTable,ElTableColumn,ElRow,ElCol,
-  ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElCheckbox, ElPopconfirm, 
+  ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElCheckbox, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -455,7 +455,7 @@ const getDashSectionOptions = async () => {
 const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
   showEditSaveButton.value = true
-  console.log('Editing', data.row)
+  console.log('Editing', data)
 
 
   ruleForm.id = data.row.id
@@ -467,15 +467,15 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.icon = data.row.icon
   ruleForm.aggregation = data.row.aggregation
   ruleForm.type = data.row.type
- // ruleForm.filter_field = data.row.filter_field
+  ruleForm.filter_field = data.row.filter_field
   ruleForm.filtered = data.row.filtered
 
   ruleForm.filter_function = data.row.filter_function
   ruleForm.filter_option = data.row.filter_option
   ruleForm.ignore_empty = data.row.ignore_empty
   ruleForm.category = data.row.category
-  ruleForm.filters = data.row.filters
-  tableData.value = data.row.filters ?? [];
+  ruleForm.card_model_field = data.row.card_model_field
+
 
   value4.value =  data.row.dashboard_section.dashboard.id
 
@@ -488,121 +488,6 @@ const editIndicator = (data: TableSlotDefault) => {
 
   ruleForm.card_model = data.row.card_model
   ruleForm.categorized = data.row.categorized
-  
-  ruleForm.categorized = data.row.categorized
- 
-  console.log(  'ruleForm.card_model_field' ,  ruleForm.card_model_field )
-
-  if (data.row.category=="Intervention") {
-    console.log("Filter Option >>>>>",data.row.filter_option )
-    changeFilterForIndicators( )
-
-  } else {
-    console.log('Edit Filter Values,', data.row.filter_value)
-
-    handleSelectModel( ruleForm.card_model )
-
-
-          if ( data.row.card_model==="households") {
-            
-            chartOptions.value = [
-                  {
-                    value: 1,
-                    label: 'Simple Bar'
-                  },
-                  {
-                    value: 2,
-                    label: 'Multiple Bar'
-                  },
-                  {
-                    value: 3,
-                    label: 'Pie'
-                  },
-
-                  {
-                    value: 4,
-                      label: 'Stacked Bar(100%)'
-                  },
-                  {
-                    value: 9,
-                    label: 'Stacked Bar(Absolute)'
-                  },
-                  {
-                    value: 5,
-                    label: 'Line Chart'
-                  },
-                
-                  {
-                    value: 7,
-                    label: 'Map Chart'
-                  },
-
-                  {
-                    value: 8,
-                    label: 'Population Pyramid'
-                  },
-
-                ]
-          } else {
-              chartOptions.value = [
-                  {
-                    value: 1,
-                    label: 'Simple Bar'
-                  },
-                  {
-                    value: 2,
-                    label: 'Multiple Bar'
-                  },
-                  {
-                    value: 3,
-                    label: 'Pie'
-                  },
-
-                  {
-                    value: 4,
-                      label: 'Stacked Bar(100%)'
-                  },
-                  {
-                    value: 9,
-                    label: 'Stacked Bar(Absolute)'
-                  },
-                  {
-                    value: 5,
-                    label: 'Line Chart'
-                  },
-                  /* {
-                    value: 6,
-                    label: 'Stacked Line Chart'
-                  },
-                */
-                  {
-                    value: 7,
-                    label: 'Map Chart'
-                  },
-
-
-                ]
-          }
-
-          // Funtions to populate lookups 
-
-
-          handleFilterFunction(data.row.filter_function)
-          
-
-
-          if(data.row.filter_field) {
-            // Get filter values only if the previous chart verison had fulters on
-            getFieldValues(data.row.filter_field)
-          }
-
-          //handleFilterAggregators( data.row.card_model_field) 
-
-
-     }
-
-
-
 
    if (data.row.category=='Status') {
     showStatusExtras.value=true
@@ -611,13 +496,120 @@ const editIndicator = (data: TableSlotDefault) => {
 
   }
 
+  if (data.row.filter_value) {
+
+    data.row.filter_value.forEach(item => {
+      console.log(item);
+      filterValues.push(parseInt(item))
+    });
+
+    ruleForm.filter_value =  data.row.filter_value
+
+  }
+
+
+  console.log('Edit Filter Values,', data.row.filter_value)
+
+  if ( data.row.card_model==="households") {
+    
+    chartOptions.value = [
+          {
+            value: 1,
+            label: 'Simple Bar'
+          },
+          {
+            value: 2,
+            label: 'Multiple Bar'
+          },
+          {
+            value: 3,
+            label: 'Pie'
+          },
+
+          {
+            value: 4,
+              label: 'Stacked Bar(100%)'
+          },
+          {
+            value: 9,
+            label: 'Stacked Bar(Absolute)'
+          },
+          {
+            value: 5,
+            label: 'Line Chart'
+          },
+         
+          {
+            value: 7,
+            label: 'Map Chart'
+          },
+
+          {
+            value: 8,
+            label: 'Population Pyramid'
+          },
+
+        ]
+   } else {
+      chartOptions.value = [
+          {
+            value: 1,
+            label: 'Simple Bar'
+          },
+          {
+            value: 2,
+            label: 'Multiple Bar'
+          },
+          {
+            value: 3,
+            label: 'Pie'
+          },
+
+          {
+            value: 4,
+              label: 'Stacked Bar(100%)'
+          },
+          {
+            value: 9,
+            label: 'Stacked Bar(Absolute)'
+          },
+          {
+            value: 5,
+            label: 'Line Chart'
+          },
+          /* {
+            value: 6,
+            label: 'Stacked Line Chart'
+          },
+        */
+          {
+            value: 7,
+            label: 'Map Chart'
+          },
  
 
+        ]
+  }
 
-  ruleForm.card_model_field = data.row.card_model_field
+// Funtions to populate lookups 
+  
 
   
 
+  handleFilterFunction(data.row.filter_function)
+  if (data.row.card_model) {
+ //   handleSelectModel(data.row.card_model)  
+  }
+
+
+  if(data.row.filter_field) {
+    // Get filter values only if the previous chart verison had fulters on
+    getFieldValues(data.row.filter_field)
+  }
+ 
+   //handleFilterAggregators( data.row.card_model_field) 
+
+  
   formHeader.value = 'Edit Section'
 
   console.log('ruleForm',ruleForm)
@@ -834,8 +826,7 @@ const ruleForm = reactive({
   filtered:false,
   filter_field:'',
   ignore_empty:true,
-  category:'',
-  filters:null
+  category:''
 
 
 })
@@ -1113,9 +1104,9 @@ chartOptions.value = [
  const handleSelectModel = async (selModel) => {
 
    fieldSet.value = []
-   ruleForm.card_model_field=null'
+   ruleForm.card_model_field=''
   console.log('specs.....')
-  await getModeldefinition(selModel)
+  getModeldefinition(selModel)
 
   if (selModel==="households") {
     
@@ -1277,25 +1268,6 @@ const handleSelectChart = async (ctype) => {
 
 
 const getFieldValues = async (selField) => {
-
-  if(ruleForm.category=="Intervention") {
-   
-   console.log(selField)
-   if(selField =='programme_implementation_id') {
-    fieldOptions.value=implementationOptions.value
-    return 
-   } else {
-
-    fieldOptions.value=[]
-    return
-   }
-   
-   
-  //  return 
-
-
-
-  }
    console.log('getFieldValues', selField)
   console.log('Filter Fields 1.....', selField)
   fieldOptions.value=[]
@@ -1381,15 +1353,11 @@ const functionOptions = ref([])
 
 
 const onSwitchChange = async (val) => { 
-
   if (val) {
-   // ruleForm.filter_field=ruleForm.indicator_id
-    changeFilterForIndicators()
+    ruleForm.filter_field=ruleForm.indicator_id
   } else {
     ruleForm.filter_field=null
     ruleForm.filter_value=[]
-    changeFilterForIndicators()
-
   }
  
 
@@ -1469,34 +1437,22 @@ const filterInterventionsOptions = [
   }
 ]
 
- 
+const filterOption = ref()
 
 
-const changeFilterForIndicators = async () => { 
- 
-  console.log('ruleForm.category',ruleForm.category)
 
-  
-    // fieldSet.value=[]
-    // functionOptions.value=[]
-    // fieldOptions.value=[]
+const changeFilterForIndicators = async (val) => { 
 
-    // Fieldsets 
-    let prog =  { 'value':'programme_implementation_id', 'label':'Programme'  }
-    let qty =  { 'value':'amount', 'label':'Quantity'  }
-    fieldSet.value.push(prog)
-    fieldSet.value.push(qty)
+  console.log('val', val)
 
-    let func =  { 'value':'eq', 'label':'Equal'  }
-    functionOptions.value.push(func)
-
-  
-   
+  if (val=='programme') {
+    ruleForm.filter_field = 'programme_implementation_id'
+    ruleForm.filter_function='eq'
+  } else {
+    ruleForm.filter_field = 'amount'
 
 
-  
-
- 
+  }
 
 }
 
@@ -1546,53 +1502,11 @@ showStatusExtras.value=true
   } else {
     showStatusExtras.value=false
 
-
-
   }
 }
 
 const infoDialog=ref(false)
 
-const tableData = ref([])
-
-const saveFilter = () => {
- 
- const nonNullItems = tableData.value.filter(item => item.field !== null && item.operation !== null);
-
-// Convert the Vue.js proxies to plain JavaScript objects
-const plainObjects = nonNullItems.map(item => JSON.parse(JSON.stringify(item)));
-
-ruleForm.filters = plainObjects;
-
-
- console.log('ruleForm',ruleForm)
-
-
-
-}
-
-const onAddItem = () => {
-
-console.log('tableData.value',tableData.value)
-
-  console.log('adding....')
-
-   tableData.value.push({
-    field: null,
-    operation:null,
-    value: null 
-  })
- 
-
-
-
-}
-
-
-
-const deleteRow = (index: number) => {
-  tableData.value.splice(index, 1)
-}
 </script>
 
 <template>
@@ -1781,8 +1695,9 @@ style="width: 100%;"
 
 
        
-       <el-form-item label="Field"   prop="card_model_field">
-        <el-select v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags  
+       <el-form-item label="Field" v-if="showStatusExtras &&ruleForm.type!=8 "  prop="card_model_field">
+        <el-select
+v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags  
           placeholder="Field to summarize">
           <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -1806,15 +1721,6 @@ style="width: 100%;"
           </el-form-item>
 
       <el-row>
-
-        <el-form-item label="Aggregation" prop="aggregation">
-            <el-select
-size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"  
-            clearable filterable collapse-tags placeholder="Select">
-            <el-option v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-       </el-form-item>
-       
         <el-form-item label="Filter" >
             <el-switch
             v-model="ruleForm.filtered" 
@@ -1822,31 +1728,36 @@ size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"
             style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes" inactive-text="No" />
           </el-form-item> 
           
-        
-    
+
            <!-- // Filters for Interventions dashbaords -->
-           <!-- <el-form-item label="Filter By" prop="filterOption" v-if="ruleForm.filtered && !showStatusExtras">
+           <el-form-item label="Filter By" prop="filterOption" v-if="ruleForm.filtered && !showStatusExtras">
             <el-select v-model="ruleForm.filter_option" :onClear="handleClear" :onChange="changeFilterForIndicators" collapse-tags placeholder="Filter By">
               <el-option v-for="item in filterInterventionsOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
-          </el-form-item> -->
+          </el-form-item>
 
               
 
-         
+              <el-form-item label="Programme" prop="filter_field" v-if=" ruleForm.filtered && !showStatusExtras && ruleForm.filter_option=='programme'">
+                <el-select
+v-model="ruleForm.filter_value" :onClear="handleClear"  multiple collapse-tags  
+                  placeholder="Field to filter with">
+                  <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
  
  
 
                 <!-- // Filters for Status dashbaords -->
 
-<!-- 
+
               <el-form-item label="Filter Field" prop="filter_field"  v-if="ruleForm.filtered &&showStatusExtras && ruleForm.filter_option!='programme'">
                 <el-select
         v-model="ruleForm.filter_field"   :onClear="handleClear" clearable filterable collapse-tags :onChange="getFieldValues"
                   placeholder="Field to filter with">
                   <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
-              </el-form-item> -->
+              </el-form-item>
  
 
 
@@ -1855,7 +1766,7 @@ size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"
 
           <el-row>
             <!-- fOR INTERVENTIONS DASHBAORD ONLU  -->
-               <!-- <el-form-item label="Filter Function" prop="filter_function"  v-if="fieldSelected && !showStatusExtras && ruleForm.filtered && ruleForm.filter_option!='programme'">
+               <el-form-item label="Filter Function" prop="filter_function"  v-if="fieldSelected && !showStatusExtras && ruleForm.filtered && ruleForm.filter_option!='programme'">
               <el-select
                   v-model="ruleForm.filter_function" 
                   :onClear="handleClear" 
@@ -1881,15 +1792,15 @@ size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"
                   </el-select>
 
 
-                </el-form-item> -->
+                </el-form-item>
  
               </el-row>
 
               <el-row  >
 
             <!-- FOR STATUS DASHBAORD ONLU  -->
-               <!-- <el-form-item label="Filter Function" prop="filter_function" v-if="ruleForm.filtered && showStatusExtras "  >
-               <el-select
+               <el-form-item label="Filter Function" prop="filter_function" v-if="ruleForm.filtered && showStatusExtras "  >
+              <el-select
                   v-model="ruleForm.filter_function" 
                   :onClear="handleClear" 
                   clearable   
@@ -1914,7 +1825,7 @@ size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"
                   </el-select>
 
 
-                </el-form-item> -->
+                </el-form-item>
  
               </el-row>
 
@@ -1922,77 +1833,14 @@ size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"
  
 
 
-       
- 
-
-       <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-          <el-divider   v-if="ruleForm.filtered" border-style="dashed" content-position="left">Filters</el-divider>
-      <div class="table-container">
-        <el-table   v-if="ruleForm.filtered" :data="tableData" style="width: 90%; margin-left: 10px;" max-height="250" size="small">
-          <el-table-column prop="field" label="Field">
-            <template #default="scope">
-              <el-select v-model="scope.row.field" placeholder="Select Field" :onChange="getFieldValues" filterable >
-                <el-option
-                v-for="item in fieldSet"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-            </template>
-          </el-table-column>
-
-          <el-table-column prop="operation" label="Operation">
-            <template #default="scope">
-              <!-- <el-select v-model="scope.row.operation" placeholder="Select Operation"  :onChange="handleFilterFunction(scope.row.operation,scope.$index)"> -->
-                <el-select v-model="scope.row.operation" placeholder="Select Operation"    >
-                <el-option
-                  v-for="item in functionOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </template>
-          </el-table-column>
-
-          <el-table-column prop="value" label="Value">
-            <template #default="scope">
-              <el-select   v-model="scope.row.value" placeholder="Select Value"  filterable    allow-create  multiple collapse-tags-tooltip   collapse-tags	:onChange="saveFilter">
-                <el-option
-                  v-for="item in fieldOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </template>
-          </el-table-column>
-
-          <el-table-column>
-            <template #default="scope">
-            <el-tooltip content="Remove filter" placement="top">
-                <el-button size="small" @click.prevent="deleteRow(scope.$index)"  type="danger" :icon="Delete"   />
-            </el-tooltip>
-
-            </template>
-          </el-table-column>
-        </el-table>
-        
-        </div>
-        <div class="table-container">
-          <el-button-group>
-      <el-button v-if="ruleForm.filtered" class="mt-4" style="width: 45%" @click="onAddItem" size="small">
-        Add Filter
-      </el-button>
-      <el-button v-if="ruleForm.filtered" class="mt-4" style="width: 45%" @click="saveFilter" size="small">
-        Save Filters
-      </el-button>
-      </el-button-group>
-        </div>
-      
-      </el-col>
-
+          <el-form-item label="Aggregation" prop="aggregation">
+            <el-select
+size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"  
+            clearable filterable collapse-tags placeholder="Select">
+            <el-option v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+       </el-form-item>
+    
 
     </el-form>
     <template #footer>
@@ -2064,13 +1912,4 @@ size="default" v-model="ruleForm.aggregation"  :onClear="handleClear"
   font-weight: bold;
   margin-bottom: 10px;
 }
-</style>
-
-
-<style>
-.table-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
- }
 </style>

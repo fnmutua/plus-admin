@@ -88,6 +88,11 @@ module.exports = function(sequelize, DataTypes) {
     },
 
 
+ 
+    filters: {
+      type: DataTypes.ARRAY(DataTypes.JSONB),
+      allowNull: true
+    },
 
  
     code: {

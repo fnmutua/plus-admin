@@ -597,10 +597,8 @@ exports.sumGroupByMultipleColumns = async (req, res) => {
   }
 };
 
-exports.sumModelAssociatedMultipleModels = async (req, res) => {
+exports._sumModelAssociatedMultipleModels = async (req, res) => {
 
-
- 
   var reg_model = req.body.model;
   var summaryField = req.body.summaryField;
   var summaryFunction = req.body.summaryFunction;
@@ -881,7 +879,305 @@ db.models[reg_model].findAll(qry).then(async (list) => {
 };
 
 
+exports.sumModelAssociatedMultipleModels = async (req, res) => {
+  var reg_model = req.body.model;
+  var summaryField = req.body.summaryField;
+  var summaryFunction = req.body.summaryFunction;
+  var calculationType = req.body.calculationType; // 'absolute' or 'proportion'
+  var assoc_models = req.body.assoc_models;
+ // var groupFields = req.body.groupFields;
+  var nested_models = req.body.nested_models;
+   let unique_counts = req.body.uniqueCounts?req.body.uniqueCounts:false;
+  let operators = [] // to be used to check for unik results
+  let ignoreEmpty = req.body.ignoreEmpty !== undefined ? req.body.ignoreEmpty : false;
 
+  
+
+let groupfields = []
+
+
+
+
+  // Build the query based on the parameters
+  var qry = {
+    attributes: [],
+    include: [],
+    group: [],
+    where: {},
+  };
+
+
+ // let groupfields = []
+  
+
+
+  if (req.body.groupFields) {
+    for (let i = 0; i < req.body.groupFields.length; i++) {
+      let field = req.body.groupFields[i];
+      let formattedField;
+  
+      // Format the date field before pushing it into groupfields
+      if (field === "indicator_category_report.createdAt") {
+        // Apply TO_CHAR to format the date without the time part
+        formattedField = sequelize.literal(`TO_CHAR("indicator_category_report"."createdAt", 'YYYY-MM-DD')`);
+        //formattedField = sequelize.fn('date_trunc', 'day', sequelize.col('indicator_category_report.createdAt'));
+
+      } else if(field === "indicator_category_report.date")  {
+
+        formattedField = sequelize.literal(`TO_CHAR("indicator_category_report"."date", 'YYYY-MM-DD')`);
+
+      }
+      
+      else {
+        // Escape and quote the field name to respect capitalization
+        formattedField = field
+      }
+  
+      groupfields.push(formattedField);
+    }
+
+    
+
+
+  }
+  
+  
+
+ /// overwrite groupinng for production
+ if(reg_model == 'production' &&  req.body.summaryField =='production.product_type_id'){
+  //  groupfields = ['product_type.title']
+
+    // Find the index of the item to be replaced
+      const indexToReplace = groupfields.indexOf('production.product_type_id');
+
+      if (indexToReplace !== -1) {
+          // Replace the item at the specified index
+          groupfields[indexToReplace] = 'product_type.title';
+      }
+
+
+    
+  }
+  
+
+  // Add group fields to the query if provided
+  if (req.body.groupFields && Array.isArray(req.body.groupFields)) {
+    qry.attributes= [...groupfields],
+    qry.group= [...groupfields],
+    qry.raw=true
+    
+
+
+  }
+  else {
+    
+  //    qry.attributes= [...groupfields,[sequelize.fn(summaryFunction, sequelize.col(summaryField)), summaryFunction]],
+      qry.raw=true
+   
+
+  }
+
+
+
+  console.log('-----------*************---------------')
+ console.log(groupfields)
+
+  // Add summary calculation to the query attributes
+  if (summaryField && summaryFunction) {
+    // generate querry that has disticnt/unique results 
+    if (summaryFunction =='count' && unique_counts ) {
+        qry.attributes.push([
+        Sequelize.fn(summaryFunction, Sequelize.fn('DISTINCT', Sequelize.col(summaryField))),summaryFunction
+      ]);
+
+    } else {
+      qry.attributes.push([Sequelize.fn(summaryFunction, Sequelize.col(summaryField)), summaryFunction]);
+    }
+     
+  }
+
+
+  
+
+  // Add associated models to the query
+  if (assoc_models &&  req.body.assoc_models.length > 0 && Array.isArray(assoc_models) ) {
+    assoc_models.forEach(assocModel => {
+      qry.include.push({
+        model: db.models[assocModel],
+        attributes: [],
+      });
+    });
+  }
+
+
+  
+  if(reg_model == 'production' &&  req.body.summaryField =='production.product_type_id'){
+    qry.include.push({
+    model: db.models.product_type,
+    attributes: [],
+  });
+
+  
+}
+
+
+  // Add nested include models to the query
+  if (nested_models &&  req.body.nested_models.length > 0  && Array.isArray(nested_models)) {
+    nested_models.forEach(nestedModel => {
+      qry.include.push({
+        model: db.models[nestedModel.model],
+        as: nestedModel.alias,
+        attributes: [],
+      });
+    });
+  }
+
+ 
+
+  const operatorMappings = {
+    eq: op.eq,
+    gt: op.gt,
+    gte: op.gte,
+    lt: op.lt,
+    in: op.in,
+    contains:op.overlap,
+    lte: op.lte, // Added lte mapping
+    or: op.or, // Added lte mapping
+     notEmpty: op.not, // Added lte mapping
+
+    // Add more operator mappings as needed
+  };
+
+  const filterConditions = [];
+
+// if ignoring empty is enabled
+
+const inputString = summaryField;
+const parts = inputString.split('.');
+//console.log(parts);  
+
+
+if (ignoreEmpty) {
+  filterConditions.push({ [parts[1]]: { [operatorMappings['notEmpty']]: null } });
+
+  }
+  console.log('filterConditions',filterConditions )
+ 
+if (req.body.filterField && req.body.filterValue &&req.body.filterOperator && req.body.filterField.length > 0 && req.body.filterValue.length > 0) {
+  let filterCols = req.body.filterField;
+  let filterValues = req.body.filterValue;
+  let filterOperators = req.body.filterOperator; // Array of filter operators
+
+  if (!Array.isArray(filterCols)) {
+    filterCols = [filterCols];
+    filterValues = [filterValues];
+    filterOperators = [filterOperators];
+  }
+
+ 
+
+
+ 
+  console.log('-----------------------------y--------------------------------',req.body.filterField)
+  console.log(   'filter values',filterValues )
+  console.log('  filterCols',filterCols )
+
+
+
+  for (let i = 0; i < filterCols.length; i++) {
+
+    console.log(filterCols[i], filterOperators[i],filterValues[i] )
+
+    const filterCol = filterCols[i];
+    const filterVal = filterValues[i];
+    const operator = filterOperators[i]; // Get the operator corresponding to the filter field
+    // keep a record of the ops in ths querry 
+    operators.push(operator)
+ 
+
+    if (operator === "all") {
+      // No filter, retrieve all records for this field
+      continue; // Skip adding any condition for this field
+    } else if (operator === "or") {
+      const orConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings['eq']]: nestedVal } }));
+      filterConditions.push({ [op.or]: orConditions });
+    } else if (operatorMappings[operator] && filterVal) {
+
+      
+          
+          if (Array.isArray(filterVal)) {
+            console.log('>><<', operatorMappings[operator],filterVal)
+            let nestedConditions
+
+            if (operator === 'contains') {
+             // nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
+              nestedConditions = ({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
+            } else {
+              nestedConditions = filterVal.map((nestedVal) => ({ [filterCol]: { [operatorMappings[operator]]: nestedVal } }));
+            }
+             
+            
+           
+
+
+            filterConditions.push({ [op.or]: nestedConditions });
+
+
+          } else {
+            filterConditions.push({ [filterCol]: { [operatorMappings[operator]]: filterVal } });
+          }
+    }
+    
+
+
+    console.log('filterConditions',JSON.stringify(filterConditions) )
+
+    
+   
+  }
+
+
+ 
+  }
+  
+  
+  if (filterConditions.length > 0) {
+    qry.where = { [op.and]: filterConditions };
+  }
+
+  console.log('qry',JSON.stringify(qry) )
+  console.log('calculationType',calculationType )
+
+
+
+db.models[reg_model].findAll(qry).then(async (list) => {
+
+  let totalValue;
+  console.log('list',list )
+
+  if (calculationType === 'proportion') {
+
+    console.log("The array contains the string.",qry);
+    console.log("proportion ----------------.",qry);
+
+    const totalCount = await db.models[reg_model].count();
+    totalValue = list.map((item) => ({
+      ...item,
+      [summaryFunction]: item[summaryFunction] / totalCount * 100,
+    }));
+  } else {
+    totalValue = list;
+  }
+
+
+  res.status(200).send({
+    Total: totalValue,
+    fromCache: false,
+      code: '0000'
+  })
+})
+
+};
 
 
 exports.dsumModelAssociatedMultipleModels = async (req, res) => {
