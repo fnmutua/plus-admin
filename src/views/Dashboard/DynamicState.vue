@@ -12,7 +12,7 @@ import { Icon } from '@iconify/vue';
 
 import {
   pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,
-  lineOptions, stackedbarOptions, barMaleFemaleOptions
+  lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs
 } from './chart-types'
 import { EChartsOption, registerMap } from 'echarts'
 import { getSettlementListByCounty } from '@/api/settlements'
@@ -467,6 +467,8 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
 }
  
 
+ 
+
 const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   
   //var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
@@ -475,7 +477,8 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   let filterFields = []
   let filterValues = []
   let groupFields = []
-  let filterOperators =[]
+  let filterOperators = []
+
 
   var cmodel = thisChart.card_model
   var cfield = thisChart.card_model_field
@@ -484,29 +487,8 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   var categorizedField =thisChart.categorized
   var unique = thisChart.unique?thisChart.unique:false 
   var ignoreEmpty = thisChart.ignore_empty?thisChart.ignore_empty:false
-
   console.log('unique',unique)
-
-
-  console.log('Chart Filters',thisChart )
-  // thisChart.card_model,thisChart.card_model_field,thisChart.aggregation,  thisChart.type);
-
-  // set admin level filtering
-
-
-  var filter_value = thisChart.filter_value
-  var filter_field = thisChart.filter_field
-  var filter_function = thisChart.filter_function
-
-  if (filter_value && filter_field ) { 
-    filterFields.push(filter_field)
-    filterValues.push(filter_value)
-    filterOperators.push(filter_function)
-  }
-
-
-
-
+ 
 
 
   if (categorizedField) {
@@ -519,39 +501,59 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
     groupFields.push(cmodel + '.createdAt')
 
   }
+ 
 
-
+  
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
-    // filterFields.push('county_id')
-    // filterValues.push([selectedCounties.value])
+   
 
     filterFields.push('county_id')
      filterValues.push(selectedCounties.value)
     filterOperators.push('or')
 
-    groupFields.push('subcounty.name')
+    if(chartType!=3) { 
+      groupFields.push('subcounty.name')
+    }
+
   }
+
 
   else if (filterLevel.value === 'subcounty') { 
     // filter by subcounty 
     associated_Models.push('ward')
-    // filterFields.push('subcounty_id')
-    // filterValues.push([selectedSubCounties.value])
+    // filterValues.push(selectedSubCounties.value)
+
+    // for (let i = 0; i < selectedSubCounties.value.length; i++) { 
+    //   filterFields.push('subcounty_id')
+    // }
 
     filterFields.push('subcounty_id')
      filterValues.push(selectedSubCounties.value)
     filterOperators.push('or')
 
-    groupFields.push('ward.name')
+
+    if(chartType!=3) { 
+      groupFields.push('ward.name')
+    }
   }
-  else if (filterLevel.value === 'national') {
+
+
+
+
+  else if (filterLevel.value === 'national' ) {
     associated_Models.push('county')
-    groupFields.push('county.name')
+
+
+     if(chartType!=3) { 
+      groupFields.push('county.name')
+    }
 
   }
 
-
+  if(chartType==3) { 
+      groupFields.push(cmodel + '.' + cfield )
+    }
 
   console.log('xgroupFields', groupFields)
   console.log('associated_Models', associated_Models)
@@ -567,12 +569,16 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   // formData.filterField = ['indicator_category_id']
   // formData.filterValue = [indicator_categories]  // Bitumen
   formData.filterField = filterFields
-  formData.filterOperator =filterOperators// Bitumen
+  formData.filterOperator =filterOperators // Bitumen
   formData.filterValue = filterValues
 
   // added for unique couts 
-  formData.uniqueCounts =unique
+  formData.uniqueCounts = unique
   formData.ignoreEmpty = ignoreEmpty
+  
+
+  console.log('form-2-Data',formData)
+
 
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
@@ -608,7 +614,9 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
       seriesData = values[cAggregation]
     }
 
+   
 
+ 
     else if (chartType == 6 ) {
       console.log('Multi-line chart ', amount)
       //  Step 1: Extract and sort unique dates in ascending order
@@ -640,6 +648,27 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
       categoryArray = dates
       console.log('seriesData>>>>6', seriesData);
 
+
+
+    }
+
+    else if (chartType == 3) {
+      console.log('thisChart--- ', thisChart)
+      console.log('piechart--- ', amount)
+  
+      
+     // seriesData = xtransformData(amount, chartType, cAggregation, cfield);
+     // categoryArray.sort();
+
+      // Extract keys (property names) from the first object
+        const keys = Object.keys(amount[0]);
+
+        // Extract values for each key into separate arrays
+        const extractedData = keys.map(key => amount.map(item => item[key]));
+
+        console.log('extractedData',extractedData)
+        categoryArray =extractedData[0]
+        seriesData =convertStringsToNumbers(extractedData[1])
 
 
     }
@@ -717,6 +746,11 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
 }
 
+function convertStringsToNumbers(stringArray) {
+        return stringArray.map(Number);
+      }
+
+
 const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
   
   //var cdata = await xgetSummaryMultipleParentsGrouped(thisChart.card_model, thisChart.card_model_field, thisChart.aggregation, thisChart.type, thisChart.categorized); // first array is the categories // second is the data
@@ -778,7 +812,12 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
     filterFields.push('county_id')
      filterValues.push(selectedCounties.value)
     filterOperators.push('or')
-    groupFields.push('subcounty.name')
+
+ 
+    if(chartType!=3) {
+      // dont add groups for a piechart
+      groupFields.push('subcounty.name')
+    }
 
   }
 
@@ -790,7 +829,11 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
     filterOperators.push('or')
     filterFields.push('subcounty_id')
  
-    groupFields.push('ward.name')
+  
+    if(chartType!=3) {
+      // dont add groups for a piechart
+      groupFields.push('ward.name')
+    }
   }
 
 
@@ -798,14 +841,26 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
 
   else if (filterLevel.value === 'national') {
     associated_Models.push('county')
-    groupFields.push('county.name')
+
+    
+    if(chartType!=3) {
+      // dont add groups for a piechart
+      groupFields.push('county.name')
+    }
+
+
 
   }
 
 
+  
+  if(chartType==3) {
+      // dont add groups for a piechart
+      groupFields.push(cmodel + '.' + cfield )
+    }
 
 
-  console.log('xgroupFields', groupFields)
+  console.log('groupFields-interve', groupFields)
   console.log('associated_Models', associated_Models)
 
 
@@ -831,7 +886,7 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const amount = response.Total;
-    console.log('Data xcounty', amount)
+    console.log('Data xcounty -inter', amount)
 
 
     let categoryArray = [];
@@ -843,11 +898,9 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
     });
 
 
-
-
-
+ 
     if (chartType == 5) {
-      console.log('Data line chart2 ', amount)
+      console.log('Data line chart ', amount)
 
       const keys = amount.reduce((allKeys, obj) => {
         return allKeys.concat(Object.keys(obj));
@@ -858,21 +911,23 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
       uniqueKeys.forEach(key => {
         values[key] = amount.map(obj => obj[key] || null);
       });
-      categoryArray = values.to_char
+      categoryArray = values.createdAt
       seriesData = values[cAggregation]
     }
 
+   
 
+ 
     else if (chartType == 6 ) {
       console.log('Multi-line chart ', amount)
       //  Step 1: Extract and sort unique dates in ascending order
-      const dates = [...new Set(amount.map(item => item.to_char))].sort();
+      const dates = [...new Set(amount.map(item => item.createdAt))].sort();
 
       // Step 2: Rearrange the data
       const result = {};
 
       for (const item of amount) {
-        const { to_char, cAggregation } = item;
+        const { createdAt, cAggregation } = item;
         //     console.log('xxxx',item,item[cfield])
 
         if (!result[item[cfield]]) {
@@ -884,7 +939,7 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
           };
         }
 
-        const dateIndex = dates.indexOf(to_char);
+        const dateIndex = dates.indexOf(createdAt);
         result[item[cfield]].data.push([dateIndex, Number(cAggregation)]);
 
       }
@@ -894,6 +949,26 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
       categoryArray = dates
       console.log('seriesData>>>>6', seriesData);
 
+
+
+    }
+
+    else if (chartType == 3) {
+      console.log('piechart--- ', amount)
+  
+
+     // seriesData = xtransformData(amount, chartType, cAggregation, cfield);
+     // categoryArray.sort();
+
+      // Extract keys (property names) from the first object
+        const keys = Object.keys(amount[0]);
+
+        // Extract values for each key into separate arrays
+        const extractedData = keys.map(key => amount.map(item => item[key]));
+
+        console.log('extractedData',extractedData)
+        categoryArray =extractedData[0]
+        seriesData =convertStringsToNumbers(extractedData[1])
 
 
     }
@@ -954,6 +1029,7 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
 
       console.log('xseries', seriesData)
     }
+
 
 
 
@@ -1080,12 +1156,12 @@ const getCharts = async (section_id) => {
       // function to process processMultiBarChart charts 
       async function processPieChart() {
         const promises = [async function () {
-          console.log('This chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
+          console.log('pie  1-chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
 
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log(cdata);
+            console.log('piechart - cdata',cdata);
 
 
             const UpdatedPieOptionsMultiple = {
@@ -1095,15 +1171,19 @@ const getCharts = async (section_id) => {
                 text: thisChart.title
               },
 
-              series: {
-                ...pieOptions.series[0],
-                data: cdata[1]    // data 
-              },
+              // series: {
+              //   ...pieOptions.series[0],
+              //   data: cdata[1]    // data 
+              // },
+
+              labels:cdata[0],
+              series:cdata[1] 
 
 
             };
 
             console.log('UpdatedPieOptionsMultiple', UpdatedPieOptionsMultiple)
+            console.log('cdata', cdata[1][0].data)
 
             
 
@@ -1151,6 +1231,7 @@ const getCharts = async (section_id) => {
         // Continue with the rest of your code here
       }
 
+
       // function to process processMultiBarChart charts 
       async function processSimpleBarChart() {
         const promises = [async function () {
@@ -1159,7 +1240,7 @@ const getCharts = async (section_id) => {
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log(cdata);
+            console.log('cdata[0]',cdata[0]);
 
             const UpdatedBarOptionsMultiple = {
               ...simpleBarChart,
@@ -1167,9 +1248,9 @@ const getCharts = async (section_id) => {
                 ...simpleBarChart.title,
                 text: thisChart.title
               },
-              xAxis: {
-                ...simpleBarChart.xAxis,
-                data: cdata[0] // categories as received 
+              xaxis: {
+                ...simpleBarChart.xaxis,
+                categories: cdata[0] // categories as received 
               },
             };
 
@@ -1228,7 +1309,7 @@ const getCharts = async (section_id) => {
               },
               xAxis: {
                 ...multipleBarChart.xAxis,
-                data: cdata[0] // categories as received 
+                categories: cdata[0] // categories as received 
               },
             };
 
@@ -1269,15 +1350,16 @@ const getCharts = async (section_id) => {
         // Continue with the rest of your code here
       }
 
+  
       // function to process processStackedBarChart charts 
       async function processStackedBarChart() {
         const promises = [async function () {
           console.log('This stack chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
-
+ 
           try {
 
             var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
-            console.log('stacked...', cdata);
+            console.log('stacked.Male.female.', cdata);
 
 
 
@@ -1298,9 +1380,9 @@ const getCharts = async (section_id) => {
                 ...stackedbarOptions.title,
                 text: thisChart.title
               },
-              xAxis: {
-                ...stackedbarOptions.xAxis,
-                data: cdata[0],  // categories as recieved 
+              xaxis: {
+                ...stackedbarOptions.xaxis,
+                categories: cdata[0],  // categories as recieved 
              //   type:'category'
               },
 
@@ -1353,6 +1435,81 @@ const getCharts = async (section_id) => {
         charts.push(thisChart)
         // Continue with the rest of your code here
       }
+
+
+
+       // function to process processStackedBarChart charts 
+       async function processStackedBarChartAbs() {
+        const promises = [async function () {
+          console.log('This stack chart details:', thisChart.card_model, thisChart.card_model_field, thisChart.aggregation);
+ 
+          try {
+
+            var cdata = await xgetSummaryMultipleParentsGrouped(thisChart ); // first array is the categories // second is the data
+            console.log('stacked.Male.female.', cdata);
+            for (var i = 0; i < cdata[1].length; i++) {
+              cdata[1][i].label = {
+                show: false,
+                position: 'inside'
+              };
+              // cdata[1][i].stack = 'total'
+              // cdata[1][i].type = 'bar'
+            }
+
+            const UpdatedBarOptionsMultiple = {
+              ...stackedbarOptionsAbs,
+              title: {
+                ...stackedbarOptionsAbs.title,
+                text: thisChart.title
+              },
+              xaxis: {
+                ...stackedbarOptionsAbs.xaxis,
+                categories: cdata[0],  // categories as recieved 
+             //   type:'category'
+              },
+
+              series:  cdata[1]   
+            };
+
+            console.log('stackedbarOptionsAbs >>>>',  UpdatedBarOptionsMultiple)
+
+
+            thisChart.chart = UpdatedBarOptionsMultiple
+
+           //thisChart.chart.series = cdata[1]
+
+            // show no data 
+            if (cdata[0].length === 0) {
+              thisChart.chart.graphic = [{
+                type: 'text',
+                left: 'center',
+                top: 'middle',
+                style: {
+                  text: 'No data  available',
+                  fill: '#999',
+                  fontSize: 16
+                },
+                z: 100 // Higher z value to place it on top
+
+              }]
+            }
+
+
+          } catch (error) {
+            // Handle any errors that occurred during the process
+          }
+        }];
+
+        //     await Promise.all(promises);
+        await promises[0]();
+
+        // The loop has completed and all promises have been resolved/rejected
+        console.log('Loop completed');
+
+        charts.push(thisChart)
+        // Continue with the rest of your code here
+      }
+
 
 
       // function to process processMultiBarChart charts 
@@ -1917,7 +2074,7 @@ const getCharts = async (section_id) => {
            // function to process processMultiBarChart charts 
       async function processSimpleBarChart2() {
         const promises = thisChart.indicators.map(async function (indicator) {
-          console.log('This category:', indicator)
+          console.log('processSimpleBarChart2:', indicator)
 
           try {
             //  console.log("bar", getIndicatorConfigurations(indicator.id)) 
@@ -1925,26 +2082,30 @@ const getCharts = async (section_id) => {
             var ids = await getIndicatorConfigurations(indicator.id)
             console.log("bar", ids)
             var cdata = await getSummaryChartIIntervention(ids, thisChart)   // first array is the categories // second is the data
-            console.log(cdata)
+            console.log('x-cdata',cdata)
+            console.log('x-cdata[0]',cdata[0])
+
+           
 
             const UpdatedBarOptionsMultiple = {
-              ...multipleBarChart,
+              ...simpleBarChart,
               title: {
-                ...multipleBarChart.title,
+                ...simpleBarChart.title,
                 text: thisChart.title
               },
-              xAxis: {
-                ...multipleBarChart.xAxis,
-                data: cdata[0]  // categories as recieved 
+              xaxis: {
+                ...simpleBarChart.xaxis,
+                categories: cdata[0] // categories as received 
               },
-
             };
 
 
             thisChart.chart = UpdatedBarOptionsMultiple
 
             thisChart.chart.series = cdata[1]
-
+ 
+            console.log('thisChart',thisChart)
+            
             // show no data 
             if (cdata[1].length===0) {
               thisChart.chart.graphic= [{
@@ -2001,7 +2162,7 @@ const getCharts = async (section_id) => {
               },
               xAxis: {
                 ...multipleBarChart.xAxis,
-                data: cdata[0]  // categories as recieved 
+                categories: cdata[0]  // categories as recieved 
               },
 
             };
@@ -2371,6 +2532,15 @@ const getCharts = async (section_id) => {
         processStackedBarChart();
       }
 
+
+      else if (thisChart.type == 9 && thisChart.category=="Status") {
+        processStackedBarChartAbs();
+      }
+
+
+
+
+
       else if (thisChart.type == 5 && thisChart.category=="Status") {
         processLineChart();
       }
@@ -2704,7 +2874,25 @@ const formatNumber =   (value) => {
     }
     return value.toLocaleString('en-US');
 }
-  
+  const getChartType =   (typeId) => {
+     if (typeId ==1 || typeId ==2 ||typeId == 4) {
+      return  'bar'
+    } else if (typeId==2) {
+      return 'bar';
+    }
+    else if (typeId==3) {
+      return 'donut';
+    }
+    else if (typeId==5) {
+      return 'area';
+    }
+    else if (typeId==7) {
+      return 'map';
+    } 
+    else if (typeId==8) {
+      return 'pyramid';
+    } 
+}
 
 </script>
 
@@ -2761,7 +2949,14 @@ v-for="(card) in tab.cards" :key="card.id" :span="12" :xl="12" :lg="12" :md="12"
               <el-card>
 
                 <ElSkeleton :loading="loading" animated>
-                  <v-chart  :id="card.id" class="chart" :option="card.chart" autoresize />
+                  <!-- <v-chart  :id="card.id" class="chart" :option="card.chart" autoresize /> -->
+                  <!-- <v-chart  v-if="card.type==7 ||card.type==8 "  :id="card.id"  class="chart" :option="card.chart" height="450"  autoresize />  -->
+                  <!-- <apexchart v-if="card.type!=7 " :options="card.chart" :series="card.chart.series" :type="getChartType(card.type)" height="450"  autoresize/> -->
+ 
+                  <v-chart  v-if="card.type==7 ||card.type==8 "  :id="card.id"  class="chart" :option="card.chart" height="450"  autoresize /> 
+                  <apexchart v-if="card.type!=7 && card.type!=8" :options="card.chart" :series="card.chart.series" :type="getChartType(card.type)" height="450"  autoresize/>
+ 
+
                 </ElSkeleton>
 
               </el-card>

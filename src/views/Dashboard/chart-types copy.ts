@@ -8,17 +8,90 @@ import {
   FullScreen,
 } from '@element-plus/icons-vue'
 
-import VueApexCharts from 'vue3-apexcharts';
 
 const { t } = useI18n()
 
 const colorPalette = ['#ff007f', '#0000ff'];  // Male-Female
 const maleIcon = 'path://m 146.41936,238.8034 c -5.21101,-1.43402 -7.51545,-6.79358 -6.6619,-11.76943 -0.0588,-45.10952 -0.11757,-90.21905 -0.17635,-135.328563 -5.3022,-1.61412 -3.06375,4.34199 -3.52464,7.58816 -0.0576,14.697923 -0.11511,29.395843 -0.17266,44.093773 -1.72718,6.61806 -12.15586,7.45944 -14.19605,0.88682 -1.42909,-4.98857 -0.22146,-10.60033 -0.62062,-15.83232 0.10773,-15.18837 -0.21551,-30.437173 0.16059,-45.587893 1.91842,-11.228608 12.80383,-20.22421 24.26927,-18.689786 10.60777,1.558898 0.0755,-3.65768 -0.79236,-8.596161 -4.23852,-8.688715 0.80002,-20.073014 9.72708,-23.421847 8.82591,-4.162774 20.30103,1.001172 23.52581,10.108188 2.28945,5.67583 1.4368,12.853955 -2.76118,17.571486 -5.15831,4.024926 -3.94241,5.010805 1.85043,4.362909 13.58742,-1.603119 25.03585,11.840701 23.9554,24.967141 -0.0691,18.213333 -0.13818,36.426673 -0.20726,54.640013 -1.5351,4.55905 -7.30638,6.71543 -11.30858,3.96578 -4.81473,-2.8888 -2.73019,-9.20279 -3.19227,-13.88869 -0.0523,-14.05586 -0.10469,-28.11173 -0.15704,-42.167583 -4.85271,-1.54237 -3.37467,3.24601 -3.51022,6.4208 V 231.02616 c -1.3114,6.77368 -9.29063,10.3384 -15.13544,6.61747 -6.62075,-3.7866 -4.17124,-12.04397 -4.62011,-18.29166 v -70.84935 c -4.85175,-1.54283 -3.39102,3.24111 -3.53094,6.42079 -0.0578,25.5528 -0.11553,51.1056 -0.17329,76.65839 -1.7387,5.48439 -7.13811,8.77105 -12.74767,7.2216 z'
 const femaleIcon = 'path://m 39.7122,238.0264 c -5.604205,-1.49359 -5.822698,-7.32898 -5.431108,-11.96235 -0.05932,-18.97406 -0.118632,-37.94813 -0.177948,-56.92219 -7.401109,0.0507 -14.802279,0.16954 -22.203547,0.1438 8.050221,-26.97466 15.83106,-54.03787 24.0791,-80.948455 -6.246873,-1.537447 -5.103818,6.332986 -7.12857,10.198179 -4.203419,12.783656 -7.28462,25.995046 -12.31951,38.467156 C 6.215777,147.43407 -0.93895389,129.58252 6.2279437,121.52707 11.709639,105.71684 15.006783,88.999576 22.521999,73.9779 25.487431,65.143259 38.425956,64.174487 43.879817,63.247984 35.242261,58.307767 32.195248,46.181151 37.843175,37.985287 c 5.35176,-7.73122 16.727442,-10.988636 24.757146,-5.16531 11.321083,6.562216 10.452089,25.024381 -1.135269,30.670395 9.830628,-0.28155 20.086569,3.623662 24.845207,12.765524 3.87086,7.45858 5.12438,16.169298 8.137928,24.037484 2.906124,10.26421 6.922833,20.35157 9.297803,30.70045 1.06345,4.17564 -1.66552,9.02385 -6.181687,9.2796 -7.686885,1.11419 -8.783192,-8.80355 -10.70406,-14.18732 -3.87502,-12.5653 -7.681429,-25.15172 -11.575988,-37.711005 -8.798872,-0.113812 1.949333,13.898795 1.781574,19.941085 6.048408,20.20812 12.13493,40.40517 18.089502,60.64114 -7.392371,0.35953 -14.803078,0.14681 -22.203496,0.20388 -0.06597,21.22546 -0.131933,42.45093 -0.1979,63.67639 -2.103142,7.13406 -13.415648,7.74398 -15.969932,0.84281 -1.418088,-4.77754 -0.245017,-10.18282 -0.655178,-15.20454 l -0.156843,-49.31466 c -4.44248,-1.05339 -5.844521,0.93365 -4.913879,5.25338 -0.162881,19.18788 0.325808,38.44483 -0.244801,57.58947 -0.334387,5.03435 -6.719798,7.8699 -11.101102,6.02234 z'
- 
 
 
  
+
+
+export const lineOptions: EChartsOption = {
+  title: {
+    text: '',
+    subtext: 'National Slum Database, 2023',
+    left: 'center',
+    textStyle: {
+      fontSize: 14
+    },
+    subtextStyle: {
+      fontSize: 12
+    }
+  },
+  legend: {
+    //  show: ShowLegend,
+      orient: 'horizontal',
+      type: 'scroll',
+      left: 'left',
+      itemWidth: 20,
+      itemHeight: 20,
+   
+    },
+    toolbox: {
+      show: true,
+            feature: {
+          myFullScreenButton: {
+            show: true,
+            title: 'Full Screen',
+                //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+              
+               icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+   
+                onclick: function () {
+              
+              const chart = this.api; // Get the chart instance
+              const chartName = chart.getOption().title[0].text; // Get the chart title
+      
+              console.log('Chart Name:', chartName);
+      
+              const containerDiv = chart.getDom(); // Get the container div element
+              const containerId = containerDiv.id; // Get the container ID
+      
+              console.log('Container ID:', containerId);
+              toggleFullScreen(containerId);
+            }
+          },
+  
+        mark: { show: true },
+        dataView: { show: true, readOnly: false },
+        restore: { show: true },
+        saveAsImage: { show: true, pixelRatio: 4 }
+      }
+    },
+  tooltip: {
+    trigger: 'item',
+    formatter: '{a} <br/>{b} : {c} ({d}%)'
+  },
+  xAxis: {
+    type: 'category',
+    data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  },
+  yAxis: {
+    type: 'value',
+    name:'Number',
+
+  },
+  series: [
+    {
+      data: [150, 230, 224, 218, 135, 147, 260],
+      type: 'line',
+      name:''
+    }
+  ]
+};
 
 
 export const stacklineOptions: EChartsOption = {
@@ -106,32 +179,80 @@ export const stacklineOptions: EChartsOption = {
   ]
 };
 
- 
 
-// Takes a data URI and returns the Data URI corresponding to the resized image at the wanted size.
-function resizedataURL(datas, wantedWidth, wantedHeight){
-  return new Promise(async function(resolve,reject){
-      // We create an image to receive the Data URI
-      const img = document.createElement('img');
-      // When the event "onload" is triggered we can resize the image.
-      img.onload = function()
-      {        
-          // We create a canvas and get its context.
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          // We set the dimensions at the wanted size.
-          canvas.width = wantedWidth;
-          canvas.height = wantedHeight;
-          // We resize the image with the canvas method drawImage();
-          ctx.drawImage(this, 0, 0, wantedWidth, wantedHeight);
-          const dataURI = canvas.toDataURL();
-          // This is the return of the Promise
-          resolve(dataURI);
-      };
-      // We put the Data URI in the image's src attribute
-      img.src = datas;
-  })
-}// Use it like : var newDataURI = await resizedataURL('yourDataURIHere', 50, 50);
+export const pieOptions = reactive({
+  title: {
+    text: '',
+    subtext: 'National Slum Database, 2023',
+    left: 'center',
+    textStyle: {
+      fontSize: 14
+    },
+    subtextStyle: {
+      fontSize: 12
+    }
+  },
+  toolbox: {
+    show: true,
+    feature: {
+      myFullScreenButton: {
+        show: true,
+        title: 'Full Screen',
+        icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+        onclick: function () {
+          const chart = this.api; // Get the chart instance
+          const chartName = chart.getOption().title[0].text; // Get the chart title
+          console.log('Chart Name:', chartName);
+          const containerDiv = chart.getDom(); // Get the container div element
+          const containerId = containerDiv.id; // Get the container ID
+          console.log('Container ID:', containerId);
+          toggleFullScreen(containerId);
+        }
+      },
+      mark: { show: true },
+      dataView: { show: true, readOnly: false },
+      restore: { show: true },
+      saveAsImage: { show: true, pixelRatio: 4 }
+    }
+  },
+  // legend: {
+  //   type: 'scroll',
+  //   orient: 'vertical',
+  //   left: 10,
+  //   top: 20,
+  //   bottom: 20,
+  // },
+
+  legend: {
+    top: 'bottom',
+    type: 'scroll'
+  },
+  selectedMode: true,
+  series: [
+    {
+      name: '',
+      type: 'pie',
+      center: ['50%', '50%'],
+      radius: ['10%', '70%'],
+      // roseType: 'area',
+      backgroundStyle: {
+        color: 'rgba(180, 180, 180, 0.2)'
+      },
+      label: {  // Set the label options to remove labels
+        show: false, // Hide labels
+      },
+      emphasis: {
+        label: {
+          show: true  // Hide labels on hover as well
+        }
+      },
+      data: []
+    }
+  ]
+});
+
+
+
 
 
 export const toggleFullScreen = (cardId) => {
@@ -150,531 +271,68 @@ export const toggleFullScreen = (cardId) => {
     }
 }
 
- 
 
-// Apache options 27/11/2023
-
-export const xsimpleBarChart = {
+export const simpleBarChart: EChartsOption = {
   title: {
     text: '',
-     left: 'center',
-    textStyle: {
-      fontSize: 14,
-    },
-    subtextStyle: {
-      fontSize: 12,
-    },
-  },
-  subtitle: {
-    text: 'National Slum Database, 2023',
-    align: 'left',
- 
-    style: {
-      fontSize:  '12px',
-      fontWeight:  'normal',
-       color:  '#9699a2'
-    },
-},
-plotOptions: {
-  bar: {
-    borderRadius: 4,
-    horizontal: true,
-  }
-},
-
-dataLabels: {
-  enabled: true,
-  textAnchor: 'start',
-  style: {
-    colors: ['black']
-  },
-  formatter: function (val, opt) {
-    return opt.w.globals.labels[opt.dataPointIndex] + ":  " + val
-  },
-  offsetX: 0,
-  dropShadow: {
-    enabled: false
-  }
-},
-toolbar: {
-  show: true,
-  tools: {
-    download: true,
-    selection: true,
-    zoom: true,
-    zoomin: true,
-    zoomout: true,
-    pan: true,
-    
-    
-  },
-},
-  responsive: [
-    {
-      breakpoint: 600,
-      options: {
-        legend: {
-          show: false,
-        },
-        xaxis: {
-          labels: {
-            show: false,
-            rotateAlways: true,
-            rotate: 0,
-            trim: true,
-            hideOverlappingLabels: true,
-            style: {
-              colors: [],
-              fontSize: '8px',
-              fontFamily: 'Helvetica, Arial, sans-serif',
-              fontWeight: 400,
-              cssClass: 'apexcharts-xaxis-label',
-            },
-          },
-        },
-      },
-    },
-  ],
-
-  xaxis: {
-     categories: [],
-    tickPlacement:'on'
-  },
-  yaxis: {
-    labels: {
-      show: false
-    }
-  },
-  fill: {
-    opacity: 1,
-  },
-};
-
-export const simpleBarChart = {
-  title: {
-    text: '',
-     left: 'center',
-    textStyle: {
-      fontSize: 14,
-    },
-    subtextStyle: {
-      fontSize: 12,
-    },
-  },
-  subtitle: {
-    text: 'National Slum Database, 2023',
-    align: 'left',
- 
-    style: {
-      fontSize:  '12px',
-      fontWeight:  'normal',
-       color:  '#9699a2'
-    },
-},
-  chart: {
-    type: 'bar',
-    height: 350,
-    stacked: false,
-    stackType: '100%',
-    toolbar: {
-      show: true,
-      tools: {
-        download: true,
-        selection: true,
-        zoom: true,
-        zoomin: true,
-        zoomout: true,
-        pan: true,
-        
-        // customIcons: [
-        //   {
-        //     icon: '<img src="https://cdn.svgapi.com/vector/12060/download.svg" class="ico-download" width="20">',
-        //     index: 0,
-        //     title: '',
-        //     class: 'custom-icon',
-             
-        //     click: function (chart, options, e) {
-        //       console.log('got it', chart);
-        
-        //       // Use .then to handle the asynchronous operation
-        //       chart.dataURI().then(({ imgURI, blob }) => {
-        //         // Resize the data URI
-        //         resizedataURL(imgURI, 1920, 1080).then((newDataUri) => {
-        //           // Create a download link
-        //           const link = document.createElement('a');
-        //           link.href = newDataUri;
-        //           link.download = 'xchart.png';
-        
-        //           // Append the link to the document and trigger the download
-        //           document.body.appendChild(link);
-        //           link.click();
-        
-        //           // Remove the link from the document
-        //           document.body.removeChild(link);
-        //         });
-        //       });
-        //     }
-
-        //   }
-        // ]
-      },
-    },
-    
-  },
-  
-  responsive: [{
-    breakpoint: 600,
-    options: {
-      legend: {
-        show: false
-      },
-      xaxis: {
-        labels: {
-          show: false,
-          rotateAlways: true,
-          rotate: 0,
-          trim: true,
-          hideOverlappingLabels: true,
-          style: {
-            colors: [],
-            fontSize: '8px',
-            fontFamily: 'Helvetica, Arial, sans-serif',
-            fontWeight: 400,
-            cssClass: 'apexcharts-xaxis-label',
-          },
-        }
-      }
-    }
-  }],
-
-  xaxis: {
-    type: 'category',
-    categories: [],
-    tickPlacement:'on'
-  },
-
-  fill: {
-    opacity: 1
-  }
-} 
-
-export const stackedbarOptions = {
-  title: {
-    text: '',
-     left: 'center',
-    textStyle: {
-      fontSize: 14,
-    },
-    subtextStyle: {
-      fontSize: 12,
-    },
-  },
-  subtitle: {
-    text: 'National Slum Database, 2023',
-    align: 'left',
- 
-    style: {
-      fontSize:  '12px',
-      fontWeight:  'normal',
-       color:  '#9699a2'
-    },
-},
-  chart: {
-    type: 'bar',
-    height: 350,
-    stacked: true,
-    stackType: '100%',
-    toolbar: {
-      show: true,
-      tools: {
-        download: true,
-        selection: true,
-        zoom: true,
-        zoomin: true,
-        zoomout: true,
-        pan: true,
-        
-       
-      },
-    },
-    
-  },
-  
-  responsive: [{
-    breakpoint: 600,
-    options: {
-      legend: {
-        show: false
-      },
-      xaxis: {
-        labels: {
-          show: false,
-          rotateAlways: true,
-          rotate: 0,
-          trim: true,
-          hideOverlappingLabels: true,
-          style: {
-            colors: [],
-            fontSize: '8px',
-            fontFamily: 'Helvetica, Arial, sans-serif',
-            fontWeight: 400,
-            cssClass: 'apexcharts-xaxis-label',
-          },
-        }
-      }
-    }
-  }],
-
-  xaxis: {
-    type: 'category',
-    categories: [],
-    tickPlacement:'on'
-  },
-
-  fill: {
-    opacity: 1
-  }
-} 
-
-
-export const stackedbarOptionsAbs = {
-  title: {
-    text: '',
-     left: 'center',
-    textStyle: {
-      fontSize: 14,
-    },
-    subtextStyle: {
-      fontSize: 12,
-    },
-  },
-  subtitle: {
-    text: 'National Slum Database, 2023',
-    align: 'left',
- 
-    style: {
-      fontSize:  '12px',
-      fontWeight:  'normal',
-       color:  '#9699a2'
-    },
-},
-  chart: {
-    type: 'bar',
-    height: 350,
-    stacked: true,
-    toolbar: {
-      show: true
-    },
-    zoom: {
-      enabled: true
-    }
-  },
-  responsive: [{
-    breakpoint: 600,
-    options: {
-      legend: {
-        show: false
-      },
-      xaxis: {
-        labels: {
-          show: false,
-          rotateAlways: true,
-          rotate: 0,
-          trim: true,
-          hideOverlappingLabels: true,
-          style: {
-            colors: [],
-            fontSize: '8px',
-            fontFamily: 'Helvetica, Arial, sans-serif',
-            fontWeight: 400,
-            cssClass: 'apexcharts-xaxis-label',
-          },
-        }
-      }
-    }
-  }],
-
-  xaxis: {
-    type: 'category',
-    categories: [],
-    tickPlacement:'on'
-  },
-
-  fill: {
-    opacity: 1
-  }
-} 
-
-
-export const multipleBarChart = {
-  title: {
-    text: '',
+    subtext: 'National Slum Database, 2023',
     left: 'center',
     textStyle: {
-      fontSize: 14,
+      fontSize: 14
     },
     subtextStyle: {
-      fontSize: 12,
-    },
+      fontSize: 12
+    }
   },
-  subtitle: {
-    text: 'National Slum Database, 2023',
-    align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2',
-    },
-  },
-  chart: {
-    type: 'bar',
-    height: 350,
-    toolbar: {
-      show: true,
-    },
-    zoom: {
-      enabled: true,
-    },
-  },
-  responsive: [
-    {
-      breakpoint: 600,
-      options: {
-        legend: {
-          show: false,
+  toolbox: {
+    show: true,
+          feature: {
+        myFullScreenButton: {
+          show: true,
+          title: 'Full Screen',
+              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+            
+             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+ 
+              onclick: function () {
+            
+            const chart = this.api; // Get the chart instance
+            const chartName = chart.getOption().title[0].text; // Get the chart title
+    
+            console.log('Chart Name:', chartName);
+    
+            const containerDiv = chart.getDom(); // Get the container div element
+            const containerId = containerDiv.id; // Get the container ID
+    
+            console.log('Container ID:', containerId);
+            toggleFullScreen(containerId);
+          }
         },
-        xaxis: {
-          labels: {
-            show: false,
-            rotateAlways: true,
-            rotate: 0,
-            trim: true,
-            hideOverlappingLabels: true,
-            style: {
-              colors: [],
-              fontSize: '8px',
-              fontFamily: 'Helvetica, Arial, sans-serif',
-              fontWeight: 400,
-              cssClass: 'apexcharts-xaxis-label',
-            },
-          },
-        },
+      // Add a custom feature to toggle legend visibility
+      toggleLegend: {
+        show: true,
+        title: 'Toggle Legend',
+        icon: 'image://https://cdn.svgapi.com/vector/22674/switch.svg',
+        onclick: function () {
+          const chart = this.api;
+          const option = chart.getOption();
+          option.legend[0].show = !option.legend[0].show; // Toggle legend visibility
+          chart.setOption(option);
+        }
       },
-    },
-  ],
-
-  plotOptions: {
-    bar: {
-      horizontal: false, // Set this to true if you want horizontal bars
-      columnWidth: '50%', // Adjust the width of the bars
-      endingShape: 'rounded', // Change the shape of the bars
-    },
-  },
-
-  xaxis: {
-    type: 'category',
-    categories: [],
-    tickPlacement:'on'
-  },
-
-  fill: {
-    opacity: 1,
-  },
-};
-
-export const lineOptions = {
-  
-   
-  chart: {
-    type: 'area',
-    stacked: false,
-    height: 350,
-    zoom: {
-      type: 'x',
-      enabled: true,
-      autoScaleYaxis: true
-    },
-    toolbar: {
-      autoSelected: 'zoom'
+      mark: { show: true },
+      dataView: { show: true, readOnly: false },
+      restore: { show: true },
+      saveAsImage: { show: true, pixelRatio: 4 }
     }
   },
  
-  dataLabels: {
-    enabled: false
-  },
-  markers: {
-    size: 0,
-  },
-
-  subtitle: {
-    text: 'National Slum Database, 2023',
-    align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2',
-    },
-  },
-  xaxis: {
-    categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
-  },
-
-  
-  series: [{
-    name: "Desktops",
-    data: [10, 41, 35, 51, 49, 62, 69, 91, 148]
-}],
-};
-
-export const pieOptions = {
-   
-  chart: {
-    height: 350,
-    type: 'pie',
-    toolbar: {
-      show: true,
-    },
-    zoom: {
-      enabled: true,
-    },
-
-  },
-  plotOptions: {
-    pie: {
-      startAngle: -90,
-      endAngle: 270
+  xAxis: {
+    type: 'category',
+    data: ['001', '002'],
+    axisTick: {
+      alignWithLabel: true
     }
-  },
-  subtitle: {
-    text: 'National Slum Database, 2023',
-    align: 'left',
-    style: {
-      fontSize: '12px',
-      fontWeight: 'normal',
-      color: '#9699a2',
-    },
-  },
-  labels: [],
-  series: [],
-  responsive: [{
-    breakpoint: 600,
-    options: {
-      chart: {
-        width: 200
-      },
-      legend: {
-        position: 'bottom'
-      }
-    }
-  }]
-};
-
-
-//---------------------------
-export const barOptions: EChartsOption = {
-  title: {
-    text: 'barchart',
-    left: 'center'
   },
   tooltip: {
     trigger: 'axis',
@@ -683,36 +341,35 @@ export const barOptions: EChartsOption = {
     }
   },
   grid: {
-    left: 50,
-    right: 20,
-    bottom: 20
+    left: '3%',
+    right: '4%',
+    bottom: '3%',
+    containLabel: true
   },
-  xAxis: {
-    type: 'category',
-    data: ['Monday', 'Tuesday','Wednesday'
-       
-    ],
-    axisTick: {
-      alignWithLabel: true
-    }
-  },
+
   yAxis: {
     type: 'value',
     name:'Number',
 
   },
+  legend: {
+    data: [ ]
+  },
   series: [
     {
-      name: 'chart title',
-      data: [ ],
+      data: [10,20],
       type: 'bar',
+      showBackground: true,
+      backgroundStyle: {
+        color: 'rgba(180, 180, 180, 0.2)'
+      }
     }
   ]
-}
+};
 
 
 
-export const xmultipleBarChart: EChartsOption = {
+export const multipleBarChart: EChartsOption = {
   title: {
     text: '',
     subtext: 'National Slum Database, 2023',
@@ -861,6 +518,45 @@ export const barOptionsMultiple: EChartsOption = {
 
 
 
+export const barOptions: EChartsOption = {
+  title: {
+    text: 'barchart',
+    left: 'center'
+  },
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      type: 'shadow'
+    }
+  },
+  grid: {
+    left: 50,
+    right: 20,
+    bottom: 20
+  },
+  xAxis: {
+    type: 'category',
+    data: ['Monday', 'Tuesday','Wednesday'
+       
+    ],
+    axisTick: {
+      alignWithLabel: true
+    }
+  },
+  yAxis: {
+    type: 'value',
+    name:'Number',
+
+  },
+  series: [
+    {
+      name: 'chart title',
+      data: [13253, 34235, 26321 ],
+      type: 'bar',
+    }
+  ]
+}
+
  
 export const  barMaleFemaleOptions: EChartsOption = {
   title: {
@@ -973,11 +669,7 @@ export const  barMaleFemaleOptions: EChartsOption = {
   ]
 }
  
-
-
- 
-
-export const  xstackedbarOptions: EChartsOption = {
+export const  stackedbarOptions: EChartsOption = {
   title: {
     text: '',
     subtext: 'National Slum Database, 2023',
@@ -993,7 +685,29 @@ export const  xstackedbarOptions: EChartsOption = {
   toolbox: {
     show: true,
           feature: {
-            mark: { show: true },
+        myFullScreenButton: {
+          show: true,
+          title: 'Full Screen',
+              //icon: 'image://https://echarts.apache.org/en/images/favicon.png',
+            
+             icon: 'image://https://cdn.svgapi.com/vector/166027/full-screen.svg',
+ 
+              onclick: function () {
+            
+            const chart = this.api; // Get the chart instance
+            const chartName = chart.getOption().title[0].text; // Get the chart title
+    
+            console.log('Chart Name:', chartName);
+    
+            const containerDiv = chart.getDom(); // Get the container div element
+            const containerId = containerDiv.id; // Get the container ID
+    
+            console.log('Container ID:', containerId);
+            toggleFullScreen(containerId);
+          }
+        },
+
+      mark: { show: true },
       dataView: { show: true, readOnly: false },
       restore: { show: true },
       saveAsImage: { show: true, pixelRatio: 4 }
@@ -1017,32 +731,24 @@ export const  xstackedbarOptions: EChartsOption = {
 
   },
   legend: {
-    show:false,
     type: 'scroll',
     orient: 'vertical',
     left: 10,
     top: 20,
     bottom: 20,
  },
- tooltip: {
-  trigger: 'axis',
-  axisPointer: {
-    type: 'shadow'
-  }
-},
+ 
 
   series: [
      
   ]
 }
 
-
-
 export const  mapChartOptions: EChartsOption = {
   title: {
     text: 'map',
     subtext: 'National Slum Database, 2023',
-    sublink: 'https://mazingira.ags.co.ke/',
+    sublink: 'https://kisip.go.ke/',
     left: 'left',
     textStyle: {
       fontSize: 14
@@ -1099,8 +805,6 @@ export const  mapChartOptions: EChartsOption = {
             toggleFullScreen(containerId);
           }
         },
-
-
 
       mark: { show: true },
       dataView: { show: true, readOnly: false },
