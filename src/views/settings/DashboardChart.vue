@@ -1113,7 +1113,7 @@ chartOptions.value = [
  const handleSelectModel = async (selModel) => {
 
    fieldSet.value = []
-   ruleForm.card_model_field=null'
+   ruleForm.card_model_field=null
   console.log('specs.....')
   await getModeldefinition(selModel)
 
