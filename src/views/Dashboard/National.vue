@@ -243,6 +243,7 @@ const getSummary = async (card) => {
     var computation = card.computation
     var filter_function = card.filter_function
     var unique = card.unique?card.unique:false 
+    var filters = card.filters
 
   console.log('unique',unique)
   // getSummary(arrayItem.card_model,arrayItem.card_model_field)
@@ -257,11 +258,20 @@ const getSummary = async (card) => {
   let filterValues = []
   let filterOperators =[]
 
-  if (filter_value) { 
-    filterFields.push(cmodelField)
-    filterValues = [filter_value]
-    filterOperators.push(filter_function)
+  if(filters) {
+
+for (const item of filters ) {
+  if(item.field) {
+    filterFields.push(item.field);
+  filterValues.push(item.value);
+  filterOperators.push(item.operation);
   }
+
+}
+}
+
+
+
 
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
@@ -419,35 +429,7 @@ function xtransformData(data, chartType, aggregationMethod, cfield) {
   return result;
 }
 
-const summarizePieData = async (data) => {
  
-          if (data.length === 0) {
-            return [];
-          }
-
-          const propertyToSummarize = Object.keys(data[0])[0];
-          const summary = {};
-
-          for (let i = 0; i < data.length; i++) {
-            const item = data[i];
-            const propValue = item[propertyToSummarize];
-
-            if (summary.hasOwnProperty(propValue)) {
-              summary[propValue].value += parseInt(item.count);
-            } else {
-              summary[propValue] = {
-                value: parseInt(item.count),
-                name: propValue,
-              };
-            }
-          }
-
-         var objChart  = Object.values(summary);
-
-          return objChart
-
-     //     return Object.values(summary);
- }
 
 const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   
@@ -461,6 +443,8 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
 
   var cmodel = thisChart.card_model
+  var filters = thisChart.filters
+
   var cfield = thisChart.card_model_field
   var cAggregation = thisChart.aggregation
   var chartType = thisChart.type
@@ -469,6 +453,20 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   var ignoreEmpty = thisChart.ignore_empty?thisChart.ignore_empty:false
   console.log('unique',unique)
  
+
+
+  if(filters) {
+
+    for (const item of filters ) {
+      if(item.field) {
+        filterFields.push(item.field);
+      filterValues.push(item.value);
+      filterOperators.push(item.operation);
+      }
+
+    }
+    }
+
 
 
   if (categorizedField) {

@@ -1,0 +1,23 @@
+
+
+ALTER TABLE public.dashboard_section_chart
+ADD COLUMN filters JSONB[];
+
+UPDATE dashboard_section_chart
+SET filters = ARRAY[jsonb_build_object(
+                  'field', filter_field,
+                  'operation', filter_function,
+                  'value', filter_value[1]
+                 )];
+
+
+
+ALTER TABLE public.dashboard_card
+ADD COLUMN filters JSONB[];
+
+UPDATE dashboard_card
+SET filters = ARRAY[jsonb_build_object(
+                  'field', filter_field,
+                  'operation', filter_function,
+                  'value', filter_value[1]
+                 )];

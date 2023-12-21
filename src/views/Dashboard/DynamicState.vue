@@ -299,6 +299,7 @@ const getSummary = async (card) => {
     var computation = card.computation
     var filter_function = card.filter_function
     var unique = card.unique?card.unique:false 
+    var filters = card.filters
 
   console.log('unique',unique)
  
@@ -312,11 +313,25 @@ const getSummary = async (card) => {
   let filterValues = []
   let filterOperators =[]
 
-  if (filter_value) { 
-    filterFields.push(filter_field)
-    filterValues = [filter_value]
-    filterOperators.push(filter_function)
-  }
+  // if (filter_value) { 
+  //   filterFields.push(filter_field)
+  //   filterValues = [filter_value]
+  //   filterOperators.push(filter_function)
+  // }
+
+  if(filters) {
+
+      for (const item of filters ) {
+        if(item.field) {
+          filterFields.push(item.field);
+        filterValues.push(item.value);
+        filterOperators.push(item.operation);
+        }
+
+      }
+      }
+
+
 
   if (filterLevel.value === 'county') {
     associated_Models.push('subcounty')
@@ -378,7 +393,7 @@ const getSummary = async (card) => {
   formData.filterOperator = filterOperators
   formData.uniqueCounts =unique
 
-  console.log('foxrmData',formData)
+  console.log('form-c-Data',formData)
 
   try {
     const response01 = await getSummarybyFieldFromMultipleIncludes(formData);
@@ -481,6 +496,8 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
 
 
   var cmodel = thisChart.card_model
+  var filters = thisChart.filters
+
   var cfield = thisChart.card_model_field
   var cAggregation = thisChart.aggregation
   var chartType = thisChart.type
@@ -489,6 +506,19 @@ const xgetSummaryMultipleParentsGrouped = async (thisChart) => {
   var ignoreEmpty = thisChart.ignore_empty?thisChart.ignore_empty:false
   console.log('unique',unique)
  
+
+  
+  if(filters) {
+
+for (const item of filters ) {
+  if(item.field) {
+    filterFields.push(item.field);
+  filterValues.push(item.value);
+  filterOperators.push(item.operation);
+  }
+
+}
+}
 
 
   if (categorizedField) {
@@ -761,6 +791,7 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
   let groupFields = []
   let filterOperators = ['eq']
   let cmodel= 'indicator_category_report'
+  var filters = thisChart.filters
 
   var cfield = 'amount'
   var cAggregation = 'sum'
@@ -782,14 +813,27 @@ const getSummaryChartIIntervention = async (indicator_categories,thisChart) => {
   var filter_field = thisChart.filter_field
   var filter_function = thisChart.filter_function
 
-  if (filter_value && filter_field ) { 
-    filterFields.push(filter_field)
-    filterValues.push(filter_value)
-    filterOperators.push(filter_function)
+  // if (filter_value && filter_field ) { 
+  //   filterFields.push(filter_field)
+  //   filterValues.push(filter_value)
+  //   filterOperators.push(filter_function)
+  // }
+  
+
+ 
+
+
+  if(filters) {
+
+    for (const item of filters ) {
+      if(item.field) {
+        filterFields.push(item.field);
+      filterValues.push(item.value);
+      filterOperators.push(item.operation);
+      }
+
+    }
   }
-
-
-
 
 
 

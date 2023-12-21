@@ -17,14 +17,13 @@ import {
   MessageBox,
   Edit,
   InfoFilled,
-  CopyDocument,
   Delete
 } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
 import {
-  ElPagination, ElCol, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElRow,ElTable,ElSwitch,ElTableColumn,
-  ElPopconfirm
+  ElPagination, ElCol, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElRow,ElCheckbox,
+  ElPopconfirm,ElSwitch
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -34,8 +33,10 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { getUniqueFieldValues} from '@/api/households'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
+import { getListWithoutGeo } from '@/api/counties'
+import DownloadAll from '@/views/Components/DownloadAll.vue';
 
-import { getModelSpecs,   } from '@/api/fields'
+import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -100,7 +101,6 @@ const ModelOptions = [
 
 
 
-
 const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
@@ -117,11 +117,25 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
-const showAdminButtons = ref(false)
 
-// flag for admin buttons
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("staff")) {
-  showAdminButtons.value = true
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
+
+let filters =[]
+let filterValues = []
+
+ 
+
+
+// filter Charts only admins can see all 
+if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin") ) {
+   filters = []
+  filterValues = []
+}
+else {
+
+  filters = ['createdBy']
+  filterValues = [[userInfo.id]]
 }
 
 
@@ -181,8 +195,7 @@ const functionOptions = ref([])
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = []
-var filterValues = []
+ 
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['dashboard']
@@ -331,7 +344,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('After Querry', res)
   tableDataList.value = res.data
   total.value = res.total
-  loading.value=false
 
   tblData = [] // reset the table data
   console.log('TBL-b4', tblData)
@@ -455,25 +467,34 @@ const getStrategicFocusAreas = async () => {
   })
 }
 
+
+const ruleFormRef = ref<FormInstance>()
+const ruleForm = reactive({
+  title: '',
+  dashboard_id: '',
+  description: '',
+  iconColor: 'red',
+  icon: '',
+  aggregation: '',
+  indicator_id: null,
+  card_model_field: '',
+  filter_value:[],
+  filter_function: '',
+  filter_option:'',
+  card_model:'',
+  computation:'',
+  unique:false,
+  filtered: false,
+  category:'',
+  filter_field:''
+})
+
+const editMode=ref(false)
  const editIndicator = async (data: TableSlotDefault) => {
   showSubmitBtn.value = false
-  console.log('Edit--->', data)
-  ruleForm.card_model = data.row.card_model
-
-
-
-
-
-  await handleSelectModel(data.row.card_model)
-   if (data.row.filter_field) {
-    await handleFilterAggregators(data.row.filter_field)
-  }
-
-
-
-
   showEditSaveButton.value = true
-
+   console.log(data.row)
+  let vdata = data.row
   ruleForm.id = data.row.id
   ruleForm.title = data.row.title
   ruleForm.dashboard_id = data.row.dashboard_id
@@ -482,43 +503,58 @@ const getStrategicFocusAreas = async () => {
   ruleForm.icon = data.row.icon
   ruleForm.aggregation = data.row.aggregation
   ruleForm.indicator_id = data.row.indicator_id
+  ruleForm.card_model = data.row.card_model
   ruleForm.card_model_field = data.row.card_model_field
-  ruleForm.filter_value = data.row.filter_value
-  ruleForm.computation = data.row.computation
-  ruleForm.filter_function = data.row.filter_function
-  ruleForm.filter_field = data.row.filter_field
-  ruleForm.filtered = data.row.filtered
-  ruleForm.unique = data.row.unique
-  ruleForm.filters = data.row.filters
-  tableData.value = data.row.filters ?? [];
   ruleForm.category = data.row.category
 
+
+ // ruleForm.filter_value = data.row.filter_value
+  ruleForm.computation = data.row.computation
+  ruleForm.filter_function = data.row.filter_function
+  ruleForm.filter_option = data.row.filter_option
+  ruleForm.unique = data.row.unique
+  ruleForm.filter_field = vdata.filter_field
+  ruleForm.filtered = vdata.filtered
+ 
+   console.log('data.row.filtered', ruleForm)
   
-  console.log('Edit Mode',data.row )
 
    
- 
+
+   if (data.row.card_model_field) {
+    editMode.value=true
+    await handleSelectModel(data.row.card_model)
+    await handleFilterAggregators(data.row.card_model_field)
+   }
   
+ var filterValues = []
    if (data.row.filter_value) {
-    fieldSelected.value = true
-    showFilterValues.value=true 
+
+    data.row.filter_value.forEach(item => {
+      console.log(item);
+      filterValues.push(parseInt(item))
+        });   
+
+        ruleForm.filter_value=filterValues
+    fieldSelected.value=true
+    showFilterValues.value=true
    } else {
     fieldSelected.value=false
 
   }
 
-  //fieldSelected.value && showFilterValues && ruleForm.filtered
-  
-  showStatusExtras.value = true
 
-  
-  //  if (data.row.dashboard.type=='status') {
-  //    showStatusExtras.value = true
-  //    fieldSelected.value=true
-  //  } else {
-  //   showStatusExtras.value=false
+  if (data.row.category === 'Status') {
+     showStatusExtras.value = true
+     fieldSelected.value=true
+   } else {
+    showStatusExtras.value=false
 
-  // }
+   }
+
+   console.log('showStatusExtras',showStatusExtras.value)
+
+   
   
   
 
@@ -552,29 +588,6 @@ const DeleteIndicator = async (data: TableSlotDefault) => {
   getFilteredData(filters, filterValues)
 }
 
-const ruleFormRef = ref<FormInstance>()
-const ruleForm = reactive({
-  title: '',
-  dashboard_id: '',
-  description: '',
-  iconColor: '',
-  icon: '',
-  aggregation: '',
-  indicator_id: null,
-  card_model_field: '',
-  filter_value:null,
-  filter_function:null,
-  filter_field:null,
-  filtered:null,
-  card_model:'',
-  computation:null,
-  unique:false,
-  filters:null,
-  category:''
-
-
-
-})
 const handleClose = () => {
 
   console.log("Clsoing the dialoig")
@@ -639,8 +652,13 @@ const rules = reactive<FormRules>({
 
   computation: [
     { required: true, message: 'computation is required.', trigger: 'blur' },
+  ],
+
+  card_model_field: [
+    { required: true, message: 'Field is required.', trigger: 'blur' },
   ] 
- 
+
+  
 
 
 })
@@ -651,6 +669,14 @@ const AddCard = () => {
 
 
 const submitForm = async (formEl: FormInstance | undefined) => {
+
+  if (!showStatusExtras.value) {
+    ruleForm.card_model = 'indicator_category_report'
+    ruleForm.card_model_field = 'amount'
+  }
+
+
+
   if (!formEl) return
   await formEl.validate((valid, fields) => {
     if (valid) {
@@ -685,7 +711,6 @@ const editForm = async (formEl: FormInstance | undefined) => {
  
 const getIndicatorNames = async () => {
   const formData = {}
-
   formData.curUser = 1 // Id for logged in user
   formData.model = 'indicator'
   //-Search field--------------------------------------------
@@ -698,7 +723,9 @@ const getIndicatorNames = async () => {
   // - multiple filters -------------------------------------
   formData.filters = []
   formData.filterValues = []
-  formData.associated_multiple_models = [  'activity']
+  formData.associated_multiple_models = []
+  formData.nested_models = ['activity', ['project']]
+
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
@@ -706,7 +733,7 @@ const getIndicatorNames = async () => {
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
     var opt = {}
-    console.log(arrayItem)
+    console.log('xx-xx--xx--', arrayItem)
     opt.value = arrayItem.id
     opt.label = arrayItem.name  + ' | ' + arrayItem.activity.title
    // opt.title = arrayItem.category.title
@@ -717,41 +744,47 @@ const getIndicatorNames = async () => {
 }
 
 
-//getIndicatorOptions()
+getIndicatorOptions()
 getInterventionsAll()
 getDashboardOptions()
-//getStrategicFocusAreas()
-//getIndicatorNames()
+getStrategicFocusAreas()
+getIndicatorNames()
 
-const handleSelectType = async (dashboard_id) => {
-    let selDashboard = DashboardOptions.value.filter(item => item.value === dashboard_id);
+const handleSelectType = async (status) => {
+ //   let selDashboard = DashboardOptions.value.filter(item => item.value === dashboard_id);
 
 
-/*   if (selDashboard[0].type==='status') {  // status dashabords 
+  if (status==='Status') {  // status dashabords 
 showStatusExtras.value=true
   } else {
     showStatusExtras.value=false
 
-  } */
-
-  showStatusExtras.value=true
-
+  }
 }
  
 const handleSelectModel = async (selModel) => {
-  fieldOptions.value = []
- 
- 
+  fieldOptions.value=[]
+
+  if(!editMode.value) {
+
     ruleForm.aggregation = ''
    ruleForm.card_model_field = ''
-   ruleForm.filter_value = null
-   ruleForm.filter_function = ''
-    ruleForm.filter_field = ''
+   ruleForm.filter_value = []
+   ruleForm.filter_function = null
+   ruleForm.filter_option = null
+    ruleForm.filter_field = null
    ruleForm.filtered = false
-   ruleForm.computation = null
-   ruleForm.filters = null
-    fieldSet.value=[]
-    ruleForm.category =  ''
+  ruleForm.computation = null
+  fieldSet.value=[]
+  }
+ 
+
+
+
+
+
+
+
 
 
   console.log('specs.....')
@@ -761,9 +794,21 @@ const handleSelectModel = async (selModel) => {
 
 const fieldSelected = ref(false)
 const fieldOptions = ref([])
-const disabledoptions=ref(false)
- 
+const disabledoptions = ref(false)
+
+const categoryOptions  = [
+         {
+            value: 'Status',
+            label: 'Status'
+          },
+          {
+            value: 'Intervention',
+            label: 'Intervention'
+    }
+  ] 
 const handleFilterAggregators = async (selField) => {
+ 
+   
   
   fieldSelected.value=true   // show filter field 
   fieldOptions.value=[]
@@ -817,6 +862,8 @@ const handleFilterAggregators = async (selField) => {
         ]
   }
 
+
+          
 
   console.log('Filter Fields 1.....', selField)
   const formData = {}
@@ -845,162 +892,40 @@ const handleFilterAggregators = async (selField) => {
 
 
 
- const showFilterValues = [];
+ const showFilterValues=ref(false)
+ const handleFilterFunction = async (val) => { 
+  if (val=='all') {
+    showFilterValues.value = false
+    ruleForm.filter_value=[]
+  } 
+  
+  else {
+    showFilterValues.value=true
 
-const handleFilterFunction = async (val, index) => {
-  console.log('val, index', val, index);
+  }
 
-  if (val === 'all') {
-    const newValue = false; // Replace this with the desired value
-    showFilterValues.push(newValue);
-    // ruleForm.filter_value=[]
+   
+
+}
+ 
+
+const onSwitchChange = async (val) => { 
+  if (val) {
+    ruleForm.filter_field=ruleForm.indicator_id
   } else {
-    const newValue = true; // Replace this with the desired value
-    showFilterValues.push(newValue);
+    ruleForm.filter_field=null
+    ruleForm.filter_value=[]
   }
-
-  console.log('showFilterValues', showFilterValues);
-};
  
- 
-
-const CloneCard = async (data: TableSlotDefault) => {
-
-
-  showSubmitBtn.value = true
-  showEditSaveButton.value = false
-
- 
-  ruleForm.card_model = data.row.card_model
-
-
-  await handleSelectModel(data.row.card_model)
-   if (data.row.filter_field) {
-    await handleFilterAggregators(data.row.filter_field)
-  }
-  
- 
-  ruleForm.title = data.row.title
-  ruleForm.dashboard_id = data.row.dashboard_id
-  ruleForm.description = data.row.description
-  ruleForm.iconColor = data.row.iconColor
-  ruleForm.icon = data.row.icon
-  ruleForm.aggregation = data.row.aggregation
-  ruleForm.indicator_id = data.row.indicator_id
-  ruleForm.card_model_field = data.row.card_model_field
-  ruleForm.filter_value = data.row.filter_value
-  ruleForm.computation = data.row.computation
-  ruleForm.filter_function = data.row.filter_function
-  ruleForm.filter_field = data.row.filter_field
-  ruleForm.filtered = data.row.filtered
-  ruleForm.unique = data.row.unique
-  ruleForm.category = data.row.category
-
-   
-  
-   if (data.row.filter_value) {
-    fieldSelected.value = true
-    showFilterValues.value=true 
-   } else {
-    fieldSelected.value=false
-
-  }
-
-   
-  showStatusExtras.value = true
 
   
-  
+// for interventions show the filter values directlyt
+  if(!showStatusExtras.value) {
+    console.log('Indicators only....', fieldSelected  )
+    fieldSelected.value = true   // show filter field 
+    ruleForm.card_model_field='indicator_category_id'
 
-  formHeader.value = 'Clone Card'
-
-
-  AddDialogVisible.value = true
-}
-
-const tableData = ref([])
-const deleteRow = (index: number) => {
-  tableData.value.splice(index, 1)
-}
-
-const onAddItem = () => {
-
-console.log('tableData.value',tableData.value)
-
-  console.log('adding....')
-
-   tableData.value.push({
-    field: null,
-    operation:null,
-    value: null 
-  })
- 
-
-
-
-}
-
-const onAddFilter = () => {
- 
-  const nonNullItems = tableData.value.filter(item => item.field !== null && item.operation !== null);
-
-// Convert the Vue.js proxies to plain JavaScript objects
-const plainObjects = nonNullItems.map(item => JSON.parse(JSON.stringify(item)));
-
-ruleForm.filters = plainObjects;
-
-
-  console.log('ruleForm',ruleForm)
-
-
-
-}
-
- 
-
-
-const handleChangeFilterField = async (selField) => {
-  
-  fieldSelected.value=true   // show filter field 
-  fieldOptions.value=[]
-   console.log('filtreing teh aggregators.....',selField )
-   
-   let selectedField = fieldSet.value.filter(option => option.value  == selField);
-   console.log('selectedField', selectedField)
-  let selFieldType = selectedField[0].type
-
-   if (selFieldType==="STRING") {
-    aggregationOptionsFiltered.value = aggregationOptions.filter(option => option.value === 'count');
-
-    functionOptions.value =[
-    {
-            value: 'all',
-            label: 'All'
-          },
-          {
-            value: 'eq',
-            label: 'Equal'
-          },
-        
-          
-        ]
-   } 
-
-   else if(selFieldType==="ARRAY"){
-    functionOptions.value =[
-    
-          {
-            value: 'contains',
-            label: 'Contains'
-          },
-        
-          
-        ]
-   }
-   else {
-     aggregationOptionsFiltered.value = aggregationOptions
-
-     functionOptions.value = [
+    functionOptions.value = [
          {
             value: 'all',
             label: 'All'
@@ -1024,58 +949,73 @@ const handleChangeFilterField = async (selField) => {
           },
           
         ]
+
+  }
+}
+
+// Filters for interventions
+const implementationOptions = ref([])
+ const getImplementationSponsors = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'programme_implementation',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    //console.log('Received response:', response)
+    //tableDataList.value = response.data
+    const ret = response.data
+  
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      const parentOpt = {}
+      parentOpt.value = arrayItem.id
+       parentOpt.label = arrayItem.acronym + "("+arrayItem.id +")"
+      //  console.log(countyOpt)
+      implementationOptions.value.push(parentOpt)
+    })
+  })
+}
+
+getImplementationSponsors()
+
+const filterInterventionsOptions = [
+  {
+    value: 'quantity',
+    label: 'Quantity'
+  },
+  
+  {
+    value: 'programme',
+    label: 'Programme'
+  }
+]
+
+const filterOption = ref()
+
+
+
+const changeFilterForIndicators = async (val) => { 
+
+  console.log('val', val)
+
+  if (val=='programme') {
+    ruleForm.filter_field = 'programme_implementation_id'
+    ruleForm.filter_function='eq'
+  } else {
+    ruleForm.filter_field = 'amount'
+
+
   }
 
+}
 
-  console.log('Filter Fields 1.....', selField)
-  const formData = {}
-   formData.model = ruleForm.card_model
-  //-Search field--------------------------------------------
-  formData.selectedField = selField
-  //--Single Filter -----------------------------------------
-  const res = await getUniqueFieldValues(formData)
-  console.log('Filter Fields 2:',res.data)
-   
-  // Flatten all levels of nested arrays
-      const flattenedData = res.data.flat(Infinity);
-      console.log('Flattened Data:', flattenedData);
+const infoDialog=ref(false)
 
-
-      flattenedData.forEach(function (arrayItem: { }) {
-          var opt = {}
-          console.log(arrayItem)
-          opt.value = arrayItem
-          opt.label = arrayItem
-        // opt.title = arrayItem.category.title
-        
-        //fieldOptions.value.push(opt)
-
-          // Check if an item with the same value or label already exists
-        const exists = fieldOptions.value.some((existingItem) => {
-          return existingItem.value === opt.value || existingItem.label === opt.label;
-        });
-
-        // If the item doesn't exist, push it into the array
-        if (!exists) {
-          fieldOptions.value.push(opt);
-        }
-
-
-        })
-
- }
-
- 
-const categoryOptions  = [
-         {
-            value: 'Status',
-            label: 'Status'
-          },
-          {
-            value: 'Intervention',
-            label: 'Intervention'
-    }
-  ] 
 
 </script>
 
@@ -1093,6 +1033,8 @@ v-model="value3" :onChange="handleSelectDashboard" :onClear="handleClear" multip
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleDownload" type="primary" :icon="Download" />
     </div>
+    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
@@ -1112,17 +1054,7 @@ v-model="value3" :onChange="handleSelectDashboard" :onClear="handleClear" multip
           <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
         </el-tooltip>
 
-        <el-tooltip content="Clone" placement="top">
-              <el-button
-v-if="showAdminButtons" type="warning" :icon="CopyDocument"
-                @click="CloneCard(data as TableSlotDefault)" circle />
-            </el-tooltip>
-
-
-        <el-tooltip
-        
-        
-        content="Delete" placement="top">
+        <el-tooltip content="Delete" placement="top">
           <el-popconfirm
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
             title="Are you sure to delete this record?" @confirm="DeleteIndicator(data as TableSlotDefault)">
@@ -1144,7 +1076,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
       <el-form-item label="Dashboard" prop="dashboard_id" >
-        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select"   :onChange="handleSelectType">
+        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" >
           <el-option v-for="item in DashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
@@ -1155,17 +1087,40 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
        </el-form-item>
  
 
+       <el-form-item label="Category" prop="category" >
+        <el-select v-model="ruleForm.category" filterable placeholder="Select"   :onChange="handleSelectType" >
+          <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+        <el-button  plain style="margin-left: 5px"  :icon="InfoFilled" @click="infoDialog = true"/>
+
+      </el-form-item>
+        
 
        <el-form-item label="Description" prop="description">
            <el-input v-model="ruleForm.description" />
        </el-form-item>
-      <el-row>
+ 
+
+       <el-row>
         <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
-            <el-form-item label="Icon"  prop="icon">
-              <el-tooltip content="Get icons from https://icon-sets.iconify.design/" placement="top">
+        
+          <el-form-item label="Icon" prop="icon">
+            <el-tooltip class="item" effect="dark" placement="top">
+              <template #content>
+                <div>
+                  <p>Get Icons from <a href="https://iconify.design/" target="_blank">https://iconify.design/</a></p>
+                </div>
+              </template>
               <el-input v-model="ruleForm.icon" />
             </el-tooltip>
-            </el-form-item>
+            <a
+              v-if="ruleForm.icon"
+              :href="'https://icnoffydesign.com/icons/' + ruleForm.icon"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+            </a>
+          </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
       <el-form-item label="Icon Color" prop="iconColor">
@@ -1174,148 +1129,155 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       </el-col>
 
       </el-row>
-      <el-form-item label="Category" prop="category" >
-        <el-select v-model="ruleForm.category" filterable placeholder="Select"   :onChange="handleSelectType" >
-          <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-        <el-button  plain style="margin-left: 5px"  :icon="InfoFilled" @click="infoDialog = true"/>
+      <el-row :gutter="0">
+      <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+      <el-form-item label="Indicator" v-if="!showStatusExtras"  prop="indicator_id" >
+        <el-select
+style="width: 100%"
+v-model="ruleForm.indicator_id" :onClear="handleClear"    clearable
+        filterable collapse-tags placeholder="Filter by Project/Indicator">
+        <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+       </el-form-item>
+      </el-col>
+    </el-row>
+      <el-row :gutter="0">
+            
 
-      </el-form-item>
- 
-       <el-form-item label="Type"    prop="card_model" >
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-form-item label="Aggregation"   v-if="!showStatusExtras" prop="aggregation" >
+            <el-select size="default" v-model="ruleForm.aggregation" :onClear="handleClear" style="width: 90%" clearable filterable collapse-tags placeholder="Select">
+              <el-option v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-checkbox   v-if="!showStatusExtras"  v-model="ruleForm.unique" label="Unique" size="small" border />
+
+
+    </el-row>
+
+       <el-form-item label="Entity" v-if="showStatusExtras"   prop="card_model" >
         <el-select
 v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags  :onChange="handleSelectModel"
           placeholder="Select Entity to summarize">
           <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
-      <el-row>
-              <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
-              <el-form-item label="Agg.Field" prop="card_model_field" >
+ 
+      <el-row :gutter="0">
+              <el-col :xs="10" :sm="24" :md="10" :lg="10" :xl="10">
+              <el-form-item  v-if="showStatusExtras"  label="Agg.Field" prop="card_model_field" >
                 <el-select
-        v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
+        v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags  :onChange="handleFilterAggregators"
                   placeholder="Field to summarize">
                   <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </el-form-item>
             </el-col>
-            <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item label="Aggregation" prop="aggregation" >
+            <el-col :xs="10" :sm="24" :md="10" :lg="10" :xl="10">
+            <el-form-item  v-if="showStatusExtras"  label="Function" prop="aggregation" >
             <el-select size="default" v-model="ruleForm.aggregation" :onClear="handleClear" style="width: 90%" clearable filterable collapse-tags placeholder="Select">
               <el-option v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
-          <!--  <el-checkbox v-model="ruleForm.unique" label="Unique" size="small" border />  -->            </el-col>
-    </el-row>
 
-  <el-row>
+          </el-col>
+          
+        <el-checkbox v-if="showStatusExtras" v-model="ruleForm.unique" label="Unique" size="small" border />
+      
+      </el-row>
+      <el-row>
+        <el-form-item label="Filter" >
+            <el-switch
+            v-model="ruleForm.filtered" 
+            @change="onSwitchChange"
+            style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes" inactive-text="No" />
+          </el-form-item> 
+          
+
+           <!-- // Filters for Interventions dashbaords -->
+           <el-form-item label="Filter By" prop="filterOption" v-if="ruleForm.filtered && !showStatusExtras">
+            <el-select v-model="ruleForm.filter_option" :onClear="handleClear" :onChange="changeFilterForIndicators" collapse-tags placeholder="Filter By">
+              <el-option v-for="item in filterInterventionsOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+
+              
+
+              <el-form-item label="Programme" prop="filter_field" v-if=" ruleForm.filtered && !showStatusExtras && ruleForm.filter_option=='programme'">
+                <el-select
+v-model="ruleForm.filter_value" :onClear="handleClear"  multiple collapse-tags  
+                  placeholder="Field to filter with">
+                  <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
+ 
+
+      
 
 
-    <el-form-item label="Computation" prop="computation" class="mt-4" >
+                <!-- // Filters for Status dashbaords -->
+
+
+              <el-form-item label="Filter Field" prop="filter_field"  v-if="ruleForm.filtered &&showStatusExtras && ruleForm.filter_option!='programme'">
+                <el-select
+        v-model="ruleForm.filter_field"   :onClear="handleClear" clearable filterable collapse-tags :onChange="handleFilterAggregators"
+                  placeholder="Field to filter with">
+                  <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-form-item>
+ 
+
+
+          </el-row>
+
+      <el-row>
+
+           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+      <el-form-item label="Filter Function" prop="filter_function"  v-if="fieldSelected && ruleForm.filtered && ruleForm.filter_option!='programme'">
+        <el-select
+                v-model="ruleForm.filter_function" 
+                :onClear="handleClear" 
+                clearable   
+                filterable 
+                collapse-tags 
+                placeholder="" 
+                :onChange="handleFilterFunction">
+                  <el-option v-for="item in functionOptions" :key="item.value" :label="item.label" :value="item.value"  />
+                </el-select>
+              </el-form-item>
+         </el-col>
+
+
+            <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+                <el-select
+                  v-if="fieldSelected && showFilterValues && ruleForm.filtered  && ruleForm.filter_option!='programme'" 
+                v-model="ruleForm.filter_value" :onClear="handleClear"
+                  clearable 
+                  multiple
+                filterable 
+                collapse-tags 
+                allow-create
+                placeholder="Filter values">
+                  <el-option v-for="item in fieldOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+              </el-col>
+
+            
+
+      </el-row>
+   
+ 
+
+
+
+       <el-form-item label="Computation" prop="computation">
             <el-select
 size="default" v-model="ruleForm.computation"  :onClear="handleClear"  
             clearable filterable collapse-tags placeholder="Select">
             <el-option label="Proportion(%)" value="proportion"/>
       <el-option label="Absolute" value="absolute"/>          </el-select>
        </el-form-item>
-
-
-           <el-form-item label="Filter"  prop="filtered"   v-if="ruleForm.card_model" class="mt-4"  >
-                <el-switch 
-            v-model="ruleForm.filtered" style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes" inactive-text="No" />
-              </el-form-item>
-        
-        
-        
- 
-              
-       </el-row>
-              <el-row>
-         
- 
-
-
-    <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-
-      <div class="table-container">
-        <el-table   v-if="ruleForm.filtered" :data="tableData" style="width: 90%; margin-left: 10px;" max-height="250" size="small">
-          <el-table-column prop="field" label="Field">
-            <template #default="scope">
-              <el-select v-model="scope.row.field" placeholder="Select Field" :onChange="handleChangeFilterField">
-                <el-option
-                v-for="item in fieldSet"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-             </el-select>
-            </template>
-          </el-table-column>
-
-          <el-table-column prop="operation" label="Operation">
-            <template #default="scope">
-              <!-- <el-select v-model="scope.row.operation" placeholder="Select Operation"  :onChange="handleFilterFunction(scope.row.operation,scope.$index)"> -->
-                <el-select v-model="scope.row.operation" placeholder="Select Operation"   >
-                <el-option
-                  v-for="item in functionOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </template>
-          </el-table-column>
-
-          <el-table-column prop="value" label="Value">
-            <template #default="scope">
-              <el-select   v-model="scope.row.value" placeholder="Select Value"  multiple collapse-tags-tooltip collapse-tags	  :onChange="onAddFilter">
-                <el-option
-                  v-for="item in fieldOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </template>
-          </el-table-column>
-
-          <el-table-column>
-            <template #default="scope">
-             <el-tooltip content="Remove filter" placement="top">
-                <el-button size="small" @click.prevent="deleteRow(scope.$index)"  type="danger" :icon="Delete"   />
-            </el-tooltip>
-
-            </template>
-          </el-table-column>
-        </el-table>
-        
-        </div>
-        <div class="table-container">
-          <el-button-group>
-      <el-button v-if="ruleForm.filtered" class="mt-4" style="width: 45%" @click="onAddItem" size="small">
-        Add Filter
-      </el-button>
-      <el-button v-if="ruleForm.filtered" class="mt-4" style="width: 45%" @click="onAddFilter" size="small">
-        Save Filters
-      </el-button>
-    </el-button-group>
-        </div>
-       
-      </el-col>
-
-
-
-
-      </el-row>
-    
-
-
-       <el-row/>
-
-
-
-
-      
 
  
     </el-form>
@@ -1328,6 +1290,36 @@ size="default" v-model="ruleForm.computation"  :onClear="handleClear"
       </span>
     </template>
   </el-dialog>
+
+  
+  <el-dialog
+    v-model="infoDialog"
+     width="40%"
+  >
+    <div class="info-dialog-content">
+      <div class="info-dialog-section">
+        <h4  class="info-heading">Status Chart:</h4>
+        <p>
+          A card that draws data from an entity within the system such as settlements, facilities, etc.
+        </p>
+      </div>
+      <div class="info-dialog-section">
+        <h4 class="info-heading"> Interventions Chart:</h4>
+        <p>
+          A card that draws data exclusively from slum interventions such as construction of infrastructure, 
+          issuance of titles, and more.  
+        </p>
+      </div>
+
+      
+ 
+
+
+    </div>
+  </el-dialog>
+
+
+
 </template>
 <style>
 .gray-tooltip .el-tooltip__popper {
@@ -1336,11 +1328,27 @@ size="default" v-model="ruleForm.computation"  :onClear="handleClear"
 </style>
 
 
+<style scoped>
+.info-dialog-content {
+  padding: 5px;
+}
 
-<style>
-.table-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
- }
+.info-dialog-section {
+  margin-bottom: 5px;
+}
+
+.info-dialog-section h4 {
+  font-size: 1.2em;
+  margin-bottom: 10px;
+}
+
+.info-dialog-section p {
+  line-height: 1.5;
+}
+
+.info-heading {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
 </style>
