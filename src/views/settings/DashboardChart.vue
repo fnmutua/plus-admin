@@ -76,8 +76,10 @@ const downloadLoading = ref(false)
 let filters =[]
 let filterValues = []
 
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
+//const showAdminButtons =  ref(appStore.getAdminButtons)
+const showAdminButtons =  true
+//const showEditButtons =  ref(appStore.getEditButtons)
+const showEditButtons =  true
 
 
  
@@ -526,9 +528,12 @@ const editIndicator = (data: TableSlotDefault) => {
 
           {
             value: 4,
-            label: 'Stacked Bar'
+              label: 'Stacked Bar(100%)'
           },
-
+          {
+            value: 9,
+            label: 'Stacked Bar(Absolute)'
+          },
           {
             value: 5,
             label: 'Line Chart'
@@ -562,9 +567,12 @@ const editIndicator = (data: TableSlotDefault) => {
 
           {
             value: 4,
-            label: 'Stacked Bar'
+              label: 'Stacked Bar(100%)'
           },
-
+          {
+            value: 9,
+            label: 'Stacked Bar(Absolute)'
+          },
           {
             value: 5,
             label: 'Line Chart'
@@ -685,9 +693,13 @@ const CloneChart = (data: TableSlotDefault) => {
 
           {
             value: 4,
-            label: 'Stacked Bar'
+              label: 'Stacked Bar(100%)'
           },
 
+          {
+            value: 9,
+            label: 'Stacked Bar(Absolute)'
+          },
           {
             value: 5,
             label: 'Line Chart'
@@ -721,9 +733,12 @@ const CloneChart = (data: TableSlotDefault) => {
 
           {
             value: 4,
-            label: 'Stacked Bar'
+              label: 'Stacked Bar(100%)'
           },
-
+          {
+            value: 9,
+            label: 'Stacked Bar(Absolute)'
+          },
           {
             value: 5,
             label: 'Line Chart'
@@ -1061,9 +1076,12 @@ chartOptions.value = [
 
           {
             value: 4,
-            label: 'Stacked Bar'
+              label: 'Stacked Bar(100%)'
           },
-
+          {
+            value: 9,
+            label: 'Stacked Bar(Absolute)'
+          },
           {
             value: 5,
             label: 'Line Chart'
@@ -1106,11 +1124,15 @@ chartOptions.value = [
             label: 'Pie'
           },
 
-          {
+           {
             value: 4,
-            label: 'Stacked Bar'
+            label: 'Stacked Bar(100%)'
           },
 
+          {
+            value: 9,
+            label: 'Stacked Bar(Absolute)'
+          },
           {
             value: 5,
             label: 'Line Chart'
@@ -1144,9 +1166,12 @@ chartOptions.value = [
 
           {
             value: 4,
-            label: 'Stacked Bar'
+              label: 'Stacked Bar(100%)'
           },
-
+          {
+            value: 9,
+            label: 'Stacked Bar(Absolute)'
+          },
           {
             value: 5,
             label: 'Line Chart'
@@ -1535,11 +1560,13 @@ v-model="value3" :onChange="handleSelectDashboardSection" :onClear="handleClear"
           <Icon  v-if="scope.row.type === 1"  width="24" icon="tabler:chart-bar" />
           <Icon  v-if="scope.row.type === 2"  width="24" icon="fa-regular:chart-bar" />
           <Icon  v-if="scope.row.type === 3"  width="24" icon="bi:pie-chart-fill" />
-          <Icon  v-if="scope.row.type === 4"  width="24" icon="ic:baseline-stacked-bar-chart" />
+          <Icon  v-if="scope.row.type === 4"  width="24" icon="material-symbols:full-stacked-bar-chart" />
           <Icon  v-if="scope.row.type === 5"  width="24" icon="vaadin:line-chart" />
           <Icon  v-if="scope.row.type === 6"  width="24" icon="material-symbols:1x-mobiledata-badge-rounded" />
           <Icon  v-if="scope.row.type === 7"  width="24" icon="foundation:map" />
           <Icon  v-if="scope.row.type === 8"  width="24" icon="carbon:chart-population" />
+          <Icon  v-if="scope.row.type === 9"  width="24" icon="ic:baseline-stacked-bar-chart" />
+
     </template>
   </el-table-column>
   <el-table-column label="#" prop="id" sortable />
