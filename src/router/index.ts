@@ -122,7 +122,19 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       },
-       
+      {
+        path: 'map',
+        component: () => import('@/views/Dashboard/LandingMap.vue'),
+        name: 'LandingMap',
+        meta: {
+          title: t('Map'),
+          noCache: true,
+          icon:'game-icons:kenya',
+          affix: true,
+          hidden: false,
+
+        }
+      }, 
     ]
   },
   {
