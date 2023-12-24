@@ -86,8 +86,7 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.BOOLEAN,
       defaultValue: true
     },
-
-
+ 
  
     filters: {
       type: DataTypes.ARRAY(DataTypes.JSONB),

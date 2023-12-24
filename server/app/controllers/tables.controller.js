@@ -356,7 +356,7 @@ exports.modelAllData = (req, res) => {
 
  
 
-exports.modelAllDataNoGeo = (req, res) => {
+exports._modelAllDataNoGeo = (req, res) => {
   var reg_model = req.query.model;
   var field = req.query.searchField;
   var searchKeyword = req.query.searchKeyword;
@@ -439,7 +439,7 @@ if (associated_multiple_models && associated_multiple_models !== '') {
   } else {
     includeQuery.attributes = { exclude: ['geom'] };
   }
-
+ 
 
   if (field && searchKeyword && searchKeyword !== '' && field !== '') {
     console.log('Filtered with no GEO');
@@ -467,6 +467,248 @@ if (associated_multiple_models && associated_multiple_models !== '') {
     });
   }
 };
+
+ 
+
+exports.modelAllDataNoGeo = async (req, res) => {
+  var reg_model = req.query.model;
+  var field = req.query.searchField;
+  var searchKeyword = req.query.searchKeyword;
+  var ass_model = db.models[req.query.assocModel];
+
+  var nestedModels = req.query.nested_models; // Comma-separated list of nested models
+  var associated_multiple_models = req.query.associated_multiple_models; // Comma-separated list of nested models
+   var includeQuery = {};
+  var modelsToInclude = [];
+
+  if (req.query.assocModel) {
+    var assocModelObject = {
+      model: db.models[req.query.assocModel],
+      attributes: { exclude: ['geom'] }
+    };
+    modelsToInclude.push(assocModelObject);
+  }
+
+// multiple associated models 
+ 
+
+if (associated_multiple_models && associated_multiple_models !== '') {
+  var modelList = associated_multiple_models.split(',');
+  modelList.forEach((assModel) => {
+    var assModelObject = {
+      model: db.models[assModel],
+      attributes: { exclude: ['geom'] }
+    };
+   // modelsToInclude.push(assModelObject);
+   
+    if (!modelsToInclude.some((model) => model.model === assModelObject.model)) {
+      modelsToInclude.push(assModelObject);
+    }
+
+  });
+}
+
+  
+  
+  
+
+  if (nestedModels && nestedModels !== '' ) {
+    var nestedModelList = nestedModels.split(',');
+
+    nestedModelList.forEach((nestedModel) => {
+      var nestedModelObject = {
+        model: db.models[nestedModel],
+        attributes: { exclude: ['geom'] }
+      };
+     // modelsToInclude.push(nestedModelObject);
+      if (!modelsToInclude.some((model) => model.model === nestedModelObject.model)) {
+        modelsToInclude.push(nestedModelObject);
+      }
+    });
+
+    modelsToInclude.reduceRight((prevModel, nestedModelObject) => {
+      nestedModelObject.include = [prevModel];
+      return nestedModelObject;
+    });
+
+    includeQuery.include = [modelsToInclude[0]];
+  } else {
+    console.log('No Nested Models');
+
+    includeQuery.include = modelsToInclude;
+
+    
+  }
+
+  includeQuery.attributes = { exclude: ['geom'] };
+
+  //includeQuery.order = [['name', 'ASC'], ['title', 'ASC']]; //sort either by title or name
+
+  
+  if (reg_model === 'users') {
+    // Exclude password fields if the model is users
+    includeQuery.attributes = {
+      exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken' ]
+    };
+  } else {
+    includeQuery.attributes = { exclude: ['geom'] };
+  }
+ 
+
+  if (field && searchKeyword && searchKeyword !== '' && field !== '') {
+    console.log('Filtered with no GEO');
+
+    includeQuery.where = {
+      [field]: Number.isInteger(parseInt(searchKeyword)) ? parseInt(searchKeyword) : { [Op.iLike]: `%${searchKeyword.toLowerCase()}%` }
+    };
+ 
+  } 
+
+
+
+
+  // db.models[reg_model].findAndCountAll(includeQuery).then((list) => {
+  //   res.status(200).send({
+  //     data: list.rows,
+  //     total: list.count,
+  //     code: '0000'
+  //   });
+  // });
+
+
+  if (req.query.cache_key && req.query.cache_key != '') { 
+
+    const cache_key = req.query.cache_key;   
+    const cacheDuration = 3600; // Cache duration in seconds
+
+    
+    // get last time it was modified 
+    const lastRow = await db.models[reg_model].findOne({
+      attributes: ['updatedAt'],
+      order: [['updatedAt', 'DESC']]
+    });
+    
+    const lastModified = lastRow ? lastRow.updatedAt: Date.now()
+   // console.log(lastModified,req.query.cache_key)
+   // console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+
+
+    try {
+      const cacheResults = await redisClient.get(cache_key);
+      if (cacheResults) {
+        const result = JSON.parse(cacheResults);
+         if (lastModified && lastModified > result.lastModified) {
+          // If the database was updated after the cached data was generated, update the cache
+          //const response = await db.models[reg_model].findAndCountAll(qry2);
+          // const xresponse = await sequelize.query(qry2, {
+          //   model: db.models[reg_model],
+          //   mapToModel: false // pass true here if you have any mapped fields
+          // })
+
+
+          const response = await  db.models[reg_model].findAndCountAll(includeQuery).then((list) => {
+            res.status(200).send({
+              data: list.rows,
+              total: list.count,
+              code: '0000'
+            });
+          });
+
+
+
+
+          await redisClient.set(cache_key, JSON.stringify({
+            data: response,
+             lastModified: Date.now() // Update the last modified timestamp
+          }), {
+            EX: cacheDuration,
+            NX: true,
+          });
+
+          res.status(200).send({
+            fromCache: false,
+            cache_key: cache_key,
+            data: response,
+            code: '0000'
+          });
+        } else {
+          // If the cached data is still valid, return it from the cache
+          res.status(200).send({
+            fromCache: true,
+            cache_key: cache_key,
+            data: result,
+            test:"test",
+            code: '0000'
+          });
+        }
+      } else {
+
+        // If no cache data exists, generate new data and store it in the cache
+        
+
+
+        const response = await  db.models[reg_model].findAndCountAll(includeQuery) 
+
+
+
+        await redisClient.set(cache_key, JSON.stringify({
+          data: response,
+           lastModified: Date.now() // Set the last modified timestamp to current time
+        }), {
+          EX: cacheDuration,
+          NX: true,
+        });
+
+          //  return it from the cache
+          res.status(200).send({
+            fromCache: true,
+            cache_key: cache_key,
+             data: response,
+             code: '0000'
+          });
+    }
+    }
+    catch(error) {
+      res.status(500).send({
+        message: 'Internal server error',
+        code: 'SERVER_ERROR'
+      });
+    }
+
+
+
+
+  } 
+  else {
+
+    console.log("123xxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+    //console.log(qry)
+
+    // db.models[reg_model].findAndCountAll(qry).then((list) => {
+    //   res.status(200).send({
+    //     fromCache: false,
+    //     data: list.rows,
+    //     total: count,
+    //     code: '0000'
+    //   })
+    // })
+
+    db.models[reg_model].findAndCountAll(includeQuery).then((list) => {
+      res.status(200).send({
+        data: list.rows,
+         total: list.count,
+        fromCache: false,
+        code: '0000'
+      });
+    });
+
+
+  }
+
+
+};
+
+
 
 
 
@@ -850,7 +1092,7 @@ exports.modelCreateOneRecord = (req, res) => {
 
 }
 
-exports.modelAllGeo = async (req, res) => {
+exports.xxmodelAllGeo = async (req, res) => {
   var reg_model = req.body.model
   var xqry2 =
     " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +
@@ -875,63 +1117,131 @@ exports.modelAllGeo = async (req, res) => {
   })
 }
 
-exports.xmodelAllGeo = async (req, res) => {
-  
-  try {
-    var reg_model = req.body.model;
-
-    // Check if tableName is provided in the request body
-    if (!reg_model) {
-      return res.status(400).json({ error: 'Table name is required in the request body' });
-    }
-
-    // Find the model based on the table name
-    const Model = db.models[reg_model];
-    if (!Model) {
-      return res.status(404).json({ error: 'Table not found' });
-    }
-
-    const geoJSON = await Model.findAll({
-      where: {
-        geom: {
-          [Op.not]: null, // Filter geom column where it's not null
-        },
-      },
-      attributes: [
-        'id', // Include the 'id' attribute
-        [Sequelize.fn('ST_AsGeoJSON', Sequelize.col('geom')), 'geoJSON'], // Use ST_AsGeoJSON to convert the geometry to GeoJSON
-        // Add other columns you want in the properties
-      ],
-    });
-
-    if (!geoJSON || geoJSON.length === 0) {
-      return res.status(404).json({ error: 'No valid geometry found' });
-    }
-
-    const data = {
-      type: 'FeatureCollection',
-      features: geoJSON.map(row => ({
-        type: 'Feature',
-        geometry: JSON.parse(row.dataValues.geoJSON), // Parse the GeoJSON string
-        properties: {
-          id: row.dataValues.id, // Include the 'id' attribute in properties
-
-          // Include other properties from the model as needed
-          // For example: property1: row.dataValues.property1, property2: row.dataValues.property2, ...
-        },
-      })),
-    };
  
-    res.status(200).send({
-      message: "Maps retrieval successful",
-      code: "0000",
-      data: data // Include the updated record in the response
+exports.modelAllGeo = async (req, res) => {
+  var reg_model = req.body.model
+   
+	var qry2 =
+  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
+  reg_model + ' where geom is not null ) as f ) as fc'
+  
+   
+  console.log("req.body.cache_key",)
+
+
+
+  if (req.body.cache_key && req.body.cache_key != '') { 
+
+    const cache_key = req.body.cache_key;   
+    const cacheDuration = 3600; // Cache duration in seconds
+
+    
+    // get last time it was modified 
+    const lastRow = await db.models[reg_model].findOne({
+      attributes: ['updatedAt'],
+      order: [['updatedAt', 'DESC']]
     });
-  } catch (error) {
-    console.error('Error retrieving GeoJSON data:', error);
-    res.status(500).json({ error: 'Failed to retrieve GeoJSON data' });
+    
+    const lastModified = lastRow ? lastRow.updatedAt: Date.now()
+    console.log(lastModified,req.body.cache_key)
+     console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+
+
+    try {
+      const cacheResults = await redisClient.get(cache_key);
+     
+
+      if (cacheResults) {
+        console.log("reurning from cachec.....")
+        const result = JSON.parse(cacheResults);
+         if (lastModified && lastModified > result.lastModified) {
+          // If the database was updated after the cached data was generated, update the cache
+          //const response = await db.models[reg_model].findAndCountAll(qry2);
+          const response = await sequelize.query(qry2, {
+            model: db.models[reg_model],
+            mapToModel: false // pass true here if you have any mapped fields
+          })
+
+
+          await redisClient.set(cache_key, JSON.stringify({
+            data: response,
+             lastModified: Date.now() // Update the last modified timestamp
+          }), {
+            EX: cacheDuration,
+            NX: true,
+          });
+
+          res.status(200).send({
+            fromCache: false,
+            cache_key: cache_key,
+            data: response,
+            code: '0000'
+          });
+        } else {
+          // If the cached data is still valid, return it from the cache
+          res.status(200).send({
+            fromCache: true,
+            cache_key: cache_key,
+            data: result.data,
+            code: '0000'
+          });
+        }
+      } 
+      else {
+
+        // If no cache data exists, generate new data and store it in the cache
+        //const response = await db.models[reg_model].findAndCountAll(qry);
+        const response = await sequelize.query(qry2, {
+          model: db.models[reg_model],
+          mapToModel: false // pass true here if you have any mapped fields
+        })
+
+
+        await redisClient.set(cache_key, JSON.stringify({
+          data: response,
+           lastModified: Date.now() // Set the last modified timestamp to current time
+        }), {
+          EX: cacheDuration,
+          NX: true,
+        });
+
+          //  return it from the cache
+          res.status(200).send({
+            fromCache: false,
+            cache_key: cache_key,
+            data: response,
+             code: '0000'
+          });
+    }
   }
+    catch(error) {
+      res.status(500).send({
+        message: 'Internal server error',
+        code: 'SERVER_ERROR'
+      });
+    }
+
+
+
+
+  } else {
+
+    console.log("123xxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+    console.log(qry)
+
+    db.models[reg_model].findAndCountAll(qry).then((list) => {
+      res.status(200).send({
+        fromCache: false,
+        data: list.rows,
+        total: count,
+        code: '0000'
+      })
+    })
+
+  }
+
 }
+
 
 
 exports.modelOneGeo = async (req, res) => {
