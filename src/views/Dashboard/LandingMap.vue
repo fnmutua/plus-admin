@@ -1098,62 +1098,7 @@ h1 {
   background-position: bottom center, 50%, 50%;
 }
 
-.nbo-bg {
-  height: 800px;
-  display: block;
-  background-color: rgb(11, 136, 0.02);
-  background-image:
-    url('@/assets/svgs/nbo.svg');
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: bottom center, 50%, 50%;
-}
-
-.xnbo2-bg {
-  height: 800px;
-  display: block;
-  background-color: rgb(173, 198, 168);
-  background-image:
-    url('@/assets/svgs/nbo2.svg');
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: bottom center, 50%, 50%;
-}
-
-.nbo2-bg {
-  border: 0px solid rgba(100, 100, 100, 1);
-  border-radius: 24px;
-  height: 800px;
-  display: block;
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: bottom center, 50%, 50%;
-  background-image: url('@/assets/svgs/map3.png'),
-    radial-gradient(93% 93% at 8% 128%,
-      rgba(255, 238, 194, 1) 0%,
-      rgba(255, 238, 194, 0.2) 60%,
-      rgba(194, 233, 255, 0) 100%),
-    radial-gradient(49% 88% at 27% -14%,
-      rgba(93, 227, 236, 0.73) 0%,
-      rgba(93, 227, 236, 0.17) 60%,
-      rgba(93, 227, 236, 0) 100%),
-    radial-gradient(115% 156% at 90% 89%,
-      rgba(75, 254, 222, 1) 0%,
-      rgba(75, 254, 222, 0) 100%),
-    linear-gradient(234deg,
-      rgba(69, 74, 187, 1) 25%,
-      rgba(69, 74, 187, 0.77) 35%,
-      rgba(69, 74, 187, 0.4) 50%,
-      rgba(91, 196, 229, 0) 84%),
-    radial-gradient(119% 119% at 3% 26%,
-      rgba(48, 142, 230, 1) 0%,
-      rgba(48, 158, 230, 0) 74%),
-    linear-gradient(360deg,
-      rgba(242, 245, 250, 1) 0%,
-      rgba(242, 245, 250, 1) 100%);
-  background-blend-mode: normal, normal, normal, normal, normal;
-}
-
+ 
 
 .el-carousel__item h3 {
   color: #475669;
