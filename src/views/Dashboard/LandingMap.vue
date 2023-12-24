@@ -685,31 +685,38 @@ const getClickedFarm = async (id) => {
           // Correct for multiple copies of the feature
           
           const geom  = turf.centroid(settlement.geom);
-          console.log('Clicked farm',geom.geometry );
-          const popup = new mapboxgl.Popup({
+           const popup = new mapboxgl.Popup({
             closeButton: false,  // Optionally, you can include or exclude the close button
           });
-
-           // Click event on popupElement
-       popup.getElement().addEventListener('click', () => {
-          // your logic here
-          console.log('clicked popup')
-        });
-
-        
+ 
 
           const popupContent = `
-    <div style="margin-top: 13px; font: 400 15px/22px 'Source Sans Pro', 'Helvetica Neue', sans-serif; padding: 0; width: 180px;">
-        <h3 style="background: ${isDarkMode ? '#333' : '#91c949'}; color: ${isDarkMode ? '#fff' : '#000'}; margin: 0; padding: 10px; border-radius: 3px 3px 0 0; font-weight: 700; margin-top: -15px; text-align: center;"><u>SETTLEMENT DETAILS (${sett_id} )</u></h3>
-        <div style="font-style: italic; font-size: 12px; color: ${isDarkMode ? 'black' : '#000'};"> <b>Name:</b> ${name} </div>  
-        <div style="font-style: italic; font-size: 12px; color: ${isDarkMode ? 'black' : '#000'};"> <b>Area:</b> ${roundedArea} </div>  
-                
-    </div> `;
+            <div style="margin-top: 13px; font: 400 15px/22px 'Source Sans Pro', 'Helvetica Neue', sans-serif; padding: 0; width: 180px;">
+                <h3 style="background: ${isDarkMode ? '#333' : '#91c949'}; color: ${isDarkMode ? '#fff' : '#000'}; margin: 0; padding: 10px; border-radius: 3px 3px 0 0; font-weight: 700; margin-top: -15px; text-align: center;"><u>SETTLEMENT DETAILS (${sett_id} )</u></h3>
+                <div style="font-style: italic; font-size: 12px; color: ${isDarkMode ? 'black' : '#000'};"> <b>Name:</b> ${name} </div>  
+                <div style="font-style: italic; font-size: 12px; color: ${isDarkMode ? 'black' : '#000'};"> <b>Area:</b> ${roundedArea} </div>  
+                <button   style="font-style: italic; font-size: 12px;"> More details...</button>
+     
+            </div> `;
 
           popup.setLngLat(geom.geometry.coordinates)
           .setHTML(popupContent)
           .addTo(map.value);
 
+        // Click event on popupElement
+        popup.getElement().addEventListener('click', () => {
+              // your logic here
+              console.log('clicked popup',sett_id)
+
+
+              push({
+                  path: '/settlement/map/:id',
+                  name: 'SettlementMap',
+                  params: { id: sett_id}
+                })
+
+              
+            });
        })
 
       
