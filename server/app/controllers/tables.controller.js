@@ -1227,16 +1227,28 @@ exports.modelAllGeo = async (req, res) => {
   } else {
 
     console.log("123xxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
-    console.log(qry)
+    //console.log(qry2)
 
-    db.models[reg_model].findAndCountAll(qry).then((list) => {
-      res.status(200).send({
-        fromCache: false,
-        data: list.rows,
-        total: count,
-        code: '0000'
-      })
-    })
+    // db.models[reg_model].findAndCountAll(qry2).then((list) => {
+    //   res.status(200).send({
+    //     fromCache: false,
+    //     data: list.rows,
+    //     total: count,
+    //     code: '0000'
+    //   })
+    // })
+
+     
+  const result_geo = await sequelize.query(qry2, {
+    model: db.models[reg_model],
+    mapToModel: false // pass true here if you have any mapped fields
+  })
+
+  res.status(200).send({
+    data: result_geo,
+    code: '0000'
+  })
+  
 
   }
 
