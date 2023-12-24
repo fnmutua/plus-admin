@@ -571,6 +571,9 @@ const removeSettlementLayers = async () => {
   map.value.removeLayer('polyFarms');
 
 
+  console.log('removing...settlementLabel....')
+  map.value.removeLayer('settlementLabel');
+
 
   map.value.removeSource('farmers');
   map.value.removeSource('polyFarms');
