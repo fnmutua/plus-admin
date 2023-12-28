@@ -794,7 +794,7 @@ const getCounty = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Received county response:', response)
-    const ret = response.data.data.rows
+    const ret = response.data
 
     ret.forEach((data) => {
       const option = {

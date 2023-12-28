@@ -2011,8 +2011,8 @@ const getChartType =   (typeId) => {
             <el-card>
               <ElSkeleton :loading="loading" animated>
                 <!-- <v-chart :id="card.id" class="chart" :option="card.chart" autoresize /> -->
-                <v-chart  v-if="card.type==7 ||card.type==8 "  :id="card.id"  class="chart" :option="card.chart" height="450"  autoresize /> 
-                  <apexchart v-if="card.type!=7 && card.type!=8" :options="card.chart" :series="card.chart.series" :type="getChartType(card.type)" height="450"  autoresize/>
+                <v-chart  v-if="card.type==7 ||card.type==8 "  :id="card.id"  class="chart" :option="card.chart" height="350"  autoresize /> 
+                  <apexchart v-if="card.type!=7 && card.type!=8" :options="card.chart" :series="card.chart.series" :type="getChartType(card.type)" height="350"  autoresize/>
  
               </ElSkeleton>
             </el-card>
