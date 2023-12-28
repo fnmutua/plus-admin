@@ -37,7 +37,10 @@ export const getAllGeo = (data: SettlementType): Promise<IResponse<SettlementTyp
   return request.post({ url: prod + '/api/v1/data/all/geo', data })
 }
 
-
+export const streamAllGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('streamAllGeo....', data)
+  return request.post({ url: prod + '/api/v1/data/stream/geo', data })
+}
 
 
 

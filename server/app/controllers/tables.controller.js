@@ -1254,6 +1254,127 @@ exports.modelAllGeo = async (req, res) => {
 
 }
 
+const { Readable } = require('stream');
+
+exports.streamAllGeo = async (req, res) => {
+  const reg_model = req.body.model;
+
+  const qry2 =
+    "select row_to_json(fc) as json_build_object from (select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from (select 'Feature' as type, ST_AsGeoJSON(geom)::json as geometry,(select json_strip_nulls(row_to_json(" + reg_model + ")) from (select id) t) as properties  from  " +
+    reg_model +
+    ' where geom is not null) as f) as fc';
+
+  console.log("req.body.cache_key",);
+
+  if (req.body.cache_key && req.body.cache_key !== '') {
+    const cache_key = req.body.cache_key;
+    const cacheDuration = 3600; // Cache duration in seconds
+
+    const lastRow = await db.models[reg_model].findOne({
+      attributes: ['updatedAt'],
+      order: [['updatedAt', 'DESC']],
+    });
+
+    const lastModified = lastRow ? lastRow.updatedAt : Date.now();
+    console.log(lastModified, req.body.cache_key);
+    console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....");
+
+    try {
+      const cacheResults = await redisClient.get(cache_key);
+
+      if (cacheResults) {
+        console.log("reurning from cachec.....");
+        const result = JSON.parse(cacheResults);
+        if (lastModified && lastModified > result.lastModified) {
+          const response = await sequelize.query(qry2, {
+            model: db.models[reg_model],
+            mapToModel: false,
+          });
+
+          await redisClient.set(
+            cache_key,
+            JSON.stringify({
+              data: response,
+              lastModified: Date.now(),
+            }),
+            {
+              EX: cacheDuration,
+              NX: true,
+            }
+          );
+
+          res.status(200);
+          res.write(JSON.stringify({
+            fromCache: false,
+            cache_key: cache_key,
+            data: response,
+            code: '0000',
+          }));
+          res.end();
+        } else {
+          res.status(200);
+          res.write(JSON.stringify({
+            fromCache: true,
+            cache_key: cache_key,
+            data: result.data,
+            code: '0000',
+          }));
+          res.end();
+        }
+      } else {
+        const response = await sequelize.query(qry2, {
+          model: db.models[reg_model],
+          mapToModel: false,
+        });
+
+        await redisClient.set(
+          cache_key,
+          JSON.stringify({
+            data: response,
+            lastModified: Date.now(),
+          }),
+          {
+            EX: cacheDuration,
+            NX: true,
+          }
+        );
+
+        res.status(200);
+        res.write(JSON.stringify({
+          fromCache: false,
+          cache_key: cache_key,
+          data: response,
+          code: '0000',
+        }));
+        res.end();
+      }
+    } catch (error) {
+      res.status(500);
+      res.write(JSON.stringify({
+        message: 'Internal server error',
+        code: 'SERVER_ERROR',
+      }));
+      res.end();
+    }
+  } else {
+    console.log("123xxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....");
+
+    const result_geo = await sequelize.query(qry2, {
+      model: db.models[reg_model],
+      mapToModel: false,
+    });
+
+    res.status(200);
+    res.write(JSON.stringify({
+      data: result_geo,
+      code: '0000',
+    }));
+    res.end();
+  }
+};
+
+ 
+
 
 
 exports.modelOneGeo = async (req, res) => {

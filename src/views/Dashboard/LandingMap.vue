@@ -55,7 +55,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { computed,nextTick, render } from 'vue'
 
 import type { FormInstance, FormRules } from 'element-plus'
-import { getAllGeo, getOneGeo } from '@/api/settlements'
+import { getAllGeo, getOneGeo ,streamAllGeo} from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
@@ -638,7 +638,10 @@ const getFarmGeo = async () => {
   const formData = {}
   formData.model = 'settlement'
   formData.cache_key = 'settlement_geo'
-  const res = await getAllGeo(formData)
+  const res = await streamAllGeo(formData)
+  
+  console.log('stream',res)
+  //const res = await getAllGeo(formData)
 
 
   console.log('Settlements >>', res)
@@ -650,7 +653,7 @@ const getFarmGeo = async () => {
 
 }
  
-
+ 
 
 
 const getClickedFarm = async (id) => { 
@@ -794,7 +797,7 @@ const getCounty = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Received county response:', response)
-    const ret = response.data
+    const ret = response.data.data.rows
 
     ret.forEach((data) => {
       const option = {
