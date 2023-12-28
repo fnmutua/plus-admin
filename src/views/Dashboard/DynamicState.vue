@@ -2997,8 +2997,8 @@ v-for="(card) in tab.cards" :key="card.id" :span="12" :xl="12" :lg="12" :md="12"
                   <!-- <v-chart  v-if="card.type==7 ||card.type==8 "  :id="card.id"  class="chart" :option="card.chart" height="450"  autoresize />  -->
                   <!-- <apexchart v-if="card.type!=7 " :options="card.chart" :series="card.chart.series" :type="getChartType(card.type)" height="450"  autoresize/> -->
  
-                  <v-chart  v-if="card.type==7 ||card.type==8 "  :id="card.id"  class="chart" :option="card.chart" height="450"  autoresize /> 
-                  <apexchart v-if="card.type!=7 && card.type!=8" :options="card.chart" :series="card.chart.series" :type="getChartType(card.type)" height="450"  autoresize/>
+                  <v-chart  v-if="card.type==7 ||card.type==8 "  :id="card.id"  class="chart" :option="card.chart" height="350"  autoresize /> 
+                  <apexchart v-if="card.type!=7 && card.type!=8" :options="card.chart" :series="card.chart.series" :type="getChartType(card.type)" height="350"  autoresize/>
  
 
                 </ElSkeleton>
