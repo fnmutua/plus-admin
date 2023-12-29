@@ -17,6 +17,7 @@ const { default_headers } = config
 
 const request = (option: any) => {
   const { url, method, params, data, headersType, responseType } = option
+  console.log('responseType>>',responseType)
  
   //console.log("userToken token--->",(wsCache.storage.userInfo) )
   // get local storage variable for the logged in user, else pass empty token
