@@ -1,6 +1,7 @@
 import request from '@/config/axios'
 import state from '@/config/axios'
 import type { SettlementType } from '../settlements/types'
+import axios, { AxiosResponse } from 'axios';
 
 const dev = import.meta.env.VITE_APP_HOST + ':4000' // Add the port for local Dev
 const prod = import.meta.env.VITE_APP_HOST // remove the port for production
@@ -37,10 +38,40 @@ export const getAllGeo = (data: SettlementType): Promise<IResponse<SettlementTyp
   return request.post({ url: prod + '/api/v1/data/all/geo', data })
 }
 
-export const streamAllGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+export const xstreamAllGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
   console.log('streamAllGeo....', data)
   return request.post({ url: prod + '/api/v1/data/stream/geo', data })
 }
+
+
+export const streamAllGeo = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('streamAllGeo....', data)
+  return request.get({ url: prod + '/api/v1/data/stream/geo', data ,responseType: 'stream'})
+}
+export const _streamAllGeo = (data: SettlementType): Promise<AxiosResponse<SettlementType>> => {
+  return axios.post<SettlementType>(prod + '/api/v1/data/stream/geo', data, {    responseType: 'stream',  });
+};
+
+
+
+ 
+ 
+export const streamGeo = async ({ params }: AxiosConfig): Promise<AxiosResponse<NodeJS.ReadableStream>> => {
+  try {
+    const response = await axios.get<NodeJS.ReadableStream>(
+      prod + '/api/v1/data/stream/geo',
+      {
+        params,
+        responseType: 'stream', // Set the responseType to 'stream'
+      }
+    );
+
+    return response;
+  } catch (error) {
+    throw new Error(`Error streaming data `);
+  }
+};
+
 
 
 

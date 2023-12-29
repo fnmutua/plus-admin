@@ -55,7 +55,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { computed,nextTick, render } from 'vue'
 
 import type { FormInstance, FormRules } from 'element-plus'
-import { getAllGeo, getOneGeo ,streamAllGeo} from '@/api/settlements'
+import { getAllGeo, getOneGeo ,streamAllGeo,streamGeo} from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
@@ -629,20 +629,18 @@ async function computeCentroids(featureCollection) {
 
 
 
-const navigateToRoute = async () => { 
-  console.log('navigateToRoute')
-}
+ 
 
 
-const getFarmGeo = async () => {
+const _getFarmGeo = async () => {
   const formData = {}
   formData.model = 'settlement'
   formData.cache_key = 'settlement_geo'
-  const res = await streamAllGeo(formData)
+  //const res = await streamAllGeo(formData)
   
-  console.log('stream',res)
-  //const res = await getAllGeo(formData)
+  const res = await getAllGeo(formData)
 
+  console.log('stream',res)
 
   console.log('Settlements >>', res)
 
@@ -652,7 +650,61 @@ const getFarmGeo = async () => {
   geojson.value = await computeCentroids(featureCollection);
 
 }
+const __getFarmGeo = async () => {
+  const formData = {}
+  formData.model = 'settlement'
+  formData.cache_key = 'settlement_geo';
+
+  try {
+    const response = await streamAllGeo(formData);
+    console.log(response)
+
+    const stream = response.data
+    stream.on('data', data => {
+       console.log(data);
+    });
+
+    
+
+     // Assuming the data is in JSON format, parse it
  
+    let featureCollection = response.data.data[0].json_build_object
+    geojson.value = await computeCentroids(featureCollection);
+
+    
+  } catch (error) {
+    console.error('Error in streamAllGeo:', error);
+  }
+};
+
+const getFarmGeo = async () => {
+  const params = {
+    // Your request parameters here
+    // For example, if you have query parameters, you can add them here
+    model: 'settlement',
+   cache_key: 'settlement_geo',
+  };
+
+  try {
+    // Call the streamGeo function
+    console.log('-------x-------------')
+    const response = await streamGeo({ params });
+    console.log(response)
+    // Handle the response or stream as needed
+    const res = response.data.data;
+
+    let featureCollection = res[0].json_build_object
+  geojson.value = await computeCentroids(featureCollection);
+  
+    
+    
+
+  } catch (error) {
+    // Handle errors
+    console.error('Error fetching data:', error.message);
+  }
+};
+
  
 
 
