@@ -575,135 +575,96 @@ if (associated_multiple_models && associated_multiple_models !== '') {
   //   });
   // });
 
+ 
+const cache_key = req.query.cache_key;
+const cacheDuration = 3600; // Cache duration in seconds
 
-  if (req.query.cache_key && req.query.cache_key != '') { 
-
-    const cache_key = req.query.cache_key;   
-    const cacheDuration = 3600; // Cache duration in seconds
-
-    
-    // get last time it was modified 
+if (cache_key && cache_key !== '') {
+  try {
+    // Get the last time the data in the database was modified
     const lastRow = await db.models[reg_model].findOne({
       attributes: ['updatedAt'],
       order: [['updatedAt', 'DESC']]
     });
-    
-    const lastModified = lastRow ? lastRow.updatedAt: Date.now()
-   // console.log(lastModified,req.query.cache_key)
-   // console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
 
+    const lastModified = lastRow ? lastRow.updatedAt.getTime() : Date.now();
 
-    try {
-      const cacheResults = await redisClient.get(cache_key);
-      if (cacheResults) {
-        const result = JSON.parse(cacheResults);
-         if (lastModified && lastModified > result.lastModified) {
-          // If the database was updated after the cached data was generated, update the cache
-          //const response = await db.models[reg_model].findAndCountAll(qry2);
-          // const xresponse = await sequelize.query(qry2, {
-          //   model: db.models[reg_model],
-          //   mapToModel: false // pass true here if you have any mapped fields
-          // })
+    // Check if cached data exists
+    const cacheResults = await redisClient.get(cache_key);
 
+    if (cacheResults) {
+      const result = JSON.parse(cacheResults);
 
-          const response = await  db.models[reg_model].findAndCountAll(includeQuery).then((list) => {
-            res.status(200).send({
-              data: list,
-              total: list.count,
-              code: '0000'
-            });
-          });
-
-
-
-
-          await redisClient.set(cache_key, JSON.stringify({
-            data: response,
-             lastModified: Date.now() // Update the last modified timestamp
-          }), {
-            EX: cacheDuration,
-            NX: true,
-          });
-
-          res.status(200).send({
-            fromCache: false,
-            cache_key: cache_key,
-            data: response,
-            code: '0000'
-          });
-        } else {
-          // If the cached data is still valid, return it from the cache
-          res.status(200).send({
-            fromCache: true,
-            cache_key: cache_key,
-            data: result.data.rows,
-            test:"test",
-            code: '0000'
-          });
-        }
-      } else {
-
-        // If no cache data exists, generate new data and store it in the cache
-        
-
-
-        const response = await  db.models[reg_model].findAndCountAll(includeQuery) 
-         //console.log('response',response)
-
+      if (lastModified > result.lastModified) {
+        // If the database was updated after the cached data was generated, update the cache
+        const response = await db.models[reg_model].findAndCountAll(includeQuery);
 
         await redisClient.set(cache_key, JSON.stringify({
           data: response,
-           lastModified: Date.now() // Set the last modified timestamp to current time
+          lastModified: Date.now()
         }), {
           EX: cacheDuration,
           NX: true,
         });
 
-          //  return it from the cache
-          res.status(200).send({
-            fromCache: true,
-            cache_key: cache_key,
-             data: response.data,
-             code: '0000'
-          });
-    }
-    }
-    catch(error) {
-      res.status(500).send({
-        message: 'Internal server error',
-        code: 'SERVER_ERROR'
+        res.status(200).send({
+          fromCache: false,
+          cache_key: cache_key,
+          data: response.rows,
+          total: response.count,
+          code: '0000'
+        });
+      } else {
+        // If the cached data is still valid, return it from the cache
+        res.status(200).send({
+          fromCache: true,
+          cache_key: cache_key,
+          data: result.data.rows,
+          total: result.data.count,
+          code: '0000'
+        });
+      }
+    } else {
+      // If no cache data exists, generate new data and store it in the cache
+      const response = await db.models[reg_model].findAndCountAll(includeQuery);
+
+      await redisClient.set(cache_key, JSON.stringify({
+        data: response,
+        lastModified: Date.now()
+      }), {
+        EX: cacheDuration,
+        NX: true,
       });
-    }
 
-
-
-
-  } 
-  else {
-
-    console.log("123xxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
-    //console.log(qry)
-
-    // db.models[reg_model].findAndCountAll(qry).then((list) => {
-    //   res.status(200).send({
-    //     fromCache: false,
-    //     data: list.rows,
-    //     total: count,
-    //     code: '0000'
-    //   })
-    // })
-
-    db.models[reg_model].findAndCountAll(includeQuery).then((list) => {
+      // Return the data from the cache
       res.status(200).send({
-        data: list.rows,
-         total: list.count,
         fromCache: false,
+        cache_key: cache_key,
+        data: response.rows,
+        total: response.count,
         code: '0000'
       });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR'
     });
-
-
   }
+} else {
+  // If no cache key is provided, execute the query without caching
+  console.log("No Caching...");
+  db.models[reg_model].findAndCountAll(includeQuery).then((list) => {
+    res.status(200).send({
+      fromCache: false,
+      data: list.rows,
+      total: list.count,
+      code: '0000'
+    });
+  });
+}
+
 
 
 };
