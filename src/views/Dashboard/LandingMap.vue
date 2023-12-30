@@ -639,32 +639,7 @@ const _getFarmGeo = async () => {
   geojson.value = await computeCentroids(featureCollection);
 
 }
-const __getFarmGeo = async () => {
-  const formData = {}
-  formData.model = 'settlement'
-  formData.cache_key = 'settlement_geo';
-
-  try {
-    const response = await streamAllGeo(formData);
-    console.log(response)
-
-    const stream = response.data
-    stream.on('data', data => {
-       console.log(data);
-    });
-
-    
-
-     // Assuming the data is in JSON format, parse it
  
-    let featureCollection = response.data.data[0].json_build_object
-    geojson.value = await computeCentroids(featureCollection);
-
-    
-  } catch (error) {
-    console.error('Error in streamAllGeo:', error);
-  }
-};
 
 const getFarmGeo = async () => {
   const params = {

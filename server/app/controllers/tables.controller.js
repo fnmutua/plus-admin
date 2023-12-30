@@ -509,8 +509,6 @@ if (associated_multiple_models && associated_multiple_models !== '') {
 }
 
   
-  
-  
 
   if (nestedModels && nestedModels !== '' ) {
     var nestedModelList = nestedModels.split(',');
@@ -564,16 +562,7 @@ if (associated_multiple_models && associated_multiple_models !== '') {
  
   } 
 
-
-
-
-  // db.models[reg_model].findAndCountAll(includeQuery).then((list) => {
-  //   res.status(200).send({
-  //     data: list.rows,
-  //     total: list.count,
-  //     code: '0000'
-  //   });
-  // });
+ 
 
  
 const cache_key = req.query.cache_key;
@@ -1053,37 +1042,14 @@ exports.modelCreateOneRecord = (req, res) => {
 
 }
 
-exports.xxmodelAllGeo = async (req, res) => {
-  var reg_model = req.body.model
-  var xqry2 =
-    " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +
-    reg_model +
-    ' AS t where geom is not null'
-  
-  	
-	var qry2 =
-  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
-  reg_model + ' where geom is not null ) as f ) as fc'
-  
-  
-  
-  const result_geo = await sequelize.query(qry2, {
-    model: db.models[reg_model],
-    mapToModel: false // pass true here if you have any mapped fields
-  })
-
-  res.status(200).send({
-    data: result_geo,
-    code: '0000'
-  })
-}
+ 
 
  
 exports.modelAllGeo = async (req, res) => {
   var reg_model = req.body.model
    
 	var qry2 =
-  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
+  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(ST_ConvexHull(geom)):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
   reg_model + ' where geom is not null ) as f ) as fc'
   
    
@@ -1140,6 +1106,8 @@ exports.modelAllGeo = async (req, res) => {
           });
         } else {
           // If the cached data is still valid, return it from the cache
+
+          console.log(result.data)
           res.status(200).send({
             fromCache: true,
             cache_key: cache_key,
@@ -1215,6 +1183,24 @@ exports.modelAllGeo = async (req, res) => {
 
 }
 
+function reducePrecision(geoJSON, precision) {
+  console.log(geoJSON)
+  const roundCoordinates = (coordinates) => coordinates.map(coord => parseFloat(coord.toFixed(precision)));
+  
+  if (geoJSON.type === 'Point') {
+    geoJSON.coordinates = roundCoordinates(geoJSON.coordinates);
+  } else if (geoJSON.type === 'LineString' || geoJSON.type === 'MultiPoint') {
+    geoJSON.coordinates = geoJSON.coordinates.map(roundCoordinates);
+  } else if (geoJSON.type === 'Polygon' || geoJSON.type === 'MultiLineString') {
+    geoJSON.coordinates = geoJSON.coordinates.map(ring => ring.map(roundCoordinates));
+  } else if (geoJSON.type === 'MultiPolygon') {
+    geoJSON.coordinates = geoJSON.coordinates.map(poly => poly.map(ring => ring.map(roundCoordinates)));
+  }
+
+  return geoJSON;
+}
+
+
 const { Readable } = require('stream');
 
  
@@ -1222,12 +1208,13 @@ exports.streamAllGeo = async (req, res) => {
   const reg_model = req.query.model;
 
   const qry2 =
-    "SELECT row_to_json(fc) AS json_build_object FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(geom)::json AS geometry, (SELECT json_strip_nulls(row_to_json(" +
-    reg_model +
-    ")) FROM (SELECT id) t) AS properties FROM  " +
-    reg_model +
-    ' WHERE geom IS NOT NULL) AS f) AS fc';
+  "SELECT row_to_json(fc) AS json_build_object FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(ST_ConvexHull(geom))::json AS geometry, (SELECT json_strip_nulls(row_to_json(" +
+  reg_model +
+  ")) FROM (SELECT id) t) AS properties FROM  " +
+  reg_model +
+  ' WHERE ST_IsEmpty(geom) = false AND geom IS NOT NULL) AS f) AS fc';
 
+ 
   if (req.query.cache_key && req.query.cache_key !== '') {
     const cache_key = req.query.cache_key;
     const cacheDuration = 3600; // Cache duration in seconds
@@ -1286,8 +1273,9 @@ exports.streamAllGeo = async (req, res) => {
         } 
         else {
           res.status(200);
-          console.log('piping the results 2.......')
+          console.log('piping the results 2x.......')
 
+ 
           // Create a readable stream from the cached data
           const readableStream = new Readable();
           readableStream.push(JSON.stringify({
@@ -1301,7 +1289,8 @@ exports.streamAllGeo = async (req, res) => {
           // Pipe the stream to the response
           readableStream.pipe(res);
         }
-      } else {
+      } 
+      else {
         const response = await sequelize.query(qry2, {
           model: db.models[reg_model],
           mapToModel: false,
@@ -1380,20 +1369,12 @@ exports.modelOneGeo = async (req, res) => {
   var reg_model = req.body.model
   var id = req.body.id
   var msg = ''
-  var xqry2 =
-    " SELECT json_build_object( 'type', 'FeatureCollection', 'features', json_agg(ST_AsGeoJSON(t.*)::json) ) FROM " +
-    reg_model +
-    ' AS t where geom is not null and id=' +
-    id
   
   
   
-  	var xxqry2 =
-  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry  from  " +
-  reg_model +    ' where geom is not null and id= '+ id +' ) as f ) as fc'
-  
+   
   var qry2 =
-  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(geom):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
+  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(ST_ConvexHull(geom)):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
   reg_model  + ' where geom is not null and id= '+ id +' ) as f ) as fc'
   
   
@@ -1444,7 +1425,7 @@ exports.modelSelectGeo = async (req, res) => {
                      array_to_json(array_agg(f)) AS features
               FROM (
                 SELECT 'Feature' AS type,
-                       ST_AsGeoJSON(geom)::json AS geometry,
+                       ST_AsGeoJSON(ST_ConvexHull(geom))::json AS geometry,
                        (
                          SELECT json_strip_nulls(row_to_json(${reg_model}))
                          FROM (SELECT id) t
@@ -1462,7 +1443,7 @@ exports.modelSelectGeo = async (req, res) => {
                      array_to_json(array_agg(f)) AS features
               FROM (
                 SELECT 'Feature' AS type,
-                       ST_AsGeoJSON(geom)::json AS geometry,
+                       ST_AsGeoJSON(ST_ConvexHull(geom))::json AS geometry,
                        (
                          SELECT json_strip_nulls(row_to_json(${reg_model}))
                          FROM (SELECT id) t
