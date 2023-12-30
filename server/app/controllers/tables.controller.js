@@ -1374,7 +1374,7 @@ exports.modelOneGeo = async (req, res) => {
   
    
   var qry2 =
-  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(ST_ConvexHull(geom)):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
+  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON((geom)):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
   reg_model  + ' where geom is not null and id= '+ id +' ) as f ) as fc'
   
   
@@ -1425,7 +1425,7 @@ exports.modelSelectGeo = async (req, res) => {
                      array_to_json(array_agg(f)) AS features
               FROM (
                 SELECT 'Feature' AS type,
-                       ST_AsGeoJSON(ST_ConvexHull(geom))::json AS geometry,
+                       ST_AsGeoJSON((geom))::json AS geometry,
                        (
                          SELECT json_strip_nulls(row_to_json(${reg_model}))
                          FROM (SELECT id) t
@@ -1443,7 +1443,7 @@ exports.modelSelectGeo = async (req, res) => {
                      array_to_json(array_agg(f)) AS features
               FROM (
                 SELECT 'Feature' AS type,
-                       ST_AsGeoJSON(ST_ConvexHull(geom))::json AS geometry,
+                       ST_AsGeoJSON((geom))::json AS geometry,
                        (
                          SELECT json_strip_nulls(row_to_json(${reg_model}))
                          FROM (SELECT id) t
