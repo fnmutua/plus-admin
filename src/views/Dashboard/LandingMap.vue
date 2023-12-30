@@ -234,25 +234,14 @@ const dialogWidth = ref('20%')
 
 
 const county = ref()
-const ward = ref()
-const polyFarms = ref()
+ const polyFarms = ref()
 const countyGeo = ref()
 const geojson = ref([])
 const bounds = ref([])
 const subcountyGeo = ref([])
 
 
-
-const wardOptions = [
-  {
-    value: '1',
-    label: 'Embakasi',
-  },
-  {
-    value: '2',
-    label: 'Makadara',
-  },
-]
+ 
 
 
 
@@ -845,11 +834,11 @@ const getCounty = async () => {
       searchField: 'name',
       searchKeyword: '',
       sort: 'ASC',
-      cache_key : 'new_list_no_geo'
+     cache_key : 'new_list_no_geo'
     }
   }).then((response: { data: any }) => {
     console.log('Received county response:', response)
-    const ret = response.data.data.rows
+    const ret = response.data
 
     ret.forEach((data) => {
       const option = {

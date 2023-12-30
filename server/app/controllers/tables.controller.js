@@ -608,7 +608,7 @@ if (associated_multiple_models && associated_multiple_models !== '') {
 
           const response = await  db.models[reg_model].findAndCountAll(includeQuery).then((list) => {
             res.status(200).send({
-              data: list.rows,
+              data: list,
               total: list.count,
               code: '0000'
             });
@@ -636,7 +636,7 @@ if (associated_multiple_models && associated_multiple_models !== '') {
           res.status(200).send({
             fromCache: true,
             cache_key: cache_key,
-            data: result,
+            data: result.data.rows,
             test:"test",
             code: '0000'
           });
@@ -648,7 +648,7 @@ if (associated_multiple_models && associated_multiple_models !== '') {
 
 
         const response = await  db.models[reg_model].findAndCountAll(includeQuery) 
-
+         //console.log('response',response)
 
 
         await redisClient.set(cache_key, JSON.stringify({
@@ -663,7 +663,7 @@ if (associated_multiple_models && associated_multiple_models !== '') {
           res.status(200).send({
             fromCache: true,
             cache_key: cache_key,
-             data: response,
+             data: response.data,
              code: '0000'
           });
     }
