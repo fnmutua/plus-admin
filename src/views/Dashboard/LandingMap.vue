@@ -294,9 +294,14 @@ onMounted(async () => {
     await getFarmGeo()
     mapLoadingText.value = 'Getting counties...'
 
+    console.log('get cunty shp')
     await getCountyGeo()
 
+    console.log('get cunty list')
+
     await getCounty()
+    console.log('get cunty done....')
+
     mapLoading.value=false
 
     map.value.addSource('County', {
@@ -334,9 +339,13 @@ onMounted(async () => {
 
     // inspect a cluster on click
     map.value.on('click', 'clusters', (e) => {
+      
       const features = map.value.queryRenderedFeatures(e.point, {
         layers: ['clusters']
       });
+      console.log('cluster>>,',features)
+
+
       const clusterId = features[0].properties.cluster_id;
       map.value.getSource('farmers').getClusterExpansionZoom(
         clusterId,
