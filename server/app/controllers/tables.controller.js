@@ -1042,16 +1042,61 @@ exports.modelCreateOneRecord = (req, res) => {
 
 }
 
+function reducePrecision(geojson, precision = 6) {
+  function roundCoordinate(coord) {
+    return parseFloat(coord.toFixed(precision));
+  }
+
+  function processCoordinates(coords) {
+    return coords.map(coord => {
+      if (Array.isArray(coord)) {
+        return processCoordinates(coord);
+      } else if (typeof coord === 'number') {
+        return roundCoordinate(coord);
+      } else {
+        return coord;
+      }
+    });
+  }
+
+  function processGeometry(geometry) {
+    if (geometry.type === 'Point' || geometry.type === 'MultiPoint') {
+      geometry.coordinates = processCoordinates(geometry.coordinates);
+    } else if (geometry.type === 'LineString' || geometry.type === 'MultiLineString' || geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+      geometry.coordinates = geometry.coordinates.map(processCoordinates);
+    }
+
+    return geometry;
+  }
+
+  function processFeature(feature) {
+    if (feature.geometry) {
+      feature.geometry = processGeometry(feature.geometry);
+    }
+
+    return feature;
+  }
+
+  if (geojson.type === 'FeatureCollection') {
+    geojson.features = geojson.features.map(processFeature);
+  } else if (geojson.type === 'Feature') {
+    geojson = processFeature(geojson);
+  }
+
+  return geojson;
+}
  
+
+
 
  
 exports.modelAllGeo = async (req, res) => {
   var reg_model = req.body.model
    
-	var qry2 =
-  " select row_to_json(fc)  as json_build_object from ( select 'FeatureCollection' as type, array_to_json(array_agg(f)) as features  from ( select 'Feature' as type, ST_AsGeoJSON(ST_ConvexHull(geom)):: json as geometry,( select json_strip_nulls(row_to_json(" +reg_model+ " )) from ( select id) t ) as properties  from  " +
-  reg_model + ' where geom is not null ) as f ) as fc'
-  
+  var qry2 =
+  "SELECT row_to_json(fc) AS json_build_object FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(ST_ReducePrecision(geom, 0.0001))::json AS geometry, json_strip_nulls(row_to_json(" + reg_model + ")) AS properties FROM " +
+  reg_model + " WHERE geom IS NOT NULL) AS f) AS fc";
+
    
   console.log("req.body.cache_key",)
 
@@ -1090,6 +1135,7 @@ exports.modelAllGeo = async (req, res) => {
           })
 
 
+          
           await redisClient.set(cache_key, JSON.stringify({
             data: response,
              lastModified: Date.now() // Update the last modified timestamp
@@ -1126,6 +1172,14 @@ exports.modelAllGeo = async (req, res) => {
         })
 
 
+       // console.log('county geo', response.data[0].json_build_object)
+        console.log(response[0])
+
+         //const reducedPrecisionGeoJSON = reducePrecision(response[0], 1);
+       // console.log(JSON.stringify(reducedPrecisionGeoJSON, null, 2));
+
+
+
         await redisClient.set(cache_key, JSON.stringify({
           data: response,
            lastModified: Date.now() // Set the last modified timestamp to current time
@@ -1153,7 +1207,8 @@ exports.modelAllGeo = async (req, res) => {
 
 
 
-  } else {
+  } 
+  else {
 
     console.log("123xxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
     //console.log(qry2)
@@ -1182,24 +1237,8 @@ exports.modelAllGeo = async (req, res) => {
   }
 
 }
-
-function reducePrecision(geoJSON, precision) {
-  console.log(geoJSON)
-  const roundCoordinates = (coordinates) => coordinates.map(coord => parseFloat(coord.toFixed(precision)));
-  
-  if (geoJSON.type === 'Point') {
-    geoJSON.coordinates = roundCoordinates(geoJSON.coordinates);
-  } else if (geoJSON.type === 'LineString' || geoJSON.type === 'MultiPoint') {
-    geoJSON.coordinates = geoJSON.coordinates.map(roundCoordinates);
-  } else if (geoJSON.type === 'Polygon' || geoJSON.type === 'MultiLineString') {
-    geoJSON.coordinates = geoJSON.coordinates.map(ring => ring.map(roundCoordinates));
-  } else if (geoJSON.type === 'MultiPolygon') {
-    geoJSON.coordinates = geoJSON.coordinates.map(poly => poly.map(ring => ring.map(roundCoordinates)));
-  }
-
-  return geoJSON;
-}
-
+ 
+//ST_AsGeoJSON(ST_ReducePrecision(geom, 0.0001))
 
 const { Readable } = require('stream');
 
@@ -1214,6 +1253,7 @@ exports.streamAllGeo = async (req, res) => {
   reg_model +
   ' WHERE ST_IsEmpty(geom) = false AND geom IS NOT NULL) AS f) AS fc';
 
+  
  
   if (req.query.cache_key && req.query.cache_key !== '') {
     const cache_key = req.query.cache_key;
