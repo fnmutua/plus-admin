@@ -1042,50 +1042,7 @@ exports.modelCreateOneRecord = (req, res) => {
 
 }
 
-function reducePrecision(geojson, precision = 6) {
-  function roundCoordinate(coord) {
-    return parseFloat(coord.toFixed(precision));
-  }
 
-  function processCoordinates(coords) {
-    return coords.map(coord => {
-      if (Array.isArray(coord)) {
-        return processCoordinates(coord);
-      } else if (typeof coord === 'number') {
-        return roundCoordinate(coord);
-      } else {
-        return coord;
-      }
-    });
-  }
-
-  function processGeometry(geometry) {
-    if (geometry.type === 'Point' || geometry.type === 'MultiPoint') {
-      geometry.coordinates = processCoordinates(geometry.coordinates);
-    } else if (geometry.type === 'LineString' || geometry.type === 'MultiLineString' || geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
-      geometry.coordinates = geometry.coordinates.map(processCoordinates);
-    }
-
-    return geometry;
-  }
-
-  function processFeature(feature) {
-    if (feature.geometry) {
-      feature.geometry = processGeometry(feature.geometry);
-    }
-
-    return feature;
-  }
-
-  if (geojson.type === 'FeatureCollection') {
-    geojson.features = geojson.features.map(processFeature);
-  } else if (geojson.type === 'Feature') {
-    geojson = processFeature(geojson);
-  }
-
-  return geojson;
-}
- 
 
 
 
@@ -1211,16 +1168,8 @@ exports.modelAllGeo = async (req, res) => {
   else {
 
     console.log("123xxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
-    //console.log(qry2)
-
-    // db.models[reg_model].findAndCountAll(qry2).then((list) => {
-    //   res.status(200).send({
-    //     fromCache: false,
-    //     data: list.rows,
-    //     total: count,
-    //     code: '0000'
-    //   })
-    // })
+  
+    
 
      
   const result_geo = await sequelize.query(qry2, {
@@ -1465,7 +1414,7 @@ exports.modelSelectGeo = async (req, res) => {
                      array_to_json(array_agg(f)) AS features
               FROM (
                 SELECT 'Feature' AS type,
-                       ST_AsGeoJSON((geom))::json AS geometry,
+                ST_AsGeoJSON(ST_ConvexHull(geom))::json AS geometry,
                        (
                          SELECT json_strip_nulls(row_to_json(${reg_model}))
                          FROM (SELECT id) t
@@ -1483,7 +1432,7 @@ exports.modelSelectGeo = async (req, res) => {
                      array_to_json(array_agg(f)) AS features
               FROM (
                 SELECT 'Feature' AS type,
-                       ST_AsGeoJSON((geom))::json AS geometry,
+                ST_AsGeoJSON(ST_ConvexHull(geom))::json AS geometry,
                        (
                          SELECT json_strip_nulls(row_to_json(${reg_model}))
                          FROM (SELECT id) t
