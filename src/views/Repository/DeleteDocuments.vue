@@ -54,7 +54,7 @@ const total = ref(0)
  const showAdminButtons = ref(false)
 
 // flag for admin buttons
-if (userInfo.roles.includes("admin")  ) {
+if (userInfo.roles.includes("admin" )  || userInfo.roles.includes("super_admin" )   ) {
   showAdminButtons.value = true
 }
 
