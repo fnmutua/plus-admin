@@ -28,7 +28,7 @@ import {
  
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { deleteRawFiles, DeleteRecord, getRawFiles } from '@/api/settlements'
+import { deleteRawFiles,   getRawFiles } from '@/api/settlements'
 import { getFile } from '@/api/summary'
 
 
@@ -283,9 +283,9 @@ const DeleteIndicator = async (data: TableSlotDefault) => {
   <ContentWrap :title="t('Documents')" :message="t('Cleanup')">
     <el-divider border-style="dashed" content-position="left">Notice</el-divider>
 
-    <el-text >
+    <p >
       This section allows you to review and cleanup any orphan documents within the system. It exposes all the files uploaded on the system and will include even files that are not associated with any entity. Use it to manage storage space. 
-     </el-text>
+    </p>
 
  
      <el-table :data="tableDataList" style="width: 98%; margin-top: 20px;" border  select="true"  >
