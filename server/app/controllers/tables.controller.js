@@ -4244,3 +4244,77 @@ exports.filterRepository = async (req, res) => {
 };
 
 
+
+exports.getRawDocuments = async (req, res) => {
+  const folderPath = '/data/uploads';
+
+  console.log('req.body.params',req.body.params)
+  // Parse query parameters for pagination
+  const page = parseInt(req.body.params.page) || 1;
+  const perPage = parseInt(req.body.params.perPage) || 5;
+
+  fs.readdir(folderPath, (err, files) => {
+    if (err) {
+      console.error('Error reading folder:', err);
+      res.status(500).send('Failed to get documents');
+      return;
+    }
+
+    // Perform pagination
+    const startIdx = (page - 1) * perPage;
+    const endIdx = startIdx + perPage;
+    const paginatedFiles = files.slice(startIdx, endIdx);
+
+    res.json({
+      documents: paginatedFiles,
+      code: '0000',
+      pageInfo: {
+        currentPage: page,
+        perPage: perPage,
+        totalItems: files.length,
+        totalPages: Math.ceil(files.length / perPage),
+      },
+    });
+  });
+};
+
+
+
+exports.DeleteRawDocuments = async (req, res) => {
+  const folderPath = '/data/uploads';
+
+  const fileName = req.body.fileName;
+  const filePath = `${folderPath}/${fileName}`;
+  console.log('filePath', req.body);
+
+  try {
+    // Check if the file exists before attempting to delete
+    await fs.promises.access(filePath);
+
+    // File exists, proceed with deletion
+    await fs.promises.unlink(filePath);
+
+    // Now, query the Sequelize model and delete the corresponding row
+    const deletedRows = await db.models.document.destroy({
+      where: { name: fileName },
+    });
+
+    if (deletedRows > 0) {
+      //res.json({ message: 'File and corresponding database record deleted successfully' });
+      console.log('File and corresponding database record deleted successfully' )
+    } else {
+     // res.status(404).json({ message: 'File not found in the database' });
+      console.log('File not found in the database' )
+
+    }
+
+
+
+
+    res.json({ message: 'File deleted successfully', code: '0000' });
+  } catch (err) {
+    console.error('Error deleting file:', err);
+    res.status(500).send('Deleting file failed.');
+  }
+};
+

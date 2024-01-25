@@ -127,5 +127,13 @@ module.exports = function (app) {
     "/api/v1/fields/options",   controller.getFieldQUnique
   );
 
+
+
+  app.post('/api/v1/documents/raw',  [authJwt.verifyToken, authJwt.isStaffOrAdmin], controller.getRawDocuments)
+  app.post('/api/v1/documents/raw/delete', [authJwt.verifyToken, authJwt.isStaffOrAdmin],  controller.DeleteRawDocuments)
+
+
+  
+
 }
 

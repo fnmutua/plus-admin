@@ -201,3 +201,16 @@ export const getDocumentsBySearch = (
 ): Promise<IResponse<SettlementType>> => {
   return request.post({ url: prod + '/api/v1/docs/search', data })
 }
+
+
+ 
+export const getRawFiles = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+
+  return request.post({ url: prod + '/api/v1/documents/raw' , data})
+}
+
+
+export const deleteRawFiles = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  // console.log('....', data)
+  return request.post({ url: prod + '/api/v1/documents/raw/delete', data })
+}
