@@ -215,6 +215,7 @@ const getParcels = async () => {
 
 }
 
+
 const getAll = async () => {
   console.log('Get all Settleemnts ')
   const id = route.params.id
@@ -746,17 +747,55 @@ const downloadMap = () => {
     type: 'warning',
   })
 
-  var collection = turf.featureCollection(ParcelGeodata.value)
+  let collection
+  if (facilityGeoPolygons.value.length >0) {
 
-  download(JSON.stringify(collection), "ParcelGeodata.json", "text/plain");
+      collection = turf.featureCollection(facilityGeoPolygons.value)
+  } else {
+
+    collection = turf.featureCollection(facilityGeoPoints.value)
 
 
+  }
+ 
+  console.log('points', facilityGeoPoints.value.length)
+  console.log('poly', facilityGeoPolygons.value.length)
 
+ // facilityGeoPoints
 
-  console.log("Downlaod...s.")
+  //download(JSON.stringify(collection), title.value +".geojson", "text/plain");
+  downloadJSON(collection, title.value +".geojson")
+ 
+ 
 }
 
+function downloadJSON(jsonObj, fileName) {
 
+  console.log('downloading......')
+  // Convert the JSON object to a JSON string
+  const jsonString = JSON.stringify(jsonObj, null, 2);
+
+  // Create a Blob with the JSON string
+  const blob = new Blob([jsonString], { type: 'application/json' });
+
+  // Create a link element
+  const link = document.createElement('a');
+
+  // Set the download attribute and file name
+  link.download = fileName || 'download.json';
+
+  // Create a URL for the Blob and set it as the href attribute of the link
+  link.href = window.URL.createObjectURL(blob);
+
+  // Append the link to the document
+  document.body.appendChild(link);
+
+  // Trigger a click on the link to start the download
+  link.click();
+
+  // Remove the link from the document
+  document.body.removeChild(link);
+}
 
 
 
