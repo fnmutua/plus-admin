@@ -840,6 +840,21 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               icon:'bi:clipboard2-data-fill'
             }
           },
+
+          {
+            path: 'cleanup',
+          //  component: 'views/Users/County',
+            component: () => import('@/views/Repository/DeleteDocuments.vue'),
+            name: 'RepositoryCleanup',
+            meta: {
+              title: 'Cleanup',
+              hidden: false,
+               role: ['admin', 'super_admin' ] ,
+              icon:'fluent:delete-32-filled'
+            }
+          },
+
+
           // {
           //   path: 'data',
           // //  component: 'views/Users/County',
