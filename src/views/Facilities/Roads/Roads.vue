@@ -1359,20 +1359,20 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
         </div>
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-          <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+          <DownloadAll  v-if="showAdminButtons"   :model="model" :associated_models="associated_multiple_models"/>
 
         </div>
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </div>
-        <div v-if="showEditButtons" style="display: inline-block; margin-left: 20px">
+        <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
           <el-tooltip content="Add Road" placement="top">
             <el-button :onClick="AddFacility" type="primary">
               <Icon icon="material-symbols:add-road" width="24" />
             </el-button>
           </el-tooltip>
         </div>
-        <div v-if="showEditButtons" style="display: inline-block; margin-left: 20px">
+        <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
           <el-tooltip content="Add Structure" placement="top">
             <el-button :onClick="AddAsset" type="primary" :icon="Plus">
               <Icon icon="ph:bridge" width="18" />
@@ -1403,7 +1403,7 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showAdminButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -1438,7 +1438,7 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
 
               <div v-else>
 
-                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
+                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
                   <el-button
 type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
                     circle />
@@ -1485,7 +1485,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 
 
-      <el-tab-pane name="new" v-if=showEditButtons>
+      <el-tab-pane name="new" v-if=showAdminButtons>
         <template #label>
           <span class="custom-tabs-label">
             <el-badge type="success" :value="totalNew" class="item">
@@ -1502,7 +1502,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showAdminButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -1533,7 +1533,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
               <div v-else>
 
-                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
+                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
                   <el-button
 type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
                     circle />
@@ -1587,7 +1587,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showAdminButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>

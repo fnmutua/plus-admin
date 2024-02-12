@@ -92,8 +92,7 @@ const morefileList = ref<UploadUserFile[]>([])
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-const map = ref()
-
+ 
 
 
 
@@ -101,9 +100,7 @@ const map = ref()
 
 console.log("userInfo--->", userInfo)
 
-// Map 
-const polygons = ref([]) as Ref<[number, number][][]>
-const shp = []
+ 
 const geoLoaded = ref(false)
 
 const markerLatlon = ref([])
@@ -131,7 +128,8 @@ const downloadLoading = ref(false)
 
 const showAdminButtons =  ref(appStore.getAdminButtons)
 const showEditButtons =  ref(appStore.getEditButtons)
-
+console.log('showAdminButtons',showAdminButtons.value)
+console.log('showEditButtons',showEditButtons.value)
 
 const tableDataList = ref([])
 //// ------------------parameters -----------------------////
@@ -1495,7 +1493,7 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
 
               <div v-else>
 
-                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
+                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
                   <el-button
 type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
                     circle />

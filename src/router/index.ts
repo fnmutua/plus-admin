@@ -967,7 +967,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'NewReports',
             meta: {
               title: 'Outputs(New)',
-              role: ['admin', 'super_admin' ,'staff'  ] ,
+              role: ['admin', 'super_admin' ,'staff' ] ,
 
               icon:'carbon:result-new',
             }
