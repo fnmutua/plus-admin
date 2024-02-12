@@ -35,7 +35,7 @@ import {
   ElPopconfirm, ElDivider, ElDropdown, ElDropdownItem, ElDropdownMenu, ElForm, ElFormItem
 } from 'element-plus'
 
-import { useRouter } from 'vue-router'
+import { useRouter,useRoute } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -76,7 +76,8 @@ import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, own
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 
-
+ import ActionsColumn from '@/views/Components/ActionsColumn.vue'
+ 
  import ListDocuments from '@/views/Components/ListDocuments.vue';
  import DownloadAll from '@/views/Components/DownloadAll.vue';
 
@@ -151,6 +152,7 @@ const model = 'health_facility'
 const model_parent_key = 'settlement_id'
 //// ------------------parameters -----------------------////
 
+const currentRoute = useRoute(); // Access current route using useRoute
 
 
 
@@ -1020,6 +1022,14 @@ const DeleteProject = (data: TableSlotDefault) => {
 
 }
 
+ 
+
+const handleDeleteConfirmation = (data) => {
+  console.log('--handleDeleteConfirmation--->', data)
+   
+
+
+}
 const formheader = ref('Edit Facility')
 
 //*****************************Create**************************** */
@@ -1262,12 +1272,12 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         </div>
-        <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+        <DownloadAll  v-if="showAdminButtons"   :model="model" :associated_models="associated_multiple_models"/>
 
         <div style="display: inline-block; margin-left: 20px">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </div>
-        <div v-if="showEditButtons" style="display: inline-block; margin-left: 20px">
+        <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
           <el-tooltip content="Add Facility" placement="top">
             <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
           </el-tooltip>
@@ -1286,9 +1296,6 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
           </span>
         </template>
 
-
-
-
         <el-table :data="tableDataList" style="width: 100%" border     @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
@@ -1303,64 +1310,17 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
           </el-table-column>
           <el-table-column label="Name" prop="name" sortable />
           <el-table-column label="Settlement" prop="settlement.name" sortable />
-          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-            <template #default="scope">
-              <el-dropdown v-if="isMobile">
-                <span class="el-dropdown-link">
-                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item
-@click="viewProfile(scope as TableSlotDefault)"
-                      :icon="Position">View</el-dropdown-item>
-
-
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
-                      :icon="Delete" color="red">Delete</el-dropdown-item>
-
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-
-
-              <div v-else>
-
-                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
-                  <el-button
-type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
-
-                <el-tooltip content="View Profile" placement="top">
-                  <el-button
-type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
-
-                <el-tooltip content="View Profile" placement="top">
-                  <el-button
-type="primary" size="small" :icon="TopRight"
-                    @click="viewProfile(scope.row as TableSlotDefault)" circle />
-                </el-tooltip>
-
-
-                <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to delete this facility?" width="150"
-                    @confirm="DeleteProject(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button type="danger" size="small" :icon=Delete circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
-
-              </div>
-            </template>
-
-          </el-table-column>
+ 
+          <!-- <ActionsColumn  Edit="AddhealthX"  :model="model"  @delete-confirmed="handleDeleteConfirmation"    :actionColumnWidth="actionColumnWidth" :showEditButtons="showEditButtons" :showAdminButtons="showAdminButtons" /> -->
+          <ActionsColumn
+              Edit="AddhealthX"
+              :model="model"
+              :currentRoute="currentRoute"  
+              @delete-confirmed="handleDeleteConfirmation"
+              :actionColumnWidth="actionColumnWidth"
+              :showEditButtons="showEditButtons"
+              :showAdminButtons="showAdminButtons"
+            />
 
         </el-table>
 
@@ -1538,6 +1498,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
           </el-table-column>
 
+          <!-- <ActionsColumn   :actionColumnWidth="actionColumnWidth" :showEditButtons="showEditButtons" :showAdminButtons="showAdminButtons" /> -->
+          <ActionsColumn/>
         </el-table>
 
         <ElPagination

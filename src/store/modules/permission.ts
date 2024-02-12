@@ -7,7 +7,7 @@ import { Layout, getParentLayout } from '@/utils/routerHelper'
 import { getCountyListApi } from '@/api/counties'
 import { ref, reactive } from 'vue'
 import { getRoutesList, getSettlementListByCounty } from '@/api/settlements'
-import { useAppStoreWithOut } from '@/store/modules/app'
+import { useAppStoreWithOut ,useAppStore} from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
 
@@ -22,9 +22,21 @@ function toTitleCase(str) {
 
 const { wsCache } = useCache()
 
-const appStore = useAppStoreWithOut()
+const appStore = useAppStore()
 
 const userInfo = wsCache.get(appStore.getUserInfo)
+ 
+console.log(userInfo)
+ 
+if( userInfo &&(userInfo.roles.includes('admin')|| userInfo.roles.includes('staff')   || userInfo.roles.includes('super_admin'))  ) {
+  appStore.setAdminButtons(true);
+  appStore.setEditButtons(true);
+  appStore.setAdmin(true);
+}
+
+if(userInfo && (userInfo.roles.includes('county_admin')))  {
+  appStore.setEditButtons(true);
+ }
 
 
 const programmeComponentOptions = ref([])

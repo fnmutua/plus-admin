@@ -84,9 +84,7 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
-const showAdminButtons = ref(false)
-const showEditButtons = ref(false)
-
+ 
 
 const reviewWindowWidth = ref('40%')
 const isMobile = computed(() => appStore.getMobile)
@@ -96,18 +94,11 @@ if (isMobile.value) {
 }
 
 
-
-// flag for admin buttons
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("kisip_staff")) {
-  showAdminButtons.value = true
-}
-
-// Show Edit buttons 
-if (userInfo.roles.includes("staff")|| userInfo.roles.includes("admin")
-  || userInfo.roles.includes("county_admin") ||  userInfo.roles.includes("national_monitoring") ) {
-    showEditButtons.value = true;
-}
-console.log("Show Buttons -->", showAdminButtons)
+ 
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
+console.log('showAdminButtons',showAdminButtons.value)
+console.log('showEditButtons',showEditButtons.value)
 
 
 const AddDialogVisible = ref(false)
@@ -122,8 +113,7 @@ const rejectReason = ref('')
 
 
 const showEditSaveButton = ref(false)
-const cascadeOptions = ref([])
-let tableDataList = ref<UserType[]>([])
+ let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = ['status']
@@ -1300,18 +1290,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
     <div style="display: inline-block; margin-left: 20px">
       <el-button :onClick="handleClear" type="primary" :icon="Filter" />
     </div>
-    <!-- <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Report " placement="top">
-        <el-button v-if="showEditButtons" :onClick="AddReport" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div> -->
-
-    <!-- <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Import" placement="top">
-        <el-button v-if="showAdminButtons" :onClick="ImportReports" type="primary" :icon="UploadFilled" />
-      </el-tooltip>
-    </div> -->
-
+  
 
 
     <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
@@ -1348,8 +1327,8 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item
-v-if="showEditButtons" @click="editReport(scope as TableSlotDefault)"
-                  :icon="Edit">Edit</el-dropdown-item>
+v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                  :icon="View">View</el-dropdown-item>
                 <el-dropdown-item
 v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
@@ -1361,17 +1340,11 @@ v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
           <div v-else>
 
             <el-tooltip content="Review" placement="top">
-            <el-button
-v-if="showAdminButtons" type="primary" :icon="View"
+            <el-button v-if="showAdminButtons" type="primary" :icon="View"
               @click="editIndicator(scope as TableSlotDefault)" circle />
           </el-tooltip>
 
-<!-- 
-            <el-tooltip content="Edit" placement="top">
-              <el-button
-v-if="showEditButtons" type="success" :icon="Edit"
-                @click="editReport(scope.row as TableSlotDefault)" circle />
-            </el-tooltip> -->
+ 
 
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
