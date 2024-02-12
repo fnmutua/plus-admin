@@ -1014,6 +1014,9 @@ const goBack = () => {
 
 }
 
+const showEditButtons =  ref(appStore.getEditButtons)
+
+
 </script>
  
 <template>
@@ -1035,7 +1038,7 @@ const goBack = () => {
            
           <el-tooltip content="Edit Settlement" placement="top"> 
          
-            <el-button type="success" :onClick="editSettlement" style="  margin-left: 5px">
+            <el-button  v-if="showEditButtons" type="success" :onClick="editSettlement" style="  margin-left: 5px">
               <Icon :size=24 icon='uil:edit' />
             </el-button>
           </el-tooltip>
