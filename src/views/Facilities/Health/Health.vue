@@ -26,6 +26,7 @@ import {
   View,
   Download,
   Filter,
+  InfoFilled,
   MessageBox
 } from '@element-plus/icons-vue'
 
@@ -1312,7 +1313,7 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
           <el-table-column label="Settlement" prop="settlement.name" sortable />
  
           <!-- <ActionsColumn  Edit="AddhealthX"  :model="model"  @delete-confirmed="handleDeleteConfirmation"    :actionColumnWidth="actionColumnWidth" :showEditButtons="showEditButtons" :showAdminButtons="showAdminButtons" /> -->
-          <ActionsColumn
+          <!-- <ActionsColumn
               Edit="AddhealthX"
               :model="model"
               :currentRoute="currentRoute"  
@@ -1320,7 +1321,71 @@ v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple 
               :actionColumnWidth="actionColumnWidth"
               :showEditButtons="showEditButtons"
               :showAdminButtons="showAdminButtons"
-            />
+            /> -->
+
+
+            <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+@click="viewProfile(scope as TableSlotDefault)"
+                      :icon="Position">View</el-dropdown-item>
+
+
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
+
+              <div v-else>
+
+                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+
+                <el-tooltip content="View Profile" placement="top">
+                  <el-button
+type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+
+                <el-tooltip content="View Profile" placement="top">
+                  <el-button
+type="primary" size="small" :icon="TopRight"
+                    @click="viewProfile(scope.row as TableSlotDefault)" circle />
+                </el-tooltip>
+
+
+                <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
+                  <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                    title="Are you sure to delete this facility?" width="150"
+                    @confirm="DeleteProject(scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button type="danger" size="small" :icon=Delete circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+
+              </div>
+            </template>
+
+          </el-table-column>
+
+
+
+
 
         </el-table>
 
