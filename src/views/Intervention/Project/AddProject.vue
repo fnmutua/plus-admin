@@ -190,7 +190,7 @@ const toggleDrawToolbox = () => {
 
 // Load map
 const loadMap = () => {
-  mapboxgl.accessToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNrOW4wdGkxNjAwMTIzZXJ2OWk4MTBraXIifQ.KoO1I8-0V9jRCa0C3aJEqw';
+  mapboxgl.accessToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg';
   map.value = new mapboxgl.Map({
     container: 'mapContainer',
     // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
