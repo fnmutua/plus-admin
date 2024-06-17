@@ -42,7 +42,7 @@ import {
     CaretRight,
     RefreshLeft,
     RefreshRight,
-    LocationFilled, Files, List, Document, CameraFilled,Histogram,
+    LocationFilled, Files, List, Document, CameraFilled, Histogram,
     Download, ArrowDown,
     UploadFilled, CircleCheck, CirclePlus, Position,
     Tools
@@ -338,17 +338,20 @@ const handleSelectType = async (type: any) => {
 }
 const showForms = ref(false)
 const filteredForms = ref([])
+const selectedProject = ref()
 const handleSelectProject = async (project: any) => {
     console.log(project)
-      //  empty the filtered data once form is changed 
-      downloadData.value = []
+    //  empty the filtered data once form is changed 
+    downloadData.value = []
     downloadDataFiltered.value = []
 
     filteredForms.value = formListOptions.value.filter((obj) => obj.projectId == project);
     showForms.value = true
 
-      
-    
+    selectedProject.value=project
+
+
+
 }
 const disableDownloadOption = ref(false)
 
@@ -362,7 +365,7 @@ const handleSelectForm = async (form: any) => {
 
     //  empty the filtered data once form is changed 
     downloadData.value = []
-    downloadDataFiltered.value=[]
+    downloadDataFiltered.value = []
     //if (form=='infrastructure_prioritization' || form == 'County Project Coordinating Teams (CPCT) Data'  ) {
     if (form == 'infrastructure_prioritization') {
         disableDownloadOption.value = true
@@ -984,9 +987,9 @@ const loginUserToCollector = async () => {
                 formOpt.projectId = form.projectId
                 formOpt.label = toTitleCase(form.name)
 
-                     formListOptions.value.push(formOpt)
+                formListOptions.value.push(formOpt)
 
-            
+
             })
 
         })
@@ -1333,13 +1336,13 @@ const generatePropertyProportions = async (arr, properties) => {
 };
 
 function getUniquePropertyValues(arr, property) {
-  const uniqueValues = new Set();
+    const uniqueValues = new Set();
 
-  for (const obj of arr) {
-    uniqueValues.add(obj[property]);
-  }
+    for (const obj of arr) {
+        uniqueValues.add(obj[property]);
+    }
 
-  return Array.from(uniqueValues);
+    return Array.from(uniqueValues);
 }
 
 function extractAllProperties(array) {
@@ -1354,8 +1357,8 @@ function extractAllProperties(array) {
     return properties;
 }
 
-const filterField = ref( )
-const filterValue = ref( )
+const filterField = ref()
+const filterValue = ref()
 const filterFieldOptions = ref([])
 const filterValueOptions = ref([])
 const showReport = ref(false)
@@ -1372,43 +1375,43 @@ const makeReport = async () => {
     fields.value = extractAllProperties(downloadDataFiltered.value);
     console.log(fields.value);
     showReport.value = true
- 
+
 
     for (let i = 0; i < fields.value.length; i++) {
-            const currentString = fields.value[i];
-            let opt = {}
-            opt.value = currentString
-            opt.label = currentString 
-            filterFieldOptions.value.push(opt)
-            }
+        const currentString = fields.value[i];
+        let opt = {}
+        opt.value = currentString
+        opt.label = currentString
+        filterFieldOptions.value.push(opt)
+    }
 
 
     console.log(filterFieldOptions.value)
 
 }
 
-const getUniqueValues = async (e) => { 
-    filterValueOptions.value=[]
+const getUniqueValues = async (e) => {
+    filterValueOptions.value = []
     console.log('Uniuks, ', e)
     const uniqueValues = getUniquePropertyValues(downloadDataFiltered.value, e)
-    
+
     for (let i = 0; i < uniqueValues.length; i++) {
-            const currentString = uniqueValues[i];
-            let opt = {}
-            opt.value = currentString
-            opt.label = currentString 
-            filterValueOptions.value.push(opt)
-     }
+        const currentString = uniqueValues[i];
+        let opt = {}
+        opt.value = currentString
+        opt.label = currentString
+        filterValueOptions.value.push(opt)
+    }
 
 }
 
 
 
-const filterCustom = async (e) => { 
+const filterCustom = async (e) => {
     // filterValueOptions.value = []
     generateReport() // reset charts
-    console.log("Filter Fied:",filterField.value )
-    console.log("Filter Value:",e )
+    console.log("Filter Fied:", filterField.value)
+    console.log("Filter Value:", e)
 
     downloadDataFiltered.value = downloadData.value.filter(obj => obj[filterField.value] == e);
 
@@ -1416,12 +1419,12 @@ const filterCustom = async (e) => {
 
 }
 
-const clearfilterCustom = async () => { 
+const clearfilterCustom = async () => {
     generateReport() // reset charts
-    downloadDataFiltered.value = downloadData.value 
+    downloadDataFiltered.value = downloadData.value
 
     console.log("Cleared, ", downloadDataFiltered.value)
-  
+
 
 }
 
@@ -1448,13 +1451,13 @@ const downloadFlattenedXLSX = async () => {
 
     try {
         // get fresh data only 
-        if ( downloadDataFiltered.value.length==0) {
-        const response = await getCollectorDataFlattened(formData);
-        console.log("flatData", response.data)
-        downloadData.value = response.data
-        downloadDataFiltered.value=response.data 
+        if (downloadDataFiltered.value.length == 0) {
+            const response = await getCollectorDataFlattened(formData);
+            console.log("flatData", response.data)
+            downloadData.value = response.data
+            downloadDataFiltered.value = response.data
         }
-     
+
         DownloadXlsx()
     } catch (error) {
         // Handle any errors here
@@ -1486,7 +1489,7 @@ const getThedata = async () => {
         const response = await getCollectorDataFlattened(formData);
         console.log("flatData", response.data)
         downloadData.value = response.data
-        downloadDataFiltered.value=response.data
+        downloadDataFiltered.value = response.data
 
     } catch (error) {
         // Handle any errors here
@@ -1733,8 +1736,9 @@ const submitterList = async () => {
 
     var userToken = localStorage.getItem('collectorToken');
     formData.token = userToken;
+    formData.project_id = selectedProject.value;
 
-    console.log("Getting fields");
+    console.log("submitters : selectedProject", );
 
     try {
         const response = await getSubmitters(formData);
@@ -1772,7 +1776,7 @@ const showMatching = ref(false)
 
 const DownloadXlsx = async () => {
     console.log('downloadDataFiltered', downloadDataFiltered.value)
- 
+
 
 
     const fields = [];
@@ -1794,111 +1798,111 @@ const DownloadXlsx = async () => {
 
 
 
-            const resultRows = convertObjectsToRows(downloadDataFiltered.value);
-           //  console.log('resultRows',resultRows);
+    const resultRows = convertObjectsToRows(downloadDataFiltered.value);
+    //  console.log('resultRows',resultRows);
 
 
 
     const HEADER_ROW = [
-  {
-    value: 'Name',
-    fontWeight: 'bold'
-  },
-  {
-    value: 'Date of Birth',
-    fontWeight: 'bold'
-  },
-  {
-    value: 'Cost',
-    fontWeight: 'bold'
-  },
-  {
-    value: 'Paid',
-    fontWeight: 'bold'
-  }
-]
+        {
+            value: 'Name',
+            fontWeight: 'bold'
+        },
+        {
+            value: 'Date of Birth',
+            fontWeight: 'bold'
+        },
+        {
+            value: 'Cost',
+            fontWeight: 'bold'
+        },
+        {
+            value: 'Paid',
+            fontWeight: 'bold'
+        }
+    ]
 
-const DATA_ROW_1 = [
-  // "Name"
-  {
-    type: String,
-    value: 'John Smith'
-  },
+    const DATA_ROW_1 = [
+        // "Name"
+        {
+            type: String,
+            value: 'John Smith'
+        },
 
-  // "Date of Birth"
-  {
-    type: Date,
-    value: new Date(),
-    format: 'mm/dd/yyyy'
+        // "Date of Birth"
+        {
+            type: Date,
+            value: new Date(),
+            format: 'mm/dd/yyyy'
 
-   },
+        },
 
-  // "Cost"
-  {
-    type: Number,
-    value: 1800
-  },
+        // "Cost"
+        {
+            type: Number,
+            value: 1800
+        },
 
-  // "Paid"
-  {
-    type: Boolean,
-    value: true
-  }
-]
+        // "Paid"
+        {
+            type: Boolean,
+            value: true
+        }
+    ]
 
-const data = [
-  HEADER_ROW,
-  DATA_ROW_1,
- ]
- 
- 
- console.log("Name",submitter_filter.value,form.value )
- 
- submitterOptions
-
- const filteredArray = submitterOptions.value.filter(item => item['value'] === submitter_filter.value);
-console.log('submitter_filter.value', filteredArray[0].label);
+    const data = [
+        HEADER_ROW,
+        DATA_ROW_1,
+    ]
 
 
-await writeXlsxFile(resultRows, {
-   fileName:  form.value +'_'+filteredArray[0].label
-})
+    console.log("Name", submitter_filter.value, form.value)
+
+    submitterOptions
+
+    const filteredArray = submitterOptions.value.filter(item => item['value'] === submitter_filter.value);
+    console.log('submitter_filter.value', filteredArray[0].label);
+
+
+    await writeXlsxFile(resultRows, {
+        fileName: form.value + '_' + filteredArray[0].label
+    })
 
 
 }
 
 function convertObjectsToRows(objectsArray) {
-            // Extract all unique property names from the array of objects
-            // const allProperties = Array.from(
-            //     new Set(objectsArray.flatMap(obj => Object.keys(obj)))
-            // );
+    // Extract all unique property names from the array of objects
+    // const allProperties = Array.from(
+    //     new Set(objectsArray.flatMap(obj => Object.keys(obj)))
+    // );
 
 
-            const allProperties = Array.from(
-                    new Set(
-                    objectsArray
-                        .flatMap(obj => Object.keys(obj))
-                        .filter(property => property !== 'coordinates')
-                    )
-                );
+    const allProperties = Array.from(
+        new Set(
+            objectsArray
+                .flatMap(obj => Object.keys(obj))
+                .filter(property => property !== 'coordinates')
+        )
+    );
 
 
-            // Generate the header row based on the properties
-            const headerRow = allProperties.map(property => ({
-                value: property,
-                fontWeight: 'bold',
-            }));
+    // Generate the header row based on the properties
+    const headerRow = allProperties.map(property => ({
+        value: property,
+        fontWeight: 'bold',
+    }));
 
-            // Generate data rows based on the objects
-            const dataRows = objectsArray.map(obj =>
-                allProperties.map(property => ({
-                type: typeof obj[property] === 'string' ?  String  :  Number ,
-                value: obj[property],
-                }))
-            );
+    // Generate data rows based on the objects
+    const dataRows = objectsArray.map(obj =>
+        allProperties.map(property => ({
+            type: typeof obj[property] === 'string' ? String : Number,
+            value: obj[property],
+        }))
+    );
 
-            return [headerRow, ...dataRows];
-            }
+    return [headerRow, ...dataRows];
+}
 
 
 
@@ -1981,13 +1985,12 @@ const chartOptions = [
 </script>
 
 <template>
-    <ContentWrap
-v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait......."
+    <ContentWrap v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait......."
         :title="t('Surveys')" :message="t('Data Collected via collector.kesmis...')">
 
 
         <el-row :gutter="7">
- 
+
             <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                 <el-row :gutter="12">
                     <el-col :span="12">
@@ -2003,11 +2006,9 @@ v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait.
                     <el-col :span="12">
                         <el-card v-loading="loading" shadow="hover">
                             <div v-if="showSelect" class="card-content">
-                                <el-select
-v-model="project" :onChange="handleSelectProject" filterable clearable
+                                <el-select v-model="project" :onChange="handleSelectProject" filterable clearable
                                     placeholder="Select Project" style=" margin-right: 20px">
-                                    <el-option
-v-for="item in projectListOptions" :key="item.value" :label="item.label"
+                                    <el-option v-for="item in projectListOptions" :key="item.value" :label="item.label"
                                         :value="item.value" />
                                 </el-select>
                             </div>
@@ -2020,26 +2021,22 @@ v-for="item in projectListOptions" :key="item.value" :label="item.label"
 
 
                     <el-select v-model="form" :onChange="handleSelectForm" placeholder="Select Form">
-                        <el-option
-v-for="item in filteredForms" :key="item.value" :label="item.label"
+                        <el-option v-for="item in filteredForms" :key="item.value" :label="item.label"
                             :value="item.value" />
                     </el-select>
- 
+
                     <div style="display: inline-block; margin-top: 20px; margin-left: 10px">
 
-                        <el-select
-v-model="submitter_filter" placeholder="Filter by Submitter"
+                        <el-select v-model="submitter_filter" placeholder="Filter by Submitter"
                             :onChange="handleSelectSubmitter">
-                            <el-option
-v-for="item in submitterOptions" :key="item.value" :label="item.label"
+                            <el-option v-for="item in submitterOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                     </div>
 
 
                     <div style="display: inline-block; margin-left: 10px">
-                        <el-dropdown
-v-loading="downloadingCsv" @command="handleCommand"
+                        <el-dropdown v-loading="downloadingCsv" @command="handleCommand"
                             class="el-button    el-button--plain  ">
                             <span class="el-dropdown-link">
                                 Download
@@ -2050,14 +2047,11 @@ v-loading="downloadingCsv" @command="handleCommand"
                             <template #dropdown>
                                 <el-dropdown-menu>
                                     <el-dropdown-item command="raw" :icon="Document">Raw Data</el-dropdown-item>
-                                    <el-dropdown-item
-command="xlsx" :disabled="disableDownloadOption"
+                                    <el-dropdown-item command="xlsx" :disabled="disableDownloadOption"
                                         :icon="List">XLSX</el-dropdown-item>
-                                    <el-dropdown-item
-command="geojson" disabled
+                                    <el-dropdown-item command="geojson" disabled
                                         :icon="LocationFilled">GeoJSOn</el-dropdown-item>
-                                    <el-dropdown-item
-command="media" disabled
+                                    <el-dropdown-item command="media" disabled
                                         :icon="CameraFilled">Attachments</el-dropdown-item>
                                     <el-dropdown-item command="report" :icon="Histogram">Charts</el-dropdown-item>
                                 </el-dropdown-menu>
@@ -2066,62 +2060,68 @@ command="media" disabled
                     </div>
                     <el-divider content-position="left" style="flex: 1;">Chart Options</el-divider>
 
-                    <div v-if="showReport" style="margin-top: 10px; display: flex; flex-wrap: wrap; align-items: flex-start;">
+                    <div v-if="showReport"
+                        style="margin-top: 10px; display: flex; flex-wrap: wrap; align-items: flex-start;">
 
-                    <el-select v-model="filterField" filterable  clearable placeholder="Filter By" style="margin-right: 5px; flex: 1;" size="small" :onChange="getUniqueValues">
-                        <el-option v-for="item in filterFieldOptions" :key="item.value" :label="item.label" :value="item.value" />
-                    </el-select>
+                        <el-select v-model="filterField" filterable clearable placeholder="Filter By"
+                            style="margin-right: 5px; flex: 1;" size="small" :onChange="getUniqueValues">
+                            <el-option v-for="item in filterFieldOptions" :key="item.value" :label="item.label"
+                                :value="item.value" />
+                        </el-select>
 
-                    <el-select :onChange="filterCustom" :onClear="clearfilterCustom" filterable v-model="filterValue" clearable placeholder="Filter Value" style="margin-right: 5px; flex: 1;" size="small">
-                        <el-option v-for="item in filterValueOptions" :key="item.value" :label="item.label" :value="item.value" />
-                    </el-select>
+                        <el-select :onChange="filterCustom" :onClear="clearfilterCustom" filterable
+                            v-model="filterValue" clearable placeholder="Filter Value"
+                            style="margin-right: 5px; flex: 1;" size="small">
+                            <el-option v-for="item in filterValueOptions" :key="item.value" :label="item.label"
+                                :value="item.value" />
+                        </el-select>
 
-                    <el-select :onChange="generateReport" v-model="computationMethod" clearable placeholder="Computation" style="margin-right: 10px; flex: 1;" size="small">
-                        <el-option v-for="item in computationOptions" :key="item.value" :label="item.label" :value="item.value" />
-                    </el-select>
+                        <el-select :onChange="generateReport" v-model="computationMethod" clearable
+                            placeholder="Computation" style="margin-right: 10px; flex: 1;" size="small">
+                            <el-option v-for="item in computationOptions" :key="item.value" :label="item.label"
+                                :value="item.value" />
+                        </el-select>
 
-                    <el-select :onChange="generateReport" v-model="typeChart" clearable placeholder="Type of Chart" style="margin-right: 10px; flex: 1;" size="small">
-                        <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
-                    </el-select>
+                        <el-select :onChange="generateReport" v-model="typeChart" clearable placeholder="Type of Chart"
+                            style="margin-right: 10px; flex: 1;" size="small">
+                            <el-option v-for="item in chartOptions" :key="item.value" :label="item.label"
+                                :value="item.value" />
+                        </el-select>
 
-                </div>
+                    </div>
 
-                <el-scrollbar height="400px" style="flex: 1;">
+                    <el-scrollbar height="400px" style="flex: 1;">
 
-                <el-row>
+                        <el-row>
 
-                    <el-col :span="6" v-for="(option, index) in fields" :key="index">
-                        <el-checkbox v-model="selectedFields" :label="option" size="small" :onChange="generateReport" class="ellipsis-checkbox" />
-                    </el-col>
-                </el-row>
-                <br />
+                            <el-col :span="6" v-for="(option, index) in fields" :key="index">
+                                <el-checkbox v-model="selectedFields" :label="option" size="small"
+                                    :onChange="generateReport" class="ellipsis-checkbox" />
+                            </el-col>
+                        </el-row>
+                        <br />
 
-                </el-scrollbar>
+                    </el-scrollbar>
 
                     <div v-if="showChildParent" style="display: inline-block; margin-top: 20px">
-                        <el-select
-v-model="type" :onChange="handleSelectType" filterable clearable
+                        <el-select v-model="type" :onChange="handleSelectType" filterable clearable
                             placeholder="Select data to import" style=" margin-right: 20px">
                             <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
-                                <el-option
-v-for="item in group.options" :key="item.value" :label="item.label"
+                                <el-option v-for="item in group.options" :key="item.value" :label="item.label"
                                     :value="item.value" />
                             </el-option-group>
                         </el-select>
 
-                        <el-select
-v-model="selectedparent" :onChange="handleSelectParentModel"
+                        <el-select v-model="selectedparent" :onChange="handleSelectParentModel"
                             placeholder="Select Parent Model">
-                            <el-option
-v-for="item in parentOptions" :key="item.value" :label="item.label"
+                            <el-option v-for="item in parentOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                     </div>
                     <el-text v-if="showMatching" class="button-container"> Matching data with database... Please
                         wait</el-text>
                     <div>
-                        <el-progress
-v-if="showMatching" class="button-container" :percentage="100" status="success"
+                        <el-progress v-if="showMatching" class="button-container" :percentage="100" status="success"
                             :indeterminate="true" :duration="1" :show-text="false" />
 
                     </div>
@@ -2139,22 +2139,19 @@ v-if="showMatching" class="button-container" :percentage="100" status="success"
                         <el-table-column prop="key1" label="Database Field" />
                         <el-table-column label="From Collector">
                             <template #default="scope">
-                                <el-select
-v-model="scope.row.key2" @change="updateSelect(scope.row, scope.$index)"
+                                <el-select v-model="scope.row.key2" @change="updateSelect(scope.row, scope.$index)"
                                     filterable clearable>
 
-                                    <el-option
-v-for="(option, index) in selectOptions" :key="index" :label="option.label"
-                                        :value="option.value" :disabled="option.disabled" />
+                                    <el-option v-for="(option, index) in selectOptions" :key="index"
+                                        :label="option.label" :value="option.value" :disabled="option.disabled" />
                                 </el-select>
                             </template>
                         </el-table-column>
                     </el-table>
 
                     <div v-if="showCharts">
-                        <el-col
-v-for="(chart) in customCharts" :key="chart" :span="24" :xl="24" :lg="24" :md="24" :sm="24"
-                            :xs="24">
+                        <el-col v-for="(chart) in customCharts" :key="chart" :span="24" :xl="24" :lg="24" :md="24"
+                            :sm="24" :xs="24">
                             <div class="tabs-container">
                                 <el-card>
 
@@ -2224,7 +2221,7 @@ v-for="(chart) in customCharts" :key="chart" :span="24" :xl="24" :lg="24" :md="2
 </style>
 
 
- 
+
 <style scoped>
 .chart {
     height: 40vh;
@@ -2290,7 +2287,7 @@ v-for="(chart) in customCharts" :key="chart" :span="24" :xl="24" :lg="24" :md="2
     height: 100%;
 }
 </style>
- 
+
 
 <style>
 .dropdown-button .el-dropdown-link {
@@ -2330,5 +2327,3 @@ v-for="(chart) in customCharts" :key="chart" :span="24" :xl="24" :lg="24" :md="2
     /* You can adjust this width as needed */
 }
 </style>
- 
-

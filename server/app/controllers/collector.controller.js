@@ -1,18 +1,15 @@
 const db = require('../models')
-const config = require('../config/db.config.js')
-const User = db.user
-const Role = db.role
+ 
 
 const Sequelize = require('sequelize')
- const op = Sequelize.Op
- var request = require('request');
+  var request = require('request');
 
  const { XMLParser } = require('fast-xml-parser');
  
  
  
 exports.modelGetProjects = (req, res) => {
-  console.log('get projects')
+ // console.log('get projects')
   
   res.status(200).send({
     data: "Projects",
@@ -23,7 +20,7 @@ exports.modelGetProjects = (req, res) => {
 
 
 exports.modelLoginCollector = (req, res) => {
-  console.log('Body', req.body);
+ // console.log('Body', req.body);
 
   // Extract email and password from req.body
   const { email, password } = req.body;
@@ -55,7 +52,7 @@ exports.modelLoginCollector = (req, res) => {
       const token = responseBody.token;
 
       // Do something with the token (e.g., store it, send it in the response, etc.)
-      console.log('Token:', token);
+     // console.log('Token:', token);
 
 
         // Define your bearer token
@@ -73,7 +70,7 @@ exports.modelLoginCollector = (req, res) => {
       request(requestOptions, function (error, response, body) {
 
         projects = body;
-        console.log(projects)
+       // console.log(projects)
         res.status(200).send({
           data: projects,
           code: '0000',
@@ -96,16 +93,16 @@ exports.modelLoginCollector = (req, res) => {
 
 
 exports.modelGetSubmitters = (req, res) => {
-  console.log('Body', req.body);
+  console.log('Body - modelGetSubmitters', req.body);
 
   // Extract email and password from req.body
-  const { form, token } = req.body;
+  const { form, token, project_id } = req.body;
 
   
    let submitters
        // Set up the options for the HTTP request, including the 'Authorization' header
        const requestOptions = {
-        url: 'https://collector.kesmis.go.ke/v1/projects/1/forms/'+form+'/submissions/submitters',
+        url: 'https://collector.kesmis.go.ke/v1/projects/'+project_id+'/forms/'+form+'/submissions/submitters',
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -117,7 +114,7 @@ exports.modelGetSubmitters = (req, res) => {
       // Send the HTTP request
       request(requestOptions, function (error, response, body) {
         submitters = body;
-        console.log(submitters)
+      // // console.log(submitters)
         res.status(200).send({
           data: submitters,
           code: '0000',
@@ -131,7 +128,7 @@ exports.modelGetSubmitters = (req, res) => {
 
 
 exports.modelDataCollector = (req, res) => {
-  console.log('Body', req.body);
+ //// console.log('Body', req.body);
 
   // Extract email and password from req.body
   const { project, form, token } = req.body;
@@ -154,13 +151,13 @@ exports.modelDataCollector = (req, res) => {
   }, function (error, response, body) {
    
 
-    console.log('------>', error)
+   // console.log('------>', error)
 
     if (!error && response.statusCode === 200) {
        
    
         projects = body;
-        console.log(projects)
+       // console.log(projects)
         res.status(200).send({
           data: projects,
           code: '0000',
@@ -186,19 +183,19 @@ async function removeDot(item) {
   const keys = Object.keys(item);
   let modifiedItem = {}
    //console.log('keys', keys)
- // console.log(item, keys.length)
+ //// console.log(item, keys.length)
   if (keys&& keys.length > 0) {
     for (const key of keys) {
       let  lastKeyPart = key.includes('.') ? key.split('.').pop() : key;
    
       // Create a new object with the modified key
       modifiedItem[lastKeyPart] =  item[key] ;
-     // console.log( item[key])
+     //// console.log( item[key])
      
 
     }
   }
-  console.log(modifiedItem)
+ // console.log(modifiedItem)
   return modifiedItem
 }
 
@@ -220,11 +217,11 @@ function hasNavigationProperty(xmlString) {
   try {
   
     jsonObj['edmx:Edmx']['edmx:DataServices'].Schema[1].EntityType[0].NavigationProperty
-    console.log("In")
+   // console.log("In")
     return true;
     
   } catch (error) {
-    console.log("OUT")
+   // console.log("OUT")
       // Handle the TypeError (e.g., log an error message)
        return false;
    
@@ -249,7 +246,7 @@ function hasNavigationProperty(xmlString) {
         
         if (Array.isArray(current[key])) {
           if (current[key].length > 0 && typeof current[key][0] === 'object') {
-            // console.log('KEY', current[key],current[key].length )
+            //// console.log('KEY', current[key],current[key].length )
             hasChildren = true
            // let tmp = []
             // If it's an array of objects, get child details and append as a new outer object
@@ -257,7 +254,7 @@ function hasNavigationProperty(xmlString) {
               const nestedResult = { ...result }; // Copy the parent object
               recurse(item, newKey); // Recurse into the nested object
               const res = await removeDot(result) 
-            // console.log('-----', res )
+            //// console.log('-----', res )
               tmp.push(res); // Add the flattened object to the result array
             });
 
@@ -333,8 +330,10 @@ function flattenPlain(obj, parentKey = '') {
 
 
 async function getEntities(token, project) {
+  console.log('getEntities',project )
   return new Promise((resolve, reject) => {
-    const url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/datasets/settlements.svc/Entities';
+    //const url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/datasets/settlements.svc/Entities';
+    const url = 'https://collector.kesmis.go.ke/v1/projects/1/datasets/settlements.svc/Entities'; // get entites from Project 1
 
     request({
       method: 'GET',
@@ -411,21 +410,12 @@ function mergeObjectsByKeys(arr1, arr2, key1, key2) {
 
 
 
-exports.modelDataCollectorGetFlattened = (req, res) => {
-  console.log('Body', req.body);
+exports.xmodelDataCollectorGetFlattened = (req, res) => {
 
   // Extract email and password from req.body
   const { project, form, token, submitter_filter } = req.body;
  
-
-
-  // Make a get request to check if form has reapeats...
-
-
-
-
-
-
+  console.log('modelDataCollectorGetFlattened',req.body)
   let url
   if (submitter_filter != 0) {
  
@@ -437,7 +427,7 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
 
   }
    
-  console.log(url)
+   console.log(url)
 
  
   // Login and get a token 
@@ -457,13 +447,13 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
     if (!error && response.statusCode === 200) {
        
       let objResults = JSON.parse(body)
-        console.log(objResults.value)
+       // console.log(objResults.value)
       let objs = objResults.value
 
       const  setlements =   await getEntities(token, project)
       
 
-     // console.log(setlements)
+     //// console.log(setlements)
 
      let subsetEntities=[]       
       if (setlements) {
@@ -478,8 +468,8 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
   
                 // Add more properties as needed
               };
-             // console.log(sett)
-             // console.log(selectedProperties);
+             //// console.log(sett)
+             //// console.log(selectedProperties);
               subsetEntities.push(selectedProperties)
             }
         
@@ -497,14 +487,14 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
         var hasProperty =  hasNavigationProperty(xmlData)
      
       if (hasProperty) {
-        console.log("has")
+       // console.log("has")
         flattenedObject = await flattenArray(objs);
            
       } else {
-        console.log("has not -------")
+       // console.log("has not -------")
         
        flattenedObject = await flattenPlainArray(objs)
-       // console.log(flattenedObject)
+       //// console.log(flattenedObject)
 
       }
       
@@ -513,11 +503,11 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
 
       if (flattenedObject[0]&&flattenedObject[0].hasOwnProperty('pcode')) { 
 
-        console.log('Pcode presente')
+       // console.log('Pcode presente')
           mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode',  'settlement_code' );
 
       } else {
-        console.log('Pcode Missing...')
+       // console.log('Pcode Missing...')
 
         mergedArray=flattenedObject
       }
@@ -525,7 +515,7 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
       // Call the function to merge arrays of objects based on a common key
       
           // Print the merged array1
-          console.log(mergedArray);
+         // console.log(mergedArray);
    
         res.status(200).send({
           data: mergedArray,
@@ -546,6 +536,126 @@ exports.modelDataCollectorGetFlattened = (req, res) => {
     }
   });
 }
+
+ 
+exports.modelDataCollectorGetFlattened = async (req, res) => {
+  // Extract email and password from req.body
+  const { project, form, token, submitter_filter } = req.body;
+
+  console.log('modelDataCollectorGetFlattened', req.body);
+
+  let url;
+ 
+  if (submitter_filter != 0) {
+    url = 'https://collector.kesmis.go.ke/v1/projects/'+project+'/forms/'+form+'.svc/Submissions?$expand=*&$filter=(__system%2FsubmitterId eq '+submitter_filter+')'
+   
+  } else {
+    url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions?$expand=*`;
+  }
+
+  console.log(url);
+
+  try {
+    const response = await makeRequest(url, token);
+
+    console.log('response',response.body)
+
+    if (response && response.body) {
+      const objResults = JSON.parse(response.body);
+      const objs = objResults.value;
+
+      const settlements = await getEntities(token, project);
+
+      let subsetEntities = [];
+      if (settlements) {
+        for (const sett of settlements.value) {
+          const selectedProperties = {
+            settlement_id: sett.__id,
+            county_name: sett.county_name,
+            settlement_name: sett.sett_name,
+            settlement_code: sett.code,
+            // Add more properties as needed
+          };
+          subsetEntities.push(selectedProperties);
+        }
+      } else {
+        console.error('Error: Received empty or invalid dataset from API');
+      }
+
+      let flattenedObject;
+      const xmlData = await checkifhasRepeats(token, project, form);
+      const hasProperty = hasNavigationProperty(xmlData);
+
+      if (hasProperty) {
+        flattenedObject = await flattenArray(objs);
+      } else {
+        flattenedObject = await flattenPlainArray(objs);
+      }
+
+      let mergedArray;
+
+      if (flattenedObject[0] && flattenedObject[0].hasOwnProperty('pcode')) {
+        mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode', 'settlement_code');
+      } else {
+        mergedArray = flattenedObject;
+      }
+
+      res.status(200).send({
+        data: mergedArray,
+        code: '0000',
+        token: token, // Include the token in the response
+      });
+    } else {
+      console.error(`Error: Failed to fetch data from API. Status code: ${response}`);
+      res.status(500).send({
+        error: 'Internal Server Error',
+      });
+    }
+  } catch (error) {
+    console.error('Error during request:', error);
+    res.status(500).send({
+      error: 'Internal Server Error',
+    });
+  }
+};
+
+
+
+
+ 
+ 
+async function makeRequest(url, token) {
+  return new Promise((resolve, reject) => {
+    request({
+      method: 'GET',
+      url: url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    }, (error, response, body) => {
+      if (error) {
+        reject({
+          message: error.message,
+          statusCode: response ? response.statusCode : null,
+          response: response,
+        });
+      } else if (response.statusCode >= 400) {
+        reject({
+          message: `Request failed with status code ${response.statusCode}`,
+          statusCode: response.statusCode,
+          response: response,
+          body: body
+        });
+      } else {
+        resolve(response);
+      }
+    });
+  });
+}
+
+
+
 
 
 function createGeoJSONFeatures(dataArray) {
@@ -587,7 +697,7 @@ function createGeoJSONFeatures(dataArray) {
  
 
 exports.modelDataCollectorGetGeoJSON= (req, res) => {
-  console.log('Body', req.body);
+ // console.log('Body', req.body);
 
   // Extract email and password from req.body
   const { project, form, token } = req.body;
@@ -608,18 +718,18 @@ exports.modelDataCollectorGetGeoJSON= (req, res) => {
   }, async function (error, response, body) {
    
 
-    console.log('------>', error)
+   // console.log('------>', error)
 
     if (!error && response.statusCode === 200) {
        
       let objResults = JSON.parse(body)
-        console.log(objResults.value )
+       // console.log(objResults.value )
       let objs = objResults.value
 
       const  setlements =   await getEntities(token, project)
 
 
-     // console.log(setlements)
+     //// console.log(setlements)
 
      let subsetEntities=[]       
       if (setlements) {
@@ -634,8 +744,8 @@ exports.modelDataCollectorGetGeoJSON= (req, res) => {
   
                 // Add more properties as needed
               };
-             // console.log(sett)
-             // console.log(selectedProperties);
+             //// console.log(sett)
+             //// console.log(selectedProperties);
               subsetEntities.push(selectedProperties)
             }
         
@@ -650,7 +760,7 @@ exports.modelDataCollectorGetGeoJSON= (req, res) => {
           if (geojsonFeature) {
               // Convert the GeoJSON object to a string if needed
             const geojsonString = JSON.stringify(geojsonFeature);
-            console.log('geojsonString',geojsonString)
+           // console.log('geojsonString',geojsonString)
 
               // You can use the `geojsonFeature` or `geojsonString` as needed in your application.
           }
@@ -677,7 +787,7 @@ exports.modelDataCollectorGetGeoJSON= (req, res) => {
 
 
  exports.modelDataCollectorCSV = (req, res) => {
-  console.log('Body', req.body);
+ // console.log('Body', req.body);
 
   // Extract email and password from req.body
   const { project, form, token,submitter_filter } = req.body;
@@ -696,7 +806,7 @@ exports.modelDataCollectorGetGeoJSON= (req, res) => {
 
 
    }
-   console.log(url)
+  // console.log(url)
 
    
   // Login and get a token
@@ -739,7 +849,7 @@ exports.modelDataCollectorGetGeoJSON= (req, res) => {
 
 
 exports.modelDataCollectorCSVWithMedia = (req, res) => {
-  console.log('Body', req.body);
+ // console.log('Body', req.body);
 
   // Extract email and password from req.body
   const { project, form, token, submitter_filter } = req.body;
