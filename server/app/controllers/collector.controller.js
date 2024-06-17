@@ -558,7 +558,7 @@ exports.modelDataCollectorGetFlattened = async (req, res) => {
   try {
     const response = await makeRequest(url, token);
 
-    console.log('response',response.body)
+    //console.log('response',response.body)
 
     if (response && response.body) {
       const objResults = JSON.parse(response.body);

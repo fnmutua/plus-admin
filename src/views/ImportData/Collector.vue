@@ -356,10 +356,17 @@ const handleSelectProject = async (project: any) => {
 const disableDownloadOption = ref(false)
 
 const handleSelectForm = async (form: any) => {
+
+    // remove the dsisplayed fields for p[revious form ]
+    showReport.value = false
+    FormFields.value=[]
+
+
+
+
     console.log(form)
     submitter_filter.value = 0   // initialize fileter to all 
-    showReport.value = false
-    showCharts.value = false
+     showCharts.value = false
     await submitterList()
     disableGet.value = false
 
@@ -1362,7 +1369,7 @@ const filterValue = ref()
 const filterFieldOptions = ref([])
 const filterValueOptions = ref([])
 const showReport = ref(false)
-const fields = ref([])
+const FormFields = ref([])
 const selectedFields = ref([])
 
 
@@ -1372,8 +1379,8 @@ const makeReport = async () => {
 
     console.log("te data......", downloadDataFiltered.value)
 
-    fields.value = extractAllProperties(downloadDataFiltered.value);
-    console.log(fields.value);
+    FormFields.value = extractAllProperties(downloadDataFiltered.value);
+    console.log(FormFields.value);
     showReport.value = true
 
 
@@ -2094,7 +2101,7 @@ const chartOptions = [
 
                         <el-row>
 
-                            <el-col :span="6" v-for="(option, index) in fields" :key="index">
+                            <el-col :span="6" v-for="(option, index) in FormFields" :key="index">
                                 <el-checkbox v-model="selectedFields" :label="option" size="small"
                                     :onChange="generateReport" class="ellipsis-checkbox" />
                             </el-col>
