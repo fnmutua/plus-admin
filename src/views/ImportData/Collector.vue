@@ -110,7 +110,7 @@ PieChartOption = {
     },
     title: {
         text: '',
-        subtext: 'National Slum Database, 2023',
+        subtext: 'National Slum Database, ' +getCurrentYear(),
         left: 'center',
         textStyle: {
             fontSize: 14
@@ -1554,29 +1554,77 @@ const downloadGeoJSON = async () => {
     }
 };
 
+// Remove duplciates especially in repeats
+function removeDuplicatesByTwoProperties(arr, prop1, prop2) {
+    console.log(prop1, prop2)
+  const seen = new Set();
+  return arr.filter(item => {
+    const key = `${item[prop1]}_${item[prop2]}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function convertKeysToProperCase(obj) {
+  function toProperCase(str) {
+    return str
+      .replace(/_/g, ' ')            // Replace underscores with spaces
+      .toLowerCase()                 // Convert to lowercase
+      .replace(/\b\w/g, char => char.toUpperCase()); // Capitalize each word
+     // .replace(/ /g, '');            // Remove spaces
+  }
+
+  function processObject(o) {
+    const result = {};
+
+    for (const [key, value] of Object.entries(o)) {
+      const newKey = toProperCase(key);
+
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        result[newKey] = processObject(value); // Recursively process nested objects
+      } else {
+        result[newKey] = value; // Copy value for non-objects
+      }
+    }
+
+    return result;
+  }
+
+  return processObject(obj);
+}
 
 
 const showCharts = ref(false)
 const customCharts = ref([])
 const generateReport = async () => {
     showCharts.value = true
+
     // clear the charts first 
     customCharts.value = []
-    console.log("reports........", computationMethod.value)
+    console.log("reports........", downloadDataFiltered.value)
 
-    var frequencies
+    const uniqueData = removeDuplicatesByTwoProperties(downloadDataFiltered.value, selectedFields.value, 'navigationLink');
+    console.log("uniqueData........", uniqueData)
+
+
+    let frequencies
     if (computationMethod.value == 'count') {
-        frequencies = await generatePropertyFrequencies(downloadDataFiltered.value, selectedFields.value);
+        frequencies = await generatePropertyFrequencies(uniqueData, selectedFields.value);
 
     } else {
-        frequencies = await generatePropertyProportions(downloadDataFiltered.value, selectedFields.value);
+        frequencies = await generatePropertyProportions(uniqueData, selectedFields.value);
         console.log("Proportions", frequencies)
 
     }
 
     //const result = await generatePropertyFrequencies(data, 'name');
     console.log('frequencies', frequencies);
-
+    console.log('convertKeysToProperCase', convertKeysToProperCase(frequencies));
+    frequencies=convertKeysToProperCase(frequencies)
+    
     // loop through each propoert and get the responses 
 
     let chart = {}
@@ -1677,12 +1725,14 @@ const generateReport = async () => {
     console.log("charts,", customCharts.value)
 }
 
-
+function getCurrentYear() {
+  return new Date().getFullYear();
+}
 // template option
 option = {
     title: {
         text: '',
-        subtext: 'National Slum Database, 2023',
+        subtext: 'National Slum Database, ' +getCurrentYear(),
         left: 'center',
         textStyle: {
             fontSize: 14
