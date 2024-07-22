@@ -409,133 +409,7 @@ function mergeObjectsByKeys(arr1, arr2, key1, key2) {
 }
 
 
-
-exports.xmodelDataCollectorGetFlattened = (req, res) => {
-
-  // Extract email and password from req.body
-  const { project, form, token, submitter_filter } = req.body;
  
-  console.log('modelDataCollectorGetFlattened',req.body)
-  let url
-  if (submitter_filter != 0) {
- 
-     url = 'https://collector.kesmis.go.ke/v1/projects/'+project+'/forms/'+form+'.svc/Submissions?$expand=*&$filter=(__system%2FsubmitterId eq '+submitter_filter+')'
-
-   }
-   else {
-      url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions?%24expand=*'
-
-  }
-   
-   console.log(url)
-
- 
-  // Login and get a token 
-  request({
-    method: 'GET',
-    url: url,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-
-    },
-  }, async function (error, response, body) {
-   
-
-    console.log('------>', error)
-
-    if (!error && response.statusCode === 200) {
-       
-      let objResults = JSON.parse(body)
-       // console.log(objResults.value)
-      let objs = objResults.value
-
-      const  setlements =   await getEntities(token, project)
-      
-
-     //// console.log(setlements)
-
-     let subsetEntities=[]       
-      if (setlements) {
-           
-            // Select the properties you want
-            for (const sett of setlements.value) { 
-              const selectedProperties = {
-                settlement_id: sett.__id,
-                county_name: sett.county_name,
-                settlement_name: sett.sett_name,
-                settlement_code: sett.code,
-  
-                // Add more properties as needed
-              };
-             //// console.log(sett)
-             //// console.log(selectedProperties);
-              subsetEntities.push(selectedProperties)
-            }
-        
-          } else {
-            console.error('Error: Received empty or invalid dataset from API');
-          }
-
-      
-     // join the enties to form data
-      
-  
-        let flattenedObject  
-
-        const xmlData = await checkifhasRepeats(token, project, form)
-        var hasProperty =  hasNavigationProperty(xmlData)
-     
-      if (hasProperty) {
-       // console.log("has")
-        flattenedObject = await flattenArray(objs);
-           
-      } else {
-       // console.log("has not -------")
-        
-       flattenedObject = await flattenPlainArray(objs)
-       //// console.log(flattenedObject)
-
-      }
-      
-
-      let mergedArray
-
-      if (flattenedObject[0]&&flattenedObject[0].hasOwnProperty('pcode')) { 
-
-       // console.log('Pcode presente')
-          mergedArray = mergeObjectsByKeys(flattenedObject, subsetEntities, 'pcode',  'settlement_code' );
-
-      } else {
-       // console.log('Pcode Missing...')
-
-        mergedArray=flattenedObject
-      }
-      
-      // Call the function to merge arrays of objects based on a common key
-      
-          // Print the merged array1
-         // console.log(mergedArray);
-   
-        res.status(200).send({
-          data: mergedArray,
-          //data: objs,
-          code: '0000',
-          token: token // Include the token in the response
-        });
- 
-
-
- 
-    } else {
-      // Handle errors here
-      console.error('Error:', error);
-      res.status(500).send({
-        error: 'Internal Server Error'
-      });
-    }
-  });
-}
 
  
 exports.modelDataCollectorGetFlattened = async (req, res) => {
@@ -564,6 +438,8 @@ exports.modelDataCollectorGetFlattened = async (req, res) => {
       const objResults = JSON.parse(response.body);
       const objs = objResults.value;
 
+      console.log(objResults.length)
+
       const settlements = await getEntities(token, project);
 
       let subsetEntities = [];
@@ -587,9 +463,11 @@ exports.modelDataCollectorGetFlattened = async (req, res) => {
       const hasProperty = hasNavigationProperty(xmlData);
 
       if (hasProperty) {
+        console.log('has repeats..')
         flattenedObject = await flattenArray(objs);
       } else {
-        flattenedObject = await flattenPlainArray(objs);
+        console.log('No repeats..')
+        flattenedObject = flattenPlainArray(objs);
       }
 
       let mergedArray;
@@ -620,6 +498,20 @@ exports.modelDataCollectorGetFlattened = async (req, res) => {
 };
 
 
+ 
+
+// Helper function to deduplicate array
+function deduplicateArray(arr, uniqueKey) {
+  const seen = new Set();
+  return arr.filter(item => {
+    const key = item[uniqueKey];
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
 
 
  
