@@ -7,91 +7,54 @@ v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
           @click="handleStepClick(index)" />
       </el-steps>
       <el-divider />
-
-      <el-form 
+      <el-form
 :model="formData" :rules="currentStepRules" label-width="200px" :label-position="labelPosition"
         ref="dynamicFormRef">
         <el-row :gutter="16">
           <el-col
-v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="8"
-            :xl="8">
+v-for="(field, index) in currentStepFields" :key="index"
+            :span="currentStepFields.length === 1 ? 24 : (24 / columnSpan)"
+            :xs="currentStepFields.length === 1 ? 24 : (24 / columnSpan)"
+            :sm="currentStepFields.length === 1 ? 24 : (24 / columnSpan)" :md="currentStepFields.length === 1 ? 24 : 12"
+            :lg="currentStepFields.length === 1 ? 24 : 12" :xl="currentStepFields.length === 1 ? 24 : 12">
+            
             <el-form-item :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
-              <el-input v-if="field.type === 'textarea'"  type="textarea" v-model="formData[field.name]" />
- 
+              <el-input v-if="field.type === 'textarea'" type="textarea" v-model="formData[field.name]" />
+
               <el-input-number
 :min="field.min" v-else-if="field.type === 'number'" v-model="formData[field.name]"
                 @change="getFieldChangeHandler(field.name)" />
               <el-date-picker v-else-if="field.type === 'date'" type="date" v-model="formData[field.name]" />
               <!-- Add more conditions for other field types as needed -->
               <el-select
-v-else-if="field.type === 'select' && field.multiselect === 'false'   && !field.adminUnit  "
+v-else-if="field.type === 'select' && field.multiselect === 'false' && !field.adminUnit"
                 v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Select"
-                @change="getFieldChangeHandler(field.name)">
+                @change="getFieldChangeHandler(field.name)" style="width: 100%;">
                 <el-option
 v-for="option in field.options" :key="option.value" :label="option.label"
                   :value="option.value" />
-              </el-select> 
+              </el-select>
 
               <el-select
 v-else-if="field.type === 'select' && field.multiselect === 'true'"
                 v-model="formData[field.name]" :filterable="true" multiple collapse-tags placeholder="Select"
-                @change="getFieldChangeHandler(field.name)">
+                @change="getFieldChangeHandler(field.name)" style="width: 100%;">
                 <el-option
 v-for="option in field.options" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
+              <el-cascader
+:props="props" v-else-if="field.type === 'xcascader'" collapse-tags="true"
+                v-model="formData[field.name]" :options="field.options" @change="getFieldChangeHandler(field.name)"
+                style="width: 100%;" />
 
+              <el-tree-select
+v-else-if="field.type === 'cascader'" v-model="formData[field.name]" :data="field.options"
+                multiple    show-checkbox  
+                style="width: 100%" />
 
-
-              <el-select
-v-else-if="field.type === 'select'  && field.adminUnit && field.name==='county_id' "
-                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="County"
-                @change="getFieldChangeHandler(field.name)">
-                <el-option
-v-for="option in countyOptions" :key="option.value" :label="option.label"
-                  :value="option.value" />
-              </el-select>
- 
-              <el-select
-                v-else-if="field.type === 'select'   && field.adminUnit && field.name==='subcounty_id' "
-                                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="Subcounty"
-                                @change="getFieldChangeHandler(field.name)">
-                                <el-option
-                v-for="option in subcountyOptionsFiltered" :key="option.value" :label="option.label"
-                                  :value="option.value" />
-              </el-select>
- 
-
-              <el-select
-                v-else-if="field.type === 'select'   && field.adminUnit && field.name==='ward_id' "
-                                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="Ward"
-                                @change="getFieldChangeHandler(field.name)">
-                                <el-option
-                v-for="option in wardOptionsFiltered" :key="option.value" :label="option.label"  :value="option.value" />
-              </el-select>
-
-              <el-select
-                v-else-if="field.type === 'select'   && field.adminUnit && field.name==='settlement_id' "
-                                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="Settlement"
-                                @change="getFieldChangeHandler(field.name)">
-                                <el-option
-                v-for="option in settOptionsFiltered" :key="option.value" :label="option.label" :value="option.value" />
-              </el-select>
- 
-<!-- 
-              <el-upload
-v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList"
-                class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-                :auto-upload="false" :show-file-list="false" :on-change="handleUploadGeo">
-                <template #default>
-                  <el-button type="primary">{{ fileList.length > 0 ? fileList[0].name : 'Select Geojson/Zipped Shp'
-                  }}</el-button>
-                  <span class="upload-filename" v-if="fileList.length > 0">{{ fileList[0].name }}</span>
-                </template>
-              </el-upload> -->
-
-
+                
             </el-form-item>
           </el-col>
         </el-row>
@@ -108,62 +71,13 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
           Submit
         </el-button>
       </div>
-      <!-- <pre>{{ JSON.stringify(formData, null, 2) }}</pre> -->
-      <div v-if="currentStep == totalSteps - 1" id="mapContainer" class="basemap"></div>
-      <div v-if="currentStep == totalSteps - 1" id='coordinates' class='coordinates'></div>
+
+
     </el-card>
-    <el-dialog v-model="showDialog" title="Select Location" width="70%">
-      <el-row>
-        <el-select v-model="county_id" class="m-2" @change="onSelectCounty" placeholder="Select" size="large">
-          <el-option v-for="item in cascadeOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
 
-        <el-select v-model="subcounty_id" class="m-2" @change="onSelectSubcounty" placeholder="Select" size="large">
-          <el-option v-for="item in subcountyOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
 
-        <el-select v-model="ward_id" class="m-2" placeholder="Select" @change="onSelectWard" size="large">
-          <el-option v-for="item in wardOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-        <el-select v-model="settlement_id" class="m-2" placeholder="Select" @change="onSelectSettlement" size="large">
-          <el-option v-for="item in settOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
 
-      </el-row>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-row justify="space-between">
-            <el-col :span="12">
-              <el-button @click="showDialog = false" style="float: left">Cancel</el-button>
-            </el-col>
-            <el-col :span="12">
-              <el-button type="primary" @click="setLocationOnMobile" style="float: right">
-                Confirm
-              </el-button>
-            </el-col>
-          </el-row>
-        </div>
-      </template>
-    </el-dialog>
 
-    
-    <el-dialog
-      v-model="showUploadDialog"
-      title="Upload a Zipped Shapefile/Geojson"
-      width="30%" 
-    >
-          <el-upload
-        v-model:file-list="fileList"
-                        class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-                        :auto-upload="false" :show-file-list="false" :on-change="handleUploadGeo">
-                        <template #default>
-                          <el-button type="primary">{{ fileList.length > 0 ? fileList[0].name : 'Select Geojson/Zipped Shp'
-                          }}</el-button>
-                          <span class="upload-filename" v-if="fileList.length > 0">{{ fileList[0].name }}</span>
-                        </template>
-          </el-upload>
-   
-    </el-dialog>
 
   </div>
 </template>
@@ -173,7 +87,7 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
 import { ref, reactive, onMounted, computed, Ref } from 'vue';
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElCard, ElCascader, ElCascaderPanel, ElDialog, ElMessage, ElUpload, ElSwitch } from 'element-plus'
+import { ElCard, ElCascader, ElCascaderPanel, ElDialog, ElMessage, ElUpload, ElSwitch, ElTreeSelect } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { steps, formFields, formData, formRules } from './common/fields.ts'
@@ -210,14 +124,14 @@ import proj4 from 'proj4';
 import { countyOptions } from '../common';
 
 
-const props1 = {
-  checkStrictly: true,
-}
+
+const props = { multiple: true }
+
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-const showUploadDialog=ref(false)
+const showUploadDialog = ref(false)
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
@@ -235,10 +149,7 @@ const goBack = () => {
   router.back();
 };
 
-const props = {
-  expandTrigger: 'hover' as const,
 
-};
 
 const labelPosition = ref('left')
 if (isMobile.value) {
@@ -269,7 +180,7 @@ const onSelectCounty = (county_id) => {
 
 
 
-  
+
   handleChangeLocation([county_id])
 };
 
@@ -279,47 +190,47 @@ const onSelectSubcounty = (subcounty_id) => {
   formData.settlement_id = null
 
   // update the county to county id of the current subcounty - backward copatibility 
-  var thisSubCountyOption=subcountyOptions.value.filter((obj) => obj.value == subcounty_id);
+  var thisSubCountyOption = subcountyOptions.value.filter((obj) => obj.value == subcounty_id);
   formData.county_id = thisSubCountyOption.county_id
 
- wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == subcounty_id);
- handleChangeLocation([formData.county_id.value,subcounty_id ])
+  wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == subcounty_id);
+  handleChangeLocation([formData.county_id.value, subcounty_id])
 
 };
- 
+
 
 const onSelectWard = (ward_id) => {
 
   formData.settlement_id = null
   // update the county to county id of the current subcounty - backward copatibility 
-  var thisWardOption=wardOptions.value.filter((obj) => obj.value == ward_id);
+  var thisWardOption = wardOptions.value.filter((obj) => obj.value == ward_id);
   formData.county_id = thisWardOption[0].county_id
-   formData.subcounty_id = thisWardOption[0].subcounty_id
-   console.log('thisWardOption',thisWardOption[0])
+  formData.subcounty_id = thisWardOption[0].subcounty_id
+  console.log('thisWardOption', thisWardOption[0])
 
 
   settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == ward_id);
-  handleChangeLocation([ formData.county_id,formData.subcounty_id,ward_id ])
+  handleChangeLocation([formData.county_id, formData.subcounty_id, ward_id])
 
 };
 
 const onSelectSettlement = (sett_id) => {
   formData.settlement_id = sett_id
 
- // update the parenst based on current selection - backward copatibility 
- var thisSettOption=settlementOptionsV2.value.filter((obj) => obj.value == sett_id);
+  // update the parenst based on current selection - backward copatibility 
+  var thisSettOption = settlementOptionsV2.value.filter((obj) => obj.value == sett_id);
   formData.county_id = thisSettOption[0].county_id
   formData.subcounty_id = thisSettOption[0].subcounty_id
   formData.ward_id = thisSettOption[0].ward_id
- 
 
 
 
 
-  handleChangeLocation([ formData.county_id,formData.subcounty_id,formData.ward_id, sett_id ])
 
- // const selectedSettlement = settOptionsFiltered.value.filter((obj) => obj.value === sett_id);
- // selectAdmin.value = selectAdmin.value + ' | ' + selectedSettlement[0].label
+  handleChangeLocation([formData.county_id, formData.subcounty_id, formData.ward_id, sett_id])
+
+  // const selectedSettlement = settOptionsFiltered.value.filter((obj) => obj.value === sett_id);
+  // selectAdmin.value = selectAdmin.value + ' | ' + selectedSettlement[0].label
 };
 
 const setLocationOnMobile = () => {
@@ -351,11 +262,11 @@ const component_id = ref()
 const getSett = async (sform) => {
   console.log(sform)
 
-  let sett =   await getOneSettlement(sform)
-          console.log("settlement", sett)
+  let sett = await getOneSettlement(sform)
+  console.log("settlement", sett)
 
   return sett.data.geom
-   
+
 };
 
 
@@ -389,18 +300,18 @@ onMounted(async () => {
         console.log('curData', curData)
         projectScopeGeo.value = curData.geom
 
-       // curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id, curData.settlement_id]
+        // curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id, curData.settlement_id]
 
-      //  onSelectCounty(curData.county_id)
-      //   onSelectSubcounty(curData.subcounty_id)
-      //   onSelectWard(curData.ward_id)
+        //  onSelectCounty(curData.county_id)
+        //   onSelectSubcounty(curData.subcounty_id)
+        //   onSelectWard(curData.ward_id)
 
         subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
-        wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id ==curData.subcounty_id);
+        wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == curData.subcounty_id);
         settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == curData.ward_id);
 
-        let  activityIds = curData.activities.map(activity => activity.id);
-        curData.activities=activityIds
+        let activityIds = curData.activities.map(activity => activity.id);
+        curData.activities = activityIds
 
         settlement_id = curData.settlement_id
 
@@ -421,20 +332,20 @@ onMounted(async () => {
 
 
 
-      if (!projectScopeGeo.value) {
-          // if the settlement does not have geomtery, allocated the ward geom to the settlement 
-        console.log("gettign settlemnt")
-          const sform = {}
-          sform.model = 'settlement'
-          sform.id = settlement_id
+    if (!projectScopeGeo.value) {
+      // if the settlement does not have geomtery, allocated the ward geom to the settlement 
+      console.log("gettign settlemnt")
+      const sform = {}
+      sform.model = 'settlement'
+      sform.id = settlement_id
 
-          projectScopeGeo.value= await getSett(sform)
+      projectScopeGeo.value = await getSett(sform)
 
-           console.log("wardGeom - geomScope.value",projectScopeGeo.value)
+      console.log("wardGeom - geomScope.value", projectScopeGeo.value)
 
-           //showMessage.value=true
+      //showMessage.value=true
 
-        }
+    }
 
 
   } else {
@@ -576,8 +487,8 @@ const readJson = (event) => {
     bounds.value = turf.bbox((projectScopeGeo.value))
     console.log("From geo", bounds.value)
     map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 18 })
-    
-      loadMap()
+
+    loadMap()
   }
 
 }
@@ -661,7 +572,7 @@ const handleUploadGeo = async (uploadFile) => {
 
   }
 
-  showUploadDialog.value=false
+  showUploadDialog.value = false
 
 }
 
@@ -708,15 +619,15 @@ const nextStep = async () => {
     await new Promise(resolve => setTimeout(resolve, 100));  //delay for 2 seconds the call loadmap
 
     loadMap()
-   // toggleDrawToolbox('digitize')
+    // toggleDrawToolbox('digitize')
 
   }
 };
 
- 
-const loadMap = async () => { 
 
-map.value = new mapboxgl.Map({
+const loadMap = async () => {
+
+  map.value = new mapboxgl.Map({
     container: 'mapContainer',
     style: 'mapbox://styles/mapbox/streets-v12',
     center: [37.137343, 1.137451],
@@ -741,190 +652,190 @@ map.value = new mapboxgl.Map({
     console.log(formData)
   }
 
-// listen for the draw.create event
-map.value.on('draw.create', function (e) {
-  // check if the new feature is a marker
- // if (e.features[0].geometry.type === 'Polygon') {
+  // listen for the draw.create event
+  map.value.on('draw.create', function (e) {
+    // check if the new feature is a marker
+    // if (e.features[0].geometry.type === 'Polygon') {
     // trigger your function here
     updateRuleform(e.features[0]);
 
-//  }
-});
+    //  }
+  });
 
 
   // listen for the draw.se event
   map.value.on('draw.update', function (e) {
-  // check if the new feature is a marker
-  //if (e.features[0].geometry.type === 'Polygon') {
+    // check if the new feature is a marker
+    //if (e.features[0].geometry.type === 'Polygon') {
     // trigger your function here
     updateRuleform(e.features[0]);
 
- // }
-});
-
-// Listen for the draw.delete event
-map.value.on('draw.delete', function(event) {
-  // Get the IDs of the deleted features
-  var deletedFeatureIds = event.features.map(function(feature) {
-    return feature.id;
+    // }
   });
 
-  // Remove the corresponding layers from the map
-  deletedFeatureIds.forEach(function(id) {
-    map.value.removeLayer(id);
-  });
-});
+  // Listen for the draw.delete event
+  map.value.on('draw.delete', function (event) {
+    // Get the IDs of the deleted features
+    var deletedFeatureIds = event.features.map(function (feature) {
+      return feature.id;
+    });
 
-map.value.on('mousemove', function (e) {
-  document.getElementById('coordinates').innerHTML =
-    'Lon: ' + e.lngLat.lng.toFixed(5) + ' Lat: ' + e.lngLat.lat.toFixed(5);
-});
-
-
-map.value.on('load', function () {
-  // code to execute after the map has finished loading
-  console.log("Map has loaded......")
-  //map.value.addControl(draw, 'top-left');
-
-
-   
-  map.value.addLayer({
-    id: 'Satellite',
-    source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
-    type: "raster"
+    // Remove the corresponding layers from the map
+    deletedFeatureIds.forEach(function (id) {
+      map.value.removeLayer(id);
+    });
   });
 
-  map.value.addLayer({
-    id: 'Streets',
-    source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
-    type: "raster"
-  }, 'Satellite');
-
-
-  
-  map.value.addSource('scope', {
-    type: 'geojson',
-    //data: projectPoly.value
-    data: (projectScopeGeo.value),
+  map.value.on('mousemove', function (e) {
+    document.getElementById('coordinates').innerHTML =
+      'Lon: ' + e.lngLat.lng.toFixed(5) + ' Lat: ' + e.lngLat.lat.toFixed(5);
   });
 
-  
-  // Edit only if not a new record 
-  if (!newRecord.value) {
-    toggleDrawToolbox('digitize')
-    const geojson = JSON.parse(JSON.stringify(projectScopeGeo.value));
-  var feature = turf.feature(geojson);
-  var collection = turf.featureCollection([feature])
-  draw.set(collection);
-  // Check if the new feature is a polygon
- // if (collection.features[0].type === 'Polygon') {
-    // Trigger your function here
-    updateRuleform(collection.features[0]);
- //}
-  }
-  
 
-  if (newRecord.value) {
-    toggleDrawToolbox('digitize')
-    // Load this outline only if its a new settlement 
+  map.value.on('load', function () {
+    // code to execute after the map has finished loading
+    console.log("Map has loaded......")
+    //map.value.addControl(draw, 'top-left');
+
+
+
     map.value.addLayer({
-    'id': 'projectScopeGeo',
-    'type': 'line',
-    'source': 'scope',
-    'layout': {},
-    'paint': {
-      'line-color': '#000',
-      'line-width': 3
+      id: 'Satellite',
+      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+      type: "raster"
+    });
+
+    map.value.addLayer({
+      id: 'Streets',
+      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
+      type: "raster"
+    }, 'Satellite');
+
+
+
+    map.value.addSource('scope', {
+      type: 'geojson',
+      //data: projectPoly.value
+      data: (projectScopeGeo.value),
+    });
+
+
+    // Edit only if not a new record 
+    if (!newRecord.value) {
+      toggleDrawToolbox('digitize')
+      const geojson = JSON.parse(JSON.stringify(projectScopeGeo.value));
+      var feature = turf.feature(geojson);
+      var collection = turf.featureCollection([feature])
+      draw.set(collection);
+      // Check if the new feature is a polygon
+      // if (collection.features[0].type === 'Polygon') {
+      // Trigger your function here
+      updateRuleform(collection.features[0]);
+      //}
     }
-  });  
-    
-  }
 
-  map.value.addLayer({
-  'id': 'draw-layer',
-  'type': 'fill',
-  'source': {
-    'type': 'geojson',
-    'data': {
-      'type': 'FeatureCollection',
-      'features': []
+
+    if (newRecord.value) {
+      toggleDrawToolbox('digitize')
+      // Load this outline only if its a new settlement 
+      map.value.addLayer({
+        'id': 'projectScopeGeo',
+        'type': 'line',
+        'source': 'scope',
+        'layout': {},
+        'paint': {
+          'line-color': '#000',
+          'line-width': 3
+        }
+      });
+
     }
-  },
-  'paint': {
-    'fill-color': 'red',
-    'fill-opacity': 0.5
-  },
-  'layout': {}
-});
 
-  // switch it off until the user selects to
-  map.value.setLayoutProperty('Satellite', 'visibility', 'none')
+    map.value.addLayer({
+      'id': 'draw-layer',
+      'type': 'fill',
+      'source': {
+        'type': 'geojson',
+        'data': {
+          'type': 'FeatureCollection',
+          'features': []
+        }
+      },
+      'paint': {
+        'fill-color': 'red',
+        'fill-opacity': 0.5
+      },
+      'layout': {}
+    });
 
-
-  const layers: MapboxLayerDefinition[] = [
-
-    {
-      id: "Satellite",
-      title: "Satellite",
-      visibility: 'none',
-      type: 'base'
-    },
-
-    {
-      id: "Streets",
-      title: "Streets",
-      visibility: 'none',
-      type: 'base'
-    },
-
-  ];
-  map.value.addControl(new MapboxLayerSwitcherControl(layers));
+    // switch it off until the user selects to
+    map.value.setLayoutProperty('Satellite', 'visibility', 'none')
 
 
+    const layers: MapboxLayerDefinition[] = [
 
- 
+      {
+        id: "Satellite",
+        title: "Satellite",
+        visibility: 'none',
+        type: 'base'
+      },
 
-  var bounds = turf.bbox((projectScopeGeo.value));
-  console.log("projectScopeGeo.value", projectScopeGeo.value)
+      {
+        id: "Streets",
+        title: "Streets",
+        visibility: 'none',
+        type: 'base'
+      },
 
-  if (projectScopeGeo.value.type =="Point") {
-    map.value.fitBounds(bounds, { padding: 20, maxZoom: 15 })
-
-  } else {
-    map.value.fitBounds(bounds, {padding: 20,duration:1000 });
-
-  }
+    ];
+    map.value.addControl(new MapboxLayerSwitcherControl(layers));
 
 
 
-});
 
-    
-    // Register the directive
+
+    var bounds = turf.bbox((projectScopeGeo.value));
+    console.log("projectScopeGeo.value", projectScopeGeo.value)
+
+    if (projectScopeGeo.value.type == "Point") {
+      map.value.fitBounds(bounds, { padding: 20, maxZoom: 15 })
+
+    } else {
+      map.value.fitBounds(bounds, { padding: 20, duration: 1000 });
+
+    }
+
+
+
+  });
+
+
+  // Register the directive
   //  mapContainer.value.__v_directives = [addHomeButton];
 
 
   function addHomeButton(map) {
-  class HomeButton {
-    onAdd(map) {
-      const div = document.createElement("div");
-      div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
-      div.innerHTML = `<button>
+    class HomeButton {
+      onAdd(map) {
+        const div = document.createElement("div");
+        div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+        div.innerHTML = `<button>
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M17 9.00195C19.175 9.01406 20.3529 9.11051 21.1213 9.8789C22 10.7576 22 12.1718 22 15.0002V16.0002C22 18.8286 22 20.2429 21.1213 21.1215C20.2426 22.0002 18.8284 22.0002 16 22.0002H8C5.17157 22.0002 3.75736 22.0002 2.87868 21.1215C2 20.2429 2 18.8286 2 16.0002L2 15.0002C2 12.1718 2 10.7576 2.87868 9.87889C3.64706 9.11051 4.82497 9.01406 7 9.00195" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round"></path> <path d="M12 15L12 2M12 2L15 5.5M12 2L9 5.5" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>
 		
-  </button>`;      div.addEventListener("contextmenu", (e) => e.preventDefault());
-      div.addEventListener("click", () => showUploadDialog.value=true);
+  </button>`; div.addEventListener("contextmenu", (e) => e.preventDefault());
+        div.addEventListener("click", () => showUploadDialog.value = true);
 
-      return div;
+        return div;
+      }
     }
+    const homeButton = new HomeButton();
+    map.addControl(homeButton, "top-left");
   }
-  const homeButton = new HomeButton();
-  map.addControl(homeButton, "top-left");
+  addHomeButton(map.value)
+
+
 }
-addHomeButton(map.value)
-
-
-} 
 
 
 
@@ -981,8 +892,8 @@ const submitForm = async () => {
       if (!formData.geom) {
         console.log('projectScopeGeo.value', projectScopeGeo.value)
         // if the proejct lcoation is not specified, take the lowest admin geom
-        formData.geom =projectScopeGeo.value.features[0].geometry
- 
+        formData.geom = projectScopeGeo.value.features[0].geometry
+
       }
 
       if (newRecord.value) {
@@ -1023,7 +934,7 @@ const handleChangeLocationOption = async (value: any) => {
 
 const handleChangeLocation = async (value: any) => {
   console.log('Location field changed:', value);
-  
+
 
   if (value.length == 1) {
     var model = 'county'
@@ -1161,11 +1072,15 @@ const getFieldChangeHandler = (fieldName: string) => {
 
 .coordinates {
   display: block;
-  position: absolute; /* Use absolute positioning to position it within the container */
+  position: absolute;
+  /* Use absolute positioning to position it within the container */
   width: 10%;
-  bottom: 15; /* Set to 0 to align it at the bottom */
-  left: 50%; /* Set to 50% to horizontally center it */
-  transform: translateX(-50%); /* Use transform to horizontally center it */
+  bottom: 15;
+  /* Set to 0 to align it at the bottom */
+  left: 50%;
+  /* Set to 50% to horizontally center it */
+  transform: translateX(-50%);
+  /* Use transform to horizontally center it */
   background-color: rgba(10, 10, 10, 0.85);
   color: #fbfbfb;
   text-align: center;
@@ -1173,7 +1088,7 @@ const getFieldChangeHandler = (fieldName: string) => {
   z-index: 10;
   border-radius: 5px;
 }
-  
+
 
 .upload {
   display: block;

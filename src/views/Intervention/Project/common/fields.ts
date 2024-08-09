@@ -1,6 +1,5 @@
 import { reactive, unref, ref } from "vue";
-import { ref, reactive, computed, Ref } from "vue";
-
+ 
 import {
   countyOptions,
   
@@ -12,6 +11,7 @@ import {
  
 const steps = [
   { title: "Profile" },
+  { title: "Activities" },
   { title: "Location" },
  
 ];
@@ -57,11 +57,6 @@ const sourceFundingOptions = [
 
 
 
-const catchment = [
-  { label: "Within this settlement", value: "within_settlement" },
-  { label: "Outside this settlement", value: "outside_settlement" },
-  { label: "Within and Outside this settlement", value: "within_and_outside_settlement" },
- ];
  
  
   
@@ -79,15 +74,6 @@ const statusOptions = [
     
 const formFields: Field[][] = [
   [
-   
-  
-    { name: "county_id", label: "County", type: "select", multiselect: 'false', adminUnit: true, options: countyOptions.value },
-    { name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', adminUnit: true, options: [] },
-    { name: "ward_id", label: "Ward", type: "select", multiselect: 'false', adminUnit: true, options: [] },
-    { name: "settlement_id", label: "Settlement", type: "select", multiselect: 'false', adminUnit: true, options: [] },
-    
-
-
      { name: "title", label: "Title", type: "textarea", multiselect: 'false', adminUnit: false,     options: [] },
     { name: "project_code", label: "Project Code", type: "text", multiselect: 'false', adminUnit: false,      options: [] },
     {
@@ -100,36 +86,20 @@ const formFields: Field[][] = [
     { name: "end_date", label: "Completion Date", type: "date", multiselect: 'false',adminUnit: false,     options: [] },
     { name: "cost", label: "Total Project Cost", min: "0", type: "number", multiselect: 'false',adminUnit: false,  options: [] },
     {name: "sourceFunding", label: "Source of Funding", type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions },
-    { name: "male_beneficiaries", label: "Male Beneficiaries",  min:"0", type: "number", multiselect: 'false',adminUnit: false,     options: [] },
-    { name: "female_beneficiaries", label: "Female Beneficiaries",  min:"0", type: "number", multiselect: 'false',  adminUnit: false,     options: [] },
-    { name: "contractor", label: "Contractor/Implementer", type: "select", multiselect: 'false', adminUnit: false,options: contractorOptions.value },
+    { name: "contractor", label: "Contractor/Implementer", type: "select", multiselect: 'false', adminUnit: false,options: contractorOptions.value }, 
+    { name: "Location", label: "Location", type: "cascader", multiselect: 'false', adminUnit: false, options:cascadedAdminOptions.value },
 
-    
-   
-   
-    { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
- 
-  
-   
-  
   ],
 
- 
+ [
+  { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
+
+ ],
 
 
   [
-  //  // This is left empty for the  map 
-  //   {
-  //     name: "location_option", label: "Location Option", type: "select", multiselect: 'false',adminUnit: false, 
-  //     options: [
-  //       { label: 'Digitize', value: 'digitize' },
-  //       { label: 'Upload', value: 'upload' },
-  //     ]
-  //   },
-  //   {
-  //     name: "upload", label: "", type: "upload", visible: 'false',
-  //     options: [ ]
-  //   },
+    { name: "Location", label: "Location", type: "cascader", multiselect: 'true', adminUnit: false, options:cascadedAdminOptions.value },
+
   ],
    
 ];
