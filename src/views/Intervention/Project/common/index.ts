@@ -1,15 +1,6 @@
-import {
-  getOneGeo,
-  getOneSettlement,
-  getSettlementListByCounty,
-  getfilteredGeo
-} from '@/api/settlements'
 
-import { getCountyListApi,getListWithoutGeo } from '@/api/counties'
-import { Form, FormExpose } from '@/components/Form'
-import { ContentWrap } from '@/components/ContentWrap'
-import { useI18n } from '@/hooks/web/useI18n'
-import { reactive, unref, ref } from 'vue'
+import { getListWithoutGeo } from '@/api/counties'
+import { ref } from 'vue'
 
 const settlementOptionsV2 = ref([])
 
@@ -192,86 +183,91 @@ const wardOptions = ref([])
 const cascadedAdminOptions = ref([])
 
 const getCountySubcountySep = async () => {
-  cascadedAdminOptions.value=[] // initialize every time its called
-  const  nested =['subcounty','ward','settlement']
-  const res = await getListWithoutGeo({
+  cascadedAdminOptions.value = []; // Initialize every time it's called
+  const nested = ['subcounty', 'ward', 'settlement'];
   
+  const res = await getListWithoutGeo({
     params: {
-      //   pageIndex: 1,
-      //  limit: 100,
       curUser: 1, // Id for logged in user
       model: 'county',
       assocModel: 'subcounty',
       searchField: 'name',
-      nested_models:nested,
+      nested_models: nested,
       searchKeyword: '',
       sort: 'ASC'
     }
   }).then((response: { data: any }) => {
-    console.log('Received  cascaded response:', response)
-    //tableDataList.value = response.data
-    const ret = response.data
-
-
+    console.log('Received cascaded response:', response);
+    const ret = response.data;
 
     ret.forEach((data) => {
       const coption = {
         value: data.id,
         label: data.name + ' county',
         level: 'county',
-        nodeKey: 'county'+data.id ,
-        children:[]
+        nodeKey: 'county' + data.id,
+        children: []
+      };
+
+      data.subcounties.forEach((subc) => {
+        const soption = {
+          value: subc.id,
+          label: subc.name + ' constituency',
+          county_id: data.id,
+          level: 'subcounty',
+          nodeKey: 'subcounty' + subc.id,
+          children: []
+        };
+
+        subc.wards.forEach((ward) => {
+          const woption = {
+            value: ward.id,
+            label: ward.name + ' ward',
+            subcounty_id: ward.subcounty_id,
+            county_id: ward.county_id,
+            level: 'ward',
+            nodeKey: 'ward' + ward.id,
+            children: []
           };
- 
-            data.subcounties.forEach((subc) => {
-              const soption = {
-                value: subc.id,
-                label: subc.name +' constituency',
-                county_id: data.id,
-                level: 'subcounty',
-                nodeKey: 'subcounty'+subc.id ,
-                children:[]
+
+          ward.settlements.forEach((settlement) => {
+            if (settlement.id) { // Check if settlement exists
+              const sett_option = {
+                value: settlement.id,
+                label: settlement.name + ' settlement',
+                subcounty_id: settlement.subcounty_id,
+                county_id: settlement.county_id,
+                ward_id: settlement.ward_id,
+                level: 'settlement',
+                nodeKey: 'settlement' + settlement.id
               };
-              subc.wards.forEach((ward) => {
-                      const woption = {
-                        value: ward.id,
-                        label: ward.name,
-                        subcounty_id: ward.subcounty_id,
-                        county_id: ward.county_id,
-                        level: 'ward',
-                        nodeKey: 'ward'+ward.id,
-                        children:[]
-                      };
-                       ward.settlements.forEach((settlement) => {
-                            const sett_option = {
-                              value: settlement.id,
-                              label: settlement.name+' settlement',
-                              subcounty_id: settlement.subcounty_id,
-                              county_id: settlement.county_id,
-                              ward_id: settlement.ward_id,
-                              level: 'settlement',
-                              nodeKey: 'settlement'+settlement.id,
 
-                            };
-                            
-                            woption.children.push(sett_option)
-              
-                            })
-                            soption.children.push(woption)
-              })
-              coption.children.push(soption)
-              })
+              woption.children.push(sett_option);
+            }
+          });
 
-              cascadedAdminOptions.value.push(coption)
+          // Only add woption if it has children (settlements)
+          if (woption.children.length > 0) {
+            soption.children.push(woption);
+          }
+        });
+
+        // Only add soption if it has children (wards with settlements)
+        if (soption.children.length > 0) {
+          coption.children.push(soption);
+        }
+      });
+
+      // Only add coption if it has children (subcounties with wards having settlements)
+      if (coption.children.length > 0) {
+        cascadedAdminOptions.value.push(coption);
+      }
     });
 
-    console.log('Received  cascaded cascadedAdminOptions:', cascadedAdminOptions.value)
+    console.log('Received cascaded cascadedAdminOptions:', cascadedAdminOptions.value);
+  });
+};
 
-  })
-
-  // console.log('countyOptions', countyList)
-  // console.log('filteredSubCountyList', filteredSubCountyList)
-}
 getCountySubcountySep()
 getImplementationSponsors()
 
@@ -313,21 +309,6 @@ getActivities()
   
  
   
-const sewerTypes = [
-  {
-    value: 'domestic',
-    label: 'Domestic'
-  },
-  {
-    value: 'industrial',
-    label: 'Industrial'
-  },
-  {
-    value: 'storm',
-    label: 'Storm'
-  },
-  
-]
 
 getSettlements()
 getCounties()
@@ -340,5 +321,5 @@ getContractors()
 
 export {
   countyOptions, settlementOptionsV2,contractorOptions,
-  activityOptions, subcountyOptions, implementationOptions, sewerTypes, wardOptions, cascadedAdminOptions
+  activityOptions, subcountyOptions, implementationOptions,  wardOptions, cascadedAdminOptions
 };

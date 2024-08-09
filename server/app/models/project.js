@@ -7,32 +7,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false,
       primaryKey: true
     },
-   
-
-    county_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-    subcounty_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-    ward_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-   
     
-    settlement_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-    
-
 
     title: {
       type: DataTypes.STRING,
@@ -83,16 +58,7 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.ARRAY(DataTypes.INTEGER),
       allowNull: false
     },
-
-    male_beneficiaries: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-
-    female_beneficiaries: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
+ 
 
     contractor_id: {
       type: DataTypes.INTEGER,
