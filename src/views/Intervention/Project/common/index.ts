@@ -202,7 +202,7 @@ const getCountySubcountySep = async () => {
 
     ret.forEach((data) => {
       const coption = {
-        value: data.id,
+        value: 'county_'+data.id,
         label: data.name + ' county',
         level: 'county',
         nodeKey: 'county' + data.id,
@@ -211,7 +211,7 @@ const getCountySubcountySep = async () => {
 
       data.subcounties.forEach((subc) => {
         const soption = {
-          value: subc.id,
+          value: 'subcounty_'+subc.id,
           label: subc.name + ' constituency',
           county_id: data.id,
           level: 'subcounty',
@@ -221,7 +221,7 @@ const getCountySubcountySep = async () => {
 
         subc.wards.forEach((ward) => {
           const woption = {
-            value: ward.id,
+            value: 'ward_'+ward.id,
             label: ward.name + ' ward',
             subcounty_id: ward.subcounty_id,
             county_id: ward.county_id,
@@ -233,7 +233,7 @@ const getCountySubcountySep = async () => {
           ward.settlements.forEach((settlement) => {
             if (settlement.id) { // Check if settlement exists
               const sett_option = {
-                value: settlement.id,
+                value: 'settlement_'+settlement.id,
                 label: settlement.name + ' settlement',
                 subcounty_id: settlement.subcounty_id,
                 county_id: settlement.county_id,

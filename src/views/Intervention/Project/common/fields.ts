@@ -87,18 +87,16 @@ const formFields: Field[][] = [
     { name: "cost", label: "Total Project Cost", min: "0", type: "number", multiselect: 'false',adminUnit: false,  options: [] },
     {name: "sourceFunding", label: "Source of Funding", type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions },
     { name: "contractor", label: "Contractor/Implementer", type: "select", multiselect: 'false', adminUnit: false,options: contractorOptions.value }, 
-    { name: "Location", label: "Location", type: "cascader", multiselect: 'false', adminUnit: false, options:cascadedAdminOptions.value },
-
+  
   ],
 
  [
-  { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
-
+  { name: "Location", label: "Location", type: "select_remote", multiselect: 'false', adminUnit: false, options:cascadedAdminOptions.value },
  ],
 
 
   [
-    { name: "Location", label: "Location", type: "cascader", multiselect: 'true', adminUnit: false, options:cascadedAdminOptions.value },
+    { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
 
   ],
    
@@ -172,27 +170,17 @@ const formRules: FormRules = reactive({
   },
 
   step2: {
-    // tenancy_agreement: [
-    //     { required: true, message: 'Date of Birth is required', trigger: 'change' }
-    // ]
+    Location: [
+      { required: true, message: 'Location is Required', trigger: 'change' }
+   ]
   },
   step3: {
-    // tenancy_agreement: [
-    //     { required: true, message: 'Date of Birth is required', trigger: 'change' }
-    // ]
+    activities: [
+      { required: true, message: 'At least one Project activity is Required', trigger: 'change' }
+   ]
   },
 
-  step4: {
-    // tenancy_agreement: [
-    //     { required: true, message: 'Date of Birth is required', trigger: 'change' }
-    // ]
-  },
-
-  step5: {
-    // tenancy_agreement: [
-    //     { required: true, message: 'Date of Birth is required', trigger: 'change' }
-    // ]
-  },
+  
    
 });
 

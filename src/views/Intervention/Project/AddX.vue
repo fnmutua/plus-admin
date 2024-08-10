@@ -17,7 +17,7 @@ v-for="(field, index) in currentStepFields" :key="index"
             :xs="currentStepFields.length === 1 ? 24 : (24 / columnSpan)"
             :sm="currentStepFields.length === 1 ? 24 : (24 / columnSpan)" :md="currentStepFields.length === 1 ? 24 : 12"
             :lg="currentStepFields.length === 1 ? 24 : 12" :xl="currentStepFields.length === 1 ? 24 : 12">
-            
+
             <el-form-item :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
               <el-input v-if="field.type === 'textarea'" type="textarea" v-model="formData[field.name]" />
@@ -51,10 +51,45 @@ v-for="option in field.options" :key="option.value" :label="option.label"
 
               <el-tree-select
 v-else-if="field.type === 'cascader'" v-model="formData[field.name]" :data="field.options"
-                multiple    show-checkbox  
-                style="width: 100%" />
+                multiple show-checkbox style="width: 100%" />
 
-                
+
+ 
+
+                <el-select
+                  v-else-if="field.type === 'select_remote'"
+                  v-model="formData[field.name]"
+                  multiple
+                  filterable
+                  remote
+                  reserve-keyword
+                  placeholder="Please enter a keyword"
+                  remote-show-suffix
+                  :remote-method="remoteMethod"
+                  :loading="loading"
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="item in sett_options"
+                    :key="item.id"
+                    :label="item.label"
+                    :value="item"   
+                  >
+                    <span style="float: left">{{ item.label }}</span>
+                    <span
+                      style="
+                        float: right;
+                        color: var(--el-text-color-secondary);
+                        font-size: 13px;
+                      "
+                    >
+                      {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                    </span>
+                  </el-option>
+                </el-select>
+
+
+
             </el-form-item>
           </el-col>
         </el-row>
@@ -102,7 +137,8 @@ import mapboxgl from "mapbox-gl";
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
-import { CreateRecord, DeleteRecord, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments, getfilteredGeo } from '@/api/settlements'
+import { CreateRecord, DeleteRecord,BatchImportUpsert, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments,getSettlementListByCounty, getfilteredGeo,DeleteMultipleRecord } from '@/api/settlements'
+import { getCountyListApi } from '@/api/counties'
 
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
@@ -122,7 +158,9 @@ import {
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
 import { countyOptions } from '../common';
-
+import {
+  searchByKeyWord
+} from '@/api/settlements'
 
 
 const props = { multiple: true }
@@ -183,6 +221,57 @@ const onSelectCounty = (county_id) => {
 
   handleChangeLocation([county_id])
 };
+
+
+
+
+
+const sett_options =ref([])
+const filters =ref([])
+const filterValues =ref([])
+
+const remoteMethod = async (keyword) => {
+  console.log(keyword)
+  const formData = {}
+  formData.model = 'settlement'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = keyword
+  formData.excludeGeom = true
+  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
+
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = filters
+  formData.filterValues = filterValues
+
+  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+  //-------------------------
+  console.log(formData)
+  const res = await searchByKeyWord(formData)
+
+  console.log(res)
+
+  sett_options.value= res.data.map(item => ({
+    value: item.id,
+    settlement_id: item.id,
+    label: item.name  ,
+    county: item.county.name,
+    subcounty: item.subcounty.name,
+    ward: item.ward.name,
+    ward_id: item.ward.id,
+    subcounty_id: item.subcounty.id,
+    county_id: item.county.id
+  }));
+
+  console.log(sett_options.value)
+
+}
+
 
 
 const onSelectSubcounty = (subcounty_id) => {
@@ -268,96 +357,103 @@ const getSett = async (sform) => {
   return sett.data.geom
 
 };
+ 
+
+const proj_ids=ref([])
+
+const getLocations = async (project_id) => {
+
+  console.log('project_id',project_id)
+  const formData = {}
+
+  formData.model = 'project_location'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+  formData.filters = ['project_id']
+  formData.filterValues = [[project_id]]
+  formData.associated_multiple_models = []
+ 
+
+  const res = await getSettlementListByCounty(formData) 
+
+  const transformedData = res.data.map(item => ({
+  ...item,
+  value: item.settlement_id, // Replace 'id' with 'value'
+  displayValue: `ID: ${item.id}`, // Add another field based on 'id'
+}));
+
+  console.log('res.data',transformedData)
+  
+ // Extract IDs for filterValues
+ const settlement_ids = transformedData.map(item => item.value); // Extract `value` which is set to `settlement_id`
+   proj_ids.value = transformedData.map(item => item.id); // Extract `value` which is set to `settlement_id`
+
+filters.value = ['id']; // Assuming 'id' is the filter field you want to use
+filterValues.value = settlement_ids; // Set filterValues to the array of IDs
+
+console.log('filters', filters.value);
+console.log('filterValues', filterValues.value);
+
+remoteMethod()
+
+  return transformedData
+}
 
 
 onMounted(async () => {
+  try {
+    // Log route parameters
+    console.log('passed data', route.query.id);
+    console.log('Loaded.......');
 
-  //formData.value = JSON.parse(route.query.formData);
-  // console.log('data>>',data)
-  console.log('passed data', route.query.id)
+    // Set component ID from route parameters
+    component_id.value = route.params.domain;
+    console.log('component_id', component_id);
+    console.log('route.params.', route.query);
 
-  console.log('Loaded.......')
-  component_id.value = route.params.domain
-  console.log('component_id', component_id)
-  console.log('route.params.', route.query)
+    // Prepare form data
+    const form = {
+      model: model,
+      id: route.query.id
+    };
 
+    // Handle case where route.query.id is present
+    if (route.query.id) {
+      const res = await getOneSettlement(form);
+      console.log(res.data);
 
-  const form = {}
-  form.model = model
-  form.id = route.query.id
-  let settlement_id
+      var curData = res.data;
+      console.log('curData', curData);
 
+      // Map activities to their IDs
+      let activityIds = curData.activities.map(activity => activity.id);
+      curData.activities = activityIds;
 
-  if (route.query.id) {
-    await getOneSettlement(form)
-      .then((res) => {
-        // Handle the successful response here
-        console.log(res.data)
-        var curData = res.data
-        //curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id, curData.settlement_id]
-        curData.geom = curData.geom
+      // Get locations
+      curData.Location = await getLocations(curData.id);
 
-        console.log('curData', curData)
-        projectScopeGeo.value = curData.geom
+      console.log('curData2', curData);
 
-        // curData.location = [curData.county_id, curData.subcounty_id, curData.ward_id, curData.settlement_id]
+      // Update formData with fetched data
+      Object.assign(formData, curData);
+      console.log(formData);
 
-        //  onSelectCounty(curData.county_id)
-        //   onSelectSubcounty(curData.subcounty_id)
-        //   onSelectWard(curData.ward_id)
+      // Set newRecord flag
+      newRecord.value = false;
 
-        subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
-        wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == curData.subcounty_id);
-        settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == curData.ward_id);
-
-        let activityIds = curData.activities.map(activity => activity.id);
-        curData.activities = activityIds
-
-        settlement_id = curData.settlement_id
-
-        //  formData = res.data
-        Object.assign(formData, curData);
-        console.log(formData)
-        newRecord.value = false
-
-
-
-
-
-      })
-      .catch((error) => {
-        // Handle the error here
-        console.log('Error:', error);
+    } else {
+      // Reset formData if no route.query.id
+      Object.keys(formData).forEach((key) => {
+        formData[key] = undefined;
       });
-
-
-
-    if (!projectScopeGeo.value) {
-      // if the settlement does not have geomtery, allocated the ward geom to the settlement 
-      console.log("gettign settlemnt")
-      const sform = {}
-      sform.model = 'settlement'
-      sform.id = settlement_id
-
-      projectScopeGeo.value = await getSett(sform)
-
-      console.log("wardGeom - geomScope.value", projectScopeGeo.value)
-
-      //showMessage.value=true
-
     }
-
-
-  } else {
-
-
-
-
-    Object.keys(formData).forEach((key) => {
-      formData[key] = undefined;
-    });
+  } catch (error) {
+    // Handle errors
+    console.log('Error:', error);
   }
-})
+});
 
 
 
@@ -482,13 +578,13 @@ const readJson = (event) => {
     formData.geom = geom
 
 
-    projectScopeGeo.value = geom
+    //projectScopeGeo.value = geom
     map.value.getSource("scope").setData(projectScopeGeo.value);
     bounds.value = turf.bbox((projectScopeGeo.value))
     console.log("From geo", bounds.value)
     map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 18 })
 
-    loadMap()
+    //loadMap()
   }
 
 }
@@ -526,7 +622,7 @@ const readShp = async (file) => {
         console.log('>>', geom)
         formData.geom = geom
 
-        projectScopeGeo.value = geom
+        //projectScopeGeo.value = geom
         map.value.getSource("scope").setData(projectScopeGeo.value);
         bounds.value = turf.bbox((projectScopeGeo.value))
         console.log("From shp", bounds.value)
@@ -615,10 +711,10 @@ const nextStep = async () => {
   if ((currentStep.value + 1) == (totalSteps.value - 1)) {
     console.log('Last Step')
 
-    console.log('mapContainer', mapContainer)
-    await new Promise(resolve => setTimeout(resolve, 100));  //delay for 2 seconds the call loadmap
+    //console.log('mapContainer', mapContainer)
+   // await new Promise(resolve => setTimeout(resolve, 100));  //delay for 2 seconds the call loadmap
 
-    loadMap()
+    //loadMap()
     // toggleDrawToolbox('digitize')
 
   }
@@ -871,12 +967,55 @@ const toggleDrawToolbox = (value) => {
     console.log('remove....')
 
   }
-
-
-
 };
 
+const removeDeletedLocations = async (removed_locations, project_id) => { 
+    var form = {}
+    form.model = 'project_location'
+    form.fields = ['project_id','settlement_id']
+    form.fieldValues = [[project_id],removed_locations]
+    await DeleteMultipleRecord(form)
 
+    console.log('Deleteing.....',form)
+
+}
+
+const insertLocations = async (locations, project_id) => {
+
+  const removed_locations = filterValues.value.filter(item => !locations.includes(item));
+
+  await removeDeletedLocations(removed_locations,project_id)
+
+
+ //console.log('deleted_locations',deleted_locations)
+  var form = {}
+  form.model = 'project_location'
+
+  console.log('locations',locations)
+
+  // fist check if theres any proehct with this id exists then delete all
+
+  const location_objects = [];
+
+  for (let i = 0; i < locations.length; i++) {
+    console.log(locations[i])
+    let obj = {}
+    obj.project_id=project_id
+    obj.settlement_id=locations[i].settlement_id
+    obj.ward_id=locations[i].ward_id
+    obj.subcounty_id=locations[i].subcounty_id
+    obj.county_id=locations[i].county_id
+    obj.location_type= 'settlement'
+     location_objects.push(obj)
+    console.log('obj',obj)
+  }
+
+  form.data = location_objects
+  console.log('formData',form)
+
+ const loc_res = await BatchImportUpsert(form)
+ console.log('loc_res',loc_res)
+}
 
 const submitForm = async () => {
   const formInstance = dynamicFormRef
@@ -887,25 +1026,46 @@ const submitForm = async () => {
       formData.model = model
       formData.createdBy = userInfo.id
       formData.component_id = component_id.value
-      //formData.geom =projectScopeGeo.value
-
-      if (!formData.geom) {
-        console.log('projectScopeGeo.value', projectScopeGeo.value)
-        // if the proejct lcoation is not specified, take the lowest admin geom
-        formData.geom = projectScopeGeo.value.features[0].geometry
-
-      }
+  
 
       if (newRecord.value) {
         formData.isApproved = 'Pending'
         formData.code = shortid.generate()
 
-        await CreateRecord(formData)
+        CreateRecord(formData)
+          .then((response) => {
+            // Assuming CreateRecord returns a response object
+            console.log('Record created successfully:', formData.Location, response.data.id);
+            const project_id = response.data.id
+               insertLocations(formData.Location,project_id)
+            // You can access specific properties of the response if needed
+            // e.g., console.log('Response Data:', response.data);
+          })
+          .catch((error) => {
+            console.error('Error creating record:', error);
+          });
+
+
+
 
         console.log('New form', formData);
 
       } else {
-        await updateOneRecord(formData)
+       // await updateOneRecord(formData)
+
+        updateOneRecord(formData)
+          .then((response) => {
+            // Assuming CreateRecord returns a response object
+            console.log('Record updated successfully:', formData.Location, response.data.id);
+            const project_id = response.data.id
+               insertLocations(formData.Location,project_id)
+            // You can access specific properties of the response if needed
+            // e.g., console.log('Response Data:', response.data);
+          })
+          .catch((error) => {
+            console.error('Error updating record:', error);
+          });
+
 
         console.log('Edited form', formData);
 
@@ -914,14 +1074,13 @@ const submitForm = async () => {
 
 
       goBack()
-
-      // push({
-      //    name: 'Health'
-      // })
+ 
 
     } else {
       // Handle form validation errors
       console.log('fail validation')
+      ElMessage.error('Submision Failed. Fix form errors')
+
     }
   });
 
@@ -952,25 +1111,7 @@ const handleChangeLocation = async (value: any) => {
     var model_id = value[3]
   }
 
-  const geoForm = {}
-  geoForm.model = model
-  geoForm.id = model_id
-
-  console.log(geoForm)
-  const res = await getOneGeo(geoForm)
-
-  console.log('LocGeo', res.data[0].json_build_object)
-
-
-  if (newRecord.value) {
-    projectScopeGeo.value = res.data[0].json_build_object
-
-  }
-  //const lastElement = array[array.length - 1];
-
-
-
-  console.log('location field changed:', formData);
+ 
 
 };
 
