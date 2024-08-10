@@ -1236,39 +1236,19 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
     <el-tabs @tab-click="onMap" v-model="activeName" type="border-card">
       <el-tab-pane label="List" name="list">
 
-        <!-- <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-          :currentPage="currentPage">
-          <template #action="data">
-            <el-tooltip content="View Profile" placement="top">
-              <el-button type="primary" :icon="TopRight" @click="viewProfile(data as TableSlotDefault)" circle />
-            </el-tooltip>
-            <el-tooltip content="View on Map" placement="top">
-              <el-button type="warning" :icon="Position" @click="viewOnMap(data as TableSlotDefault)" circle />
-            </el-tooltip>
-
-            <el-tooltip content="Edit" placement="top">
-              <el-button type="success" :icon="Edit" @click="editProject(data as TableSlotDefault)" circle />
-            </el-tooltip>
-
-            <el-tooltip content="Delete" placement="top">
-              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                title="Are you sure to delete this record?" @confirm="DeleteBeneficiary(data as TableSlotDefault)">
-                <template #reference>
-                  <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                </template>
-              </el-popconfirm>
-            </el-tooltip>
-
-
-          </template>
-        </Table> -->
-
-
         <el-table :data="tableDataList" style="width: 100%" :row-class-name="tableRowClassName">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
-                <h3>Documents</h3>
+                <h3>DocumSents</h3>
+
+                <el-tabs tab-position="left" style="height: 200px" class="demo-tabs">
+                    <el-tab-pane label="User">User</el-tab-pane>
+                    <el-tab-pane label="Config">Config</el-tab-pane>
+                    <el-tab-pane label="Role">Role</el-tab-pane>
+                    <el-tab-pane label="Task">Task</el-tab-pane>
+                  </el-tabs>
+
                 <el-table :data="props.row.documents">
                   <el-table-column label="Name" prop="name" />
                   <el-table-column label="Type" prop="category" />
@@ -1279,8 +1259,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                         <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
                       </el-link>
                       <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                           icon-color="#626AEF" title="Are you sure to delete this document?"
                           @confirm="removeDocument(scope.row)">
                           <template #reference>

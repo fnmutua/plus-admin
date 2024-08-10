@@ -284,7 +284,7 @@ currentPage.value = newPage;
 
 <template>
   
-  <el-table v-loading="viewLoading" :data="tableDocumentsFiltered.slice((currentPage - 1) * pageSize, currentPage * pageSize)" border style="width: 100%">
+  <el-table v-loading="viewLoading" stripe="true" show-header="false" :data="tableDocumentsFiltered.slice((currentPage - 1) * pageSize, currentPage * pageSize)" border style="width: 100%">
 
     
   <el-table-column label="Name" prop="name"  sortable />
@@ -302,11 +302,11 @@ currentPage.value = newPage;
       </el-dropdown>
       <div v-else>
         <el-tooltip content="Download" placement="top">
-        <el-button v-loading="downloadStarted"  type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
+        <el-button  size="small" v-loading="downloadStarted"  type="success"  @click="downloadFile(scope.row)"  :icon="Download" circle />
       </el-tooltip>
 
       <el-tooltip content="View" placement="top">
-        <el-button type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
+        <el-button  size="small"  type="primary"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
 
       </el-tooltip>
       <el-tooltip content="Delete" placement="top">
@@ -314,7 +314,7 @@ currentPage.value = newPage;
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="290px" icon-color="#626AEF"
               title="Are you sure to delete this document?" @confirm="removeDocument(scope.row)">
               <template #reference>
-                <el-button type="danger"  v-if="userIsAdmin || documentOwner"   :icon="Delete" circle />
+                <el-button size="small"  type="danger"  v-if="userIsAdmin || documentOwner"   :icon="Delete" circle />
 
                </template>
             </el-popconfirm>

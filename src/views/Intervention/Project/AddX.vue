@@ -237,7 +237,7 @@ const remoteMethod = async (keyword) => {
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = keyword
-  formData.excludeGeom = true
+  formData.excludeGeom = false
   formData.associated_multiple_models = ['county', 'subcounty', 'ward']
 
   //--Single Filter -----------------------------------------
@@ -265,7 +265,8 @@ const remoteMethod = async (keyword) => {
     ward: item.ward.name,
     ward_id: item.ward.id,
     subcounty_id: item.subcounty.id,
-    county_id: item.county.id
+    county_id: item.county.id,
+    geom: item.geom
   }));
 
   console.log(sett_options.value)
@@ -380,7 +381,7 @@ const getLocations = async (project_id) => {
 
   const transformedData = res.data.map(item => ({
   ...item,
-  value: item.settlement_id, // Replace 'id' with 'value'
+  value: item.settlecment_id, // Replace 'id' with 'value'
   displayValue: `ID: ${item.id}`, // Add another field based on 'id'
 }));
 
@@ -1006,6 +1007,7 @@ const insertLocations = async (locations, project_id) => {
     obj.subcounty_id=locations[i].subcounty_id
     obj.county_id=locations[i].county_id
     obj.location_type= 'settlement'
+    obj.geom= locations[i].geom
      location_objects.push(obj)
     console.log('obj',obj)
   }
