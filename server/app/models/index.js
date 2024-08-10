@@ -1043,7 +1043,7 @@ db.models.activity.belongsToMany(db.models.project, {
   onUpdate: 'CASCADE'
 })
 
-
+ 
 //Activty - INDICATOR
 
 db.models.indicator.belongsTo(db.models.activity, {

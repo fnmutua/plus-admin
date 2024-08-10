@@ -781,186 +781,95 @@ exports.modelImportData = async (req, res) => {
 
 }
 
-exports.xmodelImportDataUpsert = async (req, res) => {
-  var reg_model = req.body.model
-  let data = req.body.data
-
-   let errors = []
- console.log(req.body)
-
-  
-  if (reg_model ==='project') {
-
-    await Promise.all(data.map(async (item) => {
-      item.createdBy=req.thisUser.id
-
-      try {
-        await db.models[reg_model]
-        .create(item)
-        .then(async function (prj) {
-          // Special for projects where we store the project-activty relation 
-          if (reg_model ==='project') {
-            const list_activities =item.activities
-             const arr = JSON.parse(list_activities);
-              
-  
-           // coonsole.log(arr)
-             const activties = await db.models.activity.findAll({
-              where: {
-                id: arr
-              }
-            });
-            
-            prj.addActivities(activties)
-          }
-    
-  
-        })
-      } 
-      catch (err) {
-        errors.push(err.original);
-        console.log('error-01', err)
-      }
-     
-    }));
-    
-    
-  } else {
-
-
-    await Promise.all(data.map(async (item) => {
-      item.createdBy=req.thisUser.id
-
-      try {
-        const data = await db.models[reg_model].upsert(item);
-        //console.log(data);
-      } catch (err) {
-        console.log(err)
-        errors.push(err.original);
-      }
-    }));
-    
-
-  }
-
-
-
-  console.log("Upsert Errors ---->", errors)
-  if (errors.length > 0) {
-    let errorCodes = [...new Set(errors)];
-    if (errorCodes.includes("42P10")) {
-      var errorMsg = 'There are one or more duplicate records'
-    }
-
-    res.status(500).send({ message: 'Import/Update failed for:'+errors.length + " Records ("+errors[0]+')'})
-  } else {
-    res.status(200).send({
-      message: 'Import/Update Successful......',
-      code: '0000'
-    })
-  }
-
-
-}
+ 
 
 exports.modelImportDataUpsert = async (req, res) => {
-  var reg_model = req.body.model;
-  let data = req.body.data;
-  let insertedDocuments = [];
+  const reg_model = req.body.model;
+  const data = req.body.data;
+  const insertedDocuments = [];
+  const errors = [];
 
-  console.log('req.body.data',req.body.data)
+  console.log('req.body.data', data);
 
-  let errors = [];
+  try {
+    if (reg_model === 'project') {
+      // Handle projects with associated activities
+      await Promise.all(
+        data.map(async (item) => {
+          item.createdBy = req.thisUser.id;
 
-  if (reg_model === 'project') {
-    await Promise.all(
-      data.map(async (item) => {
-        item.createdBy = req.thisUser.id;
+          item.sourceFunding = Array.isArray(item.sourceFunding) ? item.sourceFunding : [item.sourceFunding];
+          item.activities = Array.isArray(item.activities) ? item.activities : [item.activities];
 
-      //  const activities = JSON.parse(item.activities);
-      //  / const sourceFunding = JSON.parse(item.sourceFunding);
-        
-        item.sourceFunding = Array.isArray(item.sourceFunding) ? item.sourceFunding : [item.sourceFunding];
-        item.activities = Array.isArray(item.activities) ? item.activities : [item.activities];
-        
+          try {
+            const prj = await db.models[reg_model].create(item);
 
-
-        try {
-
-          console.log('cehck......', item)
-
-          const prj = await db.models[reg_model].create(item);
-          if (reg_model === 'project') {
             const list_activities = item.activities;
-           
-            const arr = (list_activities);
             const activities = await db.models.activity.findAll({
               where: {
-                id: arr,
+                id: list_activities,
               },
             });
-          
 
             await prj.addActivities(activities);
-          } 
-         
 
-
-          insertedDocuments.push(prj); // Add the inserted document to the array
-        } catch (err) {
-          errors.push(err.original);
-          console.log('error-01', err);
-        }
-      })
-    );
-  }
-  else {
-    console.log(data)
-    await Promise.all(data.map(async (item) => {
-        item.createdBy = req.thisUser.id;
-
-        try {
-          const [insertedData, created] = await db.models[reg_model].upsert(item);
-
-          if (reg_model === 'settlement') {
-            sendSettDataToODK([item])
-
+            insertedDocuments.push(prj); // Add the inserted document to the array
+          } catch (err) {
+            errors.push(err.original);
+            console.log('Error while processing project:', err);
           }
-          if (created) {
-            insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
- 
+        })
+      );
+    } else {
+      // Handle other models
+      await Promise.all(
+        data.map(async (item) => {
+          item.createdBy = req.thisUser.id;
+
+          try {
+            // Use upsert to insert or update depending on conflicts
+            const [insertedData, created] = await db.models[reg_model].upsert(item, {
+              returning: true, // Get the inserted/updated data
+            });
+
+            if (reg_model === 'settlement') {
+              sendSettDataToODK([item]);
+            }
+
+            if (created) {
+              insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
+            }
+          } catch (err) {
+            errors.push(err.original);
+            console.log('Error while processing other models:', err);
           }
-
-        
-
-          
-        } catch (err) {
-          console.log(err);
-          errors.push(err.original);
-      }
-      
-
-      
-      })
-    );
-  }
-
-  console.log("Upsert Errors ---->", errors);
-  if (errors.length > 0) {
-    let errorCodes = [...new Set(errors)];
-    if (errorCodes.includes("42P10")) {
-      var errorMsg = 'There are one or more duplicate records';
+        })
+      );
     }
+    
+    // Check for errors and respond accordingly
+    if (errors.length > 0) {
+      let errorCodes = [...new Set(errors.map(error => error.code))];
+      let errorMsg = 'Import/Update failed for ' + errors.length + ' Records.';
 
-    res.status(500).send({ message: 'Import/Update failed for:' + errors.length + " Records (" + errors[0] + ')'});
-  } else {
-    res.status(200).send({
-      message: 'Import/Update Successful......',
-      code: '0000',
-      insertedDocuments: insertedDocuments, // Add the inserted documents to the response
-    });
+      if (errorCodes.includes("42P10")) {
+        errorMsg = 'There are one or more duplicate records';
+      }
+
+      res.status(500).send({ message: errorMsg });
+    } else {
+      res.status(200).send({
+        message: 'Import/Update Successful',
+        code: '0000',
+        insertedDocuments: insertedDocuments, // Add the inserted documents to the response
+      });
+    }
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    res.status(500).send({ message: 'Internal Server Error', error: err.message });
   }
 };
+
 
 
 
@@ -1820,6 +1729,105 @@ exports.modelDeleteOneRecord = async (req, res) => {
     });
   }
 };
+
+ 
+
+exports.modelDeleteRecords = async (req, res) => {
+  try {
+    console.log("Deleting multiple records...");
+
+    const modelName = req.body.model;
+    const model = db.models[modelName];
+    const fields = req.body.fields; // Array of field names
+    const fieldValues = req.body.fieldValues; // Array of arrays of values for each field
+
+    // Check if the model exists
+    if (!model) {
+      return res.status(400).send({
+        message: `Model '${modelName}' does not exist`,
+        code: 'MODEL_NOT_FOUND'
+      });
+    }
+
+    // Validate fields and fieldValues
+    if (!Array.isArray(fields) || !Array.isArray(fieldValues) || fields.length !== fieldValues.length) {
+      return res.status(400).send({
+        message: 'Invalid fields or field values provided',
+        code: 'INVALID_FIELDS'
+      });
+    }
+
+    // Construct the condition for finding records
+    const whereCondition = fields.reduce((condition, field, index) => {
+      const values = fieldValues[index];
+      if (Array.isArray(values) && values.length > 0) {
+        condition[field] = {
+          [Op.in]: values
+        };
+      }
+      return condition;
+    }, {});
+
+    console.log('Where condition:', whereCondition);
+
+    // Check for dependencies in associated models
+    const associations = Object.keys(model.associations);
+
+    for (let i = 0; i < associations.length; i++) {
+      const associationName = associations[i];
+      const association = model.associations[associationName];
+      
+      let dependentRowsCount = 0;
+      const associationType = association.associationType;
+
+      if (associationType === 'HasMany') {
+        const mdl = association.target; // Get the associated model's class reference
+
+        dependentRowsCount = await mdl.count({
+          where: whereCondition
+        });
+
+        console.log('dependentRowsCount', dependentRowsCount);
+      } else {
+        dependentRowsCount = 0;
+      }
+
+      if (dependentRowsCount > 0) {
+        return res.status(500).send({
+          message: `Cannot delete '${modelName}' records, some have dependent ${association.target.name}(s)`,
+          code: 'DEPENDENCY_FOUND'
+        });
+      }
+    }
+
+    // Delete the records
+    await model.destroy({
+      where: whereCondition
+    });
+
+    // Perform any additional actions based on the model type
+    if (modelName === 'settlement') {
+      // Fetch the deleted records to pass to the deleteSettlementDataFromODK function
+      const deletedRecords = await model.findAll({
+        where: whereCondition
+      });
+      
+      deletedRecords.forEach(record => deleteSettlementDataFromODK(record));
+    }
+
+    res.status(200).send({
+      message: 'Delete successful',
+      code: '0000'
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR'
+    });
+  }
+};
+
 
 
 // count all
@@ -2832,104 +2840,112 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
    })
  }
 
-exports.modelPaginatedDatafilterBykeyWord = (req, res) => {
-  console.log('/api/v1/data/paginated/filter --- Keyword', req.body)
+ 
+ 
+ exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
+  try {
+    console.log('/api/v1/data/paginated/filter --- Keyword', req.body);
 
-  var reg_model = req.body.model
-  var field = req.body.searchField
-  var searchKeyword = req.body.searchKeyword
-  // Associated Models
-  var associated_multiple_models = req.body.associated_multiple_models
-  console.log('associated_multiple_models', associated_multiple_models.length)
+    // Extract request body properties
+    const {
+      model: reg_model,
+      searchField: field,
+      excludeGeom,
+      searchKeyword,
+      associated_multiple_models: associatedModels = [],
+      nested_models: nestedModels = [],
+      filters = [],
+      filterValues = [],
+      limit = 20,
+      page = 1,
+    } = req.body;
 
-  // nested Models
-  // here me limit to two nesting levels only
-  var nested_models = req.body.nested_models
-  if (req.body.nested_models) {
-    var child_model = db.models[req.body.nested_models[0]]
-    var grand_child_model = db.models[req.body.nested_models[1]]
-  }
+    // Initialize variables
+    const includeModels = [];
+    const queryCondition = {};
 
-  var qry = {}
-  var includeModels = []
+    // Set nested models if available
+    const [childModel, grandChildModel] = nestedModels.map(nested => db.models[nested]);
 
-  // loop through the include models
-  for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
-    var modelIncl = {}
-    modelIncl.model = db.models[req.body.associated_multiple_models[i]]
-    modelIncl.raw = true
-    modelIncl.nested = true
+    // Prepare associated models for inclusion
+    if (associatedModels.length > 0) {
+      associatedModels.forEach(modelName => {
+        const model = db.models[modelName];
+        includeModels.push({
+          model: model,
+          raw: true,
+          nested: true,
+          attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+        });
+      });
 
-    includeModels.push(modelIncl)
-  }
-
-  if (associated_multiple_models) {
-    if (nested_models) {
-      var nestedModels = { model: child_model, include: grand_child_model, raw: true, nested: true }
-      includeModels.push(nestedModels)
-      var qry = {
-        include: includeModels
+      // Add nested models to the include list if they are present
+      if (childModel && grandChildModel) {
+        includeModels.push({
+          model: childModel,
+          include: [{
+            model: grandChildModel,
+            raw: true,
+            nested: true,
+            attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+          }],
+          raw: true,
+          nested: true,
+          attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+        });
       }
+    }
+
+    // Build query
+    const qry = {
+      include: includeModels,
+      attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Exclude geometry from the main model
+    };
+
+    // Add multiple filters if provided
+    if (filters.length > 0 && filterValues.length > 0) {
+      filters.forEach((filter, index) => {
+        queryCondition[filter] = filterValues[index];
+      });
+    }
+
+    // Add search condition if searchField and searchKeyword are provided
+    if (field && searchKeyword) {
+      queryCondition[field] = {
+        [Op.iLike]: `%${searchKeyword.toLowerCase()}%`,
+      };
+      // If there is a searchKeyword, do not limit the number of results
+      qry.limit = undefined; // Remove the limit
     } else {
-      console.log('---no---')
-      var qry = {
-        include: includeModels
-      }
+      // Apply pagination limit and offset if no searchKeyword
+      qry.limit = limit;
+      qry.offset = (page - 1) * limit;
     }
-  } else {
-    var qry = {}
-  }
 
- 
+    qry.where = queryCondition;
 
-  qry.limit = req.body.limit
-  qry.offset = (req.body.page - 1) * req.body.limit
+    console.log('The xQuery----->', qry);
 
-  /// use the multpiple filters
-  var queryCondition = {}
-  if (req.body.filters) {
-    if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
-      for (let i = 0; i < req.body.filters.length; i++) {
-        queryCondition[req.body.filters[i]] = req.body.filterValues[i]
-      }
-      console.log('Final-Condition------------>', queryCondition)
+    // Execute the query
+    const list = await db.models[reg_model].findAndCountAll(qry);
 
-    }
-  }
-
-
-  if (req.body.searchField) {
-
-   // var searchCond = { [field]: { [op.iLike]: '%' + searchKeyword + '%' } }
-    const searchCond = { [field]: { [Op.iLike]: `%${searchKeyword.toLowerCase()}%` } }; // use iLike with lowercase search term
-
-    const mergedObject = {
-      ...queryCondition,
-      ...searchCond
-    }
-  
-    console.log('--------------search Condition-----------', mergedObject)
-  
-    qry.where = mergedObject
-  } else {
-
-    qry.where = queryCondition
-  }
-
- 
-
-
-
-  console.log('The xQuerry----->', qry)
-
-  db.models[reg_model].findAndCountAll(qry).then((list) => {
     res.status(200).send({
       data: list.rows,
       total: list.count,
-      code: '0000'
-    })
-  })
-}
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('Error in modelPaginatedDatafilterBykeyWord:', error);
+    res.status(500).send({
+      error: 'Internal Server Error',
+      code: '9999',
+    });
+  }
+};
+
+
+
+
 
 exports.modelCountyUsers = (req, res) => {
   var reg_model = req.query.model

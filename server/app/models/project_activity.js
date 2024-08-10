@@ -10,7 +10,9 @@ module.exports = function(sequelize, DataTypes) {
       references: {
         model: 'project',
         key: 'id'
-      }
+      },
+      onDelete: 'CASCADE', // Cascade delete when the referenced project is deleted
+
     },
     activity_id: {
       type: DataTypes.INTEGER,
@@ -19,7 +21,9 @@ module.exports = function(sequelize, DataTypes) {
       references: {
         model: 'activity',
         key: 'id'
-      }
+      },
+      onDelete: 'CASCADE', // Cascade delete when the referenced project is deleted
+
     }
   }, {
     sequelize,

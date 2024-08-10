@@ -78,7 +78,6 @@ module.exports = function(sequelize, DataTypes) {
       unique:true
     },  
     
-
     geom: {
       type: DataTypes.GEOMETRY('Geometry', 4326),
       allowNull: true
