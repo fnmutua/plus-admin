@@ -89,6 +89,22 @@ v-else-if="field.type === 'cascader'" v-model="formData[field.name]" :data="fiel
                 </el-select>
 
 
+                <el-select  v-else-if="field.type === 'select_add'"  v-model="formData[field.name]" placeholder="Select" style="width: 240px">
+                  <el-option
+                    v-for="item in field.options"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                  <template #footer>
+                    <el-button  text bg size="small" @click="onAddOption()">
+                      Add  {{ field.source_model  }} option
+                    </el-button>
+                     
+                  </template>
+                </el-select>
+
+
 
             </el-form-item>
           </el-col>
@@ -162,7 +178,7 @@ import {
   searchByKeyWord
 } from '@/api/settlements'
 
-
+import { uuid } from 'vue-uuid'
 const props = { multiple: true }
 
 
@@ -1147,6 +1163,21 @@ const getFieldChangeHandler = (fieldName: string) => {
   return undefined;
 };
 
+
+
+const isAdding = ref(false)
+ 
+
+const onAddOption = () => {
+  
+  console.log("Navigating to Add nw model")
+  
+}
+
+ 
+
+
+ 
 
 </script>
 <style>

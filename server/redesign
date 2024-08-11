@@ -1,0 +1,28 @@
+Revised Schema Design
+1. Projects Table
+    ProjectID (Primary Key)
+    Category (e.g., Physical Planning, Cadastral Survey, Infrastructure Upgrading)
+    Target
+2. Activities Table
+    ActivityID (Primary Key)
+    ProjectID (Foreign Key referencing Projects)
+    ActivityName (e.g., Planning and Survey, Construction of Roads)
+    ActivityType (e.g., Planning, Construction)
+3. Indicators Table
+    IndicatorID (Primary Key)
+    ActivityID (Foreign Key referencing Activities)
+    IndicatorName (e.g., Number of LPs and LUDPs produced)
+    Units (e.g., Number)
+    Dimensions (e.g., Planned/Approved, Planned/Ammended)
+    Targets
+4. Measurements Table
+    MeasurementID (Primary Key)
+    IndicatorID (Foreign Key referencing Indicators)
+    ActualValue (e.g., 36, 10718)
+    MeasurementDate
+5. Beneficiaries Table
+    BeneficiaryID (Primary Key)
+    ActivityID (Foreign Key referencing Activities)
+    BeneficiaryType (e.g., StreetLighting, Water Pipeline)
+    NumberOfBeneficiaries
+    Gender (e.g., Male, Female)
