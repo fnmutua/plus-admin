@@ -439,6 +439,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
+const showMap  = ref(false);
 
 
 const flyTo = (data: TableSlotDefault) => {
@@ -468,11 +469,18 @@ const flyTo = (data: TableSlotDefault) => {
     ruleForm.id=data.row.id
     console.log(bounds.value)
 
-    loadMap()
+    
+    
+
+
+
      
     activeName.value = 'Map' // Navigate to Beneficiary Tab
+ 
+    loadMap()
 
 
+    
   }
 
 
@@ -482,227 +490,229 @@ const flyTo = (data: TableSlotDefault) => {
 
 const nmap = ref()
 const loadMap = () => {
- 
-  nmap.value = (new mapboxgl.Map({
-    container: "mapContainer",
-    style: "mapbox://styles/mapbox/streets-v12",
-    center: [37.137343, 1.137451], // starting position
-    zoom: 6,
 
-  }))
+  // Add a delay of 1 second (1000 milliseconds) to wait for div
+  setTimeout(() => {
+    nmap.value = (new mapboxgl.Map({
+      container: "mapContainer",
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: [37.137343, 1.137451], // starting position
+      zoom: 6,
 
-  const nav = new mapboxgl.NavigationControl();
-  nmap.value.addControl(nav, "top-right");
-  nmap.value.on('load', () => {
+    }))
 
-    nmap.value.addSource('layer', {
-      type: 'geojson',
-      // Use a URL for the value for the `data` property.
-      //  data: turf.featureCollection(facilityGeoPolygons.value),
-      data: projectScopeGeo.value,
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
+    const nav = new mapboxgl.NavigationControl();
+    nmap.value.addControl(nav, "top-right");
+    nmap.value.on('load', () => {
 
-
-    // Add a black outline around the polygon.
-    nmap.value.addLayer({
-      'id': 'outline',
-      'type': 'line',
-      'source': 'layer',
-      'layout': {},
-      'paint': {
-        'line-color': 'black',
-        'line-width': 2
-      }
-    });
-
-    nmap.value.addLayer({
-      'id': 'pontLayer',
-      "type": "circle",
-      'source': 'layer',
-      'paint': {
-        'circle-radius': 4,
-        'circle-stroke-width': 2,
-        'circle-color': 'red',
-        'circle-stroke-color': 'white'
-      }
-    });
+      nmap.value.addSource('layer', {
+        type: 'geojson',
+        // Use a URL for the value for the `data` property.
+        //  data: turf.featureCollection(facilityGeoPolygons.value),
+        data: projectScopeGeo.value,
+        // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+      });
 
 
+      // Add a black outline around the polygon.
+      nmap.value.addLayer({
+        'id': 'outline',
+        'type': 'line',
+        'source': 'layer',
+        'layout': {},
+        'paint': {
+          'line-color': 'black',
+          'line-width': 2
+        }
+      });
 
-
-
-    nmap.value.resize()
+      nmap.value.addLayer({
+        'id': 'pontLayer',
+        "type": "circle",
+        'source': 'layer',
+        'paint': {
+          'circle-radius': 4,
+          'circle-stroke-width': 2,
+          'circle-color': 'red',
+          'circle-stroke-color': 'white'
+        }
+      });
 
 
 
-    nmap.value.addLayer({
-      id: 'Satellite',
-      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
-      type: "raster"
-    }, 'outline');
-
-    nmap.value.addLayer({
-      id: 'Streets',
-      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
-      type: "raster"
-    }, 'outline');
-
-    // switch it off until the user selects to
-    nmap.value.setLayoutProperty('Satellite', 'visibility', 'none')
 
 
-    const layers: MapboxLayerDefinition[] = [
-
-      {
-        id: "Satellite",
-        title: "Satellite",
-        visibility: 'none',
-        type: 'base'
-      },
-
-      {
-        id: "Streets",
-        title: "Streets",
-        visibility: 'none',
-        type: 'base'
-      },
-
-    ];
-    nmap.value.addControl(new MapboxLayerSwitcherControl(layers));
+      nmap.value.resize()
 
 
 
-    var localBounds = turf.bbox((projectScopeGeo.value));
-    console.log(localBounds)
+      nmap.value.addLayer({
+        id: 'Satellite',
+        source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+        type: "raster"
+      }, 'outline');
 
-    if (localBounds) {
+      nmap.value.addLayer({
+        id: 'Streets',
+        source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
+        type: "raster"
+      }, 'outline');
+
+      // switch it off until the user selects to
+      nmap.value.setLayoutProperty('Satellite', 'visibility', 'none')
+
+
+      const layers: MapboxLayerDefinition[] = [
+
+        {
+          id: "Satellite",
+          title: "Satellite",
+          visibility: 'none',
+          type: 'base'
+        },
+
+        {
+          id: "Streets",
+          title: "Streets",
+          visibility: 'none',
+          type: 'base'
+        },
+
+      ];
+      nmap.value.addControl(new MapboxLayerSwitcherControl(layers));
+
+
+
+      var localBounds = turf.bbox((projectScopeGeo.value));
       console.log(localBounds)
 
+      if (localBounds) {
+        console.log(localBounds)
 
 
-      if (localBounds[0] == localBounds[2]) {
 
-        // for points where the extent x1=x2
-        nmap.value.fitBounds(localBounds, { maxZoom: 15, padding: 20 });
-      } else {
-        nmap.value.fitBounds(localBounds, { padding: 20 });
+        if (localBounds[0] == localBounds[2]) {
+
+          // for points where the extent x1=x2
+          nmap.value.fitBounds(localBounds, { maxZoom: 15, padding: 20 });
+        } else {
+          nmap.value.fitBounds(localBounds, { padding: 20 });
+
+        }
+
 
       }
 
 
-    }
+
+      nmap.value.on('click', 'points-layer', (e) => {
+        console.log("Onclikc..........")
+        // Copy coordinates array.
+        const coordinates = e.features[0].geometry.coordinates.slice();
+        const description = e.features[0].properties.title;
+
+        // Ensure that if the map is zoomed out such that multiple
+        // copies of the feature are visible, the popup appears
+        // over the copy being pointed to.
+        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+        }
+        new mapboxgl.Popup({ offset: [0, -15] })
+          .setLngLat(coordinates)
+          .setHTML('<h3>' + description + '</h3><p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+          .addTo(nmap);
+
+      });
+
+
+      // Change the cursor to a pointer when the mouse is over the places layer.
+      nmap.value.on('mouseenter', 'points-layer', () => {
+        nmap.value.getCanvas().style.cursor = 'pointer';
+      });
+
+      // Change it back to a pointer when it leaves.
+      nmap.value.on('mouseleave', 'points-layer', () => {
+        nmap.value.getCanvas().style.cursor = '';
+      });
 
 
 
-    nmap.value.on('click', 'points-layer', (e) => {
-      console.log("Onclikc..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.title;
+      nmap.value.on('click', 'lines-layer', (e) => {
+        console.log("click line..........")
+        // Copy coordinates array.
+        const coordinates = e.features[0].geometry.coordinates.slice();
+        const description = e.features[0].properties.asset_type;
+        const condition = e.features[0].properties.asset_condition;
 
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-
-    });
-
-
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.value.on('mouseenter', 'points-layer', () => {
-      nmap.value.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change it back to a pointer when it leaves.
-    nmap.value.on('mouseleave', 'points-layer', () => {
-      nmap.value.getCanvas().style.cursor = '';
-    });
+        // Ensure that if the map is zoomed out such that multiple
+        // copies of the feature are visible, the popup appears
+        // over the copy being pointed to.
+        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+        }
+        new mapboxgl.Popup({ offset: [0, -15] })
+          .setLngLat(coordinates)
+          .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+          .addTo(nmap);
 
 
-
-    nmap.value.on('click', 'lines-layer', (e) => {
-      console.log("click line..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.asset_type;
-      const condition = e.features[0].properties.asset_condition;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
+      });
 
 
-    });
+      nmap.value.on('click', 'polygons-layer', (e) => {
+        console.log("click line..........")
+        // Copy coordinates array.
+        const coordinates = e.features[0].geometry.coordinates.slice();
+        const description = e.features[0].properties.title;
+        const condition = e.features[0].properties.programme;
+
+        // Ensure that if the map is zoomed out such that multiple
+        // copies of the feature are visible, the popup appears
+        // over the copy being pointed to.
+        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+        }
+        new mapboxgl.Popup({ offset: [0, -15] })
+          .setLngLat(coordinates)
+          .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
+          .addTo(nmap);
 
 
-    nmap.value.on('click', 'polygons-layer', (e) => {
-      console.log("click line..........")
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.title;
-      const condition = e.features[0].properties.programme;
+      });
 
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3><p>' + condition + '</p>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
+      // Change the cursor to a pointer when the mouse is over the places layer.
+      nmap.value.on('mouseenter', 'lines-layer', () => {
+        nmap.value.getCanvas().style.cursor = 'pointer';
+      });
+
+      // Change it back to a pointer when it leaves.
+      nmap.value.on('mouseleave', 'lines-layer', () => {
+        nmap.value.getCanvas().style.cursor = '';
+      });
 
 
-    });
-
-    // Change the cursor to a pointer when the mouse is over the places layer.
-    nmap.value.on('mouseenter', 'lines-layer', () => {
-      nmap.value.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change it back to a pointer when it leaves.
-    nmap.value.on('mouseleave', 'lines-layer', () => {
-      nmap.value.getCanvas().style.cursor = '';
-    });
-
-
-    function addHomeButton(map) {
-    class HomeButton {
-      onAdd(map) {
-        const div = document.createElement("div");
-        div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
-        div.innerHTML = `<button>
+      function addHomeButton(map) {
+        class HomeButton {
+          onAdd(map) {
+            const div = document.createElement("div");
+            div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+            div.innerHTML = `<button>
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M17 9.00195C19.175 9.01406 20.3529 9.11051 21.1213 9.8789C22 10.7576 22 12.1718 22 15.0002V16.0002C22 18.8286 22 20.2429 21.1213 21.1215C20.2426 22.0002 18.8284 22.0002 16 22.0002H8C5.17157 22.0002 3.75736 22.0002 2.87868 21.1215C2 20.2429 2 18.8286 2 16.0002L2 15.0002C2 12.1718 2 10.7576 2.87868 9.87889C3.64706 9.11051 4.82497 9.01406 7 9.00195" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round"></path> <path d="M12 15L12 2M12 2L15 5.5M12 2L9 5.5" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>
 		
   </button>`; div.addEventListener("contextmenu", (e) => e.preventDefault());
-        div.addEventListener("click", () => showUploadDialog.value = true);
+            div.addEventListener("click", () => showUploadDialog.value = true);
 
-        return div;
+            return div;
+          }
+        }
+        const homeButton = new HomeButton();
+        map.addControl(homeButton, "top-right");
       }
-    }
-    const homeButton = new HomeButton();
-    map.addControl(homeButton, "top-right");
-  }
-  addHomeButton(nmap.value)
+      addHomeButton(nmap.value)
 
-  });
+    });
 
-
+  }, 50); // 1000 milliseconds = 1 second
 }
 
 
