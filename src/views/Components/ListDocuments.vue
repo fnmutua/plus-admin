@@ -284,7 +284,7 @@ currentPage.value = newPage;
 
 <template>
   
-  <el-table v-loading="viewLoading" stripe="true" show-header="false" :data="tableDocumentsFiltered.slice((currentPage - 1) * pageSize, currentPage * pageSize)" border style="width: 100%">
+  <el-table v-loading="viewLoading" stripe="true"  empty-text="No Documents"  height="250"  show-header="false" :data="tableDocumentsFiltered.slice((currentPage - 1) * pageSize, currentPage * pageSize)" border style="width: 100%">
 
     
   <el-table-column label="Name" prop="name"  sortable />
