@@ -57,7 +57,7 @@ v-else-if="field.type === 'cascader'" v-model="formData[field.name]" :data="fiel
  
 
                 <el-select
-                  v-else-if="field.type === 'select_remote'"
+                  v-else-if="field.type === 'select_remote' "
                   v-model="formData[field.name]"
                   multiple
                   filterable
@@ -67,6 +67,7 @@ v-else-if="field.type === 'cascader'" v-model="formData[field.name]" :data="fiel
                   remote-show-suffix
                   :remote-method="remoteMethod"
                   :loading="loading"
+                  :disabled="!newRecord"
                   style="width: 100%"
                 >
                   <el-option
@@ -97,8 +98,8 @@ v-else-if="field.type === 'cascader'" v-model="formData[field.name]" :data="fiel
                     :value="item.value"
                   />
                   <template #footer>
-                    <el-button  text bg size="small" @click="onAddOption()">
-                      Add  {{ field.source_model  }} option
+                    <el-button  text bg size="small" @click="onAddOption(field.source_model)">
+                      Add 
                     </el-button>
                      
                   </template>
@@ -175,7 +176,7 @@ import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
 import { countyOptions } from '../common';
 import {
-  searchByKeyWord
+  searchByKeyWord,getLookups
 } from '@/api/settlements'
 
 import { uuid } from 'vue-uuid'
@@ -261,15 +262,16 @@ const remoteMethod = async (keyword) => {
   //formData.assocModel = associated_Model
 
   // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
+  formData.filters = filters.value
+  formData.filterValues = filterValues.value
 
   //formData.cache_key = 'SeacrchByKey_' + search_string.value
 
   //-------------------------
-  console.log(formData)
+  console.log("formData",formData)
   const res = await searchByKeyWord(formData)
-
+  
+  
   console.log(res)
 
   sett_options.value= res.data.map(item => ({
@@ -397,7 +399,7 @@ const getLocations = async (project_id) => {
 
   const transformedData = res.data.map(item => ({
   ...item,
-  value: item.settlecment_id, // Replace 'id' with 'value'
+  value: item.settlement_id, // Replace 'id' with 'value'
   displayValue: `ID: ${item.id}`, // Add another field based on 'id'
 }));
 
@@ -408,13 +410,15 @@ const getLocations = async (project_id) => {
    proj_ids.value = transformedData.map(item => item.id); // Extract `value` which is set to `settlement_id`
 
 filters.value = ['id']; // Assuming 'id' is the filter field you want to use
-filterValues.value = settlement_ids; // Set filterValues to the array of IDs
+filterValues.value = [settlement_ids]; // Set filterValues to the array of IDs
 
 console.log('filters', filters.value);
 console.log('filterValues', filterValues.value);
 
-remoteMethod()
+ await remoteMethod(null)
 
+ filters.value=[]
+ filterValues.value=[]
   return transformedData
 }
 
@@ -1165,12 +1169,15 @@ const getFieldChangeHandler = (fieldName: string) => {
 
 
 
-const isAdding = ref(false)
- 
+  
 
-const onAddOption = () => {
+const onAddOption = (source_model) => {
   
   console.log("Navigating to Add nw model")
+ 
+    
+       router.push({ name: source_model })
+
   
 }
 

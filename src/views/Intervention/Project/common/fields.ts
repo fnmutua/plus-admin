@@ -11,8 +11,8 @@ import {
  
 const steps = [
   { title: "Profile" },
-  { title: "Activities" },
-  { title: "Location" },
+  { title: "Details" },
+ 
  
 ];
 
@@ -86,19 +86,19 @@ const formFields: Field[][] = [
     { name: "end_date", label: "Completion Date", type: "date", multiselect: 'false',adminUnit: false,     options: [] },
     { name: "cost", label: "Total Project Cost", min: "0", type: "number", multiselect: 'false',adminUnit: false,  options: [] },
     {name: "sourceFunding", label: "Source of Funding", type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions },
-    { name: "contractor", label: "Contractor/Implementer", type: "select_add", multiselect: 'false', adminUnit: false,options: contractorOptions.value, source_model:'contractor' }, 
+    { name: "contractor", label: "Contractor/Implementer", type: "select_add", multiselect: 'false', adminUnit: false,options: contractorOptions.value, source_model:'SettingsContractor' }, 
   
   ],
 
  [
+  { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
+
   { name: "Location", label: "Location", type: "select_remote", multiselect: 'false', adminUnit: false, options:cascadedAdminOptions.value },
+
  ],
 
 
-  [
-    { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
-
-  ],
+ 
    
 ];
 
@@ -172,12 +172,13 @@ const formRules: FormRules = reactive({
   step2: {
     Location: [
       { required: true, message: 'Location is Required', trigger: 'change' }
-   ]
+   ],
+   activities: [
+    { required: true, message: 'At least one Project activity is Required', trigger: 'change' }
+ ]
   },
   step3: {
-    activities: [
-      { required: true, message: 'At least one Project activity is Required', trigger: 'change' }
-   ]
+   
   },
 
   

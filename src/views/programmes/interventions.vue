@@ -8,20 +8,21 @@ import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 
 import {
   ElButton, ElSelect, FormInstance, ElLink, MessageParamsWithType, ElTabs, ElTabPane, ElDialog, ElInputNumber,
-  ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCol, FormRules, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
+  ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCol,    ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, TopRight, Plus, User, Download, Delete, Edit, Filter, InfoFilled } from '@element-plus/icons-vue'
+import { Position, TopRight, Plus, User, Download, Delete, Edit, CircleCloseFilled, InfoFilled } from '@element-plus/icons-vue'
 
 import { ref, reactive, h } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider, ElOptionGroup } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, BatchImportUpsert, getfilteredGeo } from '@/api/settlements'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { uuid } from 'vue-uuid'
+import { Icon } from '@iconify/vue';
 
 import xlsx from "json-as-xlsx"
 import { getAllGeo } from '@/api/settlements'
@@ -42,8 +43,7 @@ import {
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
-import { Icon } from '@iconify/vue';
-
+ 
 import { onMounted, computed, watch } from 'vue'
 
 import mapboxgl from "mapbox-gl";
@@ -2026,11 +2026,30 @@ const getProjectLocations = async (project_id) => {
 };
 
 
+const project_id =ref()
+const expandedRow = ref(null);
+
+
 
 function handleExpand(row) {
 
   // get the locations 
   getProjectLocations(row.id)
+  project_id.value=row.id
+
+
+
+   // toggle collapes
+   if (expandedRow.value) {
+             tableRef.value.toggleRowExpansion(expandedRow.value, false); // Collapse the previously expanded row
+        console.log('tableRef.value.value',expandedRow.value )
+        expandedRow.value = row; // Update the expanded row
+
+      }
+      else {
+        tableRef.value.toggleRowExpansion(row, true); // Expand the current row
+        expandedRow.value = row; // Update the expanded row
+      }
 
 
   /// Documents
@@ -2273,6 +2292,103 @@ const UpdateLocationGeom = async () => {
 const fileList = ref([])
 
 
+const sett_options =ref([])
+const extra_locations =ref()
+
+
+const remoteMethod = async (keyword) => {
+  console.log(keyword)
+  const formData = {}
+  formData.model = 'settlement'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = keyword
+  formData.excludeGeom = false
+  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
+
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+
+  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+  //-------------------------
+  console.log("formData",formData)
+  const res = await searchByKeyWord(formData)
+  
+  console.log("res.data",res.data)
+
+  if(res.data && res.data.length>0){
+    sett_options.value= res.data.map(item => ({
+    value: item.id,
+    settlement_id: item.id,
+    label: item.name,
+    county: item.county.name,
+    subcounty: item.subcounty.name,
+    ward: item.ward.name,
+    ward_id: item.ward.id,
+    subcounty_id: item.subcounty.id,
+    county_id: item.county.id,
+    geom: item.geom
+  }));
+
+  }
+
+ 
+  console.log('sett_options.value',sett_options.value)
+
+}
+
+
+const AddLocation = async () => {
+
+ 
+//console.log('deleted_locations',deleted_locations)
+var form = {}
+form.model = 'project_location'
+
+console.log('project_id',project_id.value)
+console.log('locations',extra_locations.value)
+
+// fist check if theres any proehct with this id exists then delete all
+
+const location_objects = [];
+
+for (let i = 0; i < extra_locations.value.length; i++) {
+  console.log(extra_locations.value[i])
+  let obj = {}
+  obj.project_id=project_id.value
+  obj.settlement_id=extra_locations.value[i].settlement_id
+  obj.ward_id=extra_locations.value[i].ward_id
+  obj.subcounty_id=extra_locations.value[i].subcounty_id
+  obj.county_id=extra_locations.value[i].county_id
+  obj.location_type= 'settlement'
+  obj.geom= extra_locations.value[i].geom
+   location_objects.push(obj)
+  console.log('obj',obj)
+}
+
+form.data = location_objects
+console.log('formData',form)
+
+const loc_res = await BatchImportUpsert(form)
+console.log('loc_res',loc_res)
+
+// 
+getProjectLocations(project_id.value)
+// Empty the locations and 
+extra_locations.value=[]
+sett_options.value=[]
+}
+
+
+const tableRef = ref(null);
+
+
 
 </script>
 
@@ -2283,115 +2399,206 @@ const fileList = ref([])
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
-    <el-row>
+    <el-row
+  type="flex"
+  justify="start"
+  gutter="10"
+  style="display: flex; flex-wrap: nowrap; align-items: center;"
+>
+  <!-- Title Search -->
+  <el-select
+    v-model="value3"
+    multiple
+    clearable
+    filterable
+    remote
+    :remote-method="searchByName"
+    reserve-keyword
+    placeholder="Search by Title"
+    style="width: 150px; margin-right: 10px;"
+  />
+  
+  <!-- Programme Filter -->
+  <el-select
+    size="default"
+    v-model="value40"
+    @change="filterByProgramme"
+    @clear="handleClear"
+    multiple
+    clearable
+    filterable
+    collapse-tags
+    placeholder="By Programme"
+    style="width: 150px; margin-right: 10px;"
+  >
+    <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
+  </el-select>
+          <!-- 
+            <el-select
+              size="default"
+              v-model="value4"
+              @change="filterByCounty"
+              @clear="handleClear"
+              multiple
+              clearable
+              filterable
+              collapse-tags
+              placeholder="By County"
+              style="width: 150px; margin-right: 10px;"
+            >
+              <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
 
-      <div style="display: inline-block; margin-bottom: 2px">
-        <el-select
-v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-          placeholder="Search by Title" style="width: 100%" />
-      </div>
+            <el-select
+              :disabled="!enableSubcounty"
+              size="default"
+              v-model="value5"
+              @change="filterBySubCounty"
+              @clear="handleClear"
+              multiple
+              clearable
+              filterable
+              collapse-tags
+              placeholder="By Subcounty"
+              style="width: 150px; margin-right: 10px;"
+            >
+              <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
 
+            <el-select
+              :disabled="!enableSubcounty"
+              size="default"
+              v-model="value7"
+              @change="filterBySettlement"
+              @clear="handleClear"
+              multiple
+              clearable
+              filterable
+              collapse-tags
+              placeholder="By Settlement"
+              style="width: 150px; margin-right: 10px;"
+            >
+              <el-option v-for="item in settlementOptionsFil" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select> -->
 
+  <!-- Action Buttons -->
+  <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+    <el-tooltip content="Add Project" placement="top">
+      <el-button @click="AddProject" type="primary" :icon="Plus" />
+    </el-tooltip>
+    <el-tooltip content="Add Beneficiary" placement="top">
+      <el-button @click="AddBeneficiary" type="primary" :icon="User" />
+    </el-tooltip>
+    <el-tooltip content="Download" placement="top">
+      <el-button @click="DownloadXlsx" type="primary" :icon="Download" />
+    </el-tooltip>
+  </div>
 
-      <div style="display: inline-block; margin-top: 2px;  margin-right: 2px">
-        <el-select
-size="default" v-model="value40" :onChange="filterByProgramme" :onClear="handleClear" multiple
-          clearable filterable collapse-tags placeholder="By Programme">
-          <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </div>
-
-
-      <div style="display: inline-block; margin-top: 2px;  margin-right: 2px">
-        <el-select
-size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
-          filterable collapse-tags placeholder="By County">
-          <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </div>
-
-
-
-      <div style="display: inline-block; margin-top: 2px;  margin-right: 2px">
-        <el-select
-:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
-          clearable filterable collapse-tags placeholder="By Subcounty">
-          <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </div>
-
-
-      <div style="display: inline-block; margin-top: 2px;  margin-right: 3px">
-        <el-select
-:disabled="!enableSubcounty" size="default" v-model="value7" :onChange="filterBySettlement" multiple
-          clearable filterable collapse-tags placeholder="By Settlement">
-          <el-option v-for="item in settlementOptionsFil" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </div>
-
-
-      <div v-if="showEditButtons" style="display: inline-block; margin-left: 2px">
-        <el-tooltip content="Add Project" placement="top">
-          <el-button :onClick="AddProject" type="primary" :icon="Plus" />
-        </el-tooltip>
-      </div>
-      <div v-if="showEditButtons" style="display: inline-block; margin-left: 2px">
-        <el-tooltip content="Add Beneficiary" placement="top">
-          <el-button :onClick="AddBeneficiary" type="primary" :icon="User" />
-        </el-tooltip>
-      </div>
-      <div style="display: inline-block; margin-left: 2px">
-        <el-tooltip content="Download" placement="top">
-          <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-        </el-tooltip>
-      </div>
-      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-
-    </el-row>
+  <!-- Download All Component -->
+  <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+</el-row>
 
 
     <el-tabs @tab-click="onClickTab" v-model="activeName" type="border-card" style="width: 100%; margin-top: 5px;">
       <el-tab-pane label="Interventions" name="list">
-        <el-table
-:data="tableDataList" style="width: 100%; margin-top: 10px;" border
+        <el-table ref="tableRef"  row-key="id"  :data="tableDataList" style="width: 100%; margin-top: 10px;" border
           :row-class-name="tableRowClassName" stripe flexible @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
                 <el-tabs tab-position="left" class="demo-tabs">
                   <el-tab-pane label="Locations">
+                    <el-row >
+ 
+
+                      <div style="display: flex; align-items: center;">
+                          <!-- Label for el-select -->
+                          <label for="location-select" style="margin-right: 10px; color: green; font-style: italic;"> Add Locations:</label>
+                          
+                          <!-- el-select component -->
+                          <el-select
+                            id="location-select"
+                            v-model="extra_locations"
+                            multiple
+                            filterable
+                            remote
+                            reserve-keyword
+                            placeholder=" Search Settlements"
+                            :remote-method="remoteMethod"
+                            style="width: 70%"
+                          >
+                            <el-option
+                              v-for="item in sett_options"
+                              :key="item.id"
+                              :label="item.label"
+                              :value="item"
+                            >
+                              <div style="display: flex; align-items: center;">
+                                <span style="flex: 1; text-align: left;">{{ item.label }}</span>
+                                <span
+                                  style="
+                                    flex: 2;
+                                    color: var(--el-text-color-secondary);
+                                    font-size: 13px;
+                                    text-align: right;
+                                  "
+                                >
+                                  {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                                </span>
+                              </div>
+                            </el-option>
+                          </el-select>
+                          <el-tooltip content="Save" placement="top">
+                               <el-button  :onClick="AddLocation" style="margin-left :10px;"   type="primary">
+                                <Icon icon="ic:round-save"  style=" color: white"  size="48" /> 
+                              </el-button>
+
+
+                            </el-tooltip>
+
+                           
+
+
+                          
+
+                           
+ 
+                        </div>
+
+
+                    </el-row >
                     <el-table :data="project_locations" height="250" stripe>
                       <el-table-column type="index" />
                       <el-table-column prop="county" label="County" width="180" />
                       <el-table-column prop="subcounty" label="Subcounty" width="180" />
                       <el-table-column prop="settlementName" label="Settlement" />
-
                       <el-table-column fixed="right" label="Operations" :width="actionColumnWidth">
 
                         <template #default="scope">
-
-
                           <el-tooltip content="View on Map" placement="top">
-                            <el-button
-type="warning" size="small" :icon="Position"
+                            <el-button  type="secondary" size="small" :icon="Position"
                               @click="flyTo(scope as TableSlotDefault)" circle />
                           </el-tooltip>
 
                           <el-tooltip content="Delete" placement="top">
-                            <el-popconfirm
-confirm-button-text="Yes" width="220" cancel-button-text="No"
+                            <el-popconfirm  confirm-button-text="Yes" width="220" cancel-button-text="No"
                               :icon="InfoFilled" icon-color="#626AEF"
                               title="Are you sure to delete this project location?"
                               @confirm="DeleteProjectLocation(scope.row as TableSlotDefault)">
                               <template #reference>
-                                <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                                <el-button size="small" v-if="showAdminButtons" type="secondary" :icon=Delete circle />
                               </template>
                             </el-popconfirm>
                           </el-tooltip>
 
                         </template>
                       </el-table-column>
+                       
+                           
+                      
                     </el-table>
+                  
+                 
                   </el-tab-pane>
 
 
@@ -2409,8 +2616,8 @@ style="margin-left: 10px;margin-top: 2px" size="small" v-if="showEditButtons"
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="Title" prop="title" width="400" resizable sortable />
-          <el-table-column label="County" prop="county.name" width="120" sortable />
+          <el-table-column label="Project Title" prop="title" width="650" resizable sortable />
+          <!-- <el-table-column label="County" prop="county.name" width="120" sortable /> -->
           <!-- <el-table-column label="Settlement" prop="settlement.name" sortable /> -->
           <el-table-column label="Programme" prop="programme.acronym" width="130" sortable />
           <el-table-column label="Status" prop="status" sortable />

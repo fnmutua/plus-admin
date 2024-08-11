@@ -2915,11 +2915,11 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
         [Op.iLike]: `%${searchKeyword.toLowerCase()}%`,
       };
       // If there is a searchKeyword, do not limit the number of results
-      qry.limit = undefined; // Remove the limit
+      //qry.limit = undefined; // Remove the limit
     } else {
       // Apply pagination limit and offset if no searchKeyword
-      qry.limit = limit;
-      qry.offset = (page - 1) * limit;
+      //qry.limit = limit;
+      //qry.offset = (page - 1) * limit;
     }
 
     qry.where = queryCondition;
@@ -2943,6 +2943,88 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
   }
 };
 
+exports.modelLookup = async (req, res) => {
+  try {
+    console.log('modelLookup --- Request', req.body);
+
+    // Extract request body properties
+    const {
+      model: reg_model,
+      excludeGeom,
+      associated_multiple_models: associatedModels = [],
+      nested_models: nestedModels = [],
+      filters = [],
+      filterValues = [],
+    } = req.body;
+
+    // Initialize variables
+    const includeModels = [];
+    const queryCondition = {};
+
+    // Set nested models if available
+    const [childModel, grandChildModel] = nestedModels.map(nested => db.models[nested]);
+
+    // Prepare associated models for inclusion
+    if (associatedModels.length > 0) {
+      associatedModels.forEach(modelName => {
+        const model = db.models[modelName];
+        includeModels.push({
+          model: model,
+          raw: true,
+          nested: true,
+          attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+        });
+      });
+
+      // Add nested models to the include list if they are present
+      if (childModel && grandChildModel) {
+        includeModels.push({
+          model: childModel,
+          include: [{
+            model: grandChildModel,
+            raw: true,
+            nested: true,
+            attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+          }],
+          raw: true,
+          nested: true,
+          attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+        });
+      }
+    }
+
+    // Build query
+    const qry = {
+      include: includeModels,
+      attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Exclude geometry from the main model
+    };
+
+    // Add multiple filters if provided
+    if (filters.length > 0 && filterValues.length > 0) {
+      filters.forEach((filter, index) => {
+        queryCondition[filter] = filterValues[index];
+      });
+    }
+
+    qry.where = queryCondition;
+
+    console.log('The Query----->', qry);
+
+    // Execute the query
+    const list = await db.models[reg_model].findAll(qry); // Changed to findAll to get all records
+
+    res.status(200).send({
+      data: list,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('Error in modelPaginatedDatafilterBykeyWord:', error);
+    res.status(500).send({
+      error: 'Internal Server Error',
+      code: '9999',
+    });
+  }
+};
 
 
 
