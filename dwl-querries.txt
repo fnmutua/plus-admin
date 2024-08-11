@@ -21,3 +21,7 @@ SET filters = ARRAY[jsonb_build_object(
                   'operation', filter_function,
                   'value', filter_value[1]
                  )];
+
+
+
+DROP TABLE project_location;
