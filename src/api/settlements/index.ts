@@ -101,6 +101,16 @@ export const searchByKeyWord = (data: SettlementType): Promise<IResponse<Settlem
   return request.post({ url: prod + '/api/v1/data/paginated/filter', data })
 }
 
+export const getLookups = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  // console.log('....', data)
+   return request.post({ url: prod + '/api/v1/data/lookup', data })
+ }
+
+
+
+
+
+
 export const uploadFiles = (data: SettlementType): Promise<IResponse<SettlementType>> => {
  // console.log('....', data)
   return request.post({ url: prod + '/api/v1/upload', data })

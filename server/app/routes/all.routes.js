@@ -24,6 +24,7 @@ module.exports = function (app) {
 
   // filter by keyward-paginated
   app.post('/api/v1/data/paginated/filter', [authJwt.verifyToken], controller.modelPaginatedDatafilterBykeyWord)
+  app.post('/api/v1/data/lookup', [authJwt.verifyToken], controller.modelLookup)
 
   // Gets the  paginated data
   app.get('/api/v1/data/paginated',  [authJwt.verifyToken],controller.modelPaginatedData)
