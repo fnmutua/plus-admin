@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, getRoutesList } from '@/api/settlements'
-import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
+import { getListWithoutGeo } from '@/api/counties'
 
 import {
-  ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,ElCard,
-  ElInput, ElDatePicker, ElForm, ElFormItem, ElUpload, ElCol, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn, UploadUserFile
+  ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElCard,
+  ElInput, ElForm, ElFormItem, ElUpload, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, Plus, User, Download, Delete, Edit, InfoFilled , Back} from '@element-plus/icons-vue'
+import { Position, Plus, User, Download, Delete, Edit, InfoFilled, UploadFilled, Back } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
@@ -29,11 +28,15 @@ import { useRoute } from 'vue-router'
 import moment from "moment";
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
-import { getFilteredHouseholdsBykeyword } from '@/api/households'
+import { getModelSpecs } from '@/api/fields'
 
 import {
   countyOptions, settlementOptionsV2, subcountyOptions, implementationOptions
 } from './common/index.ts'
+
+import exportFromJSON from 'export-from-json'
+import Papa from 'papaparse';
+
 
 ////////////*************Map Imports***************////////
 
@@ -45,7 +48,6 @@ import { computed, watch } from 'vue'
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { UserType } from '@/api/register/types'
-import { getFile } from '@/api/summary'
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
@@ -146,7 +148,9 @@ const totalBen = ref(0)
 const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
 const formheader = ref('Edit Project')
- 
+
+
+const uploadDialog = ref(false)
 let tableDataList = ref<UserType[]>([])
 let tableDataList_orig = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
@@ -160,7 +164,7 @@ let filterValues = [[component_id.value]]   // make sure the inner array is arra
 var tblData = []
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'programme_implementation', 'document']
+const associated_multiple_models = [ 'component', 'programme_implementation', 'document']
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
@@ -177,7 +181,7 @@ const geoLoaded = ref(false)
 
 const { t } = useI18n()
 
- 
+
 
 
 const handleClear = async () => {
@@ -203,7 +207,7 @@ const handleClear = async () => {
   //----run the get data--------
   getAllProjects()
 }
- 
+
 
 const currentRow = ref()
 const addMoreDocuments = ref()
@@ -226,7 +230,7 @@ const onPageChange = async (selPage: any) => {
 
 }
 
- 
+
 
 const onPageSizeChange = async (size: any) => {
   pSizeBen.value = size
@@ -660,7 +664,6 @@ const loadMap = () => {
 
 
 const showUploadDialog = ref(false)
-
 const onClickTab = async (obj) => {
   console.log("Loading map....cs.........", obj.props.label)
   console.log(facilityGeoLines.value.length, facilityGeoPoints.value.length, facilityGeoPolygons.value.length)
@@ -1998,23 +2001,96 @@ const project_locations_filtered = computed(() => {
 });
 
 
+const field_set=ref([])
+const uploadData = async () => {
+  uploadDialog.value = true
+  console.log('Uploading data.......')
+  var formData = {}
+  formData.model = 'project'
+  await getModelSpecs(formData).then((response) => {
+    console.log(response.data)
+    field_set.value=response.data
+  })
+
+}
+
+ 
+ 
+
+
+const handleDownload = async () => {
+
+  const data = field_set.value
+  const fileName = 'project_template'
+  const exportType = exportFromJSON.types.csv
+  if (data) exportFromJSON({ data, fileName, exportType })
+}
+
+
+
+const handleCsvUpload = async (file) => {
+ 
+  if (file.raw) {
+        parseCSV(file.raw);
+      }
+}
+
+const parsedData =ref([])
+
+const parseCSV = async (file) => {
+  Papa.parse(file, {
+        header: true,
+        dynamicTyping:true,
+        skipEmptyLines: true,
+        complete: (result) => {
+          parsedData.value = result.data;
+
+          console.log('parsedData.value' ,parsedData.value )
+            ImportProjects()
+        },
+        error: (error) => {
+          console.error('Error parsing CSV:', error);
+        },
+      }); 
+}
+ 
+
+const ImportProjects = async () => {
+
+
+//console.log('deleted_locations',deleted_locations)
+var form = {}
+form.model = 'project'
+
+
+form.data = parsedData.value
+console.log('formData', form)
+
+const results = await BatchImportUpsert(form)
+console.log('BatchImportUpsert', results)
+
+// 
+  
+}
+
+
 </script>
 
 <template>
-     <el-card>
-      
+  <el-card>
 
-      <div v-if="dynamicComponent">
+
+    <div v-if="dynamicComponent">
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
     <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
       <div class="max-w-200px">
-          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-            Back
-          </el-button>
-        </div>
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
 
       <!-- Title Search -->
       <el-select
@@ -2031,6 +2107,11 @@ size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear
 
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+
+        <el-tooltip content="Import Data" placement="top">
+          <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
+        </el-tooltip>
+
         <el-tooltip content="Add Project" placement="top">
           <el-button @click="AddProject" type="primary" :icon="Plus" />
         </el-tooltip>
@@ -2051,16 +2132,16 @@ size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear
       <el-tab-pane label="Interventions" name="list">
         <el-table
 ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
-          :row-class-name="tableRowClassName"   flexible @expand-change="handleExpand">
+          :row-class-name="tableRowClassName" flexible @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
                 <el-tabs tab-position="left" class="demo-tabs">
                   <el-tab-pane label="Locations">
-                    <el-table :data="project_locations_filtered" height="250" stripe>
+                    <el-table :data="project_locations_filtered"   height="250" stripe>
                       <el-table-column type="index" />
-                      <el-table-column prop="county" label="County" width="180" />
-                      <el-table-column prop="subcounty" label="Subcounty" width="180" />
+                      <el-table-column prop="county" label="County"   />
+                      <el-table-column prop="subcounty" label="Subcounty"   />
                       <el-table-column prop="settlementName" label="Settlement" />
                       <el-table-column width="50">
                         <template #header>
@@ -2072,7 +2153,7 @@ size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
                         </template>
                       </el-table-column>
 
-                      <el-table-column fixed="right" label="Operations" :width="actionColumnWidth">
+                      <el-table-column  label="Operations" >
                         <template #header>
                           <el-input v-model="searchKey" size="small" placeholder="Filter" />
                         </template>
@@ -2184,98 +2265,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         <div id="mapContainer" class="basemap"></div>
       </el-tab-pane>
     </el-tabs>
-    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
-      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-        <el-form-item label="Location" prop="location_level">
-          <el-select
-v-model="ruleForm.location_level" filterable placeholder="Select Location"
-            @change="handleSelectLocation">
-            <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if=showCounty label="County" prop="county_id">
-          <el-select v-model="ruleForm.county_id" filterable placeholder="Select County" @change="handleSelectCounty">
-            <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if=showCountySettlement label="Sub County" prop="subcounty_id">
-          <el-select
-v-model="ruleForm.subcounty_id" filterable placeholder="Sub County"
-            :onChange="handleSelectSubCounty">
-            <el-option
-v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
-              :value="item.value" />
-          </el-select>
-        </el-form-item>
 
-        <el-form-item v-if=showCountySettlement label="Ward" prop="ward_id">
-          <el-select v-model="ruleForm.ward_id" filterable placeholder="Ward" :onChange="handleSelectWard">
-            <el-option v-for="item in wardFilteredOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if=showCountySettlement label="Settlement" prop="settlement_id">
-          <el-select v-model="ruleForm.settlement_id" filterable placeholder="Select Settlement">
-            <el-option
-v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
-              :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="Title">
-          <el-input v-model="ruleForm.title" />
-        </el-form-item>
-        <el-form-item label="Component" prop="component_id">
-          <el-select v-model="ruleForm.component_id" filterable placeholder="Select Component">
-            <el-option v-for="item in componentOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="Beneficiaries (M)">
-          <el-input-number v-model="ruleForm.male_beneficiaries" />
-        </el-form-item>
-        <el-form-item label="Beneficiaries (F)">
-          <el-input-number v-model="ruleForm.female_beneficiaries" />
-        </el-form-item>
-
-        <el-form-item label="Cost">
-          <el-input-number v-model="ruleForm.cost" />
-        </el-form-item>
-
-        <el-form-item label="Start" prop="start_date">
-          <el-date-picker v-model="ruleForm.start_date" />
-        </el-form-item>
-
-        <el-form-item label="End" prop="end_date">
-          <el-date-picker v-model="ruleForm.end_date" />
-        </el-form-item>
-
-        <el-col :span="24">
-          <el-form-item label="Activities">
-            <el-select v-model="ruleForm.activities" filterable multiple placeholder="Select" style="width: 100%;">
-              <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-        </el-col>
-        <el-form-item label="Geometry">
-          <el-upload :on-change="handleUploadGeo" multiple :limit="3" :auto-upload="false">
-            <el-button type="primary">Click to upload</el-button>
-            <template #tip>
-              <div class="el-upload__tip">
-                geojson or zipped shapefile
-              </div>
-            </template>
-          </el-upload>
-        </el-form-item>
-
-
-
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="AddDialogVisible = false">Cancel</el-button>
-          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-
-        </span>
-      </template>
-    </el-dialog>
 
 
     <el-dialog
@@ -2366,13 +2356,7 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
         <el-option v-for="item in sett_options" :key="item.id" :label="item.label" :value="item">
           <div style="display: flex; align-items: center;">
             <span style="flex: 1; text-align: left;">{{ item.label }}</span>
-            <span
-style="
-                                    flex: 2;
-                                    color: var(--el-text-color-secondary);
-                                    font-size: 13px;
-                                    text-align: right;
-                                  ">
+            <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
               {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
             </span>
           </div>
@@ -2389,9 +2373,36 @@ style="
     </el-dialog>
 
 
-    </el-card>
+  </el-card>
 
- 
+
+  <el-dialog v-model="uploadDialog" title="Import Document" width="400"   @close="uploadDialog = false" >
+    
+
+    <span>
+      To upload data on projects, use this
+      <button @click="handleDownload" class="template-link">template</button>
+      , then upload it below.
+    </span>
+
+    
+    <el-upload class="upload-demo"  :on-change="handleCsvUpload" drag :auto-upload="false"  action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"  >
+       <div class="el-upload__text">
+        Drop file here or <em>click to upload</em>
+      </div>
+     
+    </el-upload>
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="uploadDialog = false">Cancel</el-button>
+        <el-button type="primary" @click="uploadData">
+          Confirm
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
+
 </template>
 
 <style scoped>
@@ -2408,5 +2419,15 @@ style="
 
 .el-table .success-row {
   --el-table-tr-bg-color: var(--el-color-success-light-9);
+}
+</style>
+
+<style scoped>
+.upload-demo {
+  width: 300px;
+}
+.template-link {
+  text-decoration: underline;
+  color: #409EFF; /* Optional: change link color */
 }
 </style>

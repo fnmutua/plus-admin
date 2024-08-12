@@ -49,7 +49,8 @@ const yes_no = [
 
 const sourceFundingOptions = [
   { label: "Gok", value: 1 },
-  { label: "Donor", value: 2 },
+  { label: "IDA", value: 2 },
+  { label: "AFD", value: 3 },
 ];
  
 

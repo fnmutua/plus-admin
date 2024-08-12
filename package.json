@@ -68,6 +68,7 @@
     "node-sequelize-stream": "^2.0.6",
     "nodemailer": "^6.7.8",
     "nprogress": "^0.2.0",
+    "papaparse": "^5.4.1",
     "pg": "^8.11.3",
     "pg-query-stream": "^4.5.3",
     "pinia": "^2.0.21",

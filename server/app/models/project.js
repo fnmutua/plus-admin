@@ -100,8 +100,7 @@ module.exports = function(sequelize, DataTypes) {
           { name: "end_date" },
           { name: "component_id" },
           { name: "geom" },
-          { name: "county_id" },
-        ]
+         ]
       },
      
     ]
