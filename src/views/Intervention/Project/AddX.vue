@@ -1,6 +1,11 @@
 <template>
   <div>
     <el-card class="box-card">
+      <div class="max-w-200px">
+          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+            Back
+          </el-button>
+        </div>
       <el-steps :active="currentStep" finish-status="success" align-center class="small-steps">
         <el-step
 v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
@@ -136,15 +141,12 @@ v-else-if="field.type === 'cascader'" v-model="formData[field.name]" :data="fiel
 
 
 <script lang="ts" setup>
-import { ref, reactive, onMounted, computed, Ref } from 'vue';
-import { ContentWrap } from '@/components/ContentWrap'
-import { useI18n } from '@/hooks/web/useI18n'
-import { ElCard, ElCascader, ElCascaderPanel, ElDialog, ElMessage, ElUpload, ElSwitch, ElTreeSelect } from 'element-plus'
+import { ref, onMounted, computed } from 'vue';
+import { ElCard, ElCascader, ElMessage, ElTreeSelect } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { steps, formFields, formData, formRules } from './common/fields.ts'
 import { subcountyOptions, wardOptions, settlementOptionsV2 } from './common/index.ts'
-import { createHousehold, getOneHousehold, updateHousehold } from '@/api/households'
 import shortid from 'shortid';
 import { useRoute } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -154,8 +156,10 @@ import mapboxgl from "mapbox-gl";
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
-import { CreateRecord, DeleteRecord,BatchImportUpsert, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments,getSettlementListByCounty, getfilteredGeo,DeleteMultipleRecord } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
+import { CreateRecord, BatchImportUpsert, updateOneRecord, getOneSettlement, getSettlementListByCounty, DeleteMultipleRecord } from '@/api/settlements'
+import { Back} from '@element-plus/icons-vue'
+
+
 
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
@@ -169,17 +173,12 @@ import {
   ElDatePicker,
   ElSteps,
   ElStep, ElRow, ElCol,
-  ElSelect, ElOption,
-  Form as ElFormInstance
-} from 'element-plus';
+  ElSelect, ElOption} from 'element-plus';
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import proj4 from 'proj4';
-import { countyOptions } from '../common';
 import {
-  searchByKeyWord,getLookups
-} from '@/api/settlements'
+  searchByKeyWord} from '@/api/settlements'
 
-import { uuid } from 'vue-uuid'
 const props = { multiple: true }
 
 
@@ -203,6 +202,7 @@ const router = useRouter();
 const goBack = () => {
   router.back();
 };
+
 
 
 
