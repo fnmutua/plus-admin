@@ -733,43 +733,8 @@ db.models.users.hasMany(db.models.indicator_category_report, {
   foreignKey: 'userId'
 })
 
-// Proejct   - settleemnt
-db.models.project.belongsTo(db.models.settlement, {
-  foreignKey: 'settlement_id'
-})
-
-db.models.settlement.hasMany(db.models.project, {
-  foreignKey: 'settlement_id'
-})
-
-// Proejct   - ward
-
-db.models.project.belongsTo(db.models.ward, {
-  foreignKey: 'ward_id'
-})
-
-db.models.ward.hasMany(db.models.project, {
-  foreignKey: 'ward_id'
-})
-
- 
-db.models.project.belongsTo(db.models.county, {
-  foreignKey: 'county_id'
-})
-
-db.models.county.hasMany(db.models.project, {
-  foreignKey: 'county_id'
-})
-
-db.models.project.belongsTo(db.models.subcounty, {
-  foreignKey: 'subcounty_id'
-})
-
-db.models.subcounty.hasMany(db.models.project, {
-  foreignKey: 'subcounty_id'
-})
-
-
+  
+  
 
 // Public Facility   - settleemnt/county/subc
 db.models.public_facility.belongsTo(db.models.settlement, {

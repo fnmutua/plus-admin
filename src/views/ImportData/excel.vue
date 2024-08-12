@@ -3,12 +3,10 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { getParentIds, BatchImportUpsert } from '@/api/settlements'
+import { BatchImportUpsert } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { getModelSpecs, getModelRelatives } from '@/api/fields'
-
 import { postBatchHouseholds } from '@/api/households'
-
 
 import {
   ElButton,
@@ -26,7 +24,7 @@ import {
   Tools
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
+import { ref } from 'vue'
 import { ElDivider } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -53,7 +51,6 @@ const file = ref()
 
 //// ------------------parameters -----------------------////
 const matchOptions = ref([])
-const assocModel = ref()
 const uploadObj = ref([])
 const matchedObj = ref([])
 const theParentModel = ref() // default is settlement for projects
@@ -66,7 +63,6 @@ const showSwitch = ref(false)
 const showSettleementSelect = ref(false)
 const { t } = useI18n()
 const parentOptions = ref([])
-const parentKeys = ref([])
 
 
 
@@ -382,8 +378,6 @@ const getParentOptions = async () => {
     console.log('Options', settlementOptions)
   })
 }
-
-
 
 
 
@@ -833,6 +827,7 @@ const handleSelectParentModel = async (parent: any) => {
 
   getParentOptions()
 }
+
 </script>
 
 <template>
