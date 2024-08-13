@@ -72,7 +72,9 @@ v-else-if="field.type === 'cascader'" v-model="formData[field.name]" :data="fiel
                   remote-show-suffix
                   :remote-method="remoteMethod"
                   :loading="loading"
-                  :disabled="!newRecord"
+                  collapse-tags
+                  collapse-tags-tooltip
+                 
                   style="width: 100%"
                 >
                   <el-option
