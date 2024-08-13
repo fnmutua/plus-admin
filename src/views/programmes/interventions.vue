@@ -31,12 +31,12 @@ import proj4 from 'proj4';
 import { getModelSpecs } from '@/api/fields'
 
 import {
-  countyOptions, settlementOptionsV2, subcountyOptions, implementationOptions
+  countyOptions, settlementOptionsV2, subcountyOptions,
 } from './common/index.ts'
 
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
-import {   onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 
 
 ////////////*************Map Imports***************////////
@@ -80,7 +80,7 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 
 const router = useRouter()
- 
+
 
 const goBack = () => {
   // Add your logic to handle the back action
@@ -99,22 +99,22 @@ const defaultPageSize = 10;
 const mobilePageSize = 3;
 const pageSize = ref(defaultPageSize);
 
-  // Function to update pageSize based on window width
-  const updatePageSize = () => {
-      if (window.innerWidth <= mobileBreakpoint) {
-        pageSize.value = mobilePageSize;
-      } else {
-        pageSize.value = defaultPageSize;
-      }
-    };
+// Function to update pageSize based on window width
+const updatePageSize = () => {
+  if (window.innerWidth <= mobileBreakpoint) {
+    pageSize.value = mobilePageSize;
+  } else {
+    pageSize.value = defaultPageSize;
+  }
+};
 
- // Set up event listener on mount
- onMounted(() => {
-      window.addEventListener('resize', updatePageSize);
-      updatePageSize(); // Initial check
-    });
+// Set up event listener on mount
+onMounted(() => {
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize(); // Initial check
+});
 
- 
+
 
 
 // Show Edit buttons 
@@ -131,10 +131,7 @@ var value4 = ref([])
 var value5 = ref([])
 var value40 = ref([])
 
-
-
-
-
+ 
 const component_id = ref()
 const page_title = ref()
 const bounds = ref([])
@@ -152,7 +149,7 @@ watch(
 
 //const domain_id = 5
 
- 
+
 const page = ref(1)
 
 const selCounties = []
@@ -184,7 +181,7 @@ let filterValues = [[component_id.value]]   // make sure the inner array is arra
 var tblData = []
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = [ 'component', 'programme_implementation', 'document']
+const associated_multiple_models = ['component', 'programme_implementation', 'document']
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
@@ -198,11 +195,7 @@ const facilityGeoPolygons = ref([])
 const projectScopeGeo = ref([])
 const geoLoaded = ref(false)
 
-
-const { t } = useI18n()
-
-
-
+ 
 
 const handleClear = async () => {
   console.log('cleared....')
@@ -237,7 +230,7 @@ const addMoreDocuments = ref()
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
- 
+
 
   if (searchString.value) {
 
@@ -253,7 +246,7 @@ const onPageChange = async (selPage: any) => {
 
 
 const onPageSizeChange = async (size: any) => {
-   pageSize.value = size
+  pageSize.value = size
   if (searchString.value) {
 
     getFilteredBySearchData(searchString.value)
@@ -2020,7 +2013,7 @@ const project_locations_filtered = computed(() => {
 });
 
 
-const field_set=ref([])
+const field_set = ref([])
 const uploadData = async () => {
   uploadDialog.value = true
   console.log('Uploading data.......')
@@ -2028,13 +2021,13 @@ const uploadData = async () => {
   formData.model = 'project'
   await getModelSpecs(formData).then((response) => {
     console.log(response.data)
-    field_set.value=response.data
+    field_set.value = response.data
   })
 
 }
 
- 
- 
+
+
 
 
 const handleDownload = async () => {
@@ -2048,31 +2041,31 @@ const handleDownload = async () => {
 
 
 const handleCsvUpload = async (file) => {
- 
+
   if (file.raw) {
-        parseCSV(file.raw);
-      }
+    parseCSV(file.raw);
+  }
 }
 
-const parsedData =ref([])
+const parsedData = ref([])
 
 const parseCSV = async (file) => {
   Papa.parse(file, {
-        header: true,
-        dynamicTyping:true,
-        skipEmptyLines: true,
-        complete: (result) => {
-          parsedData.value = result.data;
+    header: true,
+    dynamicTyping: true,
+    skipEmptyLines: true,
+    complete: (result) => {
+      parsedData.value = result.data;
 
-          console.log('parsedData.value' ,parsedData.value )
-            ImportProjects()
-        },
-        error: (error) => {
-          console.error('Error parsing CSV:', error);
-        },
-      }); 
+      console.log('parsedData.value', parsedData.value)
+      ImportProjects()
+    },
+    error: (error) => {
+      console.error('Error parsing CSV:', error);
+    },
+  });
 }
- 
+
 
 
 
@@ -2083,12 +2076,12 @@ function convertStringArraysToProperArrays(data) {
     for (const key in newItem) {
       if (newItem.hasOwnProperty(key)) {
         const value = newItem[key];
-        
+
         // Check if the value is a string and can be parsed as an array
         if (typeof value === 'string') {
           try {
             const parsedValue = JSON.parse(value);
-            
+
             if (Array.isArray(parsedValue)) {
               newItem[key] = parsedValue;
             }
@@ -2107,51 +2100,51 @@ function convertStringArraysToProperArrays(data) {
 
 const ImportProjects = async () => {
 
-//console.log('deleted_locations',deleted_locations)
-var form = {}
-form.model = 'project'
+  //console.log('deleted_locations',deleted_locations)
+  var form = {}
+  form.model = 'project'
 
-const dta = convertStringArraysToProperArrays(parsedData.value)
-console.log('dta', dta)
-
-
-form.data = dta
-console.log('formData', form)
-
-const results = await BatchImportUpsert(form)
- 
-console.log('BatchImportUpsert', results.insertedDocuments)
+  const dta = convertStringArraysToProperArrays(parsedData.value)
+  console.log('dta', dta)
 
 
-// const save_projects = results.insertedDocuments
-// const combinedData = parsedData.value.map(item1 => {
-//   // Find the matching item in array2
-//   const item2 = save_projects.find(item => item.code == item1.code);
-  
-//   // Return a new object with the combined properties
-//   return {
-//     id: item2.id,
-//     locations: item1 ? item1.locations : [] // Add locations if found, otherwise an empty array
-//   };
-// });
+  form.data = dta
+  console.log('formData', form)
+
+  const results = await BatchImportUpsert(form)
+
+  console.log('BatchImportUpsert', results.insertedDocuments)
 
 
-//   const extractedData = combinedData.map(item => ({
-//     id: item.id,
-//     locations: item.locations
-//   }));
+  // const save_projects = results.insertedDocuments
+  // const combinedData = parsedData.value.map(item1 => {
+  //   // Find the matching item in array2
+  //   const item2 = save_projects.find(item => item.code == item1.code);
+
+  //   // Return a new object with the combined properties
+  //   return {
+  //     id: item2.id,
+  //     locations: item1 ? item1.locations : [] // Add locations if found, otherwise an empty array
+  //   };
+  // });
 
 
-//   extractedData.forEach(item => {
-//     project_id.value = item.id 
-//     extra_locations.value=item.locations
+  //   const extractedData = combinedData.map(item => ({
+  //     id: item.id,
+  //     locations: item.locations
+  //   }));
 
-//     console.log('item.locations',item.id, item.locations)
-//      AddLocation();
-//   });
 
-// // 
-  
+  //   extractedData.forEach(item => {
+  //     project_id.value = item.id 
+  //     extra_locations.value=item.locations
+
+  //     console.log('item.locations',item.id, item.locations)
+  //      AddLocation();
+  //   });
+
+  // // 
+
 }
 
 
@@ -2174,13 +2167,11 @@ console.log('BatchImportUpsert', results.insertedDocuments)
       </div>
 
       <!-- Title Search -->
-      <el-select
-v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Title" style="width: 150px; margin-right: 10px;" />
 
       <!-- Programme Filter -->
-      <el-select
-size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear" multiple clearable
+      <el-select size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear" multiple clearable
         filterable collapse-tags placeholder="By Programme" style="width: 150px; margin-right: 10px;">
         <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -2211,43 +2202,39 @@ size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear
 
     <el-tabs @tab-click="onClickTab" v-model="activeName" type="border-card" style="width: 100%; margin-top: 5px;">
       <el-tab-pane label="Interventions" name="list">
-        <el-table
-ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
+        <el-table ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
           :row-class-name="tableRowClassName" flexible @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
                 <el-tabs tab-position="left" class="demo-tabs">
                   <el-tab-pane label="Locations">
-                    <el-table :data="project_locations_filtered"   height="250" stripe>
+                    <el-table :data="project_locations_filtered" height="250" stripe>
                       <el-table-column type="index" />
-                      <el-table-column prop="county" label="County"   />
-                      <el-table-column prop="subcounty" label="Subcounty"   />
+                      <el-table-column prop="county" label="County" />
+                      <el-table-column prop="subcounty" label="Subcounty" />
                       <el-table-column prop="settlementName" label="Settlement" />
                       <el-table-column width="50">
                         <template #header>
                           <el-tooltip content="Add Location" placement="top">
-                            <el-button
-size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
+                            <el-button size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
                               circle />
                           </el-tooltip>
                         </template>
                       </el-table-column>
 
-                      <el-table-column  label="Operations" >
+                      <el-table-column label="Operations">
                         <template #header>
                           <el-input v-model="searchKey" size="small" placeholder="Filter" />
                         </template>
                         <template #default="scope">
                           <el-tooltip content="View on Map" placement="top">
-                            <el-button
-type="secondary" size="small" :icon="Position"
+                            <el-button type="secondary" size="small" :icon="Position"
                               @click="flyTo(scope as TableSlotDefault)" circle />
                           </el-tooltip>
 
                           <el-tooltip content="Delete" placement="top">
-                            <el-popconfirm
-confirm-button-text="Yes" width="220" cancel-button-text="No"
+                            <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No"
                               :icon="InfoFilled" icon-color="#626AEF"
                               title="Are you sure to delete this project location?"
                               @confirm="DeleteProjectLocation(scope.row as TableSlotDefault)">
@@ -2270,8 +2257,7 @@ confirm-button-text="Yes" width="220" cancel-button-text="No"
                     <div>
                       <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                     </div>
-                    <el-button
-style="margin-left: 10px;margin-top: 2px" size="small" v-if="showEditButtons"
+                    <el-button style="margin-left: 10px;margin-top: 2px" size="small" v-if="showEditButtons"
                       type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
                   </el-tab-pane>
                 </el-tabs>
@@ -2299,12 +2285,10 @@ style="margin-left: 10px;margin-top: 2px" size="small" v-if="showEditButtons"
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="editProject(scope as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="editProject(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
 
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -2312,15 +2296,13 @@ v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
               </el-dropdown>
               <div v-else>
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button
-type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
+                  <el-button type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
 
                 <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm
-confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete this report?"
                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2333,9 +2315,8 @@ confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
           </el-table-column>
         </el-table>
 
-        <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[3,5, 10, 20, 50, 100]" :total="total" :background="true"
+        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+          v-model:page-size="pageSize" :page-sizes="[3, 5, 10, 20, 50, 100]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
 
@@ -2349,25 +2330,21 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 
 
-    <el-dialog
-v-model="AddBeneficiaryDialogVisible" @close="handleClose" title="Add Beneficiary" :width="dialogWidth"
+    <el-dialog v-model="AddBeneficiaryDialogVisible" @close="handleClose" title="Add Beneficiary" :width="dialogWidth"
       draggable>
       <el-form ref="BeneficaryFormRef" :model="BeneficaryForm" :rules="rules" label-width="120px">
 
         <el-form-item label="County" prop="hh_id">
-          <el-select
-v-model="BeneficaryForm.county_id" filterable placeholder="Select"
+          <el-select v-model="BeneficaryForm.county_id" filterable placeholder="Select"
             :disabled="disableBeneficiaryInputs" :onChange="handleSelectCounty">
             <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="Settlement" prop="hh_id">
-          <el-select
-v-model="BeneficaryForm.settlement_id" filterable :disabled="disableBeneficiaryInputs"
+          <el-select v-model="BeneficaryForm.settlement_id" filterable :disabled="disableBeneficiaryInputs"
             placeholder="Select" :onChange="getSettlementProjects">
-            <el-option
-v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+            <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
               :value="item.value" />
           </el-select>
         </el-form-item>
@@ -2375,8 +2352,7 @@ v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
 
 
         <el-form-item label="Project" prop="project_id">
-          <el-select
-v-model="BeneficaryForm.project_id" filterable placeholder="Select" :onChange="handleSelectProject"
+          <el-select v-model="BeneficaryForm.project_id" filterable placeholder="Select" :onChange="handleSelectProject"
             :disabled="disableBeneficiaryInputs">
             <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -2404,8 +2380,7 @@ v-model="BeneficaryForm.project_id" filterable placeholder="Select" :onChange="h
 
     <el-dialog v-model="showUploadDialog" title="Upload a Zipped Shapefile/Geojson/KML/KMZ" width="30%" draggable>
 
-      <el-upload
-v-model:file-list="fileList" class="upload-demo" drag
+      <el-upload v-model:file-list="fileList" class="upload-demo" drag
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false"
         :show-file-list="false" :on-change="handleUploadGeo">
         <template #trigger>
@@ -2431,8 +2406,7 @@ v-model:file-list="fileList" class="upload-demo" drag
 
 
     <el-dialog v-model="ShowLocationAddDialog" title="Add Project Location" width="500" :before-close="handleCloseAdd">
-      <el-select
-id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
+      <el-select id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
         placeholder=" Search Settlements" :remote-method="remoteMethod" style="width: 85%">
         <el-option v-for="item in sett_options" :key="item.id" :label="item.label" :value="item">
           <div style="display: flex; align-items: center;">
@@ -2457,8 +2431,8 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
   </el-card>
 
 
-  <el-dialog v-model="uploadDialog" title="Import Document" width="400"   @close="uploadDialog = false" >
-    
+  <el-dialog v-model="uploadDialog" title="Import Document" width="400" @close="uploadDialog = false">
+
 
     <span>
       To upload data on projects, use this
@@ -2466,12 +2440,13 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
       , then upload it below.
     </span>
 
-    
-    <el-upload class="upload-demo"  :on-change="handleCsvUpload" drag :auto-upload="false"  action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"  >
-       <div class="el-upload__text">
+
+    <el-upload class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
+      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15">
+      <div class="el-upload__text">
         Drop file here or <em>click to upload</em>
       </div>
-     
+
     </el-upload>
 
     <template #footer>
@@ -2507,8 +2482,10 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
 .upload-demo {
   width: 300px;
 }
+
 .template-link {
   text-decoration: underline;
-  color: #409EFF; /* Optional: change link color */
+  color: #409EFF;
+  /* Optional: change link color */
 }
 </style>
