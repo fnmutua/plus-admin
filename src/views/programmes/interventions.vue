@@ -36,6 +36,7 @@ import {
 
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
+import {   onMounted, onUnmounted } from 'vue';
 
 
 ////////////*************Map Imports***************////////
@@ -79,7 +80,7 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 
 const router = useRouter()
-
+ 
 
 const goBack = () => {
   // Add your logic to handle the back action
@@ -92,6 +93,28 @@ const goBack = () => {
   }
 
 }
+
+const mobileBreakpoint = 768;
+const defaultPageSize = 10;
+const mobilePageSize = 3;
+const pageSize = ref(defaultPageSize);
+
+  // Function to update pageSize based on window width
+  const updatePageSize = () => {
+      if (window.innerWidth <= mobileBreakpoint) {
+        pageSize.value = mobilePageSize;
+      } else {
+        pageSize.value = defaultPageSize;
+      }
+    };
+
+ // Set up event listener on mount
+ onMounted(() => {
+      window.addEventListener('resize', updatePageSize);
+      updatePageSize(); // Initial check
+    });
+
+ 
 
 
 // Show Edit buttons 
@@ -129,15 +152,12 @@ watch(
 
 //const domain_id = 5
 
-
-
-
-
+ 
 const page = ref(1)
-const pSize = ref(5)
+
 const selCounties = []
 const loading = ref(true)
-const pageSize = ref(5)
+
 const currentPage = ref(1)
 
 const pageBen = ref(1)
@@ -197,7 +217,7 @@ const handleClear = async () => {
   value5.value = ''
   value40.value = ''
 
-  pSize.value = 5
+  pageSize.value = 5
   currentPage.value = 1
   tblData.value = []
 
@@ -217,7 +237,7 @@ const addMoreDocuments = ref()
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
-
+ 
 
   if (searchString.value) {
 
@@ -233,7 +253,7 @@ const onPageChange = async (selPage: any) => {
 
 
 const onPageSizeChange = async (size: any) => {
-  pSizeBen.value = size
+   pageSize.value = size
   if (searchString.value) {
 
     getFilteredBySearchData(searchString.value)
@@ -273,7 +293,7 @@ const destructure = (obj) => {
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -699,7 +719,7 @@ const onClickTab = async (obj) => {
 
 const getFilteredBySearchData = async (searchString) => {
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -1934,7 +1954,6 @@ const remoteMethod = async (keyword) => {
 
 const AddLocation = async () => {
 
-
   //console.log('deleted_locations',deleted_locations)
   var form = {}
   form.model = 'project_location'
@@ -2055,21 +2074,83 @@ const parseCSV = async (file) => {
 }
  
 
-const ImportProjects = async () => {
 
+
+function convertStringArraysToProperArrays(data) {
+  return data.map(item => {
+    const newItem = { ...item }; // Create a shallow copy of the object
+
+    for (const key in newItem) {
+      if (newItem.hasOwnProperty(key)) {
+        const value = newItem[key];
+        
+        // Check if the value is a string and can be parsed as an array
+        if (typeof value === 'string') {
+          try {
+            const parsedValue = JSON.parse(value);
+            
+            if (Array.isArray(parsedValue)) {
+              newItem[key] = parsedValue;
+            }
+          } catch (e) {
+            // Handle any JSON parsing errors
+            console.error(`Error parsing string to array for key ${key}:`, e);
+          }
+        }
+      }
+    }
+
+    return newItem;
+  });
+}
+
+
+const ImportProjects = async () => {
 
 //console.log('deleted_locations',deleted_locations)
 var form = {}
 form.model = 'project'
 
+const dta = convertStringArraysToProperArrays(parsedData.value)
+console.log('dta', dta)
 
-form.data = parsedData.value
+
+form.data = dta
 console.log('formData', form)
 
 const results = await BatchImportUpsert(form)
-console.log('BatchImportUpsert', results)
+ 
+console.log('BatchImportUpsert', results.insertedDocuments)
 
-// 
+
+// const save_projects = results.insertedDocuments
+// const combinedData = parsedData.value.map(item1 => {
+//   // Find the matching item in array2
+//   const item2 = save_projects.find(item => item.code == item1.code);
+  
+//   // Return a new object with the combined properties
+//   return {
+//     id: item2.id,
+//     locations: item1 ? item1.locations : [] // Add locations if found, otherwise an empty array
+//   };
+// });
+
+
+//   const extractedData = combinedData.map(item => ({
+//     id: item.id,
+//     locations: item.locations
+//   }));
+
+
+//   extractedData.forEach(item => {
+//     project_id.value = item.id 
+//     extra_locations.value=item.locations
+
+//     console.log('item.locations',item.id, item.locations)
+//      AddLocation();
+//   });
+
+// // 
   
 }
 
@@ -2254,7 +2335,7 @@ confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
 
         <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
+          v-model:page-size="pageSize" :page-sizes="[3,5, 10, 20, 50, 100]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
 
