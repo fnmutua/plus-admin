@@ -1263,7 +1263,7 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
     </el-col>
     <template #footer>
       <span class="dialog-footer">
-        <el-button type="primary" @click="openHelp = true">Help</el-button>
+        <el-button type="primary" plain @click="openHelp = true">Help</el-button>
         <el-button  @click="handleCancelAddEdit"  >Cancel</el-button>
         <el-button id="btn10" v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
         <el-button id="btn11"  v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
