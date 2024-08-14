@@ -145,6 +145,16 @@ export const DeleteRecord = (data: SettlementType): Promise<IResponse<Settlement
   console.log('....', data)
   return request.post({ url: prod + '/api/v1/data/delete', data })
 }
+
+
+
+export const DeleteRecordByCriteria = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/data/delete/keys', data })
+}
+
+
+
 export const DeleteMultipleRecord = (data: SettlementType): Promise<IResponse<SettlementType>> => {
   console.log('....', data)
   return request.post({ url: prod + '/api/v1/data/delete/many', data })

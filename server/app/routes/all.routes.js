@@ -71,6 +71,7 @@ module.exports = function (app) {
   // create one record
   app.post('/api/v1/data/delete', [authJwt.verifyToken, authJwt.isStaffOrAdmin], controller.modelDeleteOneRecord)
   app.post('/api/v1/data/delete/many', [authJwt.verifyToken, authJwt.isStaffOrAdmin], controller.modelDeleteRecords)
+  app.post('/api/v1/data/delete/keys', [authJwt.verifyToken, authJwt.isStaffOrAdmin], controller.modelDeleteByFields)
 
   
   // count records

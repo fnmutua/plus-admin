@@ -1732,6 +1732,90 @@ exports.modelDeleteOneRecord = async (req, res) => {
 
  
 
+ 
+exports.modelDeleteByFields = async (req, res) => {
+  try {
+    const modelName = req.body.model;
+    const model = db.models[modelName];
+    const criteria = req.body.criteria; // Expecting an object with field-value pairs
+
+    // Check if the model exists
+    if (!model) {
+      return res.status(400).send({
+        message: `Model '${modelName}' does not exist`,
+        code: 'MODEL_NOT_FOUND'
+      });
+    }
+
+    // Check if criteria is provided and is an object
+    if (typeof criteria !== 'object' || criteria === null || Array.isArray(criteria)) {
+      return res.status(400).send({
+        message: 'Invalid criteria format. Expected an object with field-value pairs.',
+        code: 'INVALID_CRITERIA'
+      });
+    }
+
+    // Construct the where clause based on the criteria
+    const whereClause = { ...criteria };
+
+    // Check if any records match the criteria
+    const records = await model.findAll({ where: whereClause });
+
+    if (records.length === 0) {
+      return res.status(404).send({
+        message: `No records found matching the provided criteria in '${modelName}' model`,
+        code: 'RECORD_NOT_FOUND'
+      });
+    }
+
+    // Check for dependencies in associated models
+    const associations = Object.keys(model.associations);
+
+    for (let i = 0; i < associations.length; i++) {
+      const associationName = associations[i];
+      const association = model.associations[associationName];
+
+      let dependentRowsCount = 0;
+      const associationType = association.associationType;
+
+      if (associationType === 'HasMany') {
+        const mdl = association.target; // Get the associated model's class reference
+
+        dependentRowsCount = await mdl.count({
+          where: {
+            [association.foreignKey]: {
+              [Op.in]: records.map(record => record.id)
+            }
+          }
+        });
+
+        if (dependentRowsCount > 0) {
+          return res.status(500).send({
+            message: `Cannot delete records, there are ${dependentRowsCount} dependent ${association.target.name}(s)`,
+            code: 'DEPENDENCY_FOUND'
+          });
+        }
+      }
+    }
+
+    // Delete the records
+    await model.destroy({ where: whereClause });
+
+    res.status(200).send({
+      message: 'Delete successful',
+      code: '0000'
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR'
+    });
+  }
+};
+
+
+
 exports.modelDeleteRecords = async (req, res) => {
   try {
     console.log("Deleting multiple records...");
