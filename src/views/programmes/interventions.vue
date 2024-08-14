@@ -1949,6 +1949,7 @@ const remoteMethod = async (keyword) => {
       value: item.id,
       settlement_id: item.id,
       label: item.name,
+      name: item.name,
       county: item.county.name,
       subcounty: item.subcounty.name,
       ward: item.ward.name,
@@ -2029,6 +2030,7 @@ const AddLocation = async () => {
     obj.subcounty_id = extra_locations.value[i].subcounty_id
     obj.county_id = extra_locations.value[i].county_id
     obj.location_type = 'settlement'
+    obj.location_name = extra_locations.value[i].name
     obj.geom = extra_locations.value[i].geom
     location_objects.push(obj)
     console.log('obj', obj)

@@ -5,7 +5,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, getListManyToMany } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, ElSelectV2 } from 'element-plus'
+import { ElButton, ElSelect, ElSelectV2, ElTour,ElTourStep} from 'element-plus'
 
 import {
   Plus,
@@ -31,6 +31,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue';
+import type { ButtonInstance } from 'element-plus'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -72,7 +73,8 @@ const ruleForm = reactive({
   frequency: '',
   activity_id: null,
   code: null,
-  project_id: null
+  project_id: null,
+  project_location_id: null
 })
 
 
@@ -97,7 +99,7 @@ const showEditButtons =  ref(appStore.getEditButtons)
 
 
 const AddDialogVisible = ref(false)
-const formHeader = ref('Add Indicator')
+const formHeader = ref('Configure Indicator')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
 
@@ -113,9 +115,10 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['indicator', 'project', 'activity', 'category']
+const associated_multiple_models = ['indicator', 'project', 'activity', 'category', 'project_location']
 const model = 'indicator_category'
 const nested_models = ['indicator', 'activity'] // The mother, then followed by the child
+ // const nested_models = [] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
 
@@ -287,7 +290,7 @@ const getIndicatorNames = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Received indicators:', response)
-    //tableDataList.value = response.data
+   
     var ret = response.data
 
     loading.value = false
@@ -317,7 +320,7 @@ const getCategoryOptions = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Received response:', response)
-    //tableDataList.value = response.data
+   
     var ret = response.data
 
     loading.value = false
@@ -359,7 +362,7 @@ const getFrequencyOptions = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Received frequency:', response)
-    //tableDataList.value = response.data
+   
     var ret = response.data
 
     loading.value = false
@@ -407,7 +410,7 @@ const getActivityOptions = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Received response:', response)
-    //tableDataList.value = response.data
+   
     // var ret = response
 
     console.log('Activities', response.data)
@@ -440,7 +443,7 @@ const getProjectOptions = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Received response:', response)
-    //tableDataList.value = response.data
+   
     // var ret = response
 
     console.log('Activities', response.data)
@@ -517,13 +520,68 @@ const getProjectActivities = async () => {
 
 }
 
+const project_locations =ref([])
+const getProjectLocations = async (project_id) => {
+  console.log('project_id', project_id);
+  console.log("Get Locations for  proejct : ",project_id )
+
+  // Get the project settlement ids
+  const formData = {
+    model: 'project_location',
+    searchField: 'name',
+    searchKeyword: '',
+    filters: ['project_id'],
+    filterValues: [[project_id]],
+    associated_multiple_models: []
+  };
+
+  const res = await getSettlementListByCounty(formData);
+  const sett_ids = res.data.map(item => item.settlement_id); // Extract settlement_id
+  console.log('sett_ids', sett_ids);
+
+  // Fetch settlements and their details
+  const form = {
+    model: 'settlement',
+    filters: ['id'],
+    filterValues: [sett_ids],
+    excludeGeom: true,
+    associated_multiple_models: ['county', 'subcounty', 'ward']
+  };
+
+  const setts = await getSettlementListByCounty(form);
+  console.log('setts', setts);
+
+  // Map settlements to include additional details
+  const settlements = setts.data.map(item => ({
+    county: item.county.name,
+    subcounty: item.subcounty.name,
+    ward: item.ward.name,
+    settlement: item.name,
+    settlement_id: item.id
+  }));
+
+  // Join project locations with settlement details based on settlement_id
+  project_locations.value = res.data.map(projectLocation => {
+    const settlement = settlements.find(sett => sett.settlement_id === projectLocation.settlement_id);
+    return {
+      ...projectLocation,
+      county: settlement ? settlement.county : null,
+      subcounty: settlement ? settlement.subcounty : null,
+      ward: settlement ? settlement.ward : null,
+      settlementName: settlement ? settlement.settlement : null
+    };
+  });
+
+
+  console.log('project_locations', project_locations.value);
+};
+
 
 const changeProject = async (project: any) => {
 
   console.log('!editingMode.value',editingMode.value)
 
   if (!editingMode.value) {
-
       ruleForm.activity_id = null
       ruleForm.indicator_id = null
       ruleForm.category_id = null
@@ -539,6 +597,8 @@ const changeProject = async (project: any) => {
     return el.project_id == project
   });
   activityOptionsFiltered.value = filter_activities
+
+  getProjectLocations(project)
 
 }
 
@@ -588,6 +648,7 @@ const editIndicator = async (data: TableSlotDefault) => {
   ruleForm.project_id = data.row.project_id
   ruleForm.target = data.row.target
   ruleForm.baseline = data.row.baseline
+  ruleForm.project_location_id = data.row.project_location_id
  
   formHeader.value = 'Edit Indicator'
   changeProject(data.row.project_id)
@@ -629,7 +690,7 @@ const handleClose = () => {
   ruleForm.frequency = ''
 
 
-  formHeader.value = 'Add Indicator'
+  formHeader.value = 'Configure Indicator'
   AddDialogVisible.value = false
 
 }
@@ -974,63 +1035,87 @@ const submitFreqForm = async (formEl: FormInstance | undefined) => {
   //await changeActivity(indicatorForm.activity_id)
 }
 
-const handleCloseFreq = () => {
-
-
-
-  
+const handleCloseFreq = () => { 
   AddFrequencyVisible.value=false
-
  
-
  }
 
+ const openHelp=ref()
 
+ const ref1 = ref<ButtonInstance>()
+const ref2 = ref<ButtonInstance>()
+const ref3 = ref<ButtonInstance>()
+const ref4 = ref<ButtonInstance>()
+const ref5 = ref<ButtonInstance>()
+const ref6 = ref<ButtonInstance>()
+const ref7 = ref<ButtonInstance>()
+const ref8 = ref<ButtonInstance>()
+const ref9 = ref<ButtonInstance>()
 
 
 </script>
 <template>
   <ContentWrap :title="t('Indicator Configurations')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+     <div class="responsive-container">
+        <el-select
+        
+          v-model="value2"
+          :onChange="handleSelectIndicator"
+          :onClear="handleClear"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Filter by Indicator"
+        >
+          <el-option
+            v-for="item in indicatorsOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value2" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter by Indicator">
-        <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter by Category">
-        <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-    </div>
-    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+        <el-select
+          v-model="value3"
+          :onChange="handleSelectCategory"
+          :onClear="handleClear"
+          multiple
+          clearable
+          filterable
+          collapse-tags
+          placeholder="Filter by Category"
+        >
+          <el-option
+            v-for="item in categoryOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+        <el-tooltip content="Add Indicator Configuration" placement="top">
+          <el-button v-if="showAdminButtons" :onClick="AddIndicatorConfig" type="primary" :icon="Plus" />
+        </el-tooltip>
+        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Indicator Configuration" placement="top">
-        <el-button v-if="showAdminButtons" :onClick="AddIndicatorConfig" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
+        <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
 
+        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+
+        
+        </div>
+ 
     <el-table :data="tableDataList" :loading="loading" border>
       <el-table-column label="Id" prop="id" width="50px" sortable />
-      <el-table-column label="Project" prop="project.title" sortable />
-      <el-table-column label="Indicator" prop="indicator.name" sortable />
-      <el-table-column label="Target" prop="indicator.name" sortable />
-      <!-- <el-table-column label="Reporting" prop="frequency" sortable /> -->
+      <el-table-column label="Project" prop="project.title" width="350px" sortable />
       <el-table-column label="Activity" prop="activity.title" sortable />
-      <el-table-column label="Category" prop="category.category" sortable />
+      <el-table-column label="Settlement" prop="project_location.location_name" sortable />
 
+       <el-table-column label="Indicator" prop="indicator.name" sortable />
+       <el-table-column label="Target" prop="target" sortable />
+       <el-table-column label="Baseline" prop="baseline" sortable />
+ 
+ 
 
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
@@ -1074,9 +1159,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
       </el-table-column>
     </el-table>
-
-
-
+ 
     <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
@@ -1087,28 +1170,42 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
     <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
 
       <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-
-        <!-- <el-form-item label="Project" prop="project_id">
-          <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" placeholder="Select Project" style="width: 100%">
-            <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item> -->
  
-          <el-form-item label="Project" prop="project_id">
-        <el-select-v2
-            v-model="ruleForm.project_id"
-            :options="projectOptions"
-            placeholder="Please select"
-            style="width: 100%; vertical-align: middle"
-            clearable
-            filterable
-            :onChange="changeProject"
-          />
+ 
+          <el-form-item  id="btn1"     label="Project" prop="project_id">
+          <el-select-v2 
+                    
+              v-model="ruleForm.project_id"
+              :options="projectOptions"
+              placeholder="Please select"
+              style="width: 100%; vertical-align: middle"
+              clearable
+              filterable
+              :onChange="changeProject"
+            />
+          </el-form-item>
+          <el-form-item id="btn2"  label="Location" prop="project_id">
+           
 
-        </el-form-item>
-
-        <el-form-item label="Activity"  prop="activity_id">
-          <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" placeholder="Select Activity" style="width: 100%" >
+            <el-select
+                ref="ref2"
+                v-model="ruleForm.project_location_id"
+                value-key="id"
+                placeholder="Select"
+                style="width: 100%; vertical-align: middle"
+              >
+              <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
+              <div style="display: flex; align-items: center;">
+                <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
+                <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
+                  {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                </span>
+              </div>
+            </el-option>
+          </el-select>
+          </el-form-item>
+        <el-form-item  id="btn3"  label="Activity"  prop="activity_id">
+          <el-select ref="ref3" filterable v-model="ruleForm.activity_id" :onChange="changeActivity" placeholder="Select Activity" style="width: 100%" >
             <el-option
 v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
               :value="item.value" />
@@ -1116,9 +1213,9 @@ v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
  
         </el-form-item>
 
-        <el-form-item label="Indicator" prop="indicator_id">
+        <el-form-item  id="btn4" label="Indicator" prop="indicator_id">
           <el-select
-filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
+ref="ref4" filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
             placeholder="Select Indicator" style="width: 90%; margin-right: 10px;">
             <el-option
 v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
@@ -1131,55 +1228,45 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
 
         <el-row>
 
-          <el-form-item label="Baseline" prop="baseline">
-          <el-input-number v-model="ruleForm.baseline" />
-
+          <el-form-item  id="btn5"  label="Baseline" prop="baseline">
+          <el-input-number ref="ref5" v-model="ruleForm.baseline" />
          </el-form-item>
 
   
-         <el-form-item label="Target" prop="target">
-          <el-input-number v-model="ruleForm.target" />
+         <el-form-item   id="btn6" label="Target" prop="target">
+          <el-input-number ref="ref6" v-model="ruleForm.target" />
          </el-form-item>
-
-
         </el-row>
       
 
 
 
-        <el-form-item label="Category" prop="category_id">
-          <el-select v-model="ruleForm.category_id" :onChange="changeCategory"  filterable placeholder="Select Category" style="width: 90%; margin-right: 10px;" >
+        <el-form-item   id="btn7" label="Category" prop="category_id">
+          <el-select    v-model="ruleForm.category_id" :onChange="changeCategory"  filterable placeholder="Select Category" style="width: 90%; margin-right: 10px;" >
             <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
           <el-button type="primary" @click="AddCategory" :icon="Plus" plain />  
         </el-form-item>
 
 
-        <el-form-item label="Frequency" prop="frequency">
-          <el-select v-model="ruleForm.frequency"  placeholder="Select Frequency" style="width: 90%; margin-right: 10px;" >
+        <el-form-item  id="btn8" label="Frequency" prop="frequency">
+          <el-select   v-model="ruleForm.frequency"  placeholder="Select Frequency" style="width: 90%; margin-right: 10px;" >
             <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
-          <el-button type="primary" @click="AddNewFreq" :icon="Plus" plain />  
+          <el-button    type="primary" @click="AddNewFreq" :icon="Plus" plain />  
         </el-form-item>
 
-<!-- 
-        <el-form-item label="Frequency"   prop="frequency">
-          <el-select clearable filterable v-model="ruleForm.frequency" placeholder="Frequency" style="width: 90%; margin-right: 10px;"  allow-create>
-            <el-option label="Quarterly" value="Quarterly" />
-            <el-option label="Monthly" value="Monthly" />
-            <el-option label="Annually" value="Annually" />
-          </el-select>
-
-        </el-form-item> -->
+ 
 
       </el-form>
  
     </el-col>
     <template #footer>
       <span class="dialog-footer">
+        <el-button type="primary" @click="openHelp = true">Help</el-button>
         <el-button  @click="handleCancelAddEdit"  >Cancel</el-button>
-        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+        <el-button id="btn10" v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        <el-button id="btn11"  v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
       </span>
     </template>
 
@@ -1263,4 +1350,93 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
   </el-dialog>
 
 
+  <el-tour v-model="openHelp" z-index="100000"	>
+    <el-tour-step
+      target="#btn1"
+      title="Project"
+      description="Select the project you want to set up"
+    />
+    <el-tour-step
+      target="#btn2"
+      title="Location"
+      description="Select the location where this project is implemented. Repeat this for every settlement the project is being implemented"
+    />
+    <el-tour-step
+      target="#btn3"
+      title="Activity"
+      description="Select the  specific activity you wish to configure monitoring for"
+    />
+    <el-tour-step
+      target="#btn4"
+      title="Indicator"
+      description="Select the  indicator associated with that activity. If not configured, use the + button to create a new indicator"
+    />
+
+    <el-tour-step
+      target="#btn5"
+      title="Baseline"
+      description="Specify the baseline value. This is the value at the start of the project. If nto considered put zero(0)"
+    />
+    <el-tour-step
+      target="#btn6"
+      title="Target"
+      description="Specify the target value. This is the desired value at the end of the project. Refer to the project results framework"
+    />
+
+    <el-tour-step
+      target="#btn7"
+      title="Category"
+      description="Specify the dimension/aspect that you want measured. e.g Male or Female, Prepared or approved. This must be done for each disaggregation.  Refer to the project results framework. If not configured, use the + button to create a new category"
+    />
+
+    <el-tour-step
+      target="#btn8"
+      title="Frequency"
+      description="How frequently will this indicator be monitored? If not configured, use the + button to create a new frequency "
+    />
+
+
+  </el-tour>
+
 </template>
+ 
+<style scoped>
+.responsive-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px; /* Space between the elements */
+  margin-bottom: 10px; /* Space below the container */
+}
+
+.responsive-container > * {
+  flex-shrink: 0; /* Prevents elements from shrinking below their content size */
+}
+
+.responsive-container .el-select {
+  max-width: 250px; /* Set a maximum width for the select elements */
+  flex: 1 1 auto; /* Allow the select elements to grow and shrink */
+}
+
+.responsive-container .el-button {
+  flex-shrink: 0; /* Prevents buttons from shrinking */
+}
+
+@media (max-width: 768px) {
+  .responsive-container {
+    justify-content: space-between;
+    gap: 10px; /* Reduce gap on smaller screens */
+  }
+}
+
+@media (max-width: 480px) {
+  .responsive-container {
+    flex-direction: column; /* Stack elements on top of each other on very small screens */
+    gap: 15px; /* Increase gap for stacked items */
+  }
+
+  .responsive-container .el-select {
+    max-width: 100%; /* Allow select to take full width in column layout */
+  }
+}
+</style>
