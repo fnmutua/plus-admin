@@ -5,11 +5,11 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance, ElCard } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
-  Edit,
+  Back,
   Download,
   Filter,
   Delete,
@@ -19,7 +19,7 @@ import {
 
 import { ref, reactive, computed, h } from 'vue'
 import {
-  ElPagination, ElInputNumber, ElTable,ElDescriptions,ElDescriptionsItem,
+  ElPagination, ElInputNumber, ElTable, ElDescriptions, ElDescriptionsItem,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
   ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, ElOptionGroup, FormRules, ElPopconfirm
 } from 'element-plus'
@@ -43,8 +43,8 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import {
-  countyOptions, settlementOptionsV2, subcountyOptions,wardOptions
-} from './common/index.ts'
+  countyOptions, settlementOptionsV2, subcountyOptions, wardOptions
+} from './common/index.js'
 
 
 
@@ -84,7 +84,7 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
- 
+
 
 const reviewWindowWidth = ref('40%')
 const isMobile = computed(() => appStore.getMobile)
@@ -94,11 +94,11 @@ if (isMobile.value) {
 }
 
 
- 
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
-console.log('showAdminButtons',showAdminButtons.value)
-console.log('showEditButtons',showEditButtons.value)
+
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
+console.log('showAdminButtons', showAdminButtons.value)
+console.log('showEditButtons', showEditButtons.value)
 
 
 const AddDialogVisible = ref(false)
@@ -113,7 +113,7 @@ const rejectReason = ref('')
 
 
 const showEditSaveButton = ref(false)
- let tableDataList = ref<UserType[]>([])
+let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = ['status']
@@ -126,8 +126,8 @@ var tblData = []
 
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document','settlement', 'county', 'users','project']
-const nested_models = ['indicator_category', 'indicator'  ] // The mother, then followed by the child
+const associated_multiple_models = ['document', 'settlement', 'county', 'users', 'project']
+const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
 
@@ -147,11 +147,10 @@ const handleClear = async () => {
   console.log('cleared....')
 
   // clear all the fileters -------
-  filterValues = []
-  filters = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
+ 
+  value1.value = null
+  value2.value = null
+  value3.value = null
   pSize.value = 5
   currentPage.value = 1
   tblData = []
@@ -277,7 +276,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   console.log('Reports collected........', res)
   //tableDataList.value = res.data
-  tableDataList.value= res.data.filter(item => item.indicator_category.indicator.type === 'output');
+  tableDataList.value = res.data.filter(item => item.indicator_category.indicator.type === 'output');
 
   total.value = res.total
 
@@ -328,7 +327,7 @@ const getIndicatorNames = async () => {
     opt.title = arrayItem.category.title
     opt.project_id = arrayItem.project.id
     opt.activity_id = arrayItem.activity.id
-    
+
     opt.county_id = arrayItem.project.county_id
     opt.subcounty_id = arrayItem.project.subcounty_id
     opt.settlement_id = arrayItem.project.settlement_id
@@ -338,7 +337,7 @@ const getIndicatorNames = async () => {
     indicatorsOptionsFiltered.value.push(opt)
   })
 
-  console.log('indicatorsOptions.value',indicatorsOptions.value)
+  console.log('indicatorsOptions.value', indicatorsOptions.value)
 }
 
 const projectOptions = ref([])
@@ -360,7 +359,7 @@ const getProjects = async () => {
   // - multiple filters -------------------------------------
   formData.filters = []
   formData.filterValues = []
-  formData.associated_multiple_models = ['activity' ]
+  formData.associated_multiple_models = ['activity']
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
@@ -370,20 +369,20 @@ const getProjects = async () => {
     var opt = {}
     console.log(arrayItem)
     opt.value = arrayItem.id
-    opt.label = arrayItem.title  
-     projectOptions.value.push(opt)
+    opt.label = arrayItem.title
+    projectOptions.value.push(opt)
 
 
     arrayItem.activities.forEach(function (activity: any) {
       console.log('activity--->', activity)
 
       var act = {}
-    console.log(activity)
-    act.value = activity.id
-    act.label = activity.title  
-    act.project_id = arrayItem.id
-    activityOptions.value.push(act)
-    activityOptionsFiltered.value.push(act)
+      console.log(activity)
+      act.value = activity.id
+      act.label = activity.title
+      act.project_id = arrayItem.id
+      activityOptions.value.push(act)
+      activityOptionsFiltered.value.push(act)
 
     })
   })
@@ -392,7 +391,7 @@ const getProjects = async () => {
 
 
 
- 
+
 
 
 const props1 = {
@@ -462,7 +461,7 @@ const DeleteReport = (data: TableSlotDefault) => {
 
 
 const currentRow = ref()
- 
+
 const handleClose = () => {
 
   console.log("Closing the dialoig")
@@ -480,12 +479,12 @@ const handleClose = () => {
 }
 
 
- 
+
 
 
 const changeProject = async (project: any) => {
-  ruleForm.indicator_category_id=[]
-  ruleForm.activity_id=[]
+  ruleForm.indicator_category_id = []
+  ruleForm.activity_id = []
 
   // Filter the activities 
   activityOptionsFiltered.value = activityOptions.value.filter(function (el) {
@@ -501,11 +500,11 @@ const changeProject = async (project: any) => {
 
 
 const changeActivity = async (activity: any) => {
-  ruleForm.indicator_category_id=[]
+  ruleForm.indicator_category_id = []
   indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
-   return el.activity_id == activity
-   
- });
+    return el.activity_id == activity
+
+  });
 
 
 }
@@ -537,7 +536,7 @@ function getQuarter(date = new Date()) {
 }
 
 const ruleFormRef = ref<FormInstance>()
-  const ruleForm = reactive({
+const ruleForm = reactive({
   indicator_category_id: '',
   project_id: '',
   activity_id: '',
@@ -557,8 +556,8 @@ const ruleFormRef = ref<FormInstance>()
   code: '',
   cumDisbursement: 0,
   cumProgress: 0,
-    cumAmount: 0,
-    prevAmount:0,
+  cumAmount: 0,
+  prevAmount: 0,
   comments: '',
   units: 'Quantity',
   cumUnits: 'Cumulative(qty)'
@@ -948,7 +947,7 @@ getInterventionsAll()
 
 //getProjects()
 
- 
+
 
 const tableRowClassName = (data) => {
   // console.log('Row Styling --------->', data.row)
@@ -1039,7 +1038,7 @@ const getDocumentTypes = async () => {
 }
 getDocumentTypes()
 
- 
+
 
 const dialogWidth = ref()
 const actionColumnWidth = ref()
@@ -1087,7 +1086,7 @@ const DownloadXlsx = async () => {
     thisRecord.quantity = tableDataList.value[i].amount
     thisRecord.settlement = tableDataList.value[i].settlement.name
     thisRecord.county = tableDataList.value[i].county.name
-     thisRecord.date = tableDataList.value[i].date
+    thisRecord.date = tableDataList.value[i].date
 
 
     dataHolder.push(thisRecord)
@@ -1114,28 +1113,28 @@ const mfield = 'report_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const selectedRow = ref([])
 const dynamicComponent = ref();
- const componentProps = ref({
-      message: 'Hello from parent',
-      showDialog:addMoreDocuments,
-      data:currentRow.value,
-      umodel:model,
-      field:mfield
-    });
+const componentProps = ref({
+  message: 'Hello from parent',
+  showDialog: addMoreDocuments,
+  data: currentRow.value,
+  umodel: model,
+  field: mfield
+});
 
- 
- 
+
+
 function toggleComponent(row) {
   console.log('Compnnent data', row)
-      componentProps.value.data=row
-      dynamicComponent.value = null; // Unload the component
-      addMoreDocuments.value = true; // Set any additional props
+  componentProps.value.data = row
+  dynamicComponent.value = null; // Unload the component
+  addMoreDocuments.value = true; // Set any additional props
 
-      setTimeout(() => {
-        dynamicComponent.value = ChildComponent; // Load the component
+  setTimeout(() => {
+    dynamicComponent.value = ChildComponent; // Load the component
   }, 100); // 0.1 seconds
 
 
-    }
+}
 
 
 // component for docuemnts 
@@ -1151,17 +1150,17 @@ const DocumentComponentProps = ref({
 
 
 function handleExpand(row) {
-   dynamicDocumentComponent.value = null; // Unload the component
-    rowData.value = row
-    DocumentComponentProps.value.data = row
-    setTimeout(() => {
-      dynamicDocumentComponent.value = documentComponent; // Load the component
-    }, 100); // 0.1 seconds
+  dynamicDocumentComponent.value = null; // Unload the component
+  rowData.value = row
+  DocumentComponentProps.value.data = row
+  setTimeout(() => {
+    dynamicDocumentComponent.value = documentComponent; // Load the component
+  }, 100); // 0.1 seconds
 }
 
 const report = ref({})
 
- 
+
 const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
 
@@ -1191,30 +1190,30 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.cumProgress = data.row.cumProgress
   ruleForm.prevAmount = data.row.prevAmount
   ruleForm.cumAmount = data.row.cumAmount
- 
+
 
 
   formHeader.value = 'Edit Report'
   fileUploadList.value = data.row.documents
- 
-  
+
+
 
   formHeader.value = 'Review Report'
 
-// make the descriptions dataset 
-report.value.county =  data.row.county? data.row.county.name :''
-report.value.indicator = data.row.indicator_category.indicator_name
-report.value.status = data.row.status
-report.value.date = data.row.date
-report.value.amount = data.row.amount
-report.value.user = data.row.user.name
-report.value.project = data.row.project.title
+  // make the descriptions dataset 
+  report.value.county = data.row.county ? data.row.county.name : ''
+  report.value.indicator = data.row.indicator_category.indicator_name
+  report.value.status = data.row.status
+  report.value.date = data.row.date
+  report.value.amount = data.row.amount
+  report.value.user = data.row.user.name
+  report.value.project = data.row.project.title
 
 
 
-console.log(' ruleForm.location', ruleForm.location)
+  console.log(' ruleForm.location', ruleForm.location)
 
-ReviewDialog.value = true
+  ReviewDialog.value = true
 }
 
 
@@ -1252,66 +1251,91 @@ const confirmReject = async () => {
 
 
 function formatDate(dateString) {
-      const date = new Date(dateString);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
+const router = useRouter()
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+}
 
 </script>
 
 <template>
-  <ContentWrap :title="t('Monitoring and Evaluation Reports')" :message="t('Use the filters to subset')">
- 
 
 
 
-    <div v-if="dynamicComponent">
-      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
-    </div>
 
+  <el-card>
 
-    <div style="display: inline-block; margin-left: 0px">
-      <el-select
-v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="Filter by Project/Indicator">
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
+
+      <!-- Title Search -->
+      <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+        filterable collapse-tags placeholder="Filter by Project/Indicator" style="width: 450px; margin-right: 10px;">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
+
+
+      <!-- Action Buttons -->
+      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+
+      </div>
+
+      <!-- Download All Component -->
+      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+      <div v-if="dynamicComponent">
+      <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
+    </el-row>
 
 
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-  
-
-
-    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
-          <el-table-column type="expand">
-            <template #default="props">
-              <div m="4">
-                <h3>Documents</h3>
-                <div>
-                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
-                </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
-              </div>
-            </template>
-          </el-table-column>
-      <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
  
+
+
+    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+      @expand-change="handleExpand">
+      <el-table-column type="expand">
+        <template #default="props">
+          <div m="4">
+            <h3>Documents</h3>
+            <div>
+              <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+            </div>
+            <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+              :icon="Plus" circle @click="toggleComponent(props.row)" />
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
+
       <el-table-column label="Date" prop="date" sortable>
-      <template #default="scope">
-        {{ formatDate(scope.row.date) }}
-      </template>
-    </el-table-column>
+        <template #default="scope">
+          {{ formatDate(scope.row.date) }}
+        </template>
+      </el-table-column>
 
       <!-- <el-table-column label="County" prop="county.name" sortable /> -->
       <!-- <el-table-column label="Unit" prop="indicator_category.indicator.unit" sortable /> -->
@@ -1326,11 +1350,9 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
                   :icon="View">View</el-dropdown-item>
-                <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
+                <el-dropdown-item v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -1340,15 +1362,14 @@ v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
           <div v-else>
 
             <el-tooltip content="Review" placement="top">
-            <el-button v-if="showAdminButtons" type="primary" :icon="View"
-              @click="editIndicator(scope as TableSlotDefault)" circle />
-          </el-tooltip>
+              <el-button v-if="showAdminButtons" type="primary" :icon="View"
+                @click="editIndicator(scope as TableSlotDefault)" circle />
+            </el-tooltip>
 
- 
+
 
             <el-tooltip content="Delete" placement="top">
-              <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
                 <template #reference>
                   <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
@@ -1363,11 +1384,10 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
     </el-table>
 
 
-    <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
-  </ContentWrap>
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+  </el-card>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
 
@@ -1377,27 +1397,26 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
 
           <el-form-item label="Project">
-            <el-select
-filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width: 100%"
+            <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width: 100%"
               placeholder="Select Project">
               <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
           <el-form-item label="Activity">
-            <el-select
-filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
+            <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
               placeholder="Select Activity">
-              <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+              <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
+                :value="item.value" />
             </el-select>
           </el-form-item>
 
 
           <el-form-item label="Indicator">
-            <el-select
-filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" style="width: 100%"
-              placeholder="Select Indicator">
-              <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+            <el-select filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
+              style="width: 100%" placeholder="Select Indicator">
+              <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
+                :value="item.value" />
             </el-select>
           </el-form-item>
 
@@ -1439,11 +1458,9 @@ filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" 
     </template>
   </el-dialog>
 
-  <el-dialog
-v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
+  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
     draggable>
-    <el-upload
-class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="5" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>
@@ -1476,27 +1493,27 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
 
   <el-dialog v-model="ReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
 
-<el-descriptions title="" direction="vertical" :column="2" size="small" border>
-  <el-descriptions-item label="Project">{{ report.project }}</el-descriptions-item>
-  <el-descriptions-item label="Location">{{ report.county }}</el-descriptions-item>
-  <el-descriptions-item label="Indicator" :span="2">{{ report.indicator }}</el-descriptions-item>
-  <el-descriptions-item label="Amount">{{ report.amount }}</el-descriptions-item>
-  <el-descriptions-item label="Date"> {{ report.date }} </el-descriptions-item>
-  <el-descriptions-item label="Submitted By"> {{ report.user }} </el-descriptions-item>
-</el-descriptions>
+    <el-descriptions title="" direction="vertical" :column="2" size="small" border>
+      <el-descriptions-item label="Project">{{ report.project }}</el-descriptions-item>
+      <el-descriptions-item label="Location">{{ report.county }}</el-descriptions-item>
+      <el-descriptions-item label="Indicator" :span="2">{{ report.indicator }}</el-descriptions-item>
+      <el-descriptions-item label="Amount">{{ report.amount }}</el-descriptions-item>
+      <el-descriptions-item label="Date"> {{ report.date }} </el-descriptions-item>
+      <el-descriptions-item label="Submitted By"> {{ report.user }} </el-descriptions-item>
+    </el-descriptions>
 
 
 
-<template #footer>
-  <span v-if="showAdminButtons" class="dialog-footer">
-    <el-button type="success" @click="approve">Approve</el-button>
-    <el-button type="danger" @click="reject">Reject</el-button>
-  </span>
-</template>
-</el-dialog>
- 
+    <template #footer>
+      <span v-if="showAdminButtons" class="dialog-footer">
+        <el-button type="success" @click="approve">Approve</el-button>
+        <el-button type="danger" @click="reject">Reject</el-button>
+      </span>
+    </template>
+  </el-dialog>
 
-<el-dialog v-model="RejectDialog" title="Reason for rejection" width="20%">
+
+  <el-dialog v-model="RejectDialog" title="Reason for rejection" width="20%">
     <el-input v-model="rejectReason" placeholder="" />
     <template #footer>
       <span class="dialog-footer">
@@ -1507,7 +1524,7 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
       </span>
     </template>
   </el-dialog>
-  
+
 </template>
 
 <style>
