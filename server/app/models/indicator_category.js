@@ -25,6 +25,16 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: false
       },
+      
+      project_location_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+      },
+
+      
+
+
+
       category_title: {
         type: DataTypes.STRING,
         allowNull: false
@@ -44,6 +54,8 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false
       },
 
+
+      
 
 
       createdBy: {
@@ -69,7 +81,7 @@ module.exports = function (sequelize, DataTypes) {
         },
         {
           unique: true,
-          fields: ['indicator_id', 'category_id','project_id'  ]
+          fields: ['indicator_id', 'project_location_id', 'category_id','project_id'  ]
         },
       ]
     }

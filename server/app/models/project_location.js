@@ -47,6 +47,11 @@ module.exports = function(sequelize, DataTypes) {
       },
       onDelete: 'CASCADE', // Cascade delete when the referenced county is deleted
     },
+    location_name: {
+      type: DataTypes.STRING,
+      allowNull: true,
+       
+    },
     location_type: {
       type: DataTypes.STRING,
       allowNull: true,
