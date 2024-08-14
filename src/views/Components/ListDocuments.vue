@@ -245,8 +245,9 @@ const addDocument = () => {
     <div class="search-add-container">
       <el-input 
         v-model="searchQuery" 
-        placeholder="Filter documents..." 
+        placeholder="Search documents..." 
         clearable
+        style="margin-left: 10px"
        
         @input="onSearch"
       />

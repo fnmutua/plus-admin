@@ -43,6 +43,13 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
+
+      project_location_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+      },
+
+    
       period: {
         type: DataTypes.STRING,
         allowNull: true

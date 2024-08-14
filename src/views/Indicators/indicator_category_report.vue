@@ -4,7 +4,7 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance, ElCard } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -13,7 +13,7 @@ import {
   Filter,
   Delete,
   UploadFilled,
-  Position,
+  Position,Back,
   InfoFilled
 } from '@element-plus/icons-vue'
 
@@ -89,8 +89,8 @@ const selCounties = []
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
 
 
 // Function to empty all fields in ruleForm
@@ -104,9 +104,9 @@ const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   indicator_category_id: '',
   baseline: 0,
-  target:0,
+  target: 0,
   project_id: '',
-  project_location_id:null,
+  project_location_id: null,
   activity_id: '',
   programme_implementation_id: '',
   settlement_id: '',
@@ -124,7 +124,7 @@ const ruleForm = reactive({
   code: '',
   cumDisbursement: 0,
   cumProgress: 0,
-  prevAmount:0,
+  prevAmount: 0,
   cumAmount: 0,
   comments: '',
   units: 'Quantity',
@@ -151,7 +151,7 @@ const rules = reactive<FormRules>({
 
 
 
- 
+
 
 
 const AddDialogVisible = ref(false)
@@ -164,7 +164,7 @@ const addMoreDocuments = ref(false)
 
 
 const showEditSaveButton = ref(false)
- 
+
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
@@ -322,7 +322,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('Reports collected........', res)
-  tableDataList.value= res.data.filter(item => item.indicator_category.indicator.type === 'output');
+  tableDataList.value = res.data.filter(item => item.indicator_category.indicator.type === 'output');
 
 
   //tableDataList.value = res.data
@@ -386,11 +386,11 @@ const getIndicatorNames = async () => {
     opt.target = arrayItem.target
 
     // Here we collect Output indicators ONLY
-    if (arrayItem.indicator.type=='output') {
+    if (arrayItem.indicator.type == 'output') {
       indicatorsOptions.value.push(opt)
       indicatorsOptionsFiltered.value.push(opt)
     }
- 
+
   })
 
   console.log('indicatorsOptions.value', indicatorsOptions.value)
@@ -448,11 +448,13 @@ const getProjects = async () => {
 
 
 
-const editReport = (data: TableSlotDefault) => {
+const editReport = async (data: TableSlotDefault) => {
   showSubmitBtn.value = false
 
+  await getProjectLocations(data.project_id)
+
   showEditSaveButton.value = true
-  console.log(data)
+  console.log('editReport',data)
   ruleForm.id = data.id
   ruleForm.county_id = data.county_id
   ruleForm.subcounty_id = data.subcounty_id
@@ -466,8 +468,9 @@ const editReport = (data: TableSlotDefault) => {
   ruleForm.amount = data.amount
   ruleForm.indicator_category_id = data.indicator_category_id
   ruleForm.programme_implementation_id = data.programme_implementation_id
-
-
+  ruleForm.project_location_id = data.project_location_id
+  
+ console.log("project_locations",project_locations.value)
   ruleForm.ward_id = data.ward_id
   ruleForm.code = data.code
   ruleForm.progress = data.progress
@@ -483,7 +486,7 @@ const editReport = (data: TableSlotDefault) => {
   formHeader.value = 'Edit Report'
   fileUploadList.value = data.documents
 
-  getCumulativeProgressEditPhase( data.indicator_category_id)
+  getCumulativeProgressEditPhase(data.indicator_category_id)
   changeIndicator(data.indicator_category_id)
 
   AddDialogVisible.value = true
@@ -544,10 +547,10 @@ const handleClose = () => {
 }
 
 
-const project_locations =ref([])
+const project_locations = ref([])
 const getProjectLocations = async (project_id) => {
   console.log('project_id', project_id);
-  console.log("Get Locations for  proejct : ",project_id )
+  console.log("Get Locations for  proejct : ", project_id)
 
   // Get the project settlement ids
   const formData = {
@@ -642,6 +645,26 @@ const changeActivity = async (activity: any) => {
 
 
 }
+const changeLocation = async (location: any) => {
+  console.log('changeLocation', location)
+
+  const selected_location = project_locations.value.find(
+        (item) => item.id === location
+      );
+      console.log('selected_location', selected_location)
+
+
+  ruleForm.county_id = selected_location.county_id
+  ruleForm.subcounty_id = selected_location.subcounty_id
+  ruleForm.ward_id = selected_location.ward_id
+  ruleForm.settlement_id = selected_location.settlement_id
+  //ruleForm.project_location_id = location.id
+  
+  
+  console.log('changeLocation', location)
+
+}
+
 
 
 const changeIndicator = async (indicator_category_id: any) => {
@@ -654,10 +677,7 @@ const changeIndicator = async (indicator_category_id: any) => {
   });
 
   ruleForm.project_id = filtredOptions[0].project_id
-  ruleForm.settlement_id = filtredOptions[0].settlement_id
-  ruleForm.county_id = filtredOptions[0].county_id
-  ruleForm.subcounty_id = filtredOptions[0].subcounty_id
-  ruleForm.ward_id = filtredOptions[0].ward_id
+
 
 
   console.log("Filtered Indicators", filtredOptions[0])
@@ -694,8 +714,8 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.period = getQuarter()
       ruleForm.code = uuid.v4()
       ruleForm.userId = userInfo.id
-     // ruleForm.cumDisbursement = ruleForm.cumDisbursement + ruleForm.disbursement
-   //   ruleForm.cumProgress = (ruleForm.cumProgress + ruleForm.progress) <= 100 ? (ruleForm.cumProgress + ruleForm.progress) : 100
+      // ruleForm.cumDisbursement = ruleForm.cumDisbursement + ruleForm.disbursement
+      //   ruleForm.cumProgress = (ruleForm.cumProgress + ruleForm.progress) <= 100 ? (ruleForm.cumProgress + ruleForm.progress) : 100
 
       console.log('cumProgress', ruleForm.cumProgress)
 
@@ -703,13 +723,13 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
       let calculatedProgress = (100 * (ruleForm.cumAmount / ruleForm.target));
 
-            if (isFinite(calculatedProgress)) {
-              ruleForm.cumProgress = calculatedProgress.toFixed(2);
-            } else {
-              ruleForm.cumProgress = '0.00';
-            }
+      if (isFinite(calculatedProgress)) {
+        ruleForm.cumProgress = calculatedProgress.toFixed(2);
+      } else {
+        ruleForm.cumProgress = '0.00';
+      }
 
-   //   ruleForm.cumProgress =  100*((ruleForm.cumAmount - ruleForm.baseline )/(ruleForm.target - ruleForm.baseline )).toFixed(2)
+      //   ruleForm.cumProgress =  100*((ruleForm.cumAmount - ruleForm.baseline )/(ruleForm.target - ruleForm.baseline )).toFixed(2)
 
       //Progress towards target (%realized) [(B-A)/(C- A)]
 
@@ -863,7 +883,7 @@ const getCumulativeProgress = async () => {
   ]
 
   var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
-  [ruleForm.project_id], [ruleForm.programme_implementation_id]  ]  // remember to change here!
+  [ruleForm.project_id], [ruleForm.programme_implementation_id]]  // remember to change here!
 
 
 
@@ -921,11 +941,11 @@ const getCumulativeProgress = async () => {
   const objectWithLatestDate = getLatestReport(res.data);
   console.log('objectWithLatestDate', objectWithLatestDate);
 
- // ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
- // ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
- ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
- ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
- ruleForm.prevAmount = parseInt(objectWithLatestDate.amount)
+  // ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
+  // ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
+  ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
+  ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
+  ruleForm.prevAmount = parseInt(objectWithLatestDate.amount)
 
   console.log('cumProgress ats tart', ruleForm);
 
@@ -1007,7 +1027,7 @@ const getCumulativeProgressEditPhase = async (indicator_category_id) => {
   ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
   ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
   ruleForm.prevAmount = parseInt(objectWithLatestDate.amount)
-  
+
   console.log('cumProgress ats tart', ruleForm);
 
 
@@ -1237,6 +1257,13 @@ const tableRowClassName = (data) => {
   if (data.row.documents.length > 0) {
     return 'warning-row'
   }
+  if (data.row.status =='Rejected' ) {
+    return 'danger-row'
+  }
+  if (data.row.status =='Approved' ) {
+    return 'success-row'
+  }
+
   return ''
 }
 
@@ -1382,8 +1409,8 @@ const reportGeom = ref([])
 const projectGeom = ref([])
 
 const reportDetails = ref();
-const  locationStatus = ref('')
-const projectLocationColor=ref('red')
+const locationStatus = ref('')
+const projectLocationColor = ref('red')
 const showMap = (row) => {
   console.log(row)
 
@@ -1393,21 +1420,21 @@ const showMap = (row) => {
 
   dialogMap.value = true
   reportGeom.value = reportDetails.value.geom.coordinates
-  projectGeom.value = reportDetails.value.project.geom 
+  projectGeom.value = reportDetails.value.project.geom
 
- 
-     var centroid = turf.centroid(reportDetails.value.project.geom );
 
-      var options = {units: 'kilometers'};
+  var centroid = turf.centroid(reportDetails.value.project.geom);
+
+  var options = { units: 'kilometers' };
 
   var distance = turf.distance(reportDetails.value.geom, centroid, options);
-  console.log('distance , ', distance) 
+  console.log('distance , ', distance)
 
-  if (distance<1) {
-    projectLocationColor.value='green'
+  if (distance < 1) {
+    projectLocationColor.value = 'green'
   }
-  
-  locationStatus.value='The report is ' + distance.toFixed(2) +  ' kilometers from the center of the project'
+
+  locationStatus.value = 'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
   setTimeout(loadMap, 100); // delay for the dialog to fully load
   //loadMap()
 }
@@ -1461,53 +1488,53 @@ const loadMap = () => {
       },
     ];
 
-     //     Add point layer
-     nmap.addLayer({
-        id: 'point-layer',
-        type: 'circle',
-        source: {
-          type: 'geojson',
-          data: projectGeom.value,
-        },
-        paint: {
-          'circle-color': projectLocationColor.value.color,
-          'circle-radius': 6,
-        },
-        filter: ['==', '$type', 'Point'],
-      });
+    //     Add point layer
+    nmap.addLayer({
+      id: 'point-layer',
+      type: 'circle',
+      source: {
+        type: 'geojson',
+        data: projectGeom.value,
+      },
+      paint: {
+        'circle-color': projectLocationColor.value.color,
+        'circle-radius': 6,
+      },
+      filter: ['==', '$type', 'Point'],
+    });
 
-        // Add line layer
-        nmap.addLayer({
-          id: 'line-layer',
-          type: 'line',
-          source: {
-            type: 'geojson',
-            data: projectGeom.value,
-          },
-          paint: {
-            'line-color':projectLocationColor.value,
-            'line-width': 2,
-          },
-          filter: ['==', '$type', 'LineString'],
-        });
+    // Add line layer
+    nmap.addLayer({
+      id: 'line-layer',
+      type: 'line',
+      source: {
+        type: 'geojson',
+        data: projectGeom.value,
+      },
+      paint: {
+        'line-color': projectLocationColor.value,
+        'line-width': 2,
+      },
+      filter: ['==', '$type', 'LineString'],
+    });
 
-       // Add polygon layer as outline
-        nmap.addLayer({
-          id: 'polygon-layer',
-          type: 'line', // Change to 'line' to display the outline
-          source: {
-            type: 'geojson',
-            data: projectGeom.value,
-          },
-          paint: {
-            'line-color': projectLocationColor.value, // Outline color (replace 'green' with your desired color)
-            'line-width': 2, // Outline width in pixels (adjust as needed)
-          },
-          filter: ['in', '$type', 'Polygon' ], // Include both Polygon and MultiPolygon types
-        });
+    // Add polygon layer as outline
+    nmap.addLayer({
+      id: 'polygon-layer',
+      type: 'line', // Change to 'line' to display the outline
+      source: {
+        type: 'geojson',
+        data: projectGeom.value,
+      },
+      paint: {
+        'line-color': projectLocationColor.value, // Outline color (replace 'green' with your desired color)
+        'line-width': 2, // Outline width in pixels (adjust as needed)
+      },
+      filter: ['in', '$type', 'Polygon'], // Include both Polygon and MultiPolygon types
+    });
 
 
- 
+
 
 
 
@@ -1527,11 +1554,11 @@ const loadMap = () => {
     }
     // Add a marker at the geom.value position
     var marker = new mapboxgl.Marker().setLngLat(mapCenter).addTo(nmap);
-      // Create the marker and specify the color
-      var marker = new mapboxgl.Marker({
-        color: projectLocationColor.value,
-      }).setLngLat(mapCenter)
-        .addTo(nmap);
+    // Create the marker and specify the color
+    var marker = new mapboxgl.Marker({
+      color: projectLocationColor.value,
+    }).setLngLat(mapCenter)
+      .addTo(nmap);
     // Create a simple popup with user information displayed using line breaks
     var popupContent = document.createElement('div');
 
@@ -1568,19 +1595,62 @@ function isGeomNull(geom) {
 }
 
 function formatDate(dateString) {
-      const date = new Date(dateString);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
+const router = useRouter()
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+}
 
 </script>
 
 <template>
-  <ContentWrap :title="t('Monitoring and Evaluation Output Reports(All)')" :message="t('Use the filters to subset')">
+  <el-card>
 
+
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
+
+      <!-- Title Search -->
+      <el-select
+v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+        filterable collapse-tags placeholder="Filter by Project/Indicator" style="width: 450px; margin-right: 10px;">
+        <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+
+
+      <!-- Action Buttons -->
+      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+        <el-tooltip content="Add Report " placement="top">
+          <el-button v-if="showEditButtons" :onClick="AddReport" type="primary" :icon="Plus" />
+        </el-tooltip>
+        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+        <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+      
+      </div>
+
+      <!-- Download All Component -->
+      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+    </el-row>
 
 
 
@@ -1589,30 +1659,13 @@ function formatDate(dateString) {
     </div>
 
 
-    <div style="display: inline-block; margin-left: 0px">
-      <el-select
-v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="Filter by Project/Indicator">
-        <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
 
 
 
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-    </div>
-    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Report " placement="top">
-        <el-button v-if="showEditButtons" :onClick="AddReport" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
+
+
 
 
 
@@ -1623,26 +1676,24 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
 
       <el-table-column type="expand">
         <template #default="props">
-          <div m="4">
-            <h3>Documents</h3>
-            <div>
-              <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+          
+             <div>
+              <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+                @openDialog="toggleComponent(props.row)" />
             </div>
-            <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-              :icon="Plus" circle @click="toggleComponent(props.row)" />
-          </div>
+ 
         </template>
       </el-table-column>
       <el-table-column label="#" width="80" prop="id" sortable />
 
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
- 
+
       <el-table-column label="Date" prop="date" sortable>
-      <template #default="scope">
-        {{ formatDate(scope.row.date) }}
-      </template>
-    </el-table-column>
+        <template #default="scope">
+          {{ formatDate(scope.row.date) }}
+        </template>
+      </el-table-column>
 
       <el-table-column label="Category" prop="indicator_category.category_title" sortable />
       <el-table-column label="Amount" prop="amount" sortable />
@@ -1664,35 +1715,24 @@ v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
               </el-dropdown-menu>
             </template>
           </el-dropdown>
-
-
           <div v-else>
-
-
-
             <el-tooltip content="Edit" placement="top">
               <el-button
-v-if="showEditButtons" type="success" :icon="Edit"
-                @click="editReport(scope.row as TableSlotDefault)" circle />
+v-if="showEditButtons" type="success"   size="small" :icon="Edit"
+                @click="editReport(scope.row as TableSlotDefault)" :disabled="scope.row.status == 'Approved'" circle />
             </el-tooltip>
 
             <el-tooltip content="Map" placement="top">
               <el-button
-v-if="showEditButtons" type="warning" :icon="Position" :disabled="isGeomNull(scope.row.geom)"
+v-if="showEditButtons" type="warning"  size="small" :icon="Position" :disabled="isGeomNull(scope.row.geom)"
                 @click="showMap(scope.row as TableSlotDefault)" circle />
             </el-tooltip>
-
-
-
-
-
-
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
                 <template #reference>
-                  <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
+                  <el-button v-if="showAdminButtons" type="danger"  size="small"  :icon=Delete circle />
                 </template>
               </el-popconfirm>
             </el-tooltip>
@@ -1705,10 +1745,10 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
 
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
-  </ContentWrap>
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+  </el-card>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
@@ -1716,47 +1756,35 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
           <el-form-item label="Project">
             <el-select-v2
-              filterable 
-              v-model="ruleForm.project_id" 
-              :onChange="changeProject" 
-              style="width: 100%"
-              :options="projectOptions"
-              placeholder="Select Project"/>
+filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width: 100%"
+              :options="projectOptions" placeholder="Select Project" />
           </el-form-item>
-          <el-form-item id="btn2"  label="Location" prop="project_id">
+          <el-form-item id="btn2" label="Location" prop="project_id">
             <el-select
-                ref="ref2"
-                v-model="ruleForm.project_location_id"
-                value-key="id"
-                placeholder="Select"
-                style="width: 100%; vertical-align: middle"
-              >
+ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
+              :onChange="changeLocation" style="width: 100%; vertical-align: middle">
               <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
-              <div style="display: flex; align-items: center;">
-                <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
-                <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
-                  {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
-                </span>
-              </div>
-            </el-option>
-          </el-select>
+                <div style="display: flex; align-items: center;">
+                  <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
+                  <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
+                    {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                  </span>
+                </div>
+              </el-option>
+            </el-select>
           </el-form-item>
-          
+
           <el-form-item label="Activity">
             <el-select-v2
-            filterable v-model="ruleForm.activity_id" 
-          :onChange="changeActivity" 
-          style="width: 100%"
-          :options="activityOptionsFiltered" placeholder="Select Activity"/>
+filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
+              :options="activityOptionsFiltered" placeholder="Select Activity" />
           </el-form-item>
 
 
           <el-form-item label="Indicator">
             <el-select-v2
-            filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator" 
-            :options="indicatorsOptionsFiltered"
-            style="width: 100%"
-              placeholder="Select Indicator"/>
+filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
+              :options="indicatorsOptionsFiltered" style="width: 100%" placeholder="Select Indicator" />
           </el-form-item>
         </el-col>
       </el-row>
@@ -1764,7 +1792,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       <el-row :gutter="10">
 
         <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
-       
+
           <el-form-item :label="ruleForm.units">
             <el-input-number v-model="ruleForm.amount" />
           </el-form-item>
@@ -1784,7 +1812,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
 
         <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
 
-    
+
           <el-form-item :label="ruleForm.cumUnits">
             <el-input-number v-model="ruleForm.cumAmount" type="number" disabled>
               <template #prepend>Cumulative(Amount)</template>
@@ -1806,12 +1834,12 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
           </el-form-item>
 
         </el-col>
-        
+
 
       </el-row>
 
       <el-row :gutter="10">
-         
+
 
         <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
           <el-form-item label="Comments">
@@ -1820,7 +1848,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
         </el-col>
       </el-row>
 
-      
+
       <el-row :gutter="10" style="text-align: center;">
         <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
 
@@ -1833,7 +1861,7 @@ v-model:file-list="fileUploadList" class="upload-demo"
           </el-upload>
         </el-col>
 
-        
+
       </el-row>
 
     </el-form>
@@ -1896,25 +1924,18 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
   <el-dialog v-model="dialogMap" width="50%" draggable :before-close="closeMap" :show-close="false">
     <template #header="{ titleId, titleClass }">
       <div class="my-header">
-      <h4 :id="titleId" :class="titleClass">Reporting Location</h4>
-      <h2 :style="`color: ${projectLocationColor}; font-style: italic;`">{{ locationStatus }}</h2> <!-- Use the 'italicizedColor' variable -->
-      <el-button type="danger" :icon="CircleCloseFilled" @click="closeMap">Close Map</el-button>
-    </div>
+        <h4 :id="titleId" :class="titleClass">Reporting Location</h4>
+        <h2 :style="`color: ${projectLocationColor}; font-style: italic;`">{{ locationStatus }}</h2>
+        <!-- Use the 'italicizedColor' variable -->
+        <el-button type="danger" :icon="CircleCloseFilled" @click="closeMap">Close Map</el-button>
+      </div>
     </template>
     <div id="mapContainer" class="basemap"></div>
 
   </el-dialog>
 </template>
 
-<style>
-.el-table .danger-row {
-  --el-table-tr-bg-color: var(--el-color-danger-light-9);
-}
-
-.el-table .success-row {
-  --el-table-tr-bg-color: var(--el-color-success-light-9);
-}
-</style>
+ 
 
 <style scoped>
 .basemap {
@@ -1932,5 +1953,19 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
   display: flex;
   flex-direction: row;
   justify-content: space-between;
+}
+</style>
+
+<style>
+.el-table .danger-row {
+  --el-table-tr-bg-color: var(--el-color-danger-light-9);
+  --el-table-tr-text-color: var(--el-color-danger);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .success-row {
+  --el-table-tr-bg-color: var(--el-color-success-light-9);
+  --el-table-tr-text-color: var(--el-color-success);
+  color: var(--el-table-tr-text-color);
 }
 </style>

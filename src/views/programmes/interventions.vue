@@ -2302,8 +2302,7 @@ const ImportProjects = async () => {
       <el-select
 v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Title" style="width: 150px; margin-right: 10px;" />
-
-      <!-- Programme Filter -->
+ 
       <el-select
 size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear" multiple clearable
         filterable collapse-tags placeholder="By Programme" style="width: 150px; margin-right: 10px;">

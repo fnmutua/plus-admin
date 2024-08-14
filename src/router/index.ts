@@ -1012,7 +1012,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           {  
             path: 'new',
           //  component: 'views/Indicators/indicator_category_report',
-          component: () => import('@/views/Indicators/indicator_category_report3.vue'),
+          component: () => import('@/views/Indicators/indicator_category_report_new.vue'),
           name: 'OutcomeEvaluationNew',
             meta: {
               title: 'Impacts(New)',
