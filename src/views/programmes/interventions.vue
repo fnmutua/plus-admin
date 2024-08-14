@@ -1257,17 +1257,16 @@ if (isMobile.value) {
 
 }
 
-const DocTypes = ref([])
+ 
 const getDocumentTypes = async () => {
 }
 
 
 //id","name","county_id","settlement_type","geom","area","population","code","description"
 const activityOptions = ref([])
-const getActivities = async () => {
-}
+ 
 getDocumentTypes()
-getActivities()
+ 
 
 
 const readJson = (event) => {
@@ -1967,6 +1966,47 @@ const remoteMethod = async (keyword) => {
 
 }
 
+ 
+const getActivities = async (keyword) => {
+  console.log(keyword, project_id.value)
+  const formData = {}
+  formData.model = 'activity'
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = keyword
+  formData.excludeGeom = false
+  formData.associated_multiple_models = []
+
+  //--Single Filter -----------------------------------------
+ 
+
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+
+  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+  //-------------------------
+  console.log("formData", formData)
+  const res = await searchByKeyWord(formData)
+
+  console.log("res.data", res.data)
+
+  if (res.data && res.data.length > 0) {
+    activityOptions.value = res.data.map(item => ({
+      value: item.id,
+      label: item.title,
+      code: item.code,
+      project_id:project_id.value
+      
+    }));
+
+  }
+
+
+  console.log('sett_options.value', sett_options.value)
+
+}
 
 const AddLocation = async () => {
 
@@ -2008,8 +2048,47 @@ const AddLocation = async () => {
   sett_options.value = []
 }
 
+const AddActivity = async () => {
+
+//console.log('deleted_locations',deleted_locations)
+var form = {}
+form.model = 'project_activity'
+
+console.log('project_id', project_id.value)
+console.log('locations', extra_activities.value)
+
+// fist check if theres any proehct with this id exists then delete all
+
+const activity_objects = [];
+
+for (let i = 0; i < extra_activities.value.length; i++) {
+  console.log(extra_activities.value[i])
+  let obj = {}
+  obj.project_id = extra_activities.value[i].project_id
+  obj.activity_id = extra_activities.value[i].value
+ 
+ 
+  activity_objects.push(obj)
+  console.log('obj', obj)
+}
+
+form.data = activity_objects
+console.log('formData', form)
+
+ const loc_res = await BatchImportUpsert(form)
+ console.log('loc_res', loc_res)
+
+// 
+//getProjectLocations(project_id.value)
+// Empty the locations and 
+//extra_locations.value = []
+//sett_options.value = []
+}
+
+
 const ShowLocationAddDialog = ref(false)
 const ShowActivityAddDialog = ref(false)
+const extra_activities = ref([])
 
 
 const handleCloseAdd = () => {
@@ -2498,19 +2577,19 @@ const ImportProjects = async () => {
 
 
     <el-dialog v-model="ShowActivityAddDialog" title="Add Project Activity" width="500" :before-close="handleCloseAdd">
-      <el-select id="location-select" v-model="project_activities" multiple filterable remote reserve-keyword
-        placeholder=" Search Activities" :remote-method="remoteMethod" style="width: 85%">
-        <el-option v-for="item in sett_options" :key="item.id" :label="item.label" :value="item">
+      <el-select id="location-select" v-model="extra_activities" multiple filterable remote reserve-keyword
+        placeholder=" Search Activities" :remote-method="getActivities" style="width: 85%">
+        <el-option v-for="item in activityOptions" :key="item.id" :label="item.label" :value="item">
           <div style="display: flex; align-items: center;">
             <span style="flex: 1; text-align: left;">{{ item.label }}</span>
             <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
-              {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+              {{ item.code }} 
             </span>
           </div>
         </el-option>
       </el-select>
       <el-tooltip content="Save" placement="top">
-        <el-button :onClick="AddLocation" style="margin-left :10px;" type="primary">
+        <el-button :onClick="AddActivity" style="margin-left :10px;" type="primary">
           <Icon icon="ic:round-save" style=" color: white" size="48" />
         </el-button>
 
@@ -2523,8 +2602,6 @@ const ImportProjects = async () => {
 
 
   <el-dialog v-model="uploadDialog" title="Import Document" width="400" @close="uploadDialog = false">
-
-
     <span>
       To upload data on projects, use this
       <button @click="handleDownload" class="template-link">template</button>
