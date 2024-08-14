@@ -1,72 +1,56 @@
-const Sequelize = require('sequelize')
+const Sequelize = require('sequelize');
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
     'indicator_category',
     {
-        
       indicator_id: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
       },
-       
       indicator_name: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
       },
       category_id: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
       },
       project_id: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
       },
       activity_id: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
       },
-      
       project_location_id: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
       },
-
-      
-
-
-
       category_title: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
       },
       frequency: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: false,
       },
-
       target: {
         type: DataTypes.DECIMAL,
-        allowNull: false
+        allowNull: false,
       },
-
       baseline: {
         type: DataTypes.DECIMAL,
-        allowNull: false
+        allowNull: false,
       },
-
-
-      
-
-
       createdBy: {
         type: DataTypes.INTEGER,
-        allowNull: true
+        allowNull: true,
       },
-   
-       code: {
+      code: {
         type: DataTypes.STRING,
-        allowNull: true
-      }
+        allowNull: true,
+      },
     },
     {
       sequelize,
@@ -77,13 +61,19 @@ module.exports = function (sequelize, DataTypes) {
         {
           name: 'indicator_category_pkey',
           unique: true,
-          fields: [{ name: 'id' }]
+          fields: [{ name: 'id' }],
         },
         {
+          name: 'unique_indicator_project_category',
           unique: true,
-          fields: ['indicator_id', 'project_location_id', 'category_id','project_id'  ]
+          fields: [
+            { name: 'indicator_id' },
+            { name: 'project_location_id' },
+            { name: 'category_id' },
+            { name: 'project_id' },
+          ],
         },
-      ]
+      ],
     }
-  )
-}
+  );
+};
