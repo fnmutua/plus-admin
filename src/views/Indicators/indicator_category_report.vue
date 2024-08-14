@@ -2,7 +2,6 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance } from 'element-plus'
@@ -45,9 +44,6 @@ import xlsx from "json-as-xlsx"
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
-import {
-  countyOptions, settlementOptionsV2, subcountyOptions, wardOptions
-} from './common/index.ts'
 
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 
@@ -83,7 +79,6 @@ const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
-const countyOptions = ref([])
 
 
 const categories = ref([])
@@ -91,11 +86,9 @@ const filteredIndicators = ref([])
 const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
-const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
-const downloadLoading = ref(false)
 const showAdminButtons =  ref(appStore.getAdminButtons)
 const showEditButtons =  ref(appStore.getEditButtons)
 
@@ -113,6 +106,7 @@ const ruleForm = reactive({
   baseline: 0,
   target:0,
   project_id: '',
+  project_location_id:null,
   activity_id: '',
   programme_implementation_id: '',
   settlement_id: '',
@@ -194,11 +188,6 @@ const show = ref(false)
 const { t } = useI18n()
 
 
-const statusOptions = [
-  { label: 'Ongoing', value: 1 },
-  { label: 'Suspended', value: 2 },
-  { label: 'Completed', value: 3 },
-]
 
 const handleClear = async () => {
   console.log('cleared....')
@@ -458,9 +447,6 @@ const getProjects = async () => {
 }
 
 
-const props1 = {
-  checkStrictly: true,
-}
 
 const editReport = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
@@ -558,7 +544,61 @@ const handleClose = () => {
 }
 
 
+const project_locations =ref([])
+const getProjectLocations = async (project_id) => {
+  console.log('project_id', project_id);
+  console.log("Get Locations for  proejct : ",project_id )
 
+  // Get the project settlement ids
+  const formData = {
+    model: 'project_location',
+    searchField: 'name',
+    searchKeyword: '',
+    filters: ['project_id'],
+    filterValues: [[project_id]],
+    associated_multiple_models: []
+  };
+
+  const res = await getSettlementListByCounty(formData);
+  const sett_ids = res.data.map(item => item.settlement_id); // Extract settlement_id
+  console.log('sett_ids', sett_ids);
+
+  // Fetch settlements and their details
+  const form = {
+    model: 'settlement',
+    filters: ['id'],
+    filterValues: [sett_ids],
+    excludeGeom: true,
+    associated_multiple_models: ['county', 'subcounty', 'ward']
+  };
+
+  const setts = await getSettlementListByCounty(form);
+  console.log('setts', setts);
+
+  // Map settlements to include additional details
+  const settlements = setts.data.map(item => ({
+    county: item.county.name,
+    subcounty: item.subcounty.name,
+    ward: item.ward.name,
+    settlement: item.name,
+    settlement_id: item.id
+  }));
+
+  // Join project locations with settlement details based on settlement_id
+  project_locations.value = res.data.map(projectLocation => {
+    const settlement = settlements.find(sett => sett.settlement_id === projectLocation.settlement_id);
+    return {
+      ...projectLocation,
+      county: settlement ? settlement.county : null,
+      subcounty: settlement ? settlement.subcounty : null,
+      ward: settlement ? settlement.ward : null,
+      settlementName: settlement ? settlement.settlement : null
+    };
+  });
+
+
+  console.log('project_locations', project_locations.value);
+};
 
 
 const changeProject = async (project: any) => {
@@ -585,6 +625,10 @@ const changeProject = async (project: any) => {
   indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
     return el.project_id == project
   });
+
+  getProjectLocations(project)
+
+
 
 }
 
@@ -641,9 +685,6 @@ const AddReport = () => {
   showSubmitBtn.value = true
 }
 
-const ImportReports = () => {
-  ImportDialogVisible.value = true
-}
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
@@ -731,7 +772,6 @@ const editForm = async (formEl: FormInstance | undefined) => {
       const updateformData = new FormData()
       // uploading the documents 
 
-      const formData = new FormData()
       for (var i = 0; i < fileUploadList.value.length; i++) {
 
         console.log('------>file', fileUploadList.value[i])
@@ -817,7 +857,7 @@ const submitBatchImport = async () => {
 
 
 
-const getCumulativeProgress = async (indicator_category_id) => {
+const getCumulativeProgress = async () => {
 
   var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 'programme_implementation_id',
   ]
@@ -985,7 +1025,7 @@ const parentCodes = ['countyCode', 'settlementCode', 'indicator_categoryCode']
 const uploadedData = ref([])
 
 const parentData = ref([]);
-const getParentOptions = async (parent, parentSNo) => {
+const getParentOptions = async (parent) => {
 
   await getCountyListApi({
     params: {
@@ -1009,7 +1049,6 @@ const getParentOptions = async (parent, parentSNo) => {
 }
 
 const fileList = ref<UploadUserFile[]>([])
-const morefileList = ref<UploadUserFile[]>([])
 
 const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
   console.log(file, uploadFiles)
@@ -1201,84 +1240,14 @@ const tableRowClassName = (data) => {
   return ''
 }
 
-const documentCategory = ref()
 
 
 
-const downloadFile = async (data) => {
-
-  console.log(data.name)
-
-  const formData = {}
-  formData.filename = data.name
-  formData.responseType = 'blob'
-  await getFile(formData)
-    .then(response => {
-      console.log(response)
-
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', data.name)
-      document.body.appendChild(link)
-      link.click()
-
-    })
-    .catch(error => {
-      console.error('Error downloading file:', error);
-    });
-
-}
 
 
 
 const DocTypes = ref([])
 const getDocumentTypes = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'document_type',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Document Typest:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-
-    const nestedData = ret.reduce((acc, cur) => {
-      const group = cur.group;
-      if (!acc[group]) {
-        acc[group] = [];
-      }
-      acc[group].push(cur);
-      return acc;
-    }, {});
-
-    console.log(nestedData.Map)
-    for (let property in nestedData) {
-      let opts = nestedData[property];
-      var doc = {}
-      doc.label = property
-      doc.options = []
-
-      opts.forEach(function (arrayItem) {
-        let opt = {}
-        opt.value = arrayItem.id
-        opt.label = arrayItem.type
-        doc.options.push(opt)
-
-      })
-      DocTypes.value.push(doc)
-
-    }
-    console.log(DocTypes)
-
-  })
 }
 getDocumentTypes()
 
@@ -1359,7 +1328,6 @@ const DownloadXlsx = async () => {
 /// Uplaod docuemnts from a central component 
 const mfield = 'report_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
-const selectedRow = ref([])
 const dynamicComponent = ref();
 const componentProps = ref({
   message: 'Hello from parent',
@@ -1676,10 +1644,6 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
       </template>
     </el-table-column>
 
-
-
-      <!-- <el-table-column label="County" prop="county.name" sortable /> -->
-      <!-- <el-table-column label="Unit" prop="indicator_category.indicator.unit" sortable /> -->
       <el-table-column label="Category" prop="indicator_category.category_title" sortable />
       <el-table-column label="Amount" prop="amount" sortable />
       <el-table-column label="Status" prop="status" sortable />
@@ -1747,13 +1711,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   </ContentWrap>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
-
-
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
       <el-row :gutter="10">
-
         <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-
           <el-form-item label="Project">
             <el-select-v2
               filterable 
@@ -1763,7 +1723,25 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
               :options="projectOptions"
               placeholder="Select Project"/>
           </el-form-item>
-    
+          <el-form-item id="btn2"  label="Location" prop="project_id">
+            <el-select
+                ref="ref2"
+                v-model="ruleForm.project_location_id"
+                value-key="id"
+                placeholder="Select"
+                style="width: 100%; vertical-align: middle"
+              >
+              <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
+              <div style="display: flex; align-items: center;">
+                <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
+                <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
+                  {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                </span>
+              </div>
+            </el-option>
+          </el-select>
+          </el-form-item>
+          
           <el-form-item label="Activity">
             <el-select-v2
             filterable v-model="ruleForm.activity_id" 

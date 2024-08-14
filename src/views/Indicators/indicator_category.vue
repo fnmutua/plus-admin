@@ -1185,8 +1185,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
             />
           </el-form-item>
           <el-form-item id="btn2"  label="Location" prop="project_id">
-           
-
             <el-select
                 ref="ref2"
                 v-model="ruleForm.project_location_id"
