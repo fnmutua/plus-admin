@@ -2319,9 +2319,7 @@ size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear
         <el-tooltip content="Add Project" placement="top">
           <el-button @click="AddProject" type="primary" :icon="Plus" />
         </el-tooltip>
-        <el-tooltip content="Add Beneficiary" placement="top">
-          <el-button @click="AddBeneficiary" type="primary" :icon="User" />
-        </el-tooltip>
+      
         <el-tooltip content="Download" placement="top">
           <el-button @click="DownloadXlsx" type="primary" :icon="Download" />
         </el-tooltip>
@@ -2497,58 +2495,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 
 
-    <el-dialog
-v-model="AddBeneficiaryDialogVisible" @close="handleClose" title="Add Beneficiary" :width="dialogWidth"
-      draggable>
-      <el-form ref="BeneficaryFormRef" :model="BeneficaryForm" :rules="rules" label-width="120px">
-
-        <el-form-item label="County" prop="hh_id">
-          <el-select
-v-model="BeneficaryForm.county_id" filterable placeholder="Select"
-            :disabled="disableBeneficiaryInputs" :onChange="handleSelectCounty">
-            <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="Settlement" prop="hh_id">
-          <el-select
-v-model="BeneficaryForm.settlement_id" filterable :disabled="disableBeneficiaryInputs"
-            placeholder="Select" :onChange="getSettlementProjects">
-            <el-option
-v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
-              :value="item.value" />
-          </el-select>
-        </el-form-item>
-
-
-
-        <el-form-item label="Project" prop="project_id">
-          <el-select
-v-model="BeneficaryForm.project_id" filterable placeholder="Select" :onChange="handleSelectProject"
-            :disabled="disableBeneficiaryInputs">
-            <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-
-
-
-        <el-form-item label="Beneficiary" prop="hh_id">
-          <el-select v-model="BeneficaryForm.hh_id" multiple filterable placeholder="Select">
-            <el-option v-for="item in settlementHHoptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-
-
-
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="AddBeneficiaryDialogVisible = false">Cancel</el-button>
-          <el-button type="primary" @click="submitBeneficiaryForm(BeneficaryFormRef)">Submit</el-button>
-
-        </span>
-      </template>
-    </el-dialog>
+     
 
     <el-dialog v-model="showUploadDialog" title="Upload a Zipped Shapefile/Geojson/KML/KMZ" width="30%" draggable>
 
