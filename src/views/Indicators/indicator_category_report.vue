@@ -4,7 +4,7 @@ import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance, ElCard } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance, ElCard, ElBadge } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -53,7 +53,7 @@ import DownloadAll from '@/views/Components/DownloadAll.vue';
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
-
+ 
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
@@ -1254,9 +1254,9 @@ getInterventionsAll()
 
 const tableRowClassName = (data) => {
   // console.log('Row Styling --------->', data.row)
-  if (data.row.documents.length > 0) {
-    return 'warning-row'
-  }
+  // if (data.row.documents.length > 0) {
+  //   return 'warning-row'
+  // }
   if (data.row.status =='Rejected' ) {
     return 'danger-row'
   }
@@ -1685,10 +1685,16 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
  
         </template>
       </el-table-column>
-      <el-table-column label="#" width="80" prop="id" sortable />
-
+      <el-table-column label="#x" width="80" prop="id" sortable>
+      <template #default="scope">
+        <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+        <span>{{ scope.row.id }}</span>
+         <Icon icon="material-symbols:attachment"  style="margin-left: 4px;"  />
+      </div>
+      </template>
+    </el-table-column>
+       
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
-
       <el-table-column label="Date" prop="date" sortable>
         <template #default="scope">
           {{ formatDate(scope.row.date) }}
@@ -1697,7 +1703,20 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
 
       <el-table-column label="Category" prop="indicator_category.category_title" sortable />
       <el-table-column label="Amount" prop="amount" sortable />
-      <el-table-column label="Status" prop="status" sortable />
+ 
+      <el-table-column label="Status" prop="status" sortable>
+        <template #default="scope">
+          <div v-if="scope.row.status === 'Rejected'">
+            <el-tooltip :content="scope.row.reject_msg" placement="top">
+              <span>{{ scope.row.status }}</span>
+            </el-tooltip>
+          </div>
+          <div v-else>
+            <span>{{ scope.row.status }}</span>
+          </div>
+        </template>
+      </el-table-column>
+
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -1968,4 +1987,10 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
   --el-table-tr-text-color: var(--el-color-success);
   color: var(--el-table-tr-text-color);
 }
+
+.item {
+  margin-top: 10px;
+  margin-right: 40px;
+}
+
 </style>
