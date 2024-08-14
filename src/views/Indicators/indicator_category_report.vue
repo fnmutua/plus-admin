@@ -1685,12 +1685,15 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
  
         </template>
       </el-table-column>
-      <el-table-column label="#x" width="80" prop="id" sortable>
+      <el-table-column label="#" width="80" prop="id" sortable>
       <template #default="scope">
         <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
         <span>{{ scope.row.id }}</span>
          <Icon icon="material-symbols:attachment"  style="margin-left: 4px;"  />
       </div>
+
+    
+            
       </template>
     </el-table-column>
        
