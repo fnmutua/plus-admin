@@ -13,7 +13,7 @@ import { Position, Plus, User, Download, Delete, Edit, InfoFilled, UploadFilled,
 import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, BatchImportUpsert, getfilteredGeo } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, BatchImportUpsert, getfilteredGeo,DeleteRecordByCriteria } from '@/api/settlements'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -181,7 +181,7 @@ let filterValues = [[component_id.value]]   // make sure the inner array is arra
 var tblData = []
 const associated_Model = ''
 //const associated_multiple_models = ['settlement', 'county', 'subcounty', 'component', 'document']
-const associated_multiple_models = ['component', 'programme_implementation', 'document']
+const associated_multiple_models = ['component', 'activity', 'programme_implementation', 'document']
 //const nested_models = ['component', 'programme'] // The mother, then followed by the child
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
@@ -1042,6 +1042,27 @@ const DeleteProjectLocation = (data: TableSlotDefault) => {
 }
 
 
+const DeleteProjectActivity = (data: TableSlotDefault) => {
+  console.log('--DeleteProjectActivity--->', data)
+  let formData = {}
+  formData.criteria = data.project_activity
+  formData.model = 'project_activity'
+
+ console.log(formData)
+
+  DeleteRecordByCriteria(formData)
+
+
+  // remove the deleted object from array list 
+  let index = project_activities.value.indexOf(data);
+  if (index !== -1) {
+    project_activities.value.splice(index, 1);
+  }
+
+}
+
+
+
 const DeleteProject = (data: TableSlotDefault) => {
   console.log('----->', data)
   let formData = {}
@@ -1693,6 +1714,7 @@ const getProjectLocations = async (project_id) => {
 
 const project_id = ref()
 const expandedRow = ref(null);
+const project_activities = ref(null);
 
 
 
@@ -1702,7 +1724,7 @@ function handleExpand(row) {
   getProjectLocations(row.id)
   project_id.value = row.id
 
-
+  project_activities.value=row.activities
 
   // toggle collapes
   if (expandedRow.value) {
@@ -1895,6 +1917,7 @@ const fileList = ref([])
 
 const sett_options = ref([])
 const extra_locations = ref()
+ 
 
 
 const remoteMethod = async (keyword) => {
@@ -1986,11 +2009,15 @@ const AddLocation = async () => {
 }
 
 const ShowLocationAddDialog = ref(false)
+const ShowActivityAddDialog = ref(false)
 
 
 const handleCloseAdd = () => {
   ShowLocationAddDialog.value = false
+  ShowActivityAddDialog.value=false
 }
+
+
 const tableRef = ref(null);
 
 const searchKey = ref('')
@@ -2251,6 +2278,48 @@ const ImportProjects = async () => {
 
 
                   </el-tab-pane>
+                  <el-tab-pane label="Activities">
+                    <el-table :data="project_activities" height="250" stripe>
+                      <el-table-column type="index" />
+                      <el-table-column prop="title" label="Activity" />
+ 
+                      <el-table-column width="50">
+                        <template #header>
+                          <el-tooltip content="Add Location" placement="top">
+                            <el-button size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
+                              circle />
+                          </el-tooltip>
+                        </template>
+                      </el-table-column>
+
+                      <el-table-column label="Operations">
+                        <template #header>
+                          <el-input v-model="searchKey" size="small" placeholder="Filter" />
+                        </template>
+                        <template #default="scope">
+                          <el-tooltip content="View on Map" placement="top">
+                            <el-button type="secondary" size="small" :icon="Position"
+                              @click="flyTo(scope as TableSlotDefault)" circle />
+                          </el-tooltip>
+
+                          <el-tooltip content="Delete" placement="top">
+                            <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No"
+                              :icon="InfoFilled" icon-color="#626AEF"
+                              title="Are you sure to delete this project activity?"
+                              @confirm="DeleteProjectActivity(scope.row as TableSlotDefault)">
+                              <template #reference>
+                                <el-button size="small" v-if="showAdminButtons" type="secondary" :icon=Delete circle />
+                              </template>
+                            </el-popconfirm>
+                          </el-tooltip>
+
+                        </template>
+                      </el-table-column>
+
+                    </el-table>
+
+
+                  </el-tab-pane>
 
 
                   <el-tab-pane label="Documents">
@@ -2427,6 +2496,28 @@ const ImportProjects = async () => {
 
     </el-dialog>
 
+
+    <el-dialog v-model="ShowActivityAddDialog" title="Add Project Activity" width="500" :before-close="handleCloseAdd">
+      <el-select id="location-select" v-model="project_activities" multiple filterable remote reserve-keyword
+        placeholder=" Search Activities" :remote-method="remoteMethod" style="width: 85%">
+        <el-option v-for="item in sett_options" :key="item.id" :label="item.label" :value="item">
+          <div style="display: flex; align-items: center;">
+            <span style="flex: 1; text-align: left;">{{ item.label }}</span>
+            <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
+              {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+            </span>
+          </div>
+        </el-option>
+      </el-select>
+      <el-tooltip content="Save" placement="top">
+        <el-button :onClick="AddLocation" style="margin-left :10px;" type="primary">
+          <Icon icon="ic:round-save" style=" color: white" size="48" />
+        </el-button>
+
+
+      </el-tooltip>
+
+    </el-dialog>
 
   </el-card>
 
