@@ -2,11 +2,11 @@
 import { ref, toRefs, onMounted } from 'vue'
 import {
   ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElOption, ElTable, ElTableColumn, ElDropdown,
-  ElDropdownItem, ElPopconfirm, ElTooltip, ElInput
+  ElDropdownItem, ElPopconfirm, ElTooltip,ElInput
 } from 'element-plus';
 import {
-  Position, View, Plus, User, TopRight, Briefcase, Download, Delete, Edit,  
-  Filter, InfoFilled, CopyDocument, Search, Setting, Loading,UploadFilled
+  Position, View, Plus, User, TopRight, Briefcase, Download, Delete, Edit,
+  Filter, InfoFilled, CopyDocument, Search, Setting, Loading
 } from '@element-plus/icons-vue'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { ElMessage, ElPagination } from 'element-plus'
@@ -37,31 +37,15 @@ const { show } = toRefs(props)
 // const props = defineProps(['message', 'showDialog', 'data', 'docmodel', 'field']);
 // const { show } = toRefs(props);
 
-const searchQuery = ref('');
-
-const filterDocuments = () => {
-  const query = searchQuery.value.toLowerCase();
-  tableDocumentsFiltered.value = tableDocuments.value.filter(document => 
-    document.name.toLowerCase().includes(query)
-  );
-};
-
-
-const onSearch = () => {
-  filterDocuments();
-};
-
 
 // lifecycle hooks
 onMounted(() => {
 
   console.log('data----x', props.data)
   console.log('userInfo----x', userInfo)
-  filterDocuments();
 
 
 })
-
 
 const tableDocuments = ref([])
 const tableDocumentsFiltered = ref([])
@@ -117,7 +101,55 @@ if (userInfo.roles.includes("public")) {
 
 const downloadStarted = ref(false)
 
- 
+const xdownloadFile = async (data) => {
+
+  console.log(data.name)
+
+  const formData = {}
+
+  let fname
+  const filename = data.row.name;
+  // Check if the filename has an extension
+  if (!/\.\w+$/.test(filename)) {
+    fname = filename + '.' + data.row.format
+  } else {
+    fname = filename
+
+  }
+
+  formData.filename = fname
+  console.log("file name:", formData)
+
+
+  formData.doc_id = data.id
+  formData.responseType = 'blob'
+  await getFile(formData)
+    .then(response => {
+      console.log(response)
+
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      // link.setAttribute('download', data.name)
+      const filename = data.row.name;
+      // Check if the filename has an extension
+      if (!/\.\w+$/.test(filename)) {
+        link.setAttribute('download', `${filename}.${data.row.format}`);
+
+      } else {
+        link.setAttribute('download', filename);
+      }
+
+
+      document.body.appendChild(link)
+      link.click()
+
+    })
+    .catch(error => {
+      ElMessage.error('Failed')
+    });
+
+}
 
 
 const downloadFile = async (data) => {
@@ -159,7 +191,24 @@ const downloadFile = async (data) => {
 
 
 const docFormats = []
- 
+const xviewDocument = async (data) => {
+  const documentUrl = data.url; // Use 'data.url' to access the document URL
+
+  const formData = {};
+  formData.filename = data.name;
+  formData.doc_id = data.id;
+  formData.responseType = 'blob';
+
+  try {
+    const response = await getFile(formData);
+    const blobData = new Blob([response.data], { type: response.headers['content-type'] });
+    const url = window.URL.createObjectURL(blobData);
+    window.open(url, '_blank');
+  } catch (error) {
+    console.error(error);
+    ElMessage.error('Failed to load the document.');
+  }
+};
 
 const viewLoading = ref(false)
 
@@ -229,93 +278,88 @@ const handlePageChange = async (newPage) => {
 
 //<el-table  :data="docs.slice((currentPage - 1) * pageSize, currentPage * pageSize)"
 
-const emit = defineEmits(['openDialog']);
 
-const addDocument = () => {
-  emit('openDialog');
-};
 </script>
 
- 
+
 
 <template>
 
-  <div  >
+  <el-table
+v-loading="viewLoading" stripe="true" empty-text="No Documents" height="250"  style="width: 100%" 
+    :data="tableDocumentsFiltered.slice((currentPage - 1) * pageSize, currentPage * pageSize)"   >
 
-    <div class="search-add-container">
-      <el-input 
-        v-model="searchQuery" 
-        placeholder="Filter documents..." 
-        clearable
-       
-        @input="onSearch"
-      />
-   
+    <el-table-column label="Name" prop="name" sortable  width="350"/>
+    <el-table-column label="Type" prop="document_type.type" sortable />
+    <el-table-column label="Size(mb)" prop="size" sortable />
 
-      <el-tooltip content="Import Documents" placement="top">
-        <el-button 
-        type="primary" 
-         :icon="UploadFilled"
-        @click="addDocument"
-      >Import</el-button>
-    </el-tooltip>
-
-
-    </div>
-
-
-    <ul v-infinite-scroll="tableDocumentsFiltered"   v-loading="viewLoading" :infinite-scroll-disabled="disabled"   class="infinite-list" style="overflow: auto">
-    <li v-for="document in tableDocumentsFiltered" :key="document.id" class="list-item">
-      <span class="document-name">{{ document.name }}</span>
-
-      <div class="button-container">
-        <el-button size="small" type="primary" @click="viewDocument(document)" :icon="TopRight" plain />
-        <el-button size="small" v-loading="downloadStarted" type="success" @click="downloadFile(document)" :icon="Download" plain />
-        <el-popconfirm
-          confirm-button-text="Yes"
-          cancel-button-text="No"
-          :icon="InfoFilled"
-          width="290px"
-          icon-color="#626AEF"
-          title="Are you sure to delete this document?"
-          @confirm="removeDocument(document)"
-        >
-          <template #reference>
-            <el-button size="small" type="danger" v-if="userIsAdmin || documentOwner" :icon="Delete" plain />
+    <el-table-column v-if="!denyDownload" label="Upload">
+          <template #header>
+            <el-input v-model="searchKey" size="small" placeholder="Add Button here" />
           </template>
-        </el-popconfirm>
-      </div>
-    </li>
-  </ul>
-    <p v-if="loading">Loading...</p>
-    <p v-if="noMore">No more</p>
-  </div>
- 
+ </el-table-column>
 
- 
+
+    <el-table-column v-if="!denyDownload" label="Actions">
+      <template #header>
+        <el-input v-model="searchKey" size="small" placeholder="Filter" />
+      </template>
+      <template #default="scope">
+        <el-dropdown v-if="isMobile">
+          <span class="el-dropdown-link">Actions</span>
+          <el-dropdown-menu>
+            <el-dropdown-item @click="downloadFile(scope.row)">Download</el-dropdown-item>
+            <el-dropdown-item @click="viewDocument(scope.row)">View</el-dropdown-item> <!-- New "View" button -->
+            <el-dropdown-item
+v-if="userIsAdmin || documentOwner"
+              @click="removeDocument(scope.row)">Remove</el-dropdown-item>
+          </el-dropdown-menu>
+        </el-dropdown>
+        <div v-else>
+
+
+
+
+
+          <el-tooltip content="Download" placement="top">
+            <el-button
+size="small" v-loading="downloadStarted" type="success" @click="downloadFile(scope.row)"
+              :icon="Download" circle />
+          </el-tooltip>
+
+          <el-tooltip content="View" placement="top">
+            <el-button size="small" type="primary" @click="viewDocument(scope.row)" :icon="TopRight" circle />
+
+          </el-tooltip>
+          <el-tooltip content="Delete" placement="top">
+            <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="290px"
+              icon-color="#626AEF" title="Are you sure to delete this document?" @confirm="removeDocument(scope.row)">
+              <template #reference>
+                <el-button size="small" type="danger" v-if="userIsAdmin || documentOwner" :icon="Delete" circle />
+
+              </template>
+            </el-popconfirm>
+          </el-tooltip>
+
+        </div>
+      </template>
+    </el-table-column>
+
+  </el-table>
+
+
+  <div class="pagination-wrapper" v-if="tableDocumentsFiltered.length > 5">
+    <div class="pagination-center">
+      <el-pagination
+:page-size="5" small layout="prev, pager, next" :total="tableDocumentsFiltered.length"
+        @current-change="handlePageChange" />
+    </div>
+  </div>
 </template>
 
 
-<style>
-.infinite-list {
-  height: 250px;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-.infinite-list .infinite-list-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 50px;
-  background: var(--el-color-primary-light-9);
-  margin: 10px;
-  color: var(--el-color-primary);
-}
-.infinite-list .infinite-list-item + .list-item {
-  margin-top: 10px;
-}
-</style>
+
 
 <style scoped>
 .pagination-wrapper {
@@ -328,49 +372,4 @@ const addDocument = () => {
   text-align: center;
 
 }
-</style>
-
-
-<style scoped>
-.list-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px;
-  border-bottom: 1px solid #ebeef5;
-}
-
-.document-name {
-  flex-grow: 1;
-  max-width: 70%; /* Takes up 70% of the space */
-  margin-right: 10px;
-  word-wrap: break-word; /* Ensures text wraps */
-  white-space: normal; /* Allows text to wrap */
-  font-size: 0.9em; /* Makes the text smaller */
-  font-style: italic; /* Makes the text italic */
-}
-.search-add-container {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.el-button {
-  margin-left: 5px;
-}
-
-.list-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between; /* Adjusts space between content and buttons */
-  padding: 8px;
-  border-bottom: 1px solid #ebeef5;
-}
-.list {
-  height: 300px;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
 </style>

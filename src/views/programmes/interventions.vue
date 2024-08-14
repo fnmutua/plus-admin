@@ -31,8 +31,10 @@ import proj4 from 'proj4';
 import { getModelSpecs } from '@/api/fields'
 
 import {
-  countyOptions, settlementOptionsV2, subcountyOptions,
+  countyOptions, settlementOptionsV2, subcountyOptions,implementationOptions
 } from './common/index.ts'
+
+ 
 
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
@@ -259,9 +261,7 @@ const onPageSizeChange = async (size: any) => {
 
 
 
-const implementationOptions = ref([])
-const getImplementationSponsors = async () => {
-}
+ 
 
 
 const getAllProjects = async () => {
@@ -842,8 +842,7 @@ const getInterventionComponents = async () => {
 getAllProjects()
 getInterventionComponents()
 getBeneficiaries(filtersBen, filterValuesBen)  // First time
-getImplementationSponsors()
-
+ 
 
 
 //*****************************Create**************************** */
@@ -2066,6 +2065,7 @@ for (let i = 0; i < extra_activities.value.length; i++) {
   let obj = {}
   obj.project_id = extra_activities.value[i].project_id
   obj.activity_id = extra_activities.value[i].value
+  obj.title = extra_activities.value[i].label
  
  
   activity_objects.push(obj)
@@ -2077,7 +2077,10 @@ console.log('formData', form)
 
  const loc_res = await BatchImportUpsert(form)
  console.log('loc_res', loc_res)
+ 
+ project_activities.value.push(...activity_objects);
 
+ console.log('project_activities', project_activities.value)
 // 
 //getProjectLocations(project_id.value)
 // Empty the locations and 
@@ -2117,6 +2120,27 @@ const project_locations_filtered = computed(() => {
     return !searchValue || matchesSettlementName || matchesCounty || matchesSubcounty;
   });
 });
+
+const searchKeyActivity = ref('')
+
+
+// Define the computed property
+const project_activities_filtered = computed(() => {
+  const searchValue = searchKeyActivity.value.toLowerCase();
+  // Log current project_locations value
+  return project_activities.value.filter(data => {
+    // Ensure all fields are checked and filtered
+    const matchesTitle = data.title.toLowerCase().includes(searchValue);
+    return !searchValue || matchesTitle ;
+  });
+});
+
+
+
+
+
+
+
 
 
 const field_set = ref([])
@@ -2273,11 +2297,13 @@ const ImportProjects = async () => {
       </div>
 
       <!-- Title Search -->
-      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select
+v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Title" style="width: 150px; margin-right: 10px;" />
 
       <!-- Programme Filter -->
-      <el-select size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear" multiple clearable
+      <el-select
+size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear" multiple clearable
         filterable collapse-tags placeholder="By Programme" style="width: 150px; margin-right: 10px;">
         <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -2308,7 +2334,8 @@ const ImportProjects = async () => {
 
     <el-tabs @tab-click="onClickTab" v-model="activeName" type="border-card" style="width: 100%; margin-top: 5px;">
       <el-tab-pane label="Interventions" name="list">
-        <el-table ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
+        <el-table
+ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
           :row-class-name="tableRowClassName" flexible @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
@@ -2323,90 +2350,78 @@ const ImportProjects = async () => {
                       <el-table-column width="50">
                         <template #header>
                           <el-tooltip content="Add Location" placement="top">
-                            <el-button size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
+                            <el-button
+size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
                               circle />
                           </el-tooltip>
                         </template>
                       </el-table-column>
-
                       <el-table-column label="Operations">
                         <template #header>
                           <el-input v-model="searchKey" size="small" placeholder="Filter" />
                         </template>
                         <template #default="scope">
                           <el-tooltip content="View on Map" placement="top">
-                            <el-button type="secondary" size="small" :icon="Position"
+                            <el-button
+type="secondary" size="small" :icon="Position"
                               @click="flyTo(scope as TableSlotDefault)" circle />
                           </el-tooltip>
-
                           <el-tooltip content="Delete" placement="top">
-                            <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No"
+                            <el-popconfirm
+confirm-button-text="Yes" width="220" cancel-button-text="No"
                               :icon="InfoFilled" icon-color="#626AEF"
                               title="Are you sure to delete this project location?"
                               @confirm="DeleteProjectLocation(scope.row as TableSlotDefault)">
                               <template #reference>
-                                <el-button size="small" v-if="showAdminButtons" type="secondary" :icon=Delete circle />
+                                <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
                               </template>
                             </el-popconfirm>
                           </el-tooltip>
-
                         </template>
                       </el-table-column>
-
                     </el-table>
-
 
                   </el-tab-pane>
                   <el-tab-pane label="Activities">
-                    <el-table :data="project_activities" height="250" stripe>
+                    <el-table :data="project_activities_filtered" height="250" stripe>
                       <el-table-column type="index" />
                       <el-table-column prop="title" label="Activity" />
  
                       <el-table-column width="50">
                         <template #header>
-                          <el-tooltip content="Add Location" placement="top">
-                            <el-button size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
+                          <el-tooltip content="Add Activity" placement="top">
+                            <el-button
+size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
                               circle />
                           </el-tooltip>
                         </template>
                       </el-table-column>
-
                       <el-table-column label="Operations">
                         <template #header>
-                          <el-input v-model="searchKey" size="small" placeholder="Filter" />
+                          <el-input v-model="searchKeyActivity" size="small" placeholder="Filter" />
                         </template>
                         <template #default="scope">
-                          <el-tooltip content="View on Map" placement="top">
-                            <el-button type="secondary" size="small" :icon="Position"
-                              @click="flyTo(scope as TableSlotDefault)" circle />
-                          </el-tooltip>
-
-                          <el-tooltip content="Delete" placement="top">
-                            <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No"
+                <el-tooltip content="Delete" placement="top">
+                            <el-popconfirm
+              confirm-button-text="Yes" width="220" cancel-button-text="No"
                               :icon="InfoFilled" icon-color="#626AEF"
                               title="Are you sure to delete this project activity?"
                               @confirm="DeleteProjectActivity(scope.row as TableSlotDefault)">
                               <template #reference>
-                                <el-button size="small" v-if="showAdminButtons" type="secondary" :icon=Delete circle />
+                                <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
                               </template>
                             </el-popconfirm>
                           </el-tooltip>
-
                         </template>
                       </el-table-column>
-
                     </el-table>
-
-
                   </el-tab-pane>
-
-
                   <el-tab-pane label="Documents">
                     <div>
-                      <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                     
+                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"  @openDialog="toggleComponent(props.row)" />
                     </div>
-                    <el-button style="margin-left: 10px;margin-top: 2px" size="small" v-if="showEditButtons"
-                      type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+               
                   </el-tab-pane>
                 </el-tabs>
 
@@ -2415,8 +2430,7 @@ const ImportProjects = async () => {
             </template>
           </el-table-column>
           <el-table-column label="Project Title" prop="title" width="650" resizable sortable />
-          <!-- <el-table-column label="County" prop="county.name" width="120" sortable /> -->
-          <!-- <el-table-column label="Settlement" prop="settlement.name" sortable /> -->
+ 
           <el-table-column label="Programme" prop="programme.acronym" width="130" sortable />
           <el-table-column label="Status" prop="status" sortable />
           <el-table-column label="Start" prop="start_date" :formatter="formatStartDate" sortable />
@@ -2433,10 +2447,12 @@ const ImportProjects = async () => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showAdminButtons" @click="editProject(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="editProject(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
 
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -2444,13 +2460,15 @@ const ImportProjects = async () => {
               </el-dropdown>
               <div v-else>
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
 
                 <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm
+confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete this report?"
                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2463,7 +2481,8 @@ const ImportProjects = async () => {
           </el-table-column>
         </el-table>
 
-        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[3, 5, 10, 20, 50, 100]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
       </el-tab-pane>
@@ -2478,21 +2497,25 @@ const ImportProjects = async () => {
 
 
 
-    <el-dialog v-model="AddBeneficiaryDialogVisible" @close="handleClose" title="Add Beneficiary" :width="dialogWidth"
+    <el-dialog
+v-model="AddBeneficiaryDialogVisible" @close="handleClose" title="Add Beneficiary" :width="dialogWidth"
       draggable>
       <el-form ref="BeneficaryFormRef" :model="BeneficaryForm" :rules="rules" label-width="120px">
 
         <el-form-item label="County" prop="hh_id">
-          <el-select v-model="BeneficaryForm.county_id" filterable placeholder="Select"
+          <el-select
+v-model="BeneficaryForm.county_id" filterable placeholder="Select"
             :disabled="disableBeneficiaryInputs" :onChange="handleSelectCounty">
             <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="Settlement" prop="hh_id">
-          <el-select v-model="BeneficaryForm.settlement_id" filterable :disabled="disableBeneficiaryInputs"
+          <el-select
+v-model="BeneficaryForm.settlement_id" filterable :disabled="disableBeneficiaryInputs"
             placeholder="Select" :onChange="getSettlementProjects">
-            <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+            <el-option
+v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
               :value="item.value" />
           </el-select>
         </el-form-item>
@@ -2500,7 +2523,8 @@ const ImportProjects = async () => {
 
 
         <el-form-item label="Project" prop="project_id">
-          <el-select v-model="BeneficaryForm.project_id" filterable placeholder="Select" :onChange="handleSelectProject"
+          <el-select
+v-model="BeneficaryForm.project_id" filterable placeholder="Select" :onChange="handleSelectProject"
             :disabled="disableBeneficiaryInputs">
             <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -2528,7 +2552,8 @@ const ImportProjects = async () => {
 
     <el-dialog v-model="showUploadDialog" title="Upload a Zipped Shapefile/Geojson/KML/KMZ" width="30%" draggable>
 
-      <el-upload v-model:file-list="fileList" class="upload-demo" drag
+      <el-upload
+v-model:file-list="fileList" class="upload-demo" drag
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false"
         :show-file-list="false" :on-change="handleUploadGeo">
         <template #trigger>
@@ -2554,7 +2579,8 @@ const ImportProjects = async () => {
 
 
     <el-dialog v-model="ShowLocationAddDialog" title="Add Project Location" width="500" :before-close="handleCloseAdd">
-      <el-select id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
+      <el-select
+id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
         placeholder=" Search Settlements" :remote-method="remoteMethod" style="width: 85%">
         <el-option v-for="item in sett_options" :key="item.id" :label="item.label" :value="item">
           <div style="display: flex; align-items: center;">
@@ -2577,7 +2603,8 @@ const ImportProjects = async () => {
 
 
     <el-dialog v-model="ShowActivityAddDialog" title="Add Project Activity" width="500" :before-close="handleCloseAdd">
-      <el-select id="location-select" v-model="extra_activities" multiple filterable remote reserve-keyword
+      <el-select
+id="location-select" v-model="extra_activities" multiple filterable remote reserve-keyword
         placeholder=" Search Activities" :remote-method="getActivities" style="width: 85%">
         <el-option v-for="item in activityOptions" :key="item.id" :label="item.label" :value="item">
           <div style="display: flex; align-items: center;">
@@ -2609,7 +2636,8 @@ const ImportProjects = async () => {
     </span>
 
 
-    <el-upload class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
+    <el-upload
+class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15">
       <div class="el-upload__text">
         Drop file here or <em>click to upload</em>
