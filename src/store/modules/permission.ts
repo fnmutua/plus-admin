@@ -290,7 +290,7 @@ const subprograms = [
     //redirect: '/settings',
     name: 'Slum_Programmes',
     meta: {
-      title: 'Programmes',
+      title: 'Projects',
       icon: 'icon-park-solid:love-and-help',
       alwaysShow: true,
       role: ['admin', 'super_admin'] 
