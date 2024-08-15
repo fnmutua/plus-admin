@@ -36,3 +36,9 @@ containers-us-west-138.railway.app
  lfqb3md5ixbmn3tam15D
 
 postgresql://postgres:lfqb3md5ixbmn3tam15D@containers-us-west-138.railway.app:6542/railway
+
+postgresql://postgres:AGfEf1bBe52EDeFaBBCBf343gA5ga11e@roundhouse.proxy.rlwy.net:19915/railway
+
+DELETE FROM indicator_category_report
+
+DROP TABLE indicator_category_report

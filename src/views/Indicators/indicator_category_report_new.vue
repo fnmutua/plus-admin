@@ -1,11 +1,9 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
-import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
+import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance, ElCard } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, FormInstance, ElCard } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -17,14 +15,13 @@ import {
   InfoFilled
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed, h } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable, ElDescriptions, ElDescriptionsItem,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, ElOptionGroup, FormRules, ElPopconfirm
+  ElDatePicker, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
-import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments } from '@/api/settlements'
@@ -42,17 +39,8 @@ import xlsx from "json-as-xlsx"
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
-import {
-  countyOptions, settlementOptionsV2, subcountyOptions, wardOptions
-} from './common/index.js'
 
-
-
-//import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
-
-
-
-
+ 
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -71,7 +59,6 @@ const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
-const countyOptions = ref([])
 
 
 const categories = ref([])
@@ -79,11 +66,9 @@ const filteredIndicators = ref([])
 const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
-const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
-const downloadLoading = ref(false)
 
 
 const reviewWindowWidth = ref('40%')
@@ -116,8 +101,8 @@ const showEditSaveButton = ref(false)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = ['status']
-var filterValues = [['New']]  // remember to change here!
+const filters = ['status']
+const filterValues = [['New']]  // remember to change here!
 var tblData = []
 
 // var filters = ['status']
@@ -126,7 +111,7 @@ var tblData = []
 
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document', 'settlement', 'county', 'users', 'project']
+const associated_multiple_models = ['document', 'settlement',  'users', 'project']
 const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -394,35 +379,7 @@ const getProjects = async () => {
 
 
 
-const props1 = {
-  checkStrictly: true,
-}
 
-const editReport = (data: TableSlotDefault) => {
-  showSubmitBtn.value = false
-
-  showEditSaveButton.value = true
-  console.log(data)
-  ruleForm.id = data.id
-  ruleForm.county_id = data.county_id
-  ruleForm.subcounty_id = data.subcounty_id
-
-  ruleForm.settlement_id = data.settlement_id
-  ruleForm.project_id = data.project_id
-  ruleForm.date = data.date
-  ruleForm.amount = data.amount
-  ruleForm.indicator_category_id = data.indicator_category_id
-  ruleForm.ward_id = data.ward_id
-
-  ruleForm.code = data.code
-
-  formHeader.value = 'Edit Report'
-  fileUploadList.value = data.documents
-
-  console.log(' ruleForm.location', ruleForm.location)
-
-  AddDialogVisible.value = true
-}
 
 
 
@@ -574,14 +531,7 @@ const rules = reactive<FormRules>({
 
 })
 
-const AddReport = () => {
-  AddDialogVisible.value = true
-  showSubmitBtn.value = true
-}
 
-const ImportReports = () => {
-  ImportDialogVisible.value = true
-}
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
@@ -597,7 +547,6 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       // uploading the documents 
       const fileTypes = []
       const formData = new FormData()
-      let files = []
       for (var i = 0; i < fileUploadList.value.length; i++) {
         console.log('------>file', fileUploadList.value[i])
         var format = fileUploadList.value[i].name.split('.').pop() // get file extension
@@ -741,7 +690,7 @@ const parentCodes = ['countyCode', 'settlementCode', 'indicator_categoryCode']
 const uploadedData = ref([])
 
 const parentData = ref([]);
-const getParentOptions = async (parent, parentSNo) => {
+const getParentOptions = async (parent) => {
 
   await getCountyListApi({
     params: {
@@ -765,7 +714,6 @@ const getParentOptions = async (parent, parentSNo) => {
 }
 
 const fileList = ref<UploadUserFile[]>([])
-const morefileList = ref<UploadUserFile[]>([])
 
 const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
   console.log(file, uploadFiles)
@@ -957,84 +905,13 @@ const tableRowClassName = (data) => {
   return ''
 }
 
-const documentCategory = ref()
 
 
 
-const downloadFile = async (data) => {
-
-  console.log(data.name)
-
-  const formData = {}
-  formData.filename = data.name
-  formData.responseType = 'blob'
-  await getFile(formData)
-    .then(response => {
-      console.log(response)
-
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', data.name)
-      document.body.appendChild(link)
-      link.click()
-
-    })
-    .catch(error => {
-      console.error('Error downloading file:', error);
-    });
-
-}
 
 
 
-const DocTypes = ref([])
 const getDocumentTypes = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'document_type',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Document Typest:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-
-    const nestedData = ret.reduce((acc, cur) => {
-      const group = cur.group;
-      if (!acc[group]) {
-        acc[group] = [];
-      }
-      acc[group].push(cur);
-      return acc;
-    }, {});
-
-    console.log(nestedData.Map)
-    for (let property in nestedData) {
-      let opts = nestedData[property];
-      var doc = {}
-      doc.label = property
-      doc.options = []
-
-      opts.forEach(function (arrayItem) {
-        let opt = {}
-        opt.value = arrayItem.id
-        opt.label = arrayItem.type
-        doc.options.push(opt)
-
-      })
-      DocTypes.value.push(doc)
-
-    }
-    console.log(DocTypes)
-
-  })
 }
 getDocumentTypes()
 
@@ -1111,7 +988,6 @@ const DownloadXlsx = async () => {
 /// Uplaod docuemnts from a central component 
 const mfield = 'report_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
-const selectedRow = ref([])
 const dynamicComponent = ref();
 const componentProps = ref({
   message: 'Hello from parent',
@@ -1160,6 +1036,7 @@ function handleExpand(row) {
 
 const report = ref({})
 
+ 
 
 const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
@@ -1204,10 +1081,11 @@ const editIndicator = (data: TableSlotDefault) => {
   report.value.county = data.row.county ? data.row.county.name : ''
   report.value.indicator = data.row.indicator_category.indicator_name
   report.value.status = data.row.status
-  report.value.date = data.row.date
+  report.value.date = formatDate(data.row.date )
   report.value.amount = data.row.amount
   report.value.user = data.row.user.name
   report.value.project = data.row.project.title
+  report.value.location = data.row.settlement.name
 
 
 
@@ -1289,7 +1167,8 @@ const goBack = () => {
       </div>
 
       <!-- Title Search -->
-      <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Filter by Project/Indicator" style="width: 450px; margin-right: 10px;">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -1315,7 +1194,8 @@ const goBack = () => {
  
 
 
-    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+    <el-table
+:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
       @expand-change="handleExpand">
       <el-table-column type="expand">
         <template #default="props">
@@ -1324,7 +1204,8 @@ const goBack = () => {
             <div>
               <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
             </div>
-            <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+            <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
               :icon="Plus" circle @click="toggleComponent(props.row)" />
           </div>
         </template>
@@ -1350,9 +1231,11 @@ const goBack = () => {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
                   :icon="View">View</el-dropdown-item>
-                <el-dropdown-item v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -1362,14 +1245,16 @@ const goBack = () => {
           <div v-else>
 
             <el-tooltip content="Review" placement="top">
-              <el-button v-if="showAdminButtons" type="primary" :icon="View"
+              <el-button
+v-if="showAdminButtons" type="primary" :icon="View"
                 @click="editIndicator(scope as TableSlotDefault)" circle />
             </el-tooltip>
 
 
 
             <el-tooltip content="Delete" placement="top">
-              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
                 <template #reference>
                   <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
@@ -1384,7 +1269,8 @@ const goBack = () => {
     </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
@@ -1397,25 +1283,30 @@ const goBack = () => {
         <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
 
           <el-form-item label="Project">
-            <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width: 100%"
+            <el-select
+filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width: 100%"
               placeholder="Select Project">
               <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
           <el-form-item label="Activity">
-            <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
+            <el-select
+filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
               placeholder="Select Activity">
-              <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
+              <el-option
+v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>
 
 
           <el-form-item label="Indicator">
-            <el-select filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
+            <el-select
+filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
               style="width: 100%" placeholder="Select Indicator">
-              <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
+              <el-option
+v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>
@@ -1458,9 +1349,11 @@ const goBack = () => {
     </template>
   </el-dialog>
 
-  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
+  <el-dialog
+v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
     draggable>
-    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+    <el-upload
+class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="5" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>
@@ -1495,7 +1388,7 @@ const goBack = () => {
 
     <el-descriptions title="" direction="vertical" :column="2" size="small" border>
       <el-descriptions-item label="Project">{{ report.project }}</el-descriptions-item>
-      <el-descriptions-item label="Location">{{ report.county }}</el-descriptions-item>
+      <el-descriptions-item label="Settlement">{{ report.location }}</el-descriptions-item>
       <el-descriptions-item label="Indicator" :span="2">{{ report.indicator }}</el-descriptions-item>
       <el-descriptions-item label="Amount">{{ report.amount }}</el-descriptions-item>
       <el-descriptions-item label="Date"> {{ report.date }} </el-descriptions-item>

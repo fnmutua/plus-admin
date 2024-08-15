@@ -2,32 +2,26 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect,ElRate,  MessageParamsWithType } from 'element-plus'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElSelect,ElRate,ElCard,ElRow } from 'element-plus'
 import {
-  Position,
-  TopRight,
-  User,
   Plus,
   Download,
   Filter,
-  MessageBox,
-  Edit,
+  Edit,Back,
   InfoFilled,
   Delete
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
 import {
-  ElPagination, ElInputNumber, ElTable, ElTag,
+  ElPagination, ElTable, ElTag,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, ElOptionGroup, FormRules, ElPopconfirm
+  ElTooltip, ElOption, FormRules, ElPopconfirm
 } from 'element-plus'
 
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 import { uploadFilesBatch } from '@/api/settlements'
 
 import { useRouter } from 'vue-router'
@@ -40,7 +34,6 @@ import { getFile } from '@/api/summary'
 import xlsx from "json-as-xlsx"
 import { defineAsyncComponent } from 'vue';
 
-import UploadComponent from '@/views/Components/UploadComponent.vue';
  
 
  import ListDocuments from '@/views/Components/ListDocuments.vue';
@@ -80,7 +73,6 @@ const currentRow = ref()
 /// Uplaod docuemnts from a central component 
 const mfield = 'settlement_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
-const selectedRow = ref([])
 const dynamicComponent = ref();
  const componentProps = ref({
       message: 'Hello from parent',
@@ -119,14 +111,6 @@ const DocumentComponentProps = ref({
 });
 
 
-function handleExpand(row) {
-   dynamicDocumentComponent.value = null; // Unload the component
-    rowData.value = row
-    DocumentComponentProps.value.data = row
-    setTimeout(() => {
-      dynamicDocumentComponent.value = documentComponent; // Load the component
-    }, 100); // 0.1 seconds
-}
 
 
 
@@ -138,10 +122,6 @@ const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
-const indicatorsOptions = ref([])
-const settlementOptions = ref([])
-const categories = ref([])
-const filteredIndicators = ref([])
 const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
@@ -181,7 +161,6 @@ const nested_models = ['document', 'document_type'] // The mother, then followed
 //// ------------------parameters -----------------------////
 
 const { t } = useI18n()
-const AddDialogVisible = ref(false)
 const formHeader = ref('Add Evaluation')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
@@ -307,32 +286,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 const projectOptions = ref([])
 const getprojectList = async () => {
-  const res = await getCountyListApi({
-    params: {
-      //   pageIndex: 1,
-      //   limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'project',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received projects:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-    // pass result to the makeoptions
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      projectOptions.value.push(opt)
-    })
-  })
 }
 
 
@@ -365,13 +318,6 @@ const handleChangeProject = async (indicator: any) => {
   getFilteredData(filters, filterValues)
 }
 
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'indicators.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
 
 const evaluationOptions = ref([])
 const getEvaluationTypes = async () => {
@@ -406,51 +352,6 @@ const getEvaluationTypes = async () => {
 }
 const DocTypes = ref([])
 const getDocumentTypes = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'document_type',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Document Typest:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-
-    const nestedData = ret.reduce((acc, cur) => {
-      const group = cur.group;
-      if (!acc[group]) {
-        acc[group] = [];
-      }
-      acc[group].push(cur);
-      return acc;
-    }, {});
-
-    console.log(nestedData.Map)
-    for (let property in nestedData) {
-      let opts = nestedData[property];
-      var doc = {}
-      doc.label = property
-      doc.options = []
-
-      opts.forEach(function (arrayItem) {
-        let opt = {}
-        opt.value = arrayItem.id
-        opt.label = arrayItem.type
-        doc.options.push(opt)
-
-      })
-      DocTypes.value.push(doc)
-
-    }
-    console.log(DocTypes)
-
-  })
 }
 getDocumentTypes()
 
@@ -490,26 +391,8 @@ const DeleteEvaluation = (data: TableSlotDefault) => {
 }
 
 
-const handleClose = () => {
-  console.log("Clsoing the dialoig")
-  showSubmitBtn.value = true
-  showEditSaveButton.value = false
-
-  ruleForm.id = ''
-  ruleForm.title = ''
-  ruleForm.type = ''
-  ruleForm.start_date = ''
-  ruleForm.end_date = ''
-  //ruleForm.findings = null
-  ruleForm.evaluation_type_id = null
-  ruleForm.project_id = null
-
-  formHeader.value = 'Add Evaluation'
-
-}
 
 
-const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
   type: null,
@@ -520,17 +403,6 @@ const ruleForm = reactive({
   project_id: null,
 })
 
-const rules = reactive<FormRules>({
-  title: [
-    { required: true, message: 'Please provide a title', trigger: 'blur' },
-    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }],
-  type: [{ required: true, message: 'Type is required', trigger: 'blur' }],
-  project_id: [{ required: true, message: 'The project   is required', trigger: 'blur' }],
-  findings: [{ required: true, message: 'Finding is required', trigger: 'blur' }],
-  evaluation_type_id: [{ required: true, message: 'Evaluation Type is required', trigger: 'blur' }],
-
-
-})
 
 const AddEvaluation = () => {
  // AddDialogVisible.value = true
@@ -542,37 +414,8 @@ const AddEvaluation = () => {
 }
 
 
-const submitForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate((valid, fields) => {
-    if (valid) {
-      ruleForm.model = model
-      ruleForm.code = uuid.v4()
-      const res = CreateRecord(ruleForm)
-
-    } else {
-      console.log('error submit!', fields)
-    }
-  })
-}
 
 
-const editForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate((valid, fields) => {
-    if (valid) {
-      ruleForm.model = model
-
-      updateOneRecord(ruleForm).then(() => { })
-
-      // dialogFormVisible.value = false
-
-
-    } else {
-      console.log('error submit!', fields)
-    }
-  })
-}
 
 const findingsString = ref()
 ruleForm.findings = computed(() => {
@@ -587,85 +430,10 @@ ruleForm.findings = computed(() => {
 });
 
 
-const downloadFile = async (data) => {
-
-  console.log(data.name)
-
-  const formData = {}
-  formData.filename = data.name
-  formData.responseType = 'blob'
-  await getFile(formData)
-    .then(response => {
-      console.log(response)
-
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', data.name)
-      document.body.appendChild(link)
-      link.click()
-
-    })
-    .catch(error => {
-      console.error('Error downloading file:', error);
-    });
-
-}
-
-const removeDocument = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-  formData.filesToDelete = [data.name]
-  deleteDocument(formData)
-}
 
 
-const addMoreDocs = (data: TableSlotDefault) => {
-
-  currentRow.value = data
-
-  addMoreDocuments.value = true
-
-  console.log('currentRow', currentRow.value)
-
-}
-
-const submitMoreDocuments = async () => {
-  console.log('More files.....', morefileList)
-
-  // uploading the documents 
-  const fileTypes = []
-  const formData = new FormData()
-  let files = []
-  for (var i = 0; i < morefileList.value.length; i++) {
-    console.log('------>file', morefileList.value[i])
-    var format = morefileList.value[i].name.split('.').pop() // get file extension
-    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-    fileTypes.push(format)
-    // formData.append('files', fileList.value[i])
-    // formData.file = fileList.value[i]
-
-    formData.append('model', model)
-
-    formData.append('files', morefileList.value[i].raw)
-    formData.append('format', morefileList.value[i].name.split('.').pop())
-    formData.append('category', documentCategory.value)
-    formData.append('field_id', 'evaluation_id')
-
-    formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
-    formData.append('code', uuid.v4())
-    formData.append('evaluation_id', currentRow.value.id)
 
 
-  }
-
-
-  console.log(currentRow.value.id)
-  await uploadFilesBatch(formData)
-
-}
 const DownloadXlsx = async () => {
   console.log(tableDataList.value)
 
@@ -716,13 +484,6 @@ const DownloadXlsx = async () => {
   // Enclose in array since the fucntion expects an array of sheets
   xlsx([dataObj], settings) //  download the excel file
 
-}
-const tableRowClassName = (data) => {
-   console.log('Row Styling --------->', data.row)
-  if (data.row.documents.length > 0) {
-    return 'warning-row'
-  }
-  return ''
 }
 
 const combinedLessons = (row) => {
