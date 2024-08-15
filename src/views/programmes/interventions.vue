@@ -1,23 +1,20 @@
 <script setup lang="ts">
-import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, getRoutesList } from '@/api/settlements'
-import { getListWithoutGeo } from '@/api/counties'
 
 import {
-  ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElCard,
-  ElInput, ElForm, ElBadge, ElUpload, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn
+  ElButton, ElSelect, ElTabs, ElTabPane, ElDialog, ElCard,
+  ElInput, ElBadge, ElUpload, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Position, Plus, User, Download, Delete, Edit, InfoFilled, UploadFilled, Back } from '@element-plus/icons-vue'
+import { Position, Plus, Download, Delete, Edit, InfoFilled, UploadFilled, Back } from '@element-plus/icons-vue'
 
 import { ref, reactive } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, BatchImportUpsert, getfilteredGeo,DeleteRecordByCriteria } from '@/api/settlements'
+import { DeleteRecord, updateOneRecord, deleteDocument, BatchImportUpsert, getfilteredGeo,DeleteRecordByCriteria } from '@/api/settlements'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { uuid } from 'vue-uuid'
 import { Icon } from '@iconify/vue';
 
 import xlsx from "json-as-xlsx"
@@ -31,14 +28,14 @@ import proj4 from 'proj4';
 import { getModelSpecs } from '@/api/fields'
 
 import {
-  countyOptions, settlementOptionsV2, subcountyOptions,implementationOptions
+  implementationOptions
 } from './common/index.ts'
 
  
 
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted } from 'vue';
 
 
 ////////////*************Map Imports***************////////
@@ -1640,16 +1637,19 @@ const fileList = ref([])
 const sett_options = ref([])
 const extra_locations = ref()
  
+ 
 
 
 const remoteMethod = async (keyword) => {
   console.log(keyword)
+  loading.value=true
   const formData = {}
   formData.model = 'settlement'
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = keyword
   formData.excludeGeom = false
+  formData.excludeGeomAssoc = true
   formData.associated_multiple_models = ['county', 'subcounty', 'ward']
 
   //--Single Filter -----------------------------------------
@@ -1684,9 +1684,7 @@ const remoteMethod = async (keyword) => {
     }));
 
   }
-
-
-  console.log('sett_options.value', sett_options.value)
+  loading.value = false
 
 }
 
@@ -2264,7 +2262,7 @@ v-model:file-list="fileList" class="upload-demo" drag
 
     <el-dialog v-model="ShowLocationAddDialog" title="Add Project Location" width="500" :before-close="handleCloseAdd">
       <el-select
-id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
+id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword :loading="loading"
         placeholder=" Search Settlements" :remote-method="remoteMethod" style="width: 85%">
         <el-option v-for="item in sett_options" :key="item.id" :label="item.label" :value="item">
           <div style="display: flex; align-items: center;">

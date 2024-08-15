@@ -24,4 +24,5 @@ SET filters = ARRAY[jsonb_build_object(
 
 
 
-DROP TABLE project_location;
+DROP TABLE project_location CASCADE;
+DROP TABLE project CASCADE;

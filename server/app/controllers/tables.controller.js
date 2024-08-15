@@ -2823,6 +2823,7 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
       model: reg_model,
       searchField: field,
       excludeGeom,
+      excludeGeomAssoc,
       searchKeyword,
       associated_multiple_models: associatedModels = [],
       nested_models: nestedModels = [],
@@ -2847,7 +2848,7 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
           model: model,
           raw: true,
           nested: true,
-          attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
         });
       });
 
@@ -2859,11 +2860,11 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
             model: grandChildModel,
             raw: true,
             nested: true,
-            attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+            attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
           }],
           raw: true,
           nested: true,
-          attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
         });
       }
     }
@@ -2944,7 +2945,7 @@ exports.modelLookup = async (req, res) => {
           model: model,
           raw: true,
           nested: true,
-          attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
         });
       });
 
@@ -2956,11 +2957,11 @@ exports.modelLookup = async (req, res) => {
             model: grandChildModel,
             raw: true,
             nested: true,
-            attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+            attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
           }],
           raw: true,
           nested: true,
-          attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
         });
       }
     }

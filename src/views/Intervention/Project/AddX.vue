@@ -248,6 +248,7 @@ const onSelectCounty = (county_id) => {
 const sett_options =ref([])
 const filters =ref([])
 const filterValues =ref([])
+const loading =ref(false)
 
 const remoteMethod = async (keyword) => {
   console.log(keyword)
@@ -257,6 +258,8 @@ const remoteMethod = async (keyword) => {
   formData.searchField = 'name'
   formData.searchKeyword = keyword
   formData.excludeGeom = false
+  formData.excludeGeomAssoc = true
+
   formData.associated_multiple_models = ['county', 'subcounty', 'ward']
 
   //--Single Filter -----------------------------------------
@@ -271,8 +274,10 @@ const remoteMethod = async (keyword) => {
 
   //-------------------------
   console.log("formData",formData)
+  loading.value=true
   const res = await searchByKeyWord(formData)
-  
+  loading.value=false
+
   
   console.log(res)
 
