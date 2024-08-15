@@ -80,6 +80,11 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    comments: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    
 
   }, {
     sequelize,

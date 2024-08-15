@@ -2097,7 +2097,7 @@ type="secondary" size="small" :icon="Position"
                           </el-tooltip>
                           <el-tooltip content="Delete" placement="top">
                             <el-popconfirm
-confirm-button-text="Yes" width="220" cancel-button-text="No"
+confirm-button-text="Yes" width="340" cancel-button-text="No"
                               :icon="InfoFilled" icon-color="#626AEF"
                               title="Are you sure to delete this project location?"
                               @confirm="DeleteProjectLocation(scope.row as TableSlotDefault)">
@@ -2132,7 +2132,7 @@ size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
                         <template #default="scope">
                 <el-tooltip content="Delete" placement="top">
                             <el-popconfirm
-              confirm-button-text="Yes" width="220" cancel-button-text="No"
+              confirm-button-text="Yes" width="340" cancel-button-text="No"
                               :icon="InfoFilled" icon-color="#626AEF"
                               title="Are you sure to delete this project activity?"
                               @confirm="DeleteProjectActivity(scope.row as TableSlotDefault)">
@@ -2203,7 +2203,7 @@ type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotD
 
                 <el-tooltip content="Delete" placement="top">
                   <el-popconfirm
-confirm-button-text="Yes" width="220" cancel-button-text="No" :icon="InfoFilled"
+confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete this report?"
                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>

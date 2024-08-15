@@ -266,8 +266,8 @@ const addDocument = () => {
 
 
     <ul v-infinite-scroll="tableDocumentsFiltered"   v-loading="viewLoading" :infinite-scroll-disabled="disabled"   class="infinite-list" style="overflow: auto">
-    <li v-for="document in tableDocumentsFiltered" :key="document.id" class="list-item">
-      <span class="document-name">{{ document.name }}</span>
+      <li v-for="(document, index) in tableDocumentsFiltered" :key="document.id" class="list-item">
+        <span class="document-name">{{ index + 1 }}. {{ document.name }}</span>
 
       <div class="button-container">
         <el-button size="small" type="primary" @click="viewDocument(document)" :icon="TopRight" plain />
@@ -299,7 +299,7 @@ const addDocument = () => {
 
 <style>
 .infinite-list {
-  height: 250px;
+  height: 150px;
   padding: 0;
   margin: 0;
   list-style: none;
@@ -345,6 +345,7 @@ const addDocument = () => {
   flex-grow: 1;
   max-width: 70%; /* Takes up 70% of the space */
   margin-right: 10px;
+  color: rgb(71, 111, 186);
   word-wrap: break-word; /* Ensures text wraps */
   white-space: normal; /* Allows text to wrap */
   font-size: 0.9em; /* Makes the text smaller */

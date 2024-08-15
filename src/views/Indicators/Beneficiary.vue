@@ -2,8 +2,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, ElSelectV2,  ElStep, ElSteps, FormInstance, ElCard, ElTour,ElTourStep } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, ElStep, ElSteps, FormInstance, ElCard } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -12,7 +11,7 @@ import {
   Filter,
   Delete,
   UploadFilled,
-  Position,Back,
+  Back,
   InfoFilled
 } from '@element-plus/icons-vue'
 
@@ -20,7 +19,7 @@ import { ref, reactive, computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow
+  ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow
 } from 'element-plus'
 
 import { useRouter } from 'vue-router'
@@ -31,50 +30,33 @@ import { uuid } from 'vue-uuid'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import readXlsxFile from 'read-excel-file'
 import { getModelSpecs } from '@/api/fields'
-import { BatchImportUpsert } from '@/api/settlements'
 import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
-import xlsx from "json-as-xlsx"
 
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 
-import DownloadAll from '@/views/Components/DownloadAll.vue';
 
-
-//import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
-
-import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
-import "mapbox-layer-switcher/styles.css";
-import * as turf from '@turf/turf'
  
-
-const MapBoxToken =
-  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
-mapboxgl.accessToken = MapBoxToken;
-
-
-
+ 
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
- 
+
 const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
 
 
-const categories = ref([])
-const filteredIndicators = ref([])
+ 
 const page = ref(1)
 const pSize = ref(5)
-const selCounties = []
-const pageSize = ref(5)
+ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const showAdminButtons = ref(appStore.getAdminButtons)
@@ -98,42 +80,43 @@ const ruleForm = reactive({
   county_id: '',
   location_name: '',
   actual_male_ben: null,
-  actual_female_ben:null,
+  actual_female_ben: null,
   target_male_ben: null,
   target_female_ben: null,
-  code:  null
+  code: null,
+  comments:null
 })
 
 const rules = reactive<FormRules>({
   project_id: [
     { required: true, message: 'Required', trigger: 'blur' },
-   ],
+  ],
 
-   project_location_id: [
+  project_location_id: [
     { required: true, message: 'Required', trigger: 'blur' },
-   ],
-  
-   actual_male_ben: [
+  ],
+
+  actual_male_ben: [
     { required: true, message: 'Required', trigger: 'blur' },
-   ],
-   actual_female_ben: [
+  ],
+  actual_female_ben: [
     { required: true, message: 'Required', trigger: 'blur' },
-   ],
-   target_male_ben: [
+  ],
+  target_male_ben: [
     { required: true, message: 'Required', trigger: 'blur' },
-   ],
-  
-   target_female_ben: [
+  ],
+
+  target_female_ben: [
     { required: true, message: 'Required', trigger: 'blur' },
-   ],
-  
-  
+  ],
+
+
 })
- 
+
 
 const AddDialogVisible = ref(false)
-const ImportDialogVisible = ref(false)
-const formHeader = ref('Add M&E Report')
+ 
+const formHeader = ref('Add Beneficiary Report')
 const showSubmitBtn = ref(false)
 const showProcessBtn = ref(true)
 const addMoreDocuments = ref(false)
@@ -150,7 +133,7 @@ var filterValues = []  // remember to change here!
 var tblData = []
 const associated_Model = null
 const model = 'project_beneficiary'
-const associated_multiple_models = ['project_location','document','project']
+const associated_multiple_models = ['project_location', 'document', 'project']
 const nested_models = [] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -182,8 +165,8 @@ const handleClear = async () => {
   getInterventionsAll()
 }
 
-const handleSelectIndicatorCategory = async (indicator: any) => {
-  var selectOption = 'indicator_category_id'
+const  handleSelectProject = async (project_id: any) => {
+  var selectOption = 'project_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
   }
@@ -196,22 +179,17 @@ const handleSelectIndicatorCategory = async (indicator: any) => {
     filterValues.splice(index, 1)
   }
 
-  if (!filterValues.includes(indicator) && indicator.length > 0) {
-    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  if (!filterValues.includes(project_id) && project_id.length > 0) {
+    filterValues.splice(index, 0, project_id) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
   }
 
   // expunge the filter if the filter values are null
-  if (indicator.length === 0) {
+  if (project_id.length === 0) {
     filters.splice(index, 1)
   }
 
-  //console.log('FilterValues:', filterValues)
-  // here we filter the list of settlements based on the selected county
-  filteredIndicators.value = categories.value.filter(
-    (category) => category.indicator == indicator
-  )
-  //console.log('filyterested  ------>', filteredIndicators)
-  //makeprojectOptions(filteredIndicators)
+ 
+ 
 
   getFilteredData(filters, filterValues)
 }
@@ -299,12 +277,12 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('Reports collected........', res)
-  tableDataList.value = res.data ;
- 
+  tableDataList.value = res.data;
+
   //tableDataList.value = res.data
   total.value = res.total
 
- 
+
 }
 
 
@@ -384,7 +362,7 @@ const getProjects = async () => {
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
- // //console.log('project', res)
+  // //console.log('project', res)
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
     var opt = {}
@@ -396,7 +374,7 @@ const getProjects = async () => {
 
 
     arrayItem.activities.forEach(function (activity: any) {
-   //   //console.log('activity--->', activity)
+      //   //console.log('activity--->', activity)
 
       var act = {}
       //console.log(activity)
@@ -423,21 +401,25 @@ const editReport = async (data: TableSlotDefault) => {
   ruleForm.id = data.id
   ruleForm.county_id = data.county_id
   ruleForm.subcounty_id = data.subcounty_id
-
   ruleForm.settlement_id = data.settlement_id
-  ruleForm.project_id = data.project_id
-  ruleForm.actual_female_ben = data.activity_id
-  ruleForm.actual_male_ben = data.activity_id
-  ruleForm.target_female_ben = data.activity_id
-  ruleForm.target_male_ben = data.activity_id
+  ruleForm.ward_id = data.ward_id
+  ruleForm.project_location_id = data.project_location_id
+
   
+
+  ruleForm.project_id = data.project_id
+  ruleForm.actual_female_ben = data.actual_female_ben
+  ruleForm.actual_male_ben = data.actual_male_ben
+  ruleForm.target_female_ben = data.target_female_ben
+  ruleForm.target_male_ben = data.target_male_ben
+  ruleForm.comments = data.comments
+
 
   formHeader.value = 'Edit Beneficiary'
   fileUploadList.value = data.documents
 
-  
-  changeIndicator(data.indicator_category_id)
 
+ 
   AddDialogVisible.value = true
 }
 
@@ -484,9 +466,10 @@ const handleClose = () => {
   //console.log("Closing the dialoig")
   showSubmitBtn.value = true
   showEditSaveButton.value = false
- 
-  formHeader.value = 'Add M&E Report'
+
+  formHeader.value = 'Add Beneficiary Report'
   AddDialogVisible.value = false
+  activeStep.value=0
 
 }
 
@@ -580,15 +563,15 @@ const changeProject = async (project: any) => {
 }
 
 
- 
+
 
 const changeLocation = async (location: any) => {
   //console.log('changeLocation', location)
 
   const selected_location = project_locations.value.find(
-        (item) => item.id === location
-      );
-      //console.log('selected_location', selected_location)
+    (item) => item.id === location
+  );
+  //console.log('selected_location', selected_location)
 
 
   ruleForm.county_id = selected_location.county_id
@@ -596,8 +579,8 @@ const changeLocation = async (location: any) => {
   ruleForm.ward_id = selected_location.ward_id
   ruleForm.settlement_id = selected_location.settlement_id
   //ruleForm.project_location_id = location.id
-  
-  
+
+
   //console.log('changeLocation', location)
 
 }
@@ -626,7 +609,7 @@ const changeIndicator = async (indicator_category_id: any) => {
 
   //ruleForm.indicator_category_title = filtredOptions[0].category_title
 
-  
+
 }
 
 
@@ -651,10 +634,10 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.period = getQuarter()
       ruleForm.code = uuid.v4()
       ruleForm.userId = userInfo.id
-    
+
       //console.log('cumProgress', ruleForm.cumProgress)
 
-   
+
 
       const report = await CreateRecord(ruleForm)   // first save the form on DB
       //console.log("Report", report.data.id)
@@ -753,162 +736,25 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
 const batchData = ref([])
-const submitBatchImport = async () => {
-  //console.log('upload--->', uploadedData.value)
-  for (let i = 0; i < uploadedData.value.length; i++) {
-
-    let feature = uploadedData.value[i]
-    let conv_feature = {}
-    for (var prop in feature) {
-      var matched_field = fieldSet.value.filter((obj) => {
-        // //console.log('+++++', obj)
-        return obj.match === prop
-      })
-      //  //console.log(i, matched_field)
-      if (matched_field.length > 0) {
-        conv_feature[matched_field[0].field] = feature[prop]  // Assign Field Vlue 
-      }
-
-      //console.log(conv_feature)
-    }
-    batchData.value.push(conv_feature)
-  }
-  //console.log('processed:', batchData)
-
-  // ************** prepare data to server ***************** //
-
-  var formData = {}
-  formData.model = model
-  formData.data = batchData.value
-
-
-  //console.log("importData--->", formData)
-
-
-  // ************** Send data to server ***************** //
-  await BatchImportUpsert(formData)
-    .catch((error) => {
-      //console.log('Error------>', error.response.data.message)
-      ElMessage.error(error.response.data.message)
-    })
+ 
 
 
 
-}
-
-
-
-
-
-const getCumulativeProgress = async () => {
-
-  var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 'programme_implementation_id',
-  ]
-
-  var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
-  [ruleForm.project_id], [ruleForm.programme_implementation_id]]  // remember to change here!
-
-
-
-  if (ruleForm.settlement_id) {
-    filters.push('settlement_id')
-    filterValues.push([ruleForm.settlement_id])
-  }
-
-
-  //console.log('filters', filters)
-  //console.log('filterValues', filterValues)
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  formData.assocModel = []
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = []
-  formData.nested_models = nested_models
-
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-
-  //console.log('yaay. Got last reports', res.data)
-
-
-  function getLatestReport(dataList) {
-    if (dataList.length === 0) {
-      return null;
-    }
-
-    // Find the latest ID using reduce function
-    const latestID = dataList.reduce((prevObj, currentObj) => (currentObj.id > prevObj.id ? currentObj : prevObj)).id;
-
-    // Find the object with the latest ID
-    const objectWithLatestID = dataList.find((obj) => obj.id === latestID);
-
-    // Return the object with the latest ID
-    return objectWithLatestID;
-  }
-
-
-  // Get the object with the latest date
-  const objectWithLatestDate = getLatestReport(res.data);
-  //console.log('objectWithLatestDate', objectWithLatestDate);
-
-  // ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
-  // ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
-  ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
-  ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
-  ruleForm.prevAmount = parseInt(objectWithLatestDate.amount)
-
-  //console.log('cumProgress ats tart', ruleForm);
-
-}
 
  
+
 /// Import multiple reports - ----------------
 // ----------------------------------------------
 //const parentModels = ['county']
 const parentModels = ['county', 'settlement', 'indicator_category']
 const parentCodes = ['countyCode', 'settlementCode', 'indicator_categoryCode']
-//const parentCodes = ['countyCode', 'settlementCode', 'indicator_categoryCode']
-//const parentCodes = ['countyCode']
+ 
 
 
 const uploadedData = ref([])
 
 const parentData = ref([]);
-const getParentOptions = async (parent) => {
-
-  await getCountyListApi({
-    params: {
-      curUser: 1, // Id for logged in user
-      model: parent,
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    //tableDataList.value = response.data
-    const ret = response.data
-    //  //console.log('Received response:', parent, ret)
-    parentData.value.push(ret)
-
-
-
-
-
-  })
-}
+ 
 
 const fileList = ref<UploadUserFile[]>([])
 
@@ -1048,39 +894,7 @@ const readXLSX = async (event) => {
   showProcessBtn.value = false
 }
 
-const submitFiles = async () => {
-  //console.log('on Submit....', fileList.value.length)
-
-
-  if (fileList.value.length == 0) {
-    ElMessage.error('Select a  File first!')
-  } else {
-    var rfile = fileList.value[0].raw
-
-    //console.log("File type", rfile.name.split('.').pop())
-    let reader = new FileReader()
-    let ftype = rfile.name.split('.').pop()
-    if (ftype == 'xlsx') {
-
-      // Get the parents 
-
-      for (let parent in parentModels) {
-
-        await getParentOptions(parentModels[parent], parent)
-
-
-      }
-      //console.log('parent data ---->', parentData.value)
-      reader.onload = readXLSX(rfile)
-    }
-    else {
-      //console.log("Wrong File Format")
-      ElMessage.error('Wrong File Format!. Select XLSX files only!')
-
-    }
-
-  }
-}
+ 
 
 getModeldefinition(model)
 
@@ -1099,23 +913,19 @@ const tableRowClassName = (data) => {
   // if (data.row.documents.length > 0) {
   //   return 'warning-row'
   // }
-  if (data.row.status =='Rejected' ) {
+  if (data.row.status == 'Rejected') {
     return 'danger-row'
   }
-  if (data.row.status =='Approved' ) {
+  if (data.row.status == 'Approved') {
     return 'success-row'
   }
 
   return ''
 }
 
+ 
 
-
-
-
-
-
-const DocTypes = ref([])
+ 
 const getDocumentTypes = async () => {
 }
 getDocumentTypes()
@@ -1138,60 +948,7 @@ if (isMobile.value) {
 
 }
 
-
-const DownloadXlsx = async () => {
-  //console.log(tableDataList.value)
-
-  // change here !
-  let fields = [
-    { label: "S/No", value: "index" }, // Top level data
-    { label: "Indicator", value: "indicator" }, // Top level data
-    { label: "Category", value: "category" }, // Top level data
-    { label: "Quantity", value: "quantity" }, // Custom format
-    { label: "Settlement", value: "settlement" }, // Custom format
-    { label: "County", value: "county" }, // Custom format
-    { label: "Date", value: "date" }, // Custom format
-
-  ]
-
-
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
-    let thisRecord = {}
-    tableDataList.value[i]
-    thisRecord.index = i + 1
-    thisRecord.indicator = tableDataList.value[i].indicator_category.indicator.name
-    thisRecord.category = tableDataList.value[i].indicator_category.category_title
-    thisRecord.quantity = tableDataList.value[i].amount
-    thisRecord.settlement = tableDataList.value[i].settlement.name
-    thisRecord.county = tableDataList.value[i].county.name
-    thisRecord.date = tableDataList.value[i].date
-
-
-    dataHolder.push(thisRecord)
-  }
-  dataObj.content = dataHolder
-
-
-
-
-  let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
-}
+ 
 
 
 /// Uplaod docuemnts from a central component 
@@ -1245,204 +1002,14 @@ function handleExpand(row) {
 
 
 
-const dialogMap = ref(false)
-
-const reportGeom = ref([])
-const projectGeom = ref([])
-
-const reportDetails = ref();
-const locationStatus = ref('')
-const projectLocationColor = ref('red')
-const showMap = (row) => {
-  //console.log(row)
-
-  reportDetails.value = row
-
-
-
-  dialogMap.value = true
-  reportGeom.value = reportDetails.value.geom.coordinates
-  projectGeom.value = reportDetails.value.project.geom
-
-
-  var centroid = turf.centroid(reportDetails.value.project.geom);
-
-  var options = { units: 'kilometers' };
-
-  var distance = turf.distance(reportDetails.value.geom, centroid, options);
-  //console.log('distance , ', distance)
-
-  if (distance < 1) {
-    projectLocationColor.value = 'green'
-  }
-
-  locationStatus.value = 'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
-  setTimeout(loadMap, 100); // delay for the dialog to fully load
-  //loadMap()
-}
-
-
-
-const closeMap = () => {
-
-  dialogMap.value = false
-}
-
-const loadMap = () => {
-  var mapCenter = reportGeom.value;
-
-  var nmap = new mapboxgl.Map({
-    container: "mapContainer",
-    style: "mapbox://styles/mapbox/streets-v12",
-    center: mapCenter, // starting position
-    zoom: 18,
-  });
-
-
-
-  nmap.on("load", () => {
-    nmap.addLayer({
-      id: "Satellite",
-      source: { type: "raster", url: "mapbox://mapbox.satellite", tileSize: 256 },
-      type: "raster",
-    });
-
-    nmap.addLayer({
-      id: "Streets",
-      source: { type: "raster", url: "mapbox://mapbox.streets", tileSize: 256 },
-      type: "raster",
-    });
-
-    nmap.setLayoutProperty("Satellite", "visibility", "none");
-
-    const layers = [
-      {
-        id: "Satellite",
-        title: "Satellite",
-        visibility: "none",
-        type: "base",
-      },
-      {
-        id: "Streets",
-        title: "Streets",
-        visibility: "none",
-        type: "base",
-      },
-    ];
-
-    //     Add point layer
-    nmap.addLayer({
-      id: 'point-layer',
-      type: 'circle',
-      source: {
-        type: 'geojson',
-        data: projectGeom.value,
-      },
-      paint: {
-        'circle-color': projectLocationColor.value.color,
-        'circle-radius': 6,
-      },
-      filter: ['==', '$type', 'Point'],
-    });
-
-    // Add line layer
-    nmap.addLayer({
-      id: 'line-layer',
-      type: 'line',
-      source: {
-        type: 'geojson',
-        data: projectGeom.value,
-      },
-      paint: {
-        'line-color': projectLocationColor.value,
-        'line-width': 2,
-      },
-      filter: ['==', '$type', 'LineString'],
-    });
-
-    // Add polygon layer as outline
-    nmap.addLayer({
-      id: 'polygon-layer',
-      type: 'line', // Change to 'line' to display the outline
-      source: {
-        type: 'geojson',
-        data: projectGeom.value,
-      },
-      paint: {
-        'line-color': projectLocationColor.value, // Outline color (replace 'green' with your desired color)
-        'line-width': 2, // Outline width in pixels (adjust as needed)
-      },
-      filter: ['in', '$type', 'Polygon'], // Include both Polygon and MultiPolygon types
-    });
 
 
 
 
 
 
-    nmap.addControl(new MapboxLayerSwitcherControl(layers));
+ 
 
-    const nav = new mapboxgl.NavigationControl();
-    nmap.addControl(nav, "top-left");
-
-    // Add a marker at the geom.value position
-
-    function formatDateToYYYYMMDD(dateString) {
-      const dateObj = new Date(dateString);
-      const year = dateObj.getUTCFullYear();
-      const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(dateObj.getUTCDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-    // Add a marker at the geom.value position
-    var marker = new mapboxgl.Marker().setLngLat(mapCenter).addTo(nmap);
-    // Create the marker and specify the color
-    var marker = new mapboxgl.Marker({
-      color: projectLocationColor.value,
-    }).setLngLat(mapCenter)
-      .addTo(nmap);
-    // Create a simple popup with user information displayed using line breaks
-    var popupContent = document.createElement('div');
-
-    // Sample user information (replace these with actual data)
-    var userName = reportDetails.value.user.name;
-    var phoneNumber = reportDetails.value.user.phone;
-    var date = formatDateToYYYYMMDD(reportDetails.value.date);
-
-    var userInfo = `
-        <div style="text-align: center;">
-          <strong>Submitted By:</strong>
-          <hr style="margin: 5px 0;">
-
-        </div>
-        <strong>Name:</strong> ${userName}<br>
-          <strong>Phone Number:</strong> ${phoneNumber}<br>
-          <strong>Date:</strong> ${date}
-        `;
-
-    popupContent.innerHTML = userInfo;
-
-    var popup = new mapboxgl.Popup({ anchor: 'right', offset: [-20, 0] }).setDOMContent(popupContent);
-
-    // Attach the popup to the marker
-    marker.setPopup(popup);
-    nmap.resize();
-  });
-};
-
-
-function isGeomNull(geom) {
-  //console.log('---geom-----', geom)
-  return geom === null;
-}
-
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
 
 const router = useRouter()
 
@@ -1457,15 +1024,11 @@ const goBack = () => {
   }
 }
 
-const openHelp = ref(false)
-
  
-const activeStep = ref(0)
 
-
-
-const nextStep = async () =>{ 
- //console.log(ruleFormRef.value)
+const activeStep = ref(0) 
+const nextStep = async () => {
+  //console.log(ruleFormRef.value)
   await ruleFormRef.value?.validate((valid) => {
     if (valid) {
       if (activeStep.value < 3) {
@@ -1473,17 +1036,12 @@ const nextStep = async () =>{
       }
     }
   })
-
-
-  } 
-
-
-
- const   prevStep = () =>{
-      if (activeStep.value > 0) {
-        activeStep.value--;
-      }
-    }
+}
+const prevStep = () => {
+  if (activeStep.value > 0) {
+    activeStep.value--;
+  }
+}
 
 
 </script>
@@ -1502,25 +1060,24 @@ const nextStep = async () =>{
 
       <!-- Title Search -->
       <el-select
-v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="Filter by Project/Indicator" style="width: 450px; margin-right: 10px;">
-        <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
+v-model="value2" :onChange=" handleSelectProject" :onClear="handleClear" multiple clearable collapse-tags
+
+        filterable   placeholder="Filter by Project" style="width: 80%; margin-right: 10px;">
+        <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
 
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
-        <el-tooltip content="Add Report " placement="top">
+        <el-tooltip content="Add Beneficiary " placement="top">
           <el-button v-if="showEditButtons" :onClick="AddReport" type="primary" :icon="Plus" />
         </el-tooltip>
         <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-        <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
         <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-      
+
       </div>
 
       <!-- Download All Component -->
-      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
     </el-row>
 
 
@@ -1528,40 +1085,40 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
     <div v-if="dynamicComponent">
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
- 
+
     <el-table
 :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
       @expand-change="handleExpand">
 
       <el-table-column type="expand">
         <template #default="props">
-          
-             <div>
-              <list-documents
+
+          <div>
+            <list-documents
 :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                @openDialog="toggleComponent(props.row)" />
-            </div>
- 
+              @openDialog="toggleComponent(props.row)" />
+          </div>
+
         </template>
       </el-table-column>
       <el-table-column label="#" width="80" prop="id" sortable>
-      <template #default="scope">
-        <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-        <span>{{ scope.row.id }}</span>
-         <Icon icon="material-symbols:attachment"  style="margin-left: 4px;"  />
-      </div>
+        <template #default="scope">
+          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+            <span>{{ scope.row.id }}</span>
+            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+          </div>
 
-    
-            
-      </template>
-    </el-table-column>
-       
+
+
+        </template>
+      </el-table-column>
+
       <el-table-column label="Project" width="400" prop="project.title" sortable />
-      <el-table-column label="Settlement" prop="project_location.location_name" sortable/>
+      <el-table-column label="Settlement" prop="project_location.location_name" sortable />
 
       <el-table-column label="Female Beneficiaries" prop="actual_female_ben" sortable />
       <el-table-column label="Male Beneficiaries" prop="actual_male_ben" sortable />
-   
+
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -1582,25 +1139,18 @@ v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
           <div v-else>
             <el-tooltip content="Edit" placement="top">
               <el-button
-v-if="showEditButtons" type="success"   size="small" :icon="Edit"
+v-if="showEditButtons" type="success" size="small" :icon="Edit"
                 @click="editReport(scope.row as TableSlotDefault)" :disabled="scope.row.status == 'Approved'" circle />
-            </el-tooltip>
-
-            <el-tooltip content="Map" placement="top">
-              <el-button
-v-if="showEditButtons" type="warning"  size="small" :icon="Position" :disabled="isGeomNull(scope.row.geom)"
-                @click="showMap(scope.row as TableSlotDefault)" circle />
             </el-tooltip>
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
                 <template #reference>
-                  <el-button v-if="showAdminButtons" type="danger"  size="small"  :icon=Delete circle />
+                  <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
                 </template>
               </el-popconfirm>
             </el-tooltip>
-
           </div>
         </template>
       </el-table-column>
@@ -1613,217 +1163,114 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
-
-
-
-    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader"  :width="dialogWidth"  >
-     
-      <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
-      <el-step title="Project Details"/>
-      <el-step title="Beneficiaries"/>
-      <el-step title="Submit"/>
+ 
+  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth">
+    <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
+      <el-step title="Project Details" />
+      <el-step title="Beneficiaries" />
+      <el-step title="Submit" />
     </el-steps>
-   
+
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
       <el-row v-if="activeStep == 0" :gutter="20">
         <el-col :span="24">
           <el-form-item id="btn1" label="Project" prop="project_id">
-              <el-select-v2
-    filterable v-model="ruleForm.project_id" @change="changeProject" style="width: 100%"
-                :options="projectOptions" placeholder="Select Project" />
-            </el-form-item>
+            <el-select-v2
+filterable v-model="ruleForm.project_id" @change="changeProject" style="width: 100%"
+              :options="projectOptions" placeholder="Select Project" />
+          </el-form-item>
 
-            <el-form-item id="btn2" label="Location" prop="project_location_id">
-              <el-select
-    ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
-                @change="changeLocation" style="width: 100%;">
-                <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
-                  <div style="display: flex; align-items: center;">
-                    <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
-                    <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
-                      {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
-                    </span>
-                  </div>
-                </el-option>
-              </el-select>
-            </el-form-item>
+          <el-form-item id="btn2" label="Location" prop="project_location_id">
+            <el-select
+ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
+              @change="changeLocation" style="width: 100%;">
+              <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
+                <div style="display: flex; align-items: center;">
+                  <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
+                  <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
+                    {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                  </span>
+                </div>
+              </el-option>
+            </el-select>
+          </el-form-item>
         </el-col>
       </el-row>
- 
+
 
       <el-row v-if="activeStep === 1" :gutter="20">
         <el-col :span="12">
-            <el-form-item id="btn5"  label="Target (Female)" prop="target_female_ben">
-              <el-input-number v-model="ruleForm.target_female_ben" style="width: 100%;" />
-            </el-form-item>
-            <el-form-item id="btn8" label="Target (Male)"  prop="target_male_ben">
-              <el-input-number v-model="ruleForm.target_male_ben" style="width: 100%;" />
-            </el-form-item>
-          
-          </el-col>
+          <el-form-item id="btn5" label="Target (Female)" prop="target_female_ben">
+            <el-input-number v-model="ruleForm.target_female_ben" style="width: 100%;" />
+          </el-form-item>
+          <el-form-item id="btn8" label="Target (Male)" prop="target_male_ben">
+            <el-input-number v-model="ruleForm.target_male_ben" style="width: 100%;" />
+          </el-form-item>
 
-          <el-col :span="12">
-            <el-form-item id="btn5"  label="Actual (Female)" prop="actual_female_ben">
-              <el-input-number v-model="ruleForm.actual_female_ben" style="width: 100%;" />
-            </el-form-item>
-            <el-form-item id="btn8" label="Actual (Male)"  prop="actual_male_ben">
-              <el-input-number v-model="ruleForm.actual_male_ben" style="width: 100%;" />
-            </el-form-item>
-          
-          </el-col>
+        </el-col>
+
+        <el-col :span="12">
+          <el-form-item id="btn5" label="Actual (Female)" prop="actual_female_ben">
+            <el-input-number v-model="ruleForm.actual_female_ben" style="width: 100%;" />
+          </el-form-item>
+          <el-form-item id="btn8" label="Actual (Male)" prop="actual_male_ben">
+            <el-input-number v-model="ruleForm.actual_male_ben" style="width: 100%;" />
+          </el-form-item>
+
+        </el-col>
       </el-row>
 
       <el-row v-if="activeStep === 2" :gutter="20">
         <el-col :span="24">
           <el-form-item id="btn12" label="Comments" prop="comments">
-              <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
-            </el-form-item>
+            <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
+          </el-form-item>
 
-            <el-upload
-    id="btn13" v-model:file-list="fileUploadList" class="upload-demo"
-              action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
-              :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
-              :on-exceed="handleExceed">
-              <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
-            </el-upload>
-          </el-col>
+          <el-upload
+id="btn13" v-model:file-list="fileUploadList" class="upload-demo"
+            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
+            :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
+            :on-exceed="handleExceed">
+            <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
+          </el-upload>
+        </el-col>
 
-          
+
       </el-row>
 
     </el-form>
-
-    
-
     <template #footer>
-        <span class="dialog-footer">
-          <el-row :gutter="5">
-            <el-col :span="24">
-              <!-- <el-button type="primary" plain @click="openHelp = true">Help</el-button> -->
-              <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
-
-              <el-button @click="nextStep" v-if="activeStep < 2">Next</el-button>
-              <el-button @click="AddDialogVisible = false">Cancel</el-button>
-              <el-button v-if="showSubmitBtn && activeStep === 2" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-              <el-button v-if="showEditSaveButton && activeStep === 2" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-            </el-col>
-          </el-row>
-        </span>
-      </template>
-
-
-  </el-dialog>
-
-
-  <el-dialog
-v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
-    draggable>
-    <el-upload
-class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
-      v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
-      :limit="5" :on-exceed="handleExceed" :auto-upload="false">
-      <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>
-    </el-upload>
-
-    <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe">
-      <el-table-column prop="column" label="Field">
-        <template #default="scope">
-          <el-input v-model="scope.row.field" controls-position="left" disabled />
-        </template>
-      </el-table-column>
-      <el-table-column prop="match" label="Match">
-        <template #default="scope">
-          <el-select v-model="scope.row.match" filterable placeholder="Select">
-            <el-option v-for="item in matchOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </template>
-      </el-table-column>
-    </el-table>
-    <template #footer>
-
       <span class="dialog-footer">
-        <el-button @click="ImportDialogVisible = false">Cancel</el-button>
-        <el-button v-if="showProcessBtn" type="secondary" @click="submitFiles()">Process</el-button>
-        <el-button v-if="showSubmitBtn" type="primary" @click="submitBatchImport()">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+        <el-row :gutter="5">
+          <el-col :span="24">
+            <!-- <el-button type="primary" plain @click="openHelp = true">Help</el-button> -->
+            <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
+
+            <el-button @click="nextStep" v-if="activeStep < 2">Next</el-button>
+            <el-button @click="AddDialogVisible = false">Cancel</el-button>
+            <el-button
+v-if="showSubmitBtn && activeStep === 2" type="primary"
+              @click="submitForm(ruleFormRef)">Submit</el-button>
+            <el-button
+v-if="showEditSaveButton && activeStep === 2" type="primary"
+              @click="editForm(ruleFormRef)">Save</el-button>
+          </el-col>
+        </el-row>
       </span>
     </template>
-  </el-dialog>
 
-  <el-dialog v-model="dialogMap" width="50%" draggable :before-close="closeMap" :show-close="false">
-    <template #header="{ titleId, titleClass }">
-      <div class="my-header">
-        <h4 :id="titleId" :class="titleClass">Reporting Location</h4>
-        <h2 :style="`color: ${projectLocationColor}; font-style: italic;`">{{ locationStatus }}</h2>
-        <!-- Use the 'italicizedColor' variable -->
-        <el-button type="danger" :icon="CircleCloseFilled" @click="closeMap">Close Map</el-button>
-      </div>
-    </template>
-    <div id="mapContainer" class="basemap"></div>
 
   </el-dialog>
 
+ 
 
 
-  <el-tour v-model="openHelp" z-index="100000">
-    <el-tour-step target="#btn1" title="Project" description="Select the project you want to set up" />
-    <el-tour-step
-target="#btn2" title="Location"
-      description="Select the location where this project is implemented. Repeat this for every settlement the project is being implemented" />
-    <el-tour-step
-target="#btn3" title="Activity"
-      description="Select the  specific activity you wish to configure monitoring for" />
-    <el-tour-step
-target="#btn4" title="Indicator"
-      description="Select the  indicator associated with that activity. If not configured, use the + button to create a new indicator" />
-
-    <el-tour-step
-target="#btn5" title="Quantity"
-      description="Specify the amount/value/quantity for this reporting period.  " />
-
-      <el-tour-step
-target="#btn6" title="Cumulative"
-      description=" Shows the cumulative achievements todate" />
-
-
-
-    <el-tour-step
-target="#btn8" title="Baseline"
-      description="Shows the value at the start of the activity" />
-
-
-      <el-tour-step
-target="#btn9" title="Target"
-      description="Targeted quantity/amount/value" />
-
-
-    <el-tour-step
-target="#btn10" title="Date"
-      description="Specify reporting date." />
-
-      <el-tour-step
-target="#btn11" title="Progress"
-      description="Progress of achievements. How much of the quantity has been achieved todate?" />
-
-  
-      <el-tour-step
-target="#btn12" title="Comments"
-      description="Provide any commentary or additional information related to this submission" />
-
-      <el-tour-step
-target="#btn13" title="Documentation"
-      description="Upload any documentation that is required. It includes photos, reports of data" />
-
-  
-  
-
-  </el-tour>
-
+ 
 
 
 </template>
 
- 
+
 
 <style scoped>
 .basemap {
@@ -1861,5 +1308,4 @@ target="#btn13" title="Documentation"
   margin-top: 10px;
   margin-right: 40px;
 }
-
 </style>
