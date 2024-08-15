@@ -151,6 +151,93 @@ db.models.households.belongsTo(db.models.ward, {
 })
 
 
+// Beneficiaries - Cooutny 
+db.models.county.hasMany(db.models.project_beneficiary, {
+  foreignKey: 'county_id'
+})
+
+db.models.project_beneficiary.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+// Beneficiaries -Ward 
+db.models.subcounty.hasMany(db.models.project_beneficiary, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.project_beneficiary.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+
+// Beneficiaries -Ward 
+db.models.ward.hasMany(db.models.project_beneficiary, {
+  foreignKey: 'ward_id'
+})
+
+db.models.project_beneficiary.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
+// Beneficiaries -Ward 
+db.models.settlement.hasMany(db.models.project_beneficiary, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.project_beneficiary.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+}) 
+// Beneficiaries -Ward 
+
+db.models.county.hasMany(db.models.project_location, {
+  foreignKey: 'county_id'
+})
+
+db.models.project_location.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+
+
+
+
+
+
+// Beneficiaries - Cooutny 
+db.models.county.hasMany(db.models.project_location, {
+  foreignKey: 'county_id'
+})
+
+db.models.project_location.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+// Beneficiaries -Ward 
+db.models.subcounty.hasMany(db.models.project_location, {
+  foreignKey: 'subcounty_id'
+})
+
+db.models.project_location.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id'
+})
+
+
+// Beneficiaries -Ward 
+db.models.ward.hasMany(db.models.project_location, {
+  foreignKey: 'ward_id'
+})
+
+db.models.project_location.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id'
+})
+
+// Beneficiaries -Ward 
+db.models.settlement.hasMany(db.models.project_location, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.project_location.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+}) 
+ 
 
 
 
