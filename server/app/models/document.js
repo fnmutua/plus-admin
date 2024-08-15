@@ -29,6 +29,13 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
+    beneficiary_report_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    
+
+
     category: {
       type: DataTypes.INTEGER,
       allowNull: false

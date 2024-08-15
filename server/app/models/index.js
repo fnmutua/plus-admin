@@ -604,6 +604,35 @@ db.models.project_location.hasMany(db.models.indicator_category, {
 
 
 
+/// indicator-project_beneficiary - project_location_id  
+db.models.project_beneficiary.belongsTo(db.models.project_location, {
+  foreignKey: 'project_location_id'
+})
+
+db.models.project_location.hasMany(db.models.project_beneficiary, {
+  foreignKey: 'project_location_id'
+})
+
+/// indicator-project_beneficiary - Project Location  
+db.models.project_beneficiary.belongsTo(db.models.project , {
+  foreignKey: 'project_id'
+})
+
+db.models.project.hasMany(db.models.project_beneficiary, {
+  foreignKey: 'project_id'
+})
+
+
+// document  - contractor
+db.models.document.belongsTo(db.models.project_beneficiary, {
+  foreignKey: 'beneficiary_report_id'
+})
+
+db.models.project_beneficiary.hasMany(db.models.document, {
+  foreignKey: 'beneficiary_report_id'
+})
+
+
 
 //indicator - indciator:category
 db.models.indicator_category.belongsTo(db.models.indicator, {

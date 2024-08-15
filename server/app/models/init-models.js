@@ -64,6 +64,7 @@ var _frequency= require('./frequency')
 var _programme_implementation= require('./programme_implementation')
 var _contractor= require('./contractor')
 var _project_location = require('./project_location')
+var _project_beneficiary = require('./project_beneficiary')
 
 
 var _settlement_uploads = require('./settlement_uploads')
@@ -135,6 +136,7 @@ function initModels(sequelize) {
   var programme_implementation = _programme_implementation(sequelize, DataTypes)
   var contractor = _contractor(sequelize, DataTypes)
   var project_location = _project_location(sequelize, DataTypes)
+  var project_beneficiary = _project_beneficiary(sequelize, DataTypes)
   
   
   
@@ -203,7 +205,8 @@ function initModels(sequelize) {
     frequency,
     programme_implementation,
     contractor,
-    project_location
+    project_location,
+    project_beneficiary
     
   }
 }
