@@ -1,10 +1,9 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance, ElCard, ElBadge } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance, ElCard } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -17,19 +16,17 @@ import {
   InfoFilled
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed, h } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElSlider
-  , ElInput, FormRules, ElPopconfirm, ElCol, ElRow
+  ElDatePicker, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow
 } from 'element-plus'
 
 import { useRouter } from 'vue-router'
-import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import readXlsxFile from 'read-excel-file'
@@ -37,7 +34,6 @@ import { getModelSpecs } from '@/api/fields'
 import { BatchImportUpsert } from '@/api/settlements'
 import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
-import { getFile } from '@/api/summary'
 import xlsx from "json-as-xlsx"
 
 
@@ -50,7 +46,7 @@ import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 //import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
 
-import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
+import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
  

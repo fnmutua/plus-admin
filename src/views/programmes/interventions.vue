@@ -5,7 +5,7 @@ import { getListWithoutGeo } from '@/api/counties'
 
 import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElCard,
-  ElInput, ElForm, ElFormItem, ElUpload, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn
+  ElInput, ElForm, ElBadge, ElUpload, ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm, ElTable, ElTableColumn
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { Position, Plus, User, Download, Delete, Edit, InfoFilled, UploadFilled, Back } from '@element-plus/icons-vue'
@@ -848,7 +848,6 @@ getBeneficiaries(filtersBen, filterValuesBen)  // First time
 //*****************************Create**************************** */
 
 ///----------------------------------------------------------------------------------
-const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   id: '',
   geom: null,
@@ -858,45 +857,8 @@ const ruleForm = reactive({
 
 
 
-const editForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return;
-
-  formEl.validate((valid, fields) => {
-    if (valid) {
-      ruleForm.model = model;
-      console.log('before Updated', ruleForm);
-      updateOneRecord(ruleForm)
-        .then(() => {
-          // Further logic after updating record
-        })
-        .catch(() => {
-          // Error handling for updateOneRecord
-        });
-    } else {
-      console.log('error in editing!', fields);
-    }
-  });
-};
 
 
-const handleClose = () => {
-
-  console.log("Closing the dialoig")
-  showAddSaveButton.value = true
-  showEditSaveButton.value = false
-
-  ruleForm.settlement_id = null
-  ruleForm.intervention_phase = null
-  ruleForm.intervention_id = null
-  ruleForm.hh_id = null
-  ruleForm.benefit_type_id = null
-
-
-
-  formheader.value = 'Add Beneficiary'
-  AddDialogVisible.value = false
-
-}
 
 
 
@@ -1155,51 +1117,10 @@ const DownloadXlsx = async () => {
 
 
 
-const locationOptions = [
-  {
-    label: "National",
-    value: 1
-  },
-  {
-    label: "County/subcounty/ward/settlement",
-    value: 2
-  },
-  // {
-  //   label: "Settlement",
-  //   value: 3
-  // },
-
-  // {
-  //   label: "Other",
-  //   value: 4
-  // },
-]
 
 const showCounty = ref(false)
 const showCountySettlement = ref(false)
 
-const handleSelectLocation = async (location: any) => {
-  if (location == 2) {
-    // county 
-    showCounty.value = true
-    showCountySettlement.value = false
-    ruleForm.county_id = null
-    ruleForm.subcounty_id = null
-    ruleForm.settlement_id = null
-    ruleForm.ward_id = null
-    ruleForm.geom = null
-
-  }
-
-  else {
-    // National 
-    showCounty.value = false
-    showCountySettlement.value = false
-    ruleForm.geom = null
-
-  }
-
-}
 
 const formatStartDate = (data) => {
 
@@ -1450,130 +1371,30 @@ const readShp = async (file) => {
 const subcountyfilteredOptions = ref([])
 const settlementfilteredOptions = ref([])
 
-const handleSelectCounty = async (county_id: any) => {
-  console.log('County', county_id)
-
-
-  // setup the subcounty options
-
-  console.log(county_id)
-
-  // Reset the subounty on changing the county 
-  ruleForm.subcounty_id = null
-  ruleForm.ward_id = null
-  ruleForm.settlement_id = null
-
-  var subset = [];
-  for (let i = 0; i < subcountyOptions.value.length; i++) {
-    if (subcountyOptions.value[i].county_id == county_id) {
-      subset.push(subcountyOptions.value[i]);
-    }
-  }
-  console.log(subset)
-  subcountyfilteredOptions.value = subset
-
-  // filter settleemnts 
-  var subset_settlements = [];
-  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
-    if (settlementOptionsV2.value[i].county_id == county_id) {
-      subset_settlements.push(settlementOptionsV2.value[i]);
-    }
-  }
-  console.log("Subset Setts", subset_settlements)
-  settlementfilteredOptions.value = subset_settlements
-
-
-  // Get the select subcoites GEO
-
-
-  // geom: { type: 'Polygon', coordinates: [ [Array] ] },
-
-
-}
 
 
 
 
 const wardFilteredOptions = ref([])
 
-const handleSelectSubCounty = async (subcounty_id: any) => {
-  console.log(subcounty_id)
-
-  // Reset the subounty on changing the county 
-  ruleForm.ward_id = null
-  ruleForm.settlement_id = null
-
-  if (subcounty_id) {
-    selectedSubCounty.value = subcounty_id
-    await getWardNames()
-  }
-
-
-  var subset = [];
-  for (let i = 0; i < wardOptions.value.length; i++) {
-    if (wardOptions.value[i].subcounty_id == subcounty_id) {
-      subset.push(wardOptions.value[i]);
-    }
-  }
-  console.log('wardsss', wardFilteredOptions)
-  wardFilteredOptions.value = subset
 
 
 
 
-}
 
-
-const handleSelectWard = async (ward_id: any) => {
-  console.log(ward_id)
-
-  // Reset the subounty on changing the county 
-
-
-  const formData = {}
-  formData.model = 'ward'
-  formData.id = ward_id
-
-  console.log(formData)
-
-  console.log('settlementOptionsV2', settlementOptionsV2)
-
-
-  var subset = [];
-  for (let i = 0; i < settlementOptionsV2.value.length; i++) {
-    if (settlementOptionsV2.value[i].ward_id == ward_id) {
-      subset.push(settlementOptionsV2.value[i]);
-    }
-  }
-  console.log('settlementOptionsV2-filtered', subset)
-  settlementfilteredOptions.value = subset
-
-
-}
-
-
-
-const selectedCounty = ref()
 const selectedSubCounty = ref(null)
 
 
-const enableSubcounty = ref(false)
 
-const subcountiesOptions = ref([])
 
 const wardOptions = ref([])
-const settlementOptionsFil = ref([])
 
 const getWardNames = async () => {
 }
 
-const getSettlementNames = async () => {
-}
 
 
 
-const getSubCountyNames = async () => {
-}
 
 const value6 = ref()
 
@@ -1606,10 +1427,8 @@ const filterByProgramme = async (prog_id: any) => {
 
 
 
-const selectedWard = ref()
 
 
-const selectedSettlement = ref()
 
 
 
@@ -1716,7 +1535,7 @@ const project_activities = ref(null);
 
 
 
-function handleExpand(row) {
+async function handleExpand(row) {
 
   // get the locations 
   getProjectLocations(row.id)
@@ -1751,17 +1570,7 @@ function handleExpand(row) {
 //// Module foe adding benefiicair
 
 const AddBeneficiaryDialogVisible = ref(false)
-const disableBeneficiaryInputs = ref(false)
-const AddBeneficiary = () => {
-  // console.log("Adding Beneficiary")
-  // push({
-  //   path: '/settlement/beneficiary',
-  //   name: 'InterventionBeneficiary',
-  // })
-  AddBeneficiaryDialogVisible.value = true
-}
 
-const BeneficaryFormRef = ref<FormInstance>()
 const BeneficaryForm = reactive({
   hh_id: '',
   project_id: '',
@@ -1773,97 +1582,12 @@ const BeneficaryForm = reactive({
 
 
 const projectOptions = ref([])
-const settlementHHoptions = ref([])
-
-const getSettlementProjects = async () => {
-
-  // get households within those settleemnts
-  // Get Households 
-  const formData = {}
-  formData.limit = 1000// 
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = 'households'
-
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = ['settlement_id']
-  formData.filterValues = [[BeneficaryForm.settlement_id]]
-  formData.associated_multiple_models = []
-
-  //-------------------------
-  console.log(formData)
-
-}
-
-const submitBeneficiaryForm = async (formEl) => {
-  if (!formEl) return;
-  await formEl.validate(async (valid, fields) => {
-    if (valid) {
-      BeneficaryForm.model = 'beneficiary';
-      BeneficaryForm.code = uuid.v4();
 
 
-      BeneficaryForm.hh_id.forEach(function (arrayItem) {
-
-        var household = BeneficaryForm
-        household.hh_id = arrayItem
-        const res = CreateRecord(household);
-
-        console.log('res', res);
-      })
-
-
-
-
-      // Adjust the timeout value as needed
-    } else {
-      console.log('error submit!', fields);
-    }
-  });
-};
 
 
 
 const thisProject = ref([])
-const getThisProject = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 1000,
-      curUser: 1, // Id for logged in user
-      model: 'project',
-      searchField: 'id',
-      searchKeyword: selected_project.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received proejcts :', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-    projectOptions.value = []
-    loading.value = false
-    thisProject.value = response.data
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      projectOptions.value.push(opt)
-    })
-
-  })
-
-  console.log(res)
-  // return res
-
-
-}
 
 
 const loadPreview = async () => {
@@ -2339,8 +2063,14 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
-                <el-tabs tab-position="left" class="demo-tabs">
-                  <el-tab-pane label="Locations">
+                <el-tabs tab-position="top" class="demo-tabs">
+                  <el-tab-pane >
+                    <template #label>
+                        <el-badge  style="margin-left: 10px;" :value="project_locations_filtered.length" type="warning" class="item" :offset="[10, 5]"> 
+                          Locations
+                        </el-badge>
+                      </template>
+  
                     <el-table :data="project_locations_filtered" height="250" stripe>
                       <el-table-column type="index" />
                       <el-table-column prop="county" label="County" />
@@ -2415,7 +2145,13 @@ size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
                       </el-table-column>
                     </el-table>
                   </el-tab-pane>
-                  <el-tab-pane label="Documents">
+                  <el-tab-pane >
+
+                    <template #label>
+                        <el-badge :value="props.row.documents.length" class="item" :offset="[10, 5]"> 
+                          Documents
+                        </el-badge>
+                      </template>
                     <div>
                      
                 <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"  @openDialog="toggleComponent(props.row)" />

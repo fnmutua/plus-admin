@@ -1,31 +1,27 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
 
-import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
+import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
-  ElButton, ElRate, ElTag, FormInstance, ElLink, ElTabs, ElTabPane, ElDialog, ElInputNumber, 
-  ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElOptionGroup, ElStep, ElSteps, ElCheckbox,ElCheckboxGroup, ElCheckboxButton
+  ElButton, ElRate, ElTag, FormInstance, ElTabs, ElTabPane, ElDialog, ElCard,
+  ElInput, ElBadge, ElDescriptions, ElDescriptionsItem, ElPopconfirm, ElTable, ElCol, ElRow,
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElCheckbox
 } from 'element-plus'
 import { ElMessage, } from 'element-plus'
-import { Position, View, Plus, User,CircleCloseFilled, Download, Briefcase, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Loading } from '@element-plus/icons-vue'
+import { Position, View, Plus, Back, CircleCloseFilled, Download, Delete, Edit, Filter, InfoFilled, Search } from '@element-plus/icons-vue'
 
-import { ref, reactive, h, toRef, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { ref, reactive, computed } from 'vue'
+import { ElPagination, ElTooltip } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
-import { getFile } from '@/api/summary'
+import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { uuid } from 'vue-uuid'
 import { defineAsyncComponent } from 'vue';
 
 import xlsx from "json-as-xlsx"
-import { getAllGeo } from '@/api/settlements'
 import {
   searchByKeyWord
 } from '@/api/settlements'
@@ -34,9 +30,9 @@ import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 
 import filterDataByKeys from '@/utils/filterArrays'
 
-import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldSimple } from '@/api/summary'
+import { getSummarybyField } from '@/api/summary'
 
-import { getModelSpecs, getModelRelatives } from '@/api/fields'
+import { getModelSpecs } from '@/api/fields'
 
 
 import 'element-plus/theme-chalk/display.css'
@@ -57,13 +53,12 @@ import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 import proj4 from 'proj4';
 
- 
+
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
- 
 
- import ListDocuments from '@/views/Components/ListDocuments.vue';
- import DownloadAll from '@/views/Components/DownloadAll.vue';
+
+import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 
 
@@ -80,7 +75,6 @@ mapboxgl.accessToken = MapBoxToken;
 //*****************************Create**************************** */
 
 ///----------------------------------------------------------------------------------
-const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   name: '',
   county_id: '',
@@ -98,7 +92,7 @@ const ruleForm = reactive({
   parcel_owner: null,
   rim_no: null,
   isApproved: 'Pending',
-   code: ''
+  code: ''
 })
 
 
@@ -113,9 +107,9 @@ const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
- 
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
+
 
 
 const { push } = useRouter()
@@ -124,18 +118,14 @@ const value2 = ref([])
 const value3 = ref()
 var value4 = ref([])
 var value5 = ref([])
-var value6 = ref([])
 
-const morefileList = ref<UploadUserFile[]>([])
 const loadingGetData = ref(false)
 
 const interVentionTypeOptions = ref([])
 
 
-const settlementOptions = ref([])
 const page = ref(1)
 const pSize = ref(5)
-const selCounties = []
 const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
@@ -146,9 +136,6 @@ const total = ref(0)
 const totalRejected = ref(0)
 const totalApproved = ref(0)
 const totalPending = ref(0)
-const showEditSaveButton = ref(false)
-const showAddSaveButton = ref(true)
-const formheader = ref('Edit Settlement')
 
 
 //let tableDataList = ref<UserType[]>([])
@@ -159,8 +146,8 @@ let tableDataListRejected = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 
 
-const filters = ref(['isApproved' ])
-const filterValues = ref([['Approved'] ]) // make sure the inner array is array
+const filters = ref(['isApproved'])
+const filterValues = ref([['Approved']]) // make sure the inner array is array
 
 
 
@@ -168,12 +155,11 @@ const filterValues = ref([['Approved'] ]) // make sure the inner array is array
 var tblData = []
 
 const associated_Model = ''
- const associated_multiple_models = ['project', 'evaluation_type', 'users']
+const associated_multiple_models = ['project', 'evaluation_type', 'users']
 const nested_models = ['document', 'document_type'] // The mother, then followed by the child
 
 const model = 'evaluation'
 //// ------------------parameters -----------------------////
-const fileUploadList = ref<UploadUserFile[]>([])
 
 
 
@@ -224,15 +210,15 @@ const onPageChange = async (selPage: any) => {
 
   //console.log('', activeTab.value)
   if (activeTab.value == 'list') {
-    filters.value = [ 'isApproved' ]
-    filterValues.value = [ ['Approved'] ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Approved']]  // make sure the inner array is array
   } else if (activeTab.value == 'New') {
-    filters.value = [  'isApproved' ]
-    filterValues.value = [  ['Pending']  ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Pending']]  // make sure the inner array is array
   }
   else if (activeTab.value == 'Rejected') {
-    filters.value = [  'isApproved' ]
-    filterValues.value = [  ['Rejected'] ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Rejected']]  // make sure the inner array is array
   }
 
   console.log("Where are we?", activeTab.value, filters.value, filterValues.value)
@@ -252,16 +238,16 @@ const onPageSizeChange = async (size: any) => {
 
   console.log(activeTab.value)
   if (activeTab.value === 'list') {
-    filters.value = [  'isApproved' ]
-    filterValues.value = [ ['Approved'] ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Approved']]  // make sure the inner array is array
   } else if (activeTab.value === 'New') {
-    filters.value = [  'isApproved' ]
-    filterValues.value = [  ['Pending'] ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Pending']]  // make sure the inner array is array
 
   }
   else if (activeTab.value === 'Rejected') {
-    filters.value = [ 'isApproved' ]
-    filterValues.value = [  ['Rejected'] ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Rejected']]  // make sure the inner array is array
   }
 
 
@@ -283,20 +269,20 @@ const clickTab = async (obj) => {
   console.log("Loading tabs.............", obj.props.label)
   console.log("Loading activeTab.............", activeTab.value)
   console.log("Loading search_string.............", search_string.value)
-  dynamicDocumentComponent.value=null
+  dynamicDocumentComponent.value = null
 
   if (obj.props.name === 'list') {
-    filters.value = [  'isApproved' ]
-    filterValues.value = [  ['Approved'] ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Approved']]  // make sure the inner array is array
 
   } else if (obj.props.name === "New") {
-    filters.value = [  'isApproved' ]
-    filterValues.value = [  ['Pending'] ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Pending']]  // make sure the inner array is array
 
   }
   else if (obj.props.name === "Rejected") {
-    filters.value = [  'isApproved' ]
-    filterValues.value = [  ['Rejected'] ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Rejected']]  // make sure the inner array is array
   }
 
   console.log('Filters:', filters.value)
@@ -327,7 +313,7 @@ const getSettlementCount = async () => {
   formData.model = 'evaluation'
   formData.summaryField = 'isApproved'
   formData.summaryFunction = 'count'
-  formData.groupField = ['isApproved'] 
+  formData.groupField = ['isApproved']
 
   const newSettCount = await getSummarybyField(formData)
   console.log('Settleemnt Count---->', newSettCount)
@@ -360,17 +346,17 @@ const getNewOrRejectedSettlements = async (tab) => {
 
 
   if (tab === 'New') {
-    filters.value = ['isApproved' ]
-    filterValues.value = [['Pending'] ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Pending']]  // make sure the inner array is array
 
   } else if (tab === 'Rejected') {
-    filters.value = ['isApproved' ]
-    filterValues.value = [['Rejected'] ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Rejected']]  // make sure the inner array is array
   }
 
   else {
-    filters.value = ['isApproved' ]
-    filterValues.value = [['Approved'] ]  // make sure the inner array is array
+    filters.value = ['isApproved']
+    filterValues.value = [['Approved']]  // make sure the inner array is array
   }
 
 
@@ -494,35 +480,35 @@ const getNewOrRejectedSettlements = async (tab) => {
     tableDataList.value = res.data
     //  total.value=totalApproved.value
 
-   // console.log('Keys >>>>', flattenNestedArrays(res.data))
-   /// model_fields.value = await flattenNestedArrays(res.data)
+    // console.log('Keys >>>>', flattenNestedArrays(res.data))
+    /// model_fields.value = await flattenNestedArrays(res.data)
 
 
-   res.data.forEach(function (arrayItem) {
-    var dd = flattenJSON(arrayItem)
+    res.data.forEach(function (arrayItem) {
+      var dd = flattenJSON(arrayItem)
 
-    flattenedData.value.push(dd)
-  })
+      flattenedData.value.push(dd)
+    })
 
 
 
-   var obj = flattenJSON(res.data[0])
+    var obj = flattenJSON(res.data[0])
 
-   console.log('flatteda', obj)
-   model_fields.value  = Object.keys(obj);
+    console.log('flatteda', obj)
+    model_fields.value = Object.keys(obj);
 
-   
+
   }
 
- 
+
 
 }
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   for (let key in obj) {
-    if (key !== 'geom' && key !== 'id' && key !== 'createdAt'&& key !== 'updatedAt'&& key !== 'email'&& key !== 'phone'&& key !== 'isApproved' && key !== 'createdBy'   && key !== 'documents'&& key !== 'user' && key !== 'code' ) {
-      if ((typeof obj[key] !== 'object' || obj[key] === null) && key !== 'id' ) {
+    if (key !== 'geom' && key !== 'id' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'email' && key !== 'phone' && key !== 'isApproved' && key !== 'createdBy' && key !== 'documents' && key !== 'user' && key !== 'code') {
+      if ((typeof obj[key] !== 'object' || obj[key] === null) && key !== 'id') {
         res[extraKey + key] = obj[key];
-      } else if (Array.isArray(obj[key]) ) {
+      } else if (Array.isArray(obj[key])) {
         obj[key].forEach((item, index) => {
           flattenJSON(item, res, `${extraKey}${key}.${index}.`);
         });
@@ -537,7 +523,6 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 
 const model_fields = ref([])
 const flattenedData = ref([])
-const fieldColumns = ref(4)
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   loadingGetData.value = true
@@ -585,17 +570,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
- 
 
 
-const viewHHs = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
-  push({
-    path: '/settlement/hh/:id',
-    name: 'Households',
-    params: { id: data.row.id }
-  })
-}
+
 
 const ShowReviewDialog = ref(false)
 const RejectDialog = ref(false)
@@ -614,19 +591,19 @@ const Review = (data: TableSlotDefault) => {
 
   ShowReviewDialog.value = true
 
- 
+
 
   formHeader.value = "Review Evaluation"
 
 }
 
 const approveEvaluation = async () => {
- 
+
 
   console.log("Appprove")
   evaluation_raw.value.isApproved = 'Approved'
   evaluation_raw.value.reviewerId = userInfo.id
- 
+
   evaluation_raw.value.model = 'evaluation'
   console.log(evaluation_raw)
 
@@ -649,7 +626,7 @@ const confirmReject = async () => {
   console.log(ruleForm)
   evaluation_raw.value.model = 'evaluation'
   evaluation_raw.value.reviewerId = userInfo.id
- 
+
 
 
   await updateOneRecord(evaluation_raw.value).then(() => { })
@@ -659,7 +636,7 @@ const confirmReject = async () => {
   getFilteredData(filters, filterValues)
 
 }
- 
+
 const viewProject = async (data: TableSlotDefault) => {
   console.log('On map.....', data.row.project);
 
@@ -679,123 +656,123 @@ const viewProject = async (data: TableSlotDefault) => {
 
 
 
-const closeMap = ( ) => {
- 
- dialogMap.value=false
+const closeMap = () => {
+
+  dialogMap.value = false
 }
 
 
-const loadMap =   (geom) => {
+const loadMap = (geom) => {
 
 
-console.log(geom)
+  console.log(geom)
 
-var centroid =turf.centroid(geom)
- var  mapCenter =centroid.geometry.coordinates
- var localBounds = turf.bbox(geom);
+  var centroid = turf.centroid(geom)
+  var mapCenter = centroid.geometry.coordinates
+  var localBounds = turf.bbox(geom);
 
- console.log(localBounds)
+  console.log(localBounds)
 
 
-var nmap = new mapboxgl.Map({
-  container: "mapContainer",
-  style: "mapbox://styles/mapbox/streets-v12",
- // center: [37.137343, 1.137451], // starting position
-  center: mapCenter, // starting position
-  zoom: 12,
+  var nmap = new mapboxgl.Map({
+    container: "mapContainer",
+    style: "mapbox://styles/mapbox/streets-v12",
+    // center: [37.137343, 1.137451], // starting position
+    center: mapCenter, // starting position
+    zoom: 12,
 
-})
+  })
 
-nmap.on('load', () => { 
+  nmap.on('load', () => {
 
-  nmap.addSource('layer', {
-    type: 'geojson',
-    // Use a URL for the value for the `data` property.
-    //  data: turf.featureCollection(facilityGeoPolygons.value),
-    data: geom,
-    // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-  });
+    nmap.addSource('layer', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      //  data: turf.featureCollection(facilityGeoPolygons.value),
+      data: geom,
+      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
+    });
 
     // Add a black outline around the polygon.
-nmap.addLayer({
-    'id': 'outline',
-    'type': 'line',
-    'source': 'layer',
-    'layout': {},
-    'paint': {
-      'line-color': 'black',
-      'line-width': 2
+    nmap.addLayer({
+      'id': 'outline',
+      'type': 'line',
+      'source': 'layer',
+      'layout': {},
+      'paint': {
+        'line-color': 'black',
+        'line-width': 2
+      }
+    });
+
+    nmap.addLayer({
+      'id': 'pontLayer',
+      "type": "circle",
+      'source': 'layer',
+      'paint': {
+        'circle-radius': 4,
+        'circle-stroke-width': 2,
+        'circle-color': 'red',
+        'circle-stroke-color': 'white'
+      }
+    });
+
+
+    nmap.addLayer({
+      id: 'Satellite',
+      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+      type: "raster"
+    }, 'outline');
+
+    nmap.addLayer({
+      id: 'Streets',
+      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
+      type: "raster"
+    }, 'outline');
+
+
+
+    nmap.setLayoutProperty('Satellite', 'visibility', 'none')
+
+
+    const layers: MapboxLayerDefinition[] = [
+
+      {
+        id: "Satellite",
+        title: "Satellite",
+        visibility: 'none',
+        type: 'base'
+      },
+
+      {
+        id: "Streets",
+        title: "Streets",
+        visibility: 'none',
+        type: 'base'
+      },
+
+    ];
+    nmap.addControl(new MapboxLayerSwitcherControl(layers));
+
+    const nav = new mapboxgl.NavigationControl();
+    nmap.addControl(nav, "top-left");
+
+
+
+
+
+    if (localBounds[0] == localBounds[2]) {
+
+      // for points where the extent x1=x2
+      nmap.fitBounds(localBounds, { maxZoom: 15, padding: 20 });
+    } else {
+      nmap.fitBounds(localBounds, { padding: 20 });
+
     }
-  });
-
-  nmap.addLayer({
-    'id': 'pontLayer',
-    "type": "circle",
-    'source': 'layer',
-    'paint': {
-      'circle-radius': 4,
-      'circle-stroke-width': 2,
-      'circle-color':  'red',
-      'circle-stroke-color': 'white'
-    }
-  });
-
-  
-  nmap.addLayer({
-    id: 'Satellite',
-    source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
-    type: "raster"
-  }, 'outline');
-
-  nmap.addLayer({
-    id: 'Streets',
-    source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
-    type: "raster"
-  }, 'outline');
 
 
-
-  nmap.setLayoutProperty('Satellite', 'visibility', 'none')
-
-
-  const layers: MapboxLayerDefinition[] = [
-
-    {
-      id: "Satellite",
-      title: "Satellite",
-      visibility: 'none',
-      type: 'base'
-    },
-
-    {
-      id: "Streets",
-      title: "Streets",
-      visibility: 'none',
-      type: 'base'
-    },
-
-  ];
-  nmap.addControl(new MapboxLayerSwitcherControl(layers));
-
-const nav = new mapboxgl.NavigationControl();
-nmap.addControl(nav, "top-left");
-
-
-
-
-  
-  if (localBounds[0] == localBounds[2]) {
-
-        // for points where the extent x1=x2
-        nmap.fitBounds(localBounds, { maxZoom: 15, padding: 20 });
-        } else {
-        nmap.fitBounds(localBounds, { padding: 20 });
-
-        }
-
-
-  nmap.resize()
-})
+    nmap.resize()
+  })
 
 }
 
@@ -888,7 +865,7 @@ const getFilteredBySearchData = async (tab, searchKey) => {
 
     tableDataList.value = res.data
 
-    
+
 
 
 
@@ -919,172 +896,25 @@ const searchByName = async (filterString: any) => {
 
 
 
-const countiesOptions = ref([])
 
 const getCountyNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'county',
-      searchField: '',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received countiess:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      countiesOptions.value.push(countyOpt)
-    })
-  })
-}
-
-const wardOptions = ref([])
-
-const getWardNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'ward',
-      searchField: 'subcounty_id',
-      searchKeyword: selectedSubCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received Wards:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-    wardOptions.value = []
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      wardOptions.value.push(opt)
-    })
-  })
 }
 
 
-const subcountiesOptions = ref([])
-const subcountyfilteredOptions = ref([])
+
+
 
 const getSubCountyNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      searchField: 'county_id',
-      searchKeyword: selectedCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received subcounties response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-    subcountiesOptions.value = []
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var subcountyOpt = {}
-      subcountyOpt.value = arrayItem.id
-      subcountyOpt.county_id = arrayItem.county_id
-      subcountyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      subcountiesOptions.value.push(subcountyOpt)
-    })
-  })
 }
 
 
 
 
 
-const filterByCounty = async (county_id: any) => {
-
-  if (county_id) {
-    enableSubcounty.value = true   // allow selection of subcounty 
-    selectedCounty.value = county_id
-    getSubCountyNames()
-  }
-
-  value5.value = null // clear the subcounty 
-  value6.value = null   // clear the ward sr
 
 
 
 
-  // var subset = [];
-  // for (let i = 0; i < subcountiesOptions.value.length; i++) {
-  //   if (subcountiesOptions.value[i].county_id == county_id) {
-  //     subset.push(subcountiesOptions.value[i]);
-  //   }
-  // }
-  // console.log('Subset--->', subset)
-  // subcountyfilteredOptions.value = subset
-
-
-  // getFilteredData(filters, filterValues)
-
-  console.log(filters.value)
-
-  if (search_string.value) {
-    getFilteredBySearchData(activeTab.value, search_string.value)
-  } else {
-    getNewOrRejectedSettlements(activeTab.value)
-  }
-
-
-}
-
-
-const filterBySubCounty = async (subcounty_id: any) => {
-
-  value6.value = null   // clear the ward sr
-
-
-  if (subcounty_id) {
-    selectedSubCounty.value = subcounty_id
-    getWardNames()
-  }
-
-  if (search_string.value) {
-    getFilteredBySearchData(activeTab.value, search_string.value)
-  } else {
-    getNewOrRejectedSettlements(activeTab.value)
-  }
-}
-
-
-const filterByWard = async (ward_id: any) => {
-
-  if (ward_id) {
-    selectedWard.value = ward_id
-  }
-
-  if (search_string.value) {
-    getFilteredBySearchData(activeTab.value, search_string.value)
-  } else {
-    getNewOrRejectedSettlements(activeTab.value)
-  }
-}
 
 
 
@@ -1102,22 +932,10 @@ console.log('Options---->', interVentionTypeOptions)
 
 
 
-const typeOptions = [
-  {
-    value: 1,
-    label: 'Slum'
-  },
-  {
-    value: 2,
-    label: 'Informal Settlement'
-  },
-
-]
 
 
-const documentCategory = ref()
 
- 
+
 
 
 
@@ -1127,32 +945,23 @@ const documentCategory = ref()
 const activeName = ref('list')
 const AddEvaluation = () => {
   push({
-     name: 'AddEvaluation'
+    name: 'AddEvaluation'
   })
 }
 
-const AddDialogVisible = ref(false)
 const formHeader = ref('Edit Settlement')
 
 const editSettlement = (data: TableSlotDefault) => {
 
   push({
-  name: 'AddEvaluation',
+    name: 'AddEvaluation',
     query: { id: data.row.id }
-  
+
   });
 
-  
+
 }
 
-const removeDocument = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-  formData.filesToDelete = [data.name]
-  deleteDocument(formData)
-}
 
 
 const DeleteSettlement = (data: TableSlotDefault) => {
@@ -1191,41 +1000,41 @@ const DeleteSettlement = (data: TableSlotDefault) => {
 
 
 
- 
 
-const showSelectFields =ref(false)
-const selectedFields =ref([])
+
+const showSelectFields = ref(false)
+const selectedFields = ref([])
 
 
 const DownloadXlsx = async () => {
-  showSelectFields.value=true
+  showSelectFields.value = true
 
- } 
+}
 
 
 const handleDownloadSelectFields = async () => {
-   console.log('selectedFields ---', selectedFields.value)
+  console.log('selectedFields ---', selectedFields.value)
 
   if (selectedFields.value.length < 1) {
     ElMessage.warning('Specify the fields you want on the exported file')
-    return 
-    
-   }
+    return
 
- 
+  }
 
-  let fields =[]
 
-  for (let i = 0; i < selectedFields.value.length; i++) { 
+
+  let fields = []
+
+  for (let i = 0; i < selectedFields.value.length; i++) {
     var fld = {}
-    fld.label=selectedFields.value[i]
+    fld.label = selectedFields.value[i]
     fld.value = selectedFields.value[i]
     fields.push(fld)
   }
 
   console.log(fields)
 
-   
+
 
 
   // Preprae the data object 
@@ -1239,15 +1048,15 @@ const handleDownloadSelectFields = async () => {
   for (let i = 0; i < flattenedData.value.length; i++) {
     let thisRecord = {}
 
- //   console.log('flattened ??',i,  flattenedData.value[i])
-     
+    //   console.log('flattened ??',i,  flattenedData.value[i])
+
     thisRecord.index = i + 1
 
     for (let j = 0; j < fields.length; j++) {
       var fld = fields[j].label
       thisRecord[fld] = flattenedData.value[i][fld]
 
-      console.log('fld',thisRecord)
+      console.log('fld', thisRecord)
 
 
     }
@@ -1280,7 +1089,7 @@ const handleDownloadSelectFields = async () => {
 }
 
 
- 
+
 
 console.log('IsMobile', isMobile)
 
@@ -1296,218 +1105,15 @@ if (isMobile.value) {
 
 }
 
-const DocTypes = ref([])
 const getDocumentTypes = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'document_type',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Document Typest:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-
-    const nestedData = ret.reduce((acc, cur) => {
-      const group = cur.group;
-      if (!acc[group]) {
-        acc[group] = [];
-      }
-      acc[group].push(cur);
-      return acc;
-    }, {});
-
-    console.log(nestedData.Map)
-    for (let property in nestedData) {
-      let opts = nestedData[property];
-      var doc = {}
-      doc.label = property
-      doc.options = []
-
-      opts.forEach(function (arrayItem) {
-        let opt = {}
-        opt.value = arrayItem.id
-        opt.label = arrayItem.type
-        doc.options.push(opt)
-
-      })
-      DocTypes.value.push(doc)
-
-    }
-    console.log(DocTypes)
-
-  })
 }
 getDocumentTypes()
 
 
 
 
-const readShp = async (file) => {
-  console.log('Reading Shp file....')
-
-  // await getGeoJSON(file)
-  readShapefileAndConvertToGeoJSON(file)
-    .then((geojson) => {
-
-      console.log("Geo>", geojson.length)
-      console.log("Geo1>", geojson[0])
 
 
-      if (geojson.length != 1) {
-        ElMessage.warning('Please uplaod a file with only one feature. This one has ' + geojson.length + ' features')
-
-      }
-      else {
-        console.log('ok>>', geojson[0])
-        let geom = {
-          type: geojson[0].geometry.type,
-          coordinates: geojson[0].geometry.coordinates
-        }
-        console.log(geom)
-        ruleForm.geom = geom
-
-        console.log(ruleForm)
-      }
-
-
-    })
-    .catch((error) => {
-      console.error(error)
-      ElMessage.error('Invalid shapefiles. Check your zipped file')
-
-
-    })
-
-  //uploadPolygon(feat)
-}
-
-const readJson = (event) => {
-  console.log('Reading Josn file....', event)
-  let str = event.target.result
-
-
-  let json = JSON.parse(str)
-  console.log('parsed', json.crs)
-
-  const targetProj = "+proj=longlat +datum=WGS84 +no_defs"
-
-
-  // const sourceProj = '+proj=utm +zone=37 +ellps=WGS84 +datum=WGS84 +units=m +no_defs';
-  let sourceProj
-  let epsgCode
-  let crsProp = json.crs ? json.crs.properties.name : null;
-
-  if (crsProp && crsProp.includes('EPSG')) {
-    console.log('The string contains the character "EPSG"');
-    epsgCode = crsProp.match(/EPSG::(\d+)/)[1]
-  } else {
-    epsgCode = 4326
-  }
-
-
-  console.log(epsgCode)
-
-
-  console.log(epsgCode)
-
-  if (epsgCode == 21037) {
-    // zone 37S
-    sourceProj = "+proj=utm + zone=37 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-  }
-  else if (epsgCode == 21097) {
-    // zone 37 N
-    sourceProj = "+proj=utm + zone=37 + north + a=6378249.145 + rf=293.465 + towgs84=-157,-2,-299,0,0,0,0 + units=m + no_defs";
-  }
-  else if (epsgCode == 21036) {
-    // zone 36 S
-    sourceProj = "+proj=utm + zone=36 + south + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-  }
-  else if (epsgCode == 21096) {
-    // zone 36N
-    sourceProj = "+proj=utm + zone=36 + north + a=6378249.145 + rf=293.465 + towgs84=-160,-6,-302,0,0,0,0 + units=m + no_defs";
-  }
-
-  else {
-    sourceProj = "+proj=longlat +datum=WGS84 +no_defs"
-
-  }
-
-
-  proj4.defs("SOURCE_CRS", sourceProj);
-  proj4.defs("WGS84", targetProj);
-
-
-  if (json.features.length != 1) {
-    ElMessage.warning('Please uplaod a file with only one feature. This one has ' + json.features.length + ' features')
-
-  }
-  else {
-    console.log('ok>>', json.features)
-
-    const geometry = json.features[0].geometry;
-    console.log(geometry)
-    // Check if the geometry type is "Polygon" or "MultiPolygon"
-    if (geometry.type === "Polygon") {
-      // If it's a single polygon, project its coordinates
-      geometry.coordinates[0] = geometry.coordinates[0].map(coordinate => {
-        return proj4("SOURCE_CRS", "WGS84", coordinate);
-      });
-    } else if (geometry.type === "MultiPolygon") {
-      // If it's a multi-polygon, loop through all polygons and project their coordinates
-      geometry.coordinates.forEach(polygon => {
-        polygon[0] = polygon[0].map(coordinate => {
-          return proj4("SOURCE_CRS", "WGS84", coordinate);
-        });
-      });
-    }
-
-    console.log('geometry', geometry)
-    let geom = {
-      type: json.features[0].geometry.type,
-      coordinates: geometry.coordinates
-    }
-    console.log(geom)
-    ruleForm.geom = geom
-  }
-
-}
-
-const handleUploadGeo = async (uploadFile) => {
-  console.log('Upload>>>', uploadFile)
-  //  uploadRef.value!.submit()
-
-  console.log("File type", uploadFile.name.split('.').pop())
-  var fileType = uploadFile.name.split('.').pop()
-  var rfile = uploadFile.raw
-
-  let reader = new FileReader()
-  console.log(reader)
-
-  //var mydata = JSON.parse(uploadFile);
-
-  if (fileType === 'geojson' || fileType === 'json') {
-    reader.onload = readJson
-    reader.readAsText(rfile)
-  }
-  else if (fileType === 'zip') {
-    readShp(rfile)
-
-    // reader.readAsArrayBuffer(rfile)
-  } else {
-    ElMessage.error('Only geojson or zipped shapefiles are supported at the moment')
-
-
-  }
-
-
-}
 
 const tableRowClassName = (data) => {
   // console.log('Row Styling --------->', data.row)
@@ -1517,86 +1123,43 @@ const tableRowClassName = (data) => {
   return ''
 }
 
-const activeStep = ref(0)
-const next = () => {
-  if (activeStep.value++ > 2) activeStep.value = 0
-}
-
-const copyToClipboard = (code) => {
-  navigator.clipboard.writeText(code)
-    .then(() => {
-      ElMessage({
-        message: 'Code copied to clipboard!',
-        type: 'success'
-      });
-    })
-    .catch((error) => {
-      console.error(error);
-      ElMessage.error('Failed to copy code to clipboard');
-    });
-}
-
-const hoveredRow = ref()
-const showCopyIcon = (row) => {
-  hoveredRow.value = row;
-}
-const hideCopyIcon = (row) => {
-  if (hoveredRow.value === row) {
-    hoveredRow.value = null;
-  }
-}
-
-const isCopyIconVisible = (row) => {
-  return hoveredRow.value === row;
-}
 
 
 
-const handleSelectCounty = async (county_id: any) => {
-  selectedCounty.value = county_id
-  ruleForm.subcounty_id = ''
-  ruleForm.ward_id = ''
-  getSubCountyNames()
 
-}
 
-const handleSelectSubCounty = async (subcounty_id: any) => {
-  selectedSubCounty.value = subcounty_id
-  ruleForm.ward_id = ''
-  getWardNames()
 
-}
+
 
 /// Uplaod docuemnts from a central component 
 const mfield = 'settlement_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
-const selectedRow = ref([])
 const dynamicComponent = ref();
- const componentProps = ref({
-      message: 'Hello from parent',
-      showDialog:addMoreDocuments,
-      data:currentRow.value,
-      umodel:model,
-      field:mfield
-    });
+const componentProps = ref({
+  message: 'Hello from parent',
+  showDialog: addMoreDocuments,
+  data: currentRow.value,
+  umodel: model,
+  field: mfield
+});
 
- 
- 
+
+
 function toggleComponent(row) {
   console.log('Compnnent data', row)
-      componentProps.value.data=row
-      dynamicComponent.value = null; // Unload the component
-      addMoreDocuments.value = true; // Set any additional props
+  componentProps.value.data = row
+  dynamicComponent.value = null; // Unload the component
+  addMoreDocuments.value = true; // Set any additional props
 
-      setTimeout(() => {
-        dynamicComponent.value = ChildComponent; // Load the component
+  setTimeout(() => {
+    dynamicComponent.value = ChildComponent; // Load the component
   }, 100); // 0.1 seconds
 
 
-    }
+}
 
 
-    
+
 // component for docuemnts 
 const rowData = ref()
 const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
@@ -1610,12 +1173,12 @@ const DocumentComponentProps = ref({
 
 
 function handleExpand(row) {
-   dynamicDocumentComponent.value = null; // Unload the component
-    rowData.value = row
-    DocumentComponentProps.value.data = row
-    setTimeout(() => {
-      dynamicDocumentComponent.value = documentComponent; // Load the component
-    }, 100); // 0.1 seconds
+  dynamicDocumentComponent.value = null; // Unload the component
+  rowData.value = row
+  DocumentComponentProps.value.data = row
+  setTimeout(() => {
+    dynamicDocumentComponent.value = documentComponent; // Load the component
+  }, 100); // 0.1 seconds
 }
 
 
@@ -1623,40 +1186,13 @@ function handleExpand(row) {
 
 // Revised molde for downlaod
 
-const getModeldefinition = async ( ) => {
- 
-var formData = {}
-formData.model = model
-console.log("gettign fields")
-
-
-await getModelSpecs(formData).then((response) => {
-
-  var data = response.data
-
-  var fields = data.filter(function (obj) {
-    return (obj.field !== 'id');
-  });
-
-  var fields2 = fields.filter(function (obj) {
-    return (obj.field !== 'geom' && obj.field !=='isApproved' && obj.field !=='createdBy' && obj.field !=='updatedAt'  && obj.field !=='createdAt'     );
-  });
-
-  fields2.forEach(function (arrayItem: { field: string }) {
-       model_fields.value.push(arrayItem.field)
-  })
-    console.log(model_fields.value)
-})
-
-
-}
 
 
 // get model fields 
 
 //  getModeldefinition()
 
-console.log('model_fields.value', model_fields.value )
+console.log('model_fields.value', model_fields.value)
 
 
 const combinedLessons = (row) => {
@@ -1669,56 +1205,71 @@ const combinedLessons = (row) => {
   return lessons;
 };
 
-const dialogMap=ref(false)
+const dialogMap = ref(false)
+
+
+
+const router = useRouter()
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+}
+
 </script>
 
 <template>
-  <ContentWrap
-:title="t('Evaluations')" :message="t('Search by Evaluation title')"
-    v-loading="loadingGetData" element-loading-text="Loading the data.. Please wait.......">
-
+  <el-card v-loading="loadingGetData" element-loading-text="Loading the data.. Please wait.......">
 
 
     <div v-if="dynamicComponent">
-      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
+      <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
 
-    <el-row>
-     
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-        <div style="display: inline-block; margin-top: 5px" >
-
-          <el-input
+      <!-- Title Search -->
+      <el-input
 v-model="search_string" :suffix-icon="Search" placeholder="Enter search text" style="width: 100%;"
-            :onInput="searchByName" />
+        :onInput="searchByName" />
 
-        </div>
-      </el-col>
-      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-        <div style="display: inline-block; margin-top: 5px">
-          <div style="display: inline-block; margin-left: 5px">
-            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-          </div>
 
-          <div style="display: inline-block; margin-left: 5px">
-            <el-tooltip content="Create Evaluation" placement="top">
-              <el-button v-if="showEditButtons" :onClick="AddEvaluation" type="primary" :icon="Plus" />
-            </el-tooltip>
-          </div>
 
-          <div style="display: inline-block; margin-left: 5px">
-            <el-tooltip content="Download" placement="top">
-              <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-            </el-tooltip>
-          </div>
-          <!-- <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/> -->
 
-        </div>
-      </el-col>
+      <!-- Action Buttons -->
+      <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
+        <el-tooltip content="Create Evaluation" placement="top">
+          <el-button v-if="showEditButtons" :onClick="AddEvaluation" type="primary" :icon="Plus" />
+        </el-tooltip>
+
+
+        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+
+      </div>
+
     </el-row>
+
+
+
+
+
+
+
+    <el-row />
 
     <el-tabs @tab-click="clickTab" v-model="activeName" class="custom-tab">
       <el-tab-pane name="list">
@@ -1730,7 +1281,9 @@ v-model="search_string" :suffix-icon="Search" placeholder="Enter search text" st
           </span>
         </template>
 
-        <el-table :data="tableDataList" style="width: 100%" border :row-class-name="tableRowClassName"    @expand-change="handleExpand">
+        <el-table
+:data="tableDataList" style="width: 100%" border :row-class-name="tableRowClassName"
+          @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1738,35 +1291,32 @@ v-model="search_string" :suffix-icon="Search" placeholder="Enter search text" st
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+                <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+                  :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="ID" prop="id" sortable />
-              <el-table-column label="Title" prop="evaluation_title" sortable />
-          <el-table-column label="Project" prop="project.title" sortable />
+           <el-table-column label="Title" prop="evaluation_title" sortable />
+          <el-table-column label="Project" prop="project.title" width="200px" sortable />
           <el-table-column label="Type" prop="evaluation_type.type" sortable />
-          <el-table-column label="Rating (0-Poor, 5-Best)"  prop="overall_rating" width="200px" >
+          <el-table-column label="Rating (0-Poor, 5-Best)" prop="overall_rating" width="200px">
             <template #default="{ row }">
               <div>
                 <el-rate
-                  v-model="row.overall_rating"
-                  disabled
-                  show-score
-                  text-color="#ff9900"
-                  score-template="{value}"
-                />
+v-model="row.overall_rating" disabled show-score text-color="#ff9900"
+                  score-template="{value}" />
               </div>
             </template>
           </el-table-column>
 
 
-          <el-table-column label="Lessons"  width="400px">
+          <el-table-column label="Lessons" width="200px">
             <template #default="{ row }">
               <div>
                 <el-tag v-for="(lesson, index) in combinedLessons(row)" :key="index">
-                {{ lesson }}
-              </el-tag>
+                  {{ lesson }}
+                </el-tag>
               </div>
             </template>
           </el-table-column>
@@ -1802,22 +1352,22 @@ type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSl
                 </el-tooltip>
                 <el-tooltip content="View Project" placement="top">
                   <el-button
-type="warning" size="small" :icon="Position" @click="viewProject(scope as TableSlotDefault)"
-                    circle />
+type="warning" size="small" :icon="Position"
+                    @click="viewProject(scope as TableSlotDefault)" circle />
                 </el-tooltip>
 
-             
+
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
                   <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to delete this report?"
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to delete this report?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Delete circle />
                     </template>
                   </el-popconfirm>
                 </el-tooltip>
-                
+
               </div>
             </template>
 
@@ -1828,52 +1378,51 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
       </el-tab-pane>
 
-          <el-tab-pane name="New" v-if=showEditButtons>
-            <template #label>
-              <span class="custom-tabs-label">
-                <el-badge type="success" :value="totalPending" class="item">
-                  <el-button link>New</el-button>
-                </el-badge>
-              </span>
-            </template>
+      <el-tab-pane name="New" v-if=showEditButtons>
+        <template #label>
+          <span class="custom-tabs-label">
+            <el-badge type="success" :value="totalPending" class="item">
+              <el-button link>New</el-button>
+            </el-badge>
+          </span>
+        </template>
 
-            <el-table :data="tableDataListNew" style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
-              <el-table-column type="expand">
-                <template #default="props">
-                  <div m="4">
-                    <h3>Documents</h3>
-                    <div>
-                      <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
-                    </div>
-                    <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column label="ID" prop="id" sortable />
-              <el-table-column label="Title" prop="evaluation_title" sortable />
-          <el-table-column label="Project" prop="project.title" sortable />
+        <el-table
+:data="tableDataListNew" style="width: 100%" border :row-class-name="tableRowClassName"
+          @expand-change="handleExpand">
+          <el-table-column type="expand">
+            <template #default="props">
+              <div m="4">
+                <h3>Documents</h3>
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+                  :icon="Plus" circle @click="toggleComponent(props.row)" />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Title" prop="evaluation_title" sortable />
+          <el-table-column label="Project" prop="project.title" sortable  width="200px" />
           <el-table-column label="Type" prop="evaluation_type.type" sortable />
-          <el-table-column label="Rating (0-Poor, 5-Best)"  prop="overall_rating"  width="200px" >
+          <el-table-column label="Rating (0-Poor, 5-Best)" prop="overall_rating" width="200px">
             <template #default="{ row }">
               <div>
                 <el-rate
-                  v-model="row.overall_rating"
-                  disabled
-                  show-score
-                  text-color="#ff9900"
-                  score-template="{value}"
-                />
+v-model="row.overall_rating" disabled show-score text-color="#ff9900"
+                  score-template="{value}" />
               </div>
             </template>
           </el-table-column>
 
 
-          <el-table-column label="Findings"  width="300px">
+          <el-table-column label="Findings" width="300px">
             <template #default="{ row }">
               <div>
                 <el-tag v-for="(lesson, index) in combinedLessons(row)" :key="index">
-                {{ lesson }}
-              </el-tag>
+                  {{ lesson }}
+                </el-tag>
               </div>
             </template>
           </el-table-column>
@@ -1907,8 +1456,8 @@ type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSl
                 </el-tooltip>
                 <el-tooltip content="View Project" placement="top">
                   <el-button
-type="warning" size="small" :icon="Position" @click="viewProject(scope as TableSlotDefault)"
-                    circle />
+type="warning" size="small" :icon="Position"
+                    @click="viewProject(scope as TableSlotDefault)" circle />
                 </el-tooltip>
 
                 <el-tooltip content="Review" placement="top">
@@ -1918,15 +1467,15 @@ v-show="showAdminButtons" type="success" size="small" :icon="View"
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
                   <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to delete this settlement?"
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to delete this settlement?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Delete circle />
                     </template>
                   </el-popconfirm>
                 </el-tooltip>
-                 
+
               </div>
             </template>
 
@@ -1945,7 +1494,9 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
             </el-badge>
           </span>
         </template>
-        <el-table :data="tableDataListRejected" style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+        <el-table
+:data="tableDataListRejected" style="width: 100%" border :row-class-name="tableRowClassName"
+          @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1953,39 +1504,36 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+                <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+                  :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="ID" prop="id" sortable />
-          <el-table-column label="Title" prop="evaluation_title" sortable />
-      <el-table-column label="Project" prop="project.title" sortable />
-      <el-table-column label="Type" prop="evaluation_type.type" sortable />
- 
-      <el-table-column label="Rating (0-Poor, 5-Best)"  prop="overall_rating"   width="200px">
-        <template #default="{ row }">
-          <div>
-            <el-rate
-              v-model="row.overall_rating"
-              disabled
-              show-score
-              text-color="#ff9900"
-              score-template="{value}"
-             />
-          </div>
-        </template>
-      </el-table-column>
+           <el-table-column label="Title" prop="evaluation_title" sortable />
+          <el-table-column label="Project" prop="project.title" sortable  width="200px"/>
+          <el-table-column label="Type" prop="evaluation_type.type" sortable />
+
+          <el-table-column label="Rating (0-Poor, 5-Best)" prop="overall_rating" width="200px">
+            <template #default="{ row }">
+              <div>
+                <el-rate
+v-model="row.overall_rating" disabled show-score text-color="#ff9900"
+                  score-template="{value}" />
+              </div>
+            </template>
+          </el-table-column>
 
 
-      <el-table-column label="Findings"  width="300px">
-        <template #default="{ row }">
-          <div>
-            <el-tag v-for="(lesson, index) in combinedLessons(row)" :key="index">
-            {{ lesson }}
-          </el-tag>
-          </div>
-        </template>
-      </el-table-column>
+          <el-table-column label="Findings" width="300px">
+            <template #default="{ row }">
+              <div>
+                <el-tag v-for="(lesson, index) in combinedLessons(row)" :key="index">
+                  {{ lesson }}
+                </el-tag>
+              </div>
+            </template>
+          </el-table-column>
 
 
           <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
@@ -2011,8 +1559,8 @@ v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
               <div v-else>
                 <el-tooltip content="View Project" placement="top">
                   <el-button
-type="warning" size="small" :icon="Position" @click="viewProject(scope as TableSlotDefault)"
-                    circle />
+type="warning" size="small" :icon="Position"
+                    @click="viewProject(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip content="Review" placement="top">
                   <el-button
@@ -2021,15 +1569,15 @@ v-show="showAdminButtons" type="success" size="small" :icon="View"
                 </el-tooltip>
                 <el-tooltip content="Delete" placement="top">
                   <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to delete this report?"
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to delete this report?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
                     </template>
                   </el-popconfirm>
                 </el-tooltip>
- 
+
               </div>
             </template>
           </el-table-column>
@@ -2037,33 +1585,29 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
       </el-tab-pane>
 
 
-
       <ElPagination
 v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </el-tabs>
- 
-    
+
+
     <el-dialog v-model="showSelectFields" title="Select Fields" width="50%">
-  <el-row>
-    <el-col :span="6" v-for="(field, index) in model_fields" :key="index">
-      <el-checkbox v-model="selectedFields" :label="field">{{ field }}</el-checkbox>
-    </el-col>
-  </el-row>
-  <el-button type="success" @click="handleDownloadSelectFields()">Download</el-button>
-</el-dialog>
-
-
+      <el-row>
+        <el-col :span="6" v-for="(field, index) in model_fields" :key="index">
+          <el-checkbox v-model="selectedFields" :label="field">{{ field }}</el-checkbox>
+        </el-col>
+      </el-row>
+      <el-button type="success" @click="handleDownloadSelectFields()">Download</el-button>
+    </el-dialog>
 
     <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
       <el-descriptions title="" direction="vertical" :column="2" size="small" border>
         <el-descriptions-item label="Project">{{ evaluation_raw.project.title }}</el-descriptions-item>
         <el-descriptions-item label="Title" :span="2">{{ evaluation_raw.evaluation_title }}</el-descriptions-item>
         <el-descriptions-item label="Overall Rating">{{ evaluation_raw.overall_rating }}</el-descriptions-item>
-         <el-descriptions-item label="Evaluators"> {{ evaluation_raw.evaluators }} </el-descriptions-item>
+        <el-descriptions-item label="Evaluators"> {{ evaluation_raw.evaluators }} </el-descriptions-item>
         <el-descriptions-item label="Submitted By"> {{ evaluation_raw.user.name }} </el-descriptions-item>
-
         <el-descriptions-item label="Date"> {{ evaluation_raw.updatedAt }} </el-descriptions-item>
 
 
@@ -2089,30 +1633,23 @@ v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPa
     </el-dialog>
 
 
-    <el-dialog
-    v-model="dialogMap"
-     width="50%"
-    draggable
-    :before-close="closeMap"
- 
-    :show-close="false"
-  >
-  <template #header="{ titleId, titleClass }">
-      <div class="my-header">
-        <h4 :id="titleId" :class="titleClass">Project Location</h4>
-     
-        <el-button type="danger" :icon="CircleCloseFilled" @click="closeMap" >Close Map</el-button>
+    <el-dialog v-model="dialogMap" width="50%" draggable :before-close="closeMap" :show-close="false">
+      <template #header="{ titleId, titleClass }">
+        <div class="my-header">
+          <h4 :id="titleId" :class="titleClass">Project Location</h4>
 
-      </div>
-    </template>
-     <div id="mapContainer" class="basemap"></div>
+          <el-button type="danger" :icon="CircleCloseFilled" @click="closeMap">Close Map</el-button>
 
-  </el-dialog>
+        </div>
+      </template>
+      <div id="mapContainer" class="basemap"></div>
+
+    </el-dialog>
 
 
-  </ContentWrap>
+  </el-card>
 </template>
- 
+
 
 
 
@@ -2186,11 +1723,13 @@ v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPa
 <style scoped>
 .basemap {
   width: 100%;
-  height: 75vh; /* Set the height to 75% of the viewport height */
-  border: 1px solid #e2dcdc; /* Outline */
-  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4); /* Shadow */
+  height: 75vh;
+  /* Set the height to 75% of the viewport height */
+  border: 1px solid #e2dcdc;
+  /* Outline */
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+  /* Shadow */
 }
-
 </style>
 
 <style scoped>

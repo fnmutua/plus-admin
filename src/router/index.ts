@@ -930,7 +930,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Indicators/indicator_category.vue'),
             name: 'IndicatorConfigs',
             meta: {
-              title: 'Indicator setup',
+              title: 'Configuration',
               icon:'material-symbols:settings',
               hidden: false
             }
@@ -966,9 +966,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Indicators/indicator_category_report_new.vue'),
             name: 'NewReports',
             meta: {
-              title: 'Outputs(New)',
+              title: 'Reports(New)',
               role: ['admin', 'super_admin' ,'staff' ] ,
-
               icon:'carbon:result-new',
             }
           },
@@ -979,24 +978,13 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: () => import('@/views/Indicators/indicator_category_report.vue'),
             name: 'PastReports',
             meta: {
-              title: 'Outputs',
+              title: 'Reports',
               icon:'mdi:file-document-plus',
             }
           },
         ]
       },
-
-      // {
-      //   path: 'evaluation',
-      //   //component: 'views/Facilities/Water/Water',
-      //   component: () => import('@/views/Evaluation/All.vue'),
-      //   //component: Layout,
-      //   name: 'Evaluation',
-      //   meta: {
-      //     icon: 'pajamas:issue-type-test-case',
-      //     title: 'Evaluations'
-      //   },
-      // },
+ 
 
       {
         path: 'evaluations',
@@ -1024,7 +1012,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           {
             path: 'outcomes',
           //  component: 'views/Indicators/indicator_category_report',
-          component: () => import('@/views/Indicators/indicator_category_report2.vue'),
+          component: () => import('@/views/Indicators/indicator_category_outcome.vue'),
           name: 'OutcomeEvaluation',
             meta: {
               title: 'Impacts',

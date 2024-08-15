@@ -1,35 +1,28 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
+import { ElButton, ElSelect, ElTour, ElCard, ElTourStep } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
-  Position,
-  TopRight,
-  User,
   Plus,
   Download,
   Filter,
-  MessageBox,
-  Edit,
+  Edit,Back,
   InfoFilled,
   Delete
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
 import {
-  ElPagination, ElInputNumber, ElTable,
+  ElPagination, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElDatePicker, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElUpload, ElLink, ElInput, ElCascader, ElOptionGroup, FormRules, ElPopconfirm
+  ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, ElPopconfirm
 } from 'element-plus'
 
 
 import { useRouter } from 'vue-router'
-import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
@@ -64,7 +57,7 @@ if (isMobile.value) {
 
 
 }
-  
+
 
 
 const { push } = useRouter()
@@ -74,7 +67,6 @@ var value3 = ref([])
 const indicatorsOptions = ref([])
 const settlementOptions = ref([])
 const categories = ref([])
-const filteredIndicators = ref([])
 const page = ref(1)
 const pSize = ref(5)
 const selCounties = []
@@ -83,10 +75,10 @@ const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
- 
 
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
+
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
 
 
 
@@ -112,7 +104,7 @@ const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
 
 
- 
+
 const handleClear = async () => {
   console.log('cleared....')
 
@@ -231,27 +223,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 const getIndicatorOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      //   pageIndex: 1,
-      //   limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'indicator',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-    // pass result to the makeoptions
-
-    categories.value = ret
-    makeSettlementOptions(categories)
-  })
 }
 
 
@@ -267,13 +238,6 @@ const makeSettlementOptions = (list) => {
   })
 }
 
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'indicators.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
 
 const activityOptions = ref([])
 const getActivityOptions = async () => {
@@ -366,9 +330,6 @@ const handleClose = () => {
   formHeader.value = 'Add Indicator'
 
 }
-interface FormData {
-  [key: string]: any;
-}
 
 interface FormRules {
   [key: string]: {
@@ -402,7 +363,7 @@ const rules = reactive({
   type: [
     { required: true, message: 'Indicator type is required', trigger: 'blur' }],
 
-    activity_id: [
+  activity_id: [
     { required: true, message: 'Activity is required', trigger: 'blur' }],
 
 
@@ -419,21 +380,6 @@ const AddIndicator = () => {
 }
 
 
-// const submitForm = async (formEl: FormInstance | undefined) => {
-//   if (!formEl) return
-//   await formEl.validate((valid, fields) => {
-//     if (valid) {
-
-//       console.log('Is valid....')
-//       ruleForm.model = 'indicator'
-//       ruleForm.code = uuid.v4()
-//       const res = CreateRecord(ruleForm)
-
-//     } else {
-//       console.log('error submit!', fields)
-//     }
-//   })
-// }
 
 const submitForm = async (formEl) => {
   const valid = await formEl.validate()
@@ -523,43 +469,132 @@ const DownloadXlsx = async () => {
   xlsx([dataObj], settings) //  download the excel file
 
 }
+
+const openHelp = ref(false)
+
+const AddActivityDialog = ref(false)
+const AddNewActivity = () => {
+  console.log('adding....')
+  AddActivityDialog.value = true
+
+}
+
+
+const handleCloseActivity = () => {
+  AddActivityDialog.value = false
+
+}
+
+
+const ActivityFormRef = ref<FormInstance>()
+const activity_form = reactive({
+  title: '',
+  shortTitle: ''
+})
+
+const freqRules = reactive({
+
+  title: [
+    { required: true, message: 'Please provide an activity title', trigger: 'blur' },
+    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+  ],
+
+  shortTitle: [
+    { required: true, message: 'A shorter title is required', trigger: 'blur' },
+    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+  ],
+
+
+})
+
+
+const submitActivityForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate(async (valid, fields) => { // Make the callback function async
+    if (valid) {
+      activity_form.model = 'activity'
+      activity_form.code = uuid.v4()
+      const res = await CreateRecord(activity_form)
+      console.log(res.data)
+      var act = {}
+      act.value = res.data.id
+      act.label = res.data.title
+
+      activityOptions.value.push(act)
+    } else {
+      console.log('error categoryForm!', fields)
+    }
+  })
+
+
+}
+
+
+const router = useRouter()
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+}
+
+
 </script>
 
 <template>
-  <ContentWrap :title="t('Indicator List')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+  <el-card>
 
-    <div style="display: inline-block; margin-left: 20px">
+
+
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
+
+      <!-- Title Search -->
       <el-select
 v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search Indicator">
         <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-    </div>
-    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
-
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Indicator" placement="top">
-        <el-button v-if="showAdminButtons" :onClick="AddIndicator" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
-
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
 
 
 
-    <el-table :data="tableDataList" :loading="loading" border>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
+        <el-tooltip content="Add Indicator" placement="top">
+          <el-button v-if="showAdminButtons" :onClick="AddIndicator" type="primary" :icon="Plus" />
+        </el-tooltip>
+        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+        <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+
+      </div>
+
+     </el-row>
+
+
+
+
+
+
+
+
+    <el-table :data="tableDataList" :loading="loading" border style="width: 100%; margin-top: 10px;">
       <el-table-column label="Id" prop="id" :width="idColumnWidth" sortable />
       <el-table-column label="Title" prop="name" sortable />
       <el-table-column label="Activity" prop="activity.title" sortable />
-       <el-table-column label="Type" prop="type" sortable />
+      <el-table-column label="Type" prop="type" sortable />
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth" sortable>
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -605,58 +640,63 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
 
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
-  </ContentWrap>
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+  </el-card>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
-      <el-form-item label="Activity" prop="activity_id">
-      <el-select filterable v-model="ruleForm.activity_id" placeholder="Select Activity" style="width: 100%">
-        <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </el-form-item>
+      <el-form-item id="btn1" label="Activity" prop="activity_id">
+        <el-select
+filterable v-model="ruleForm.activity_id" placeholder="Select Activity"
+          style="width: 85%; margin-right: 10px;">
+          <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+        <el-button type="primary" @click="AddNewActivity" :icon="Plus" plain />
+
+      </el-form-item>
 
 
 
-      <el-form-item label="Title" prop="name">
+      <el-form-item id="btn2" label="Title" prop="name">
         <el-input v-model="ruleForm.name" />
       </el-form-item>
-      <el-form-item label="Type" prop="type">
-        <el-select v-model="ruleForm.type" placeholder="Type" >
+      <el-form-item id="btn3" label="Type" prop="type">
+        <el-select v-model="ruleForm.type" placeholder="Type">
           <el-option label="Output" value="output" />
           <el-option label="Impact" value="outcome" />
         </el-select>
       </el-form-item>
-      <el-form-item label="Format" prop="format">
-        <el-select v-model="ruleForm.format" placeholder="Format"  >
+      <el-form-item id="btn4" label="Format" prop="format">
+        <el-select v-model="ruleForm.format" placeholder="Format">
           <el-option label="Number" value="number" />
           <el-option label="Percent" value="percent" />
         </el-select>
       </el-form-item>
-         <el-form-item label="Unit" prop="format">
-        <el-select clearable filterable v-model="ruleForm.unit"  allow-create placeholder="Unit">
+      <el-form-item id="btn5" label="Unit" prop="format">
+        <el-select clearable filterable v-model="ruleForm.unit" allow-create placeholder="Unit">
           <el-option label="Kilometre" value="Km" />
           <el-option label="Number" value="No." />
           <el-option label="Household" value="HH" />
-           
+
         </el-select>
       </el-form-item>
-      <el-form-item label="Level"  prop="level">
-        <el-select v-model="ruleForm.level" placeholder="Level" >
+      <el-form-item id="btn6" label="Level" prop="level">
+        <el-select v-model="ruleForm.level" placeholder="Level">
           <el-option label="Settlement" value="Settlement" />
           <el-option label="County" value="County" />
           <el-option label="National" value="National" />
         </el-select>
       </el-form-item>
 
-      
+
     </el-form>
     <template #footer>
 
       <span class="dialog-footer">
+        <el-button type="primary" plain @click="openHelp = true">Help</el-button>
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
         <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
         <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
@@ -664,88 +704,54 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
     </template>
   </el-dialog>
 
-<!-- 
-  <el-dialog v-model="xAddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
-   
-    <el-form
-    ref="ruleFormRef"
-    :model="ruleForm"
-    :rules="rules"
-    label-width="120px"
-    class="demo-ruleForm"
-    :size="formSize"
-    status-icon
-  >
-    <el-form-item label="Activity name" prop="name">
-      <el-input v-model="ruleForm.name" />
-    </el-form-item>
-    <el-form-item label="Activity zone" prop="region">
-      <el-select v-model="ruleForm.region" placeholder="Activity zone">
-        <el-option label="Zone one" value="shanghai" />
-        <el-option label="Zone two" value="beijing" />
-      </el-select>
-    </el-form-item>
-    <el-form-item label="Activity count" prop="count">
-      <el-select-v2
-        v-model="ruleForm.count"
-        placeholder="Activity count"
-        :options="options"
-      />
-    </el-form-item>
-    <el-form-item label="Activity time" required>
-      <el-col :span="11">
-        <el-form-item prop="date1">
-          <el-date-picker
-            v-model="ruleForm.date1"
-            type="date"
-            label="Pick a date"
-            placeholder="Pick a date"
-            style="width: 100%"
-          />
-        </el-form-item>
-      </el-col>
-      <el-col class="text-center" :span="2">
-        <span class="text-gray-500">-</span>
-      </el-col>
-      <el-col :span="11">
-        <el-form-item prop="date2">
-          <el-time-picker
-            v-model="ruleForm.date2"
-            label="Pick a time"
-            placeholder="Pick a time"
-            style="width: 100%"
-          />
-        </el-form-item>
-      </el-col>
-    </el-form-item>
-    <el-form-item label="Instant delivery" prop="delivery">
-      <el-switch v-model="ruleForm.delivery" />
-    </el-form-item>
-    <el-form-item label="Activity type" prop="type">
-      <el-checkbox-group v-model="ruleForm.type">
-        <el-checkbox label="Online activities" name="type" />
-        <el-checkbox label="Promotion activities" name="type" />
-        <el-checkbox label="Offline activities" name="type" />
-        <el-checkbox label="Simple brand exposure" name="type" />
-      </el-checkbox-group>
-    </el-form-item>
-    <el-form-item label="Resources" prop="resource">
-      <el-radio-group v-model="ruleForm.resource">
-        <el-radio label="Sponsorship" />
-        <el-radio label="Venue" />
-      </el-radio-group>
-    </el-form-item>
-    <el-form-item label="Activity form" prop="desc">
-      <el-input v-model="ruleForm.desc" type="textarea" />
-    </el-form-item>
-    <el-form-item>
-      <el-button type="primary" @click="submitForm(ruleFormRef)">
-        Create
-      </el-button>
-      <el-button @click="resetForm(ruleFormRef)">Reset</el-button>
-    </el-form-item>
-  </el-form>
-    
-  </el-dialog> -->
+  <el-tour v-model="openHelp" z-index="100000">
+    <el-tour-step
+target="#btn1" title="Activity"
+      description="Select the project activity you wish to configure an indicator for" />
+    <el-tour-step
+target="#btn2" title="Title"
+      description="Enter a unique name for the indicator. This name will be used to identify the indicator in reports and dashboards." />
+    <el-tour-step
+target="#btn3" title="Type"
+      description="Select whether this indicator measures an 'Impact' or an 'Output.' Impact: Refers to the long-term effects or changes that occur as a result of the activities or interventions, often related to the overall goal.Output: Refers to the immediate results or products of activities, such as services delivered or goods produced." />
+    <el-tour-step
+target="#btn4" title="Format"
+      description="Specify how the indicator will be calculated. Options may include sums, averages, percentages" />
+
+    <el-tour-step
+target="#btn5" title="Unit"
+      description="Specify the unit of measurement for this indicator (e.g.,  Kilometer, dollars, kilograms). This unit should align with the data being collected and reported, ensuring consistency and clarity in how the indicator's values are interpreted." />
+
+    <el-tour-step
+target="#btn6" title="Level"
+      description="Select the level at which the indicator's data will be reported." />
+
+
+  </el-tour>
+
+
+
+  <el-dialog
+v-model="AddActivityDialog" @close="handleCloseActivity" title="Add Activity" :width="dialogWidth"
+    draggable>
+    <el-form ref="ActivityFormRef" :model="activity_form" :rules="freqRules">
+
+      <el-form-item label="Title" prop="title">
+        <el-input v-model="activity_form.title" :style="{ width: '100%' }" />
+      </el-form-item>
+
+      <el-form-item label="Short Title" prop="shortTitle">
+        <el-input v-model="activity_form.shortTitle" :style="{ width: '100%' }" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+
+      <span class="dialog-footer">
+        <el-button @click="AddActivityDialog = false">Cancel</el-button>
+        <el-button type="primary" @click="submitActivityForm(ActivityFormRef)">Save</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
 
 </template>
