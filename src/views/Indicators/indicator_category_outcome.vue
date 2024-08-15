@@ -3,7 +3,7 @@
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, ElSelectV2,  ElStep, ElSteps, FormInstance, ElCard, ElTour,ElTourStep } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, FormInstance, ElCard, ElStep,ElSteps } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -11,8 +11,8 @@ import {
   Download,
   Filter,
   Delete,
-  UploadFilled,
-  Position,Back,
+  UploadFilled, Back,
+  Position,
   InfoFilled
 } from '@element-plus/icons-vue'
 
@@ -49,7 +49,7 @@ import DownloadAll from '@/views/Components/DownloadAll.vue';
 import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
- 
+
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
@@ -85,9 +85,9 @@ const selCounties = []
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
+
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
-
 
 // Function to empty all fields in ruleForm
 function emptyRuleForm() {
@@ -102,10 +102,10 @@ const ruleForm = reactive({
   baseline: 0,
   target: 0,
   project_id: '',
-  project_location_id: null,
   activity_id: '',
   programme_implementation_id: '',
   settlement_id: '',
+  project_location_id: null,
   subcounty_id: '',
   ward_id: '',
   county_id: '',
@@ -180,11 +180,9 @@ const rules = reactive<FormRules>({
 
 
 
-
-
 const AddDialogVisible = ref(false)
 const ImportDialogVisible = ref(false)
-const formHeader = ref('Add M&E Report')
+const formHeader = ref('Add Report')
 const showSubmitBtn = ref(false)
 const showProcessBtn = ref(true)
 const addMoreDocuments = ref(false)
@@ -350,7 +348,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('Reports collected........', res)
-  tableDataList.value = res.data.filter(item => item.indicator_category.indicator.type === 'output');
+  tableDataList.value = res.data.filter(item => item.indicator_category.indicator.type === 'outcome');
 
 
   //tableDataList.value = res.data
@@ -393,7 +391,7 @@ const getIndicatorNames = async () => {
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
-  console.log('indicator_category Re', res)
+  console.log('indicator_category', res)
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
     var opt = {}
@@ -414,7 +412,7 @@ const getIndicatorNames = async () => {
     opt.target = arrayItem.target
 
     // Here we collect Output indicators ONLY
-    if (arrayItem.indicator.type == 'output') {
+    if (arrayItem.indicator.type == 'outcome') {
       indicatorsOptions.value.push(opt)
       indicatorsOptionsFiltered.value.push(opt)
     }
@@ -476,13 +474,11 @@ const getProjects = async () => {
 
 
 
-const editReport = async (data: TableSlotDefault) => {
+const editReport = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
 
-  await getProjectLocations(data.project_id)
-
   showEditSaveButton.value = true
-  console.log('editReport',data)
+  console.log(data)
   ruleForm.id = data.id
   ruleForm.county_id = data.county_id
   ruleForm.subcounty_id = data.subcounty_id
@@ -496,9 +492,8 @@ const editReport = async (data: TableSlotDefault) => {
   ruleForm.amount = data.amount
   ruleForm.indicator_category_id = data.indicator_category_id
   ruleForm.programme_implementation_id = data.programme_implementation_id
-  ruleForm.project_location_id = data.project_location_id
-  
- console.log("project_locations",project_locations.value)
+
+
   ruleForm.ward_id = data.ward_id
   ruleForm.code = data.code
   ruleForm.progress = data.progress
@@ -569,10 +564,12 @@ const handleClose = () => {
   ruleForm.ward_id = null
   ruleForm.location = []
 
-  formHeader.value = 'Add M&E Report'
+  formHeader.value = 'Add Report'
   AddDialogVisible.value = false
 
 }
+
+
 
 
 const project_locations = ref([])
@@ -656,11 +653,7 @@ const changeProject = async (project: any) => {
   indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
     return el.project_id == project
   });
-
   getProjectLocations(project)
-
-
-
 }
 
 
@@ -673,6 +666,7 @@ const changeActivity = async (activity: any) => {
 
 
 }
+
 
 const changeLocation = async (location: any) => {
   console.log('changeLocation', location)
@@ -695,7 +689,6 @@ const changeLocation = async (location: any) => {
 }
 
 
-
 const changeIndicator = async (indicator_category_id: any) => {
   ruleForm.indicator_category_id = indicator_category_id
 
@@ -706,7 +699,10 @@ const changeIndicator = async (indicator_category_id: any) => {
   });
 
   ruleForm.project_id = filtredOptions[0].project_id
-
+  ruleForm.settlement_id = filtredOptions[0].settlement_id
+  ruleForm.county_id = filtredOptions[0].county_id
+  ruleForm.subcounty_id = filtredOptions[0].subcounty_id
+  ruleForm.ward_id = filtredOptions[0].ward_id
 
 
   console.log("Filtered Indicators", filtredOptions[0])
@@ -743,19 +739,14 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.period = getQuarter()
       ruleForm.code = uuid.v4()
       ruleForm.userId = userInfo.id
-    
+      // ruleForm.cumDisbursement = ruleForm.cumDisbursement + ruleForm.disbursement
+      //   ruleForm.cumProgress = (ruleForm.cumProgress + ruleForm.progress) <= 100 ? (ruleForm.cumProgress + ruleForm.progress) : 100
+
       console.log('cumProgress', ruleForm.cumProgress)
 
       ruleForm.cumAmount = ruleForm.cumAmount + ruleForm.amount
 
-      let calculatedProgress = (100 * (ruleForm.cumAmount / ruleForm.target));
-
-      if (isFinite(calculatedProgress)) {
-        ruleForm.cumProgress = calculatedProgress.toFixed(2);
-      } else {
-        ruleForm.cumProgress = '0.00';
-      }
-
+      ruleForm.cumProgress = (100 * (ruleForm.cumAmount / ruleForm.target)).toFixed(2)
       //   ruleForm.cumProgress =  100*((ruleForm.cumAmount - ruleForm.baseline )/(ruleForm.target - ruleForm.baseline )).toFixed(2)
 
       //Progress towards target (%realized) [(B-A)/(C- A)]
@@ -1281,16 +1272,9 @@ getInterventionsAll()
 
 const tableRowClassName = (data) => {
   // console.log('Row Styling --------->', data.row)
-  // if (data.row.documents.length > 0) {
-  //   return 'warning-row'
-  // }
-  if (data.row.status =='Rejected' ) {
-    return 'danger-row'
+  if (data.row.documents.length > 0) {
+    return 'warning-row'
   }
-  if (data.row.status =='Approved' ) {
-    return 'success-row'
-  }
-
   return ''
 }
 
@@ -1300,7 +1284,6 @@ const tableRowClassName = (data) => {
 
 
 
-const DocTypes = ref([])
 const getDocumentTypes = async () => {
 }
 getDocumentTypes()
@@ -1629,6 +1612,7 @@ function formatDate(dateString) {
   return `${year}-${month}-${day}`;
 }
 
+
 const router = useRouter()
 
 const goBack = () => {
@@ -1642,11 +1626,7 @@ const goBack = () => {
   }
 }
 
-const openHelp = ref(false)
-
- 
 const activeStep = ref(0)
-
 
 
 const nextStep = async () =>{ 
@@ -1688,43 +1668,32 @@ const nextStep = async () =>{
       <!-- Title Search -->
       <el-select
 v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="Filter by Project/Indicator" style="width: 450px; margin-right: 10px;">
+        filterable collapse-tags placeholder="Filter by Project/Indicator">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
 
+
+
       <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+      <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
         <el-tooltip content="Add Report " placement="top">
           <el-button v-if="showEditButtons" :onClick="AddReport" type="primary" :icon="Plus" />
         </el-tooltip>
+
+
         <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
         <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
         <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-      
+
       </div>
 
-      <!-- Download All Component -->
-      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
     </el-row>
-
 
 
     <div v-if="dynamicComponent">
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
-
-
-
-
-
-
-
-
-
-
-
-
 
     <el-table
 :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
@@ -1732,50 +1701,33 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
 
       <el-table-column type="expand">
         <template #default="props">
-          
-             <div>
-              <list-documents
-:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                @openDialog="toggleComponent(props.row)" />
+          <div m="4">
+            <h3>Documents</h3>
+            <div>
+              <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
             </div>
- 
+            <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+              :icon="Plus" circle @click="toggleComponent(props.row)" />
+          </div>
         </template>
       </el-table-column>
-      <el-table-column label="#" width="80" prop="id" sortable>
-      <template #default="scope">
-        <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-        <span>{{ scope.row.id }}</span>
-         <Icon icon="material-symbols:attachment"  style="margin-left: 4px;"  />
-      </div>
+      <el-table-column label="#" width="80" prop="id" sortable />
 
-    
-            
-      </template>
-    </el-table-column>
-       
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
+
       <el-table-column label="Date" prop="date" sortable>
         <template #default="scope">
           {{ formatDate(scope.row.date) }}
         </template>
       </el-table-column>
 
+
+      <!-- <el-table-column label="County" prop="county.name" sortable /> -->
+      <!-- <el-table-column label="Unit" prop="indicator_category.indicator.unit" sortable /> -->
       <el-table-column label="Category" prop="indicator_category.category_title" sortable />
       <el-table-column label="Amount" prop="amount" sortable />
- 
-      <el-table-column label="Status" prop="status" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.status === 'Rejected'">
-            <el-tooltip :content="scope.row.reject_msg" placement="top">
-              <span>{{ scope.row.status }}</span>
-            </el-tooltip>
-          </div>
-          <div v-else>
-            <span>{{ scope.row.status }}</span>
-          </div>
-        </template>
-      </el-table-column>
-
+      <el-table-column label="Status" prop="status" sortable />
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -1793,24 +1745,35 @@ v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
               </el-dropdown-menu>
             </template>
           </el-dropdown>
+
+
           <div v-else>
+
+
+
             <el-tooltip content="Edit" placement="top">
               <el-button
-v-if="showEditButtons" type="success"   size="small" :icon="Edit"
-                @click="editReport(scope.row as TableSlotDefault)" :disabled="scope.row.status == 'Approved'" circle />
+v-if="showEditButtons" type="success" :icon="Edit"
+                @click="editReport(scope.row as TableSlotDefault)" circle />
             </el-tooltip>
 
             <el-tooltip content="Map" placement="top">
               <el-button
-v-if="showEditButtons" type="warning"  size="small" :icon="Position" :disabled="isGeomNull(scope.row.geom)"
+v-if="showEditButtons" type="warning" :icon="Position" :disabled="isGeomNull(scope.row.geom)"
                 @click="showMap(scope.row as TableSlotDefault)" circle />
             </el-tooltip>
+
+
+
+
+
+
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
                 <template #reference>
-                  <el-button v-if="showAdminButtons" type="danger"  size="small"  :icon=Delete circle />
+                  <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />
                 </template>
               </el-popconfirm>
             </el-tooltip>
@@ -1828,134 +1791,265 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
 
+  <el-dialog v-model="AxddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
 
 
-    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader"  :width="dialogWidth"  >
-     
-      <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
-      <el-step title="Project Details"/>
-      <el-step title="Activity Details"/>
-      <el-step title="Output"/>
-      <el-step title="Submit"/>
-    </el-steps>
-   
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
-      <el-row v-if="activeStep == 0" :gutter="20">
-        <el-col :span="24">
-          <el-form-item id="btn1" label="Project" prop="project_id">
-              <el-select-v2
-    filterable v-model="ruleForm.project_id" @change="changeProject" style="width: 100%"
-                :options="projectOptions" placeholder="Select Project" />
-            </el-form-item>
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
+      <el-row :gutter="10">
 
-            <el-form-item id="btn2" label="Location" prop="project_location_id">
-              <el-select
-    ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
-                @change="changeLocation" style="width: 100%;">
-                <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
-                  <div style="display: flex; align-items: center;">
-                    <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
-                    <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
-                      {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
-                    </span>
-                  </div>
-                </el-option>
-              </el-select>
-            </el-form-item>
+        <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+
+          <el-form-item label="Project">
+            <el-select-v2
+filterable v-model="ruleForm.project_id" :options="projectOptions" :onChange="changeProject"
+              style="width: 100%" placeholder="Select Project">
+              <!-- <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" /> -->
+            </el-select-v2>
+          </el-form-item>
+
+          <el-form-item label="Activity">
+            <el-select-v2
+filterable v-model="ruleForm.activity_id" :options="activityOptionsFiltered"
+              :onChange="changeActivity" style="width: 100%" placeholder="Select Activity">
+              <!-- <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" /> -->
+            </el-select-v2>
+          </el-form-item>
+
+
+          <el-form-item label="Indicator">
+            <el-select
+filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
+              style="width: 100%" placeholder="Select Indicator">
+              <el-option
+v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
+                :value="item.value" />
+            </el-select>
+          </el-form-item>
         </el-col>
       </el-row>
 
-      <el-row v-if="activeStep == 1" :gutter="20">
-        <el-col :span="24">
-          <el-form-item id="btn3" label="Activity"  prop="activity_id">
-              <el-select-v2
-    filterable v-model="ruleForm.activity_id" @change="changeActivity" style="width: 100%"
-                :options="activityOptionsFiltered" placeholder="Select Activity" />
-            </el-form-item>
+      <el-row :gutter="10">
 
-            <el-form-item id="btn4" label="Indicator" prop="indicator_category_id">
-              <el-select-v2
-    filterable v-model="ruleForm.indicator_category_id" @change="changeIndicator"
-                :options="indicatorsOptionsFiltered" style="width: 100%" placeholder="Select Indicator" />
-            </el-form-item>
+        <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
+
+          <el-form-item :label="ruleForm.units">
+            <el-input-number v-model="ruleForm.amount" />
+          </el-form-item>
+
+          <el-form-item label="Baseline">
+            <el-input-number v-model="ruleForm.baseline" type="number" disabled>
+              <template #prepend>Baseline(Amount)</template>
+            </el-input-number>
+          </el-form-item>
+
+
+          <el-form-item label="Date">
+            <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" />
+          </el-form-item>
+
+        </el-col>
+
+        <el-col :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
+
+
+          <el-form-item :label="ruleForm.cumUnits">
+            <el-input-number v-model="ruleForm.cumAmount" type="number" disabled>
+              <template #prepend>Cumulative(Amount)</template>
+            </el-input-number>
+          </el-form-item>
+
+
+          <el-form-item label="Target">
+            <el-input-number v-model="ruleForm.target" type="number" disabled>
+              <template #prepend>Target(Amount)</template>
+            </el-input-number>
+          </el-form-item>
+
+
+          <el-form-item label="Progress(%)">
+            <el-input-number v-model="ruleForm.cumProgress" type="number" disabled>
+              <template #prepend>Cumulative(Amount)</template>
+            </el-input-number>
+          </el-form-item>
+
+        </el-col>
+
+
+      </el-row>
+
+      <el-row :gutter="10">
+
+
+        <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+          <el-form-item label="Comments">
+            <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
+          </el-form-item>
         </el-col>
       </el-row>
 
-      <el-row v-if="activeStep === 2" :gutter="20">
-        <el-col :span="12">
-            <el-form-item id="btn5" :label="ruleForm.units" prop="amount">
-              <el-input-number v-model="ruleForm.amount" style="width: 100%;" />
-            </el-form-item>
-            <el-form-item id="btn8" label="Baseline">
-              <el-input-number v-model="ruleForm.baseline" type="number" disabled style="width: 100%;">
-                <template #prepend>Baseline(Amount)</template>
-              </el-input-number>
-            </el-form-item>
-            <el-form-item id="btn10" label="Date" prop="date">
-              <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" style="width: 100%;" />
-            </el-form-item>
-          </el-col>
 
-          <el-col :span="12">
-            <el-form-item id="btn6" :label="ruleForm.cumUnits">
-              <el-input-number v-model="ruleForm.cumAmount" type="number" disabled style="width: 100%;">
-                <template #prepend>Cumulative(Amount)</template>
-              </el-input-number>
-            </el-form-item>
-            <el-form-item id="btn9" label="Target">
-              <el-input-number v-model="ruleForm.target" type="number" disabled style="width: 100%;">
-                <template #prepend>Target(Amount)</template>
-              </el-input-number>
-            </el-form-item>
-            <el-form-item id="btn11" label="Progress(%)">
-              <el-input-number v-model="ruleForm.cumProgress" type="number" disabled style="width: 100%;">
-                <template #prepend>Cumulative(Amount)</template>
-              </el-input-number>
-            </el-form-item>
-          </el-col>
-      </el-row>
+      <el-row :gutter="10" style="text-align: center;">
+        <el-col :xl="12" :lg="12" :md="24" :sm="24" :xs="24">
 
-      <el-row v-if="activeStep === 3" :gutter="20">
-        <el-col :span="24">
-          <el-form-item id="btn12" label="Comments" prop="comments">
-              <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
-            </el-form-item>
+          <el-upload
+v-model:file-list="fileUploadList" class="upload-demo"
+            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
+            :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
+            :on-exceed="handleExceed">
+            <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
+          </el-upload>
+        </el-col>
 
-            <el-upload
-    id="btn13" v-model:file-list="fileUploadList" class="upload-demo"
-              action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
-              :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
-              :on-exceed="handleExceed">
-              <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
-            </el-upload>
-          </el-col>
 
-          
       </el-row>
 
     </el-form>
 
-    
+
 
     <template #footer>
-        <span class="dialog-footer">
-          <el-row :gutter="5">
-            <el-col :span="24">
-              <!-- <el-button type="primary" plain @click="openHelp = true">Help</el-button> -->
-              <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
 
-              <el-button @click="nextStep" v-if="activeStep < 3">Next</el-button>
-              <el-button @click="AddDialogVisible = false">Cancel</el-button>
-              <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-              <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-            </el-col>
-          </el-row>
-        </span>
-      </template>
+      <span class="dialog-footer">
+
+        <el-row :gutter="10">
+
+          <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+            <el-button @click="AddDialogVisible = false">Cancel</el-button>
+            <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+            <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+          </el-col>
 
 
+        </el-row>
+      </span>
+    </template>
   </el-dialog>
 
+  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader"  :width="dialogWidth"  >
+     
+     <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
+     <el-step title="Project Details"/>
+     <el-step title="Activity Details"/>
+     <el-step title="Output"/>
+     <el-step title="Submit"/>
+   </el-steps>
+  
+   <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
+     <el-row v-if="activeStep == 0" :gutter="20">
+       <el-col :span="24">
+         <el-form-item id="btn1" label="Project" prop="project_id">
+             <el-select-v2
+   filterable v-model="ruleForm.project_id" @change="changeProject" style="width: 100%"
+               :options="projectOptions" placeholder="Select Project" />
+           </el-form-item>
+
+           <el-form-item id="btn2" label="Location" prop="project_location_id">
+             <el-select
+   ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
+               @change="changeLocation" style="width: 100%;">
+               <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
+                 <div style="display: flex; align-items: center;">
+                   <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
+                   <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
+                     {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                   </span>
+                 </div>
+               </el-option>
+             </el-select>
+           </el-form-item>
+       </el-col>
+     </el-row>
+
+     <el-row v-if="activeStep == 1" :gutter="20">
+       <el-col :span="24">
+         <el-form-item id="btn3" label="Activity"  prop="activity_id">
+             <el-select-v2
+   filterable v-model="ruleForm.activity_id" @change="changeActivity" style="width: 100%"
+               :options="activityOptionsFiltered" placeholder="Select Activity" />
+           </el-form-item>
+
+           <el-form-item id="btn4" label="Indicator" prop="indicator_category_id">
+             <el-select-v2
+   filterable v-model="ruleForm.indicator_category_id" @change="changeIndicator"
+               :options="indicatorsOptionsFiltered" style="width: 100%" placeholder="Select Indicator" />
+           </el-form-item>
+       </el-col>
+     </el-row>
+
+     <el-row v-if="activeStep === 2" :gutter="20">
+       <el-col :span="12">
+           <el-form-item id="btn5" :label="ruleForm.units" prop="amount">
+             <el-input-number v-model="ruleForm.amount" style="width: 100%;" />
+           </el-form-item>
+           <el-form-item id="btn8" label="Baseline">
+             <el-input-number v-model="ruleForm.baseline" type="number" disabled style="width: 100%;">
+               <template #prepend>Baseline(Amount)</template>
+             </el-input-number>
+           </el-form-item>
+           <el-form-item id="btn10" label="Date" prop="date">
+             <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" style="width: 100%;" />
+           </el-form-item>
+         </el-col>
+
+         <el-col :span="12">
+           <el-form-item id="btn6" :label="ruleForm.cumUnits">
+             <el-input-number v-model="ruleForm.cumAmount" type="number" disabled style="width: 100%;">
+               <template #prepend>Cumulative(Amount)</template>
+             </el-input-number>
+           </el-form-item>
+           <el-form-item id="btn9" label="Target">
+             <el-input-number v-model="ruleForm.target" type="number" disabled style="width: 100%;">
+               <template #prepend>Target(Amount)</template>
+             </el-input-number>
+           </el-form-item>
+           <el-form-item id="btn11" label="Progress(%)">
+             <el-input-number v-model="ruleForm.cumProgress" type="number" disabled style="width: 100%;">
+               <template #prepend>Cumulative(Amount)</template>
+             </el-input-number>
+           </el-form-item>
+         </el-col>
+     </el-row>
+
+     <el-row v-if="activeStep === 3" :gutter="20">
+       <el-col :span="24">
+         <el-form-item id="btn12" label="Comments" prop="comments">
+             <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
+           </el-form-item>
+
+           <el-upload
+   id="btn13" v-model:file-list="fileUploadList" class="upload-demo"
+             action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
+             :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
+             :on-exceed="handleExceed">
+             <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
+           </el-upload>
+         </el-col>
+
+         
+     </el-row>
+
+   </el-form>
+
+   
+
+   <template #footer>
+       <span class="dialog-footer">
+         <el-row :gutter="5">
+           <el-col :span="24">
+             <!-- <el-button type="primary" plain @click="openHelp = true">Help</el-button> -->
+             <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
+
+             <el-button @click="nextStep" v-if="activeStep < 3">Next</el-button>
+             <el-button @click="AddDialogVisible = false">Cancel</el-button>
+             <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+             <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+           </el-col>
+         </el-row>
+       </span>
+     </template>
+
+
+ </el-dialog>
 
   <el-dialog
 v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
@@ -2004,68 +2098,17 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
     <div id="mapContainer" class="basemap"></div>
 
   </el-dialog>
-
-
-
-  <el-tour v-model="openHelp" z-index="100000">
-    <el-tour-step target="#btn1" title="Project" description="Select the project you want to set up" />
-    <el-tour-step
-target="#btn2" title="Location"
-      description="Select the location where this project is implemented. Repeat this for every settlement the project is being implemented" />
-    <el-tour-step
-target="#btn3" title="Activity"
-      description="Select the  specific activity you wish to configure monitoring for" />
-    <el-tour-step
-target="#btn4" title="Indicator"
-      description="Select the  indicator associated with that activity. If not configured, use the + button to create a new indicator" />
-
-    <el-tour-step
-target="#btn5" title="Quantity"
-      description="Specify the amount/value/quantity for this reporting period.  " />
-
-      <el-tour-step
-target="#btn6" title="Cumulative"
-      description=" Shows the cumulative achievements todate" />
-
-
-
-    <el-tour-step
-target="#btn8" title="Baseline"
-      description="Shows the value at the start of the activity" />
-
-
-      <el-tour-step
-target="#btn9" title="Target"
-      description="Targeted quantity/amount/value" />
-
-
-    <el-tour-step
-target="#btn10" title="Date"
-      description="Specify reporting date." />
-
-      <el-tour-step
-target="#btn11" title="Progress"
-      description="Progress of achievements. How much of the quantity has been achieved todate?" />
-
-  
-      <el-tour-step
-target="#btn12" title="Comments"
-      description="Provide any commentary or additional information related to this submission" />
-
-      <el-tour-step
-target="#btn13" title="Documentation"
-      description="Upload any documentation that is required. It includes photos, reports of data" />
-
-  
-  
-
-  </el-tour>
-
-
-
 </template>
 
- 
+<style>
+.el-table .danger-row {
+  --el-table-tr-bg-color: var(--el-color-danger-light-9);
+}
+
+.el-table .success-row {
+  --el-table-tr-bg-color: var(--el-color-success-light-9);
+}
+</style>
 
 <style scoped>
 .basemap {
@@ -2084,24 +2127,4 @@ target="#btn13" title="Documentation"
   flex-direction: row;
   justify-content: space-between;
 }
-</style>
-
-<style>
-.el-table .danger-row {
-  --el-table-tr-bg-color: var(--el-color-danger-light-9);
-  --el-table-tr-text-color: var(--el-color-danger);
-  color: var(--el-table-tr-text-color);
-}
-
-.el-table .success-row {
-  --el-table-tr-bg-color: var(--el-color-success-light-9);
-  --el-table-tr-text-color: var(--el-color-success);
-  color: var(--el-table-tr-text-color);
-}
-
-.item {
-  margin-top: 10px;
-  margin-right: 40px;
-}
-
 </style>

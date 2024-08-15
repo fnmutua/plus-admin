@@ -62,15 +62,7 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
-
-console.log("userInfo--->", userInfo)
-
-
-
-
-
-
-
+ 
 const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
@@ -98,33 +90,18 @@ function emptyRuleForm() {
 
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-  indicator_category_id: '',
-  baseline: 0,
-  target: 0,
-  project_id: '',
   project_location_id: null,
-  activity_id: '',
-  programme_implementation_id: '',
-  settlement_id: '',
-  subcounty_id: '',
-  ward_id: '',
+  project_id: null,
+  ward_id: null,
+  settlement_id: null,
+  subcounty_id: null,
   county_id: '',
-  period: getQuarter,
-  date: new Date(),
-  progress: 0,
-  amount: 0,
-  files: '',
-  project_status: '',
-  disbursement: 0,
-  userId: userInfo.id,
-  code: '',
-  cumDisbursement: 0,
-  cumProgress: 0,
-  prevAmount: 0,
-  cumAmount: 0,
-  comments: '',
-  units: 'Quantity',
-  cumUnits: 'Cumulative(qty)'
+  location_name: '',
+  actual_male_ben: null,
+  actual_female_ben:null,
+  target_male_ben: null,
+  target_female_ben: null,
+  code:  null
 })
 
 const rules = reactive<FormRules>({
@@ -135,52 +112,24 @@ const rules = reactive<FormRules>({
    project_location_id: [
     { required: true, message: 'Required', trigger: 'blur' },
    ],
-
-
-   activity_id: [
+  
+   actual_male_ben: [
     { required: true, message: 'Required', trigger: 'blur' },
    ],
-
-   indicator_category_id: [
+   actual_female_ben: [
     { required: true, message: 'Required', trigger: 'blur' },
    ],
-
-   
-
-
-   amount: [
+   target_male_ben: [
     { required: true, message: 'Required', trigger: 'blur' },
    ],
-
-   date: [
+  
+   target_female_ben: [
     { required: true, message: 'Required', trigger: 'blur' },
    ],
-
-
-   comments: [
-    { required: true, message: 'Required', trigger: 'blur' },
-   ],
-
- 
-
- 
-
-
-
-
+  
   
 })
-
-
-
-
-
-
-
-
-
-
-
+ 
 
 const AddDialogVisible = ref(false)
 const ImportDialogVisible = ref(false)
@@ -196,13 +145,13 @@ const showEditSaveButton = ref(false)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = ['userId']
-var filterValues = [[userInfo.id]]  // remember to change here!
+var filters = []
+var filterValues = []  // remember to change here!
 var tblData = []
-const associated_Model = ''
-const model = 'indicator_category_report'
-const associated_multiple_models = ['document', 'settlement', 'county', 'users', 'project']
-const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
+const associated_Model = null
+const model = 'project_beneficiary'
+const associated_multiple_models = ['project_location','document','project']
+const nested_models = [] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
 
@@ -218,7 +167,7 @@ const { t } = useI18n()
 
 
 const handleClear = async () => {
-  console.log('cleared....')
+  //console.log('cleared....')
 
   // clear all the fileters -------
   filterValues = []
@@ -239,7 +188,7 @@ const handleSelectIndicatorCategory = async (indicator: any) => {
     filters.push(selectOption)
   }
   var index = filters.indexOf(selectOption) // 1
-  console.log('county : index--->', index)
+  //console.log('county : index--->', index)
 
   // clear previously selected
   if (filterValues[index]) {
@@ -256,12 +205,12 @@ const handleSelectIndicatorCategory = async (indicator: any) => {
     filters.splice(index, 1)
   }
 
-  console.log('FilterValues:', filterValues)
+  //console.log('FilterValues:', filterValues)
   // here we filter the list of settlements based on the selected county
   filteredIndicators.value = categories.value.filter(
     (category) => category.indicator == indicator
   )
-  console.log('filyterested  ------>', filteredIndicators)
+  //console.log('filyterested  ------>', filteredIndicators)
   //makeprojectOptions(filteredIndicators)
 
   getFilteredData(filters, filterValues)
@@ -269,7 +218,7 @@ const handleSelectIndicatorCategory = async (indicator: any) => {
 
 
 const onPageChange = async (selPage: any) => {
-  console.log('on change change: selected counties ', selCounties)
+  //console.log('on change change: selected counties ', selCounties)
   page.value = selPage
   getFilteredData(filters, filterValues)
 }
@@ -300,10 +249,10 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 
 const getModeldefinition = async (selModel) => {
 
-  console.log(selModel)
+  //console.log(selModel)
   var formData = {}
   formData.model = selModel
-  console.log("gettign fields")
+  //console.log("gettign fields")
 
 
   await getModelSpecs(formData).then((response) => {
@@ -318,7 +267,7 @@ const getModeldefinition = async (selModel) => {
       return (obj.field !== 'geom');
     });
 
-    console.log("fields:", fields2)
+    //console.log("fields:", fields2)
     //health_facility_fields.value = response.data
     fieldSet.value = fields2
   })
@@ -343,31 +292,19 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
-  formData.nested_models = nested_models
+  //formData.nested_models = nested_models
 
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
 
   console.log('Reports collected........', res)
-  tableDataList.value = res.data.filter(item => item.indicator_category.indicator.type === 'output');
-
-
+  tableDataList.value = res.data ;
+ 
   //tableDataList.value = res.data
   total.value = res.total
 
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
-
-    var dd = flattenJSON(arrayItem)
-
-    tblData.push(dd)
-  })
-
-  console.log('TBL-4f', tblData)
+ 
 }
 
 
@@ -393,11 +330,11 @@ const getIndicatorNames = async () => {
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
-  console.log('indicator_category Re', res)
+  //console.log('indicator_category Re', res)
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
     var opt = {}
-    console.log(arrayItem)
+    //console.log(arrayItem)
     opt.value = arrayItem.id
     opt.label = arrayItem.indicator_name + ' | ' + arrayItem.category.category
     opt.title = arrayItem.category.title
@@ -421,7 +358,7 @@ const getIndicatorNames = async () => {
 
   })
 
-  console.log('indicatorsOptions.value', indicatorsOptions.value)
+  //console.log('indicatorsOptions.value', indicatorsOptions.value)
 }
 
 const projectOptions = ref([])
@@ -447,11 +384,11 @@ const getProjects = async () => {
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
-  console.log('project', res)
+ // //console.log('project', res)
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
     var opt = {}
-    console.log(arrayItem)
+    //console.log(arrayItem)
     opt.value = arrayItem.id
     opt.label = arrayItem.title
     opt.programme_implementation_id = arrayItem.implementation_id
@@ -459,10 +396,10 @@ const getProjects = async () => {
 
 
     arrayItem.activities.forEach(function (activity: any) {
-      console.log('activity--->', activity)
+   //   //console.log('activity--->', activity)
 
       var act = {}
-      console.log(activity)
+      //console.log(activity)
       act.value = activity.id
       act.label = activity.title
       act.project_id = arrayItem.id
@@ -482,39 +419,23 @@ const editReport = async (data: TableSlotDefault) => {
   await getProjectLocations(data.project_id)
 
   showEditSaveButton.value = true
-  console.log('editReport',data)
+  //console.log('editReport',data)
   ruleForm.id = data.id
   ruleForm.county_id = data.county_id
   ruleForm.subcounty_id = data.subcounty_id
 
   ruleForm.settlement_id = data.settlement_id
   ruleForm.project_id = data.project_id
-  ruleForm.activity_id = data.activity_id
-
-
-  ruleForm.date = data.date
-  ruleForm.amount = data.amount
-  ruleForm.indicator_category_id = data.indicator_category_id
-  ruleForm.programme_implementation_id = data.programme_implementation_id
-  ruleForm.project_location_id = data.project_location_id
+  ruleForm.actual_female_ben = data.activity_id
+  ruleForm.actual_male_ben = data.activity_id
+  ruleForm.target_female_ben = data.activity_id
+  ruleForm.target_male_ben = data.activity_id
   
- console.log("project_locations",project_locations.value)
-  ruleForm.ward_id = data.ward_id
-  ruleForm.code = data.code
-  ruleForm.progress = data.progress
-  ruleForm.project_status = data.project_status
-  ruleForm.disbursement = data.disbursement
-  ruleForm.comments = data.comments
 
-  // Nullify Cumulatives every time theres an edit to avoid multiple editign duplciations
-  ruleForm.cumDisbursement = 0
-  // ruleForm.cumProgress = 0
-  ruleForm.cumAmount = 0
-
-  formHeader.value = 'Edit Report'
+  formHeader.value = 'Edit Beneficiary'
   fileUploadList.value = data.documents
 
-  getCumulativeProgressEditPhase(data.indicator_category_id)
+  
   changeIndicator(data.indicator_category_id)
 
   AddDialogVisible.value = true
@@ -523,14 +444,14 @@ const editReport = async (data: TableSlotDefault) => {
 
 
 const DeleteReport = (data: TableSlotDefault) => {
-  console.log('----->', data)
+  //console.log('----->', data)
   let formData = {}
   formData.id = data.id
-  formData.model = 'indicator_category_report'
+  formData.model = 'project_beneficiary'
 
 
   DeleteRecord(formData)
-  console.log("Docs to de;ete", data.documents.length)
+  //console.log("Docs to de;ete", data.documents.length)
 
   // Delete docuemnts only if there's any docuemnt to delete 
   if (data.documents.length > 0) {
@@ -545,7 +466,7 @@ const DeleteReport = (data: TableSlotDefault) => {
   }
 
 
-  console.log(tableDataList.value)
+  //console.log(tableDataList.value)
 
   // remove the deleted object from array list 
   let index = tableDataList.value.indexOf(data);
@@ -560,15 +481,10 @@ const currentRow = ref()
 
 const handleClose = () => {
 
-  console.log("Closing the dialoig")
+  //console.log("Closing the dialoig")
   showSubmitBtn.value = true
   showEditSaveButton.value = false
-  ruleForm.indicator_category_id = null
-  ruleForm.date = null
-  ruleForm.amount = null
-  ruleForm.ward_id = null
-  ruleForm.location = []
-
+ 
   formHeader.value = 'Add M&E Report'
   AddDialogVisible.value = false
 
@@ -577,8 +493,8 @@ const handleClose = () => {
 
 const project_locations = ref([])
 const getProjectLocations = async (project_id) => {
-  console.log('project_id', project_id);
-  console.log("Get Locations for  proejct : ", project_id)
+  //console.log('project_id', project_id);
+  //console.log("Get Locations for  proejct : ", project_id)
 
   // Get the project settlement ids
   const formData = {
@@ -592,7 +508,7 @@ const getProjectLocations = async (project_id) => {
 
   const res = await getSettlementListByCounty(formData);
   const sett_ids = res.data.map(item => item.settlement_id); // Extract settlement_id
-  console.log('sett_ids', sett_ids);
+  //console.log('sett_ids', sett_ids);
 
   // Fetch settlements and their details
   const form = {
@@ -604,7 +520,7 @@ const getProjectLocations = async (project_id) => {
   };
 
   const setts = await getSettlementListByCounty(form);
-  console.log('setts', setts);
+  //console.log('setts', setts);
 
   // Map settlements to include additional details
   const settlements = setts.data.map(item => ({
@@ -628,21 +544,21 @@ const getProjectLocations = async (project_id) => {
   });
 
 
-  console.log('project_locations', project_locations.value);
+  //console.log('project_locations', project_locations.value);
 };
 
 
 const changeProject = async (project: any) => {
 
-  console.log('changeProject', project)
+  //console.log('changeProject', project)
 
   const filteredOpts = projectOptions.value.filter(item => item.value == project);
 
-  console.log('filteredOpts', filteredOpts[0].programme_implementation_id)
+  //console.log('filteredOpts', filteredOpts[0].programme_implementation_id)
 
   ruleForm.programme_implementation_id = filteredOpts[0].programme_implementation_id
 
-  console.log(ruleForm)
+  //console.log(ruleForm)
 
   ruleForm.indicator_category_id = []
   ruleForm.activity_id = []
@@ -664,23 +580,15 @@ const changeProject = async (project: any) => {
 }
 
 
-const changeActivity = async (activity: any) => {
-  ruleForm.indicator_category_id = []
-  indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
-    return el.activity_id == activity
-
-  });
-
-
-}
+ 
 
 const changeLocation = async (location: any) => {
-  console.log('changeLocation', location)
+  //console.log('changeLocation', location)
 
   const selected_location = project_locations.value.find(
         (item) => item.id === location
       );
-      console.log('selected_location', selected_location)
+      //console.log('selected_location', selected_location)
 
 
   ruleForm.county_id = selected_location.county_id
@@ -690,7 +598,7 @@ const changeLocation = async (location: any) => {
   //ruleForm.project_location_id = location.id
   
   
-  console.log('changeLocation', location)
+  //console.log('changeLocation', location)
 
 }
 
@@ -699,7 +607,7 @@ const changeLocation = async (location: any) => {
 const changeIndicator = async (indicator_category_id: any) => {
   ruleForm.indicator_category_id = indicator_category_id
 
-  console.log('Filtre indicator_category_id', indicator_category_id)
+  //console.log('Filtre indicator_category_id', indicator_category_id)
 
   var filtredOptions = indicatorsOptions.value.filter(function (el) {
     return el.value == indicator_category_id
@@ -709,7 +617,7 @@ const changeIndicator = async (indicator_category_id: any) => {
 
 
 
-  console.log("Filtered Indicators", filtredOptions[0])
+  //console.log("Filtered Indicators", filtredOptions[0])
   ruleForm.units = "Quantity(" + filtredOptions[0].unit + ")"
   ruleForm.cumUnits = "Cumulative(" + filtredOptions[0].unit + ")"
 
@@ -718,7 +626,7 @@ const changeIndicator = async (indicator_category_id: any) => {
 
   //ruleForm.indicator_category_title = filtredOptions[0].category_title
 
-  getCumulativeProgress(indicator_category_id)
+  
 }
 
 
@@ -739,29 +647,17 @@ const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
     if (valid) {
-      ruleForm.model = 'indicator_category_report'
+      ruleForm.model = 'project_beneficiary'
       ruleForm.period = getQuarter()
       ruleForm.code = uuid.v4()
       ruleForm.userId = userInfo.id
     
-      console.log('cumProgress', ruleForm.cumProgress)
+      //console.log('cumProgress', ruleForm.cumProgress)
 
-      ruleForm.cumAmount = ruleForm.cumAmount + ruleForm.amount
-
-      let calculatedProgress = (100 * (ruleForm.cumAmount / ruleForm.target));
-
-      if (isFinite(calculatedProgress)) {
-        ruleForm.cumProgress = calculatedProgress.toFixed(2);
-      } else {
-        ruleForm.cumProgress = '0.00';
-      }
-
-      //   ruleForm.cumProgress =  100*((ruleForm.cumAmount - ruleForm.baseline )/(ruleForm.target - ruleForm.baseline )).toFixed(2)
-
-      //Progress towards target (%realized) [(B-A)/(C- A)]
+   
 
       const report = await CreateRecord(ruleForm)   // first save the form on DB
-      console.log("Report", report.data.id)
+      //console.log("Report", report.data.id)
 
       emptyRuleForm()
 
@@ -769,7 +665,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
       const formData = new FormData()
       for (var i = 0; i < fileUploadList.value.length; i++) {
-        console.log('------>file', fileList.value[i])
+        //console.log('------>file', fileList.value[i])
         var column = 'report_id'
         formData.append('files', fileUploadList.value[i].raw)
         formData.append('format', fileUploadList.value[i].name.split('.').pop())
@@ -787,17 +683,17 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 
 
-      console.log('Befoer submit', formData)
+      //console.log('Befoer submit', formData)
       const docs = await uploadFilesBatch(formData)
 
-      console.log('after submit', docs.data)
+      //console.log('after submit', docs.data)
 
 
       AddDialogVisible.value = false
       handleClose()
 
     } else {
-      console.log('error submit!', fields)
+      //console.log('error submit!', fields)
     }
   })
 }
@@ -808,9 +704,9 @@ const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
     if (valid) {
-      ruleForm.model = 'indicator_category_report'
+      ruleForm.model = 'project_beneficiary'
       ruleForm.userId = userInfo.id
-      console.log(ruleForm.value)
+      //console.log(ruleForm.value)
       await updateOneRecord(ruleForm).then(() => { })
 
       //emptyRuleForm()
@@ -821,7 +717,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
       for (var i = 0; i < fileUploadList.value.length; i++) {
 
-        console.log('------>file', fileUploadList.value[i])
+        //console.log('------>file', fileUploadList.value[i])
 
         var column = 'report_id'
         updateformData.append('files', fileUploadList.value[i].raw)
@@ -840,17 +736,17 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
 
-      console.log('Befoer submit', updateformData)
+      //console.log('Befoer submit', updateformData)
       const docs = await uploadFilesBatch(updateformData)
 
-      console.log('after submit', docs.data)
+      //console.log('after submit', docs.data)
 
 
 
 
 
     } else {
-      console.log('error submit!', fields)
+      //console.log('error submit!', fields)
     }
   })
 }
@@ -858,17 +754,17 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 const batchData = ref([])
 const submitBatchImport = async () => {
-  console.log('upload--->', uploadedData.value)
+  //console.log('upload--->', uploadedData.value)
   for (let i = 0; i < uploadedData.value.length; i++) {
 
     let feature = uploadedData.value[i]
     let conv_feature = {}
     for (var prop in feature) {
       var matched_field = fieldSet.value.filter((obj) => {
-        // console.log('+++++', obj)
+        // //console.log('+++++', obj)
         return obj.match === prop
       })
-      //  console.log(i, matched_field)
+      //  //console.log(i, matched_field)
       if (matched_field.length > 0) {
         conv_feature[matched_field[0].field] = feature[prop]  // Assign Field Vlue 
       }
@@ -877,7 +773,7 @@ const submitBatchImport = async () => {
     }
     batchData.value.push(conv_feature)
   }
-  console.log('processed:', batchData)
+  //console.log('processed:', batchData)
 
   // ************** prepare data to server ***************** //
 
@@ -886,13 +782,13 @@ const submitBatchImport = async () => {
   formData.data = batchData.value
 
 
-  console.log("importData--->", formData)
+  //console.log("importData--->", formData)
 
 
   // ************** Send data to server ***************** //
   await BatchImportUpsert(formData)
     .catch((error) => {
-      console.log('Error------>', error.response.data.message)
+      //console.log('Error------>', error.response.data.message)
       ElMessage.error(error.response.data.message)
     })
 
@@ -920,8 +816,8 @@ const getCumulativeProgress = async () => {
   }
 
 
-  console.log('filters', filters)
-  console.log('filterValues', filterValues)
+  //console.log('filters', filters)
+  //console.log('filterValues', filterValues)
   const formData = {}
   formData.limit = pSize.value
   formData.page = page.value
@@ -945,7 +841,7 @@ const getCumulativeProgress = async () => {
   const res = await getSettlementListByCounty(formData)
 
 
-  console.log('yaay. Got last reports', res.data)
+  //console.log('yaay. Got last reports', res.data)
 
 
   function getLatestReport(dataList) {
@@ -966,7 +862,7 @@ const getCumulativeProgress = async () => {
 
   // Get the object with the latest date
   const objectWithLatestDate = getLatestReport(res.data);
-  console.log('objectWithLatestDate', objectWithLatestDate);
+  //console.log('objectWithLatestDate', objectWithLatestDate);
 
   // ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
   // ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
@@ -974,92 +870,11 @@ const getCumulativeProgress = async () => {
   ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
   ruleForm.prevAmount = parseInt(objectWithLatestDate.amount)
 
-  console.log('cumProgress ats tart', ruleForm);
+  //console.log('cumProgress ats tart', ruleForm);
 
 }
 
-
-const getCumulativeProgressEditPhase = async (indicator_category_id) => {
-
-  console.log('programme_implementation_id', [ruleForm.programme_implementation_id])
-  var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 'programme_implementation_id',
-  ]
-
-  var filterValues = [[userInfo.id], [indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
-  [ruleForm.project_id], [ruleForm.programme_implementation_id]]  // remember to change here!
-
-
-  if (ruleForm.settlement_id) {
-    filters.push('settlement_id')
-    filterValues.push([ruleForm.settlement_id])
-
-
-  }
-
-
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = ''
-  //--Single Filter -----------------------------------------
-
-  formData.assocModel = []
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = []
-  formData.nested_models = nested_models
-
-  //-------------------------
-  //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
-
-
-  console.log('Editing.. Get Last Report', res.data)
-
-
-  function getReportBeforeCurrentID(dataList, currentID) {
-    if (dataList.length === 0) {
-      return null;
-    }
-
-    // Filter the dataList to get records with IDs less than currentID
-    const filteredRecords = dataList.filter((obj) => obj.id < currentID);
-
-    if (filteredRecords.length === 0) {
-      return null; // No record before the currentID
-    }
-
-    // Find the object with the maximum ID from the filtered records
-    const objectWithLatestID = filteredRecords.reduce((prevObj, currentObj) => (currentObj.id > prevObj.id ? currentObj : prevObj));
-
-    // Return the object with the maximum ID (last record before currentID)
-    return objectWithLatestID;
-  }
-
-
-  // Get the object with the latest date
-
-  const objectWithLatestDate = getReportBeforeCurrentID(res.data, ruleForm.id);
-  console.log('objectWithLatestDate', objectWithLatestDate);
-
-
-  //ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
-  //ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
-  ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
-  ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
-  ruleForm.prevAmount = parseInt(objectWithLatestDate.amount)
-
-  console.log('cumProgress ats tart', ruleForm);
-
-
-
-}
+ 
 /// Import multiple reports - ----------------
 // ----------------------------------------------
 //const parentModels = ['county']
@@ -1085,7 +900,7 @@ const getParentOptions = async (parent) => {
   }).then((response: { data: any }) => {
     //tableDataList.value = response.data
     const ret = response.data
-    //  console.log('Received response:', parent, ret)
+    //  //console.log('Received response:', parent, ret)
     parentData.value.push(ret)
 
 
@@ -1098,7 +913,7 @@ const getParentOptions = async (parent) => {
 const fileList = ref<UploadUserFile[]>([])
 
 const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
-  console.log(file, uploadFiles)
+  //console.log(file, uploadFiles)
   show.value = false
   uploadedData.value = []
   batchData.value = []
@@ -1107,7 +922,7 @@ const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
 }
 
 const handlePreview: UploadProps['onPreview'] = (uploadFile) => {
-  console.log(uploadFile)
+  //console.log(uploadFile)
 }
 
 const handleExceed: UploadProps['onExceed'] = (files, uploadFiles) => {
@@ -1138,15 +953,15 @@ const makeOptions = (list) => {
 
 const file = ref()
 const readXLSX = async (event) => {
-  console.log('on file change.......', event)
+  //console.log('on file change.......', event)
   //file.value = event.target.files ? event.target.files[0] : null;   // Direct upload 
   file.value = event   // called from the uplaod funtion 
 
-  console.log('The file---->', file)
+  //console.log('The file---->', file)
 
   await readXlsxFile(file.value).then((rows) => {
     const fields = Object.values(rows[0]) //  get all proterit4s of the first feature
-    console.log("fields-->", fields)
+    //console.log("fields-->", fields)
 
 
     for (let j = 1; j < rows.length; j++) {
@@ -1155,10 +970,10 @@ const readXLSX = async (event) => {
         var f = fields[i]
         var v = rows[j][i]
         record[f] = v
-        //  console.log(record)
+        //  //console.log(record)
       }
 
-      console.log("record", record) // Push to the temporary holder
+      //console.log("record", record) // Push to the temporary holder
       uploadedData.value.push(record)
 
     }  // remove header row
@@ -1169,17 +984,17 @@ const readXLSX = async (event) => {
 
 
 
-  console.log('Parent data', parentData.value)
+  //console.log('Parent data', parentData.value)
 
 
 
   for (let k = 0; k < parentData.value.length; k++) {
-    console.log('processing parent', k)
+    //console.log('processing parent', k)
     var pcode = parentCodes[k]
     let editedArrray = []
-    console.log('processing code', pcode)
+    //console.log('processing code', pcode)
 
-    //  console.log(uploadedData.value[1][pcode])
+    //  //console.log(uploadedData.value[1][pcode])
 
     for (let i = 0; i < uploadedData.value.length; i++) {
 
@@ -1191,10 +1006,10 @@ const readXLSX = async (event) => {
 
       if (parentMatch.length > 0) {
         let pkey = parentModels[k] + '_id'
-        console.log('parentMatch', pkey, parentMatch)
+        //console.log('parentMatch', pkey, parentMatch)
 
         parentMatch[0][pkey] = parentMatch[0]['id'];
-        console.log(parentMatch[0])
+        //console.log(parentMatch[0])
 
 
         const keys_to_keep = [pkey];
@@ -1204,7 +1019,7 @@ const readXLSX = async (event) => {
           return obj;
         });
 
-        //  console.log(result);
+        //  //console.log(result);
 
 
         const match = { ...uploadedData.value[i], ...result[0] };
@@ -1215,7 +1030,7 @@ const readXLSX = async (event) => {
 
 
 
-    console.log('Proceeed............')
+    //console.log('Proceeed............')
     // proceed
     if (editedArrray.length > 0) {
       uploadedData.value = editedArrray.slice(0);
@@ -1225,7 +1040,7 @@ const readXLSX = async (event) => {
 
   const mergedfields = (Object.getOwnPropertyNames(uploadedData.value[0]));  // get properties from first row
 
-  console.log('mergedfields', mergedfields)
+  //console.log('mergedfields', mergedfields)
 
   makeOptions(mergedfields)
   show.value = true
@@ -1234,7 +1049,7 @@ const readXLSX = async (event) => {
 }
 
 const submitFiles = async () => {
-  console.log('on Submit....', fileList.value.length)
+  //console.log('on Submit....', fileList.value.length)
 
 
   if (fileList.value.length == 0) {
@@ -1242,7 +1057,7 @@ const submitFiles = async () => {
   } else {
     var rfile = fileList.value[0].raw
 
-    console.log("File type", rfile.name.split('.').pop())
+    //console.log("File type", rfile.name.split('.').pop())
     let reader = new FileReader()
     let ftype = rfile.name.split('.').pop()
     if (ftype == 'xlsx') {
@@ -1255,11 +1070,11 @@ const submitFiles = async () => {
 
 
       }
-      console.log('parent data ---->', parentData.value)
+      //console.log('parent data ---->', parentData.value)
       reader.onload = readXLSX(rfile)
     }
     else {
-      console.log("Wrong File Format")
+      //console.log("Wrong File Format")
       ElMessage.error('Wrong File Format!. Select XLSX files only!')
 
     }
@@ -1280,7 +1095,7 @@ getInterventionsAll()
 
 
 const tableRowClassName = (data) => {
-  // console.log('Row Styling --------->', data.row)
+  // //console.log('Row Styling --------->', data.row)
   // if (data.row.documents.length > 0) {
   //   return 'warning-row'
   // }
@@ -1325,7 +1140,7 @@ if (isMobile.value) {
 
 
 const DownloadXlsx = async () => {
-  console.log(tableDataList.value)
+  //console.log(tableDataList.value)
 
   // change here !
   let fields = [
@@ -1380,7 +1195,7 @@ const DownloadXlsx = async () => {
 
 
 /// Uplaod docuemnts from a central component 
-const mfield = 'report_id'
+const mfield = 'beneficiary_report_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const dynamicComponent = ref();
 const componentProps = ref({
@@ -1394,7 +1209,7 @@ const componentProps = ref({
 
 
 function toggleComponent(row) {
-  console.log('Compnnent data', row)
+  //console.log('Compnnent data', row)
   componentProps.value.data = row
   dynamicComponent.value = null; // Unload the component
   addMoreDocuments.value = true; // Set any additional props
@@ -1439,7 +1254,7 @@ const reportDetails = ref();
 const locationStatus = ref('')
 const projectLocationColor = ref('red')
 const showMap = (row) => {
-  console.log(row)
+  //console.log(row)
 
   reportDetails.value = row
 
@@ -1455,7 +1270,7 @@ const showMap = (row) => {
   var options = { units: 'kilometers' };
 
   var distance = turf.distance(reportDetails.value.geom, centroid, options);
-  console.log('distance , ', distance)
+  //console.log('distance , ', distance)
 
   if (distance < 1) {
     projectLocationColor.value = 'green'
@@ -1617,7 +1432,7 @@ const loadMap = () => {
 
 
 function isGeomNull(geom) {
-  console.log('---geom-----', geom)
+  //console.log('---geom-----', geom)
   return geom === null;
 }
 
@@ -1650,7 +1465,7 @@ const activeStep = ref(0)
 
 
 const nextStep = async () =>{ 
- console.log(ruleFormRef.value)
+ //console.log(ruleFormRef.value)
   await ruleFormRef.value?.validate((valid) => {
     if (valid) {
       if (activeStep.value < 3) {
@@ -1713,19 +1528,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
     <div v-if="dynamicComponent">
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
+ 
     <el-table
 :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
       @expand-change="handleExpand">
@@ -1753,29 +1556,12 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
       </template>
     </el-table-column>
        
-      <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
-      <el-table-column label="Date" prop="date" sortable>
-        <template #default="scope">
-          {{ formatDate(scope.row.date) }}
-        </template>
-      </el-table-column>
+      <el-table-column label="Project" width="400" prop="project.title" sortable />
+      <el-table-column label="Settlement" prop="project_location.location_name" sortable/>
 
-      <el-table-column label="Category" prop="indicator_category.category_title" sortable />
-      <el-table-column label="Amount" prop="amount" sortable />
- 
-      <el-table-column label="Status" prop="status" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.status === 'Rejected'">
-            <el-tooltip :content="scope.row.reject_msg" placement="top">
-              <span>{{ scope.row.status }}</span>
-            </el-tooltip>
-          </div>
-          <div v-else>
-            <span>{{ scope.row.status }}</span>
-          </div>
-        </template>
-      </el-table-column>
-
+      <el-table-column label="Female Beneficiaries" prop="actual_female_ben" sortable />
+      <el-table-column label="Male Beneficiaries" prop="actual_male_ben" sortable />
+   
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -1834,8 +1620,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
      
       <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
       <el-step title="Project Details"/>
-      <el-step title="Activity Details"/>
-      <el-step title="Output"/>
+      <el-step title="Beneficiaries"/>
       <el-step title="Submit"/>
     </el-steps>
    
@@ -1864,58 +1649,31 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
             </el-form-item>
         </el-col>
       </el-row>
+ 
 
-      <el-row v-if="activeStep == 1" :gutter="20">
-        <el-col :span="24">
-          <el-form-item id="btn3" label="Activity"  prop="activity_id">
-              <el-select-v2
-    filterable v-model="ruleForm.activity_id" @change="changeActivity" style="width: 100%"
-                :options="activityOptionsFiltered" placeholder="Select Activity" />
-            </el-form-item>
-
-            <el-form-item id="btn4" label="Indicator" prop="indicator_category_id">
-              <el-select-v2
-    filterable v-model="ruleForm.indicator_category_id" @change="changeIndicator"
-                :options="indicatorsOptionsFiltered" style="width: 100%" placeholder="Select Indicator" />
-            </el-form-item>
-        </el-col>
-      </el-row>
-
-      <el-row v-if="activeStep === 2" :gutter="20">
+      <el-row v-if="activeStep === 1" :gutter="20">
         <el-col :span="12">
-            <el-form-item id="btn5" :label="ruleForm.units" prop="amount">
-              <el-input-number v-model="ruleForm.amount" style="width: 100%;" />
+            <el-form-item id="btn5"  label="Target (Female)" prop="target_female_ben">
+              <el-input-number v-model="ruleForm.target_female_ben" style="width: 100%;" />
             </el-form-item>
-            <el-form-item id="btn8" label="Baseline">
-              <el-input-number v-model="ruleForm.baseline" type="number" disabled style="width: 100%;">
-                <template #prepend>Baseline(Amount)</template>
-              </el-input-number>
+            <el-form-item id="btn8" label="Target (Male)"  prop="target_male_ben">
+              <el-input-number v-model="ruleForm.target_male_ben" style="width: 100%;" />
             </el-form-item>
-            <el-form-item id="btn10" label="Date" prop="date">
-              <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" style="width: 100%;" />
-            </el-form-item>
+          
           </el-col>
 
           <el-col :span="12">
-            <el-form-item id="btn6" :label="ruleForm.cumUnits">
-              <el-input-number v-model="ruleForm.cumAmount" type="number" disabled style="width: 100%;">
-                <template #prepend>Cumulative(Amount)</template>
-              </el-input-number>
+            <el-form-item id="btn5"  label="Actual (Female)" prop="actual_female_ben">
+              <el-input-number v-model="ruleForm.actual_female_ben" style="width: 100%;" />
             </el-form-item>
-            <el-form-item id="btn9" label="Target">
-              <el-input-number v-model="ruleForm.target" type="number" disabled style="width: 100%;">
-                <template #prepend>Target(Amount)</template>
-              </el-input-number>
+            <el-form-item id="btn8" label="Actual (Male)"  prop="actual_male_ben">
+              <el-input-number v-model="ruleForm.actual_male_ben" style="width: 100%;" />
             </el-form-item>
-            <el-form-item id="btn11" label="Progress(%)">
-              <el-input-number v-model="ruleForm.cumProgress" type="number" disabled style="width: 100%;">
-                <template #prepend>Cumulative(Amount)</template>
-              </el-input-number>
-            </el-form-item>
+          
           </el-col>
       </el-row>
 
-      <el-row v-if="activeStep === 3" :gutter="20">
+      <el-row v-if="activeStep === 2" :gutter="20">
         <el-col :span="24">
           <el-form-item id="btn12" label="Comments" prop="comments">
               <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
@@ -1944,10 +1702,10 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
               <!-- <el-button type="primary" plain @click="openHelp = true">Help</el-button> -->
               <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
 
-              <el-button @click="nextStep" v-if="activeStep < 3">Next</el-button>
+              <el-button @click="nextStep" v-if="activeStep < 2">Next</el-button>
               <el-button @click="AddDialogVisible = false">Cancel</el-button>
-              <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-              <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+              <el-button v-if="showSubmitBtn && activeStep === 2" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+              <el-button v-if="showEditSaveButton && activeStep === 2" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
             </el-col>
           </el-row>
         </span>

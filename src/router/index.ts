@@ -949,10 +949,11 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         
         ]
       },
+     
+ 
       {
         path: 'reports',
-        //component: 'views/Facilities/Water/Water',
-        //component: () => import('@/views/Facilities/Water/Water.vue'),
+ 
         component: Layout,
         name: 'Reports',
         meta: {
@@ -1049,7 +1050,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         ]
       },
 
-
+      {
+        path: 'ben',
+     //   component: 'views/Indicators/indicator_category',
+        component: () => import('@/views/Indicators/Beneficiary.vue'),
+        name: 'BeneficiaryConfigs',
+        meta: {
+          title: 'Beneficiaries',
+          icon:'ph:users-fill',
+          hidden: false
+        }
+      },
 
     ]
   },
