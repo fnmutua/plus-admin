@@ -1,20 +1,16 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty,searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect,ElCard,    } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
-  Position,
   Back,
-  User,
   Plus,
   Download,
   Filter,
-  MessageBox,
   Edit,
   InfoFilled,
   Delete
@@ -22,10 +18,10 @@ import {
 
 import { ref, reactive,onMounted  } from 'vue'
  import {
-  ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,ElCol,ElRow,ElCheckbox,
-  ElDatePicker, ElPopconfirm,ElSwitch
+  ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElInput, FormRules,ElCol,ElRow,ElCheckbox,
+  ElPopconfirm,ElSwitch, ElTable,ElTableColumn
 } from 'element-plus'
-import { useRouter,useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -258,6 +254,8 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 };
 
 
+const searchKeyword =ref(null)
+
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -266,7 +264,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.model = model
   //-Search field--------------------------------------------
   formData.searchField = 'name'
-  formData.searchKeyword = ''
+  formData.searchKeyword = searchKeyword.value
   //--Single Filter -----------------------------------------
 
   formData.assocModel = associated_Model
@@ -494,6 +492,41 @@ const goBack = () => {
 }
 
 
+const remoteMethod = async (keyword) => {
+  console.log(keyword)
+  loading.value=true
+  const formData = {}
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = searchKeyword.value
+  formData.excludeGeom = false
+  formData.excludeGeomAssoc = true
+  formData.associated_multiple_models = []
+
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+
+  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+  //-------------------------
+  console.log("formData", formData)
+  const res = await searchByKeyWord(formData)
+
+  console.log("res.data", res.data)
+
+  tableDataList.value = res.data
+  total.value = res.total
+  loading.value = false
+
+}
+
+
 </script>
 
 <template>
@@ -532,31 +565,35 @@ const goBack = () => {
           </el-row>
 
 
+          <el-table :data="tableDataList" style="width: 100%">
+              <el-table-column label="#" type="index" width="50" />
+              <el-table-column label="Title" prop="title" />
+              <el-table-column label="Description" prop="description" />
+              <el-table-column align="right">
+                <template #header>
+                  <el-input v-model="searchKeyword" :onChange="remoteMethod" :onBlur="remoteMethod"  :onClear="handleClear"   placeholder="Type to search" />
+                </template>
+                <template #default="scope">
+                  <el-button size="small" @click="editIndicator( scope)">
+                    Edit
+                  </el-button>
+                 
+                  <el-button
+                    size="small"
+                    type="danger"
+                    @click="DeleteIndicator( scope)"
+                  >
+                    Delete
+                  </el-button>
+              
 
+                </template>
+              </el-table-column>
+            </el-table>
+          
  
- 
 
- 
-    <Table
-:columns="columns" :data="tableDataList" :loading="loading" :selection="false" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
-        </el-tooltip>
-
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this record?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
-
-      </template>
-    </Table>
+  
     <ElPagination
 layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
