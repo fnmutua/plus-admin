@@ -16,7 +16,7 @@ import {
 
 import { ref, reactive } from 'vue'
 import {
-  ElPagination, ElTooltip, ElOption, ElDivider, ElSwitch, ElTable, ElTableColumn, ElRow, ElCol,
+  ElPagination, ElTooltip, ElOption, ElDivider, ElSwitch, ElTable, ElTableColumn, ElRow, ElCol,ElTour,ElTourStep,
   ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElCheckbox, ElPopconfirm, ElCard, ElStep, ElSteps
 } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -30,7 +30,7 @@ import { getModelSpecs } from '@/api/fields'
 
 import { getListWithoutGeo } from '@/api/counties'
 import { getUniqueFieldValues } from '@/api/households'
-import { computed ,onMounted} from 'vue'
+import { computed ,onMounted, watch} from 'vue'
 
 import { Icon } from '@iconify/vue';
 import DownloadAll from '@/views/Components/DownloadAll.vue';
@@ -1558,17 +1558,18 @@ const categoryOptions = [
   }
 ]
 
+const InterventionChart = ref(false)
 const handleSelectType = async (status) => {
   //   let selDashboard = DashboardOptions.value.filter(item => item.value === dashboard_id);
 
 
   if (status === 'Status') {  // status dashabords 
     showStatusExtras.value = true
+    InterventionChart.value=false
+
   } else {
     showStatusExtras.value = false
-
-
-
+    InterventionChart.value=true
   }
 }
 
@@ -1664,6 +1665,166 @@ const prevStep = () => {
     activeStep.value--;
   }
 }
+
+
+const showTourStep0 =ref(false)
+const showTourStep1 =ref(false)
+const showTourStep2 =ref(false)
+const showTourStep3 =ref(false)
+const isTourVisible =ref(false)
+
+
+const showTour = () => {
+
+  isTourVisible.value=true
+
+   
+}
+
+const filteredTourSteps = computed(() => {
+
+  const fil = tourSteps.value.filter(step => step.step == activeStep.value && step.visible==true);
+  console.log('filteredTourSteps', fil)
+  return fil
+});
+
+
+
+
+
+const endTour = () => { 
+  showTourStep0.value=false
+  showTourStep1.value=false
+  showTourStep2.value=false
+  showTourStep3.value=false
+}
+ 
+
+const tourSteps = ref([
+  // Steps for activeStep 0
+  {
+    step: 0,
+    target: '#btn1',
+    title: 'Select Dashboard',
+    content: 'Choose a dashboard from the list to proceed.',
+    visible:true
+  },
+  {
+    step: 0,
+    target: '#btn2',
+    title: 'Select Dashboard Section',
+    content: 'Pick a section within the selected dashboard.',
+    visible:true
+
+  },
+  {
+    step: 0,
+    target: '#btn3',
+    title: 'Enter Title',
+    content: 'Provide a title for this chart..',
+    visible:true
+
+  },
+  {
+    step: 0,
+    target: '#btn4',
+    title: 'Enter Description',
+    content: 'Add a description to give more context.',
+    visible:true
+
+  },
+
+  // Steps for activeStep 1
+  {
+    step: 1,
+    target: '#btn5',
+    title: 'Select Category',
+    content: 'Choose the Type of Dashboard.',
+    visible:true
+
+  },
+  {
+    step: 1,
+    target: '#btn6',
+    title: 'Select Entity',
+    content: 'Select an entity to summarize.',
+    visible: showStatusExtras   
+
+  },
+  {
+    step: 1,
+    target: '#btn7',
+    title: 'Select Field',
+    content: 'Select the field to summarize if the category is "Status".',
+    visible:  showStatusExtras
+
+  },
+
+ 
+   {
+    step: 1,
+    target: '#btn8',
+    title: 'Indicator',
+    content: 'Select the Indicator(s) to summarize',  
+    visible: InterventionChart
+
+
+  },
+ 
+  {
+    step: 1,
+    target: '#btn9',
+    title: 'Categorization',
+    content: 'Categorized by selected field',
+    visible: () => showStatusExtras.value && !hideCategorize.value
+
+  },
+  
+  {
+    step: 1,
+    target: '#btn10',
+    title: 'Ignore Empty Records',
+    content: 'Enable this to ignore records with missing data.',
+    visible:true
+  },
+
+  {
+    step: 1,
+    target: '#btn11',
+    title: 'Select Chart Type',
+    content: 'Choose the type of chart to visualize your data.',
+    visible:true
+  },
+  
+  {
+    step: 1,
+    target: '#btn12',
+    title: 'Select Aggregation',
+    content: 'Choose how to aggregate your data.',
+    visible:true
+  },
+  // Steps for activeStep 2
+  
+  {
+    step: 2,
+    target: '#btn13',
+    title: 'Add Filters',
+    content: 'Add and configure filters for your data.',
+    visible:true
+  },
+]);
+
+  // Watch dependencies and log changes (or trigger additional actions)
+  watch(
+      [activeStep, showStatusExtras, hideCategorize,tourSteps],
+      (newValues, oldValues) => {
+        console.log("Dependencies changed:", newValues);
+        console.log("Filtered steps:", filteredTourSteps.value);
+        // Any other side effects or actions can be performed here
+      },
+      { immediate: true }
+    );
+
 
 
 
@@ -1775,151 +1936,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
   </el-card>
 
 
-  <el-dialog v-model="xAddDialogVisible" @close="handleClose" :title="formHeader" width="40%" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="150px">
-      <el-form-item label="Dashboard" prop="dashboard_id">
-        <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" :onChange="handleFilterDashboards">
-          <el-option v-for="item in dashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="Dashboard Section" prop="dashboard_section_id">
-        <el-select v-model="ruleForm.dashboard_section_id" filterable placeholder="Select">
-          <el-option
-v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.label"
-            :value="item.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="Title" prop="title">
-        <el-input v-model="ruleForm.title" />
-      </el-form-item>
-      <el-form-item label="Category" prop="category">
-        <el-select v-model="ruleForm.category" filterable placeholder="Select" :onChange="handleSelectType">
-          <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-        <el-button plain style="margin-left: 5px" :icon="InfoFilled" @click="infoDialog = true" />
-      </el-form-item>
-      <el-form-item label="Description" prop="description">
-        <el-input v-model="ruleForm.description" />
-      </el-form-item>
-      <el-form-item label="Entity" v-if="showStatusExtras" prop="card_model">
-        <el-select
-v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
-          :onChange="handleSelectModel" placeholder="Select Entity to summarize" style="width: 100%;">
-          <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="Chart Type" prop="type">
-        <el-select
-style="width: 100%;" v-model="ruleForm.type" :onClear="handleClear" clearable filterable
-          collapse-tags :onChange="handleSelectChart" placeholder="Select Type of Chart">
-          <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="Field" prop="card_model_field">
-        <el-select
-v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
-          placeholder="Field to summarize">
-          <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item v-if="showStatusExtras && !hideCategorize" prop="categorized">
-        <el-checkbox v-model="ruleForm.categorized">Categorized by selected field</el-checkbox>
-      </el-form-item>
-      <el-form-item label="Indicators" v-if="!showStatusExtras" prop="indicator_id">
-        <el-select
-v-model="ruleForm.indicator_id" filterable multiple placeholder="Select" collapse-tags
-          style="width: 100%;">
-          <el-option
-v-for="item in IndicatorCategoryOptions" :key="item.value" :label="item.label"
-            :value="item.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item prop="ignore_empty">
-        <el-checkbox v-model="ruleForm.ignore_empty" label="Ignore records with missing data" />
-      </el-form-item>
-      <el-row>
-        <el-form-item label="Aggregation" prop="aggregation">
-          <el-select
-size="default" v-model="ruleForm.aggregation" :onClear="handleClear" clearable filterable
-            collapse-tags placeholder="Select">
-            <el-option
-v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
-              :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="Filter">
-          <el-switch
-v-model="ruleForm.filtered" @change="onSwitchChange"
-            style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes"
-            inactive-text="No" />
-        </el-form-item>
-      </el-row>
-      <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-        <el-divider v-if="ruleForm.filtered" border-style="dashed" content-position="left">Filters</el-divider>
-        <div class="table-container">
-          <el-table
-v-if="ruleForm.filtered" :data="tableData" style="width: 90%; margin-left: 10px;" max-height="250"
-            size="small">
-            <el-table-column prop="field" label="Field">
-              <template #default="scope">
-                <el-select v-model="scope.row.field" placeholder="Select Field" :onChange="getFieldValues" filterable>
-                  <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
-                </el-select>
-              </template>
-            </el-table-column>
-
-            <el-table-column prop="operation" label="Operation">
-              <template #default="scope">
-                <el-select v-model="scope.row.operation" placeholder="Select Operation">
-                  <el-option
-v-for="item in functionOptions" :key="item.value" :label="item.label"
-                    :value="item.value" />
-                </el-select>
-              </template>
-            </el-table-column>
-
-            <el-table-column prop="value" label="Value">
-              <template #default="scope">
-                <el-select
-v-model="scope.row.value" placeholder="Select Value" filterable allow-create multiple
-                  collapse-tags-tooltip collapse-tags :onChange="saveFilter">
-                  <el-option v-for="item in fieldOptions" :key="item.value" :label="item.label" :value="item.value" />
-                </el-select>
-              </template>
-            </el-table-column>
-
-            <el-table-column>
-              <template #default="scope">
-                <el-tooltip content="Remove filter" placement="top">
-                  <el-button size="small" @click.prevent="deleteRow(scope.$index)" type="danger" :icon="Delete" />
-                </el-tooltip>
-
-              </template>
-            </el-table-column>
-          </el-table>
-
-        </div>
-        <div class="table-container">
-          <el-button-group>
-            <el-button v-if="ruleForm.filtered" class="mt-4" style="width: 45%" @click="onAddItem" size="small">
-              Add Filter
-            </el-button>
-            <el-button v-if="ruleForm.filtered" class="mt-4" style="width: 45%" @click="saveFilter" size="small">
-              Save Filters
-            </el-button>
-          </el-button-group>
-        </div>
-      </el-col>
-    </el-form>
-    <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-      </span>
-    </template>
-  </el-dialog>
-
+  
 
 
 
@@ -1933,7 +1950,7 @@ v-model="scope.row.value" placeholder="Select Value" filterable allow-create mul
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
       <el-row v-if="activeStep == 0" :gutter="20">
         <el-col :span="24">
-          <el-form-item label="Dashboard" prop="dashboard_id">
+          <el-form-item id="btn1"   label="Dashboard" prop="dashboard_id">
             <el-select
 v-model="ruleForm.dashboard_id" filterable placeholder="Select"
               :onChange="handleFilterDashboards">
@@ -1941,8 +1958,7 @@ v-model="ruleForm.dashboard_id" filterable placeholder="Select"
             </el-select>
           </el-form-item>
 
-
-          <el-form-item label="Dashboard Section" prop="dashboard_section_id">
+          <el-form-item id="btn2"   label="Dashboard Section" prop="dashboard_section_id">
             <el-select v-model="ruleForm.dashboard_section_id" filterable placeholder="Select">
               <el-option
 v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.label"
@@ -1950,72 +1966,34 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
             </el-select>
           </el-form-item>
 
-
-          <el-form-item label="Title" prop="title">
+          <el-form-item  id="btn3"   label="Title" prop="title">
             <el-input v-model="ruleForm.title" />
           </el-form-item>
-          <el-form-item label="Description" prop="description">
+          
+          <el-form-item id="btn4"   label="Description" prop="description">
             <el-input v-model="ruleForm.description" />
           </el-form-item>
-
-
-       
-
+ 
         </el-col>
       </el-row>
 
 
       <el-row v-if="activeStep === 1" :gutter="20">
-        <el-col :span="12">
-
-       
-          <el-form-item label="Category" prop="category">
+        <el-col :span="12"> 
+          <el-form-item id="btn5"  label="Category" prop="category">
             <el-select v-model="ruleForm.category" filterable placeholder="Select" :onChange="handleSelectType">
               <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
-            <el-button plain style="margin-left: 5px" :icon="InfoFilled" @click="infoDialog = true" />
-          </el-form-item>
-
-
-          <el-form-item label="Entity" v-if="showStatusExtras" prop="card_model">
+           </el-form-item> 
+          <el-form-item  id="btn6"   label="Entity" v-if="showStatusExtras" prop="card_model">
             <el-select
 v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
               :onChange="handleSelectModel" placeholder="Select Entity to summarize" style="width: 100%;">
               <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
-          </el-form-item>
+          </el-form-item> 
 
-        
-          <el-form-item label="Indicators" v-if="!showStatusExtras" prop="indicator_id">
-            <el-select
-v-model="ruleForm.indicator_id" filterable multiple placeholder="Select" collapse-tags
-              style="width: 100%;">
-              <el-option
-v-for="item in IndicatorCategoryOptions" :key="item.value" :label="item.label"
-                :value="item.value" />
-            </el-select>
-          </el-form-item>
-
-           
-
-          <el-form-item v-if="showStatusExtras && !hideCategorize" prop="categorized">
-            <el-checkbox v-model="ruleForm.categorized">Categorized by selected field</el-checkbox>
-          </el-form-item>
-
-          <el-form-item prop="ignore_empty">
-            <el-checkbox v-model="ruleForm.ignore_empty" label="Ignore records with missing data" />
-          </el-form-item>
-        </el-col>
-
-        <el-col :span="12">
-          <el-form-item label="Chart Type" prop="type">
-            <el-select
-style="width: 100%;" v-model="ruleForm.type" :onClear="handleClear" clearable filterable
-              collapse-tags :onChange="handleSelectChart" placeholder="Select Type of Chart">
-              <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </el-form-item>
-          <el-form-item  v-if="ruleForm.category =='Status'" label="Field" prop="card_model_field">
+          <el-form-item  id="btn7"   v-if="ruleForm.category =='Status'" label="Field" prop="card_model_field">
             <el-select
 v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
               placeholder="Field to summarize">
@@ -2024,9 +2002,36 @@ v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable 
           </el-form-item>
 
 
-      
+          <el-form-item id="btn8"   label="Indicators" v-if="!showStatusExtras" prop="indicator_id">
+            <el-select
+v-model="ruleForm.indicator_id" filterable multiple placeholder="Select" collapse-tags
+              style="width: 100%;">
+              <el-option
+v-for="item in IndicatorCategoryOptions" :key="item.value" :label="item.label"
+                :value="item.value" />
+            </el-select>
+          </el-form-item>         
 
-          <el-form-item label="Aggregation" prop="aggregation">
+          <el-form-item  id="btn9"   v-if="showStatusExtras && !hideCategorize" prop="categorized">
+            <el-checkbox v-model="ruleForm.categorized">Categorized by selected field</el-checkbox>
+          </el-form-item>
+
+          <el-form-item id="btn10"   prop="ignore_empty">
+            <el-checkbox v-model="ruleForm.ignore_empty" label="Ignore records with missing data" />
+          </el-form-item>
+        </el-col>
+
+        <el-col :span="12">
+          <el-form-item id="btn11"   label="Chart Type" prop="type">
+            <el-select
+style="width: 100%;" v-model="ruleForm.type" :onClear="handleClear" clearable filterable
+              collapse-tags :onChange="handleSelectChart" placeholder="Select Type of Chart">
+              <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+       
+ 
+          <el-form-item id="btn12"  label="Aggregation" prop="aggregation">
             <el-select
 size="default" v-model="ruleForm.aggregation" :onClear="handleClear" clearable filterable
               collapse-tags placeholder="Select">
@@ -2046,7 +2051,7 @@ v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
 
         <el-col :span="24">
 
-          <el-form-item label="Filter" prop="filtered" v-if="ruleForm.card_model">
+          <el-form-item id="btn13"  label="Filter" prop="filtered" v-if="ruleForm.card_model">
             <el-switch
 v-model="ruleForm.filtered" style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
               active-text="Yes" inactive-text="No" />
@@ -2118,7 +2123,10 @@ v-model="scope.row.value" placeholder="Select Value" filterable allow-create mul
       <span class="dialog-footer">
         <el-row :gutter="5">
           <el-col :span="24">
-            <!-- <el-button type="primary" plain @click="openHelp = true">Help</el-button> -->
+            <el-tooltip content="Help" placement="top">
+                <el-button color="#626aef"   type="info" @click="showTour"  :icon="InfoFilled" plain />
+              </el-tooltip> 
+            
             <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
 
             <el-button @click="nextStep" v-if="activeStep < 2">Next</el-button>
@@ -2161,6 +2169,31 @@ v-if="showEditSaveButton && activeStep === 2" type="primary"
 
     </div>
   </el-dialog>
+
+
+
+  <!-- <el-tour v-model="showTourStep0" z-index="100000" :onClose="endTour">
+    <el-tour-step
+target="#btn1" title="Title"
+      description="This is the short name of the dashboards. This is what will appear under the navigation section for dashboards. Use a single short word." />
+    <el-tour-step
+target="#btn2" title="Type"
+      description="The system supports two types of dashboards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Intervention' type draws data exclusively from the M&E indicators" />
+    />
+    <el-tour-step target="#btn3" title="Description" description="Provide a short description of this card" />
+    />
+  </el-tour> -->
+ 
+ 
+    <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
+      <el-tour-step
+        v-for="(step, index) in filteredTourSteps"
+        :key="index"
+        :target="step.target"
+        :title="step.title"
+        :description="step.content"
+      />
+    </el-tour>
 
 </template>
 <style>

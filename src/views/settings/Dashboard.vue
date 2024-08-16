@@ -2,9 +2,9 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty,searchByKeyWord } from '@/api/settlements'
+import { getSettlementListByCounty, searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect,ElCard,    } from 'element-plus'
+import { ElButton, ElSelect, ElCard, } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Back,
@@ -16,10 +16,10 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive,onMounted  } from 'vue'
- import {
-  ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElInput, FormRules,ElCol,ElRow,ElCheckbox,
-  ElPopconfirm,ElSwitch, ElTable,ElTableColumn
+import { ref, reactive, onMounted } from 'vue'
+import {
+  ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElCol, ElRow, ElCheckbox,
+  ElPopconfirm, ElSwitch, ElTable, ElTableColumn, ElTour, ElTourStep
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -43,7 +43,7 @@ console.log("userInfo--->", userInfo)
 const router = useRouter();
 const allRoutes = router.getRoutes();
 console.log('All Routes:', allRoutes);
- 
+
 
 
 const { push } = useRouter()
@@ -55,7 +55,7 @@ const categoryOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
- 
+
 const selCounties = []
 const loading = ref(true)
 const pageSize = ref(5)
@@ -89,21 +89,21 @@ onMounted(() => {
 
 
 // flag for admin buttons
-let filters =[]
+let filters = []
 let filterValues = []
 
 // flag for admin buttons
 
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
 
 
- 
+
 
 
 // filter Charts only admins can see all 
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin") ) {
-   showSuperAdminButtons.value=true
+if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin")) {
+  showSuperAdminButtons.value = true
   filters = []
   filterValues = []
 }
@@ -121,7 +121,7 @@ console.log("Show Buttons -->", showAdminButtons)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
- 
+
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = []
@@ -139,12 +139,12 @@ const showEditSaveButton = ref(false)
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
-  type:'',
+  type: '',
   icon: null,
-  main_dashboard:false,
-  public:false,
-  description:null
- 
+  main_dashboard: false,
+  public: false,
+  description: null
+
 })
 
 
@@ -157,7 +157,7 @@ const typeOptions = [
     value: 'status',
     label: 'Status'
   },
- 
+
 ]
 
 const columns: TableColumn[] = [
@@ -204,26 +204,26 @@ const handleClear = async () => {
 
 
 
-const checkIfRouteExists = async (route: any) => { 
-    // Find the route by name
-    const routeName = route;
-    const resolvedRoute = allRoutes.find(route => route.name === routeName);
+const checkIfRouteExists = async (route: any) => {
+  // Find the route by name
+  const routeName = route;
+  const resolvedRoute = allRoutes.find(route => route.name === routeName);
 
   console.log('Resolved Route:', resolvedRoute);
 
   if (resolvedRoute) {
     let msg = "Error. A route with same name exists. Try different Name"
-      return msg
+    return msg
   } else {
-      return null
-    }
+    return null
+  }
 }
 
 
 
 
 
- 
+
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
@@ -254,7 +254,7 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 };
 
 
-const searchKeyword =ref(null)
+const searchKeyword = ref(null)
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
@@ -360,7 +360,7 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.type = data.row.type
   ruleForm.main_dashboard = data.row.main_dashboard
   ruleForm.public = data.row.public
- 
+
 
   formHeader.value = 'Edit Dashboard'
 
@@ -374,15 +374,15 @@ const DeleteIndicator = async (data: TableSlotDefault) => {
   let formData = {}
   formData.id = data.row.id
   formData.model = model
-  
- 
- await  DeleteRecord(formData).then(response => {
+
+
+  await DeleteRecord(formData).then(response => {
     console.log(response)
     // remove the deleted object from array list 
     let index = tableDataList.value.indexOf(data);
     if (index !== -1) {
       tableDataList.value.splice(index, 1);
-      
+
     }
 
   })
@@ -391,7 +391,7 @@ const DeleteIndicator = async (data: TableSlotDefault) => {
       ElMessage.error(error)
     });
 
-  
+
 
   getFilteredData(filters, filterValues)
 }
@@ -403,7 +403,7 @@ const handleClose = () => {
   showSubmitBtn.value = true
   showEditSaveButton.value = false
 
- 
+
   formHeader.value = 'Add Dashboard'
 
 }
@@ -423,7 +423,7 @@ const rules = reactive<FormRules>({
     { required: true, message: 'Description is required', trigger: 'blur' },
     { max: 50, message: 'Length should be 50 characters or less', trigger: 'blur' }
 
-   ],
+  ],
 })
 
 const AddIndicator = () => {
@@ -433,25 +433,25 @@ const AddIndicator = () => {
 
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
-  await formEl.validate(async(valid, fields) => {
+  await formEl.validate(async (valid, fields) => {
 
     var exists = await checkIfRouteExists(ruleForm.title)
 
     if (exists) {
       ElMessage.error('A route with same name exists. Try a different Name')
     } else {
- 
+
       if (valid) {
-      ruleForm.model = model
-      ruleForm.code = uuid.v4()
-      const res = CreateRecord(ruleForm)
+        ruleForm.model = model
+        ruleForm.code = uuid.v4()
+        const res = CreateRecord(ruleForm)
 
-    } else {
-      console.log('error submit!', fields)
-    }
+      } else {
+        console.log('error submit!', fields)
+      }
     }
 
-  
+
   })
 }
 
@@ -474,10 +474,10 @@ const editForm = async (formEl: FormInstance | undefined) => {
 }
 
 
-const infoDialog=ref(false)
+const infoDialog = ref(false)
 
 
- 
+
 
 const goBack = () => {
   // Add your logic to handle the back action
@@ -494,7 +494,7 @@ const goBack = () => {
 
 const remoteMethod = async (keyword) => {
   console.log(keyword)
-  loading.value=true
+  loading.value = true
   const formData = {}
   formData.model = model
   //-Search field--------------------------------------------
@@ -526,115 +526,114 @@ const remoteMethod = async (keyword) => {
 
 }
 
+const openHelp = ref(false)
+
 
 </script>
 
 <template>
-  <el-card >
-   
+  <el-card>
+
     <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
-          <div class="max-w-200px">
-            <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-              Back
-            </el-button>
-          </div>
-
-        
-
-          <!-- Action Buttons -->
-          <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
-
-            <el-tooltip content="Add Dashboard" placement="top">
-              <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
-            </el-tooltip>
-
-            <el-tooltip content="Download" placement="top">
-              <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-            </el-tooltip>
-
-            <el-tooltip content="Clear" placement="top">
-              <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-            </el-tooltip>
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
 
 
-          </div>
-            <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
 
-          <!-- Download All Component -->
-          </el-row>
+      <!-- Action Buttons -->
+      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+
+        <el-tooltip content="Add Dashboard" placement="top">
+          <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+        </el-tooltip>
+
+        <el-tooltip content="Download" placement="top">
+          <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+        </el-tooltip>
+
+        <el-tooltip content="Clear" placement="top">
+          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+        </el-tooltip>
 
 
-          <el-table :data="tableDataList" style="width: 100%">
-              <el-table-column label="#" type="index" width="50" />
-              <el-table-column label="Title" prop="title" />
-              <el-table-column label="Description" prop="description" />
-              <el-table-column align="right">
-                <template #header>
-                  <el-input v-model="searchKeyword" :onChange="remoteMethod" :onBlur="remoteMethod"  :onClear="handleClear"   placeholder="Type to search" />
-                </template>
-                <template #default="scope">
-                  <el-button size="small" @click="editIndicator( scope)">
-                    Edit
-                  </el-button>
-                 
-                  <el-button
-                    size="small"
-                    type="danger"
-                    @click="DeleteIndicator( scope)"
-                  >
-                    Delete
-                  </el-button>
-              
+      </div>
+      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
 
-                </template>
-              </el-table-column>
-            </el-table>
-          
- 
+      <!-- Download All Component -->
+    </el-row>
 
-  
+
+    <el-table :data="tableDataList" style="width: 100%">
+      <el-table-column label="#" type="index" width="50" />
+      <el-table-column label="Title" prop="title" />
+      <el-table-column label="Description" prop="description" />
+      <el-table-column align="right">
+        <template #header>
+          <el-input
+v-model="searchKeyword" :onChange="remoteMethod" :onBlur="remoteMethod" :onClear="handleClear"
+            placeholder="Type to search" />
+        </template>
+        <template #default="scope">
+          <el-button size="small" @click="editIndicator(scope)">
+            Edit
+          </el-button>
+
+          <el-button size="small" type="danger" @click="DeleteIndicator(scope)">
+            Delete
+          </el-button>
+
+
+        </template>
+      </el-table-column>
+    </el-table>
+
+
+
+
     <ElPagination
-layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
+       layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </el-card>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-    
-      <el-form-item label="Title" prop="title">
+
+      <el-form-item id="btn1" label="Title" prop="title">
         <el-input v-model="ruleForm.title" />
       </el-form-item>
 
-      <el-form-item label="Type" prop="type">
+      <el-form-item id="btn2" label="Type" prop="type">
         <el-select
 v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tags
           placeholder="Select Type of dashboard">
           <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
 
-        <el-button  plain style="margin-left: 5px"  :icon="InfoFilled" @click="infoDialog = true"/>
-  
+ 
       </el-form-item>
       <el-row>
 
-    <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
-      <el-form-item label="Main" prop="main_dashboard">
-        <el-switch v-model="ruleForm.main_dashboard" />
-      </el-form-item>
-    </el-col>
+        <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
+          <el-form-item id="btn3" label="Main" prop="main_dashboard">
+            <el-switch v-model="ruleForm.main_dashboard" />
+          </el-form-item>
+        </el-col>
 
 
-    <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
-      <el-form-item  prop="public" v-if="showSuperAdminButtons" >
-         <el-checkbox v-model="ruleForm.public" label="Public" />
-      </el-form-item>
-    </el-col>
+        <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
+          <el-form-item id="btn4" prop="public" v-if="showSuperAdminButtons">
+            <el-checkbox v-model="ruleForm.public" label="Public" />
+          </el-form-item>
+        </el-col>
       </el-row>
-      
 
-      <el-form-item label="Icon" prop="icon">
+
+      <el-form-item id="btn5" label="Icon" prop="icon">
         <el-tooltip class="item" effect="dark" placement="top">
           <template #content>
             <div>
@@ -644,21 +643,19 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
           <el-input v-model="ruleForm.icon" />
         </el-tooltip>
         <a
-          v-if="ruleForm.icon"
-          :href="'https://icnoffydesign.com/icons/' + ruleForm.icon"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+v-if="ruleForm.icon" :href="'https://icnoffydesign.com/icons/' + ruleForm.icon" target="_blank"
+          rel="noopener noreferrer">
         </a>
       </el-form-item>
 
-      <el-form-item label="Description" prop="description">
-        <el-input type="textarea" v-model="ruleForm.description"  />
+      <el-form-item id="btn6" label="Description" prop="description">
+        <el-input type="textarea" v-model="ruleForm.description" />
       </el-form-item>
     </el-form>
     <template #footer>
 
       <span class="dialog-footer">
+        <el-button type="primary" plain @click="openHelp = true">Help</el-button>
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
         <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
         <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
@@ -668,33 +665,33 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
 
 
 
-  <el-dialog
-    v-model="infoDialog"
-     width="40%"
-  >
+  <el-dialog v-model="infoDialog" width="40%">
     <div class="info-dialog-content">
       <div class="info-dialog-section">
-        <h4  class="info-heading">Status Dashboard:</h4>
+        <h4 class="info-heading">Status Dashboard:</h4>
         <p>
-          A dashboard that draws data from the entities within the system. It allows configurations of summaries related to settlements, facilities, etc.
+          A dashboard that draws data from the entities within the system. It allows configurations of summaries related
+          to settlements, facilities, etc.
         </p>
       </div>
       <div class="info-dialog-section">
         <h4 class="info-heading"> Interventions Dashboard:</h4>
         <p>
-          A dashboard that draws data exclusively from slum interventions such as construction of infrastructure, issuance of titles, and more. The dashboard draws data from the indicator reports (output and outcomes).
+          A dashboard that draws data exclusively from slum interventions such as construction of infrastructure,
+          issuance
+          of titles, and more. The dashboard draws data from the indicator reports (output and outcomes).
         </p>
       </div>
 
       <div class="info-dialog-section">
-        <h4  class="info-heading">Public Dashboard:</h4>
+        <h4 class="info-heading">Public Dashboard:</h4>
         <p>
-          A dashboard  that is accessible to everyone with access to the system, else exclusive to the creator.
+          A dashboard that is accessible to everyone with access to the system, else exclusive to the creator.
         </p>
       </div>
 
       <div class="info-dialog-section">
-        <h4  class="info-heading">Main Dashboard:</h4>
+        <h4 class="info-heading">Main Dashboard:</h4>
         <p>
           The Default dashboard. There can only be on such dashboard.
         </p>
@@ -703,6 +700,32 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
 
     </div>
   </el-dialog>
+
+
+  <el-tour v-model="openHelp" z-index="100000">
+    <el-tour-step target="#btn1" title="Title" description="This is the short name of the dashboards. This is what will appear under the navigation section for dashboards. Use a single short word." />
+    <el-tour-step
+target="#btn2" title="Type"
+      description="The system supports two types of dashboards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Intervention' type draws data exclusively from the M&E indicators" />
+    <el-tour-step
+target="#btn3" title="Main"
+      description="A main dashboard remains after creation and cannot be deleted. For custom dashboards, keep this disabled" />
+    <el-tour-step
+target="#btn4" title="Public"
+      description=" Allows the dashboards to be visible to every user. Keep it unchecked for your own custom dashboards" />
+
+    <el-tour-step
+target="#btn5" title="Icon"
+      description="This is the icon to appear on the dashboards navigation menu/navbar. The icons are available from https://icon-sets.iconify.design/?category=General. Copy the icon name and paste here." />
+
+ <el-tour-step target="#btn6" title="Description" description="Provide a short narrative about this dashboard." />
+
+
+
+  </el-tour>
+
+
+
 
 
 </template>

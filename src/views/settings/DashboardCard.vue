@@ -4,7 +4,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect, ElColorPicker, ElCard, ElPopconfirm } from 'element-plus'
+import { ElButton, ElSelect, ElColorPicker, ElCard, ElPopconfirm, ElTour, ElTourStep } from 'element-plus'
 import {
   Back,
   Plus,
@@ -16,7 +16,7 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive,onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElCol, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElRow,
   ElTable, ElSwitch, ElTableColumn, ElStep, ElSteps, ElSelectV2
@@ -106,15 +106,15 @@ const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
- 
+
 const componentOptions = ref([])
 const categories = ref([])
- 
+
 const page = ref(1)
- 
+
 const selCounties = []
 const loading = ref(true)
- 
+
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
@@ -1102,7 +1102,34 @@ const prevStep = () => {
   }
 }
 
+const showTourStep0 =ref(false)
+const showTourStep1 =ref(false)
+const showTourStep2 =ref(false)
+const showTourStep3 =ref(false)
 
+
+const showTour = () => {
+  if (activeStep.value  == 0) {
+    showTourStep0.value=true
+    } 
+  else if (activeStep.value  == 1) {
+    showTourStep1.value=true
+  }
+  else if (activeStep.value  == 2) {
+    showTourStep2.value=true
+  }
+  else if (activeStep.value  == 3) {
+    showTourStep3.value=true
+  }
+}
+const endTour = () => { 
+  showTourStep0.value=false
+  showTourStep1.value=false
+  showTourStep2.value=false
+  showTourStep3.value=false
+
+}
+ 
 
 </script>
 
@@ -1144,9 +1171,9 @@ v-model="value3" :onChange="handleSelectDashboard" :onClear="handleClear" multip
       </div>
 
       <!-- Download All Component -->
-    </el-row> 
+    </el-row>
 
-    
+
     <el-table :data="cards_filtered" stripe>
       <el-table-column type="index" />
       <el-table-column prop="title" label="Title" />
@@ -1182,10 +1209,10 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
     </el-table>
 
 
-  <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pSize" :page-sizes="[3,5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pSize"
+      :page-sizes="[3, 5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
+      @current-change="onPageChange" class="mt-4" />
   </el-card>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="40%">
@@ -1198,15 +1225,15 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
       <el-row v-if="activeStep == 0" :gutter="20">
         <el-col :span="24">
-          <el-form-item label="Dashboard" prop="dashboard_id">
+          <el-form-item id="btn1" label="Dashboard" prop="dashboard_id">
             <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select" :onChange="handleSelectType">
               <el-option v-for="item in DashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
-          <el-form-item label="Title" prop="title">
+          <el-form-item id="btn2" label="Title" prop="title">
             <el-input v-model="ruleForm.title" />
           </el-form-item>
-          <el-form-item label="Description" prop="description">
+          <el-form-item id="btn3" label="Description" prop="description">
             <el-input v-model="ruleForm.description" />
           </el-form-item>
         </el-col>
@@ -1216,7 +1243,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       <el-row v-if="activeStep === 1" :gutter="20">
         <el-col :span="18">
 
-          <el-form-item label="Icon" prop="icon">
+          <el-form-item id="btn4" label="Icon" prop="icon">
             <el-tooltip content="Get icons from https://icon-sets.iconify.design/" placement="top">
               <el-input v-model="ruleForm.icon" />
             </el-tooltip>
@@ -1224,7 +1251,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         </el-col>
 
         <el-col :span="6">
-          <el-form-item label="Icon Color" prop="iconColor">
+          <el-form-item id="btn5" label="Icon Color" prop="iconColor">
             <el-color-picker v-model="ruleForm.iconColor" />
           </el-form-item>
 
@@ -1234,13 +1261,12 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       <el-row v-if="activeStep === 2" :gutter="20">
         <el-col :span="12">
 
-          <el-form-item label="Category" prop="category">
+          <el-form-item  id="btn6"  label="Category" prop="category">
             <el-select v-model="ruleForm.category" filterable placeholder="Select" :onChange="handleSelectType">
               <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
-            <el-button plain style="margin-left: 5px" :icon="InfoFilled" @click="infoDialog = true" />
-          </el-form-item>
-          <el-form-item label="Agg.Field" prop="card_model_field">
+           </el-form-item>
+          <el-form-item id="btn7"  label="Aggregation Field" prop="card_model_field">
             <el-select
 v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
               placeholder="Field to summarize">
@@ -1250,7 +1276,7 @@ v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable 
         </el-col>
 
         <el-col :span="12">
-          <el-form-item label="Type" prop="card_model">
+          <el-form-item  id="btn8"  label="Entity" prop="card_model">
             <el-select
 v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
               :onChange="handleSelectModel" placeholder="Select Entity to summarize">
@@ -1258,7 +1284,7 @@ v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collap
             </el-select>
           </el-form-item>
 
-          <el-form-item label="Aggregation" prop="aggregation">
+          <el-form-item id="btn9"  label="Aggregation" prop="aggregation">
             <el-select
 size="default" v-model="ruleForm.aggregation" :onClear="handleClear" style="width: 90%" clearable
               filterable collapse-tags placeholder="Select">
@@ -1268,18 +1294,18 @@ v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
             </el-select>
           </el-form-item>
         </el-col>
-      </el-row> 
+      </el-row>
 
       <el-row v-if="activeStep === 3" :gutter="20">
         <el-col :span="24">
-          <el-form-item label="Computation" prop="computation" class="mt-4">
+          <el-form-item id="btn10"  label="Computation" prop="computation" class="mt-4">
             <el-select
 size="default" v-model="ruleForm.computation" :onClear="handleClear" clearable filterable
               collapse-tags placeholder="Select">
               <el-option label="Proportion(%)" value="proportion" />
               <el-option label="Absolute" value="absolute" /> </el-select>
           </el-form-item>
-          <el-form-item label="Filter" prop="filtered" v-if="ruleForm.card_model" class="mt-4">
+          <el-form-item id="btn11" label="Filter" prop="filtered" v-if="ruleForm.card_model" class="mt-4">
             <el-switch
 v-model="ruleForm.filtered" style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
               active-text="Yes" inactive-text="No" />
@@ -1348,7 +1374,9 @@ size="small" v-model="scope.row.value" placeholder="Select Value" multiple
       <span class="dialog-footer">
         <el-row :gutter="5">
           <el-col :span="24">
-            <!-- <el-button type="primary" plain @click="openHelp = true">Help</el-button> -->
+               <el-tooltip content="Help" placement="top">
+                <el-button color="#626aef"   type="info" @click="showTour"  :icon="InfoFilled" plain />
+              </el-tooltip> 
             <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
 
             <el-button @click="nextStep" v-if="activeStep < 3">Next</el-button>
@@ -1371,9 +1399,43 @@ v-if="showEditSaveButton && activeStep === 3" type="primary"
 
 
 
+  <el-tour v-model="showTourStep0" z-index="100000" :onClose="endTour">
+    <el-tour-step
+target="#btn1" title="Title"
+      description="This is the short name of the dashboards. This is what will appear under the navigation section for dashboards. Use a single short word." />
+    <el-tour-step
+target="#btn2" title="Type"
+      description="The system supports two types of dashboards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Intervention' type draws data exclusively from the M&E indicators" />
+    />
+    <el-tour-step target="#btn3" title="Description" description="Provide a short description of this card" />
+    />
+  </el-tour>
 
+  <el-tour v-model="showTourStep1" z-index="100000" :onClose="endTour">
+    <el-tour-step
+target="#btn4" title="Icon"
+      description="This is the icon to appear on the statistic card. The icons are available from https://icon-sets.iconify.design/?category=General. Copy the icon name and paste here." />
+    <el-tour-step target="#btn5" title="Icon Color" description="The  color of the ICon on the statistic card" />
 
+  </el-tour>
 
+  <el-tour v-model="showTourStep2" z-index="100000" :onClose="endTour">
+    <el-tour-step
+target="#btn6" title="Category"
+      description="The system supports two types of cards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Intervention' type draws data exclusively from the M&E indicators" />
+      <el-tour-step target="#btn7" title="Aggregation Field" description="The field to use for summary" />
+
+      <el-tour-step target="#btn8" title="Entity" description="The entity(table) to summarize" />
+      <el-tour-step target="#btn9" title="Aggregation Method" description="The computation method to use. Sum only applies to numeric fields" />
+
+  </el-tour>
+
+  <el-tour v-model="showTourStep3" z-index="100000" :onClose="endTour">
+  
+      <el-tour-step target="#btn10" title="Computation Method" description="Proportion is a percent of the result against the total entitles in the table. Absolute is teh sum/count" />
+      <el-tour-step target="#btn11" title="Filters" description="Switch on if the card features filtering. This can be achieved say, for instance filtering for a specific county, gender etc. You will need to specify the field and its filter values" />
+
+  </el-tour>
 
 
 
