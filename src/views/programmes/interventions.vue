@@ -8,7 +8,7 @@ import {
 import { ElMessage } from 'element-plus'
 import { Position, Plus, Download, Delete, Edit, InfoFilled, UploadFilled, Back } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
+import { ref, reactive, } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { DeleteRecord, updateOneRecord, deleteDocument, BatchImportUpsert, getfilteredGeo,DeleteRecordByCriteria } from '@/api/settlements'
