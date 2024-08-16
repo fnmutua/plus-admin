@@ -16,7 +16,7 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive,onMounted, computed } from 'vue'
 import {
   ElPagination, ElCol, ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElRow,
   ElTable, ElSwitch, ElTableColumn, ElStep, ElSteps, ElSelectV2
@@ -106,18 +106,41 @@ const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
 var value3 = ref([])
-const indicatorsOptions = ref([])
+ 
 const componentOptions = ref([])
 const categories = ref([])
-const filteredIndicators = ref([])
+ 
 const page = ref(1)
-const pSize = ref(5)
+ 
 const selCounties = []
 const loading = ref(true)
-const pageSize = ref(5)
+ 
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
+
+
+
+const mobileBreakpoint = 768;
+const defaultpSize = 10;
+const mobilepSize = 5;
+const pSize = ref(defaultpSize);
+
+// Function to update pSize based on window width
+const updatepSize = () => {
+  if (window.innerWidth <= mobileBreakpoint) {
+    pSize.value = mobilepSize;
+  } else {
+    pSize.value = defaultpSize;
+  }
+};
+
+// Set up event listener on mount
+onMounted(() => {
+  window.addEventListener('resize', updatepSize);
+  updatepSize(); // Initial check
+});
+
 
 
 
@@ -1131,7 +1154,7 @@ v-model="value3" :onChange="handleSelectDashboard" :onClear="handleClear" multip
       <el-table-column prop="icon" label="Icon" />
       <el-table-column label="Operations">
         <template #header>
-          <el-input v-model="searchKey" size="small" placeholder="Filter" />
+          <el-input v-model="searchKey" size="small" placeholder="Filter By Title" />
         </template>
         <template #default="scope">
           <el-tooltip content="Edit" placement="top">
@@ -1161,7 +1184,7 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
 
   <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+      v-model:page-size="pSize" :page-sizes="[3,5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
 

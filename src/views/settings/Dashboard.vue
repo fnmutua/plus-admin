@@ -5,11 +5,11 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElSelect,   } from 'element-plus'
+import { ElButton, ElSelect,ElCard,    } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Position,
-  TopRight,
+  Back,
   User,
   Plus,
   Download,
@@ -20,8 +20,8 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
-import {
+import { ref, reactive,onMounted  } from 'vue'
+ import {
   ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,ElCol,ElRow,ElCheckbox,
   ElDatePicker, ElPopconfirm,ElSwitch
 } from 'element-plus'
@@ -59,7 +59,7 @@ const categoryOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
-const pSize = ref(5)
+ 
 const selCounties = []
 const loading = ref(true)
 const pageSize = ref(5)
@@ -67,6 +67,30 @@ const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
 const showSuperAdminButtons = ref(false)
+
+
+
+const mobileBreakpoint = 768;
+const defaultpSize = 10;
+const mobilepSize = 5;
+const pSize = ref(defaultpSize);
+
+// Function to update pSize based on window width
+const updatepSize = () => {
+  if (window.innerWidth <= mobileBreakpoint) {
+    pSize.value = mobilepSize;
+  } else {
+    pSize.value = defaultpSize;
+  }
+};
+
+// Set up event listener on mount
+onMounted(() => {
+  window.addEventListener('resize', updatepSize);
+  updatepSize(); // Initial check
+});
+
+
 
 // flag for admin buttons
 let filters =[]
@@ -142,7 +166,7 @@ const typeOptions = [
 
 const columns: TableColumn[] = [
   {
-    field: 'index',
+    field: '#',
     label: t('userDemo.index'),
     type: 'index'
   },
@@ -203,35 +227,7 @@ const checkIfRouteExists = async (route: any) => {
 
 
 
-
-const handleSelectIndicator = async (indicator: any) => {
-  var selectOption = 'programme_id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('category : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(indicator) && indicator.length > 0) {
-    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (indicator.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
-}
-
+ 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
@@ -482,37 +478,67 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 const infoDialog=ref(false)
 
+
+ 
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+
+}
+
+
 </script>
 
 <template>
-  <ContentWrap :title="t('Programmes/Projects')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+  <el-card >
+   
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
-    <!-- <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value3"   :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Programme">
-        <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div> -->
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-    </div>
-    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+          <div class="max-w-200px">
+            <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+              Back
+            </el-button>
+          </div>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Programme" placement="top">
-        <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
+        
 
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
+          <!-- Action Buttons -->
+          <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
 
+            <el-tooltip content="Add Dashboard" placement="top">
+              <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
+            </el-tooltip>
+
+            <el-tooltip content="Download" placement="top">
+              <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+            </el-tooltip>
+
+            <el-tooltip content="Clear" placement="top">
+              <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+            </el-tooltip>
+
+
+          </div>
+            <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+
+          <!-- Download All Component -->
+          </el-row>
+
+
+
+ 
+ 
+
+ 
     <Table
-:columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
+:columns="columns" :data="tableDataList" :loading="loading" :selection="false" :pageSize="pageSize"
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="Edit" placement="top">
@@ -535,7 +561,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
-  </ContentWrap>
+  </el-card>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">

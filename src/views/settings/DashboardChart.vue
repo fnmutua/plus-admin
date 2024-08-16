@@ -30,7 +30,7 @@ import { getModelSpecs } from '@/api/fields'
 
 import { getListWithoutGeo } from '@/api/counties'
 import { getUniqueFieldValues } from '@/api/households'
-import { computed } from 'vue'
+import { computed ,onMounted} from 'vue'
 
 import { Icon } from '@iconify/vue';
 import DownloadAll from '@/views/Components/DownloadAll.vue';
@@ -58,13 +58,36 @@ const componentOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
-const pSize = ref(5)
+ 
 const selCounties = []
 const loading = ref(true)
-const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
+
+
+const mobileBreakpoint = 768;
+const defaultpSize = 10;
+const mobilepSize = 5;
+const pSize = ref(defaultpSize);
+
+// Function to update pSize based on window width
+const updatepSize = () => {
+  if (window.innerWidth <= mobileBreakpoint) {
+    pSize.value = mobilepSize;
+  } else {
+    pSize.value = defaultpSize;
+  }
+};
+
+// Set up event listener on mount
+onMounted(() => {
+  window.addEventListener('resize', updatepSize);
+  updatepSize(); // Initial check
+});
+
+
+
 
 let filters = []
 let filterValues = []
@@ -204,7 +227,7 @@ const handleClear = async () => {
   value3.value = ''
   value4.value = ''
   value5.value = ''
-  pSize.value = 5
+ // pSize.value = 5
   currentPage.value = 1
   tblData = []
   //----run the get data--------
@@ -277,7 +300,7 @@ const onPageChange = async (selPage: any) => {
   getFilteredData(filters, filterValues)
 }
 
-const onPageSizeChange = async (size: any) => {
+const onpSizeChange = async (size: any) => {
   pSize.value = size
   getFilteredData(filters, filterValues)
 }
@@ -953,7 +976,7 @@ const IndicatorCategoryOptions = ref([])
 
 const getIndicatorCategories = async () => {
   const formData = {}
-  //formData.limit = pSize.value
+ 
   //formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = 'indicator'
@@ -1716,7 +1739,7 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
 
       <el-table-column label="Operations">
         <template #header>
-          <el-input v-model="searchKey" size="small" placeholder="Filter" />
+          <el-input v-model="searchKey" size="small" placeholder="Filter by title" />
         </template>
         <template #default="scope">
           <el-tooltip content="Edit" placement="top">
@@ -1747,8 +1770,8 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
 
     <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+      v-model:page-size="pSize" :page-sizes="[3, 5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+      @size-change="onpSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
 
 
