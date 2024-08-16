@@ -15,9 +15,9 @@ import {
   InfoFilled
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import {
-  ElPagination, ElInputNumber, ElTable,
+  ElPagination, ElInputNumber, ElTable,ElTour,ElTourStep,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
   ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow
 } from 'element-plus'
@@ -1044,6 +1044,119 @@ const prevStep = () => {
 }
 
 
+
+const isTourVisible =ref(false)
+const showTour = () => {
+
+isTourVisible.value=true
+
+ 
+}
+
+const filteredTourSteps = computed(() => {
+
+const fil = tourSteps.value.filter(step => step.step == activeStep.value && step.visible==true);
+console.log('filteredTourSteps', fil)
+return fil
+});
+
+
+const endTour = () => { 
+ 
+}
+
+
+const tourSteps = ref([
+// Steps for activeStep 0
+{
+  step: 0,
+  target: '#btn1',
+  title: 'Select Project',
+  content: 'Choose a project from the list to proceed.',
+  visible:true
+},
+{
+  step: 0,
+  target: '#btn2',
+  title: 'Select Location',
+  content: 'Pick a location where this project is(was) implemented.',
+  visible:true
+
+},
+ 
+// Steps for activeStep 1
+{
+  step: 1,
+  target: '#btn3',
+  title: 'Target Beneficiaries (Female)',
+  content: 'Specify the targeted number of female beneficiaries.',
+  visible:true
+
+},
+  
+ 
+{
+  step: 1,
+  target: '#btn4',
+  title: 'Target Beneficiaries (Male)',
+  content: 'Specify the targeted number of male beneficiaries.',
+  visible:true
+},
+
+
+{
+  step: 1,
+  target: '#btn5',
+  title: 'Actual Beneficiaries (Female)',
+  content: 'Specify the actual number of female beneficiaries.',
+  visible:true
+},
+{
+  step: 1,
+  target: '#btn6',
+  title: 'Actual Beneficiaries (Male)',
+  content: 'Specify the actual number of male beneficiaries.',
+  visible:true
+},
+
+
+// Steps for activeStep 2
+
+{
+  step: 2,
+  target: '#btn7',
+  title: 'Comments',
+  content: 'Add comments/notes or observations for this submission.',
+  visible:true
+},
+
+{
+  step: 2,
+  target: '#btn8',
+  title: 'Documentation',
+  content: 'Upload supporting documentation.',
+  visible:true
+},
+
+
+]);
+
+// Watch dependencies and log changes (or trigger additional actions)
+watch(
+    [activeStep,tourSteps],
+    (newValues, oldValues) => {
+      console.log("Dependencies changed:", newValues);
+      console.log("Filtered steps:", filteredTourSteps.value);
+      // Any other side effects or actions can be performed here
+    },
+    { immediate: true }
+  );
+
+
+
+
+
+
 </script>
 
 <template>
@@ -1200,10 +1313,10 @@ ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Se
 
       <el-row v-if="activeStep === 1" :gutter="20">
         <el-col :span="12">
-          <el-form-item id="btn5" label="Target (Female)" prop="target_female_ben">
+          <el-form-item id="btn3" label="Target (Female)" prop="target_female_ben">
             <el-input-number v-model="ruleForm.target_female_ben" style="width: 100%;" />
           </el-form-item>
-          <el-form-item id="btn8" label="Target (Male)" prop="target_male_ben">
+          <el-form-item id="btn4" label="Target (Male)" prop="target_male_ben">
             <el-input-number v-model="ruleForm.target_male_ben" style="width: 100%;" />
           </el-form-item>
 
@@ -1213,7 +1326,7 @@ ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Se
           <el-form-item id="btn5" label="Actual (Female)" prop="actual_female_ben">
             <el-input-number v-model="ruleForm.actual_female_ben" style="width: 100%;" />
           </el-form-item>
-          <el-form-item id="btn8" label="Actual (Male)" prop="actual_male_ben">
+          <el-form-item id="btn6" label="Actual (Male)" prop="actual_male_ben">
             <el-input-number v-model="ruleForm.actual_male_ben" style="width: 100%;" />
           </el-form-item>
 
@@ -1222,12 +1335,12 @@ ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Se
 
       <el-row v-if="activeStep === 2" :gutter="20">
         <el-col :span="24">
-          <el-form-item id="btn12" label="Comments" prop="comments">
+          <el-form-item id="btn7" label="Comments" prop="comments">
             <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
           </el-form-item>
 
           <el-upload
-id="btn13" v-model:file-list="fileUploadList" class="upload-demo"
+id="btn8" v-model:file-list="fileUploadList" class="upload-demo"
             action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
             :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
             :on-exceed="handleExceed">
@@ -1243,7 +1356,10 @@ id="btn13" v-model:file-list="fileUploadList" class="upload-demo"
       <span class="dialog-footer">
         <el-row :gutter="5">
           <el-col :span="24">
-            <!-- <el-button type="primary" plain @click="openHelp = true">Help</el-button> -->
+            <el-tooltip content="Help" placement="top">
+                <el-button color="#626aef"   type="info" @click="showTour"  :icon="InfoFilled" plain />
+              </el-tooltip> 
+            
             <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
 
             <el-button @click="nextStep" v-if="activeStep < 2">Next</el-button>
@@ -1265,7 +1381,15 @@ v-if="showEditSaveButton && activeStep === 2" type="primary"
  
 
 
- 
+  <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
+      <el-tour-step
+        v-for="(step, index) in filteredTourSteps"
+        :key="index"
+        :target="step.target"
+        :title="step.title"
+        :description="step.content"
+      />
+    </el-tour>
 
 
 </template>

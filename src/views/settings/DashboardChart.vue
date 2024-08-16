@@ -1688,10 +1688,7 @@ const filteredTourSteps = computed(() => {
   return fil
 });
 
-
-
-
-
+ 
 const endTour = () => { 
   showTourStep0.value=false
   showTourStep1.value=false
@@ -1916,7 +1913,7 @@ size="small" type="warning" :icon="CopyDocument" @click="CloneChart(scope as Tab
           <el-tooltip content="Delete" placement="top">
             <el-popconfirm
 confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
-              icon-color="#626AEF" title="Are you sure to delete this card?"
+              icon-color="#626AEF" title="Are you sure to delete this chart?"
               @confirm="DeleteIndicator(scope as TableSlotDefault)">
               <template #reference>
                 <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
@@ -2170,19 +2167,6 @@ v-if="showEditSaveButton && activeStep === 2" type="primary"
     </div>
   </el-dialog>
 
-
-
-  <!-- <el-tour v-model="showTourStep0" z-index="100000" :onClose="endTour">
-    <el-tour-step
-target="#btn1" title="Title"
-      description="This is the short name of the dashboards. This is what will appear under the navigation section for dashboards. Use a single short word." />
-    <el-tour-step
-target="#btn2" title="Type"
-      description="The system supports two types of dashboards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Intervention' type draws data exclusively from the M&E indicators" />
-    />
-    <el-tour-step target="#btn3" title="Description" description="Provide a short description of this card" />
-    />
-  </el-tour> -->
  
  
     <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">

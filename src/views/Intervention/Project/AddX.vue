@@ -23,7 +23,7 @@ v-for="(field, index) in currentStepFields" :key="index"
             :sm="currentStepFields.length === 1 ? 24 : (24 / columnSpan)" :md="currentStepFields.length === 1 ? 24 : 12"
             :lg="currentStepFields.length === 1 ? 24 : 12" :xl="currentStepFields.length === 1 ? 24 : 12">
 
-            <el-form-item :label="field.label" :prop="field.name">
+            <el-form-item :id="field.id" :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
               <el-input v-if="field.type === 'textarea'" type="textarea" v-model="formData[field.name]" />
 
@@ -120,9 +120,16 @@ v-else-if="field.type === 'cascader'" v-model="formData[field.name]" :data="fiel
       </el-form>
 
       <div class="button-container" style="margin-bottom: 10px;">
+
+        <el-tooltip content="Help" placement="top">
+                <el-button color="#626aef"   type="info" @click="showTour"  :icon="InfoFilled" plain />
+              </el-tooltip> 
+
+
         <el-button type="primary" @click="prevStep" v-if="currentStep > 0">
           Previous
         </el-button>
+
         <el-button type="primary" @click="nextStep" v-if="currentStep < totalSteps - 1">
           Next
         </el-button>
@@ -139,12 +146,26 @@ v-else-if="field.type === 'cascader'" v-model="formData[field.name]" :data="fiel
 
 
   </div>
+
+
+  
+  <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
+      <el-tour-step
+        v-for="(step, index) in filteredTourSteps"
+        :key="index"
+        :target="step.target"
+        :title="step.title"
+        :description="step.content"
+      />
+    </el-tour>
+
 </template>
 
 
+
 <script lang="ts" setup>
-import { ref, onMounted, computed } from 'vue';
-import { ElCard, ElCascader, ElMessage, ElTreeSelect } from 'element-plus'
+import { ref, onMounted, computed, watch } from 'vue';
+import { ElCard, ElCascader, ElMessage, ElTreeSelect , ElTour, ElTourStep, ElTooltip} from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { steps, formFields, formData, formRules } from './common/fields.ts'
@@ -159,7 +180,7 @@ import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
 import { CreateRecord, BatchImportUpsert, updateOneRecord, getOneSettlement, getSettlementListByCounty, DeleteMultipleRecord } from '@/api/settlements'
-import { Back} from '@element-plus/icons-vue'
+import { InfoFilled,Back} from '@element-plus/icons-vue'
 
 
 
@@ -1189,6 +1210,120 @@ const onAddOption = (source_model) => {
 }
 
  
+
+
+const isTourVisible =ref(false)
+const showTour = () => {
+
+isTourVisible.value=true
+
+ 
+}
+
+const filteredTourSteps = computed(() => {
+
+const fil = tourSteps.value.filter(step => step.step == currentStep.value && step.visible==true);
+console.log('filteredTourSteps', fil)
+return fil
+});
+
+
+const endTour = () => { 
+ 
+}
+
+
+const tourSteps = ref([
+  {
+    step: 0,
+    target: '#btn1',
+    title: 'Title',
+    content: 'Provide the title for the project.',
+    visible:true
+  },
+  {
+    step: 0,
+    target: '#btn2',
+    title: 'Project Code',
+    content: 'Enter the unique project code.',
+    visible:true
+  },
+  {
+    step: 0,
+    target: '#btn3',
+    title: 'Status',
+    content: 'Select the current status of the project.',
+    visible:true
+  },
+  {
+    step: 0,
+    target: '#btn4',
+    title: 'Delivery Unit',
+    content: 'Choose the delivery unit responsible for the project.',
+    visible:true
+  },
+  {
+    step: 0,
+    target: '#btn5',
+    title: 'Commencement Date',
+    content: 'Select the start date of the project.',
+    visible:true
+  },
+  {
+    step: 0,
+    target: '#btn6',
+    title: 'Completion Date',
+    content: 'Select the end date of the project.',
+    visible:true
+  },
+  {
+    step: 0,
+    target: '#btn7',
+    title: 'Total Project Cost',
+    content: 'Enter the total cost of the project.',
+    visible:true
+  },
+  {
+    step: 0,
+    target: '#btn8',
+    title: 'Source of Funding',
+    content: 'Select the sources of funding for the project.',
+    visible:true
+  },
+  {
+    step: 0,
+    target: '#btn9',
+    title: 'Contractor/Implementer',
+    content: 'Choose the contractor or implementer of the project.',
+    visible:true
+  },
+  {
+    step: 1,
+    target: '#btn10',
+    title: 'Project Activities',
+    content: 'Select the activities associated with the project.',
+    visible:true
+  },
+  {
+    step: 1,
+    target: '#btn11',
+    title: 'Location',
+    content: 'Select the locations where the project is implemented.',
+    visible:true
+  },
+]);
+
+
+// Watch dependencies and log changes (or trigger additional actions)
+watch(
+    [currentStep,tourSteps],
+    (newValues, oldValues) => {
+      console.log("Dependencies changed:", newValues);
+      console.log("Filtered steps:", filteredTourSteps.value);
+      // Any other side effects or actions can be performed here
+    },
+    { immediate: true }
+  );
 
 
  
