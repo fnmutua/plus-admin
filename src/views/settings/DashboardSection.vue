@@ -586,15 +586,15 @@ const goBack = () => {
       :currentPage="currentPage">
       <template #action="data">
         <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
+          <el-button type="success" size="small" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" plain />
         </el-tooltip>
 
         <el-tooltip content="Delete" placement="top">
           <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this record?" @confirm="DeleteIndicator(data as TableSlotDefault)">
+confirm-button-text="Yes"  width="340" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+            title="Are you sure to delete this section/tab?" @confirm="DeleteIndicator(data as TableSlotDefault)">
             <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
+              <el-button v-if="showAdminButtons" type="danger"  size="small" :icon="Delete" plain />
             </template>
           </el-popconfirm>
         </el-tooltip>

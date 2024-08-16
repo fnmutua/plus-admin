@@ -578,13 +578,24 @@ v-model="searchKeyword" :onChange="remoteMethod" :onBlur="remoteMethod" :onClear
             placeholder="Type to search" />
         </template>
         <template #default="scope">
-          <el-button size="small" @click="editIndicator(scope)">
-            Edit
-          </el-button>
+         
+          <el-tooltip content="Edit" placement="top">
+            <el-button
+size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
+              plain />
+          </el-tooltip>
 
-          <el-button size="small" type="danger" @click="DeleteIndicator(scope)">
-            Delete
-          </el-button>
+          <el-tooltip content="Delete" placement="top">
+            <el-popconfirm
+confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
+              icon-color="#626AEF" title="Are you sure to delete this card?"
+              @confirm="DeleteIndicator(scope as TableSlotDefault)">
+              <template #reference>
+                <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
+              </template>
+            </el-popconfirm>
+          </el-tooltip>
+
 
 
         </template>

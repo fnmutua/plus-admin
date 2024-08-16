@@ -20,6 +20,7 @@ interface Field {
   name: string;
   label: string;
   type: string;
+  id: string;
   // min: number;
   // max: number;
   multiselect: string; // Use boolean type instead of string
@@ -75,26 +76,26 @@ const statusOptions = [
     
 const formFields: Field[][] = [
   [
-     { name: "title", label: "Title", type: "textarea", multiselect: 'false', adminUnit: false,     options: [] },
-    { name: "project_code", label: "Project Code", type: "text", multiselect: 'false', adminUnit: false,      options: [] },
+     { name: "title", label: "Title", id:"btn1",  type: "textarea", multiselect: 'false', adminUnit: false,     options: [] },
+    { name: "project_code", label: "Project Code", id:"btn2",  type: "text", multiselect: 'false', adminUnit: false,      options: [] },
     {
-      name: "status", label: "Status", type: "select", multiselect: 'false', adminUnit: false,       options: statusOptions
+      name: "status", label: "Status",  id:"btn3",  type: "select", multiselect: 'false', adminUnit: false,       options: statusOptions
     },
 
-    {name: "implementation_id", label: "Delivery Unit", type: "select", multiselect: 'false', adminUnit: false,options: implementationOptions.value },
+    {name: "implementation_id", label: "Delivery Unit", id:"btn4",  type: "select", multiselect: 'false', adminUnit: false,options: implementationOptions.value },
 
-    { name: "start_date", label: "Commencement Date", type: "date", multiselect: 'false', adminUnit: false,      options: [] },
-    { name: "end_date", label: "Completion Date", type: "date", multiselect: 'false',adminUnit: false,     options: [] },
-    { name: "cost", label: "Total Project Cost", min: "0", type: "number", multiselect: 'false',adminUnit: false,  options: [] },
-    {name: "sourceFunding", label: "Source of Funding", type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions },
-    { name: "contractor", label: "Contractor/Implementer", type: "select_add", multiselect: 'false', adminUnit: false,options: contractorOptions.value, source_model:'SettingsContractor' }, 
+    { name: "start_date", label: "Commencement Date",  id:"btn5",  type: "date", multiselect: 'false', adminUnit: false,      options: [] },
+    { name: "end_date", label: "Completion Date", id:"btn6",  type: "date", multiselect: 'false',adminUnit: false,     options: [] },
+    { name: "cost", label: "Total Project Cost", id:"btn7",   min: "0", type: "number", multiselect: 'false',adminUnit: false,  options: [] },
+    {name: "sourceFunding", label: "Source of Funding", id:"btn8",  type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions },
+    { name: "contractor", label: "Contractor/Implementer", id:"btn9",  type: "select_add", multiselect: 'false', adminUnit: false,options: contractorOptions.value, source_model:'SettingsContractor' }, 
   
   ],
 
  [
-  { name: "activities", label: "Project Activities", type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
+  { name: "activities", label: "Project Activities", id:"btn10",  type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
 
-   { name: "Location", label: "Location", type: "select_remote", multiselect: 'false', adminUnit: false, options:cascadedAdminOptions.value },
+   { name: "Location", label: "Location", id:"btn11",   type: "select_remote", multiselect: 'false', adminUnit: false, options:cascadedAdminOptions.value },
 
  ],
 
