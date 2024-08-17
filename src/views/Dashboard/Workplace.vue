@@ -341,7 +341,7 @@ const getLogs = async () => {
   };
 
   // Push the new object to the newArray
-  recentActivities.push(newItem);
+  recentActivities.value.push(newItem);
 });
 
       console.log('After Querry', result)
