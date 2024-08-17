@@ -295,7 +295,7 @@ const handleImageClick = (profile) => {
 
 
 
-const recentActivities = [];
+const recentActivities = ref([])s;
 const getLogs = async () => {
 
   console.log('proifle: ', profile.username)
@@ -336,15 +336,6 @@ const getLogs = async () => {
     timestamp:  timeSince(item.date) , 
     size: 'large',
     type: 'primary',
-    // icon: item.action.includes('Delete')
-    //       ? Delete
-    //     : item.action.includes('Edit')
-    //       ? Edit
-    //     : item.action.includes('Create')
-    //       ? Plus
-    //     : item.action.includes('Login')
-    //       ? Lock
-    //     : More ,
 
     color: item.status.toLowerCase() == 'successful' ? '#0bbd87' : 'red'
   };

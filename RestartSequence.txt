@@ -42,3 +42,17 @@ postgresql://postgres:AGfEf1bBe52EDeFaBBCBf343gA5ga11e@roundhouse.proxy.rlwy.net
 DELETE FROM indicator_category_report
 
 DROP TABLE indicator_category_report
+
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updatedAt = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_timestamp
+BEFORE UPDATE ON logs
+FOR EACH ROW
+EXECUTE FUNCTION updatedAt();
