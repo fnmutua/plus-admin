@@ -1,31 +1,25 @@
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
 
-import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
+import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
-  ElButton, ElSelect, FormInstance, ElLink, ElTabs, ElTabPane, ElDialog, ElInputNumber,
-  ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCascader, FormRules, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElOptionGroup, ElStep, ElSteps, ElCheckbox,ElCheckboxGroup, ElCheckboxButton
-} from 'element-plus'
+  ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,
+  ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCard, ElPopconfirm, ElTable, ElCol, ElRow,
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox} from 'element-plus'
 import { ElMessage, } from 'element-plus'
-import { Position, View, Finished, Plus, User, Download, Briefcase, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Loading } from '@element-plus/icons-vue'
+import { Position, View, Plus, User, Download, Briefcase, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
 
-import { ref, reactive, h, toRef, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider } from 'element-plus'
+import { ref, reactive, computed } from 'vue'
+import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
-import { getFile } from '@/api/summary'
+import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 
-import { useAppStoreWithOut,useAppStore } from '@/store/modules/app'
+import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { uuid } from 'vue-uuid'
 import { defineAsyncComponent,onMounted } from 'vue';
 
 import xlsx from "json-as-xlsx"
-import { getAllGeo } from '@/api/settlements'
 import {
   searchByKeyWord
 } from '@/api/settlements'
@@ -34,9 +28,8 @@ import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 
 import filterDataByKeys from '@/utils/filterArrays'
 
-import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldSimple } from '@/api/summary'
+import { getSummarybyField } from '@/api/summary'
 
-import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 
 import 'element-plus/theme-chalk/display.css'
@@ -44,7 +37,6 @@ import 'element-plus/theme-chalk/display.css'
 ////////////*************Map Imports***************////////
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
-import * as turf from '@turf/turf'
 import { Icon } from '@iconify/vue';
 
 
@@ -848,14 +840,16 @@ const searchByNewName = async () => {
 console.log('filterString', search_string.value)
 //value3.value = filterString
 //search_string.value = filterString
+ 
 
-  filters.value.push('isActive')
-  filterValues.value.push(['true'] )  // make sure the inner array is array
-  searchLoading.value=true 
+  if (search_string.value){
+    filters.value.push('isActive')
+    filterValues.value.push(['true'] )  // make sure the inner array is array
+    searchLoading.value=true 
+  getFilteredBySearchData(activeTab.value, search_string.value)
 
-
-
-getFilteredBySearchData(activeTab.value, search_string.value)
+  }
+ 
 }
 
 const searchByName = async (filterString: any) => {
@@ -1810,116 +1804,107 @@ function handleExpand(row) {
 
 console.log('model_fields.value', model_fields.value )
 
+const router = useRouter()
+
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+
+}
+
+
+
 </script>
 
 <template>
-  <ContentWrap
-:title="t('Settlements')" :message="t('Use the county, subcounty and ward filters to subset')"
-    v-loading="loadingGetData" element-loading-text="Loading the data.. Please wait.......">
+  <el-card v-loading="loadingGetData" element-loading-text="Loading the data.. Please wait.......">
 
 
 
     <div v-if="dynamicComponent">
-      <upload-component :is="dynamicComponent" v-bind="componentProps"/>
+      <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
 
-    <el-row>
-      <el-col :xs="24" :sm="24" :md="4" :lg="4" :xl="4">
-        <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
-          <el-select
+
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
+
+      <!-- Title Search -->
+      <el-select
 size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
-            filterable collapse-tags placeholder="By County">
-            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </div>
-      </el-col>
-      <el-col :xs="24" :sm="24" :md="6" :lg="4" :xl="4">
-        <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
-          <el-select
+        filterable collapse-tags placeholder="By County"  style=" margin-right: 5px;">
+        <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
+
+      <el-select
 :disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
-            clearable filterable collapse-tags placeholder="By Subcounty">
-            <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </div>
+        clearable filterable collapse-tags placeholder="By Subcounty"  style=" margin-right: 5px;">
+        <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
 
-      </el-col>
-
-      <el-col :xs="12" :sm="12" :md="12" :lg="4" :xl="4">
-        <div style="display: inline-block; margin-top: 5px;  margin-right: 5px">
-          <el-select
+      <el-select
 :disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
-            clearable filterable collapse-tags placeholder="By Ward">
-            <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </div>
+        clearable filterable collapse-tags placeholder="By Ward"  style=" margin-right: 5px;">
+        <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
 
-      </el-col>
+      <el-input
+v-model="search_string" clearable :onClear="handleClear" placeholder="Please input"
+        @change="searchByNewName" class="input-with-select"  style=" margin-right: 5px;">
+        <template #append>
+          <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
+        </template>
+      </el-input>
 
+      <!-- Action Buttons -->
+      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
 
-      <el-col :xs="24" :sm="24" :md="6" :lg="4" :xl="4">
-        <div style="display: inline-block; margin-top: 5px">
-
-        <!-- <el-input v-model="search_string" :suffix-icon="Search" placeholder="Type search text then press Enter"  :onChange="searchByName" /> -->
-
-        <el-input 
-          v-model="search_string"
-          clearable
-          :onClear="handleClear"
-          placeholder="Please input"
-          @change="searchByNewName"
-          class="input-with-select"
-        >
-  
-      <template #append>
-        <el-button  v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
-      </template>
-    </el-input>
-
-        </div>
-      </el-col>
-
-      
-      <el-col :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
-        <div style="display: inline-block; margin-top: 5px">
-          <div style="display: inline-block; margin-left: 5px">
-            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-          </div>
-
-          <div style="display: inline-block; margin-left: 5px">
-            <el-tooltip content="Add Settlement" placement="top">
+        <el-tooltip content="Add Settlement" placement="top">
               <el-button v-if="showEditButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
-            </el-tooltip>
-          </div>
+         </el-tooltip>
 
-          <div style="display: inline-block; margin-left: 5px">
-            <el-tooltip content="Download" placement="top">
-              <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-            </el-tooltip>
-          </div>
+        <el-tooltip content="Clear" placement="top">
+          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+        </el-tooltip>
 
-          <div style="display: inline-block; margin-left: 5px">
-            <!-- <el-tooltip content="Download All" placement="top">
-              <el-button :onClick="DownloadAllXlsx" type="primary" :icon="Finished" />
-            </el-tooltip> -->
-            <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
+        <el-tooltip content="Download" placement="top">
+          <el-button @click="DownloadXlsx" type="primary" :icon="Download" />
+        </el-tooltip>
+      </div>
 
-          </div>
-        </div>
-      </el-col>
+      <!-- Download All Component -->
+      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
     </el-row>
+
+
+ 
 
     <el-tabs @tab-click="clickTab" v-model="activeName" class="custom-tab">
       <el-tab-pane name="list">
         <template #label>
           <span class="custom-tabs-label">
-            <el-badge type="primary" :value="totalApproved" class="item">
+            <el-badge type="primary" :value="totalApproved" class="item"  :offset="[10, 5]">
               <el-button link>List</el-button>
             </el-badge>
           </span>
         </template>
 
-        <el-table :data="tableDataList" :show-overflow-tooltip="true"	 style="width: 100%" border :row-class-name="tableRowClassName"    @expand-change="handleExpand">
+        <el-table
+:data="tableDataList" :show-overflow-tooltip="true" style="width: 100%" border
+          :row-class-name="tableRowClassName" @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -1927,7 +1912,9 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+                <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+                  :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -1945,7 +1932,8 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
                   <el-button
 v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
-                    plain style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
+                    plain
+                    style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
 
                 </el-tooltip>
@@ -1995,8 +1983,8 @@ v-show="showAdminButtons" type="success" size="small" :icon="User"
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
                   <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to delete this report?"
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to delete this report?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Delete circle />
@@ -2005,8 +1993,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Decommision" placement="top">
                   <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to decommision this settlement??"
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to decommision this settlement??"
                     @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Briefcase circle />
@@ -2026,13 +2014,15 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
       <el-tab-pane name="New" v-if=showEditButtons>
         <template #label>
           <span class="custom-tabs-label">
-            <el-badge type="success" :value="totalPending" class="item">
+            <el-badge type="success" :value="totalPending" class="item"  :offset="[10, 5]">
               <el-button link>New</el-button>
             </el-badge>
           </span>
         </template>
 
-        <el-table :data="tableDataListNew" :show-overflow-tooltip="true"		style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+        <el-table
+:data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100%" border
+          :row-class-name="tableRowClassName" @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -2040,7 +2030,9 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+                <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+                  :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -2059,7 +2051,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
                   <el-button
 v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
-                    plain style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
+                    plain
+                    style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
 
                 </el-tooltip>
@@ -2106,8 +2099,8 @@ v-show="showAdminButtons" type="success" size="small" :icon="View"
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
                   <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to delete this settlement?"
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to delete this settlement?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Delete circle />
@@ -2116,8 +2109,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Decommision" placement="top">
                   <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to decommision this settlement??"
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to decommision this settlement??"
                     @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Briefcase circle />
@@ -2134,15 +2127,17 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
       </el-tab-pane>
 
-      <el-tab-pane name="Rejected" v-if=showEditButtons :badge="5">
+      <el-tab-pane name="Rejected" v-if=showEditButtons :badge="5" >
         <template #label>
           <span class="custom-tabs-label">
-            <el-badge :value="totalRejected" class="item">
+            <el-badge :value="totalRejected" class="item"  :offset="[10, 5]">
               <el-button link>Rejected</el-button>
             </el-badge>
           </span>
         </template>
-        <el-table :data="tableDataListRejected" :show-overflow-tooltip="true"	 style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+        <el-table
+:data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100%" border
+          :row-class-name="tableRowClassName" @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">
@@ -2150,7 +2145,9 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                 <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
+                <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+                  :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -2169,7 +2166,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
                   <el-button
 v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
-                    plain style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
+                    plain
+                    style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
 
                 </el-tooltip>
@@ -2211,8 +2209,8 @@ v-show="showAdminButtons" type="success" size="small" :icon="View"
                 </el-tooltip>
                 <el-tooltip content="Delete" placement="top">
                   <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to delete this report?"
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to delete this report?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
@@ -2222,8 +2220,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
                 <el-tooltip content="Decommision" placement="top">
                   <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                    title="Are you sure to decommision this settlement??"
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to decommision this settlement??"
                     @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Briefcase circle />
@@ -2240,7 +2238,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
       <ElPagination
 v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-        v-model:page-size="pageSize" :page-sizes="[4,6,8,12,20,100]" :total="total" :background="true"
+        v-model:page-size="pageSize" :page-sizes="[4, 6, 8, 12, 20, 100]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </el-tabs>
     <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
@@ -2269,7 +2267,9 @@ v-model="ruleForm.county_id" filterable placeholder="Select County"
               <el-select
 v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
                 :onChange="handleSelectSubCounty">
-                <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+                <el-option
+v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
+                  :value="item.value" />
               </el-select>
             </el-form-item>
 
@@ -2357,7 +2357,7 @@ v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
         </span>
       </template>
     </el-dialog>
-  
+
     <!-- <el-dialog v-model="showSelectFields" title="Select Fields" width="50%">
       <el-checkbox-group   v-model="selectedFields">
     <el-checkbox v-for="field in model_fields" :key="field" :name="field" :label="field">{{ field }}</el-checkbox>
@@ -2365,15 +2365,15 @@ v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
       <el-button type="secondary" @click="handleDownloadSelectFields()">Submit</el-button>
     </el-dialog>   -->
 
-    
+
     <el-dialog v-model="showSelectFields" title="Select Fields" width="50%">
-  <el-row>
-    <el-col :span="6" v-for="(field, index) in model_fields" :key="index">
-      <el-checkbox v-model="selectedFields" :label="field">{{ field }}</el-checkbox>
-    </el-col>
-  </el-row>
-  <el-button type="success" @click="handleDownloadSelectFields()">Download</el-button>
-</el-dialog>
+      <el-row>
+        <el-col :span="6" v-for="(field, index) in model_fields" :key="index">
+          <el-checkbox v-model="selectedFields" :label="field">{{ field }}</el-checkbox>
+        </el-col>
+      </el-row>
+      <el-button type="success" @click="handleDownloadSelectFields()">Download</el-button>
+    </el-dialog>
 
 
 
@@ -2406,9 +2406,8 @@ v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
       </template>
     </el-dialog>
 
-  </ContentWrap>
+  </el-card>
 </template>
- 
 
 
 

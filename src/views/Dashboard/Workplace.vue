@@ -293,6 +293,19 @@ const viewOnMap = (data: TableSlotDefault) => {
   }
 }
 
+const handleImageClick = (profile) => {
+  console.log('On map.....', )
+ 
+    push({
+       name: 'userProfile',
+    })
+ 
+}
+
+
+
+
+
 const recentActivities = [];
 const getLogs = async () => {
 
@@ -344,7 +357,7 @@ const getLogs = async () => {
     //       ? Lock
     //     : More ,
 
-    color: item.status == 'Successful' ? '#0bbd87' : 'red'
+    color: item.status.toLowerCase() == 'successful' ? '#0bbd87' : 'red'
   };
 
   // Push the new object to the newArray
@@ -383,9 +396,20 @@ const activeTab=ref('Settlements')
         <ElRow :gutter="20" justify="space-between">
           <ElCol :xl="12" :lg="12" :md="12" :sm="24" :xs="24">
             <div class="flex items-center">
-              <img
-:src="profile.photo" alt="User Profile Image" v-if="profile.photo"
-                class="w-70px h-70px rounded-[50%] mr-20px" />
+             
+                <el-button
+                  v-if="profile.photo"
+                  type="text"
+                  class="w-70px h-70px rounded-[50%] mr-20px"
+                  @click="handleImageClick (profile)"
+                >
+                  <img
+                    :src="profile.photo"
+                    alt="User Profile Image"
+                    class="w-70px h-70px rounded-[50%] cursor-pointer"
+                  />
+                </el-button>
+
               <div>
                 <div class="text-20px text-700">
                   {{ greeting }}, <em>{{ profile.name }}</em>. Welcome back to KeSMIS.
@@ -433,8 +457,7 @@ const activeTab=ref('Settlements')
                 <el-tabs v-model="activeTab">
                   <el-tab-pane label="Settlements" name="Settlements"/>
                   <el-tab-pane label="Projects" name="Projects"/>
-                  <el-tab-pane label="Likes" name="likes"/>
-                </el-tabs>
+                 </el-tabs>
               </div>
         
             <div v-if="activeTab === 'Settlements'">
@@ -475,10 +498,9 @@ const activeTab=ref('Settlements')
                  
                  
 
-                </el-table>            </div>
-            <div v-if="activeTab === 'likes'">
-              <p v-for="o in 10" :key="o" class="text item">{{ 'Like ' + o }}</p>
-            </div>
+                </el-table>           
+               </div>
+           
           </el-card>
       </ElCol>
 
@@ -488,7 +510,7 @@ const activeTab=ref('Settlements')
           
           <div class="card-header">
             <el-tabs >
-              <el-tab-pane label="Recent updates..." name="Activity"/>
+              <el-tab-pane label="My Recent updates..." name="Activity"/>
       
             </el-tabs>
           </div>

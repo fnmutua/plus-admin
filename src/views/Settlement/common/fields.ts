@@ -149,58 +149,50 @@ const formFields: Field[][] = [
   // Fields for 1 Profile
 
   [
-    // {
-    //   name: "location",
-    //   label: "Location",
-    //   type: "cascade",
-    //   multiselect: 'false',
-    //   options: cascadedAdminOptions.value,
-    // },
-
-
-    { name: "county_id", label: "County", type: "select", multiselect: 'false', adminUnit: true, options: countyOptions.value },
-    { name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', adminUnit: true, options: [] },
-    { name: "ward_id", label: "Ward", type: "select", multiselect: 'false', adminUnit: true, options: [] },
   
 
-    { name: "name", label: "Name", type: "text", multiselect: 'false',  adminUnit: false, options: [] },
+    { id: "btn1", name: "county_id", label: "County", type: "select", multiselect: 'false', adminUnit: true, options: countyOptions.value },
+    { id: "btn2", name: "subcounty_id", label: "Constituency", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { id: "btn3", name: "ward_id", label: "Ward", type: "select", multiselect: 'false', adminUnit: true, options: [] },
+    { id: "btn4", name: "name", label: "Name", type: "text", multiselect: 'false', adminUnit: false, options: [] },
     {
-      name: "settlement_type", label: "Type", type: "select", multiselect: 'false',  adminUnit: false,
-        options: [
-          { label: 'Slum', value: "1" },
-          { label: 'Informal', value: "2" }]},
-
-    { name: "parcel_number", label: "Parcel No.", type: "text", multiselect: 'false', adminUnit: false, options: []},
-    { name: "parcel_ownership", label: "Parcel Ownership", type: "select", multiselect: 'false',adminUnit: false, options:[{ label: 'Public', value: 'public'},
-    { label: 'Private', value: 'private' }]},
-    { name: "map_number", label: "RIM/Survey Plan", type: "text", multiselect: 'false',adminUnit: false, options:[]},
-    { name: "area", label: "Area (Ha)", type: "number", multiselect: 'false',adminUnit: false, options: []},
-    { name: "population", label: "Population", type: "number", multiselect: 'false',adminUnit: false, options: []},
-    { name: "surveyed", label: "Is parcel Surveyed?", type: "select", multiselect: 'false',adminUnit: false, options: yesNoUnknown.value},
-    { name: "landuse", label: "Pre-Dorminant Landuse", type: "text", multiselect: 'false',adminUnit: false, options: []},
-    { name: "near_river", label: "Near River?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo.value},
-    { name: "on_wayleave", label: "On a utility way-leave?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo.value},
-    { name: "on_road_reserve", label: "On a road reserve?", type: "select", multiselect: 'false',adminUnit: false, options: yesNo.value},
-     { name: "structure_types", label: "Types of Structures", type: "select", multiselect: 'true',adminUnit: false, options: structureTypes.value},
-    { name: "development", label: "Level of Development", type: "select", multiselect: 'true',adminUnit: false, options: levelDevt.value},
-    
-    
-    { name: "typical_building_materials", label: "Typical Building Materials", type: "select", multiselect: 'true', adminUnit: false, options: buildingMaterials.value },
-    { name: "avg_dist_between", label: "Dist. between structures (M)", type: "number", multiselect: 'true',adminUnit: false, options:[]},
-    
- 
-    { name: "dist_town", label: "Distance to Urban Center", type: "number", adminUnit: false, multiselect: 'false', options: [] },
-    { name: "dist_trunk", label: "Distance to Trunk Road", type: "number",adminUnit: false, multiselect: 'false', options: []},
-    { name: "encumbrance", label: "Any court cases/claims?", type: "select", multiselect: 'false',adminUnit: false, options:yesNoUnknown.value},
-
-    {
-      name: "isActive", label: "Status", type: "select", multiselect: 'false',adminUnit: false,
+      id: "btn5", name: "settlement_type", label: "Type", type: "select", multiselect: 'false', adminUnit: false,
       options: [
-        { value: 'true', label: 'Active' },
-        { value: 'false', label: 'Decommisioned' },
+        { label: 'Slum', value: "1" },
+        { label: 'Informal', value: "2" }
       ]
     },
-    { name: "comments", label: "Comments/Remarks", type: "textarea", multiselect: 'false', adminUnit: false, options: []},
+    { id: "btn6", name: "parcel_number", label: "Parcel No.", type: "text", multiselect: 'false', adminUnit: false, options: []},
+    {
+      id: "btn7", name: "parcel_ownership", label: "Parcel Ownership", type: "select", multiselect: 'false', adminUnit: false, 
+      options: [
+        { label: 'Public', value: 'public' },
+        { label: 'Private', value: 'private' }
+      ]
+    },
+    { id: "btn8", name: "map_number", label: "RIM/Survey Plan", type: "text", multiselect: 'false', adminUnit: false, options: [] },
+    { id: "btn9", name: "area", label: "Area (Ha)", type: "number", multiselect: 'false', adminUnit: false, options: [] },
+    { id: "btn10", name: "population", label: "Population", type: "number", multiselect: 'false', adminUnit: false, options: [] },
+    { id: "btn11", name: "surveyed", label: "Is parcel Surveyed?", type: "select", multiselect: 'false', adminUnit: false, options: yesNoUnknown.value },
+    { id: "btn12", name: "landuse", label: "Pre-Dorminant Landuse", type: "text", multiselect: 'false', adminUnit: false, options: [] },
+    { id: "btn13", name: "near_river", label: "Near River?", type: "select", multiselect: 'false', adminUnit: false, options: yesNo.value },
+    { id: "btn14", name: "on_wayleave", label: "On a utility way-leave?", type: "select", multiselect: 'false', adminUnit: false, options: yesNo.value },
+    { id: "btn15", name: "on_road_reserve", label: "On a road reserve?", type: "select", multiselect: 'false', adminUnit: false, options: yesNo.value },
+    { id: "btn16", name: "structure_types", label: "Types of Structures", type: "select", multiselect: 'true', adminUnit: false, options: structureTypes.value },
+    { id: "btn17", name: "development", label: "Level of Development", type: "select", multiselect: 'true', adminUnit: false, options: levelDevt.value },
+    { id: "btn18", name: "typical_building_materials", label: "Typical Building Materials", type: "select", multiselect: 'true', adminUnit: false, options: buildingMaterials.value },
+    { id: "btn19", name: "avg_dist_between", label: "Dist. between structures (M)", type: "number", multiselect: 'true', adminUnit: false, options: [] },
+    { id: "btn20", name: "dist_town", label: "Distance to Urban Center", type: "number", adminUnit: false, multiselect: 'false', options: [] },
+    { id: "btn21", name: "dist_trunk", label: "Distance to Trunk Road", type: "number", adminUnit: false, multiselect: 'false', options: [] },
+    { id: "btn22", name: "encumbrance", label: "Any court cases/claims?", type: "select", multiselect: 'false', adminUnit: false, options: yesNoUnknown.value },
+    {
+      id: "btn23", name: "isActive", label: "Status", type: "select", multiselect: 'false', adminUnit: false,
+      options: [
+        { value: 'true', label: 'Active' },
+        { value: 'false', label: 'Decommissioned' }
+      ]
+    },
+    { id: "btn24", name: "comments", label: "Comments/Remarks", type: "textarea", multiselect: 'false', adminUnit: false, options: [] }
 
   ],
 
@@ -257,9 +249,12 @@ const formRules: FormRules = reactive({
        
     ],
 
+    settlement_type: [
+      { required: true, message: 'Type is required', trigger: 'blur' },
+    ],
+
     ward_id: [
       { required: true, message: 'Ward is required', trigger: 'blur' },
-       
     ],
   },
 
