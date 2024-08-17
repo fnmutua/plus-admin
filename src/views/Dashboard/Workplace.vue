@@ -1,28 +1,17 @@
 <script setup lang="ts">
-import { ElRow, ElCol, ElSkeleton, ElCard, ElDivider, ElMessage, ElLink,ElTable,ElTableColumn, ElTabs, ElTabPane, ElTimeline,ElTimelineItem } from 'element-plus'
-import { useI18n } from '@/hooks/web/useI18n'
+import { ElRow, ElCol, ElSkeleton, ElCard, ElDivider, ElMessage, ElTable,ElTableColumn, ElTabs, ElTabPane, ElTimeline,ElTimelineItem } from 'element-plus'
 import { ref, reactive } from 'vue'
 import { CountTo } from '@/components/CountTo'
-import { EChartsOption } from 'echarts'
-import { radarOption } from './echarts-data'
 import {
-  getCountApi,
-  getProjectApi,
-  getDynamicApi,
-  getTeamApi,
-  getRadarApi
-} from '@/api/dashboard/workplace'
-import type { WorkplaceTotal, Project, Dynamic, Team } from '@/api/dashboard/workplace/types'
-import { set } from 'lodash-es'
+  getCountApi} from '@/api/dashboard/workplace'
+import type { WorkplaceTotal } from '@/api/dashboard/workplace/types'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { activateUserApi, updateByUserApi, getUserListApi, setUserFeedback, getMyProfile } from '@/api/users'
-import { getSummarybyField, getSummarybyFieldNested, getSummarybyFieldFromInclude, getSummarybyFieldSimple } from '@/api/summary'
-import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
-import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
+import { getMyProfile } from '@/api/users'
+import { getSummarybyFieldSimple } from '@/api/summary'
+import { getSettlementListByCounty } from '@/api/settlements'
 import { useRouter } from 'vue-router'
-import { MoreFilled,More, Plus, Edit, Delete, Lock } from '@element-plus/icons-vue'
 import { Icon } from '@iconify/vue';
 
 const loading = ref(true)
