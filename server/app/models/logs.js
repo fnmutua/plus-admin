@@ -45,6 +45,7 @@ module.exports = function (sequelize, DataTypes) {
       sequelize,
       tableName: 'logs',
       schema: 'public',
+      timestamps: true,
       indexes: [
         {
           name: 'logs_pkey',
