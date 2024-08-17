@@ -523,7 +523,7 @@ const activeTab=ref('Settlements')
               :icon="activity.icon"
               :type="activity.type"
               :color="activity.color"
-              size="large"
+               size="large"
               :hollow="activity.hollow"
               :timestamp="activity.timestamp"
             >

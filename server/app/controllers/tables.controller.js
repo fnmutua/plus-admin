@@ -3161,6 +3161,17 @@ exports.getFieldQUnique = async (req, res) => {
 
 const multer = require('multer');
 
+const uploadDir = '/data/uploads';
+
+
+// Ensure the directory exists
+if (!fs.existsSync(uploadDir)) {
+  console.log('Create Folder if not esists ')
+  fs.mkdirSync(uploadDir, { recursive: true });
+} else {
+  console.log('Folder exists. Skipping ')
+}
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -3170,6 +3181,9 @@ const storage = multer.diskStorage({
     cb(null, file.originalname); // Keep the original file name
   },
 });
+
+
+
 
 const upload = multer({
   storage: storage,
@@ -3852,7 +3866,7 @@ exports.modelUpload = (req, res) => {
 }
 
  
-exports.downloadFile = (req, res) => {
+exports.xdownloadFile = (req, res) => {
   console.log("Received files:", req.body);
 
   const uploadedFile = path.join('/data/uploads' , req.body.filename);
@@ -3891,6 +3905,53 @@ exports.downloadFile = (req, res) => {
             message: 'File Found. Downloading...',
             code: '0000'
           });
+        }
+      });
+    }
+  });
+};
+
+exports.downloadFile = (req, res) => {
+  console.log("Received files:", req.body);
+
+  const uploadedFile = path.join('/data/uploads' , req.body.filename);
+
+  console.log(uploadedFile);
+
+  // Check if the file exists
+  fs.access(uploadedFile, fs.constants.F_OK, (err) => {
+    if (err) {
+      console.log(err);
+   
+
+      db.models.document.destroy({ where: { name: req.body.filename } })
+      .then(() => {
+        console.log('succeed')
+        res.status(500).send({
+          message: 'File not found.',
+          code: '0000'
+        });
+    }) 
+
+      
+    } else {
+      // File exists, send it
+    //  res.sendFile(path.resolve(filePath));
+
+      res.sendFile(path.resolve(uploadedFile), function(err) {
+        if (err) {
+          console.log(err);
+          res.status(500).send({
+            message: 'Download failed. Error occurred.',
+            code: '0000'
+          });
+        } else {
+          // File sent successfully
+          // Handle success logic here if needed
+          // res.status(200).send({
+          //   message: 'File Found. Downloading...',
+          //   code: '0000'
+          // });
         }
       });
     }

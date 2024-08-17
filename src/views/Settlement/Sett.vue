@@ -1905,19 +1905,21 @@ v-model="search_string" clearable :onClear="handleClear" placeholder="Please inp
         <el-table
 :data="tableDataList" :show-overflow-tooltip="true" style="width: 100%" border
           :row-class-name="tableRowClassName" @expand-change="handleExpand">
+          
+
           <el-table-column type="expand">
-            <template #default="props">
-              <div m="4">
-                <h3>Documents</h3>
-                <div>
-                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
-                </div>
-                <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                  :icon="Plus" circle @click="toggleComponent(props.row)" />
-              </div>
-            </template>
-          </el-table-column>
+        <template #default="props">
+          
+             <div>
+              <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+                @openDialog="toggleComponent(props.row)" />
+            </div>
+ 
+        </template>
+      </el-table-column>
+
+
           <el-table-column label="ID" prop="id" sortable />
           <el-table-column label="Name" width="200" prop="name" sortable />
           <el-table-column label="County" prop="county.name" sortable />
