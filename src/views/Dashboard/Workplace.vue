@@ -295,7 +295,7 @@ const handleImageClick = (profile) => {
 
 
 
-const recentActivities = ref([])s;
+const recentActivities = ref([]);
 const getLogs = async () => {
 
   console.log('proifle: ', profile.username)
