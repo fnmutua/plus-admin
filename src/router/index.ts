@@ -13,7 +13,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
   {
     path: '/',
     component: Layout,
-    redirect: '/dashboard/national',
+    redirect: '/dashboard/home',
     name: 'Root',
     meta: {
       hidden: true
@@ -98,7 +98,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
   {
     path: '/dashboard',
     component: Layout,
-    redirect: '/dashboard/national',
+    redirect: '/dashboard/home',
     name: 'Dashboard',
     meta: {
       title: t('Dashboards'),
@@ -109,6 +109,19 @@ export const adminRoutes: AppRouteRecordRaw[] = [
  
 
     children: [
+      {
+        path: 'home',
+        component: () => import('@/views/Dashboard/Workplace.vue'),
+        name: 'LandingPage',
+        meta: {
+          title: t('Home'),
+          noCache: true,
+          icon:'ion:home',
+          affix: true,
+          hidden: false,
+
+        }
+      }, 
       {
         path: 'national',
         component: () => import('@/views/Dashboard/National.vue'),
@@ -135,6 +148,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       }, 
+    
     ]
   },
   {
