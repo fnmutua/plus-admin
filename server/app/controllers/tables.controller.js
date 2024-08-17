@@ -872,17 +872,54 @@ exports.modelImportDataUpsert = async (req, res) => {
 
 
 
+async function logEvents(log_object) {
+  console.log(log_object)
+
+     /// Log this activity 
+     const  instlog = {}
+     instlog.table=log_object.model
+     instlog.action=log_object.action
+     instlog.date = new Date();
+     const clientIp = log_object.remoteAddress; // This will give you the remote IP address of the client
+     console.log(clientIp);
+     instlog.source = clientIp;
+ 
+     // Log the user details 
+     instlog.userId = log_object.user_id
+     instlog.userName = log_object.user_name
+     instlog.status =log_object.status
+     console.log(instlog)
+ 
+     //if(thisUser.id!=1){
+       await db.models.logs.create(instlog);
+    // }
+ 
+
+
+ 
+}
+
+
+ 
 
 exports.modelCreateOneRecord = (req, res) => {
 
-
   console.log(req.thisUser.id)
-
   let token = req.headers["x-access-token"];
- 
-
   console.log('creating......')
   var reg_model = req.body.model
+
+
+  /// Create Log Events Object 
+  let event ={}
+      event.model=reg_model
+      event.remoteAddress= req.connection.remoteAddress
+      event.user_id= req.thisUser.id
+      event.user_name= req.thisUser.username
+      event.action= 'Create '+ reg_model
+ ///////////////////////////////
+
+
 
   console.log('model... ----', req.body.model)
   console.log('geom... ----', req.body.geom)
@@ -906,6 +943,13 @@ exports.modelCreateOneRecord = (req, res) => {
   .then(async function (item) {
     // Special for projects where we store the project-activity relation
     console.log('temI', item)
+  
+    
+    event.status= 'successful'
+ 
+    logEvents(event)
+
+
     
     if (reg_model === 'settlement') {
       // send the ouput to be put send to ODK central
@@ -939,9 +983,13 @@ exports.modelCreateOneRecord = (req, res) => {
       code: '0000',
     });
   })
-  .catch(function (err) {
+  .catch(async function (err) {
     // handle error;
     console.log('error0--90----->', err);
+    event.status= 'failed' 
+
+    logEvents(event)
+  
   
     var message = err.message || 'An error occurred';
   
@@ -1410,34 +1458,7 @@ db.models[reg_model].findAll({
 
  
 
-
-
-exports.xmodelOneRecord = (req, res) => {
-  var reg_model = req.body.model
-
-  var ass_model = db.models[req.body.assocModel]
-
-  if (ass_model) {
-    var qry = {
-      include: [{ model: ass_model }]
-    }
-  } else {
-    var qry = {}
-  }
-  qry.where = { id: { [op.eq]: req.body.id } } // Exclude the logged in user returing in the list
-
-  // console.log("ID:----->", req.body.id)
-  // get records based on ID
-  db.models[reg_model].findOne(qry).then((thisRecord) => {
-    //    console.log(thisRecord.dataValues)
-    //res.status(200).send(thisRecord.dataValues)
-
-    res.status(200).send({
-      data: thisRecord,
-      code: '0000'
-    })
-  })
-}
+ 
 
 exports.modelOneRecord = (req, res) => {
   var reg_model = req.body.model;
@@ -1473,8 +1494,23 @@ exports.modelOneRecord = (req, res) => {
 };
 
 exports.modelEditOneRecord = (req, res) => {
+
+   /// Create Log Events Object 
+   const edit_event ={}
+   edit_event.model= req.body.model;
+   edit_event.remoteAddress= req.connection.remoteAddress
+   edit_event.user_id= req.thisUser.id
+   edit_event.user_name= req.thisUser.username
+   edit_event.action= 'Edit '+ req.body.model
+ ///////////////////////////////
+
+
+
   var reg_model = req.body.model;
   console.log('Editing thus record',req.body)
+
+
+
 
   // Get the record and update it by replacing the whole document
   db.models[reg_model].findOne({ where: { id: req.body.id } })
@@ -1522,6 +1558,10 @@ exports.modelEditOneRecord = (req, res) => {
   
         }
 
+        edit_event.status='Successful'
+        logEvents(edit_event)
+
+
         res.status(200).send({
           message: "Update successful",
           code: "0000",
@@ -1537,7 +1577,9 @@ exports.modelEditOneRecord = (req, res) => {
     .catch(function (err) {
       // handle error;
       console.log('update Error----->', err);
-    
+      edit_event.status='Fail'
+      
+      logEvents(edit_event)
       var message = err.message || 'An error occurred';
     
       return res.status(500).send({ message: message });
@@ -1604,13 +1646,25 @@ exports.modelActivateUser = (req, res) => {
  
 
 exports.modelDeleteOneRecord = async (req, res) => {
+
+    /// Create Log Events Object 
+    const del_event ={}
+    del_event.model= req.body.model;
+    del_event.remoteAddress= req.connection.remoteAddress
+    del_event.user_id= req.thisUser.id
+    del_event.user_name= req.thisUser.username
+    del_event.action= 'Delete '+ req.body.model
+  ///////////////////////////////
+
+
   try {
     const modelName = req.body.model;
     const model = db.models[modelName];
     const id = req.body.id;
 
- 
 
+    
+ 
 
     // Check if the model exists
     if (!model) {
@@ -1636,43 +1690,7 @@ exports.modelDeleteOneRecord = async (req, res) => {
     const associations = Object.keys(model.associations);
 
 
-    // for (let i = 0; i < associations.length; i++) {
-    //   const associationName = associations[i];
-
-    //   const association = model.associations[associationName];
-
-    //  // const association = model.associations;
-    //   let dependentRowsCount =0
-    //   const associationType = association.associationType;
-    //   if (associationType === 'HasMany') {
-    //     console.log('check assocatiation..', association.target, association.foreignKey,id )
-    //     let mdl = association.target
-     
-
-
-    //      dependentRowsCount = await mdl.count({
-    //       where: {
-    //         [association.foreignKey]: id
-    //       }
-    //      });
-        
-    //      console.log('dependentRowsCount',dependentRowsCount)
-
-        
-      
-    //   } else {
-        
-    //     dependentRowsCount = 0
-    //     }
-     
-
-    //   if (dependentRowsCount > 0) {
-    //     return res.status(500).send({
-    //       message: `Cannot delete '${modelName}' record, it has ${dependentRowsCount} dependent ${association.target.name}(s)`,
-    //       code: 'DEPENDENCY_FOUND'
-    //     });
-    //   }
-    // }
+ 
     console.log('associations',associations)
 
     for (let i = 0; i < associations.length; i++) {
@@ -1709,7 +1727,9 @@ exports.modelDeleteOneRecord = async (req, res) => {
 
     // Delete the record
     await model.destroy({ where: { id } });
-
+    del_event.status='Successful'
+    logEvents(del_event)
+  
     if (modelName == 'settlement') { 
       deleteSettlementDataFromODK(record)
 
@@ -1723,6 +1743,10 @@ exports.modelDeleteOneRecord = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+
+    del_event.status='failed'
+      logEvents(del_event)
+
     res.status(500).send({
       message: 'Internal server error',
       code: 'SERVER_ERROR'
@@ -1734,6 +1758,17 @@ exports.modelDeleteOneRecord = async (req, res) => {
 
  
 exports.modelDeleteByFields = async (req, res) => {
+
+      /// Create Log Events Object 
+      const del_event ={}
+      del_event.model= req.body.model;
+      del_event.remoteAddress= req.connection.remoteAddress
+      del_event.user_id= req.thisUser.id
+      del_event.user_name= req.thisUser.username
+      del_event.action= 'Delete '+ req.body.model
+    ///////////////////////////////
+
+
   try {
     const modelName = req.body.model;
     const model = db.models[modelName];
@@ -1800,12 +1835,17 @@ exports.modelDeleteByFields = async (req, res) => {
 
     // Delete the records
     await model.destroy({ where: whereClause });
+  del_event.status='Successful'
+    logEvents(del_event)
 
     res.status(200).send({
       message: 'Delete successful',
       code: '0000'
     });
   } catch (err) {
+
+    del_event.status='Failed'
+    logEvents(del_event)
     console.error(err);
     res.status(500).send({
       message: 'Internal server error',
@@ -1817,6 +1857,17 @@ exports.modelDeleteByFields = async (req, res) => {
 
 
 exports.modelDeleteRecords = async (req, res) => {
+
+  /// Create Log Events Object 
+  const del_event ={}
+  del_event.model= req.body.model;
+  del_event.remoteAddress= req.connection.remoteAddress
+  del_event.user_id= req.thisUser.id
+  del_event.user_name= req.thisUser.username
+  del_event.action= 'Delete '+ req.body.model
+///////////////////////////////
+
+
   try {
     console.log("Deleting multiple records...");
 
@@ -1899,12 +1950,21 @@ exports.modelDeleteRecords = async (req, res) => {
       deletedRecords.forEach(record => deleteSettlementDataFromODK(record));
     }
 
+    del_event.status='Successful'
+    logEvents(del_event)
+
+
     res.status(200).send({
       message: 'Delete successful',
       code: '0000'
     });
   } catch (err) {
     console.error(err);
+
+    del_event.status='Failed'
+    logEvents(del_event)
+
+
     res.status(500).send({
       message: 'Internal server error',
       code: 'SERVER_ERROR'
@@ -2168,7 +2228,6 @@ exports.modelPaginatedData = (req, res) => {
     })
   })
 }
-
 exports.modelPaginatedDatafilterByColumn = async (req, res) => {
   console.log('Req-body 002', req.body);
 
@@ -2240,6 +2299,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     }
   }
 
+  // Pagination and sorting
   if (req.body.limit) {
     qry.limit = req.body.limit;
   }
@@ -2247,6 +2307,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     qry.offset = (req.body.page - 1) * req.body.limit;
   }
 
+  // Filtering
   if (req.body.filters) {
     if (req.body.filters.length > 0 && req.body.filterValues.length > 0 && req.body.filterValues.length === req.body.filters.length) {
       var lstQuerries = [];
@@ -2258,9 +2319,10 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     }
   }
 
-  console.log('Final Query:', qry);
+  // Order by createdAt in descending order
+  qry.order = [['createdAt', 'DESC']];
 
-  qry.order = [['id', 'ASC']];
+  console.log('Final Query:', qry);
 
   // Cache handling
   if (req.body.cache_key && req.body.cache_key !== '') {
@@ -2350,6 +2412,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     }
   }
 };
+
 
 exports.modelPaginatedDatafilterByColumnNoGeo = async (req, res) => {
   console.log('Req-body 002 - ', req.body)

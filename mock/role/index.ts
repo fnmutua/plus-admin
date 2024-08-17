@@ -11,7 +11,7 @@ const adminList = [
   {
     path: '/dashboard',
     component: '#',
-    redirect: '/dashboard/national',
+    redirect: '/dashboard/home',
     name: 'Dashboard',
     meta: {
       title: 'Dashboards',
@@ -21,7 +21,7 @@ const adminList = [
     children: [
       {
         path: 'national',
-        component: 'views/Dashboard/National',
+        component: 'views/Dashboard/home',
         name: 'National',
         meta: {
           title: 'Overview',
@@ -755,7 +755,7 @@ const  publicList  = [
   {
     path: '/dashboard',
     component: '#',
-    redirect: '/dashboard/national',
+    redirect: '/dashboard/home',
     name: 'Dashboard',
     meta: {
       title: 'Dashboards',
@@ -765,7 +765,7 @@ const  publicList  = [
     children: [
       {
         path: 'national',
-        component: 'views/Dashboard/National',
+        component: 'views/Dashboard/home',
         name: 'National',
         meta: {
           title: 'Overview',

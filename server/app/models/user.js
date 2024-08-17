@@ -60,6 +60,8 @@ module.exports = function (sequelize, DataTypes) {
     },
     {
       sequelize,
+      timestamps: true,
+
       tableName: 'users',
       schema: 'public',
       indexes: [

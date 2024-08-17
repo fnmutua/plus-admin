@@ -449,7 +449,7 @@ exports.signin = async (req, res) => {
 
           // Log the user details 
           instlog.userId = user.id
-          instlog.userName = user.name
+          instlog.userName = req.body.username
           instlog.status = 'Successful'
           console.log(instlog)
 
