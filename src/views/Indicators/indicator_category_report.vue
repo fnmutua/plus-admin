@@ -1715,16 +1715,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
     </div>
 
 
-
-
-
-
-
-
-
-
-
-
+    
 
     <el-table
 :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"

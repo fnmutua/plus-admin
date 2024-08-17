@@ -2151,8 +2151,13 @@ size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
                         </el-badge>
                       </template>
                     <div>
-                     
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"  @openDialog="toggleComponent(props.row)" />
+                
+                
+             <div>
+              <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+                @openDialog="toggleComponent(props.row)" />
+            </div>
                     </div>
                
                   </el-tab-pane>
