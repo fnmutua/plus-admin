@@ -1,6 +1,13 @@
 <template>
   <div>
     <el-card class="box-card">
+      <div class="max-w-200px">
+          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+            Back
+          </el-button>
+        </div>
+
+        
       <el-steps :active="currentStep" finish-status="success" align-center class="small-steps">
         <el-step
 v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
@@ -15,11 +22,9 @@ v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
           <el-col
 v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="8"
             :xl="8">
-            <el-form-item :label="field.label" :prop="field.name">
+            <el-form-item :id="field.id"  :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
               <el-input v-else-if="field.type === 'textarea'" type="textarea" v-model="formData[field.name]" />
-
-              
               <el-input-number
 :min="field.min" v-else-if="field.type === 'number'" v-model="formData[field.name]"
                 @change="getFieldChangeHandler(field.name)" />
@@ -100,6 +105,10 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
 
       <div class="button-container" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <div>
+          <el-tooltip content="Help" placement="top">
+                <el-button color="#626aef"   type="info" @click="showTour"  :icon="InfoFilled" plain />
+              </el-tooltip> 
+
           <el-button type="primary" @click="prevStep" v-if="currentStep > 0">
             Previous
           </el-button>
@@ -181,14 +190,24 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
     </el-dialog>
 
   </div>
+  
+  <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
+      <el-tour-step
+        v-for="(step, index) in filteredTourSteps"
+        :key="index"
+        :target="step.target"
+        :title="step.title"
+        :description="step.content"
+      />
+    </el-tour>
 </template>
 
 
 <script lang="ts" setup>
-import { ref, reactive, onMounted, computed, Ref } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElCard, ElCascader, ElCascaderPanel, ElDialog, ElMessage, ElUpload, ElSwitch } from 'element-plus'
+import { ElCard, ElCascader, ElCascaderPanel,ElTooltip,ElTour,ElTourStep, ElDialog, ElMessage, ElUpload, ElSwitch } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { steps, formFields, formData, formRules } from './common/fields.ts'
@@ -225,7 +244,9 @@ import proj4 from 'proj4';
 import { countyOptions } from './common';
 
 import { Icon } from '@iconify/vue';
- 
+import { InfoFilled,Back} from '@element-plus/icons-vue'
+
+
 const props1 = {
   checkStrictly: true,
 }
@@ -993,6 +1014,7 @@ function addHomeButton(map) {
     onAdd(map) {
       const div = document.createElement("div");
       div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+      div.id="upload";
       div.innerHTML = `<button>
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M17 9.00195C19.175 9.01406 20.3529 9.11051 21.1213 9.8789C22 10.7576 22 12.1718 22 15.0002V16.0002C22 18.8286 22 20.2429 21.1213 21.1215C20.2426 22.0002 18.8284 22.0002 16 22.0002H8C5.17157 22.0002 3.75736 22.0002 2.87868 21.1215C2 20.2429 2 18.8286 2 16.0002L2 15.0002C2 12.1718 2 10.7576 2.87868 9.87889C3.64706 9.11051 4.82497 9.01406 7 9.00195" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round"></path> <path d="M12 15L12 2M12 2L15 5.5M12 2L9 5.5" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>
 		
@@ -1201,6 +1223,230 @@ const getFieldChangeHandler = (fieldName: string) => {
 const   wardMessage = "This settlement does not have location geometry defined. The ward geometry is shown instead. Edit to reflect the actual settlement location"
 
 const showMessage =ref(false)
+
+
+
+const isTourVisible =ref(false)
+const showTour = () => {
+
+isTourVisible.value=true
+
+ 
+}
+
+const filteredTourSteps = computed(() => {
+
+const fil = tourSteps.value.filter(step => step.step == currentStep.value && step.visible==true);
+console.log('filteredTourSteps', fil)
+return fil
+});
+
+
+const endTour = () => { 
+ 
+}
+
+
+const tourSteps = ref([
+  {
+    step: 0,
+    target: '#btn1',
+    title: 'County Selection',
+    content: 'Start by selecting the county where the settlement is located.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn2',
+    title: 'Constituency Selection',
+    content: 'Now, choose the constituency that falls within the selected county.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn3',
+    title: 'Ward Selection',
+    content: 'Next, pick the ward that corresponds to the selected constituency.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn4',
+    title: 'Settlement Name',
+    content: 'Type the settlements name',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn5',
+    title: 'Settlement Type',
+    content: 'Indicate whether the settlement is a Slum or an Informal Settlement.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn6',
+    title: 'Parcel Number',
+    content: 'Enter the parcel number for the where the settlement is located.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn7',
+    title: 'Parcel Ownership',
+    content: 'Specify whether the parcel is publicly or privately owned.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn8',
+    title: 'Survey Plan (RIM)',
+    content: 'Provide the RIM or survey plan number associated with this settlement.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn9',
+    title: 'Area (Ha)',
+    content: 'Enter the total area of the parcel in hectares.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn10',
+    title: 'Population',
+    content: 'Estimate the population residing within the settlement.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn11',
+    title: 'Survey Status',
+    content: 'Indicate whether the parcel has been officially surveyed.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn12',
+    title: 'Land Use',
+    content: 'Describe the predominant land use within the settleemnt.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn13',
+    title: 'Proximity to River',
+    content: 'Specify if the parcel is located near a river.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn14',
+    title: 'Utility Way-leave',
+    content: 'Indicate if the parcel lies on a utility way-leave.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn15',
+    title: 'Road Reserve',
+    content: 'Specify if the parcel is on a road reserve.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn16',
+    title: 'Structure Types',
+    content: 'Select the types of structures found in the settlement.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn17',
+    title: 'Development Level',
+    content: 'Choose the level of development within the settlement.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn18',
+    title: 'Building Materials',
+    content: 'Identify the typical building materials used in the area.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn19',
+    title: 'Structure Spacing',
+    content: 'Enter the average distance between structures in meters.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn20',
+    title: 'Urban Center Proximity',
+    content: 'Specify the distance from the parcel to the nearest urban center.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn21',
+    title: 'Trunk Road Proximity',
+    content: 'Enter the distance from the settlement to the nearest trunk road.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn22',
+    title: 'Encumbrances',
+    content: 'Indicate if there are any court cases or claims related to the parcel.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn23',
+    title: 'Status',
+    content: 'Set the current status of the settlement as Active or Decommissioned.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn24',
+    title: 'Comments/Remarks',
+    content: 'Add any additional comments or remarks about the settlement.',
+    visible: true
+  },
+
+  {
+    step: 1,
+    target: '#mapContainer',
+    title: 'Map',
+    content: 'The Map displays the settlement location based on the selected ward. Zoom in to the settlement location',
+    visible: true
+  },
+  {
+    step: 1,
+    target: '#upload',
+    title: 'Upload Location geometry',
+    content: 'Upload geojson/shapefile. Current supports .shp (zipped), .json and .geojson ',
+    visible: true
+  }
+  
+
+
+]);
+
+
+// Watch dependencies and log changes (or trigger additional actions)
+watch(
+    [currentStep,tourSteps],
+    (newValues, oldValues) => {
+      console.log("Dependencies changed:", newValues);
+      console.log("Filtered steps:", filteredTourSteps.value);
+      // Any other side effects or actions can be performed here
+    },
+    { immediate: true }
+  );
 
 
 </script>

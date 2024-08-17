@@ -118,7 +118,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           noCache: true,
           icon:'ion:home',
           affix: true,
-          hidden: false,
+          hidden: true,
 
         }
       }, 
