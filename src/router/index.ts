@@ -914,6 +914,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       alwaysShow: false
     },
     children: [
+
+       {
+        path: 'activity',
+        component: () => import('@/views/Indicators/Activity.vue'),
+       name: 'ProgrammeActivity',
+       meta: {
+         title: 'Activities',
+         icon:'icon-park-outline:activity-source',
+         role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+
+       }
+       },
          {
         path: 'framework',
         //component: 'views/Facilities/Water/Water',

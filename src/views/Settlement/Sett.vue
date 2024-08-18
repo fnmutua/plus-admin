@@ -60,6 +60,19 @@ import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
@@ -105,28 +118,35 @@ const selectedSubCounty = ref(null)
 
 
 const search_string = ref()
+ 
+
+const mobileBreakpoint = 768;
+const defaultPageSize = 10;
+const mobilePageSize = 5;
+const pageSize = ref(defaultPageSize);
+
+// Function to update pageSize based on window width
+const updatePageSize = () => {
+  if (window.innerWidth <= mobileBreakpoint) {
+    pageSize.value = mobilePageSize;
+  } else {
+    pageSize.value = defaultPageSize;
+  }
+};
 
 
 
-const pageSize = ref(10)
 console.log('window.innerHeight1',window.innerHeight)
 
-if (window.innerHeight < 600) {
-        pageSize.value = 4; // Set page size to 5 for small screens
-      } else if (window.innerHeight < 900) {
-        pageSize.value = 6; // Set page size to 10 for medium screens
-      } else {
-        pageSize.value = 8; // Set page size to 15 for large screens
-      }
+ 
 
 onMounted(async () => { 
-// showAdminButtons.value =   (appStore.getAdminButtons)
-// showEditButtons.value =   (appStore.getEditButtons)
-// console.log('appStore.getAdminButtons--->',appStore.getAdminButtons)
-// console.log('xshowEditButtons--->',showEditButtons)
-
-// console.log('window.innerHeight',window.innerHeight)
  
+ 
+window.addEventListener('resize', updatePageSize);
+  updatePageSize(); // Initial check
+
+
 })
 
 // // Hide buttons if not admin 
@@ -161,7 +181,7 @@ const interVentionTypeOptions = ref([])
 
 const settlementOptions = ref([])
 const page = ref(1)
-const pSize = ref(5)
+ 
 const selCounties = []
 const loading = ref(true)
 
@@ -230,7 +250,7 @@ const handleClear = async () => {
   value4.value = ''
   value5.value = ''
 
-  pSize.value = 5
+ 
   currentPage.value = 1
   tblData.value = []
   //----run the get data--------
@@ -274,7 +294,7 @@ const onPageChange = async (selPage: any) => {
 }
 
 const onPageSizeChange = async (size: any) => {
-  pSize.value = size
+  pageSize.value = size
   //getFilteredData(filters, filterValues)
 
   console.log(activeTab.value)
@@ -2240,7 +2260,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
 
       <ElPagination
 v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-        v-model:page-size="pageSize" :page-sizes="[4, 6, 8, 12, 20, 100]" :total="total" :background="true"
+        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </el-tabs>
     <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
