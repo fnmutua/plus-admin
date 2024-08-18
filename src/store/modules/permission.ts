@@ -107,18 +107,18 @@ console.log("programmeComponentOptions", programmeComponentOptions.value)
 getProgrameComponents()
 
 
-const activity = {
-  path: 'activity',
-   component: () => import('@/views/Indicators/Activity.vue'),
-  name: 'ProgrammeActivity',
-  meta: {
-    title: 'Activities',
-    icon:'icon-park-outline:activity-source',
+// const activity = {
+//   path: 'activity',
+//    component: () => import('@/views/Indicators/Activity.vue'),
+//   name: 'ProgrammeActivity',
+//   meta: {
+//     title: 'Activities',
+//     icon:'icon-park-outline:activity-source',
     
-  }
-}
+//   }
+// }
 
-programmeComponentOptions.value.push(activity)
+// programmeComponentOptions.value.push(activity)
 
 
  // Wrap your code in an async function

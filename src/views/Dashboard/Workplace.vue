@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ElRow, ElCol, ElSkeleton, ElCard, ElDivider, ElMessage, ElTable,ElTableColumn, ElTabs, ElTabPane, ElTimeline,ElTimelineItem } from 'element-plus'
-import { ref, reactive } from 'vue'
+import { ref, reactive,onMounted } from 'vue'
 import { CountTo } from '@/components/CountTo'
 import {
   getCountApi} from '@/api/dashboard/workplace'
@@ -24,6 +24,32 @@ const appStore = useAppStoreWithOut()
 
 const userInfo = wsCache.get(appStore.getUserInfo)
 const userDetails = ref()
+
+
+
+
+const mobileBreakpoint = 768;
+const defaultPageSize = 10;
+const mobilePageSize = 3;
+const pageSize = ref(defaultPageSize);
+
+
+// Function to update pageSize based on window width
+const updatePageSize = () => {
+  if (window.innerWidth <= mobileBreakpoint) {
+    pageSize.value = mobilePageSize;
+  } else {
+    pageSize.value = defaultPageSize;
+  }
+};
+
+// Set up event listener on mount
+onMounted(() => {
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize(); // Initial check
+});
+
+
 
 
 
@@ -188,7 +214,7 @@ const getFilteredData = async () => {
 const getMySettlements= async () => {
   const formData = {}
 
-  formData.limit =  5
+  formData.limit =  pageSize.value
   formData.page = 1
   formData.curUser =  userInfo.id // Id for logged in user
   formData.model = 'settlement'
@@ -239,7 +265,7 @@ const myProjects =ref()
 const getMyProjects= async () => {
   const formData = {}
 
-  formData.limit =  5
+  formData.limit =  pageSize.value
   formData.page = 1
   formData.curUser =  userInfo.id // Id for logged in user
   formData.model = 'project'
@@ -303,7 +329,7 @@ const getLogs = async () => {
  
 
   const formData = {}
-  formData.limit = 4
+  formData.limit = pageSize.value
   formData.page = 1
   formData.curUser = 1 // Id for logged in user
   formData.model = 'logs'
@@ -344,7 +370,7 @@ const getLogs = async () => {
   recentActivities.value.push(newItem);
 });
 
-      console.log('After Querry', result)
+      console.log('After logs Querry', result)
      
 }
 
