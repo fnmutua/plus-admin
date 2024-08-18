@@ -17,14 +17,14 @@ import {
   Position,
   TopRight,
   Edit,
-  User,
+  User,Back,
   Plus,
   Download,UserFilled,
   Filter,
   MessageBox
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive,onMounted, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -80,13 +80,36 @@ const userOptions = ref([])
 const settlements = ref([])
 const filteredSettlements = ref([])
 const page = ref(1)
-const pSize = ref(5)
+ 
 const selCounties = []
 const loading = ref(true)
-const pageSize = ref(5)
-const currentPage = ref(1)
+ const currentPage = ref(1)
 const total = ref(0)
-const downloadLoading = ref(false)
+ 
+
+
+const mobileBreakpoint = 768;
+const defaultPageSize = 10;
+const mobilePageSize = 5;
+const pageSize = ref(defaultPageSize);
+
+// Function to update pageSize based on window width
+const updatePageSize = () => {
+  if (window.innerWidth <= mobileBreakpoint) {
+    pageSize.value = mobilePageSize;
+  } else {
+    pageSize.value = defaultPageSize;
+  }
+};
+
+onMounted(async () => { 
+
+ window.addEventListener('resize', updatePageSize);
+   updatePageSize(); // Initial check
+ 
+ })
+
+
 
 
 
@@ -142,7 +165,7 @@ const handleClear = async () => {
   value1.value = ''
   value2.value = ''
   value3.value = ''
-  pSize.value = 5
+  pageSize.value = 5
   currentPage.value = 1
   tblData = []
   //----run the get data--------
@@ -197,7 +220,7 @@ const onPageChange = async (selPage: any) => {
 }
 
 const onPageSizeChange = async (size: any) => {
-  pSize.value = size
+  pageSize.value = size
 
   if (searchString.value == '') {
     getFilteredBySearchData(searchString.value)
@@ -363,7 +386,7 @@ const activateDeactivate = (data: TableSlotDefault) => {
 
 const xgetFilteredBySearchData = async (searchString) => {
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -399,7 +422,7 @@ const xgetFilteredBySearchData = async (searchString) => {
 
 const getFilteredBySearchData = async (searchString) => {
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -436,7 +459,7 @@ const getFilteredBySearchData = async (searchString) => {
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -599,48 +622,68 @@ const DownloadXlsx = async () => {
 
 }
 
+const router = useRouter()
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+}
 
 
 </script>
 
 <template>
-  <ContentWrap :title="t('Users')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+  <el-card >
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter by County">
-        <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+
+
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+
+<div class="max-w-200px">
+  <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+    Back
+  </el-button>
+</div>
+
+        <!-- Title Search -->
+        <el-select  style="  margin-right: 10px;"
+        v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear" multiple clearable filterable
+                collapse-tags placeholder="Filter by County">
+                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+
+              <el-select
+        v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-    </div>
 
-    <DownloadAll :model="model" :associated_models="associated_multiple_models"/>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Register User" placement="top">
-        <el-button :onClick="AddUser" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
+        <!-- Action Buttons -->
+        <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
+          <el-tooltip content="Add User " placement="top">
+            <el-button :onClick="AddUser" type="primary" :icon="Plus" />
+          </el-tooltip>
 
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
 
+          <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+          <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+
+        </div>
+
+        </el-row>
 
 
 
-    <el-table :data="tableDataList" style="width: 100%" fit>
+    
+
+    <el-table :data="tableDataList" style="width: 100%; margin-top:20px" fit>
 
       <el-table-column type="index" label="#" width="50">
         <!-- Use the 'index' slot to customize the index column -->
@@ -780,7 +823,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       </template>
     </el-dialog>
 
-  </ContentWrap>
+  </el-card >
 </template>
  
 <style scoped>

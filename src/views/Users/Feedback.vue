@@ -12,7 +12,7 @@ import {
   TopRight,
   User,
   Plus,
-  Download,
+  Download,Back,
   Filter,
   MessageBox,
   Edit,
@@ -20,7 +20,7 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive } from 'vue'
+import { ref, reactive,onMounted } from 'vue'
 import {
   ElPagination, ElTable, ElTableColumn, ElTooltip, ElOption, ElDivider ,
   ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDatePicker, ElPopconfirm
@@ -55,14 +55,51 @@ const indicatorsOptions = ref([])
 const categoryOptions = ref([])
 const categories = ref([])
 const page = ref(1)
-const pSize = ref(10)
+ 
 const selCounties = []
 const loading = ref(true)
-const pageSize = ref(10)
+ 
 const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
  
+
+
+
+const mobileBreakpoint = 768;
+const defaultPageSize = 10;
+const mobilePageSize = 5;
+const pageSize = ref(defaultPageSize);
+
+// Function to update pageSize based on window width
+const updatePageSize = () => {
+  if (window.innerWidth <= mobileBreakpoint) {
+    pageSize.value = mobilePageSize;
+  } else {
+    pageSize.value = defaultPageSize;
+  }
+};
+
+onMounted(async () => { 
+
+ window.addEventListener('resize', updatePageSize);
+   updatePageSize(); // Initial check
+ 
+ })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const showAdminButtons =  ref(appStore.getAdminButtons)
 const showEditButtons =  ref(appStore.getEditButtons)
 
@@ -95,7 +132,7 @@ const onPageChange = async (selPage: any) => {
 }
 
 const onPageSizeChange = async (size: any) => {
-  pSize.value = size
+  pageSize.value = size
   getFilteredData(filters, filterValues)
 }
 
@@ -120,7 +157,7 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -157,7 +194,7 @@ const searchString = ref()
 
 const getFilteredBySearchData = async (searchString) => {
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -309,23 +346,49 @@ const options = [
   },
 ]
 
+const router = useRouter()
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+}
 
 </script>
 
 <template>
-  <ContentWrap :title="t('Feedback')">
-    <!-- <Table :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
-                                                                                :currentPage="currentPage" :row-class-name="tableRowClassName" /> -->
+  <el-card >
+ 
+ 
+ 
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
-    <div style="display: inline-block; margin-bottom: 10px">
-      <el-select
+<div class="max-w-200px">
+  <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+    Back
+  </el-button>
+</div>
+
+<!-- Title Search -->
+<el-select
 v-model="value1" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name" />
-    </div>
 
-    <el-table
+ 
+
+</el-row>
+
+ 
+ 
+
+    <el-table 
 :data="tableDataList" :loading="loading" :pageSize="pageSize" :currentPage="currentPage" border
-      style="width: 100%" :row-class-name="tableRowClassName">
+      style="width: 100%;  margin-top: 10px" :row-class-name="tableRowClassName">
 
       <el-table-column sortable label="S/No" prop="id" />
       <el-table-column sortable label="Date" prop="createdAt" />
@@ -421,7 +484,7 @@ layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:
 
 
 
-  </ContentWrap>
+</el-card>
 </template>
 
 <style>

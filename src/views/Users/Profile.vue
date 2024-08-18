@@ -370,15 +370,7 @@ dialogFormVisible.value = false; // Close the form dialog regardless of the API 
         </div>
       </div>
 
-      <div class="profile-card">
-        <div class="card-icon">
-          <Icon icon="material-symbols:location-on-outline" color="blue" width="48" />
-        </div>
-        <div class="card-content">
-          <h3>County:</h3>
-          <p>{{ profile.county }}</p>
-        </div>
-      </div>
+     
 
       <div class="profile-card">
  
