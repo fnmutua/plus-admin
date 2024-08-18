@@ -1640,19 +1640,7 @@ function formatDate(dateString) {
   return `${year}-${month}-${day}`;
 }
 
-
-const router = useRouter()
-
-const goBack = () => {
-  // Add your logic to handle the back action
-  // For example, you can use Vue Router to navigate back
-  if (router) {
-    // Use router.back() to navigate back
-    router.back()
-  } else {
-    console.warn('Router instance not available.')
-  }
-}
+ 
 
 const activeStep = ref(0)
 
@@ -1678,7 +1666,7 @@ const nextStep = async () =>{
       }
     }
 
-
+ 
     
 const router = useRouter()
 
@@ -1693,7 +1681,7 @@ const goBack = () => {
   }
 }
 
-
+ 
 
 </script>
 
