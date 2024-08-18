@@ -1469,10 +1469,15 @@ const DocumentComponentProps = ref({
 
 });
 
+const locations_loading =ref(false)
 const project_locations = ref([])
 
 const getProjectLocations = async (project_id) => {
   console.log('project_id', project_id);
+
+  locations_loading.value=true
+  project_locations.value=[]   // Emoty current locations first
+  
 
   // Get the project settlement ids
   const formData = {
@@ -1521,7 +1526,7 @@ const getProjectLocations = async (project_id) => {
     };
   });
 
-
+  locations_loading.value=false
   console.log('project_locations', project_locations);
 };
 
@@ -1534,7 +1539,12 @@ const project_activities = ref(null);
 
 async function handleExpand(row) {
 
+  console.log("On Expand : Project ID", row.id )
   // get the locations 
+  // locations_loading.value=true
+  // project_locations.value=[]   // Emoty current locations first
+  
+
   getProjectLocations(row.id)
   project_id.value = row.id
 
@@ -2069,7 +2079,7 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
                         </el-badge>
                       </template>
   
-                    <el-table :data="project_locations_filtered" height="250" stripe>
+                    <el-table :data="project_locations_filtered" height="250"  v-loading="locations_loading"  stripe>
                       <el-table-column type="index" />
                       <el-table-column prop="county" label="County" />
                       <el-table-column prop="subcounty" label="Subcounty" />
