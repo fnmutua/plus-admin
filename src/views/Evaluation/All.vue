@@ -19,7 +19,7 @@ import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { defineAsyncComponent } from 'vue';
+import { defineAsyncComponent,onMounted } from 'vue';
 
 import xlsx from "json-as-xlsx"
 import {
@@ -125,12 +125,52 @@ const interVentionTypeOptions = ref([])
 
 
 const page = ref(1)
-const pSize = ref(5)
+ 
 const loading = ref(true)
-const pageSize = ref(5)
+ 
 const currentPage = ref(1)
 const activeTab = ref('list')
 const enableSubcounty = ref(false)
+
+
+
+
+
+const mobileBreakpoint = 768;
+const defaultPageSize = 10;
+const mobilePageSize = 5;
+const pageSize = ref(defaultPageSize);
+
+// Function to update pageSize based on window width
+const updatePageSize = () => {
+  if (window.innerWidth <= mobileBreakpoint) {
+    pageSize.value = mobilePageSize;
+  } else {
+    pageSize.value = defaultPageSize;
+  }
+};
+
+onMounted(async () => { 
+
+ window.addEventListener('resize', updatePageSize);
+   updatePageSize(); // Initial check
+ 
+ })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const total = ref(0)
 const totalRejected = ref(0)
@@ -189,7 +229,7 @@ const handleClear = async () => {
   value4.value = ''
   value5.value = ''
 
-  pSize.value = 5
+  pageSize.value = 5
   currentPage.value = 1
   tblData.value = []
   //----run the get data--------
@@ -233,7 +273,7 @@ const onPageChange = async (selPage: any) => {
 }
 
 const onPageSizeChange = async (size: any) => {
-  pSize.value = size
+  pageSize.value = size
   //getFilteredData(filters, filterValues)
 
   console.log(activeTab.value)
@@ -440,7 +480,7 @@ const getNewOrRejectedSettlements = async (tab) => {
 
 
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -529,7 +569,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   console.log("loadingGetData", loadingGetData.value)
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -837,7 +877,7 @@ const getFilteredBySearchData = async (tab, searchKey) => {
 
 
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model

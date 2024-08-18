@@ -13,7 +13,7 @@ import {
   Filter
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive,onMounted, computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
@@ -84,12 +84,37 @@ const categoryOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
-const pSize = ref(5)
-const selCounties = []
+ const selCounties = []
 const loading = ref(true)
-const pageSize = ref(5)
-const currentPage = ref(1)
+ const currentPage = ref(1)
 const total = ref(0)
+
+
+const mobileBreakpoint = 768;
+const defaultPageSize = 10;
+const mobilePageSize = 5;
+const pageSize = ref(defaultPageSize);
+
+// Function to update pageSize based on window width
+const updatePageSize = () => {
+  if (window.innerWidth <= mobileBreakpoint) {
+    pageSize.value = mobilePageSize;
+  } else {
+    pageSize.value = defaultPageSize;
+  }
+};
+
+onMounted(async () => { 
+ 
+ 
+ window.addEventListener('resize', updatePageSize);
+   updatePageSize(); // Initial check
+ 
+ 
+ })
+
+
+
 
 
 const showAdminButtons = ref(appStore.getAdminButtons)
@@ -132,7 +157,7 @@ const handleClear = async () => {
   value1.value = ''
   value2.value = ''
   value3.value = ''
-  pSize.value = 5
+  pageSize.value = 5
   currentPage.value = 1
   tblData = []
   //----run the get data--------
@@ -208,7 +233,7 @@ const onPageChange = async (selPage: any) => {
 }
 
 const onPageSizeChange = async (size: any) => {
-  pSize.value = size
+  pageSize.value = size
   getFilteredData(filters, filterValues)
 }
 
@@ -233,7 +258,7 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
-  formData.limit = pSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
