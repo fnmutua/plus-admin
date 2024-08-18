@@ -691,6 +691,18 @@ db.models.project_location.hasMany(db.models.indicator_category, {
 
 
 
+
+/// Project locaation - Project   
+db.models.project_location.belongsTo(db.models.project, {
+  foreignKey: 'project_id'
+})
+
+db.models.project.hasMany(db.models.project_location, {
+  foreignKey: 'project_id'
+})
+
+
+
 /// indicator-project_beneficiary - project_location_id  
 db.models.project_beneficiary.belongsTo(db.models.project_location, {
   foreignKey: 'project_location_id'
