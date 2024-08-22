@@ -3,13 +3,10 @@ import { Form } from '@/components/Form'
 import { reactive, ref, unref } from 'vue'
 import { useI18n } from '@/hooks/web/useI18n'
 import { useForm } from '@/hooks/web/useForm'
-import { ElButton, ElInput, FormInstance, FormRules } from 'element-plus'
+import { ElButton, FormRules } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { UserType } from '@/api/register/types'
 import { registerApi, getCountyAuth } from '@/api/register'
-import { getCountyListApi } from '@/api/counties'
-import { CountyType } from '@/api/counties/types'
-import { bottom } from '@popperjs/core'
 
 interface Params {
   pageIndex?: number
@@ -335,7 +332,7 @@ const loginRegister = async () => {
 
 <template>
   <Form
-:schema="schema" :rules="rules" label-position="side" hide-required-asterisk size="large"
+:schema="schema" :rules="rules" label-position="side" hide-required-asterisk  
     class="dark:(border-1 border-[var(--el-border-color)] border-solid)" @register="register">
     <template #title>
       <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.register') }}</h2>
