@@ -1,8 +1,8 @@
 <template>
-
+    <div class="form-container">
   <BaseLayout>
 
-    <div class="form-container">
+
 
       <el-main>
         <el-form  :inline="true"  :model="grmForm"  class="demo-form-inline"  :label-position="labelPosition" >
@@ -69,7 +69,7 @@
               </el-col>
             </el-row>
 
-            <el-divider content-position="center">Grievance Details</el-divider>
+            <el-divider content-position="center" class="custom-divider">Grievance Details</el-divider>
 
 
             <el-row>
@@ -128,10 +128,10 @@ v-model="grmForm.witnessStatement" type="textarea" rows="2"
           </el-card>
         </el-form>
       </el-main>
-    </div>
+   
 
   </BaseLayout>
-
+</div>
 </template>
 
 <script setup lang="ts">
@@ -211,75 +211,11 @@ const labelPosition = ref('left');
 
 </script>
 
-<style scoped>
-.about-page {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-}
-
-.header-content,
-.footer-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-}
-
-.logo img {
-  height: 50px;
-}
-
-.about-content {
-  padding: 100px 20px;
-  text-align: center;
-  color: #030303;
-}
-
-.about-content h1 {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  font-weight: bold;
-  color: #070707;
-}
-
-.about-content p {
-  font-size: 1.2rem;
-  margin-bottom: 1.5rem;
-  color: #696969;
-}
-
-.footer-content {
-  border-top: 1px solid #e5e5e5;
-  text-align: center;
-  padding: 20px;
-  color: #666;
-}
-
-.footer-content ul {
-  display: flex;
-  justify-content: center;
-  list-style-type: none;
-  padding: 0;
-}
-
-.footer-content ul li {
-  margin-left: 1.5rem;
-}
-
-.footer-content ul li a {
-  color: #666;
-  text-decoration: none;
-}
-
-.footer-content ul li a:hover {
-  color: #409eff;
-}
-</style>
+ 
 
 <style>
 .form-container {
-  max-height: 600px;
+  max-height: 768px;
   /* Set a maximum height for the scrollable area */
   overflow-y: auto;
   /* Enable vertical scrolling */
@@ -305,4 +241,7 @@ const labelPosition = ref('left');
 .demo-form-inline .el-select {
   --el-select-width: 220px;
 }
+
+ 
+
 </style>

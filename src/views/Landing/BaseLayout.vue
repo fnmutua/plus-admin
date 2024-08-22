@@ -70,49 +70,132 @@
   </script>
   
   <style scoped>
-  .landing-page {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
+   .landing-page {
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Header styles */
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+}
+
+.logo img {
+  height: 50px;
+}
+
+/* Navigation menu styles */
+.el-menu-demo {
+  display: flex;
+  justify-content: center;
+  padding: 0;
+}
+
+.el-menu-item {
+  padding: 0 20px;
+}
+
+/* Main content styles */
+.el-main {
+  padding: 20px;
+}
+
+/* Footer styles */
+.footer-content {
+  border-top: 1px solid #e5e5e5;
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.footer-content ul {
+  display: flex;
+  justify-content: center;
+  list-style-type: none;
+  padding: 0;
+}
+
+.footer-content ul li {
+  margin-left: 1.5rem;
+}
+
+.footer-content ul li a {
+  color: #666;
+  text-decoration: none;
+}
+
+.footer-content ul li a:hover {
+  color: #409eff;
+}
+
+/* Responsive styles */
+@media (max-width: 1024px) {
+  .header-content {
+    padding: 15px;
   }
-  
-  .header-content,
-  .footer-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
+
+  .logo img {
+    height: 40px;
+  }
+
+  .el-menu-item {
+    padding: 0 15px;
+  }
+
+  .footer-content ul {
+    flex-direction: column;
     align-items: center;
-    padding: 20px;
   }
-  
+
+  .footer-content ul li {
+    margin: 10px 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+  }
+
   .logo img {
     height: 50px;
   }
-  
+
+    
+
   .footer-content {
-    border-top: 1px solid #e5e5e5;
-    text-align: center;
-    padding: 20px;
-    color: #666;
+    padding: 10px;
   }
-  
+
   .footer-content ul {
-    display: flex;
-    justify-content: center;
-    list-style-type: none;
-    padding: 0;
+    flex-direction: column;
+    align-items: center;
   }
-  
+}
+
+@media (max-width: 480px) {
+  .hero-content h1 {
+    font-size: 2rem; /* Adjust the font size for very small screens */
+  }
+
+  .hero-content p {
+    font-size: 0.875rem; /* Adjust the font size for very small screens */
+  }
+
+  .hero-image img {
+    max-width: 100%;
+  }
+
   .footer-content ul li {
-    margin-left: 1.5rem;
+    margin: 5px 0;
   }
-  
-  .footer-content ul li a {
-    color: #666;
-    text-decoration: none;
-  }
-  
-  .footer-content ul li a:hover {
-    color: #409eff;
-  }
+}
+
   </style>
   
