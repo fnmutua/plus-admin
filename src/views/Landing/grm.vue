@@ -1,201 +1,145 @@
 <template>
-  <div class="about-page">
-    <el-container>
-      <el-header>
-        <div class="header-content">
-          <div class="logo">
-            <img src="@/assets/imgs/1logo.png" alt="Your Company Logo" />
-          </div>
-          <nav>
-            <el-menu mode="horizontal" :default-active="activeIndex" @select="handleSelect">
-              <el-menu-item index="1">Home</el-menu-item>
-              <el-menu-item index="2">Dashboard</el-menu-item>
-              <el-menu-item index="3">GRM</el-menu-item>
-              <el-menu-item index="4">About</el-menu-item>
-            </el-menu>
-          </nav>
-        </div>
-      </el-header>
-      <div class="form-container">
+
+  <BaseLayout>
+
+    <div class="form-container">
 
       <el-main>
-        <el-form :model="grmForm" label-width="150px">
-      <el-card>
-        <h2>GRIEVANCE REDRESS FORM</h2>
-        
-        
-        <el-form-item label="Settlement">
-          <el-input v-model="grmForm.settlement" placeholder="Enter settlement"/>
-        </el-form-item>
+        <el-form  :inline="true"  :model="grmForm"  class="demo-form-inline"  :label-position="labelPosition" >
+          <el-card shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <span>Your voice matters. Please provide the details of your concern below, and our team will work diligently to address it.</span>
+              </div>
+            </template>
 
-        <el-form-item label="Project Phone Number">
-          <el-input v-model="grmForm.projectPhoneNumber" placeholder="Enter phone number"/>
-        </el-form-item>
+            <el-row>
+              <el-col :span="12" :xs="24" :sm="24" :md="24" :lg="12" :xl="12">
+                
+                <el-form-item label="Name">
+                  <el-input v-model="grmForm.name" placeholder="Enter name" />
+                </el-form-item>
+                
+                <el-form-item label="ID No.">
+                  <el-input v-model="grmForm.idNo" placeholder="Enter ID number" />
+                </el-form-item>
 
-        <el-form-item label="Complain No.">
-          <el-input v-model="grmForm.complainNo" placeholder="Enter complaint number"/>
-        </el-form-item>
 
-        <el-form-item label="Preferred Language">
-          <el-radio-group v-model="grmForm.preferredLanguage">
-            <el-radio label="Kiswahili">Kiswahili</el-radio>
-            <el-radio label="English">English</el-radio>
-          </el-radio-group>
-        </el-form-item>
+                <el-form-item label="Phone">
+                  <el-input v-model="grmForm.projectPhoneNumber" placeholder="Enter phone number" />
+                </el-form-item>
 
-        <el-divider/>
+                  
+                <el-form-item label="Email">
+                  <el-input v-model="grmForm.address" placeholder="Enter address" />
+                </el-form-item>
+            
+              
 
+              </el-col>
+              <el-col :span="12" :xs="24" :sm="24" :md="24" :lg="12" :xl="12">
+
+                <el-form-item label="County">
+                  <el-select v-model="grmForm.complaintCategory" placeholder="Select County">
+                    <el-option label="Land" value="land" />
+                    <el-option label="Labour Related" value="labour" />
+                    <el-option label="Infrastructure" value="infrastructure" />
+                    <el-option label="Others" value="others" />
+                  </el-select>                
+                </el-form-item>
+
+                <el-form-item label="Subcounty">
+                  <el-select v-model="grmForm.complaintCategory" placeholder="Select Subcounty">
+                    <el-option label="Land" value="land" />
+                    <el-option label="Labour Related" value="labour" />
+                    <el-option label="Infrastructure" value="infrastructure" />
+                    <el-option label="Others" value="others" />
+                  </el-select>               
+                 </el-form-item>
+
+
+                <el-form-item label="Settlement">
+                  <el-select v-model="grmForm.complaintCategory" placeholder="Select Settlement">
+                    <el-option label="Land" value="land" />
+                    <el-option label="Labour Related" value="labour" />
+                    <el-option label="Infrastructure" value="infrastructure" />
+                    <el-option label="Others" value="others" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+
+            <el-divider content-position="center">Grievance Details</el-divider>
+
+
+            <el-row>
+              <el-col :span="12" :xs="24" :sm="24" :md="24" :lg="12" :xl="12">
+                <el-form-item label="Complaint Category">
+                  <el-select v-model="grmForm.complaintCategory" placeholder="Select category">
+                    <el-option label="Land" value="land" />
+                    <el-option label="Labour Related" value="labour" />
+                    <el-option label="Infrastructure" value="infrastructure" />
+                    <el-option label="Others" value="others" />
+                  </el-select>
+                </el-form-item>
+
+
+                <el-form-item label="Complaint Description">
+                  <el-input
+v-model="grmForm.complaintDescription" type="textarea" rows="2"
+                    placeholder="Describe your complaint" />
+                </el-form-item>
+                <el-form-item label="Plea/Request">
+                  <el-input
+v-model="grmForm.pleaRequest" type="textarea" rows="2"
+                    placeholder="Enter your plea/request" />
+                </el-form-item>
+
+              </el-col>
+              <el-col :span="12">
+
+                <el-form-item label="Witness Name">
+                  <el-input v-model="grmForm.witnessName" placeholder="Enter witness name" />
+                </el-form-item>
+
+                <el-form-item label="Witness Phone">
+                  <el-input v-model="grmForm.witnessSignature" placeholder="Enter witness signature" />
+                </el-form-item>
+
+                <el-form-item label="Witness Statement">
+                  <el-input
+v-model="grmForm.witnessStatement" type="textarea" rows="2"
+                    placeholder="Enter witness statement" />
+                </el-form-item>
+
+
+              </el-col>
+
+            </el-row>
  
-    
-        <h3>1. Complainant’s personal details</h3>
+ 
+ 
 
-        <el-form-item label="Name">
-          <el-input v-model="grmForm.name" placeholder="Enter name"/>
-        </el-form-item>
+            <template #footer>
+              <el-button type="primary" @click="submitForm">Submit</el-button>
+              <el-button @click="resetForm">Reset</el-button>
 
-        <el-form-item label="ID No.">
-          <el-input v-model="grmForm.idNo" placeholder="Enter ID number"/>
-        </el-form-item>
-
-        <el-form-item label="Telephone Number">
-          <el-input v-model="grmForm.telephoneNumber" placeholder="Enter telephone number"/>
-        </el-form-item>
-
-        <el-form-item label="Address (postal/email)">
-          <el-input v-model="grmForm.address" placeholder="Enter address"/>
-        </el-form-item>
-
-        <el-form-item label="Settlement/Location">
-          <el-input v-model="grmForm.settlementLocation" placeholder="Enter settlement/location"/>
-        </el-form-item>
-
-        <el-divider/>
-
-        <h3>2. Nature of your complaint</h3>
-
-        <el-form-item label="Complaint Category">
-          <el-select v-model="grmForm.complaintCategory" placeholder="Select category">
-            <el-option label="Land" value="land"/>
-            <el-option label="Labour Related" value="labour"/>
-            <el-option label="Infrastructure" value="infrastructure"/>
-            <el-option label="Others" value="others"/>
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="Complaint Description">
-          <el-input v-model="grmForm.complaintDescription" type="textarea" rows="4" placeholder="Describe your complaint"/>
-        </el-form-item>
-
-        <el-divider/>
-
-        <h3>3. What is your plea/request?</h3>
-
-        <el-form-item label="Plea/Request">
-          <el-input v-model="grmForm.pleaRequest" type="textarea" rows="4" placeholder="Enter your plea/request"/>
-        </el-form-item>
-
-        <el-divider/>
-
-        <el-form-item label="Signature">
-          <el-input v-model="grmForm.signature" placeholder="Enter your signature"/>
-        </el-form-item>
-
-        <el-form-item label="Date">
-          <el-date-picker v-model="grmForm.date" placeholder="Select date"/>
-        </el-form-item>
-
-        <el-divider/>
-
-        <h3>4. Name of Witness if any</h3>
-
-        <el-form-item label="Witness Name">
-          <el-input v-model="grmForm.witnessName" placeholder="Enter witness name"/>
-        </el-form-item>
-
-        <el-form-item label="Witness Signature">
-          <el-input v-model="grmForm.witnessSignature" placeholder="Enter witness signature"/>
-        </el-form-item>
-
-        <el-form-item label="Witness Statement">
-          <el-input v-model="grmForm.witnessStatement" type="textarea" rows="4" placeholder="Enter witness statement"/>
-        </el-form-item>
-
-        <el-divider/>
-
-        <h3>5. Name of the recipient</h3>
-
-        <el-form-item label="Recipient Name">
-          <el-input v-model="grmForm.recipientName" placeholder="Enter recipient name"/>
-        </el-form-item>
-
-        <el-form-item label="Recipient Signature">
-          <el-input v-model="grmForm.recipientSignature" placeholder="Enter recipient signature"/>
-        </el-form-item>
-
-        <el-form-item label="Date">
-          <el-date-picker v-model="grmForm.recipientDate" placeholder="Select date"/>
-        </el-form-item>
-
-        <el-divider/>
-
-        <h3>6. Action Taken</h3>
-
-        <el-form-item label="Action Taken">
-          <el-input v-model="grmForm.actionTaken" type="textarea" rows="4" placeholder="Describe the action taken"/>
-        </el-form-item>
-
-        <el-form-item>
-          <el-button type="primary" @click="submitForm">Submit</el-button>
-          <el-button @click="resetForm">Reset</el-button>
-        </el-form-item>
-      </el-card>
-    </el-form>
+            </template>
+          </el-card>
+        </el-form>
       </el-main>
-</div>
-      <el-footer>
-        <div class="footer-content">
-          <p>&copy; 2024 Kenya Informal Settlements Improvement Project. All rights reserved.</p>
-          <nav>
-            <ul>
-              <li><a href="/privacy">Privacy Policy</a></li>
-              <li><a href="#">Terms of Service</a></li>
-              <li><a href="#">Contact Us</a></li>
-            </ul>
-          </nav>
-        </div>
-      </el-footer>
-    </el-container>
-  </div>
+    </div>
+
+  </BaseLayout>
+
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
- import { ElMessage,ElMain,ElMenu,ElMenuItem,ElButton,ElCard,ElForm,ElFormItem,ElInput,ElDatePicker,ElFooter,ElContainer,ElDivider , ElSelect,ElOption,ElRow,ElCol,ElRadio,ElRadioGroup} from 'element-plus';
+import { onMounted, ref } from 'vue';
+import { ElMain, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElDivider, ElSelect, ElOption, ElRow, ElCol } from 'element-plus';
+import BaseLayout from './BaseLayout.vue';
 
-const activeIndex = ref('4');
-const router = useRouter();
-
-const handleSelect = (index: string) => {
-  activeIndex.value = index;
-  
-  switch (index) {
-    case '1':
-      router.push('/landing'); // Navigate to Home
-      break;
-    case '2':
-      router.push('/login'); // Navigate to Dashboard
-      break;
-    case '3':
-      router.push('/grm'); // Navigate to GRM
-      break;
-    case '4':
-      router.push('/about'); // Stay on About
-      break;
-    default:
-      ElMessage.warning('Page not found.');
-  }
-};
+ 
 
 const grmForm = ref({
   settlement: '',
@@ -250,6 +194,21 @@ const resetForm = () => {
     actionTaken: '',
   };
 };
+
+const updateLabelPosition = () => {
+  labelPosition.value = window.innerWidth < 768 ? 'top' : 'left';
+};
+
+onMounted(() => {
+  window.addEventListener('resize', updateLabelPosition);
+  updateLabelPosition(); // Initial check
+});
+
+
+
+const labelPosition = ref('left');
+
+
 </script>
 
 <style scoped>
@@ -320,11 +279,30 @@ const resetForm = () => {
 
 <style>
 .form-container {
-  max-height: 600px; /* Set a maximum height for the scrollable area */
-  overflow-y: auto; /* Enable vertical scrolling */
+  max-height: 600px;
+  /* Set a maximum height for the scrollable area */
+  overflow-y: auto;
+  /* Enable vertical scrolling */
 }
 
 .three-column-form .el-form-item {
-  margin-bottom: 20px; /* Adjust spacing between form items if needed */
+  margin-bottom: 20px;
+  /* Adjust spacing between form items if needed */
+}
+
+.grm-header {
+  padding: 100px 20px;
+  text-align: center;
+  color: #030303;
+}
+</style>
+
+<style>
+.demo-form-inline .el-input {
+  --el-input-width: 220px;
+}
+
+.demo-form-inline .el-select {
+  --el-select-width: 220px;
 }
 </style>

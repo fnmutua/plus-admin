@@ -1,83 +1,56 @@
 <template>
-  <div class="landing-page">
-    <el-container>
-      <el-header>
-        <div class="header-content">
-          <div class="logo">
-            <img src="@/assets/imgs/1logo.png" alt="Your Company Logo" />
-          </div>
-          <nav>
-            <el-menu mode="horizontal" :default-active="activeIndex" @select="handleSelect">
-              <el-menu-item index="1">Home</el-menu-item>
-              <el-menu-item index="2">Dashboard</el-menu-item>
-              <el-menu-item index="3">GRM</el-menu-item>
-              <el-menu-item index="4">About</el-menu-item>
-            </el-menu>
-          </nav>
-        </div>
-      </el-header>
+   <BaseLayout>
+    <div class="hero">
+      <div class="hero-content">
+        <h1>Welcome to KeSMIS</h1>
+        <p>Kenya Slum Management Information System</p>
+      
+  
+        
+          <el-button type="primary" size="large"   @click="navigateTo('get-started')">Get Started</el-button>
+ 
+       
+         <el-button type="primary" size="large" @click="navigateTo('grm')" plain>File Grievance</el-button>
+  
 
-      <el-main>
-        <div class="hero">
-          <div class="hero-content">
-            <h1>Welcome to KeSMIS</h1>
-            <p>Kenya Slum Management Information System</p>
-            <el-button type="primary" size="large">Get Started</el-button>
-            <el-button type="primary" size="large">File Grievance</el-button>
-          </div>
-          <div class="hero-image">
-            <img src="@/assets/svgs/kisip.svg" alt="Hero Image" />
-          </div>
-        </div>
-      </el-main>
+       
+ 
+ 
+      
 
-      <el-footer>
-        <div class="footer-content">
-          <p>&copy; 2024 Kenya Informal Settlements Improvement Project. All rights reserved.</p>
-          <nav>  
-
-            <ul>
-              <li><a href="/privacy">Privacy Policy</a></li>
-              <li><a href="#">Terms of Service</a></li>
-              <li><a href="#">Contact Us</a></li>
-            </ul>
-          </nav>
-        </div>
-      </el-footer>
-    </el-container>
-  </div>
+      </div>
+      <div class="hero-image">
+        <img src="@/assets/svgs/kisip.svg" alt="Hero Image" />
+      </div>
+    </div>
+  </BaseLayout>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage,ElMain,ElMenu,ElMenuItem,ElButton } from 'element-plus';
+import { ElButton , ElCol,ElRow, ElButtonGroup} from 'element-plus';
+import BaseLayout from './BaseLayout.vue';
 
-// Reactive variable for tracking the active menu item
-const activeIndex = ref('1');
+
 const router = useRouter();
 
-// Function to handle menu selection
-const handleSelect = (index: string) => {
-  activeIndex.value = index;
-  
-  switch (index) {
-    case '1':
-      router.push('/landing'); // Navigate to Home
+ 
+
+// Function to handle button navigation
+const navigateTo = (page: string) => {
+  switch (page) {
+    case 'get-started':
+      router.push('/login'); // Navigate to Get Started page
       break;
-    case '2':
-      router.push('/login'); // Navigate to Features
-      break;
-    case '3':
-      router.push('/grm'); // Navigate to Pricing
-      break;
-    case '4':
-      router.push('/about'); // Navigate to Contact
+    case 'grm':
+      router.push('/grm'); // Navigate to File Grievance page
       break;
     default:
-      ElMessage.warning('Page not found.');
+      router.push('/'); // Navigate to Home or fallback page
+      break;
   }
 };
+
 </script>
 
 <style scoped>
@@ -159,4 +132,27 @@ const handleSelect = (index: string) => {
 .footer-content ul li a:hover {
   color: #409eff;
 }
+
+
+/* Media Query for small screens */
+@media (max-width: 768px) {
+  .hero {
+    padding: 30px 15px; /* Further reduced padding for small screens */
+    height: auto; /* Adjust height */
+  }
+
+  .hero-content h1 {
+    font-size: 2rem; /* Smaller font size for small screens */
+  }
+
+  .hero-content p {
+    font-size: 1rem; /* Smaller font size for small screens */
+  }
+
+  .hero-image img {
+    max-width: 80%; /* Slightly reduce image size */
+    margin-top: 20px;
+  }
+}
+
 </style>
