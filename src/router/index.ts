@@ -37,6 +37,38 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     }
   },
   {
+    path: '/landing',
+    component: () => import('@/views/Landing/index.vue'),
+    name: 'Landing',
+    meta: {
+      hidden: true,
+      title: t('router.login'),
+      noTagsView: true
+    }
+  },
+  {
+    path: '/about',
+    component: () => import('@/views/Landing/about.vue'),
+    name: 'About',
+    meta: {
+      hidden: true,
+      title: t('router.login'),
+      noTagsView: true
+    }
+  },
+  {
+    path: '/grm',
+    component: () => import('@/views/Landing/grm.vue'),
+    name: 'GRM',
+    meta: {
+      hidden: true,
+      title: t('router.login'),
+      noTagsView: true
+    }
+  },
+
+
+  {
     path: '/login',
     component: () => import('@/views/Login/Login.vue'),
     name: 'Login',

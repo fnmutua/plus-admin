@@ -3546,7 +3546,7 @@ exports.ReportDocumentationUpload = async (req, res) => {
 
 
  
-exports.batchDocumentsUploadByParentCode = async (req, res) => {
+exports.xbatchDocumentsUploadByParentCode = async (req, res) => {
 
 
   upload.array('files')(req, res, async (err) => {
@@ -3689,6 +3689,130 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
     }
 
     // Send message
+
+    if (errors.length === 0) {
+      res.status(200).send({
+        message: 'Upload via App Successful',
+        code: '0000'
+      })
+  
+
+    } else {
+
+      res.status(500).send({
+        message: 'Upload failed. ' + errors + ' errors',
+        code: '0000'
+      })
+    }
+  })
+}
+exports.batchDocumentsUploadByParentCode = async (req, res) => {
+
+
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.log(err);
+        return res.status(500).send({
+        message: 'Upload failed.',
+        code: '0000'
+      })
+    } 
+    if (!req.files) {
+      return res.status(500).send({ msg: 'file is not found :batchDocumentsUploadByParentCode' })
+    }
+
+    var myFiles =req.files
+  
+
+    console.log('files to upload',myFiles )
+    console.log('Properties Document',req.body )
+ 
+    var errors = []
+    var objs =[]
+
+    for (let i = 0; i < myFiles.length; i++) {
+      // Sin
+  
+        var obj = {}
+
+        var column = req.body.field_id
+        obj.type = req.body.type
+        obj.format = req.body.format
+        obj.size = req.body.size
+        obj.createdBy = req.body.createdBy
+        obj.protectedFile = req.body.protected
+        obj.public = req.body.public 
+
+        obj.name = myFiles[i].originalname
+        obj.location =  myFiles[i].path
+  
+        obj.code = crypto.randomUUID()
+        try {
+          await db.models[req.body.model]
+            .findAll({
+              where: {
+                code: {
+                  [Op.eq]: req.body.pcode
+                }
+              }
+            })
+            .then((records) => {
+              if (records && records.length > 0) {
+                const recordIds = records.map((record) => record.id);
+                recordIds.forEach((recordId) => {
+        
+                  // Create a shallow copy of the old object
+                  const newObj = { ...obj };
+        
+                  // Add the new property with its value
+                  newObj[column] = recordId;
+                  // Push newObj into the array
+                  objs.push(newObj);
+        
+                  // Perform any other actions with obj[column] as needed
+                });
+              } else {
+                obj[column] = '';
+              }
+            });
+        } catch (error) {
+          // Handle the error here
+          console.error("An error occurred:", error);
+        }
+        
+     
+
+    //  }
+  
+    }
+
+    // Send message
+
+    
+    var reg_model = 'document'
+    // console.log("insert Objects", objs)
+
+
+     try {
+       for (const eobj of objs) {
+          console.log(eobj)
+         await db.models[reg_model].create(eobj)
+           .then(function () {
+             console.log('-----')
+           });
+       }
+     }  
+     
+
+         
+     catch (error) {
+       // handle error;
+       console.log(error)
+       errors.push('Failed to upload attachments.')
+
+     }
+
+
 
     if (errors.length === 0) {
       res.status(200).send({
