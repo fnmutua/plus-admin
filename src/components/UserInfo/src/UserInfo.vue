@@ -49,7 +49,7 @@ const loginOut = () => {
         wsCache.clear()
         tagsViewStore.delAllViews()
         resetRouter() // 重置静态路由表
-        replace('/login')
+        replace('/')
       }
     })
     .catch(() => { })
