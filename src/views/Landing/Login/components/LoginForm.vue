@@ -537,7 +537,7 @@ const feedbackRules =  {
 <template>
   <Form
 :schema="schema" :rules="rules" label-position="top" hide-required-asterisk size="large"
-    class="dark:(border-1 border-[var(--el-border-color)] border-solid)" @register="register">
+    class=" border-solid)" @register="register">
     <template #title>
       <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.login') }}</h2>
     </template>
@@ -561,8 +561,7 @@ const feedbackRules =  {
     <div>
       <ElLink @click="dialogFormVisible = true" :underline="false">{{ t('Forgot Password') }}</ElLink>
     </div>
-       <!-- <ElLink @click="dialogFeedback = true" :underline="false">{{ t('Feedback') }}</ElLink> -->
- 
+  
        
 
       <el-row>
