@@ -1,6 +1,5 @@
 <template>
-   
-
+    
 
   <BaseLayout>
     <div class="about-content">
@@ -31,15 +30,7 @@ import BaseLayout from './BaseLayout.vue';
   font-family: 'Helvetica Neue', Arial, sans-serif;
 }
 
-.header-content,
-.footer-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-}
+ 
 
 .logo img {
   height: 50px;
@@ -48,15 +39,13 @@ import BaseLayout from './BaseLayout.vue';
 .about-content {
   padding: 100px 20px;
   text-align: center;
-  color: #030303;
-}
+ }
 
 .about-content h1 {
   font-size: 3rem;
   margin-bottom: 1rem;
   font-weight: bold;
-  color: #070707;
-}
+ }
 
 .about-content p {
   font-size: 1.2rem;
@@ -64,30 +53,5 @@ import BaseLayout from './BaseLayout.vue';
   color: #696969;
 }
 
-.footer-content {
-  border-top: 1px solid #e5e5e5;
-  text-align: center;
-  padding: 20px;
-  color: #666;
-}
-
-.footer-content ul {
-  display: flex;
-  justify-content: center;
-  list-style-type: none;
-  padding: 0;
-}
-
-.footer-content ul li {
-  margin-left: 1.5rem;
-}
-
-.footer-content ul li a {
-  color: #666;
-  text-decoration: none;
-}
-
-.footer-content ul li a:hover {
-  color: #409eff;
-}
+ 
 </style>

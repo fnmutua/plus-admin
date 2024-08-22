@@ -42,7 +42,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     name: 'Landing',
     meta: {
       hidden: true,
-      title: t('router.login'),
+      title: 'Home',
       noTagsView: true
     }
   },
@@ -52,7 +52,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     name: 'About',
     meta: {
       hidden: true,
-      title: t('router.login'),
+      title: 'About',
       noTagsView: true
     }
   },
@@ -62,11 +62,45 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     name: 'GRM',
     meta: {
       hidden: true,
-      title: t('router.login'),
+      title: 'Grievances',
       noTagsView: true
     }
   },
 
+  {
+    path: '/privacy',
+    component: () => import('@/views/Landing/Privacy.vue'),
+    name: 'Privacy',
+    meta: {
+      hidden: false,
+      title: 'Privacy',
+      noTagsView: true
+    }
+  },
+  {
+    path: '/contact',
+    component: () => import('@/views/Landing/Contact.vue'),
+    name: 'Contact',
+    meta: {
+      hidden: false,
+      title: 'Contact',
+      noTagsView: true
+    }
+  },
+
+  {
+    path: '/faqs',
+    component: () => import('@/views/Landing/FAQs.vue'),
+    name: 'FAQs',
+    meta: {
+      hidden: false,
+      title: 'FAQs',
+      noTagsView: true
+    }
+  },
+
+
+ 
 
   {
     path: '/login',
@@ -111,16 +145,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     }
   },
 
-  {
-    path: '/privacy',
-    component: () => import('@/views/Login/Privacy.vue'),
-    name: 'Privacy',
-    meta: {
-      hidden: true,
-      title: 'Privacy',
-      noTagsView: true
-    }
-  },
+ 
  
 ]
  
@@ -1562,17 +1587,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       }, 
     ]
   },
-
-  // {
-  //   path: '/xprivacy',
-  //   component: () => import('@/views/Users/User.vue'),
-  //   name: 'xPrivacy',
-  //   meta: {
-  //     title: 'xPrivacy',
-  //     icon: 'material-symbols:settings',
-  //     alwaysShow: true
-  //   },
-  // }
+ 
 
 
 ]
@@ -1589,7 +1604,8 @@ const router = createRouter({
 })
 
 export const resetRouter = (): void => {
-  const resetWhiteNameList = ['Redirect', 'Login', 'NoFind', 'Root', 'Reset', 'Logoff', 'Privacy']
+  const resetWhiteNameList = ['Redirect', 'Login', 'NoFind', 'Root', 'Reset', 'Logoff', 
+    'Privacy', 'Contact','Landing','FAQs','About','GRM']
   router.getRoutes().forEach((route) => {
     const { name } = route
     if (name && !resetWhiteNameList.includes(name as string)) {

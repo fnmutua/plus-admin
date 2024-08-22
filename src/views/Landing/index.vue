@@ -79,10 +79,25 @@ const navigateTo = (page: string) => {
   flex-direction: column;
   text-align: center;
   padding: 100px 20px;
-  background-color: #f5f5f5;
-   background-size: cover;
+    background-size: cover;
   background-position: center;
-  color: #030303;
+   height: 70vh;
+}
+
+.xhero {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 100px 20px;
+  background: radial-gradient(circle at center, #e0dff5 15%, transparent 2%) 0 0,
+              repeating-linear-gradient(0deg, transparent 2.5%, #ffffff 7%, #ffffff 9%, transparent 10%) 0 0,
+              linear-gradient(45deg, transparent 49%, #e0dff5 49%, #e0dff5 51%, transparent 51%) 0 0,
+              linear-gradient(-45deg, transparent 49%, #e0dff5 49%, #e0dff5 51%, transparent 51%) 0 0;
+  background-size: 6em 6em;
+  background-color: #ffffff;
+  opacity: 1;
   height: 70vh;
 }
 
@@ -90,8 +105,7 @@ const navigateTo = (page: string) => {
   font-size: 5rem;
   margin-bottom: 1rem;
   font-weight: bold;
-  color: #070707;
-}
+ }
 
 .hero-content p {
   font-size: 1.5rem;
@@ -103,33 +117,6 @@ const navigateTo = (page: string) => {
   max-width: 70%;
   height: auto;
   margin-top: 30px;
-}
-
-.footer-content {
-  border-top: 1px solid #e5e5e5;
-  text-align: center;
-  padding: 20px;
-  color: #666;
-}
-
-.footer-content ul {
-  display: flex;
-  justify-content: center;
-  list-style-type: none;
-  padding: 0;
-}
-
-.footer-content ul li {
-  margin-left: 1.5rem;
-}
-
-.footer-content ul li a {
-  color: #666;
-  text-decoration: none;
-}
-
-.footer-content ul li a:hover {
-  color: #409eff;
 }
 
 
