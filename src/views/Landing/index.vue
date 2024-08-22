@@ -80,8 +80,7 @@ const navigateTo = (page: string) => {
   text-align: center;
   padding: 100px 20px;
   background-color: #f5f5f5;
-  //background-image: url('@/assets/imgs/landing.jpg');
-  background-size: cover;
+   background-size: cover;
   background-position: center;
   color: #030303;
   height: 70vh;
