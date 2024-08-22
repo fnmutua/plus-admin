@@ -21,11 +21,9 @@
               <el-menu-item index="5">Contact</el-menu-item>
               <el-menu-item index="4">About</el-menu-item>
               <el-menu-item index="6">FAQs</el-menu-item>
-              <el-menu-item  >
-                <el-button @click="toggleDark()">
-    <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
-   </el-button>
-
+              <el-menu-item   index="7" >
+     <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
+ 
               </el-menu-item>
 
             </el-menu>
@@ -62,7 +60,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage, ElMain, ElMenu, ElMenuItem, ElContainer, ElFooter } from 'element-plus';
+import { ElMessage, ElMain, ElMenu, ElMenuItem, ElContainer, ElFooter ,ElHeader} from 'element-plus';
 
 import { useDark, useToggle } from "@vueuse/core";
 import { Icon } from '@iconify/vue';
@@ -94,8 +92,12 @@ const handleSelect = (index: string) => {
       router.push('/contact');
       break;
 
-    case '6':
+      case '6':
       router.push('/privacy');
+      break;  
+      
+      case '7':
+      toggleDark()
       break;
 
     default:
@@ -126,12 +128,13 @@ const handleSelect = (index: string) => {
 
 /* Header styles */
 .header-content {
-  max-width: 1200px;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 10 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 10px;
+ 
 }
 
 .logo img {
@@ -154,7 +157,7 @@ const handleSelect = (index: string) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 1200px;
+  max-width: 100%;
   margin: 0 auto;
   padding: 20px;
   font-family: 'Helvetica Neue', Arial, sans-serif;
