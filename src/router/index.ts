@@ -1,7 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import type { App } from 'vue'
-import { Layout, getParentLayout } from '@/utils/routerHelper'
+import { Layout, getParentLayout, } from '@/utils/routerHelper'
 import { useI18n } from '@/hooks/web/useI18n'
 
  
