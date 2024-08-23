@@ -35,5 +35,5 @@ VITE_APP_DB_HOST=https://kesmis.go.ke
 VITE_APP_USER='postgres'
 VITE_APP_PASSWORD='Admin@2011'
 VITE_APP_DB='kesmis'
-VITE_APP_DB_PORT=5434
+VITE_APP_DB_PORT=5432
 AES_KEY='maluini'

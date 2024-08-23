@@ -329,7 +329,7 @@ const getLogs = async () => {
  
 
   const formData = {}
-  formData.limit = pageSize.value
+  formData.limit = pageSize.value >5?5:3 
   formData.page = 1
   formData.curUser = 1 // Id for logged in user
   formData.model = 'logs'

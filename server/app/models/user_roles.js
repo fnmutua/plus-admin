@@ -18,7 +18,17 @@ module.exports = function(sequelize, DataTypes) {
         model: 'users',
         key: 'id'
       }
+    },
+    location_level: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
+    location_id: {
+      type: DataTypes.STRING,
+      allowNull: true,
     }
+
   }, {
     sequelize,
     tableName: 'user_roles',

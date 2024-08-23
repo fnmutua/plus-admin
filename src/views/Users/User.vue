@@ -157,7 +157,10 @@ const form = reactive({
   name: '',
   email: '',
   phone: '',
-  county_id: '',
+  settlement_id:null,
+  county_id:null,
+  location_level:null,
+  location_id:null,
   roles: [],
   avatar: '',
   username:null
@@ -583,6 +586,81 @@ const goBack = () => {
   }
 }
 
+const locationOptions = [
+{
+    value: 'national',
+    label: 'National',
+  },
+  {
+    value: 'county',
+    label: 'County',
+  },
+  {
+    value: 'settlement',
+    label: 'Settlement',
+  } 
+]
+
+const showSettlement =ref(false)
+const showCounty=ref(false)
+const handleSelectLevel = async (level) => {
+  console.log('Level', level)
+  if(level=='settlement'){
+    showSettlement.value=true
+    showCounty.value=true
+  }
+ else if(level=='county'){
+    showSettlement.value=false
+    showCounty.value=true
+
+  }
+  
+  else{
+    showSettlement.value=false
+    showCounty.value=false
+
+  }
+}
+
+
+const getCountySettlements = async (county_id) => {
+
+  settlementOptions.value=[]
+   const formData = {}
+  // formData.limit = pageSize.value
+  // formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'settlement'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = ['county_id']
+  formData.filterValues = [[county_id]]
+  formData.associated_multiple_models = []
+  //formData.nested_models = nested_models
+  //formData.nested_filter = nested_filter
+  formData.currentUser = currentUser
+
+
+  //-------------------------
+   const res = await getSettlementListByCounty(formData)
+ 
+ 
+  res.data.forEach(function (arrayItem) {
+    var opt = {}
+    opt.value = arrayItem.id
+    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    settlementOptions.value.push(opt)
+  })
+
+ 
+}
+
 </script>
 
 <template>
@@ -699,74 +777,83 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       @current-change="onPageChange" class="mt-4" />
 
  
-      <el-dialog draggable v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
-      <el-form :model="form">
+   <el-dialog draggable v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
+  <el-form :model="form">
 
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-        <el-form-item label="Name" :label-width="formLabelWidth">
-          <el-input v-model="form.name" autocomplete="off" />
-        </el-form-item>
+    <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+      <el-form-item label="Name" :label-width="formLabelWidth">
+        <el-input v-model="form.name" autocomplete="off" />
+      </el-form-item>
+    </el-col>
 
-        </el-col>
+    <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+      <el-form-item label="Email" :label-width="formLabelWidth">
+        <el-input v-model="form.email" autocomplete="off" disabled />
+      </el-form-item>
+    </el-col>
 
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-        <el-form-item label="Email" :label-width="formLabelWidth">
-          <el-input v-model="form.email" autocomplete="off" disabled />
-        </el-form-item>
-        </el-col>
+    <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+      <el-form-item label="Username" :label-width="formLabelWidth">
+        <el-input v-model="form.username" autocomplete="off" disabled />
+      </el-form-item>
+    </el-col>
 
+    <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+      <el-form-item label="Phone" :label-width="formLabelWidth">
+        <el-input v-model="form.phone" autocomplete="off" />
+      </el-form-item>
+    </el-col>
 
-           
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-        <el-form-item label="Username" :label-width="formLabelWidth">
-          <el-input v-model="form.username" autocomplete="off" disabled />
-        </el-form-item>
-        </el-col>
-
-
-
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-
-        <el-form-item label="Phone" :label-width="formLabelWidth">
-          <el-input v-model="form.phone" autocomplete="off" />
-        </el-form-item>
-        </el-col>
-
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-
-        <el-form-item label="County" :label-width="formLabelWidth">
-          <el-select v-model="form.county_id" placeholder="Please select a zone">
-            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        </el-col>
-
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-        <el-form-item label="Role" :label-width="formLabelWidth">
-          <el-radio-group v-model="form.roles">
-            <el-row :gutter="20">
-              <el-col v-for="item in RolesOptions" :key="item.value" :span="12">
-                <el-radio :label="item.value">{{ item.label }}</el-radio>
-              </el-col> 
   
-            </el-row>
-          </el-radio-group>
-        </el-form-item>
-        </el-col>
+    <el-row>
+    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+      <el-form-item label="Role" :label-width="formLabelWidth">
+        <el-select v-model="form.roles" placeholder="Please select a role">
+          <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+    </el-col>
+
+    
+    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+      <el-form-item label="Level" :label-width="formLabelWidth">
+        <el-select v-model="form.location_level" placeholder="Level" :onChange="handleSelectLevel"> 
+          <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+    </el-col>
+  </el-row>
 
 
+    <el-row>
+    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+      <el-form-item   v-if="showCounty"  label="Location" :label-width="formLabelWidth">
+        <el-select v-model="form.county_id" placeholder="Please select a County" :onChange="getCountySettlements">
+          <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+    </el-col>
 
 
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogFormVisible = false">Cancel</el-button>
-          <el-button type="primary" @click="updateUser">
-            Confirm
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
+    <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
+      <el-form-item v-if="showSettlement" label="Settlement" :label-width="formLabelWidth">
+        <el-select v-model="form.settlement_id" placeholder="Please select a Settlement">
+          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-form-item>
+    </el-col>
+  </el-row>
+
+  </el-form>
+  <template #footer>
+    <span class="dialog-footer">
+      <el-button @click="dialogFormVisible = false">Cancel</el-button>
+      <el-button type="primary" @click="updateUser">
+        Confirm
+      </el-button>
+    </span>
+  </template>
+</el-dialog>
 
   </el-card>
 </template>
