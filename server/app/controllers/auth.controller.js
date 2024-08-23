@@ -117,7 +117,7 @@ exports.signup = (req, res) => {
     })
 }
  
-exports.updateUser = (req, res) => {
+exports.xupdateUser = (req, res) => {
   console.log('Update user....')
  
   console.log('Request:----->', req.body)
@@ -167,7 +167,101 @@ exports.updateUser = (req, res) => {
     }
   })
 }
+exports.updateUser = (req, res) => {
+  console.log('Update user....');
+  console.log('Request:----->', req.body.id);
 
+  // Find the user by ID and update their information
+  User.findOne({ where: { id: req.body.id } }).then((user) => {
+    if (user) {
+      user.set(req.body);
+      user.save().then(() => {
+        // Now update or insert the roles
+        console.log('Roles Length:', req.body.roles);
+
+        if (req.body.roles.length > 0) {
+          // Find the roles in the roles table
+          Role.findAll({
+            where: {
+              id: {
+                [Op.or]: req.body.roles.map(role => role)
+              }
+            }
+          }).then((roles) => {
+            console.log('Roles found:----->', roles);
+
+            const locationId = req.body.settlement_id 
+            ? req.body.settlement_id 
+            : req.body.county_id || null;
+
+            
+            // Prepare the user roles with the extra fields
+            const userRoles = req.body.roles.map(role => {
+              return {
+                roleid: role,
+                userid: req.body.id,
+                location_level: req.body.location_level,
+                location_id: locationId,
+                county_id: req.body.county_id,
+                settlement_id: req.body.settlement_id
+              };
+            });
+
+            console.log('userRoles',userRoles)
+
+            // Update the user roles in the user_roles table
+            db.models.user_roles.bulkCreate(userRoles, { 
+            }).then(() => {
+              var token = jwt.sign({ id: user.id }, config.secret, {
+                expiresIn: 86400 // 24 hours
+              });
+
+              res.send({
+                message: 'User and roles updated successfully!',
+                code: "0000",
+                roles: roles,
+                data: token,
+                user: user
+              });
+            }).catch(err => {
+              console.log(err)
+              res.status(500).send({
+                message: 'Error updating user roles',
+                error: err
+              });
+            });
+          }).catch(err => {
+
+            console.log(err)
+            res.status(500).send({
+              message: 'Error finding roles',
+              error: err
+            });
+          });
+        } else {
+          res.status(400).send({
+            data: user,
+            message: 'A user requires at least one role on this system'
+          });
+        }
+      }).catch(err => {
+        res.status(500).send({
+          message: 'Error saving user information',
+          error: err
+        });
+      });
+    } else {
+      res.status(404).send({
+        message: 'User not found'
+      });
+    }
+  }).catch(err => {
+    res.status(500).send({
+      message: 'Error finding user',
+      error: err
+    });
+  });
+};
 
 const multer = require('multer');
 

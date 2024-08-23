@@ -27,6 +27,14 @@ module.exports = function(sequelize, DataTypes) {
     location_id: {
       type: DataTypes.STRING,
       allowNull: true,
+    },
+    county_id: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    settlement_id: {
+      type: DataTypes.STRING,
+      allowNull: true,
     }
 
   }, {
@@ -40,6 +48,8 @@ module.exports = function(sequelize, DataTypes) {
         fields: [
           { name: "roleid" },
           { name: "userid" },
+          { name: "location_level" },
+          { name: "location_id" },
         ]
       },
     ]
