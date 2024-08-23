@@ -72,7 +72,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     component: () => import('@/views/Landing/Privacy.vue'),
     name: 'Privacy',
     meta: {
-      hidden: false,
+      hidden: true,
       title: 'Privacy',
       noTagsView: true
     }
@@ -82,7 +82,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     component: () => import('@/views/Landing/Contact.vue'),
     name: 'Contact',
     meta: {
-      hidden: false,
+      hidden: true,
       title: 'Contact',
       noTagsView: true
     }
@@ -93,7 +93,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     component: () => import('@/views/Landing/FAQs.vue'),
     name: 'FAQs',
     meta: {
-      hidden: false,
+      hidden: true,
       title: 'FAQs',
       noTagsView: true
     }

@@ -31,6 +31,7 @@ const toLogin = () => {
 
 <template>
       <BaseLayout>
+        <div class="hero"> 
    <div :class="prefixCls" class="h-[100%] relative <xl <sm:px-10px <xl:px-10px <md:px-10px">
     <div class="relative h-full flex mx-auto">
       
@@ -61,6 +62,7 @@ const toLogin = () => {
       </div>
     </div>
   </div>
+</div>
 </BaseLayout>
 </template>
 
@@ -82,5 +84,18 @@ const toLogin = () => {
       content: '';
     }
   }
+}
+
+
+.hero {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 100px 20px;
+    background-size: cover;
+  background-position: center;
+   height: 80vh;
 }
 </style>

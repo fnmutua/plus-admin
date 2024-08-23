@@ -22,10 +22,8 @@
               <el-menu-item index="4">About</el-menu-item>
               <el-menu-item index="6">FAQs</el-menu-item>
               <el-menu-item   index="7" >
-     <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
- 
+                <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
               </el-menu-item>
-
             </el-menu>
           </nav>
              
