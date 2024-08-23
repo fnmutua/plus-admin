@@ -81,7 +81,7 @@ const navigateTo = (page: string) => {
   padding: 100px 20px;
     background-size: cover;
   background-position: center;
-   height: 70vh;
+   height: 80vh;
 }
 
 .xhero {
