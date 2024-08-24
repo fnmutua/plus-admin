@@ -107,18 +107,7 @@ onMounted(async () => {
 
 })
 
-
-
-
-
-
-
-
-
-
-
-
-
+ 
 
 
 const dialogFormVisible = ref(false)
@@ -503,12 +492,7 @@ const EditUser = (data: TableSlotDefault) => {
 
 
 
-const updateUser = () => {
-  form.value.roles = [form.value.roles]
-  updateUserApi(form).then(() => { })
 
-  dialogFormVisible.value = false
-}
 const search = ref('')
 
 
@@ -676,8 +660,8 @@ const saveRoles = () => {
 const tmp_roles = ref([])
 const addRole = () => {
   const this_role = {
-    id: 'null',
-    role: null,
+     userid:form.value.id,
+     roleid: null,
     location_level: 'National',
     county_id: '',
     settlement_id: ''
@@ -695,6 +679,14 @@ const removeRole = (index) => {
   tmp_roles.value.splice(index, 1);
 }
 
+
+const updateUser = () => {
+  form.value.roles = tmp_roles.value
+  console.log('form.value',form.value)
+  updateUserApi(form.value).then(() => { })
+
+  dialogFormVisible.value = false
+}
 
 </script>
 
@@ -919,7 +911,7 @@ const removeRole = (index) => {
 
           <el-table-column prop="role" label="Role">
             <template #default="{ row }">
-              <el-select v-model="row.role" placeholder="Select Role" size="small" style="width:80%">
+              <el-select v-model="row.roleid" placeholder="Select Role" size="small" style="width:80%">
                 <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>

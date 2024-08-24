@@ -169,7 +169,7 @@ exports.xupdateUser = (req, res) => {
 }
  
 
-exports.updateUser = (req, res) => {
+exports.xxupdateUser = (req, res) => {
   console.log('Update user....');
   console.log('Request:----->', req.body.id);
 
@@ -184,21 +184,11 @@ exports.updateUser = (req, res) => {
         if (req.body.roles.length > 0) {
           // Loop through each role and update/insert into user_roles
           const updateRolePromises = req.body.roles.map(role => {
-            const locationId = req.body.settlement_id 
-              ? req.body.settlement_id 
-              : req.body.county_id || null;
-
-            const userRoleData = {
-              roleid: role,
-              userid: req.body.id,
-              location_level: req.body.location_level,
-              location_id: locationId,
-              county_id: req.body.county_id,
-              settlement_id: req.body.settlement_id
-            };
+       
+ 
 
             // Update or insert the role for the user
-            return db.models.user_roles.upsert(userRoleData, {
+            return db.models.user_roles.upsert(req.body.roles, {
               where: {
                 roleid: role,
                 userid: req.body.id
@@ -251,6 +241,86 @@ exports.updateUser = (req, res) => {
   });
 };
 
+exports.updateUser = (req, res) => {
+  console.log('Update user....');
+  console.log('Request:----->', req.body.id);
+
+  // Find the user by ID and update their information
+  User.findOne({ where: { id: req.body.id } }).then((user) => {
+    if (user) {
+      user.set(req.body);
+      user.save().then(() => {
+        // Now update or insert the roles one by one
+        console.log('Roles Length:', req.body.roles);
+
+        if (req.body.roles && req.body.roles.length > 0) {
+          // Loop through each role and update/insert into user_roles
+          const updateRolePromises = req.body.roles.map(role => {
+            // Ensure that the role object has the necessary properties
+            if (!role.roleid || !role.userid || !role.location_level) {
+              return Promise.reject(new Error('Role object is missing required properties'));
+            }
+
+            // Update or insert the role for the user
+            return db.models.user_roles.upsert({
+              roleid: role.roleid,
+              userid: role.userid,
+              location_level: role.location_level,
+              location_id: role.location_id || null,  // Use null if not provided
+              county_id: role.county_id || null,      // Use null if not provided
+              settlement_id: role.settlement_id || null // Use null if not provided
+            }, {
+              // Define the unique constraints for upsert
+              where: {
+                roleid: role.roleid,
+                userid: role.userid
+              }
+            });
+          });
+
+          // Execute all update/insert operations
+          Promise.all(updateRolePromises).then(() => {
+            var token = jwt.sign({ id: user.id }, config.secret, {
+              expiresIn: 86400 // 24 hours
+            });
+
+            res.send({
+              message: 'User and roles updated successfully!',
+              code: "0000",
+              data: token,
+              user: user
+            });
+          }).catch(err => {
+            console.log(err);
+            res.status(500).send({
+              message: 'Error updating user roles',
+              error: err
+            });
+          });
+        } else {
+          res.status(400).send({
+            data: user,
+            message: 'A user requires at least one role on this system'
+          });
+        }
+      }).catch(err => {
+        res.status(500).send({
+          message: 'Error saving user information',
+          error: err
+        });
+      });
+    } else {
+      res.status(404).send({
+        message: 'User not found'
+      });
+    }
+  }).catch(err => {
+    res.status(500).send({
+      message: 'Error finding user',
+      error: err
+    });
+  });
+};
 
 
 
