@@ -483,7 +483,8 @@ const EditUser = async (data: TableSlotDefault) => {
  
  
   data.row.roles.forEach(async function (arrayItem) {
-    console.log(arrayItem.user_roles.county_id)
+    console.log("tis USers Roles", arrayItem.user_roles)
+    await handleChangeLevel((arrayItem.user_roles.location_level))
 
  
     if(arrayItem.user_roles.county_id){
@@ -492,6 +493,7 @@ const EditUser = async (data: TableSlotDefault) => {
       arrayItem.user_roles.county_id = parseInt(arrayItem.user_roles.county_id, 10);
 
     }
+
 
     if(arrayItem.user_roles.settlement_id) {
       arrayItem.user_roles.settlement_id = parseInt(arrayItem.user_roles.settlement_id, 10);
@@ -617,6 +619,9 @@ const handleSelectLevel = async (level) => {
   }
 }
 
+const isNationalLevel=ref(false)
+const isCountyLevel=ref(false)
+const isSettlementLevel=ref(false)
 
 const getCountySettlements = async (county_id) => {
 
@@ -656,7 +661,30 @@ const getCountySettlements = async (county_id) => {
 
 }
 
+const handleChangeLevel = async (level) => {
 
+  console.log(level)
+
+  if(level=='national') {
+    isNationalLevel.value=true
+    isCountyLevel.value=false
+    isSettlementLevel.value=false 
+
+  }
+  else if(level=='county'){
+    isNationalLevel.value=false
+    isCountyLevel.value=true
+    isSettlementLevel.value=false 
+
+  } 
+  else {
+    isSettlementLevel.value=true 
+    isCountyLevel.value=true
+    isNationalLevel.value=false
+
+  }
+
+ }
 
 const selectedRoles = ref([]);
 
@@ -701,6 +729,9 @@ const updateUser = () => {
         //to revisit
        // tableDataList.value[userIndex] = response.user;
       }
+
+      window.location.reload()
+
 
 
   })
@@ -865,7 +896,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           </el-table-column>
           <el-table-column prop="level" label="Level">
             <template #default="{ row }">
-              <el-select v-model="row.location_level" placeholder="Select level" size="small" style="width:80%">
+              <el-select v-model="row.location_level" placeholder="Select level" size="small"   @change="handleChangeLevel(row.location_level)" style="width:80%">
                 <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
@@ -874,16 +905,16 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           <el-table-column prop="county_id" label="County">
             <template #default="{ row }">
               <el-select
-v-model="row.county_id" placeholder="Select County" clearable
+v-model="row.county_id" placeholder="County" clearable :disabled="isNationalLevel"
                 @change="getCountySettlements(row.county_id)" size="small" style="width:80%">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
           </el-table-column>
 
-          <el-table-column prop="settlement_id" label="Settlement">
+          <el-table-column prop="settlement_id" label="Settlement" >
             <template #default="{ row }">
-              <el-select v-model="row.settlement_id" placeholder="Select Settlement" size="small" style="width:80%" clearable>
+              <el-select v-model="row.settlement_id" placeholder="Settlement" size="small"   :disabled="!isSettlementLevel" style="width:80%" clearable>
                 <el-option
 v-for="item in settlementOptions" :key="item.value" :label="item.label"
                   :value="item.value" />
