@@ -319,84 +319,160 @@ export interface PermissionState {
   menuTabRouters: AppRouteRecordRaw[]
 }
 
+// export const usePermissionStore = defineStore('permission', {
+//   state: (): PermissionState => ({
+//     routers: [],
+//     addRouters: [],
+//     isAddRouters: false,
+//     menuTabRouters: []
+//   }),
+//   getters: {
+//     getRouters(): AppRouteRecordRaw[] {
+//       return this.routers
+//     },
+//     getAddRouters(): AppRouteRecordRaw[] {
+//       return flatMultiLevelRoutes(cloneDeep(this.addRouters))
+//     },
+//     getIsAddRouters(): boolean {
+//       return this.isAddRouters
+//     },
+//     getMenuTabRouters(): AppRouteRecordRaw[] {
+//       return this.menuTabRouters
+//     }
+//   },
+//   actions: {
+//     generateRoutes(
+//       type: 'admin' | 'county_admin' | 'county_staff' | 'county_mon' | 'staff' | 'public' | 'super_admin' | 'national_grm'| 'county_grm' | 'settlement_grm', routers?: AppCustomRouteRecordRaw[] | string[]
+//     ): Promise<unknown> {
+//       return new Promise<void>((resolve) => {
+//         // Function to recursively filter routes and their children based on 'type'
+//         const filterRoutes = (routes) => {
+        
+//           const filteredRoutes = routes.filter((route) => {
+//             //console.log('route---->', type)
+//             if (!route.meta || !route.meta.role) return true; // Include routes without 'meta' or 'role' property
+//             return route.meta.role.includes(type);
+//           });
+  
+//           // Recursively filter the children of each route
+//           filteredRoutes.forEach((route) => {
+//             if (route.children) {
+//               route.children = filterRoutes(route.children);
+//             }
+//           });
+  
+//           return filteredRoutes;
+//         };
+  
+//         const filteredRoutes = filterRoutes(adminRoutes);
+  
+//         // Clone the filtered routes to avoid modifying the original routes
+//         const routerMap: AppRouteRecordRaw[] = cloneDeep(filteredRoutes);
+  
+//         // Further processing if needed...
+//         // Add additional routes, modify route properties, etc.
+  
+//         this.addRouters = routerMap;     
+  
+
+//      console.log('routerMap2',routerMap)
+
+
+
+        
+        
+//         // merge the programmes to the outer root. Will be reconsidered wheer to
+//         this.routers = cloneDeep(constantRouterMap).concat(this.addRouters)
+ 
+    
+//         resolve()
+//       })
+//     },
+//     setIsAddRouters(state: boolean): void {
+//       this.isAddRouters = state
+//     },
+//     setMenuTabRouters(routers: AppRouteRecordRaw[]): void {
+//       this.menuTabRouters = routers
+//     }
+//   }
+// })
+
+
 export const usePermissionStore = defineStore('permission', {
-  state: (): PermissionState => ({
+  state: () => ({
     routers: [],
     addRouters: [],
     isAddRouters: false,
     menuTabRouters: []
   }),
   getters: {
-    getRouters(): AppRouteRecordRaw[] {
-      return this.routers
+    getRouters() {
+      return this.routers;
     },
-    getAddRouters(): AppRouteRecordRaw[] {
-      return flatMultiLevelRoutes(cloneDeep(this.addRouters))
+    getAddRouters() {
+      return flatMultiLevelRoutes(cloneDeep(this.addRouters));
     },
-    getIsAddRouters(): boolean {
-      return this.isAddRouters
+    getIsAddRouters() {
+      return this.isAddRouters;
     },
-    getMenuTabRouters(): AppRouteRecordRaw[] {
-      return this.menuTabRouters
+    getMenuTabRouters() {
+      return this.menuTabRouters;
     }
   },
   actions: {
     generateRoutes(
-      type: 'admin' | 'county_admin' | 'county_staff' | 'county_mon' | 'staff' | 'public' | 'super_admin' | 'national_grm'| 'county_grm' | 'settlement_grm', routers?: AppCustomRouteRecordRaw[] | string[]
-    ): Promise<unknown> {
+      type, 
+      locationLevel,
+      
+    ) {
       return new Promise<void>((resolve) => {
-        // Function to recursively filter routes and their children based on 'type'
+        // Function to recursively filter routes and their children based on 'type' and 'locationLevel'
         const filterRoutes = (routes) => {
-        
           const filteredRoutes = routes.filter((route) => {
-            //console.log('route---->', type)
-            if (!route.meta || !route.meta.role) return true; // Include routes without 'meta' or 'role' property
-            return route.meta.role.includes(type);
+            // Check if route has 'meta' and if the 'role' and 'locationLevel' match
+            if (!route.meta || (!route.meta.role && !route.meta.locationLevel)) return true;
+            
+            const matchesRole = route.meta.role ? route.meta.role.includes(type) : true;
+            const matchesLocation = route.meta.locationLevel ? route.meta.locationLevel.includes(locationLevel) : true;
+
+            console.log("Checking roles >>>------",route.meta.locationLevel,locationLevel)
+
+            return matchesRole && matchesLocation;
           });
-  
+
           // Recursively filter the children of each route
           filteredRoutes.forEach((route) => {
             if (route.children) {
               route.children = filterRoutes(route.children);
             }
           });
-  
+
           return filteredRoutes;
         };
-  
+
+        // Filter routes based on role and location level
         const filteredRoutes = filterRoutes(adminRoutes);
-  
+
         // Clone the filtered routes to avoid modifying the original routes
-        const routerMap: AppRouteRecordRaw[] = cloneDeep(filteredRoutes);
-  
-        // Further processing if needed...
-        // Add additional routes, modify route properties, etc.
-  
-        this.addRouters = routerMap;     
-  
+        const routerMap = cloneDeep(filteredRoutes);
 
-     console.log('routerMap2',routerMap)
+        console.log("Filtered routerMap Routes: ",routerMap)
 
+        // Set the filtered routes
+        this.addRouters = routerMap;
+        this.routers = cloneDeep(constantRouterMap).concat(this.addRouters);
 
-
-        
-        
-        // merge the programmes to the outer root. Will be reconsidered wheer to
-        this.routers = cloneDeep(constantRouterMap).concat(this.addRouters)
- 
-    
-        resolve()
-      })
+        resolve();
+      });
     },
-    setIsAddRouters(state: boolean): void {
-      this.isAddRouters = state
+    setIsAddRouters(state) {
+      this.isAddRouters = state;
     },
-    setMenuTabRouters(routers: AppRouteRecordRaw[]): void {
-      this.menuTabRouters = routers
+    setMenuTabRouters(routers) {
+      this.menuTabRouters = routers;
     }
   }
-})
-
+});
 export const usePermissionStoreWithOut = () => {
   return usePermissionStore(store)
 }

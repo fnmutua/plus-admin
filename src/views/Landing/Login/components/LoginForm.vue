@@ -179,240 +179,9 @@ const signIn = async () => {
 }
 
 
-const xgetRole = async (authenitcatedUser) => {
+ 
 
-  const { getFormData } = methods
-  const formData = await getFormData<UserType>()
-  console.log('authenitcatedUser roles', authenitcatedUser)
-
-  // use the user details to set paths to see
-  if (authenitcatedUser.roles.includes("admin") || authenitcatedUser.roles.includes("super_admin")  ||  authenitcatedUser.roles.includes("staff")  )  {
-    formData.role = 'admin';
-    appStore.setAdminButtons(true)
-    appStore.setEditButtons(true)
-    appStore.setAdmin(true)
-
-  } 
-  else if (authenitcatedUser.roles.includes("staff")  ) 
-  {
-    formData.role = 'staff';
-    appStore.setEditButtons(true)
-    console.log("is user editir?--->", appStore.getEditButtons)
-
-    //appStore.setAdminButtons(true)
-
-  }
-   else if (authenitcatedUser.roles.includes("county_admin")) 
-   {
-    formData.role = 'county_admin';
-  } 
-  else if (authenitcatedUser.roles.includes("national_grm")) 
-   {
-    formData.role = 'national_grm';
-  } 
-  else if (authenitcatedUser.roles.includes("county_grm")) 
-   {
-    formData.role = 'county_grm';
-  } 
-
-  else if (authenitcatedUser.roles.includes("settlement_grm")) 
-   {
-    formData.role = 'settlement_grm';
-  } 
-
-
-  else if (authenitcatedUser.roles.includes("super_admin")) {
-    formData.role = 'super_admin';
-    appStore.setAdminButtons(true)
-    appStore.setEditButtons(true)
-
-
-  } else if (
-    authenitcatedUser.roles.includes("county_staff") ||
-    authenitcatedUser.roles.includes("county_mon") ||
-    authenitcatedUser.roles.includes("settlement_sec")
-  ) {
-    formData.role = 'county_user';
-  } else {
-    formData.role = 'others';
-  }
-
-  // If the user has more than one role, find the superior role based on priority order
-  const rolePriorityOrder = [
-    'super_admin',
-    'admin',
-    'county_admin',
-    'staff',
-    'county_user',
-    'others',
-  ];
-
-  const superiorRole = authenitcatedUser.roles.find((role) =>
-    rolePriorityOrder.includes(role)
-  );
-
-  if (superiorRole) {
-    formData.role = superiorRole;
-  }
-
-  
-  const params = {
-    roleName: formData.role
-  }
-
-  formData.permissions = ['*.*.*']
-
-  // const color = d.y >= 70 ? "green" : (d.y < 50 ? "red" : "yellow");
-  let res;
-  // switch (formData.role) {
-  //   case 'admin':
-  //     res = await getAdminRoleApi(params)
-  //     break;
-  //   case 'super_admin':
-  //     res = await getSuperAdminRoleApi(params)
-  //     break;
-
-  //   case 'staff':
-  //     res = await getAdminRoleApi(params)
-  //     break;
-  //   case 'county_admin':
-  //     res = await getOtherRoutesApi(params)
-  //     break;
-  //   case 'county_user':
-  //     res = await getAdminRoleApi(params)
-  //     break;
-  //   case 'others':
-  //     res = await getTestRoleApi(params)
-  //     break;
-  // }
-
-
-  // const res = formData.role === 'admin' ? await getAdminRoleApi(params) : await getTestRoleApi(params)
- // if (res) {
-
-   // console.log('revised Res', res)
-    const { wsCache } = useCache()
-    const routers =   []
-    wsCache.set('roleRouters', routers)
-    console.log("  formData.role >>", formData.role)
-
-
-  
-
-    if (formData.role === 'admin') {
-      await permissionStore.generateRoutes('admin', routers).catch(() => { })
-    } else if (formData.role === 'county_admin') {
-      await permissionStore.generateRoutes('county_admin', routers).catch(() => { })
-      console.log('0003')
-    }
-    else if (formData.role === 'staff'  ) {
-      await permissionStore.generateRoutes('staff', routers).catch(() => { })
-      console.log('0003')
-      console.log("is user getEditButtons?--->", appStore.getEditButtons)
-
-    }
-    else if (formData.role === 'county_user') {
-      await permissionStore.generateRoutes('county_staff', routers).catch(() => { })
-      console.log('0004--county_users')
-    }
-    else if (formData.role === 'super_admin') {
-      await permissionStore.generateRoutes('super_admin', routers).catch(() => { })
-      console.log('0004--super_admin')
-    }
-
-    else {
-      await permissionStore.generateRoutes('public', routers).catch(() => { })
-
-    }
-
-
-
-
-
-    permissionStore.getAddRouters.forEach((route) => {
-      addRoute(route as RouteRecordRaw) // 动态添加可访问路由表
-    })
-    permissionStore.setIsAddRouters(true)
-    push({ path: redirect.value || permissionStore.addRouters[0].path })
-  }
-//}
-
-
-const xxgetRole = async (authenticatedUser) => {
-  const { getFormData } = methods;
-  const formData = await getFormData<UserType>();
-  console.log('authenticatedUser roles', authenticatedUser);
-
-  // Set default permissions
-  formData.permissions = ['*.*.*'];
-
-  const rolePriorityOrder = [
-    'super_admin',
-    'admin',
-    'staff',
-    'county_admin',
-    'county_user',
-    'others',
-  ];
-
-  // Find superior role based on priority order
-  const superiorRole = authenticatedUser.roles.find((role) =>
-    rolePriorityOrder.includes(role)
-  );
-
-  if (superiorRole) {
-    formData.role = superiorRole;
-  } else {
-    formData.role = 'others';
-  }
-
-  const params = {
-    roleName: formData.role
-  };
-
-  let routers = [];
-  const { wsCache } = useCache();
-
-
-  appStore.setAdminButtons(true)
-    appStore.setEditButtons(true)
-    appStore.setAdmin(true)
-    
-  wsCache.set('roleRouters', routers);
-  console.log("formData.role >>", formData.role);
-
-  switch (formData.role) {
-    case 'admin':
-      await permissionStore.generateRoutes('admin', routers).catch(() => {});
-      break;
-    case 'county_admin':
-      await permissionStore.generateRoutes('county_admin', routers).catch(() => {});
-      console.log('0003');
-      break;
-    case 'staff':
-      await permissionStore.generateRoutes('staff', routers).catch(() => {});
-      console.log('0003');
-      console.log("is user getEditButtons?--->", appStore.getEditButtons);
-      break;
-    case 'county_user':
-      await permissionStore.generateRoutes('county_staff', routers).catch(() => {});
-      console.log('0004--county_users');
-      break;
-    case 'super_admin':
-      await permissionStore.generateRoutes('super_admin', routers).catch(() => {});
-      console.log('0004--super_admin');
-      break;
-    default:
-      await permissionStore.generateRoutes('public', routers).catch(() => {});
-  }
-
-  permissionStore.getAddRouters.forEach((route) => {
-    addRoute(route as RouteRecordRaw); // Dynamically add accessible routes
-  });
-  permissionStore.setIsAddRouters(true);
-  push({ path: redirect.value || permissionStore.addRouters[0].path });
-};
-
+ 
 const getRole = async (authenticatedUser) => {
   const { getFormData } = methods;
   const formData = await getFormData<UserType>();
@@ -421,75 +190,36 @@ const getRole = async (authenticatedUser) => {
   // Set default permissions
   formData.permissions = ['*.*.*'];
 
-  const rolePriorityOrder = [
-    'super_admin',
-    'admin',
-    'staff',
-    'county_admin',
-    'county_user',
-    'others',
-  ];
-
-  // Find superior role based on priority order
-  const superiorRole = authenticatedUser.roles.find((role) =>
-    rolePriorityOrder.includes(role)
-  );
-
-  if (superiorRole) {
-    formData.role = superiorRole;
+  // Extract the role and level from authenticatedUser
+  const roleObj = authenticatedUser.roles.find((roleObj) => roleObj);
+  console.log('roleObj',roleObj)
+  
+  if (roleObj) {
+    formData.role = roleObj.name;
+    formData.level = roleObj.user_roles.location_level; // Assuming each role object has a level property
   } else {
     formData.role = 'others';
+    formData.level = 'default'; // Assign a default level if not found
   }
-
- 
 
   let routers = [];
   const { wsCache } = useCache();
   wsCache.set('roleRouters', routers);
   console.log("formData.role >>", formData.role);
+  console.log("formData.level >>", formData.level);
 
-  switch (formData.role) {
-    case 'admin':
-        appStore.setAdminButtons(true);
-        appStore.setEditButtons(true);
-        appStore.setAdmin(true);
-      await permissionStore.generateRoutes('admin', routers).catch(() => {});
-      break;
-    case 'county_admin':
-         appStore.setEditButtons(true);
-       await permissionStore.generateRoutes('county_admin', routers).catch(() => {});
-      console.log('0003');
-      break;
-    case 'staff':
-        appStore.setAdminButtons(true);
-        appStore.setEditButtons(true);
-  
-      console.log('0003');
-      console.log("is user getEditButtons?--->", appStore.getEditButtons);
-      await permissionStore.generateRoutes('staff', routers).catch(() => {});
-      break;
-    case 'county_user':
-      await permissionStore.generateRoutes('county_staff', routers).catch(() => {});
-      console.log('0004--county_users');
-      break;
-    case 'super_admin':
-         appStore.setAdminButtons(true);
-        appStore.setEditButtons(true);
-        appStore.setAdmin(true);
+  // Generate routes based on role and level
+  await permissionStore.generateRoutes(formData.role, formData.level).catch(() => {});
 
-      await permissionStore.generateRoutes('super_admin', routers).catch(() => {});
-      console.log('0004--super_admin');
-      break;
-    default:
-      await permissionStore.generateRoutes('public', routers).catch(() => {});
-  }
-
+  // Dynamically add accessible routes
   permissionStore.getAddRouters.forEach((route) => {
-    addRoute(route as RouteRecordRaw); // Dynamically add accessible routes
+    addRoute(route as RouteRecordRaw);
   });
+  
   permissionStore.setIsAddRouters(true);
   push({ path: redirect.value || permissionStore.addRouters[0].path });
 };
+
 
 const toRegister = () => {
   emit('to-register')

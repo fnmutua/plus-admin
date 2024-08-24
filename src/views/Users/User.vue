@@ -27,7 +27,6 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue';
-import { countyOptions, LevelOptions } from '../programmes/common'
 
 interface Params {
   pageIndex?: number
@@ -262,7 +261,7 @@ const getCountyNames = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    loading.value = false
+    
 
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
@@ -324,7 +323,7 @@ const getSettlementsOptions = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    loading.value = false
+    
     // pass result to the makeoptions
 
     settlements.value = ret
@@ -425,7 +424,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
 
-  loading.value = false
+  
 
 
   res.data.forEach(function (arrayItem) {
@@ -730,7 +729,7 @@ const updateUser = () => {
        // tableDataList.value[userIndex] = response.user;
       }
 
-      window.location.reload()
+      //window.location.reload()
 
 
 
@@ -784,7 +783,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
 
 
-    <el-table :data="tableDataList" style="width: 100% ; margin-top: 30px" fit v-loading="loading">
+    <el-table :data="tableDataList" style="width: 100% ; margin-top: 30px"   v-loading="loading">
 
       <el-table-column type="index" label="#" width="50">
         <!-- Use the 'index' slot to customize the index column -->
