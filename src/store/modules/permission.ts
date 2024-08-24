@@ -1,13 +1,12 @@
 import { defineStore } from 'pinia'
 import { adminRoutes, constantRouterMap  } from '@/router'
-import { generateRoutesFn1, generateRoutesFn2, flatMultiLevelRoutes } from '@/utils/routerHelper'
+import { flatMultiLevelRoutes } from '@/utils/routerHelper'
 import { store } from '../index'
 import { cloneDeep } from 'lodash-es'
-import { Layout, getParentLayout } from '@/utils/routerHelper'
-import { getCountyListApi } from '@/api/counties'
-import { ref, reactive } from 'vue'
-import { getRoutesList, getSettlementListByCounty } from '@/api/settlements'
-import { useAppStoreWithOut ,useAppStore} from '@/store/modules/app'
+import { Layout } from '@/utils/routerHelper'
+import { ref } from 'vue'
+import { getRoutesList } from '@/api/settlements'
+import { useAppStore} from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 
 
