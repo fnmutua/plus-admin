@@ -1155,8 +1155,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     name: 'Grievances',
     meta: {
       title: 'Grievances',
-      icon: 'uis:graph-bar',
-      role: [  'super_admin', 'national_grm' ] ,
+      icon: 'hugeicons:complaint',
+      role: [  'super_admin', 'national_grm', 'county_grm','settlement_grm' ] ,
 
       alwaysShow: false
     },
@@ -1168,7 +1168,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        name: 'OpenGrievances',
        meta: {
          title: 'Open',
-         icon:'icon-park-outline:activity-source',
+         icon:'oui:security-signal-detected',
          role: [  'super_admin', 'national_grm' ] ,
 
        }
@@ -1179,7 +1179,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        name: 'EscalatedGrievances',
        meta: {
          title: 'Escalated',
-         icon:'icon-park-outline:activity-source',
+         icon:'carbon:ibm-cloud-security-compliance-center-workload-protection',
          role: [  'super_admin', 'national_grm' ] ,
 
        }
@@ -1191,7 +1191,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        name: 'ResolvedGrievances',
        meta: {
          title: 'Resolved',
-         icon:'icon-park-outline:activity-source',
+         icon:'oui:security-signal-resolved',
          role: [  'super_admin', 'national_grm' ] ,
 
        }

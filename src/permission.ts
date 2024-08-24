@@ -62,6 +62,8 @@ router.beforeEach(async (to, from, next) => {
         'staff',
         'county_user',
         'national_grm',
+        'county_grm',
+        'settlement_grm',
         'others',
       ];
       
@@ -90,11 +92,20 @@ router.beforeEach(async (to, from, next) => {
         case 'county_staff':
           await permissionStore.generateRoutes('county_staff');
           break;
+
         case 'national_grm':
             await permissionStore.generateRoutes('national_grm');
             break;
   
-
+        case 'county_grm':
+            await permissionStore.generateRoutes('county_grm');
+            break;
+  
+            case 'settlement_grm':
+              await permissionStore.generateRoutes('settlement_grm');
+              break;
+    
+  
 
         default:
           await permissionStore.generateRoutes('public');

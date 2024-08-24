@@ -206,6 +206,21 @@ const xgetRole = async (authenitcatedUser) => {
    {
     formData.role = 'county_admin';
   } 
+  else if (authenitcatedUser.roles.includes("national_grm")) 
+   {
+    formData.role = 'national_grm';
+  } 
+  else if (authenitcatedUser.roles.includes("county_grm")) 
+   {
+    formData.role = 'county_grm';
+  } 
+
+  else if (authenitcatedUser.roles.includes("settlement_grm")) 
+   {
+    formData.role = 'settlement_grm';
+  } 
+
+
   else if (authenitcatedUser.roles.includes("super_admin")) {
     formData.role = 'super_admin';
     appStore.setAdminButtons(true)
