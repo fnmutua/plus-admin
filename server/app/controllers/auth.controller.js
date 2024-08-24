@@ -206,7 +206,7 @@ exports.updateUser = (req, res) => {
               updateOnDuplicate: ['location_level', 'location_id', 'county_id', 'settlement_id']
             });
           });
-
+ 
           // Execute all update/insert operations
           Promise.all(updateRolePromises).then(() => {
             var token = jwt.sign({ id: user.id }, config.secret, {
