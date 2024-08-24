@@ -780,6 +780,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Surveys',
           icon: 'carbon:report',
           role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+          locationLevel:['national'],
 
         }
       },
@@ -793,6 +794,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Import',
           icon: 'mdi:database-plus',
           role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+          locationLevel:['national','county','settlement'],
 
           alwaysShow: false
         },
@@ -967,6 +969,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'M&E',
       icon: 'uis:graph-bar',
       role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+      locationLevel:['national','county' ],
 
       alwaysShow: false
     },
@@ -980,6 +983,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
          title: 'Activities',
          icon:'icon-park-outline:activity-source',
          role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+         locationLevel:['national','county' ],
 
        }
        },
@@ -1157,7 +1161,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'Grievances',
       icon: 'hugeicons:complaint',
       role: [  'super_admin', 'national_grm', 'county_grm','settlement_grm' ] ,
-
+      locationLevel:['national','county','settlement'],
       alwaysShow: false
     },
     children: [
@@ -1170,6 +1174,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
          title: 'Open',
          icon:'oui:security-signal-detected',
          role: [  'super_admin', 'national_grm' ] ,
+         locationLevel:['national','county','settlement'],
 
        }
        },
@@ -1180,8 +1185,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        meta: {
          title: 'Escalated',
          icon:'carbon:ibm-cloud-security-compliance-center-workload-protection',
-         role: [  'super_admin', 'national_grm' ] ,
-
+ 
        }
        },
      
@@ -1192,8 +1196,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        meta: {
          title: 'Resolved',
          icon:'oui:security-signal-resolved',
-         role: [  'super_admin', 'national_grm' ] ,
-
+ 
        }
        },
      
@@ -1210,7 +1213,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'Interventions',
       icon: 'mdi:office-building-marker-outline',
       hidden: true,
-       role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] 
+       role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] ,
+       locationLevel:['national'],
 
     },
     children: [
@@ -1252,7 +1256,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'Users',
       icon: 'wpf:usershield',
       alwaysShow: true,
-      role: ['admin', 'super_admin',  'county_admin' ] 
+      role: ['admin', 'super_admin', ],
+      locationLevel:['national'],
 
     },
     children: [
@@ -1282,7 +1287,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           hidden: false,
           icon: 'fa6-solid:users-rectangle',
           //role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] 
-          role: ['admin', 'super_admin','county_admin'  ] 
+          role: ['admin', 'super_admin'   ] 
 
         }
       },
@@ -1296,7 +1301,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           hidden: false,
           icon: 'grommet-icons:user-new',
         //  role: ['admin', 'super_admin'  ] 
-        role: ['admin', 'super_admin','county_admin'  ] 
+        role: ['admin', 'super_admin',   ] ,
+        locationLevel:['national'],
 
         }
       },
@@ -1338,7 +1344,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Feedback',
           hidden: false,
           icon: 'fluent:person-feedback-48-filled',
-     //     role: ['admin', 'super_admin'  ] 
+         role: ['admin', 'super_admin'  ] ,
+     locationLevel:['national'],
 
         }
       }, 
@@ -1354,6 +1361,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       icon: 'material-symbols:settings',
       alwaysShow: true,
       role: ['admin', 'super_admin' ,'staff'  ] ,
+      locationLevel:['national'],
+
 
     },
     children: [
@@ -1605,7 +1614,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: t('Admin'),
       icon: 'ant-design:dashboard-filled',
       // we have removed roles here to make it public
-      role: ['super_admin'] 
+      role: ['super_admin'] ,
+      locationLevel:['national']
 
      },
  
