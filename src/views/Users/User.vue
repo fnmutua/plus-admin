@@ -643,18 +643,7 @@ const getCountySettlements = async (county_id) => {
 
 const selectedRoles = ref([]);
 
-const saveRoles = () => {
-  form.value.roles = selectedRoles.value.map((roleName, index) => {
-    const selectedRole = RolesOptions.value.find(role => role.label === roleName);
-    return {
-      role: selectedRole.label,
-      level: selectedRoles.value[index].location_level,
-      county: selectedRoles.value[index].county_id,
-      settlement_id: selectedRoles.value[index].settlement_id,
-    };
-  });
-  dialogFormVisible.value = false;
-};
+ 
 
 
 const tmp_roles = ref([])
@@ -662,9 +651,9 @@ const addRole = () => {
   const this_role = {
      userid:form.value.id,
      roleid: null,
-    location_level: 'National',
-    county_id: '',
-    settlement_id: ''
+     location_level:null,
+    county_id: null,
+    settlement_id: null
 
   }
 
@@ -799,85 +788,7 @@ const updateUser = () => {
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
 
-    <el-dialog draggable v-model="xdialogFormVisible" title="User Details" :width="dialogWidth">
-      <el-form :model="form">
-
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-          <el-form-item label="Name" :label-width="formLabelWidth">
-            <el-input v-model="form.name" autocomplete="off" />
-          </el-form-item>
-        </el-col>
-
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-          <el-form-item label="Email" :label-width="formLabelWidth">
-            <el-input v-model="form.email" autocomplete="off" disabled />
-          </el-form-item>
-        </el-col>
-
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-          <el-form-item label="Username" :label-width="formLabelWidth">
-            <el-input v-model="form.username" autocomplete="off" disabled />
-          </el-form-item>
-        </el-col>
-
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
-          <el-form-item label="Phone" :label-width="formLabelWidth">
-            <el-input v-model="form.phone" autocomplete="off" />
-          </el-form-item>
-        </el-col>
-
-
-        <el-row>
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item label="Role" :label-width="formLabelWidth">
-              <el-select v-model="form.roles" placeholder="Please select a role">
-                <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-
-
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item label="Level" :label-width="formLabelWidth">
-              <el-select v-model="form.location_level" placeholder="Level" :onChange="handleSelectLevel">
-                <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-
-        <el-row>
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item v-if="showCounty" label="Location" :label-width="formLabelWidth">
-              <el-select v-model="form.county_id" placeholder="Please select a County" :onChange="getCountySettlements">
-                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-
-
-          <el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12">
-            <el-form-item v-if="showSettlement" label="Settlement" :label-width="formLabelWidth">
-              <el-select v-model="form.settlement_id" placeholder="Please select a Settlement">
-                <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
-                  :value="item.value" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogFormVisible = false">Cancel</el-button>
-          <el-button type="primary" @click="updateUser">
-            Confirm
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
-
+   
     <el-dialog draggable v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
       <el-form :model="form">
         <el-row>
@@ -918,7 +829,7 @@ const updateUser = () => {
           </el-table-column>
           <el-table-column prop="level" label="Level">
             <template #default="{ row }">
-              <el-select v-model="row.level" placeholder="Select level" size="small" style="width:80%">
+              <el-select v-model="row.location_level" placeholder="Select level" size="small" style="width:80%">
                 <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
@@ -926,7 +837,7 @@ const updateUser = () => {
 
           <el-table-column prop="county_id" label="County">
             <template #default="{ row }">
-              <el-select v-model="row.county_id" placeholder="Select County"
+              <el-select v-model="row.county_id" placeholder="Select County" clearable
                 @change="getCountySettlements(row.county_id)" size="small" style="width:80%">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
@@ -935,7 +846,7 @@ const updateUser = () => {
 
           <el-table-column prop="settlement_id" label="Settlement">
             <template #default="{ row }">
-              <el-select v-model="row.settlement_id" placeholder="Select Settlement" size="small" style="width:80%">
+              <el-select v-model="row.settlement_id" placeholder="Select Settlement" size="small" style="width:80%" clearable>
                 <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
                   :value="item.value" />
               </el-select>
