@@ -27,7 +27,7 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue';
-import { LevelOptions } from '../programmes/common'
+import { countyOptions, LevelOptions } from '../programmes/common'
 
 interface Params {
   pageIndex?: number
@@ -81,7 +81,7 @@ const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
 
-
+const tmp_roles = ref([])
 
 
 
@@ -469,8 +469,10 @@ const AddUser = (data: TableSlotDefault) => {
 
 
 
-const EditUser = (data: TableSlotDefault) => {
+const EditUser = async (data: TableSlotDefault) => {
   console.log(data)
+
+  tmp_roles.value=[]
   form.value.id = data.row.id
   form.value.name = data.row.name
   form.value.county_id = data.row.county_id
@@ -478,14 +480,29 @@ const EditUser = (data: TableSlotDefault) => {
   form.value.phone = data.row.phone
   form.value.avatar = data.row.avatar
   form.value.username = data.row.username
-  let roles = []
-  data.row.roles.forEach(function (arrayItem) {
-    console.log(arrayItem.id)
-    roles.push(arrayItem.id)
+ 
+ 
+  data.row.roles.forEach(async function (arrayItem) {
+    console.log(arrayItem.user_roles.county_id)
+
+ 
+    if(arrayItem.user_roles.county_id){
+      console.log("Get Settleemntsf ofr thus county",arrayItem.user_roles.county_id )
+      await getCountySettlements(parseInt(arrayItem.user_roles.county_id))
+      arrayItem.user_roles.county_id = parseInt(arrayItem.user_roles.county_id, 10);
+
+    }
+
+    if(arrayItem.user_roles.settlement_id) {
+      arrayItem.user_roles.settlement_id = parseInt(arrayItem.user_roles.settlement_id, 10);
+
+    }
+    tmp_roles.value.push(arrayItem.user_roles)
   })
 
+  console.log('tmp_roles>>>>', tmp_roles.value)
 
-  form.value.roles = roles[0]
+ 
   console.log(form)
   dialogFormVisible.value = true
 }
@@ -646,7 +663,7 @@ const selectedRoles = ref([]);
  
 
 
-const tmp_roles = ref([])
+
 const addRole = () => {
   const this_role = {
      userid:form.value.id,
@@ -672,7 +689,21 @@ const removeRole = (index) => {
 const updateUser = () => {
   form.value.roles = tmp_roles.value
   console.log('form.value',form.value)
-  updateUserApi(form.value).then(() => { })
+  updateUserApi(form.value).then((response) => { 
+
+    console.log("updatesuser",response.user)
+
+     // Find the index of the user in the table array
+     const userIndex = tableDataList.value.findIndex(user => user.id === response.user.id);
+
+      if (userIndex !== -1) {
+        // Replace the old user data with the updated user data
+        //to revisit
+       // tableDataList.value[userIndex] = response.user;
+      }
+
+
+  })
 
   dialogFormVisible.value = false
 }
@@ -694,12 +725,14 @@ const updateUser = () => {
       </div>
 
       <!-- Title Search -->
-      <el-select style="  margin-right: 10px;" v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear"
+      <el-select
+style="  margin-right: 10px;" v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear"
         multiple clearable filterable collapse-tags placeholder="Filter by County">
         <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
-      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select
+v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name" />
 
 
@@ -749,7 +782,8 @@ const updateUser = () => {
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item v-if="showAdminButtons">
-                  <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+                  <el-switch
+v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
                     :icon="Edit" />
 
 
@@ -765,7 +799,8 @@ const updateUser = () => {
           <div v-else>
 
             <el-tooltip content="Activate" placement="top">
-              <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+              <el-switch
+v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
                 class="my-switch" />
             </el-tooltip>
             <el-tooltip content="Edit" placement="top">
@@ -783,7 +818,8 @@ const updateUser = () => {
 
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -822,7 +858,7 @@ const updateUser = () => {
 
           <el-table-column prop="role" label="Role">
             <template #default="{ row }">
-              <el-select v-model="row.roleid" placeholder="Select Role" size="small" style="width:80%">
+              <el-select v-model="row.roleid" placeholder="Select Role" size="small" style="width:80%" searchable filterable>
                 <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
@@ -837,7 +873,8 @@ const updateUser = () => {
 
           <el-table-column prop="county_id" label="County">
             <template #default="{ row }">
-              <el-select v-model="row.county_id" placeholder="Select County" clearable
+              <el-select
+v-model="row.county_id" placeholder="Select County" clearable
                 @change="getCountySettlements(row.county_id)" size="small" style="width:80%">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
@@ -847,7 +884,8 @@ const updateUser = () => {
           <el-table-column prop="settlement_id" label="Settlement">
             <template #default="{ row }">
               <el-select v-model="row.settlement_id" placeholder="Select Settlement" size="small" style="width:80%" clearable>
-                <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
+                <el-option
+v-for="item in settlementOptions" :key="item.value" :label="item.label"
                   :value="item.value" />
               </el-select>
             </template>

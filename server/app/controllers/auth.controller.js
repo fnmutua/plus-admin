@@ -169,79 +169,9 @@ exports.xupdateUser = (req, res) => {
 }
  
 
-exports.xxupdateUser = (req, res) => {
-  console.log('Update user....');
-  console.log('Request:----->', req.body.id);
-
-  // Find the user by ID and update their information
-  User.findOne({ where: { id: req.body.id } }).then((user) => {
-    if (user) {
-      user.set(req.body);
-      user.save().then(() => {
-        // Now update or insert the roles one by one
-        console.log('Roles Length:', req.body.roles);
-
-        if (req.body.roles.length > 0) {
-          // Loop through each role and update/insert into user_roles
-          const updateRolePromises = req.body.roles.map(role => {
-       
  
 
-            // Update or insert the role for the user
-            return db.models.user_roles.upsert(req.body.roles, {
-              where: {
-                roleid: role,
-                userid: req.body.id
-              },
-              updateOnDuplicate: ['location_level', 'location_id', 'county_id', 'settlement_id']
-            });
-          });
- 
-          // Execute all update/insert operations
-          Promise.all(updateRolePromises).then(() => {
-            var token = jwt.sign({ id: user.id }, config.secret, {
-              expiresIn: 86400 // 24 hours
-            });
-
-            res.send({
-              message: 'User and roles updated successfully!',
-              code: "0000",
-              data: token,
-              user: user
-            });
-          }).catch(err => {
-            console.log(err)
-            res.status(500).send({
-              message: 'Error updating user roles',
-              error: err
-            });
-          });
-        } else {
-          res.status(400).send({
-            data: user,
-            message: 'A user requires at least one role on this system'
-          });
-        }
-      }).catch(err => {
-        res.status(500).send({
-          message: 'Error saving user information',
-          error: err
-        });
-      });
-    } else {
-      res.status(404).send({
-        message: 'User not found'
-      });
-    }
-  }).catch(err => {
-    res.status(500).send({
-      message: 'Error finding user',
-      error: err
-    });
-  });
-};
-
-exports.updateUser = (req, res) => {
+exports._updateUser = (req, res) => {
   console.log('Update user....');
   console.log('Request:----->', req.body.id);
 
@@ -331,6 +261,113 @@ exports.updateUser = (req, res) => {
   });
 };
 
+exports.updateUser = (req, res) => {
+  console.log('Update user....');
+  console.log('Request:----->', req.body.id);
+
+  // Find the user by ID and update their information
+  User.findOne({ where: { id: req.body.id } }).then((user) => {
+    if (user) {
+      user.set(req.body);
+      user.save().then(() => {
+        console.log('Roles Length:', req.body.roles);
+
+        if (req.body.roles && req.body.roles.length > 0) {
+          // Step 1: Get current roles of the user from the database
+          db.models.user_roles.findAll({ where: { userid: user.id } }).then(existingRoles => {
+            const existingRoleIds = existingRoles.map(role => role.roleid);
+
+            // Step 2: Extract role IDs from the incoming request
+            const newRoleIds = req.body.roles.map(role => role.roleid);
+
+            // Step 3: Identify roles to delete (those in existingRoles but not in newRoles)
+            const rolesToDelete = existingRoles.filter(role => !newRoleIds.includes(role.roleid));
+
+            // Step 4: Delete roles that are not in the updated roles list
+            const deleteRolePromises = rolesToDelete.map(role => 
+              db.models.user_roles.destroy({ where: { roleid: role.roleid, userid: user.id } })
+            );
+
+            // Step 5: Upsert the new or updated roles
+            const upsertRolePromises = req.body.roles.map(role => {
+              if (!role.roleid || !role.userid || !role.location_level) {
+                return Promise.reject(new Error('Role object is missing required properties'));
+              }
+
+              const location_id = role.location_level === 'national'
+                ? null
+                : role.location_level === 'county'
+                ? role.county_id || null
+                : role.location_level === 'settlement'
+                ? role.settlement_id || null
+                : null;
+
+              return db.models.user_roles.upsert({
+                roleid: role.roleid,
+                userid: role.userid,
+                location_level: role.location_level,
+                location_id: location_id,
+                county_id: role.county_id || null,
+                settlement_id: role.settlement_id || null
+              }, {
+                where: {
+                  roleid: role.roleid,
+                  userid: role.userid
+                }
+              });
+            });
+
+            // Execute all delete and upsert operations
+            Promise.all([...deleteRolePromises, ...upsertRolePromises])
+              .then(() => {
+                var token = jwt.sign({ id: user.id }, config.secret, {
+                  expiresIn: 86400 // 24 hours
+                });
+
+                res.send({
+                  message: 'User and roles updated successfully!',
+                  code: "0000",
+                  data: token,
+                  user: user
+                });
+              })
+              .catch(err => {
+                console.log(err);
+                res.status(500).send({
+                  message: 'Error updating user roles',
+                  error: err
+                });
+              });
+          }).catch(err => {
+            res.status(500).send({
+              message: 'Error retrieving existing user roles',
+              error: err
+            });
+          });
+        } else {
+          res.status(400).send({
+            data: user,
+            message: 'A user requires at least one role on this system'
+          });
+        }
+      }).catch(err => {
+        res.status(500).send({
+          message: 'Error saving user information',
+          error: err
+        });
+      });
+    } else {
+      res.status(404).send({
+        message: 'User not found'
+      });
+    }
+  }).catch(err => {
+    res.status(500).send({
+      message: 'Error finding user',
+      error: err
+    });
+  });
+};
 
 
 
