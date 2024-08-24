@@ -1147,6 +1147,60 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
     ]
   },
+  
+  {
+    path: '/grv',
+    component: Layout,
+    redirect: '/grv/open',
+    name: 'Grievances',
+    meta: {
+      title: 'Grievances',
+      icon: 'uis:graph-bar',
+      role: [  'super_admin', 'national_grm' ] ,
+
+      alwaysShow: false
+    },
+    children: [
+
+       {
+        path: 'open',
+        component: () => import('@/views/Indicators/Activity.vue'),
+       name: 'OpenGrievances',
+       meta: {
+         title: 'Open',
+         icon:'icon-park-outline:activity-source',
+         role: [  'super_admin', 'national_grm' ] ,
+
+       }
+       },
+       {
+        path: 'escalated',
+        component: () => import('@/views/Indicators/Activity.vue'),
+       name: 'EscalatedGrievances',
+       meta: {
+         title: 'Escalated',
+         icon:'icon-park-outline:activity-source',
+         role: [  'super_admin', 'national_grm' ] ,
+
+       }
+       },
+     
+       {
+        path: 'resolved',
+        component: () => import('@/views/Indicators/Activity.vue'),
+       name: 'ResolvedGrievances',
+       meta: {
+         title: 'Resolved',
+         icon:'icon-park-outline:activity-source',
+         role: [  'super_admin', 'national_grm' ] ,
+
+       }
+       },
+     
+  
+
+    ]
+  },
   {
     path: '/interventions',
     component: Layout,
