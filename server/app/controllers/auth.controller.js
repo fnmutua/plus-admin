@@ -167,6 +167,8 @@ exports.xupdateUser = (req, res) => {
     }
   })
 }
+ 
+
 exports.updateUser = (req, res) => {
   console.log('Update user....');
   console.log('Request:----->', req.body.id);
@@ -176,65 +178,51 @@ exports.updateUser = (req, res) => {
     if (user) {
       user.set(req.body);
       user.save().then(() => {
-        // Now update or insert the roles
+        // Now update or insert the roles one by one
         console.log('Roles Length:', req.body.roles);
 
         if (req.body.roles.length > 0) {
-          // Find the roles in the roles table
-          Role.findAll({
-            where: {
-              id: {
-                [Op.or]: req.body.roles.map(role => role)
-              }
-            }
-          }).then((roles) => {
-            console.log('Roles found:----->', roles);
-
+          // Loop through each role and update/insert into user_roles
+          const updateRolePromises = req.body.roles.map(role => {
             const locationId = req.body.settlement_id 
-            ? req.body.settlement_id 
-            : req.body.county_id || null;
+              ? req.body.settlement_id 
+              : req.body.county_id || null;
 
-            
-            // Prepare the user roles with the extra fields
-            const userRoles = req.body.roles.map(role => {
-              return {
+            const userRoleData = {
+              roleid: role,
+              userid: req.body.id,
+              location_level: req.body.location_level,
+              location_id: locationId,
+              county_id: req.body.county_id,
+              settlement_id: req.body.settlement_id
+            };
+
+            // Update or insert the role for the user
+            return db.models.user_roles.upsert(userRoleData, {
+              where: {
                 roleid: role,
-                userid: req.body.id,
-                location_level: req.body.location_level,
-                location_id: locationId,
-                county_id: req.body.county_id,
-                settlement_id: req.body.settlement_id
-              };
+                userid: req.body.id
+              },
+              updateOnDuplicate: ['location_level', 'location_id', 'county_id', 'settlement_id']
+            });
+          });
+
+          // Execute all update/insert operations
+          Promise.all(updateRolePromises).then(() => {
+            var token = jwt.sign({ id: user.id }, config.secret, {
+              expiresIn: 86400 // 24 hours
             });
 
-            console.log('userRoles',userRoles)
-
-            // Update the user roles in the user_roles table
-            db.models.user_roles.bulkCreate(userRoles, { 
-            }).then(() => {
-              var token = jwt.sign({ id: user.id }, config.secret, {
-                expiresIn: 86400 // 24 hours
-              });
-
-              res.send({
-                message: 'User and roles updated successfully!',
-                code: "0000",
-                roles: roles,
-                data: token,
-                user: user
-              });
-            }).catch(err => {
-              console.log(err)
-              res.status(500).send({
-                message: 'Error updating user roles',
-                error: err
-              });
+            res.send({
+              message: 'User and roles updated successfully!',
+              code: "0000",
+              data: token,
+              user: user
             });
           }).catch(err => {
-
             console.log(err)
             res.status(500).send({
-              message: 'Error finding roles',
+              message: 'Error updating user roles',
               error: err
             });
           });
@@ -262,6 +250,10 @@ exports.updateUser = (req, res) => {
     });
   });
 };
+
+
+
+
 
 const multer = require('multer');
 
