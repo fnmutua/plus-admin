@@ -898,7 +898,7 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
           </el-table-column>
         </el-table>
 
-        <el-button @click="addRole" type="primary">Add Role</el-button>
+        <el-button @click="addRole" type="primary" style="margin-top: 10px;">Add Role</el-button>
       </el-form>
 
       <template #footer>
