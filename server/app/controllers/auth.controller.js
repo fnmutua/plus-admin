@@ -260,13 +260,22 @@ exports.updateUser = (req, res) => {
             if (!role.roleid || !role.userid || !role.location_level) {
               return Promise.reject(new Error('Role object is missing required properties'));
             }
+            // Determine location_id based on role level
+            const location_id = role.location_level == 'national'
+              ? null
+              : role.location_level == 'county'
+              ? role.county_id || null
+              : role.location_level == 'settlement'
+              ? role.settlement_id || null
+              : null;
+
 
             // Update or insert the role for the user
             return db.models.user_roles.upsert({
               roleid: role.roleid,
               userid: role.userid,
               location_level: role.location_level,
-              location_id: role.location_id || null,  // Use null if not provided
+              location_id: location_id,    // Use null if not provided
               county_id: role.county_id || null,      // Use null if not provided
               settlement_id: role.settlement_id || null // Use null if not provided
             }, {
