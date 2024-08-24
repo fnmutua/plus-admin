@@ -50,16 +50,7 @@ router.beforeEach(async (to, from, next) => {
       console.log('0002')
 
 
-      // 是否使用动态路由
-      // if (appStore.getDynamicRouter) {
-      //   console.log('userInfo----roles', userInfo)
-
-      //   userInfo.role === 'admin'
-      //     ? await permissionStore.generateRoutes('admin', roleRouters as AppCustomRouteRecordRaw[])
-      //     : await permissionStore.generateRoutes('county_admin', roleRouters as string[])
-      // } else {
-      //   await permissionStore.generateRoutes('public')
-      // }
+     
 
 
       const roles = userInfo.roles;
@@ -70,6 +61,7 @@ router.beforeEach(async (to, from, next) => {
         'county_admin',
         'staff',
         'county_user',
+        'national_grm',
         'others',
       ];
       
@@ -98,6 +90,12 @@ router.beforeEach(async (to, from, next) => {
         case 'county_staff':
           await permissionStore.generateRoutes('county_staff');
           break;
+        case 'national_grm':
+            await permissionStore.generateRoutes('national_grm');
+            break;
+  
+
+
         default:
           await permissionStore.generateRoutes('public');
           break;

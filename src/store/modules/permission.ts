@@ -343,7 +343,7 @@ export const usePermissionStore = defineStore('permission', {
   },
   actions: {
     generateRoutes(
-      type: 'admin' | 'county_admin' | 'county_staff' | 'county_mon' | 'staff' | 'public' | 'super_admin',
+      type: 'admin' | 'county_admin' | 'county_staff' | 'county_mon' | 'staff' | 'public' | 'super_admin' | 'national_grm',
       routers?: AppCustomRouteRecordRaw[] | string[]
     ): Promise<unknown> {
       return new Promise<void>((resolve) => {
