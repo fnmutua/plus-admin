@@ -1170,7 +1170,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
        {
         path: 'open',
-        component: () => import('@/views/Indicators/Activity.vue'),
+        component: () => import('@/views/Grievances/Open.vue'),
        name: 'OpenGrievances',
        meta: {
          title: 'Open',
