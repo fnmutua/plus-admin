@@ -1174,7 +1174,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
          title: 'Open',
          icon:'oui:security-signal-detected',
          role: [  'super_admin', 'national_grm' ] ,
-         locationLevel:['national','county','settlement'],
+         locationLevel:['national','county' ],
 
        }
        },
@@ -1185,6 +1185,10 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        meta: {
          title: 'Escalated',
          icon:'carbon:ibm-cloud-security-compliance-center-workload-protection',
+         role: [  'super_admin', 'national_grm' ] ,
+
+         locationLevel:[ 'county' ],
+
  
        }
        },
