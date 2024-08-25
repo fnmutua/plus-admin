@@ -1,11 +1,14 @@
-.DS_Store
+# Node modules and build directories
 node_modules/
 dist/
+
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 **/*.log
 
+# Test and coverage reports
 tests/**/coverage/
 tests/e2e/reports
 selenium-debug.log
@@ -19,5 +22,12 @@ selenium-debug.log
 *.sln
 *.local
 
+# Dependency files
 package-lock.json
 yarn.lock
+
+# Environment files
+.env
+**/.env
+**/**/.env
+**/**/**/.env
