@@ -217,8 +217,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: t('Data'),
       icon: 'mdi:map-legend',
       alwaysShow: true,
-      //role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon','consultant' ] 
-
+ 
     },
     children: [
       {
@@ -976,7 +975,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        meta: {
          title: 'Activities',
          icon:'icon-park-outline:activity-source',
-         role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+         role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
          locationLevel:['national','county' ],
 
        }
@@ -1265,20 +1264,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
     },
     children: [
-      // {
-      //   path: 'users',
-      //  // component: 'views/Users/User',
-      //   component: () => import('@/views/Users/AllUsers.vue'),
-      //   name: 'AllUsers',
-      //   meta: {
-      //     title: 'All Users',
-      //     hidden: false,
-      //     icon: 'fa6-solid:users-rectangle',
-      //     //role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] 
-      //     role: ['super_admin' ] 
-
-      //   }
-      // },
+      
 
 
       {
@@ -1290,8 +1276,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Staff',
           hidden: false,
           icon: 'fa6-solid:users-rectangle',
-          //role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] 
-          role: ['admin', 'super_admin'   ] 
+           role: ['admin', 'super_admin'   ] 
 
         }
       },
@@ -1310,21 +1295,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       },
-      // {
-      //   path: 'county',
-      // //  component: 'views/Users/County',
-      //   component: () => import('@/views/Users/County.vue'),
-
-      //   name: 'CountyStaff',
-      //   meta: {
-      //     title: 'County',
-      //     hidden: false,
-      //     icon: 'gis:map-users',
-      //  //   role: ['admin', 'super_admin', 'county_admin'  ] 
-      //  role: ['admin', 'super_admin', 'county_admin'  ] 
-
-      //   }
-      // }, 
+     
       {
         path: 'profile',
       //  component: 'views/Users/County',
