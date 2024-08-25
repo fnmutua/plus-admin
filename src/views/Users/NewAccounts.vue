@@ -1,40 +1,33 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { getUserRoles,getByName } from '@/api/users'
+import { getUserRoles, getByName } from '@/api/users'
 
 
 import {
-  ElButton, ElSwitch, ElSelect, ElDialog, ElFooter,ElRow, ElDropdown, ElDropdownItem, ElCheckboxGroup,ElCheckbox,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRadio, ElRadioGroup
+  ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElCheckbox,
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElDivider, ElPagination, ElTooltip, ElOption, ElCard, ElCol
 } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Position,
-  TopRight,
   Edit,
-  User,Back,
+  Back,
   Plus,
-  Download,UserFilled,
-  Filter,
-  MessageBox
+  Download,
+  Filter
 } from '@element-plus/icons-vue'
 
-import { ref, reactive,onMounted, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow } from 'element-plus'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import exportFromJSON from 'export-from-json'
 import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 
-import { searchByKeyWord } from '@/api/settlements'
 interface Params {
   pageIndex?: number
   xpageSize?: number
@@ -53,7 +46,7 @@ if (isMobile.value) {
   dialogWidth.value = "90%"
   actionColumnWidth.value = "75px"
 } else {
-  dialogWidth.value = "30%"
+  dialogWidth.value = "50%"
   actionColumnWidth.value = "160px"
 
 }
@@ -62,8 +55,9 @@ if (isMobile.value) {
 
 const currentUser = wsCache.get(appStore.getUserInfo)
 
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
+
 
 
 const { push } = useRouter()
@@ -80,12 +74,15 @@ const userOptions = ref([])
 const settlements = ref([])
 const filteredSettlements = ref([])
 const page = ref(1)
- 
 const selCounties = []
 const loading = ref(true)
- const currentPage = ref(1)
+const currentPage = ref(1)
 const total = ref(0)
- 
+const downloadLoading = ref(false)
+
+const tmp_roles = ref([])
+
+
 
 
 const mobileBreakpoint = 768;
@@ -102,16 +99,14 @@ const updatePageSize = () => {
   }
 };
 
-onMounted(async () => { 
+onMounted(async () => {
 
- window.addEventListener('resize', updatePageSize);
-   updatePageSize(); // Initial check
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize(); // Initial check
+
+})
+
  
- })
-
-
-
-
 
 
 const dialogFormVisible = ref(false)
@@ -124,13 +119,11 @@ let tableDataList_orig = ref<UserType[]>([])
 
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
- 
-var tblData = []
-
 var filters = ['isactive']
 var filterValues = [[false]]
+var tblData = []
 
-const associated_multiple_models = ['county' ,'user_roles']
+const associated_multiple_models = ['county', 'user_roles']
 
 ////const nested_models = ['user_roles', 'roles'] // The mother, then followed by the child
 //const nested_filter = ['id', [6, 7, 8]] //   column and value of the grandchild. In this case roles. 5=county Admin 
@@ -141,15 +134,18 @@ const searchString = ref()
 
 
 //// ------------------parameters -----------------------////
-const form = reactive({
+const form = ref({
   id: '',
   name: '',
   email: '',
   phone: '',
-  county_id: '',
+  settlement_id: null,
+  county_id: null,
+  location_level: null,
+  location_id: null,
   roles: [],
   avatar: '',
-  username:null
+  username: null
 })
 
 
@@ -265,7 +261,7 @@ const getCountyNames = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    loading.value = false
+    
 
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
@@ -277,62 +273,33 @@ const getCountyNames = async () => {
   })
 }
 
-const xgetRoles = async () => {
-  const res = await getUserRoles({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'roles',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
 
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var roleOpt = {}
-      roleOpt.value = arrayItem.id
-      roleOpt.label = arrayItem.name
-      //  console.log(countyOpt)
-      if (arrayItem.name !=='super_admin') {
-        RolesOptions.value.push(roleOpt)
-
-      }
-    })
-  })
-}
 
 const getRoles = async () => {
-  
+
   const formData = {}
   formData.limit = 100
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = 'roles'
   //-Search field--------------------------------------------
-  
+
   formData.currentUser = currentUser
- 
+
 
   //-------------------------
-   const res = await getUserRoles(formData)
+  const res = await getUserRoles(formData)
 
-   console.log('Get Roles.....',res.data)
+  console.log('Get Roles.....', res.data)
 
-    
+
   res.data.forEach(function (arrayItem) {
- 
-   
+
+
     //  generate the filter options
     var opt = {}
     opt.value = arrayItem.id
-    opt.label = arrayItem.name  
+    opt.label = arrayItem.name
     //  console.log(countyOpt)
     RolesOptions.value.push(opt)
   })
@@ -356,7 +323,7 @@ const getSettlementsOptions = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    loading.value = false
+    
     // pass result to the makeoptions
 
     settlements.value = ret
@@ -384,41 +351,7 @@ const activateDeactivate = (data: TableSlotDefault) => {
 }
 
 
-const xgetFilteredBySearchData = async (searchString) => {
-  const formData = {}
-  formData.limit = pageSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
 
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = searchString
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = associated_multiple_models
-  //formData.nested_models = nested_models
-  //formData.nested_filter = nested_filter
-
-  //-------------------------
-  console.log(formData)
-  const res = await searchByKeyWord(formData)
-
-  console.log('After -----x ------Querry', res)
-  tableDataList.value = res.data
-  tableDataList_orig.value = res.data // back for post filter
-
-  total.value = res.total
-  loading.value = false
-
-  tblData = [] // reset the table data
-
-}
 
 const getFilteredBySearchData = async (searchString) => {
   const formData = {}
@@ -443,7 +376,7 @@ const getFilteredBySearchData = async (searchString) => {
   formData.currentUser = currentUser
 
   //-------------------------
-  console.log(formData)
+  console.log('getFilteredBySearchData', formData)
   const res = await getByName(formData)
 
   console.log('After -----x ------Querry', res)
@@ -457,7 +390,9 @@ const getFilteredBySearchData = async (searchString) => {
 
 }
 
+
 const getFilteredData = async (selFilters, selfilterValues) => {
+  loading.value = true
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -489,18 +424,15 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
 
-  loading.value = false
+  
 
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
+
   res.data.forEach(function (arrayItem) {
     console.log('arrayItem ----->', arrayItem)
-    delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
-    delete arrayItem['photo'] //  remove the geometry column
+    // delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
+    // delete arrayItem['photo'] //  remove the geometry column
 
-    var dd = destructure(arrayItem)
-    tblData.push(dd)
-    //  generate the filter options
+
     var opt = {}
     opt.value = arrayItem.id
     opt.label = arrayItem.name + '(' + arrayItem.id + ')'
@@ -509,6 +441,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   })
 
   console.log('TBL-4f', tblData)
+  loading.value = false
 }
 
 const searchByName = async (filterString: any) => {
@@ -516,6 +449,9 @@ const searchByName = async (filterString: any) => {
 
   getFilteredBySearchData(searchString.value)
 }
+
+
+
 
 getRoles()
 getCountyNames()
@@ -535,38 +471,52 @@ const AddUser = (data: TableSlotDefault) => {
 
 
 
-const EditUser = (data: TableSlotDefault) => {
+const EditUser = async (data: TableSlotDefault) => {
   console.log(data)
-  form.id = data.row.id
-  form.name = data.row.name
-  form.county_id = data.row.county_id
-  form.email = data.row.email
-  form.phone = data.row.phone
-  form.avatar = data.row.avatar
-  form.username = data.row.username
-  let roles = []
-  data.row.roles.forEach(function (arrayItem) {
-    console.log(arrayItem.id)
-    roles.push(arrayItem.id)
+
+  tmp_roles.value=[]
+  form.value.id = data.row.id
+  form.value.name = data.row.name
+  form.value.county_id = data.row.county_id
+  form.value.email = data.row.email
+  form.value.phone = data.row.phone
+  form.value.avatar = data.row.avatar
+  form.value.username = data.row.username
+ 
+ 
+  data.row.roles.forEach(async function (arrayItem) {
+    console.log("tis USers Roles", arrayItem.user_roles)
+    await handleChangeLevel((arrayItem.user_roles.location_level))
+
+ 
+    if(arrayItem.user_roles.county_id){
+      console.log("Get Settleemntsf ofr thus county",arrayItem.user_roles.county_id )
+      await getCountySettlements(parseInt(arrayItem.user_roles.county_id))
+      arrayItem.user_roles.county_id = parseInt(arrayItem.user_roles.county_id, 10);
+
+    }
+
+
+    if(arrayItem.user_roles.settlement_id) {
+      arrayItem.user_roles.settlement_id = parseInt(arrayItem.user_roles.settlement_id, 10);
+
+    }
+    tmp_roles.value.push(arrayItem.user_roles)
   })
 
+  console.log('tmp_roles>>>>', tmp_roles.value)
 
-  form.roles = roles[0]
+ 
   console.log(form)
   dialogFormVisible.value = true
 }
 
- 
 
-const updateUser = () => {
-  form.roles=[form.roles ]
-  updateUserApi(form).then(() => { })
 
-  dialogFormVisible.value = false
-}
+
 const search = ref('')
 
- 
+
 
 
 
@@ -635,55 +585,217 @@ const goBack = () => {
   }
 }
 
+const locationOptions = [
+  {
+    value: 'national',
+    label: 'National',
+  },
+  {
+    value: 'county',
+    label: 'County',
+  },
+  {
+    value: 'settlement',
+    label: 'Settlement',
+  }
+]
+
+const showSettlement = ref(false)
+const showCounty = ref(false)
+const handleSelectLevel = async (level) => {
+  console.log('Level', level)
+  if (level == 'settlement') {
+    showSettlement.value = true
+    showCounty.value = true
+  }
+  else if (level == 'county') {
+    showSettlement.value = false
+    showCounty.value = true
+
+  }
+
+  else {
+    showSettlement.value = false
+    showCounty.value = false
+
+  }
+}
+
+const isNationalLevel=ref(false)
+const isCountyLevel=ref(false)
+const isSettlementLevel=ref(false)
+
+const getCountySettlements = async (county_id) => {
+
+  settlementOptions.value = []
+  const formData = {}
+  // formData.limit = pageSize.value
+  // formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'settlement'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = ['county_id']
+  formData.filterValues = [[county_id]]
+  formData.associated_multiple_models = []
+  //formData.nested_models = nested_models
+  //formData.nested_filter = nested_filter
+  formData.currentUser = currentUser
+
+
+  //-------------------------
+  const res = await getSettlementListByCounty(formData)
+
+
+  res.data.forEach(function (arrayItem) {
+    var opt = {}
+    opt.value = arrayItem.id
+    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    settlementOptions.value.push(opt)
+  })
+
+
+}
+
+const handleChangeLevel = async (level) => {
+
+  console.log(level)
+
+  if(level=='national') {
+    isNationalLevel.value=true
+    isCountyLevel.value=false
+    isSettlementLevel.value=false 
+
+  }
+  else if(level=='county'){
+    isNationalLevel.value=false
+    isCountyLevel.value=true
+    isSettlementLevel.value=false 
+
+  } 
+  else {
+    isSettlementLevel.value=true 
+    isCountyLevel.value=true
+    isNationalLevel.value=false
+
+  }
+
+ }
+
+const selectedRoles = ref([]);
+
+ 
+
+
+
+const addRole = () => {
+  const this_role = {
+     userid:form.value.id,
+     roleid: null,
+     location_level:null,
+    county_id: null,
+    settlement_id: null
+
+  }
+
+  console.log('this_role', this_role)
+  // Add a new role object with default values to the roles array
+  tmp_roles.value.push(this_role);
+}
+
+
+const removeRole = (index) => {
+  // Remove the role object at the specified index from the roles array
+  tmp_roles.value.splice(index, 1);
+}
+
+
+const updateUser = () => {
+
+  tmp_roles.value.forEach(role => {
+        if (role.location_level === "national") {
+            // If the role is at the national level, nullify county_id and settlement_id
+            role.county_id = null;
+            role.settlement_id = null;
+        }
+        if (role.location_level === "county") {
+            // If the role is at the national level, nullify county_id and settlement_id
+            role.settlement_id = null;
+        }
+    });
+
+
+
+  form.value.roles = tmp_roles.value
+  console.log('form.value',form.value)
+
+
+
+
+
+  updateUserApi(form.value).then((response) => { 
+
+  console.log("udapyetd")
+
+
+
+  })
+
+  dialogFormVisible.value = false
+}
 
 </script>
 
 <template>
-  <el-card >
+  <el-card>
 
 
 
 
     <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
-<div class="max-w-200px">
-  <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-    Back
-  </el-button>
-</div>
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
 
-        <!-- Title Search -->
-        <el-select  style="  margin-right: 10px;"
-        v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear" multiple clearable filterable
-                collapse-tags placeholder="Filter by County">
-                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
+      <!-- Title Search -->
+      <el-select
+style="  margin-right: 10px;" v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear"
+        multiple clearable filterable collapse-tags placeholder="Filter by County">
+        <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
 
-              <el-select
-        v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select
+v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name" />
 
 
-        <!-- Action Buttons -->
-        <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
-          <el-tooltip content="Add User " placement="top">
-            <el-button :onClick="AddUser" type="primary" :icon="Plus" />
-          </el-tooltip>
+      <!-- Action Buttons -->
+      <div style="display: flex; align-items: center; gap: 10px; margin-left: 10px;">
+        <el-tooltip content="Add User " placement="top">
+          <el-button :onClick="AddUser" type="primary" :icon="Plus" />
+        </el-tooltip>
 
 
-          <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-          <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
+        <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
 
-        </div>
+      </div>
 
-        </el-row>
+    </el-row>
 
 
 
-    
-
-    <el-table :data="tableDataList" style="width: 100%; margin-top:20px" fit>
+    <el-table :data="tableDataList" style="width: 100% ; margin-top: 30px"   v-loading="loading">
 
       <el-table-column type="index" label="#" width="50">
         <!-- Use the 'index' slot to customize the index column -->
@@ -691,14 +803,14 @@ const goBack = () => {
           {{ scope.$index + 1 }}
         </template>
       </el-table-column>
-        <!-- Avatar column -->
-  <el-table-column label="Avatar" width="100">
-    <template #default="scope">
-      <el-avatar :src="scope.row.avatar" size="80px" />
-    </template>
-  </el-table-column>
+      <!-- Avatar column -->
+      <el-table-column label="Avatar" width="100">
+        <template #default="scope">
+          <el-avatar :src="scope.row.avatar" size="80px" />
+        </template>
+      </el-table-column>
 
- 
+
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />
       <el-table-column label="County" prop="county.name" sortable />
@@ -711,15 +823,15 @@ const goBack = () => {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item
-v-if="showAdminButtons"  
-                 >
-                  <el-switch v-model="scope.row.isactive"   @click="activateDeactivate(scope as TableSlotDefault)" :icon="Edit" />
+                <el-dropdown-item v-if="showAdminButtons">
+                  <el-switch
+v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+                    :icon="Edit" />
 
-              
+
                 </el-dropdown-item>
 
-                <el-dropdown-item/>
+                <el-dropdown-item />
                 <el-dropdown-item @click="EditUser(scope as TableSlotDefault)" :icon="Position">Edit</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -749,83 +861,101 @@ v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefaul
 
 
     <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
- 
-      <el-dialog v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
+
+   
+    <el-dialog draggable v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
       <el-form :model="form">
+        <el-row>
+          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-form-item label="Name" :label-width="formLabelWidth">
+              <el-input v-model="form.name" autocomplete="off" />
+            </el-form-item>
+          </el-col>
 
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-        <el-form-item label="Name" :label-width="formLabelWidth">
-          <el-input v-model="form.name" autocomplete="off" />
-        </el-form-item>
+          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-form-item label="Email" :label-width="formLabelWidth">
+              <el-input v-model="form.email" autocomplete="off" disabled />
+            </el-form-item>
+          </el-col>
 
-        </el-col>
+          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-form-item label="Username" :label-width="formLabelWidth">
+              <el-input v-model="form.username" autocomplete="off" disabled />
+            </el-form-item>
+          </el-col>
 
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-        <el-form-item label="Email" :label-width="formLabelWidth">
-          <el-input v-model="form.email" autocomplete="off" disabled />
-        </el-form-item>
-        </el-col>
+          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-form-item label="Phone" :label-width="formLabelWidth">
+              <el-input v-model="form.phone" autocomplete="off" />
+            </el-form-item>
+          </el-col>
+        </el-row>
 
+        <!-- Table for roles management -->
+        <el-table :data="tmp_roles" style="width: 100%" size="small">
 
-           
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-        <el-form-item label="Username" :label-width="formLabelWidth">
-          <el-input v-model="form.username" autocomplete="off" disabled />
-        </el-form-item>
-        </el-col>
+          <el-table-column prop="role" label="Role">
+            <template #default="{ row }">
+              <el-select v-model="row.roleid" placeholder="Select Role" size="small" style="width:80%" searchable filterable>
+                <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column prop="level" label="Level">
+            <template #default="{ row }">
+              <el-select v-model="row.location_level" placeholder="Select level" size="small"   @change="handleChangeLevel(row.location_level)" style="width:80%">
+                <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </template>
+          </el-table-column>
 
+          <el-table-column prop="county_id" label="County">
+            <template #default="{ row }">
+              <el-select
+v-model="row.county_id" placeholder="County" clearable :disabled="isNationalLevel"
+                @change="getCountySettlements(row.county_id)" size="small" style="width:80%">
+                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </template>
+          </el-table-column>
 
+          <el-table-column prop="settlement_id" label="Settlement" >
+            <template #default="{ row }">
+              <el-select v-model="row.settlement_id" placeholder="Settlement" size="small"   :disabled="!isSettlementLevel" style="width:80%" clearable>
+                <el-option
+v-for="item in settlementOptions" :key="item.value" :label="item.label"
+                  :value="item.value" />
+              </el-select>
+            </template>
+          </el-table-column>
 
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
+          <el-table-column label="Actions">
+            <template #default="{ $index }">
+              <el-button @click="removeRole($index)" type="danger" size="small">Remove</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-        <el-form-item label="Phone" :label-width="formLabelWidth">
-          <el-input v-model="form.phone" autocomplete="off" />
-        </el-form-item>
-        </el-col>
-
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-
-        <el-form-item label="County" :label-width="formLabelWidth">
-          <el-select v-model="form.county_id" placeholder="Please select a zone">
-            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        </el-col>
-
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" >
-        <el-form-item label="Role" :label-width="formLabelWidth">
-          <el-radio-group v-model="form.roles">
-            <el-row :gutter="20">
-              <el-col v-for="item in RolesOptions" :key="item.value" :span="12">
-                <el-radio :label="item.value">{{ item.label }}</el-radio>
-              </el-col> 
-  
-            </el-row>
-          </el-radio-group>
-        </el-form-item>
-        </el-col>
-
-
-
-
+        <el-button @click="addRole" type="primary" style="margin-top: 10px;">Add Role</el-button>
       </el-form>
+
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="dialogFormVisible = false">Cancel</el-button>
-          <el-button type="primary" @click="updateUser">
-            Confirm
-          </el-button>
+          <el-button type="primary" @click="updateUser">Confirm</el-button>
         </span>
       </template>
     </el-dialog>
 
-  </el-card >
+
+
+  </el-card>
 </template>
- 
+
 <style scoped>
 .el-button--text {
   margin-right: 15px;
@@ -852,4 +982,3 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
   margin-right: 10px;
 }
 </style>
-
