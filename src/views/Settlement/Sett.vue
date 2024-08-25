@@ -55,21 +55,7 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadAll from '@/views/Components/DownloadAll.vue';
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ 
 
 
 
@@ -82,8 +68,9 @@ mapboxgl.accessToken = MapBoxToken;
 const { wsCache } = useCache()
 const appStore = useAppStore()
 const userInfo = wsCache.get(appStore.getUserInfo)
-const showAdminButtons =  ref(false)
-const showEditButtons =  ref(false)
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
+
 
 console.log('userInfo',userInfo)
 
@@ -149,20 +136,7 @@ window.addEventListener('resize', updatePageSize);
 
 })
 
-// // Hide buttons if not admin 
-// const showAdminButtons = ref(false)
-// const showEditButtons = ref(false)
-
-if (userInfo.roles.includes("admin") ||(userInfo.roles.includes("super_admin")  )) {
-  showAdminButtons.value = true
-}
-
-// Show Edit buttons 
-if (userInfo.roles.includes("staff") || userInfo.roles.includes("admin") || (userInfo.roles.includes("super_admin"))  
-  || userInfo.roles.includes("county_admin") || userInfo.roles.includes("national_monitoring")) {
-  showEditButtons.value = true;
-}
-
+ 
 
 
 const { push } = useRouter()
@@ -626,14 +600,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   total.value = res.total
   loadingGetData.value = false
 
-
-  // filter
-  //if (showAdminButtons.value) {
-  // getSettlementCount()  // This gets the approved/new/rejecetd counts
-
-  //}
-
-  // 
+ 
 
 
 }

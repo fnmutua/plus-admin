@@ -31,6 +31,7 @@ import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { getFile } from '@/api/summary'
 
+import { useAppStore } from '@/store/modules/app'
 
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
@@ -39,25 +40,23 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 
 
 
+
 const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
+const appStore = useAppStore()
 const userInfo = wsCache.get(appStore.getUserInfo)
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
+
 
 // // Hide buttons if not admin 
-const userIsAdmin = ref(false)
-
-if (userInfo.roles.includes("admin") || userInfo.roles.includes("super_admin")) {
-  userIsAdmin.value = true
-}
-
+  
 
 
 
 
 
 console.log("userInfo--->", userInfo)
-console.log("userIsAdmin--->", userIsAdmin)
-
+ 
 const pageSize = ref(5)
 const currentPage = ref(1)
 const loading = ref(false)
@@ -311,10 +310,9 @@ const getFilteredDataV2 = async () => {
       var flattenedObj = flattenArrayOfJSON(response.data);
       //create the subcategories 
       var filteredObjs = flattenedObj.filter(function (doc) {
-        // console.log("userIsAdmin.value", userIsAdmin.value)
-        // console.log("createdBy", doc.createdBy === userInfo.id || !doc.protectedFile)
+         // console.log("createdBy", doc.createdBy === userInfo.id || !doc.protectedFile)
 
-        if (doc.createdBy === userInfo.id || userIsAdmin.value) {
+        if (doc.createdBy === userInfo.id || showAdminButtons.value) {
           doc.deletable = true
 
         } else {
@@ -322,7 +320,7 @@ const getFilteredDataV2 = async () => {
         }
         console.log("Deletable", doc.deletable)
 
-        if (userIsAdmin.value) {
+        if (showAdminButtons.value) {
           return doc
         } else {
 
@@ -497,11 +495,10 @@ const handleInputChange = async (keyword) => {
           var flattenedObj = flattenArrayOfJSON(response.data);
           //create the subcategories 
           var filteredObjs = flattenedObj.filter(function (doc) {
-            // console.log("userIsAdmin.value", userIsAdmin.value)
-            console.log("doc", doc.id)
+             console.log("doc", doc.id)
             resultsIDs.push(doc.id)
 
-            if (doc.createdBy === userInfo.id || userIsAdmin.value) {
+            if (doc.createdBy === userInfo.id || showAdminButtons.value) {
               doc.deletable = true
 
             } else {
@@ -512,7 +509,7 @@ const handleInputChange = async (keyword) => {
 
 
 
-            if (userIsAdmin.value) {
+            if (showAdminButtons.value) {
               return doc
             } else {
               return (doc.createdBy === userInfo.id || !doc.protectedFile)
@@ -1141,7 +1138,7 @@ v-if="scope.row.deletable" type="danger" @click="removeDocument(scope)" :icon="D
           </el-collapse-item>
          
 
-          <el-button class="full-width"   style="margin-left: 10px;margin-bottom: 5px ;margin-top: 5px"  type="success"   size="small"   @click="toggleComponent(groupName)" :icon="UploadFilled"> Upload {{ groupName }} files </el-button>
+          <el-button  v-if="showAdminButtons" class="full-width"   style="margin-left: 10px;margin-bottom: 5px ;margin-top: 5px"  type="success"   size="small"   @click="toggleComponent(groupName)" :icon="UploadFilled"> Upload {{ groupName }} files </el-button>
 
         </el-collapse>
 
