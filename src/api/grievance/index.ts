@@ -8,7 +8,7 @@ import request from '@/config/axios'
 
 export const generateGRMCode= (): Promise<IResponse> => {
   // console.log('filters....', data)
-   return request.post({ url: prod + '/api/grv/code' })
+   return request.post({ url: prod + '/api/v1/grv/code' })
 }
  
 
