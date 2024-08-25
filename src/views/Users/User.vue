@@ -376,7 +376,7 @@ const getFilteredBySearchData = async (searchString) => {
   formData.currentUser = currentUser
 
   //-------------------------
-  console.log(formData)
+  console.log('getFilteredBySearchData', formData)
   const res = await getByName(formData)
 
   console.log('After -----x ------Querry', res)
@@ -714,22 +714,31 @@ const removeRole = (index) => {
 
 
 const updateUser = () => {
+
+  tmp_roles.value.forEach(role => {
+        if (role.location_level === "national") {
+            // If the role is at the national level, nullify county_id and settlement_id
+            role.county_id = null;
+            role.settlement_id = null;
+        }
+        if (role.location_level === "county") {
+            // If the role is at the national level, nullify county_id and settlement_id
+            role.settlement_id = null;
+        }
+    });
+
+
+
   form.value.roles = tmp_roles.value
   console.log('form.value',form.value)
+
+
+
+
+
   updateUserApi(form.value).then((response) => { 
 
-    console.log("updatesuser",response.user)
-
-     // Find the index of the user in the table array
-     const userIndex = tableDataList.value.findIndex(user => user.id === response.user.id);
-
-      if (userIndex !== -1) {
-        // Replace the old user data with the updated user data
-        //to revisit
-       // tableDataList.value[userIndex] = response.user;
-      }
-
-      //window.location.reload()
+  console.log("udapyetd")
 
 
 

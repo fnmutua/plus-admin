@@ -1149,7 +1149,7 @@ v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multipl
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item
-v-if="showAdminButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
+v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
                   color="green">Edit</el-dropdown-item>
                 <el-dropdown-item
 v-if="showAdminButtons" @click="DeleteIndicator(scope as TableSlotDefault)"
@@ -1160,7 +1160,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope as TableSlotDefault)"
 
           <div v-else>
 
-            <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+            <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
               <el-button
 type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
                 circle />
