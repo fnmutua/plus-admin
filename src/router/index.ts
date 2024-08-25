@@ -884,8 +884,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Repository',
           icon: 'material-symbols:home-storage-rounded',
-          role: ['admin', 'super_admin', 'monitoring', 'grm' ,'consultant' ] ,
-          locationLevel:['national','county','settlement' ],
+          role: ['admin', 'super_admin', 'monitoring', 'grm' , 'staff', 'consultant' ] ,
+          locationLevel:['national','county' ],
 
           alwaysShow: true
         },
@@ -899,7 +899,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Documents',
               hidden: false,
-              role: ['admin', 'super_admin', 'monitoring', 'grm' ,'consultant' ] ,
+              role: ['admin', 'super_admin', 'monitoring', 'grm' , 'staff', 'consultant' ] ,
 
               icon:'bi:clipboard2-data-fill'
             }
