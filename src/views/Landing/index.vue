@@ -73,16 +73,37 @@ const navigateTo = (page: string) => {
 }
 
 .hero {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   flex-direction: column;
   text-align: center;
   padding: 100px 20px;
-    background-size: cover;
-  background-position: center;
-   height: 80vh;
+  height: 80vh;
+  overflow: hidden;
 }
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 49%, #ececec 49% 51%, transparent 51%), 
+              linear-gradient(-45deg, transparent 49%, #ececec 49% 51%, transparent 51%);
+  background-size: 6em 6em;
+  background-color: #ffffff;
+  opacity: 0.3;
+  z-index: -1; /* Ensure the background is behind the content */
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1; /* Ensure content is above the background */
+}
+
 
 .xhero {
   display: flex;
