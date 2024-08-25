@@ -14,5 +14,5 @@ export const generateGRMCode= (): Promise<IResponse> => {
 
 export const generateGrievance = (data: any): Promise<IResponse> => {
  
-  return request.post({ url: prod + '/api/grv/create', data })
+  return request.post({ url: prod + '/api/v1/grv/create', data })
 }
