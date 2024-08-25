@@ -884,23 +884,13 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Repository',
           icon: 'material-symbols:home-storage-rounded',
-         role: ['admin', 'super_admin', 'monitoring','grm' ,'consultant' ] ,
+          role: ['admin', 'super_admin', 'monitoring', 'grm' ,'consultant' ] ,
+          locationLevel:['national','county','settlement' ],
 
           alwaysShow: true
         },
         children: [
-          //  {
-          //   path: 'manage',
-          // //  component: 'views/Users/County',
-          //   component: () => import('@/views/Repository/Documents.vue'),
-          //   name: 'RepositoryDocs',
-          //   meta: {
-          //     title: 'Manage',
-          //     hidden: false,
-          //     icon:'material-symbols:folder-managed'
-          //   }
-          // },
-    
+          
           {
             path: 'docs',
           //  component: 'views/Users/County',
@@ -909,7 +899,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Documents',
               hidden: false,
-              role: ['admin', 'super_admin' ] ,
+              role: ['admin', 'super_admin', 'monitoring', 'grm' ,'consultant' ] ,
 
               icon:'bi:clipboard2-data-fill'
             }
@@ -977,7 +967,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
          icon:'icon-park-outline:activity-source',
          role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
          locationLevel:['national','county' ],
-
        }
        },
          {
@@ -988,7 +977,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'IdnicatorConfig',
         meta: {
           icon: 'icon-park-solid:dashboard-car',
-          role: ['admin', 'super_admin' ,'staff','monitoring','consultant'  ] ,
+          role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+          locationLevel:['national'  ],
 
           title: 'Framework'
         },
@@ -1002,6 +992,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               title: 'Indicators',
               hidden: false,
               icon:'cil:gauge',
+              role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+              locationLevel:['national'  ],
 
             }
           },
@@ -1012,6 +1004,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'IndicatorConfigs',
             meta: {
               title: 'Configuration',
+              role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+              locationLevel:['national'  ],
+
               icon:'material-symbols:settings',
               hidden: false
             }
@@ -1024,6 +1019,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           meta: {
             title: 'Category',
             icon: 'vaadin:options',
+            role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+            locationLevel:['national'  ],
+
             hidden:true
           }
           },
@@ -1049,7 +1047,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'NewReports',
             meta: {
               title: 'Reports(New)',
-              role: ['admin', 'super_admin' ,'staff' ] ,
+              role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+              locationLevel:['national'  ],
+
               icon:'carbon:result-new',
             }
           },
@@ -1061,6 +1061,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'PastReports',
             meta: {
               title: 'Reports',
+              locationLevel:['national'  ],
+              role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+
               icon:'mdi:file-document-plus',
             }
           },
