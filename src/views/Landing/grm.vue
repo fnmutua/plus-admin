@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="form-container" >
     <BaseLayout>
  
       <el-main>
