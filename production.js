@@ -161,5 +161,6 @@ require('./server/app/routes/summary.routes')(app)
 require('./server/app/routes/household.routes')(app)
 require('./server/app/routes/role.routes')(app)
 require('./server/app/routes/collector.routes')(app)
+require('./server/app/routes/grievance.routes')(app)
 
 // set port, listen for requests
