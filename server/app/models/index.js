@@ -1402,6 +1402,61 @@ db.models.indicator.belongsToMany(db.models.dashboard_section_chart, {
 })
 
 
+//Greivances  - Admin 
+db.models.grievance.belongsTo(db.models.county, {
+  foreignKey: 'county_id',
+})
+
+db.models.county.hasMany(db.models.grievance, {
+  foreignKey: 'county_id'
+})
+
+db.models.grievance.belongsTo(db.models.subcounty, {
+  foreignKey: 'subcounty_id',
+})
+
+db.models.subcounty.hasMany(db.models.grievance, {
+  foreignKey: 'subcounty_id'
+})
+
+
+db.models.grievance.belongsTo(db.models.ward, {
+  foreignKey: 'ward_id',
+})
+
+db.models.ward.hasMany(db.models.grievance, {
+  foreignKey: 'ward_id'
+})
+
+
+
+db.models.grievance.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id',
+})
+
+db.models.settlement.hasMany(db.models.grievance, {
+  foreignKey: 'settlement_id'
+})
+
+ 
+// Grievance Actions belongs to Grievance
+db.models.grievance_action.belongsTo(db.models.grievance, {
+  foreignKey: 'grievance_id',
+  onDelete: 'CASCADE' // Cascade delete
+});
+
+// Grievance has many Grievance Actions
+db.models.grievance.hasMany(db.models.grievance_action, {
+  foreignKey: 'grievance_id',
+  onDelete: 'CASCADE' // Cascade delete
+});
+
+
+
+
+
+
+
 
 
 

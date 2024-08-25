@@ -67,6 +67,13 @@ var _project_location = require('./project_location')
 var _project_beneficiary = require('./project_beneficiary')
 
 
+
+var _grievance = require('./Grievance')
+var _grievance_action = require('./GrievanceAction')
+
+
+
+
 var _settlement_uploads = require('./settlement_uploads')
 
 function initModels(sequelize) {
@@ -138,7 +145,9 @@ function initModels(sequelize) {
   var project_location = _project_location(sequelize, DataTypes)
   var project_beneficiary = _project_beneficiary(sequelize, DataTypes)
   
-  
+  var grievance = _grievance(sequelize, DataTypes)
+  var grievance_action = _grievance_action(sequelize, DataTypes)
+
   
   
   return {
@@ -206,7 +215,9 @@ function initModels(sequelize) {
     programme_implementation,
     contractor,
     project_location,
-    project_beneficiary
+    project_beneficiary,
+    grievance,
+    grievance_action,
     
   }
 }

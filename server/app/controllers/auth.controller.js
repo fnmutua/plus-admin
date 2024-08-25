@@ -1101,3 +1101,44 @@ exports.wardAllController = (req, res) => {
         }
       
       }
+
+
+exports.settlementByCountyController = (req, res) => {
+
+
+  console.log('settlementByCountyController',req.body.county_id)
+  const reg_model = 'settlement';
+  const countyId = req.body.county_id; // Extract county_id from query parameters
+
+  // Initialize the query options
+  const queryOptions = {
+    attributes: { exclude: ['geom'] },
+  };
+
+  // Apply filter by county_id if provided
+  if (countyId) {
+    queryOptions.where = {
+      county_id: countyId,
+    };
+  }
+
+  // Execute the query
+  db.models[reg_model]
+    .findAndCountAll(queryOptions)
+    .then((list) => {
+      // Send the response with the filtered or unfiltered list
+      //res.status(200).send(list.rows);
+
+      res.status(200).send({
+        data: list.rows,
+        code: '0000' 
+      });
+
+
+    })
+    .catch((error) => {
+      // Handle any errors
+      console.error('Error fetching settlements:', error);
+      res.status(500).send({ message: 'Unable to retrieve settlements. Please try again later.' });
+    });
+};
