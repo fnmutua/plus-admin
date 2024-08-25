@@ -48,6 +48,22 @@ router.beforeEach(async (to, from, next) => {
       for (const role of roles) {
         console.log("gettinguser roles: ",role)
         await permissionStore.generateRoutes(role.name, role.user_roles.location_level);
+
+        if(role.name=='super_admin' ||role.name=='admin' || role.name=='staff' || role.name=='monitoring' ) {
+
+          appStore.setAdminButtons(true);
+        }
+        else if (role.name=='grm' ||role.name=='consultant'  ){
+          appStore.setEditButtons(true);
+          appStore.setAdminButtons(false);
+
+        }
+        else {
+          appStore.setAdminButtons(false);
+          appStore.setEditButtons(false);
+
+        }
+        
       }
 
       permissionStore.getAddRouters.forEach((route) => {

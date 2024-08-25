@@ -56,20 +56,7 @@ const isAdmin = computed(() => xappStore.getAdminButtons)
 // lifecycle hooks
 onMounted(() => {
  
-//   if(userInfo.roles.includes('admin')|| userInfo.roles.includes('staff')   || userInfo.roles.includes('super_admin')  ) {
-//   showAdminButtons.value=true
-//   showEditButtons.value=true
-// }
-  
-// if(  userInfo.roles.includes('staff')   ) {
-//    showEditButtons.value=true
-// }
-
-// console.log('showAdminButtons',showAdminButtons.value)
-// console.log('showEditButtons',showEditButtons.value)
  
-
-//console.log(props.currentRoute.path)
 
 })
 

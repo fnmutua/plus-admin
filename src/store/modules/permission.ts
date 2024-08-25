@@ -25,17 +25,17 @@ const appStore = useAppStore()
 
 const userInfo = wsCache.get(appStore.getUserInfo)
  
-console.log(userInfo)
+console.log('Setting Admin Buttons: >>>>>,',userInfo)
  
-if( userInfo &&(userInfo.roles.includes('admin')|| userInfo.roles.includes('staff')   || userInfo.roles.includes('super_admin'))  ) {
-  appStore.setAdminButtons(true);
-  appStore.setEditButtons(true);
-  appStore.setAdmin(true);
-}
+// if( userInfo &&(userInfo.roles.includes('admin')|| userInfo.roles.includes('staff')   || userInfo.roles.includes('super_admin'))  ) {
+//   appStore.setAdminButtons(true);
+//   appStore.setEditButtons(true);
+//   appStore.setAdmin(true);
+// }
 
-if(userInfo && (userInfo.roles.includes('county_admin')))  {
-  appStore.setEditButtons(true);
- }
+// if(userInfo && (userInfo.roles.includes('county_admin')))  {
+//   appStore.setEditButtons(true);
+//  }
 
 
 const programmeComponentOptions = ref([])
@@ -90,6 +90,7 @@ const getProgrameComponents = async () => {
         child_meta_d.component_id = compon.id 
         child_meta_d.icon = compon.icon
         child_meta_d.role= ['admin', 'super_admin'] 
+        child_meta_d.locationLevel= ['national' ] 
 
         compont.meta = child_meta_d    
         children_components.push(compont)
@@ -319,83 +320,7 @@ export interface PermissionState {
   menuTabRouters: AppRouteRecordRaw[]
 }
 
-// export const usePermissionStore = defineStore('permission', {
-//   state: (): PermissionState => ({
-//     routers: [],
-//     addRouters: [],
-//     isAddRouters: false,
-//     menuTabRouters: []
-//   }),
-//   getters: {
-//     getRouters(): AppRouteRecordRaw[] {
-//       return this.routers
-//     },
-//     getAddRouters(): AppRouteRecordRaw[] {
-//       return flatMultiLevelRoutes(cloneDeep(this.addRouters))
-//     },
-//     getIsAddRouters(): boolean {
-//       return this.isAddRouters
-//     },
-//     getMenuTabRouters(): AppRouteRecordRaw[] {
-//       return this.menuTabRouters
-//     }
-//   },
-//   actions: {
-//     generateRoutes(
-//       type: 'admin' | 'county_admin' | 'county_staff' | 'county_mon' | 'staff' | 'public' | 'super_admin' | 'national_grm'| 'county_grm' | 'settlement_grm', routers?: AppCustomRouteRecordRaw[] | string[]
-//     ): Promise<unknown> {
-//       return new Promise<void>((resolve) => {
-//         // Function to recursively filter routes and their children based on 'type'
-//         const filterRoutes = (routes) => {
-        
-//           const filteredRoutes = routes.filter((route) => {
-//             //console.log('route---->', type)
-//             if (!route.meta || !route.meta.role) return true; // Include routes without 'meta' or 'role' property
-//             return route.meta.role.includes(type);
-//           });
-  
-//           // Recursively filter the children of each route
-//           filteredRoutes.forEach((route) => {
-//             if (route.children) {
-//               route.children = filterRoutes(route.children);
-//             }
-//           });
-  
-//           return filteredRoutes;
-//         };
-  
-//         const filteredRoutes = filterRoutes(adminRoutes);
-  
-//         // Clone the filtered routes to avoid modifying the original routes
-//         const routerMap: AppRouteRecordRaw[] = cloneDeep(filteredRoutes);
-  
-//         // Further processing if needed...
-//         // Add additional routes, modify route properties, etc.
-  
-//         this.addRouters = routerMap;     
-  
-
-//      console.log('routerMap2',routerMap)
-
-
-
-        
-        
-//         // merge the programmes to the outer root. Will be reconsidered wheer to
-//         this.routers = cloneDeep(constantRouterMap).concat(this.addRouters)
  
-    
-//         resolve()
-//       })
-//     },
-//     setIsAddRouters(state: boolean): void {
-//       this.isAddRouters = state
-//     },
-//     setMenuTabRouters(routers: AppRouteRecordRaw[]): void {
-//       this.menuTabRouters = routers
-//     }
-//   }
-// })
 
 
 export const usePermissionStore = defineStore('permission', {
