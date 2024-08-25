@@ -108,7 +108,7 @@ onMounted(async () => {
 const showAdminButtons =  ref(appStore.getAdminButtons)
 const showEditButtons =  ref(appStore.getEditButtons)
 
-
+showAdminButtons
 
 
 let tableDataList = ref<UserType[]>([])
@@ -518,7 +518,7 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
         <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; margin-bottom: 10px;">
 
           <el-tooltip content="Add Activity" placement="top">
-            <el-button  v-if="showEditButtons"  :onClick="AddComponent" type="primary" :icon="Plus" />
+            <el-button  v-if="showAdminButtons"  :onClick="AddComponent" type="primary" :icon="Plus" />
           </el-tooltip>
 
           <el-tooltip content="Clear" placement="top">
@@ -531,7 +531,7 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
         </div>
 
         <!-- Download All Component -->
-        <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+        <DownloadAll v-if="showAdminButtons" :model="model" :associated_models="associated_multiple_models" />
         </el-row>
 
 

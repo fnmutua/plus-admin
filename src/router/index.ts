@@ -779,7 +779,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Surveys',
           icon: 'carbon:report',
-          role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+          role: ['admin', 'super_admin', 'staff'  ] ,
           locationLevel:['national'],
 
         }
@@ -793,7 +793,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Import',
           icon: 'mdi:database-plus',
-          role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+          role: ['admin', 'super_admin', 'staff'  ] ,
           locationLevel:['national','county','settlement'],
 
           alwaysShow: false
@@ -885,7 +885,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Repository',
           icon: 'material-symbols:home-storage-rounded',
-         // role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon','consultant' ] ,
+         role: ['admin', 'super_admin', 'monitoring','grm' ,'consultant' ] ,
 
           alwaysShow: true
         },
@@ -910,6 +910,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Documents',
               hidden: false,
+              role: ['admin', 'super_admin' ] ,
+
               icon:'bi:clipboard2-data-fill'
             }
           },
@@ -928,18 +930,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           },
 
 
-          // {
-          //   path: 'data',
-          // //  component: 'views/Users/County',
-          //   component: () => import('@/views/Repository/Data.vue'),
-          //   name: 'RepositoryData',
-          //   meta: {
-          //     title: 'Data',
-          //     hidden: false,
-          //     icon:'fluent:calendar-data-bar-16-regular'
-          //   }
-          // },
-    
+         
           {
             path: 'imagery',
           //  component: 'views/Users/County',
@@ -948,7 +939,10 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Imagery',
               hidden: false,
+              role: ['admin', 'super_admin', 'monitoring','grm' ,'consultant','staff' ] ,
+
               icon:'mdi:space-station'
+
             }
           },
         ]
@@ -968,7 +962,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'M&E',
       icon: 'uis:graph-bar',
-      role: ['admin', 'super_admin', 'county_admin','staff', 'county_mon' ] ,
+      role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
       locationLevel:['national','county' ],
 
       alwaysShow: false
@@ -995,7 +989,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'IdnicatorConfig',
         meta: {
           icon: 'icon-park-solid:dashboard-car',
-          role: ['admin', 'super_admin' ,'staff'  ] ,
+          role: ['admin', 'super_admin' ,'staff','monitoring','consultant'  ] ,
 
           title: 'Framework'
         },
@@ -1008,7 +1002,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Indicators',
               hidden: false,
-              icon:'cil:gauge'
+              icon:'cil:gauge',
+
             }
           },
           {
@@ -1080,6 +1075,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'Evaluation',
         meta: {
           icon: 'ph:exam-fill',
+          role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
 
           title: 'Evaluation'
         },
@@ -1105,6 +1101,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Impacts',
               icon:'mdi:file-document-plus',
+              role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
+
             }
           },
 
@@ -1116,7 +1114,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'All',
             meta: {
               title: 'Evaluations',
-              role: ['admin', 'super_admin' ,'staff'  ] ,
+               role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
 
               icon:'solar:list-check-bold',
             }
@@ -1129,7 +1127,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Add Evaluation',
               hidden: true,
-              role: ['admin', 'super_admin' ,'staff'  ] ,
+               role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
 
               icon:'mdi:file-document-plus',
             }
@@ -1145,6 +1143,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Beneficiaries',
           icon:'ph:users-fill',
+          role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
+
           hidden: false
         }
       },
@@ -1160,7 +1160,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'Grievances',
       icon: 'hugeicons:complaint',
-      role: [  'super_admin', 'national_grm', 'county_grm','settlement_grm' ] ,
+      role: [ 'super_admin', 'grm' ] ,
       locationLevel:['national','county','settlement'],
       alwaysShow: false
     },
@@ -1173,7 +1173,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        meta: {
          title: 'Open',
          icon:'oui:security-signal-detected',
-         role: [  'super_admin', 'national_grm' ] ,
+         role: [  'super_admin', 'grm' ] ,
          locationLevel:['national','county','settlement'],
 
        }
@@ -1213,8 +1213,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'Interventions',
       icon: 'mdi:office-building-marker-outline',
       hidden: true,
-       role: ['admin', 'super_admin', 'county_admin','staff','county_staff','county_mon', ] ,
-       locationLevel:['national'],
+      role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
+      locationLevel:['national'],
 
     },
     children: [

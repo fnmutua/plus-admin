@@ -7,6 +7,7 @@ import { ElButton, FormRules } from 'element-plus'
 import { useValidator } from '@/hooks/web/useValidator'
 import { UserType } from '@/api/register/types'
 import { registerApi, getCountyAuth } from '@/api/register'
+import {  ElCard } from 'element-plus'
 
 interface Params {
   pageIndex?: number
@@ -331,6 +332,7 @@ const loginRegister = async () => {
 </script>
 
 <template>
+  <el-card>
   <Form
 :schema="schema" :rules="rules" label-position="side" hide-required-asterisk  
     class="dark:(border-1 border-[var(--el-border-color)] border-solid)" @register="register">
@@ -351,4 +353,6 @@ const loginRegister = async () => {
       </div>
     </template>
   </Form>
+
+</el-card>
 </template>

@@ -2,7 +2,7 @@
 import { reactive, ref, unref, watch } from 'vue'
 import { Form } from '@/components/Form'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElButton, ElCheckbox, ElLink,  ElDialog, ElForm, ElFormItem, ElInput,FormInstance,ElMessage, ElTooltip } from 'element-plus'
+import { ElButton, ElCheckbox, ElLink,  ElDialog, ElForm, ElFormItem, ElInput,FormInstance,ElMessage, ElTooltip,ElCard } from 'element-plus'
 import { useForm } from '@/hooks/web/useForm'
 import { loginApi, getTestRoleApi, getOtherRoutesApi, getAdminRoleApi, getSuperAdminRoleApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
@@ -280,6 +280,8 @@ const feedbackRules =  {
 </script>
 
 <template>
+  <el-card>
+
   <Form
 :schema="schema" :rules="rules" label-position="top" hide-required-asterisk size="large"
     class=" border-solid)" @register="register">
@@ -330,7 +332,7 @@ const feedbackRules =  {
 
   </Form>
 
-
+</el-card>
 
   <el-dialog
   title="Please Enter your Email"
