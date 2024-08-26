@@ -5,6 +5,9 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
+
+import { getGrievances } from '@/api/grievance'
+
 import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
@@ -118,7 +121,7 @@ var filters = ['status']
 var filterValues = [['Open']]
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['county','settlement']
+const associated_multiple_models = ['county','settlement' ]
 const model = 'grievance'
 //// ------------------parameters -----------------------////
 
@@ -229,7 +232,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   //-------------------------
   //console.log(formData)
-  const res = await getSettlementListByCounty(formData)
+  const res = await getGrievances(formData)
 
   console.log('After Querry', res)
   tableDataList.value = res.data
