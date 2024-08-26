@@ -31,3 +31,9 @@ DROP TABLE project CASCADE;
 
 
 psql -U username -d database_name -c "\copy table_name(column1, column2, ...) FROM '/path/to/your/file.csv' WITH (FORMAT csv, HEADER true)"
+
+
+
+
+ 
+DROP TABLE grievance CASCADE;
