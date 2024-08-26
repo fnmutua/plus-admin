@@ -115,7 +115,7 @@ module.exports = function (sequelize) {
         },
         {
           unique: true,
-          fields: ['name', 'ward_id', 'subcounty_id', 'county_id']
+          fields: ['description', 'settlement_id', 'age', 'gender','phone']
         }
       ]
     }

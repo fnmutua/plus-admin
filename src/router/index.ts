@@ -1182,7 +1182,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        },
        {
         path: 'escalated',
-        component: () => import('@/views/Indicators/Activity.vue'),
+        component: () => import('@/views/Grievances/Open.vue'),
        name: 'EscalatedGrievances',
        meta: {
          title: 'Escalated',
@@ -1197,7 +1197,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
      
        {
         path: 'resolved',
-        component: () => import('@/views/Indicators/Activity.vue'),
+        component: () => import('@/views/Grievances/Open.vue'),
        name: 'ResolvedGrievances',
        meta: {
          title: 'Resolved',
@@ -1205,7 +1205,17 @@ export const adminRoutes: AppRouteRecordRaw[] = [
  
        }
        },
-     
+       {
+        path: ':id',
+        component: () => import('@/views/Grievances/GrievanceDetails.vue'),
+        name: 'GrievanceDetails',
+        meta: {
+          hidden: true,
+          title: 'Grievance Details',
+          icon:'ion:document-attach',
+          noCache: true
+        }
+      },
   
 
     ]

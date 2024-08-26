@@ -1451,14 +1451,16 @@ db.models.grievance.hasMany(db.models.grievance_action, {
   onDelete: 'CASCADE' // Cascade delete
 });
 
+// grievance_document  - grievance
+db.models.grievance_document.belongsTo(db.models.grievance, {
+  foreignKey: 'grievance_id'
+})
 
+db.models.grievance.hasMany(db.models.grievance_document, {
+  foreignKey: 'grievance_id'
+})
 
-
-
-
-
-
-
+ 
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

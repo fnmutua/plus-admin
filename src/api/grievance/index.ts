@@ -19,6 +19,13 @@ export const generateGrievance = (data: any): Promise<IResponse> => {
 
 
 export const getGrievances = (data: any): Promise<IResponse> => {
- 
-  return request.post({ url: prod + '/api/v1/grv/list', data })
+   return request.post({ url: prod + '/api/v1/grv/list', data })
 }
+
+export const uploadGrievanceDocuments = (data: any): Promise<IResponse> => {
+ 
+  return request.post({ url: prod + '/api/v1/grv/upload', data })
+}
+
+
+
