@@ -9,7 +9,7 @@ import { ElButton, ElSelect } from 'element-plus'
 import {
   Plus,
   Download,
-  Filter, More,
+  Filter,
   Edit,
   Back,
   InfoFilled,
@@ -19,7 +19,7 @@ import {
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElFormItem, ElRow, ElInput, FormRules, ElPopconfirm, ElTable, ElTableColumn, ElCard, ElDrawer
+  ElFormItem, ElRow, ElInput, FormRules, ElPopconfirm, ElTable, ElTableColumn, ElCard,
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -120,7 +120,7 @@ var filters = ['status']
 var filterValues = [['Open']]
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['county', 'settlement', 'grievance_document']
+const associated_multiple_models = ['county', 'settlement','grievance_document']
 const model = 'grievance'
 //// ------------------parameters -----------------------////
 
@@ -468,27 +468,16 @@ const goBack = () => {
 }
 
 
-const drawer = ref(false)
-
-const handleCloseGrievance = () => {
-  drawer.value = false
-}
-
-const getGrievanceDetails = (data) => {
- // drawer.value = true
-
-  push({
-     name: 'GrievanceDetails',
-    params: { id: data.row.id }
-  })
 
 
-  console.log(data)
-}
+
 </script>
 
 <template>
   <el-card>
+
+
+
     <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
       <div class="max-w-200px">
@@ -503,6 +492,9 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
         collapse-tags placeholder="Search Grievance" style=" margin-right: 5px;">
         <el-option v-for="item in GrvOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
+
+
+
 
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; margin-bottom: 10px;">
@@ -522,29 +514,43 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
 
       <!-- Download All Component -->
       <DownloadAll v-if="showAdminButtons" :model="model" :associated_models="associated_multiple_models" />
-    </el-row>
+    </el-row> 
 
 
     <el-table :data="tableDataList" :loading="loading" size="small" border>
+
+
+      <el-table-column type="expand">
+      <template #default="props">
+        <div m="4">
+          <p m="t-0 b-2">State: {{ props.row.state }}</p>
+          <p m="t-0 b-2">City: {{ props.row.city }}</p>
+          <p m="t-0 b-2">Address: {{ props.row.address }}</p>
+          <p m="t-0 b-2">Zip: {{ props.row.zip }}</p>
+            
+        </div>
+      </template>
+    </el-table-column>
+    
       <el-table-column label="#" width="80" prop="id" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-            <span>{{ scope.row.id }}</span>
-            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-          </div>
-        </template>
-      </el-table-column>
+      <template #default="scope">
+        <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
+        <span>{{ scope.row.id }}</span>
+         <Icon icon="material-symbols:attachment"  style="margin-left: 4px;"  />
+      </div>
+      </template>
+    </el-table-column>
       <el-table-column label="Code" prop="code" sortable />
       <el-table-column label="Complainant" prop="name" sortable />
       <el-table-column label="Description" prop="description" sortable />
       <el-table-column label="County" prop="county.name" sortable />
       <el-table-column label="Settlement" prop="settlement.name" sortable />
-      <el-table-column prop="date" label="Date Reported" width="180">
-        <!-- Use a scoped slot to customize the rendering of the date column -->
-        <template #default="scope">
-          <span>{{ formatDate(scope.row.date_reported) }}</span>
-        </template>
-      </el-table-column>
+       <el-table-column prop="date" label="Date Reported" width="180">
+      <!-- Use a scoped slot to customize the rendering of the date column -->
+      <template #default="scope">
+        <span>{{ formatDate(scope.row.date_reported) }}</span>
+      </template>
+    </el-table-column>
 
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
@@ -562,16 +568,26 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
             </template>
-          </el-dropdown>
+          </el-dropdown> 
           <div v-else>
-            <el-button size="small" type="primary" :icon="More" @click="getGrievanceDetails(scope)">
-              More
-            </el-button>
+
             <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
               <el-button
 type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
                 circle />
+            </el-tooltip> 
+
+            <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
+              <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+                title="Are you sure to delete this record?" width="150"
+                @confirm="DeleteIndicator(scope.row as TableSlotDefault)">
+                <template #reference>
+                  <el-button type="danger" size="small" :icon=Delete circle />
+                </template>
+              </el-popconfirm>
             </el-tooltip>
+
           </div>
         </template>
 
@@ -584,11 +600,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
 
-  <el-drawer v-model="drawer" title="I am the title" direction="ltr" :before-close="handleCloseGrievance">
-    <span>Hi, there!</span>
-  </el-drawer>
-
-
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules">
       <!-- <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
@@ -596,9 +607,13 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       <el-form-item label="Title">
         <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
       </el-form-item>
+
       <el-form-item label="Short Title">
         <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" />
       </el-form-item>
+
+
+
     </el-form>
     <template #footer>
 

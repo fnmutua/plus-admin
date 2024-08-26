@@ -145,7 +145,6 @@ const handleSelect = (index: string) => {
   padding: 10px;
 }
 
-
 .logo img {
   height: 50px;
 }
@@ -190,40 +189,39 @@ const handleSelect = (index: string) => {
   }
 
   /* Fullscreen overlay for the menu */
-  /* Fullscreen overlay for the menu */
-.el-menu-demo {
-  display: none;
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(255, 255, 255, 0.95); /* White background with slight transparency */
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  .el-menu-demo {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.95); /* White background with slight transparency */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .el-menu-demo.open {
+    display: flex;
+  }
+
+  .el-menu-item {
+    color: #000; /* Black text for better visibility on white background */
+    padding: 20px 0;
+    font-size: 18px;
+    text-align: center; /* Center-align text */
+  }
+
+  /* Additional styles for hover effect */
+  .el-menu-item:hover {
+    background-color: #f0f0f0; /* Light gray background on hover */
+    border-radius: 8px; /* Rounded corners */
+  }
 }
 
-.el-menu-demo.open {
-  display: flex;
-}
-
-.el-menu-item {
-  color: #000; /* Black text for better visibility on white background */
-  padding: 20px 0;
-  font-size: 18px;
-  text-align: center; /* Center-align text */
-}
-
-/* Additional styles for hover effect */
-.el-menu-item:hover {
-  background-color: #f0f0f0; /* Light gray background on hover */
-  border-radius: 8px; /* Rounded corners */
-}
-
-}
-
+/* Footer styles */
 .footer-content {
   display: flex;
   justify-content: space-between;
@@ -266,6 +264,7 @@ const handleSelect = (index: string) => {
   color: #409eff;
 }
 
+/* Responsive styles */
 @media (max-width: 1024px) {
   .header-content {
     padding: 15px;
@@ -323,6 +322,43 @@ const handleSelect = (index: string) => {
   }
 }
 
+/* Dark mode styles */
+.dark-mode .header-content {
+  background-color: #333;
+  color: #fff;
+}
 
+.dark-mode .el-menu-demo {
+  background-color: rgba(0, 0, 0, 0.95); /* Dark background with slight transparency */
+}
 
+.dark-mode .el-menu-item {
+  color: #fff;
+}
+
+.dark-mode .el-menu-item:hover {
+  background-color: #444; /* Darker gray background on hover */
+}
+
+.dark-mode .footer-content {
+  background-color: #333;
+  color: #fff;
+  border-top: 1px solid #555;
+}
+
+.dark-mode .footer-content ul li a {
+  color: #fff;
+}
+
+.dark-mode .footer-content ul li a:hover {
+  color: #409eff;
+}
+
+.dark-mode .hamburger-icon {
+  color: #fff;
+}
+
+.dark-mode .logo img {
+  filter: brightness(0) invert(1); /* Invert logo color for dark mode */
+}
 </style>

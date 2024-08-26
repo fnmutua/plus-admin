@@ -1765,9 +1765,6 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
         <span>{{ scope.row.id }}</span>
          <Icon icon="material-symbols:attachment"  style="margin-left: 4px;"  />
       </div>
-
-    
-            
       </template>
     </el-table-column>
        

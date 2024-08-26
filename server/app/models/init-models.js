@@ -70,6 +70,7 @@ var _project_beneficiary = require('./project_beneficiary')
 
 var _grievance = require('./Grievance')
 var _grievance_action = require('./GrievanceAction')
+var _grievance_document = require('./GrievanceDocument')
 
 
 
@@ -147,6 +148,7 @@ function initModels(sequelize) {
   
   var grievance = _grievance(sequelize, DataTypes)
   var grievance_action = _grievance_action(sequelize, DataTypes)
+  var grievance_document = _grievance_document(sequelize, DataTypes)
 
   
   
@@ -218,7 +220,7 @@ function initModels(sequelize) {
     project_beneficiary,
     grievance,
     grievance_action,
-    
+    grievance_document,
   }
 }
 module.exports = initModels

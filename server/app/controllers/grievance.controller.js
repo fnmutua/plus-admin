@@ -1,3 +1,6 @@
+const path = require('path')
+const shortid = require('shortid')
+const fs = require('fs');
 const db = require('../models')
 const Sequelize = require('sequelize')
  const moment = require('moment');
@@ -145,214 +148,6 @@ exports.createGrievanceRecord = async (req, res) => {
 
 
  
- 
-exports.xgetGrievances = async (req, res) => {
-  console.log('Req-body 002', req.body);
- // console.log('Req-body 002',  req.thisUser);
-
-  
-    // Retrieve the current user
-    const user = await User.findByPk(req.thisUser.id);
-
-    if (!user) {
-      return res.status(404).send({
-        message: 'User not found',
-        code: 'USER_NOT_FOUND'
-      });
-    }
-
-    // Get roles for the user
-    const roles = await user.getRoles();
-    console.log("roles", roles);
-
-    // Determine the user role and county
-    const userRole = roles.find(role => role.name === 'county') ? 'county' : 'national'; // Adjust role checking as needed
-    const userCounty = user.county || null; // Assuming grievances are filtered by county for county-level users
-
-
- 
-  var reg_model = 'grievance'; // Assuming the model for grievances is 'Grievance'
-
-  // Base count query
-  var baseCountQuery = {
-    where: {}
-  };
-
-  // Handle filters
-  if (req.body.filters && req.body.filters.length > 0 && req.body.filterValues.length > 0 && req.body.filterValues.length === req.body.filters.length) {
-    var lstQueries = [];
-    for (let i = 0; i < req.body.filters.length; i++) {
-      var lstValues = req.body.filterValues[i];
-      lstQueries.push({ [req.body.filters[i]]: lstValues });
-    }
-    baseCountQuery.where = { [op.and]: lstQueries };
-  }
-
-  // Adjust query based on user role
-  if (userRole === 'county') {
-    // County level users receive grievances filtered by their county
-    baseCountQuery.where = { ...baseCountQuery.where, county: userCounty }; // Assuming grievances have a county field
-  }
-  // National level users see all grievances subject to filtering
-  // No additional filtering needed for national level users
-
-  // Count records without nested models and includes
-  let count = await db.models[reg_model].count(baseCountQuery);
-  console.log('Base count:', count);
-
-  // Associated Models
-  var associated_multiple_models = req.body.associated_multiple_models || [];
-  console.log('associated_multiple_models', associated_multiple_models.length);
-
-  // Nested Models
-  var nested_models = req.body.nested_models;
-  var nestedQuery = {};
-
-  if (req.body.nested_models) {
-    var child_model = db.models[req.body.nested_models[0]];
-    var grand_child_model = db.models[req.body.nested_models[1]];
-
-    if (req.body.nested_filter) {
-      nestedQuery[req.body.nested_filter[0]] = req.body.nested_filter[1];
-    }
-  }
-
-  var qry = {};
-  var includeModels = [];
-
-  // Loop through the include models
-  for (let i = 0; i < associated_multiple_models.length; i++) {
-    var modelIncl = { model: db.models[associated_multiple_models[i]] };
-
-    if (associated_multiple_models[i] === 'users') {
-      modelIncl.raw = true;
-      modelIncl.nested = true;
-      modelIncl.attributes = ['name', 'email', 'phone'];
-    }
-
-    includeModels.push(modelIncl);
-  }
-
-  if (associated_multiple_models) {
-    if (nested_models) {
-      var nestedModels;
-      if (req.body.nested_filter) {
-        nestedModels = { model: child_model, include: [{ model: grand_child_model, where: nestedQuery }], raw: true, nested: true };
-      } else {
-        nestedModels = { model: child_model, include: [grand_child_model], raw: true, nested: true };
-      }
-      includeModels.push(nestedModels);
-      qry.include = includeModels;
-    } else {
-      qry.include = includeModels;
-    }
-  }
-
-  // Pagination and sorting
-  if (req.body.limit) {
-    qry.limit = req.body.limit;
-  }
-  if (req.body.page) {
-    qry.offset = (req.body.page - 1) * req.body.limit;
-  }
-
-  // Applying base filters and role-based adjustments
-  qry.where = baseCountQuery.where;
-
-  // Order by createdAt in descending order
-  qry.order = [['createdAt', 'DESC']];
-
-  console.log('Final Query:', qry);
-
-  // Cache handling
-  if (req.body.cache_key && req.body.cache_key !== '') {
-    const cache_key = req.body.cache_key;
-    const cacheDuration = 3600; // Cache duration in seconds
-
-    // Get last time it was modified
-    const lastRow = await db.models[reg_model].findOne({
-      attributes: ['updatedAt'],
-      order: [['updatedAt', 'DESC']]
-    });
-
-    const lastModified = lastRow ? lastRow.updatedAt : Date.now();
-
-    try {
-      const cacheResults = await redisClient.get(cache_key);
-      if (cacheResults) {
-        const result = JSON.parse(cacheResults);
-        if (lastModified && lastModified > result.lastModified) {
-          // If the database was updated after the cached data was generated, update the cache
-          const response = await db.models[reg_model].findAndCountAll(qry);
-          await redisClient.set(cache_key, JSON.stringify({
-            data: response.rows,
-            total: count,
-            lastModified: Date.now()
-          }), {
-            EX: cacheDuration,
-            NX: true,
-          });
-          res.status(200).send({
-            fromCache: false,
-            cache_key: cache_key,
-            data: response.rows,
-            total: count,
-            code: '0000'
-          });
-        } else {
-          // If the cached data is still valid, return it from the cache
-          res.status(200).send({
-            fromCache: true,
-            cache_key: cache_key,
-            data: result.data,
-            total: count,
-            code: '0000'
-          });
-        }
-      } else {
-        // If no cache data exists, generate new data and store it in the cache
-        const response = await db.models[reg_model].findAndCountAll(qry);
-        await redisClient.set(cache_key, JSON.stringify({
-          data: response.rows,
-          total: count,
-          lastModified: Date.now()
-        }), {
-          EX: cacheDuration,
-          NX: true,
-        });
-        res.status(200).send({
-          fromCache: false,
-          cache_key: cache_key,
-          data: response.rows,
-          total: count,
-          code: '0000'
-        });
-      }
-    } catch (error) {
-      res.status(500).send({
-        message: 'Internal server error',
-        code: 'SERVER_ERROR'
-      });
-    }
-  } else {
-    // No cache
-    try {
-      const response = await db.models[reg_model].findAndCountAll(qry);
-      res.status(200).send({
-        fromCache: false,
-        data: response.rows,
-        total: count,
-        code: '0000'
-      });
-    } catch (error) {
-      res.status(500).send({
-        message: 'Internal server error',
-        code: 'SERVER_ERROR'
-      });
-    }
-  }
-};
-
 
  
 exports.getGrievances =async (req, res) => {
@@ -455,6 +250,11 @@ exports.getGrievances =async (req, res) => {
   }
 
   console.log(findAndCountOptions)
+  const associatedModels = req.body.associated_multiple_models || [];
+  if (associatedModels.length > 0) {
+    findAndCountOptions.include = associatedModels.map(model => ({ model: db.models[model] }));
+  }
+
 
   Grievance.findAndCountAll(findAndCountOptions)
     .then(({ count, rows: grievances }) => {
@@ -473,3 +273,131 @@ exports.getGrievances =async (req, res) => {
     });
 };
  
+
+
+
+
+const multer = require('multer');
+
+const uploadDir = '/data/grievances';
+
+// Ensure the directory exists
+if (!fs.existsSync(uploadDir)) {
+  console.log('Create Folder if not esists ')
+  fs.mkdirSync(uploadDir, { recursive: true });
+} else {
+  console.log('Grievances Folder exists. Skipping ')
+}
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, '/data/grievances'); // Define the directory where uploaded files will be stored
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname); // Keep the original file name
+  },
+});
+
+
+
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit (adjust as needed)
+  },
+});
+
+exports.uploadGrievanceDocument = (req, res) => {
+        // The uploaded files can be accessed using `req.files`
+      // Use `upload.array('files')` middleware to handle multiple file uploads
+      // 'files' should match the name attribute of the file input(s) in your form
+      upload.array('files')(req, res, async (err) => {
+      if (err) {
+        console.log(err);
+        // Handle multer errors, if any
+      // return res.status(400).json({ error: 'File upload failed.' });
+      return res.status(500).send({
+          message: 'Upload failed.',
+          code: '0000'
+        })
+      }
+
+
+      var reg_model = 'grievance_document'
+      let myFiles = req.files
+      let objs = []
+      if (!Array.isArray(myFiles)) {
+        myFiles = [myFiles]; // Convert to an array with one element
+      }
+
+
+      for (let i = 0; i < myFiles.length; i++) {
+        
+        console.log('doc#',i, myFiles[i], req.body )
+        
+        var obj = {}
+        
+
+              if (myFiles.length >1) {
+                obj.grievance_id =req.body.grievance_id[i] 
+                obj.format = req.body.format[i]
+                obj.size = req.body.size[i]
+                obj.protected_file = req.body.protected_file[i] 
+                obj.name = myFiles[i].originalname
+                obj.location = myFiles[i].path
+                obj.code = shortid.generate()
+                objs.push(obj)
+
+              } else {
+                obj.grievance_id =req.body.grievance_id 
+                obj.format = req.body.format 
+                obj.size = req.body.size 
+                obj.protected_file = req.body.protected_file[i] 
+                obj.name = myFiles[i].originalname
+                obj.location = myFiles[i].path
+                obj.code =shortid.generate()
+                obj.format = req.body.format 
+
+                objs.push(obj)
+
+        }
+
+      }
+
+      console.log('objs#',  objs ) 
+      try {
+        //await db.models[reg_model].create(obj)
+      for (const nobj of objs) {
+        console.log('inserting....., ', nobj)
+        await db.models[reg_model].create(nobj); 
+      }
+
+      res.status(200).send({
+        message: 'Batch Upload Successful',
+        code: '0000'
+      })
+
+}
+     
+    catch (error) {
+    console.log(error)
+
+    
+    res.status(500).send({
+    message: 'Upload failed. ' + error + ' errors',
+    code: '0000'
+    })
+    }
+
+
+
+
+    // Other form fields (if any) can be accessed using `req.body`
+    //  console.log('other form fields:', req.body);
+
+    // Process the files or respond to the client accordingly
+    // res.json({ message: 'Form submission and file upload successful!' });
+    });
+    };
