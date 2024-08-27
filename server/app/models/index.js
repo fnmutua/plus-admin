@@ -1440,13 +1440,13 @@ db.models.settlement.hasMany(db.models.grievance, {
 
  
 // Grievance Actions belongs to Grievance
-db.models.grievance_action.belongsTo(db.models.grievance, {
+db.models.grievance_log.belongsTo(db.models.grievance, {
   foreignKey: 'grievance_id',
   onDelete: 'CASCADE' // Cascade delete
 });
 
 // Grievance has many Grievance Actions
-db.models.grievance.hasMany(db.models.grievance_action, {
+db.models.grievance.hasMany(db.models.grievance_log, {
   foreignKey: 'grievance_id',
   onDelete: 'CASCADE' // Cascade delete
 });
@@ -1459,6 +1459,17 @@ db.models.grievance_document.belongsTo(db.models.grievance, {
 db.models.grievance.hasMany(db.models.grievance_document, {
   foreignKey: 'grievance_id'
 })
+
+// grievance  - grievance_resolution_level
+db.models.grievance.belongsTo(db.models.grievance_resolution_level, {
+  foreignKey: 'current_level'
+})
+
+db.models.grievance_resolution_level.hasMany(db.models.grievance, {
+  foreignKey: 'current_level'
+})
+
+
 
 
 // Grievance -Escalation
@@ -1511,12 +1522,25 @@ db.models.users.hasMany(db.models.grievance_resolution, {
  
 // Grievance Resolution  - Level
 db.models.grievance_resolution.belongsTo(db.models.grievance_resolution_level, {
-  foreignKey: 'grievance_resolution_level'
+  foreignKey: 'resolution_level'
 })
 
 db.models.grievance_resolution_level.hasMany(db.models.grievance_resolution, {
-  foreignKey: 'grievance_resolution_level'
+  foreignKey: 'resolution_level'
 })
+
+
+
+// Grievance Actions belongs to Grievance
+db.models.grievance_log.belongsTo(db.models.users, {
+  foreignKey: 'action_by',
+ });
+
+// Grievance has many Grievance Actions
+db.models.users.hasMany(db.models.grievance_log, {
+  foreignKey: 'action_by',
+ });
+
 
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];

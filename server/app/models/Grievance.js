@@ -77,10 +77,10 @@ module.exports = function (sequelize) {
       current_level: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        references: {
-          model: 'resolution_level', // name of the Grievance model
-          key: 'id'
-        }
+        // references: {
+        //   model: 'grievance_resolution_level', // name of the Grievance model
+        //   key: 'id'
+        // }
       }, 
 
 

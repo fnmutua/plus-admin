@@ -239,7 +239,7 @@ import {
 
 import BaseLayout from './BaseLayout.vue';
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
-import { uploadGrievanceDocuments,generateGrievance } from '@/api/grievance'
+import { uploadGrievanceDocuments,generateGrievance,logGrievanceAction } from '@/api/grievance'
 import {
   ArrowLeft,
   ArrowRight,
@@ -465,20 +465,43 @@ for (let [key, value] of formData.entries()) {
 
 const res =  await uploadGrievanceDocuments(formData)
 
-console.log("DOcuments", res)
-router.push('/landing');
+console.log("Docuemnts Uploaded", res)
+ 
 
 
 
 }
 
+
+const logAction = async (grievance) => {
+  console.log('Log---->grievance',grievance)
+
+ 
+  const formData ={};
+
+  formData.grievance_id=grievance.id
+  formData.action_type='Created'
+  formData.action_by=null
+  formData.date_actioned=grievance.date_reported
+  formData.prev_status=grievance.status
+  formData.new_status=grievance.status
+  
+  
+
+  const res =  await logGrievanceAction(formData)
+
+console.log("Log Successful", res)
+router.push('/landing');
+
+}
 const submitForm = async () => {
  
  
    grmForm.value.date_reported = new Date();
    grmForm.value.status ='Open'
    grmForm.value.model = 'grievance';
-
+   grmForm.value.current_level = '1';
+    
 
    const formInstance = dynamicFormRef
 
@@ -486,14 +509,16 @@ const submitForm = async () => {
      if (valid) {
        console.log('Is Valid',grmForm)
        
+       //1. Submit teh greivance 
        const res =  await generateGrievance(grmForm.value)
        console.log('res',res)
-
+ 
+       // 2. Uplaod docuemnts 
       await uploadFiles(res.data.id)
-       // Uplaod docuemnts 
+     
 
-
-
+       // 3. Log the entry
+       await logAction (res.data)
  
 
        ElMessage({

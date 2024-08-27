@@ -34,7 +34,7 @@ module.exports = function (sequelize, DataTypes) {
       }, 
      
 
-     grievance_resolution_level: {
+    resolution_level: {
         type: DataTypes.INTEGER,
         allowNull: false,
         // references: {
