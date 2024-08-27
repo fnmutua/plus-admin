@@ -31,7 +31,7 @@ import { useRouter } from 'vue-router'
 
 
 
-
+const activeName = ref('details')
 const action = ref('')
 // Resolve, Escalate, Documentation 
  
@@ -185,7 +185,7 @@ const goBack = () => {
 
  
 
-const activeName = ref('details')
+
 
  
 
