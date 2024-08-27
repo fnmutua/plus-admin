@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted,computed } from 'vue'
-import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow ,
+import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow ,  ElDivider,
   ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElRadioButton,ElRadioGroup,
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
+import { Icon } from '@iconify/vue';
 
 
 
@@ -25,22 +26,20 @@ import type { ComponentSize } from 'element-plus'
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useRoute } from 'vue-router'
 import {  Back} from '@element-plus/icons-vue'
-import { Icon } from '@iconify/vue';
-
+ 
 import { useRouter } from 'vue-router'
 
 
-const size = ref<ComponentSize>('default')
 
 
-const action = ref('Resolve')
-
+const action = ref('')
+// Resolve, Escalate, Documentation 
  
 const route = useRoute()
 
-const thisGrievance =ref({})
 const Grievance =ref(
 {
+  'code' :null,
   'complainant' :null,
   'telephone' :null,
   'county' :null,
@@ -110,6 +109,7 @@ const res  =await getOneGrievance(formData)
  
 
  // Get the Details of the Grievance
+ Grievance.value.code = res.data.code
  Grievance.value.complainant = res.data.name
  Grievance.value.telephone = res.data.phone
  Grievance.value.county = res.data.county.name
@@ -123,7 +123,12 @@ const res  =await getOneGrievance(formData)
 
  console.log("Grievance",Grievance.value)
 
-
+  if(res.data.status=='Escalated'){
+    action.value='Escalated'
+  }
+  else if (res.data.status=='Resolved')  {
+    action.value=='Resolve'
+  }
 
 
 
@@ -153,6 +158,12 @@ const grievanceData = computed(() => {
     value: formatSentence(Grievance.value[key])
   }));
 });
+
+
+const sortedGrievanceLogs = computed(() => {
+      return GrievanceLogs.value.slice().sort((a, b) => new Date(b.date_actioned) - new Date(a.date_actioned));
+    });
+
 
 
 const router = useRouter()
@@ -189,6 +200,8 @@ const activeName = ref('details')
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
           Back
         </el-button>
+
+        {{Grievance.code}} : {{Grievance.complainant}}
       </div>
     </template>
 
@@ -198,16 +211,15 @@ const activeName = ref('details')
     class="demo-tabs"
     
   >
-    <el-tab-pane label="Details" name="details">
+    <el-tab-pane label="Grievance Details" name="details">
       
       <el-card> 
-        <el-radio-group v-model="action">
+        <el-radio-group v-model="action" :disabled="action=='Resolve'"> 
           <el-radio-button value="Resolve">Mark As Resolved</el-radio-button>
           <el-radio-button value="Escalate">Escalate to Next Level</el-radio-button>
           <el-radio-button value="Documentation">Ask For Documentation</el-radio-button>
-          <el-radio-button value="auto">Ask For Documentation</el-radio-button>
-        </el-radio-group>
-
+         </el-radio-group>
+ 
 
           <el-table :data="grievanceData" style="width: 100%" size="large">
             <el-table-column
@@ -232,50 +244,61 @@ const activeName = ref('details')
 
 
     </el-tab-pane>
-    <el-tab-pane label="Documents" name="documents">
-      <el-card>
-           
-          <div class="documents-container">
-            <ul>
-              <li v-for="(doc, index) in GrievanceDocuments" :key="index">
-                {{ doc.name }} - <a :href="doc.url" target="_blank">View Document</a>
-              </li>
-            </ul>
-          </div>
-        </el-card>
+    <el-tab-pane label="Supporting Documentation" name="documents">
+        <el-card>
+          
+
+            <el-table :data="GrievanceDocuments" style="width: 100%">
+
+              <el-table-column type="index" width="50" />
+               <el-table-column prop="name" label="Name"  />
+              <el-table-column prop="createdAt" label="Uploaded"   />
+         
+              <el-table-column fixed="right" label="" >
+                <template #default>
+                  <el-button 
+                   
+                        type="primary" 
+                     
+                      >
+                        <Icon icon="fa-solid:download" style="  margin-right: 5px;" />
+                        Download
+                      </el-button>
+                 </template>
+              </el-table-column>
+            </el-table>
+
+
+
+          </el-card>
 
     </el-tab-pane>
     <el-tab-pane label="Action Logs" name="timeline">
       
-      <el-timeline style="max-width: 100%">
-            <el-timeline-item timestamp="2018/4/12" placement="top">
-              <el-card>
-                <el-row>
-                  <!-- Icon in the first 1/4 of the card -->
-                  <el-col :span="2">
-                    <Icon icon="mdi:latest" width="48" />
-                  </el-col>
-                  <!-- Content in the remaining 3/4 of the card -->
-                  <el-col :span="18">
-                    <h4>Update Github template</h4>
-                    <p>Tom committed 2018/4/12 20:46</p>
-                  </el-col>
-                </el-row>
-              </el-card>
-            </el-timeline-item>
-            <el-timeline-item timestamp="2018/4/3" placement="top" :icon="Back">
-              <el-card>
-                <h4>Update Github template</h4>
-                <p>Tom committed 2018/4/3 20:46</p>
-              </el-card>
-            </el-timeline-item>
-            <el-timeline-item timestamp="2018/4/2" placement="top">
-              <el-card>
-                <h4>Update Github template</h4>
-                <p>Tom committed 2018/4/2 20:46</p>
-              </el-card>
-            </el-timeline-item>
-          </el-timeline>
+      <el-timeline style="max-width: 50%">
+          <el-timeline-item 
+            v-for="(log, index) in sortedGrievanceLogs" 
+            :key="index" 
+            :timestamp="log.date_actioned" 
+            placement="top" 
+           >
+            <el-card>
+              <el-row>
+                <!-- Icon in the first 1/4 of the card -->
+                <el-col :span="4">
+                  <Icon v-if="log.action_type=='Resolved'" icon="flat-color-icons:ok" width="48" />
+                  <Icon v-if="log.action_type=='Escalated'" icon="solar:square-forward-bold"  style="color: orange"   width="48"/>
+                  <Icon v-if="log.action_type=='Created'" icon="zondicons:add-solid" width="48"  style="color: gray"  />
+                </el-col>
+                <!-- Content in the remaining 3/4 of the card -->
+                <el-col :span="20">
+                  <h4>{{ log.action_type }}</h4>
+                  <p>By - {{ log.user ? log.user.name : Grievance.complainant }}</p>
+                </el-col>
+              </el-row>
+            </el-card>
+          </el-timeline-item>
+        </el-timeline>
 
 
     </el-tab-pane>
