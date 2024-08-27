@@ -72,6 +72,18 @@ module.exports = function (sequelize) {
           isIn: [['Open', 'Investigation', 'Review', 'Resolved', 'Escalated', 'Closed']]
         }
       },
+     
+
+      current_level: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'resolution_level', // name of the Grievance model
+          key: 'id'
+        }
+      }, 
+
+
       description: {
         type: DataTypes.STRING,
         allowNull: true
