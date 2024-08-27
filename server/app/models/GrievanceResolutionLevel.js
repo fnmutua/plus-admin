@@ -3,7 +3,7 @@ const DataTypes = Sequelize.DataTypes;
 
 module.exports = function (sequelize) {
   return sequelize.define(
-    'resolution_level',
+    'grievance_resolution_level',
     {
       id: {
         autoIncrement: true,
@@ -24,12 +24,12 @@ module.exports = function (sequelize) {
     },
     {
       sequelize,
-      tableName: 'resolution_level',
+      tableName: 'grievance_resolution_level',
       schema: 'public',
       timestamps: true,
       indexes: [
         {
-          name: 'resolution_level_pkey',
+          name: 'grievance_resolution_level_pkey',
           unique: true,
           fields: [{ name: 'id' }]
         },

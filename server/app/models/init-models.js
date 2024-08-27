@@ -71,7 +71,7 @@ var _settlement_uploads = require('./settlement_uploads')
 
 // grievances 
 var _grievance = require('./Grievance')
-var _grievance_action = require('./GrievanceAction')
+var _grievance_log = require('./GrievanceAction')
 var _grievance_document = require('./GrievanceDocument')
 var _grievance_escalation = require('./GrievanceEscalation')
 var _grievance_resolution= require('./GrievanceResolution')
@@ -152,7 +152,7 @@ function initModels(sequelize) {
 
   // Greivances 
   var grievance = _grievance(sequelize, DataTypes)
-  var grievance_action = _grievance_action(sequelize, DataTypes)
+  var grievance_log = _grievance_log(sequelize, DataTypes)
   var grievance_document = _grievance_document(sequelize, DataTypes)
   var grievance_escalation = _grievance_escalation(sequelize, DataTypes)
   var grievance_resolution = _grievance_resolution(sequelize, DataTypes)
@@ -230,7 +230,7 @@ function initModels(sequelize) {
     project_location,
     project_beneficiary,grievance_resolution_level,
     grievance,
-    grievance_action,
+    grievance_log,
      grievance_resolution,grievance_escalation,grievance_document,  
 
   }

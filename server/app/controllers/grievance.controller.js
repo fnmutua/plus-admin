@@ -147,6 +147,32 @@ exports.createGrievanceRecord = async (req, res) => {
 };
 
 
+exports.logGrievanceAction = async (req, res) => {
+  try {
+  
+    // Prepare the object for creation
+    let obj = req.body;
+
+    console.log('Log>>', obj)
+
+       // Create the record
+    const item = await db.models.grievance_log.create(obj);
+
+    console.log('Created log:', item);
+
+    res.status(200).send({
+      data: item,
+      code: '0000',
+      message: 'Action Logged successfully.'
+    });
+
+  } catch (err) {
+   
+    console.log(err)
+    res.status(500).send({ message: 'Logging action failed' });
+  }
+};
+
  
 
  
@@ -401,3 +427,191 @@ exports.uploadGrievanceDocument = (req, res) => {
     // res.json({ message: 'Form submission and file upload successful!' });
     });
     };
+
+
+
+exports.zgetGrievanceById = async (req, res) => {
+      const user = req.thisUser;
+      const grievanceId = req.body.id; // Retrieve grievance ID from the request parameters
+    
+      const currentUserRoles = await user.getRoles();
+    
+      console.log('Current User Roles:', currentUserRoles);
+    
+      // Initialize findOptions with common properties
+      const findOptions = {
+        where: { id: grievanceId }, // Filter by the specific grievance ID
+      };
+    
+      // Check if the current user has the 'super_admin' role
+      const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
+      const hasGRMRole = currentUserRoles.some(role => role.name === 'grm');
+    
+      if (!hasGRMRole && !hasSuperAdminRole) {
+        // Return an empty response if the user does not have GRM roles or is not a super admin
+        return res.status(200).send({
+          data: null,
+          code: '9999',
+          message: 'Unauthorized access to grievance denied',
+        });
+      }
+    
+      if (!hasSuperAdminRole) {
+        const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
+        const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
+    
+        if (!hasNationalRole && hasCountyAdminRole) {
+          // Apply the county filter only if the user does not have a 'national' role but has a 'county_admin' role
+          findOptions.where.county_id = user.county_id;
+          console.log('Applying county filter:', user.county_id);
+        }
+      } else {
+        console.log('Super Admin detected. Bypassing location-level filtering.');
+      }
+    
+      // Apply decryption for sensitive fields (e.g., name, national_id)
+      let attributes = [];
+      for (let key in db.models.grievance.rawAttributes) {
+        attributes.push(key);
+      }
+    
+      let decryptedName = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), 'maluini'), 'name'];
+      attributes.push(decryptedName);
+    
+      let decryptedNationalId = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), 'maluini'), 'national_id'];
+      attributes.push(decryptedNationalId);
+    
+      findOptions.attributes = attributes;
+    
+      // Include associated models if specified
+      const associatedModels = req.body.associated_multiple_models || [];
+      if (associatedModels.length > 0) {
+        findOptions.include = associatedModels.map(model => ({ model: db.models[model] }));
+      }
+    
+      Grievance.findOne(findOptions)
+        .then(grievance => {
+          if (!grievance) {
+            return res.status(404).send({
+              data: null,
+              code: '0001',
+              message: 'Grievance not found',
+            });
+          }
+    
+          console.log('Grievance retrieved:', grievance);
+    
+          res.status(200).send({
+            data: grievance,
+            code: '0000',
+            message: 'Grievance retrieved successfully',
+          });
+        })
+        .catch(error => {
+          console.error('Error fetching Grievance:', error);
+          res.status(500).send({ message: 'Unable to retrieve Grievance. Please try again later.' });
+        });
+    };
+    
+    exports.getGrievanceById = async (req, res) => {
+      const user = req.thisUser;
+      const grievanceId = req.body.id; // Retrieve grievance ID from the request parameters
+    
+      const currentUserRoles = await user.getRoles();
+    
+      console.log('Current User Roles:', currentUserRoles);
+    
+      // Initialize findOptions with common properties
+      const findOptions = {
+        where: { id: grievanceId }, // Filter by the specific grievance ID
+      };
+    
+      // Check if the current user has the 'super_admin' role
+      const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
+      const hasGRMRole = currentUserRoles.some(role => role.name === 'grm');
+    
+      if (!hasGRMRole && !hasSuperAdminRole) {
+        return res.status(200).send({
+          data: null,
+          code: '9999',
+          message: 'Unauthorized access to grievance denied',
+        });
+      }
+    
+      if (!hasSuperAdminRole) {
+        const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
+        const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
+    
+        if (!hasNationalRole && hasCountyAdminRole) {
+          findOptions.where.county_id = user.county_id;
+          console.log('Applying county filter:', user.county_id);
+        }
+      } else {
+        console.log('Super Admin detected. Bypassing location-level filtering.');
+      }
+    
+      // Apply decryption for sensitive fields (e.g., name, national_id)
+      let attributes = [];
+      for (let key in db.models.grievance.rawAttributes) {
+        attributes.push(key);
+      }
+    
+      let decryptedName = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), 'maluini'), 'name'];
+      attributes.push(decryptedName);
+    
+      let decryptedNationalId = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), 'maluini'), 'national_id'];
+      attributes.push(decryptedNationalId);
+    
+      findOptions.attributes = attributes;
+    
+      // Include associated models if specified, with one level of nested association
+      const associatedModels = req.body.associated_multiple_models || [];
+      if (associatedModels.length > 0) {
+        findOptions.include = associatedModels.map(model => {
+          if (typeof model === 'string') {
+            // If the model is 'user', limit fields to id, name, and tel
+            if (model === 'users') {
+              return { 
+                model: db.models[model], 
+                attributes: ['id', 'name','username','email', 'phone'] 
+              };
+            }
+            return { model: db.models[model] };
+          } else if (typeof model === 'object' && model.name && model.nestedAssociations) {
+            return {
+              model: db.models[model.name],
+              attributes: model.name === 'users' ? ['id', 'name','username','email', 'phone'] : undefined,
+              include: model.nestedAssociations.map(nestedModel => ({
+                model: db.models[nestedModel],
+                attributes: nestedModel === 'users' ? ['id', 'name','username','email', 'phone'] : undefined,
+              }))
+            };
+          }
+        });
+      }
+    
+      Grievance.findOne(findOptions)
+        .then(grievance => {
+          if (!grievance) {
+            return res.status(404).send({
+              data: null,
+              code: '0001',
+              message: 'Grievance not found',
+            });
+          }
+    
+          console.log('Grievance retrieved:', grievance);
+    
+          res.status(200).send({
+            data: grievance,
+            code: '0000',
+            message: 'Grievance retrieved successfully',
+          });
+        })
+        .catch(error => {
+          console.error('Error fetching Grievance:', error);
+          res.status(500).send({ message: 'Unable to retrieve Grievance. Please try again later.' });
+        });
+    };
+    
+    

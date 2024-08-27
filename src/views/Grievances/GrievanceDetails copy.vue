@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted,computed } from 'vue'
-import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow ,
-  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElRadioButton,ElRadioGroup,
-} from 'element-plus'
+import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow ,ElCard,ElTabs,ElTabpane} from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
 
@@ -33,7 +31,6 @@ import { useRouter } from 'vue-router'
 const size = ref<ComponentSize>('default')
 
 
-const action = ref('Resolve')
 
  
 const route = useRoute()
@@ -53,8 +50,6 @@ const Grievance =ref(
   'date_reported' :null
 }
 )
-
-
 
 const GrievanceDocuments =ref( [])
 const GrievanceLogs =ref( [])
@@ -123,10 +118,6 @@ const res  =await getOneGrievance(formData)
 
  console.log("Grievance",Grievance.value)
 
-
-
-
-
  for (const key in  Grievance.value) {
       formattedLabels[key] = await formatLabel(key);
     }
@@ -145,14 +136,6 @@ console.log('formattedLabels.value',formattedLabels)
  
 })
 
-
-// Computed property to transform grievance object into an array for el-table
-const grievanceData = computed(() => {
-  return Object.keys(Grievance.value).map(key => ({
-    label: formatSentence(key),
-    value: formatSentence(Grievance.value[key])
-  }));
-});
 
 
 const router = useRouter()
@@ -174,7 +157,6 @@ const goBack = () => {
 
  
 
-const activeName = ref('details')
 
  
 
@@ -192,49 +174,35 @@ const activeName = ref('details')
       </div>
     </template>
 
-    <el-tabs
-    v-model="activeName"
-    type="border-card"
-    class="demo-tabs"
-    
-  >
-    <el-tab-pane label="Details" name="details">
-      
-      <el-card> 
-        <el-radio-group v-model="action">
-          <el-radio-button value="Resolve">Mark As Resolved</el-radio-button>
-          <el-radio-button value="Escalate">Escalate to Next Level</el-radio-button>
-          <el-radio-button value="Documentation">Ask For Documentation</el-radio-button>
-          <el-radio-button value="auto">Ask For Documentation</el-radio-button>
-        </el-radio-group>
-
-
-          <el-table :data="grievanceData" style="width: 100%" size="large">
-            <el-table-column
-              prop="label"
-              label=""
-              width="150"
-            >
-              <template #default="{ row }">
-                <span style="font-weight: bold">{{ row.label }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column
-              prop="value"
-              label=""
-            />
-
-            
-          </el-table>
-
-          
+    <!-- Tabs Layout -->
+    <el-tabs >
+      <!-- Details Tab -->
+      <el-tab-pane label="Details">
+        <el-card>
+          <div class="card-header">
+            Grievance Details
+          </div>
+          <div class="details-container">
+            <!-- Loop through the properties of the Grievance object -->
+            <div v-for="(value, key) in Grievance" :key="key" class="detail-item">
+              <div class="label-text">
+                {{ formatSentence(key) }}
+              </div>
+              <div class="value">
+                <!-- Wrap the value in a div or other HTML element -->
+                {{ formatSentence(value) }}
+              </div>
+            </div>
+          </div>
         </el-card>
+      </el-tab-pane>
 
-
-    </el-tab-pane>
-    <el-tab-pane label="Documents" name="documents">
-      <el-card>
-           
+      <!-- Documents Tab -->
+      <el-tab-pane label="Documents">
+        <el-card>
+          <div class="card-header">
+            Grievance Documents
+          </div>
           <div class="documents-container">
             <ul>
               <li v-for="(doc, index) in GrievanceDocuments" :key="index">
@@ -243,11 +211,13 @@ const activeName = ref('details')
             </ul>
           </div>
         </el-card>
+      </el-tab-pane>
 
-    </el-tab-pane>
-    <el-tab-pane label="Action Logs" name="timeline">
-      
-      <el-timeline style="max-width: 100%">
+      <!-- Timeline Tab -->
+      <el-tab-pane label="Timeline">
+        <el-card>
+          <h3>Timeline</h3>
+          <el-timeline style="max-width: 100%">
             <el-timeline-item timestamp="2018/4/12" placement="top">
               <el-card>
                 <el-row>
@@ -276,10 +246,9 @@ const activeName = ref('details')
               </el-card>
             </el-timeline-item>
           </el-timeline>
-
-
-    </el-tab-pane>
-   </el-tabs>
+        </el-card>
+      </el-tab-pane>
+    </el-tabs>
   </el-card>
 </template>
 <style scoped>
@@ -293,7 +262,7 @@ const activeName = ref('details')
   display: flex;
   justify-content: space-between;
   margin-bottom: 5px;
-  padding: 5px;
+  padding: 10px;
   border-bottom: 1px solid #eee;
 }
 
@@ -301,14 +270,12 @@ const activeName = ref('details')
 .label-text {
   font-weight: bold;
   color: #333;
-  
-  width: 10%; /* Adjust as needed */
+  width: 30%; /* Adjust as needed */
 }
 
 /* Value styling */
 .value {
-  width: 90%; /* Adjust as needed */
- 
+  width: 65%; /* Adjust as needed */
 }
 
 /* Ensure spacing between rows */

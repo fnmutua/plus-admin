@@ -485,6 +485,34 @@ const getGrievanceDetails = (data) => {
 
   console.log(data)
 }
+
+const ActionOptions = [
+  {
+    value: 'Resolved',
+    label: 'Mark as Resolved',
+  },
+  {
+    value: 'Escalated',
+    label: 'Escalate to next Level',
+  },
+
+  
+  {
+    value: 'Document Requested',
+    label: 'Ask for Documentation from complainant',
+  },
+]
+const formAction = ref({
+  grievance_id : null ,
+  action_type : null ,
+  action_by : null ,
+  date_actioned : null ,
+  prev_status : null ,
+  new_status : null ,
+});
+ 
+
+
 </script>
 
 <template>
@@ -589,13 +617,27 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
   </el-drawer>
 
 
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
+  <el-dialog v-model="AddDialogVisible" @close="handleClose"  title="Grievance Actions" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules">
-      <!-- <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
-      <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" /> -->
-      <el-form-item label="Title">
-        <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
+     
+      <el-form-item label="Action">
+        <el-select
+        v-model="formAction.action_type"
+        placeholder="Select"
+        style="width: 100%"
+      >
+        <el-option
+          v-for="item in ActionOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
+      </el-select>
       </el-form-item>
+
+     
+
+
       <el-form-item label="Short Title">
         <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" />
       </el-form-item>

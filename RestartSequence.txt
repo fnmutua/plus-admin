@@ -61,4 +61,4 @@ EXECUTE FUNCTION updatedAt();
 
 
 DELETE FROM grievances;
-ALTER SEQUENCE grievance_id_seq RESTART WITH 1;
+ALTER SEQUENCE resolution_level_id_seq RESTART WITH 4;

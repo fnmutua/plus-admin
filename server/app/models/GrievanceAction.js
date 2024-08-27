@@ -1,7 +1,7 @@
 const Sequelize = require('sequelize');
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
-    'grievance_action',
+    'grievance_log',
     {
       id: {
         autoIncrement: true,
@@ -17,37 +17,49 @@ module.exports = function (sequelize, DataTypes) {
           model: 'grievance', // name of the Grievance model
           key: 'id'
         }
-      },
+      }, 
 
       action_type: {
         type: DataTypes.STRING,
+        enum: ['Created', 'Updated', 'Resolved', 'Escalated', 'Document Requested','Document Uploaded'],
         allowNull: false
       },
-
-      description: {
-        type: DataTypes.STRING,
+ 
+      action_by: {
+        type: DataTypes.INTEGER,
         allowNull: true
       },
+
+ 
 
       date_actioned: {
         type: DataTypes.DATE,
         allowNull: false
       },
 
-      status: {
+      prev_status: {
+        type: DataTypes.STRING,
+        enum: ['Open', 'Investigation', 'Review', 'Resolved', 'Escalated', 'Closed'],
+        allowNull: false
+      },
+
+      new_status: {
         type: DataTypes.STRING,
         enum: ['Open', 'Investigation', 'Review', 'Resolved', 'Escalated', 'Closed'],
         allowNull: false
       }
+
+
+       
     },
     {
       sequelize,
-      tableName: 'grievance_action',
+      tableName: 'grievance_log',
       schema: 'public',
       timestamps: true,
       indexes: [
         {
-          name: 'grievance_action_pkey',
+          name: 'grievance_log_pkey',
           unique: true,
           fields: [{ name: 'id' }]
         },
