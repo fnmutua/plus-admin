@@ -64,18 +64,21 @@ var _frequency= require('./frequency')
 var _programme_implementation= require('./programme_implementation')
 var _contractor= require('./contractor')
 var _project_location = require('./project_location')
-var _project_beneficiary = require('./project_beneficiary')
+var _project_beneficiary = require('./project_beneficiary') 
+
+var _settlement_uploads = require('./settlement_uploads')
 
 
-
+// grievances 
 var _grievance = require('./Grievance')
 var _grievance_action = require('./GrievanceAction')
 var _grievance_document = require('./GrievanceDocument')
+var _grievance_escalation = require('./GrievanceEscalation')
+var _grievance_resolution= require('./GrievanceResolution')
+var _grievance_resolution_level= require('./GrievanceResolutionLevel')
+ 
 
 
-
-
-var _settlement_uploads = require('./settlement_uploads')
 
 function initModels(sequelize) {
   var beneficiary = _beneficiary(sequelize, DataTypes)
@@ -146,11 +149,19 @@ function initModels(sequelize) {
   var project_location = _project_location(sequelize, DataTypes)
   var project_beneficiary = _project_beneficiary(sequelize, DataTypes)
   
+
+  // Greivances 
   var grievance = _grievance(sequelize, DataTypes)
   var grievance_action = _grievance_action(sequelize, DataTypes)
   var grievance_document = _grievance_document(sequelize, DataTypes)
+  var grievance_escalation = _grievance_escalation(sequelize, DataTypes)
+  var grievance_resolution = _grievance_resolution(sequelize, DataTypes)
+  var grievance_resolution_level = _grievance_resolution_level(sequelize, DataTypes)
 
   
+  
+
+
   
   return {
     beneficiary,
@@ -217,10 +228,11 @@ function initModels(sequelize) {
     programme_implementation,
     contractor,
     project_location,
-    project_beneficiary,
+    project_beneficiary,grievance_resolution_level,
     grievance,
     grievance_action,
-    grievance_document,
+     grievance_resolution,grievance_escalation,grievance_document,  
+
   }
 }
 module.exports = initModels

@@ -1460,7 +1460,64 @@ db.models.grievance.hasMany(db.models.grievance_document, {
   foreignKey: 'grievance_id'
 })
 
+
+// Grievance -Escalation
+db.models.grievance_escalation.belongsTo(db.models.grievance, {
+  foreignKey: 'grievance_id'
+})
+
+db.models.grievance.hasMany(db.models.grievance_escalation, {
+  foreignKey: 'grievance_id'
+})
+
  
+// Grievance - Resolution
+db.models.grievance_resolution.belongsTo(db.models.grievance, {
+  foreignKey: 'grievance_id'
+})
+
+db.models.grievance.hasMany(db.models.grievance_resolution, {
+  foreignKey: 'grievance_id'
+})
+ 
+
+// Grievance Escalation  - Users
+db.models.grievance_escalation.belongsTo(db.models.users, {
+  foreignKey: 'escalated_by'
+})
+
+db.models.users.hasMany(db.models.grievance_escalation, {
+  foreignKey: 'escalated_by'
+})
+ 
+db.models.grievance_escalation.belongsTo(db.models.users, {
+  foreignKey: 'escalated_to'
+})
+
+db.models.users.hasMany(db.models.grievance_escalation, {
+  foreignKey: 'escalated_to'
+})
+ 
+// Grievance Resolution  - Users
+ db.models.grievance_resolution.belongsTo(db.models.users, {
+  foreignKey: 'resolved_by'
+})
+
+db.models.users.hasMany(db.models.grievance_resolution, {
+  foreignKey: 'resolved_by'
+})
+
+
+ 
+// Grievance Resolution  - Level
+db.models.grievance_resolution.belongsTo(db.models.grievance_resolution_level, {
+  foreignKey: 'grievance_resolution_level'
+})
+
+db.models.grievance_resolution_level.hasMany(db.models.grievance_resolution, {
+  foreignKey: 'grievance_resolution_level'
+})
+
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

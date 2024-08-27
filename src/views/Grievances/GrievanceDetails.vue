@@ -99,7 +99,7 @@ const goBack = () => {
       </el-row>
     </el-card>
   </el-timeline-item>
-    <el-timeline-item timestamp="2018/4/3" placement="top">
+    <el-timeline-item timestamp="2018/4/3" placement="top" :icon="Back">
       <el-card>
         <h4>Update Github template</h4>
         <p>Tom committed 2018/4/3 20:46</p>

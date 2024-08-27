@@ -21,6 +21,24 @@ module.exports = function(sequelize, DataTypes) {
       }
     },
 
+   /*  resolution_id : {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'grievance_resolution', // name of the Grievance model
+        key: 'id'
+      }
+    },
+
+    escalation_id : {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'grievance_escalation', // name of the Grievance model
+        key: 'id'
+      }
+    }, */
+
     format: {
       type: DataTypes.STRING,
       allowNull: false
