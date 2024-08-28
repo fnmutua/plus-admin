@@ -3,7 +3,8 @@ module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
     'indicator',
     {
-       name: {
+       
+      name: {
         type: DataTypes.STRING,
         allowNull: true
       },
@@ -31,7 +32,7 @@ module.exports = function (sequelize, DataTypes) {
    
       activity_id: {
         type: DataTypes.INTEGER,
-        allowNull: false
+        allowNull: true
       },
    
 

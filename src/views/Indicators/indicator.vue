@@ -352,7 +352,7 @@ const handleClose = () => {
   ruleForm.format = ''
   ruleForm.level = ''
   ruleForm.unit = ''
-  ruleForm.activity_id
+  ruleForm.activity_id =null
 
   formHeader.value = 'Add Indicator'
 
@@ -377,7 +377,7 @@ const ruleForm = reactive({
   unit: '',
   level: '',
   format: '',
-  activity_id: '',
+  activity_id: null,
   desc: '',
 })
 
@@ -675,14 +675,21 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
-      <el-form-item id="btn1" label="Activity" prop="activity_id">
+      <el-form-item id="btn6" label="Level" prop="level">
+        <el-select v-model="ruleForm.level" placeholder="Level">
+          <el-option label="Activity" value="activity" />
+          <el-option label="Project" value="project" />
+         </el-select>
+      </el-form-item>
+
+
+      <el-form-item v-if="ruleForm.level=='activity' "  id="btn1" label="Activity" prop="activity_id">
         <el-select
 filterable v-model="ruleForm.activity_id" placeholder="Select Activity"
           style="width: 85%; margin-right: 10px;">
           <el-option v-for="item in activityOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
         <el-button type="primary" @click="AddNewActivity" :icon="Plus" plain />
-
       </el-form-item>
 
 
@@ -710,14 +717,7 @@ filterable v-model="ruleForm.activity_id" placeholder="Select Activity"
 
         </el-select>
       </el-form-item>
-      <el-form-item id="btn6" label="Level" prop="level">
-        <el-select v-model="ruleForm.level" placeholder="Level">
-          <el-option label="Settlement" value="Settlement" />
-          <el-option label="County" value="County" />
-          <el-option label="National" value="National" />
-        </el-select>
-      </el-form-item>
-
+    
 
     </el-form>
     <template #footer>
