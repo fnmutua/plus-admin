@@ -23,9 +23,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineProps, toRefs } from 'vue';
+import { ref, onMounted, defineProps,  toRefs } from 'vue';
 import {
-  ElButton, ElTooltip, ElDialog, ElRow, ElCol, ElCheckbox
+  ElButton, ElTooltip, ElDialog, ElRow, ElCol, ElMessage, ElCheckbox
   // Import other Element Plus components here
 } from 'element-plus';
 import {
@@ -182,11 +182,21 @@ const handleDownloadSelectFields = async () => {
 
 
 
-  let settings = {
+  let xsettings = {
     fileName: model.value, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+    writeMode: "write", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
     writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
   }
+
+  let settings = {
+  fileName: "MySpreadsheet", // Name of the resulting spreadsheet
+  extraLength: 3, // A bigger number means that columns will be wider
+  writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
+  writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
+  RTL: true, // Display the columns from right-to-left (the default value is false)
+}
+
+
 
   // Enclose in array since the fucntion expects an array of sheets
   xlsx([dataObj], settings) //  download the excel file
