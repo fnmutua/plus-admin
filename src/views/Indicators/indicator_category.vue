@@ -1144,13 +1144,17 @@ v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multipl
 
     <el-table :data="tableDataList" :loading="loading" border style="width: 100%; margin-top: 10px;">
       <el-table-column label="Id" prop="id" width="50px" sortable />
-      <el-table-column label="Project" prop="project.title" width="350px" sortable />
-      <el-table-column label="Activity" prop="activity.title" sortable />
+      <!-- <el-table-column label="Activity" prop="activity.title" sortable /> -->
       <el-table-column label="Settlement" prop="project_location.location_name" sortable />
-
+      <!-- <el-table-column label="Project" prop="project.title" sortable /> -->
+      <el-table-column
+      property="project.title"
+      label="Project"
+      show-overflow-tooltip
+    />
       <el-table-column label="Indicator" prop="indicator.name" sortable />
       <el-table-column label="Target" prop="target" sortable />
-      <el-table-column label="Baseline" prop="baseline" sortable />
+      <!-- <el-table-column label="Baseline" prop="baseline" sortable /> -->
 
 
 
@@ -1183,7 +1187,7 @@ type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlo
             <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
               <el-popconfirm
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                title="Are you sure to delete this record?" width="150"
+                title="Are you sure to delete this record?" width="350"
                 @confirm="DeleteIndicator(scope as TableSlotDefault)">
                 <template #reference>
                   <el-button type="danger" size="small" :icon=Delete circle />

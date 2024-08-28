@@ -16,7 +16,7 @@ import {
   InfoFilled
 } from '@element-plus/icons-vue'
 
-import { ref, reactive,onMounted, computed } from 'vue'
+import { ref, reactive,watch,onMounted,nextTick , computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
@@ -41,6 +41,7 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 
+import DownloadToCSV from '@/views/Components/DownloadToCSV.vue';
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 
@@ -379,6 +380,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('Reports collected........', res)
   tableDataList.value = res.data.filter(item => item.indicator_category.indicator.type === 'output');
 
+ 
+
 
   //tableDataList.value = res.data
   total.value = res.total
@@ -420,11 +423,11 @@ const getIndicatorNames = async () => {
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
-  console.log('indicator_category Re', res)
+  //console.log('indicator_category Re', res)
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
     var opt = {}
-    console.log(arrayItem)
+   // console.log(arrayItem)
     opt.value = arrayItem.id
     opt.label = arrayItem.indicator_name + ' | ' + arrayItem.category.category
     opt.title = arrayItem.category.title
@@ -486,7 +489,7 @@ const getProjects = async () => {
 
 
     arrayItem.activities.forEach(function (activity: any) {
-      console.log('activity--->', activity)
+      //console.log('activity--->', activity)
 
       var act = {}
       console.log(activity)
@@ -1697,6 +1700,11 @@ const nextStep = async () =>{
       }
     }
 
+    const tableRef = ref(null);
+
+ 
+ 
+
 
 </script>
 
@@ -1725,14 +1733,15 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
         <el-tooltip content="Add Report " placement="top">
           <el-button v-if="showEditButtons" :onClick="AddReport" type="primary" :icon="Plus" />
         </el-tooltip>
-        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-        <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-      
+       
       </div>
 
+   
+
       <!-- Download All Component -->
-      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+      <!-- <DownloadToCSV v-if="showEditButtons && tableDataList.length >0" :model="model"  />  -->
+        <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+
     </el-row>
 
 
@@ -1746,7 +1755,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
 
     <el-table
 :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
-      @expand-change="handleExpand">
+      @expand-change="handleExpand" ref="tableRef">
 
       <el-table-column type="expand">
         <template #default="props">
@@ -1790,6 +1799,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
           </div>
         </template>
       </el-table-column>
+       
 
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
@@ -1858,9 +1868,24 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       <el-row v-if="activeStep == 0" :gutter="20">
         <el-col :span="24">
           <el-form-item id="btn1" label="Project" prop="project_id">
-              <el-select-v2
-    filterable v-model="ruleForm.project_id" @change="changeProject" style="width: 100%"
-                :options="projectOptions" placeholder="Select Project" />
+     
+
+                <el-select
+                v-model="ruleForm.project_id"  
+                prop="project_id" 
+                placeholder="Select Project" 
+                clearable filterable 
+                :onChange="changeProject"  
+                style="width: 90%;" >
+                  <el-option
+                    v-for="option in projectOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value">
+                    <span class="option-text">{{ option.label }}</span>
+                  </el-option>
+                </el-select>
+
             </el-form-item>
 
             <el-form-item id="btn2" label="Location" prop="project_location_id">
