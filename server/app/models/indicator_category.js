@@ -21,7 +21,7 @@ module.exports = function (sequelize, DataTypes) {
       },
       activity_id: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
       },
       project_location_id: {
         type: DataTypes.INTEGER,
@@ -41,7 +41,7 @@ module.exports = function (sequelize, DataTypes) {
       },
       baseline: {
         type: DataTypes.DECIMAL,
-        allowNull: false,
+        allowNull: true,
       },
       createdBy: {
         type: DataTypes.INTEGER,

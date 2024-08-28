@@ -9,14 +9,14 @@ import {
   Plus,
   Edit,
   Delete,
-  Download,Back,
+  Download, Back,
   Filter
 } from '@element-plus/icons-vue'
 
-import { ref, reactive,onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
-  ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
+  ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu, ElSwitch,
   ElTooltip, ElOption, ElDialog, ElForm, ElRow, ElFormItem, ElInput, FormRules, ElPopconfirm
 } from 'element-plus'
 
@@ -30,17 +30,14 @@ import { uuid } from 'vue-uuid'
 import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 import type { ButtonInstance } from 'element-plus'
+import { v5 } from 'uuid'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 
-console.log("userInfo--->", userInfo)
-
-
-
-
+console.log("userInfo--->", userInfo) 
 const isMobile = computed(() => appStore.getMobile)
 
 console.log('IsMobile', isMobile)
@@ -84,9 +81,9 @@ const categoryOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
- const selCounties = []
+const selCounties = []
 const loading = ref(true)
- const currentPage = ref(1)
+const currentPage = ref(1)
 const total = ref(0)
 
 
@@ -104,14 +101,14 @@ const updatePageSize = () => {
   }
 };
 
-onMounted(async () => { 
- 
- 
- window.addEventListener('resize', updatePageSize);
-   updatePageSize(); // Initial check
- 
- 
- })
+onMounted(async () => {
+
+
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize(); // Initial check
+
+
+})
 
 
 
@@ -409,81 +406,13 @@ getFrequencyOptions()
 
 
 
-
-const handleDownload = () => {
-  downloadLoading.value = true
-  const data = tblData
-  const fileName = 'indicators.xlsx'
-  const exportType = exportFromJSON.types.csv
-  if (data) exportFromJSON({ data, fileName, exportType })
-}
+ 
 const activityOptions = ref([])
 const activityOptionsFiltered = ref([])
 
-const getActivityOptions = async () => {
-  await getCountyListApi({
-    params: {
-      //   pageIndex: 1,
-      //   limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'activity',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
+ 
 
-    // var ret = response
-
-    console.log('Activities', response.data)
-    response.data.forEach(function (arrayItem: { id: string; type: string }) {
-      //console.log(arrayItem)
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
-
-      //  console.log(countyOpt)
-      activityOptions.value.push(opt)
-    })
-
-
-  })
-}
-
-
-//const projectOptions = ref([])
-const getProjectOptions = async () => {
-  await getCountyListApi({
-    params: {
-      //   pageIndex: 1,
-      //   limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'project',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-
-    // var ret = response
-
-    console.log('Activities', response.data)
-    response.data.forEach(function (arrayItem: { id: string; type: string }) {
-      //console.log(arrayItem)
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
-
-      //  console.log(countyOpt)
-      projectOptions.value.push(opt)
-    })
-
-
-  })
-}
-
+ 
 
 const projectOptions = ref([])
 const projectList = ref([])
@@ -535,8 +464,7 @@ const getProjectActivities = async () => {
 
       //  console.log(countyOpt)
       activityOptions.value.push(act_opt)  // We keep this as backup 
-      //activityOptionsFiltered.value.push(act_opt)
-
+ 
     })
 
   })
@@ -625,6 +553,48 @@ const changeProject = async (project: any) => {
 
 }
 
+
+// Get Filted Indicators 
+
+const getProjectActivityIndicators = async (activity_id) => {
+  const formData = {}
+ 
+  formData.model = 'indicator'
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+ 
+  // - multiple filters -------------------------------------
+
+  console.log('undefined',activity_id)
+
+  if(!activity_id){
+
+     formData.filters = ['level']
+     formData.filterValues = [['project']]
+
+  } else {
+    formData.filters = ['activity_id']
+  formData.filterValues = [[activity_id]]
+
+  }
+
+
+
+  formData.associated_multiple_models = []
+ 
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+ 
+  console.log('This activity Idnicator', res.data)
+  return res.data
+}
+
+
+
 const indicatorsOptionsFiltered = ref([])
 
 
@@ -634,11 +604,19 @@ const changeActivity = async (activity: any) => {
   ruleForm.category_id = null
   ruleForm.frequency = null
 
+  const sel_indicators = await getProjectActivityIndicators(activity)
 
+  const transformedArray = sel_indicators.map(item => {
+  return {
+    label: item.name,
+    value: item.id
+  };
+});
 
-  indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
-    return el.activity_id == activity
-  });
+  indicatorsOptionsFiltered.value =transformedArray
+  // indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
+  //   return el.activity_id == activity
+  // });
 
 }
 
@@ -648,7 +626,7 @@ getProjectActivities()
 //getActivityOptions()
 //getProjectOptions()
 
-getIndicatorNames()
+//getIndicatorNames()
 getCategoryOptions()
 getInterventionsAll()
 
@@ -735,14 +713,9 @@ const changeIndicator = async (indicator: any) => {
   ruleForm.frequency = null
 
 
-
-
-  var filtredOptions = indicatorsOptions.value.filter(function (el) {
-    return el.value == indicator
-  });
-
-  console.log("Filtered Idnciators", filtredOptions[0].label)
-  ruleForm.indicator_name = filtredOptions[0].label
+ 
+  console.log("Filtered Idnciators", indicatorsOptionsFiltered.value[0].label)
+  ruleForm.indicator_name = indicatorsOptionsFiltered.value[0].label
 }
 
 
@@ -992,9 +965,7 @@ const submitIndicatorForm = async (formEl: FormInstance | undefined) => {
     }
   })
 
-  //await getIndicatorNames()
-  //indicatorsOptionsFiltered.value=[]
-  //await changeActivity(indicatorForm.activity_id)
+ 
 }
 
 const handleCloseIndicator = () => {
@@ -1052,10 +1023,7 @@ const submitFreqForm = async (formEl: FormInstance | undefined) => {
       console.log('error categoryForm!', fields)
     }
   })
-
-  //await getIndicatorNames()
-  //indicatorsOptionsFiltered.value=[]
-  //await changeActivity(indicatorForm.activity_id)
+ 
 }
 
 const handleCloseFreq = () => {
@@ -1065,12 +1033,12 @@ const handleCloseFreq = () => {
 
 const openHelp = ref()
 
- const ref2 = ref<ButtonInstance>()
+const ref2 = ref<ButtonInstance>()
 const ref3 = ref<ButtonInstance>()
 const ref4 = ref<ButtonInstance>()
 const ref5 = ref<ButtonInstance>()
 const ref6 = ref<ButtonInstance>()
- 
+
 
 
 const router = useRouter()
@@ -1086,9 +1054,55 @@ const goBack = () => {
   }
 }
 
+const indicator_level = ref(true)
+
+
+
+
+const handleSwitchChange = async (value) => {
+  indicatorsOptionsFiltered.value=[]
+  if (!value) {
+        // The switch is inactive (set to 'Project Level Indicator')
+        console.log('Switch is inactive');
+        //getProjectActivityIndicators(undefined)
+
+        const sel_indicators = await getProjectActivityIndicators(undefined)
+          const transformedArray = sel_indicators.map(item => {
+          return {
+            label: item.name,
+            value: item.id
+          };
+          });
+          indicatorsOptionsFiltered.value =transformedArray 
+        // Add your custom logic here
+      } else {
+        // The switch is active (set to 'Activity Level Indicator')
+        console.log('Switch is active');
+      }
+
+
+}
+
+
+
+
+const options = [
+        { value: '1', label: ' This is a very long text option that might overflow the select box This is a very long text option that might overflow the select box This is a very long text option that might overflow the select box' },
+        { value: '2', label: 'Another long text option to test wrapping or truncation' },
+        { value: '3', label: 'Short option' }
+      ]
+
+
+
+
+
+
+
+
+
 </script>
 <template>
-  <el-card  >
+  <el-card>
 
 
     <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
@@ -1107,7 +1121,7 @@ v-model="value2" :onChange="handleSelectIndicator" :onClear="handleClear" multip
       </el-select>
       <el-select
 v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter by Category" >
+        collapse-tags placeholder="Filter by Category">
         <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
@@ -1192,18 +1206,36 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" draggable>
     <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
 
-      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
+      <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="200px" label-position="left">
 
-
+ 
+  
         <el-form-item id="btn1" label="Project" prop="project_id">
-          <el-select-v2
-v-model="ruleForm.project_id" :options="projectOptions" placeholder="Please select"
-            style="width: 100%; vertical-align: middle" clearable filterable :onChange="changeProject" />
+        
+
+            <el-select
+                v-model="ruleForm.project_id"  
+                prop="project_id" 
+                placeholder="Select an option" 
+                clearable filterable 
+                :onChange="changeProject"  
+                style="width: 90%;" >
+                  <el-option
+                    v-for="option in projectOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value">
+                    <span class="option-text">{{ option.label }}</span>
+                  </el-option>
+                </el-select>
+
+
+
         </el-form-item>
         <el-form-item id="btn2" label="Location" prop="project_id">
           <el-select
 ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
-            style="width: 100%; vertical-align: middle">
+            style="width: 90%; vertical-align: middle">
             <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
               <div style="display: flex; align-items: center;">
                 <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
@@ -1214,10 +1246,18 @@ ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Se
             </el-option>
           </el-select>
         </el-form-item>
-        <el-form-item id="btn3" label="Activity" prop="activity_id">
+        <el-form-item id="xbtn3" label="Activity Level Indicator" prop="">
+          <el-switch
+            v-model="indicator_level"      
+            class="custom-switch"
+            @change="handleSwitchChange"
+          />
+        </el-form-item>
+
+        <el-form-item v-if="indicator_level" id="btn3" label="Activity" prop="activity_id">
           <el-select
 ref="ref3" filterable v-model="ruleForm.activity_id" :onChange="changeActivity"
-            placeholder="Select Activity" style="width: 100%">
+            placeholder="Select Activity" style="width: 90%">
             <el-option
 v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
               :value="item.value" />
@@ -1228,7 +1268,7 @@ v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
         <el-form-item id="btn4" label="Indicator" prop="indicator_id">
           <el-select
 ref="ref4" filterable v-model="ruleForm.indicator_id" :onChange="changeIndicator"
-            placeholder="Select Indicator" style="width: 90%; margin-right: 10px;">
+            placeholder="Select Indicator" style="width: 70%; margin-right: 10px;">
             <el-option
 v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
               :value="item.value" />
@@ -1255,8 +1295,8 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
 
         <el-form-item id="btn7" label="Category" prop="category_id">
           <el-select
-v-model="ruleForm.category_id" :onChange="changeCategory" filterable placeholder="Select Category"
-            style="width: 90%; margin-right: 10px;">
+            v-model="ruleForm.category_id" :onChange="changeCategory" filterable placeholder="Select Category"
+            style="width: 70%; margin-right: 10px;">
             <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
           <el-button type="primary" @click="AddCategory" :icon="Plus" plain />
@@ -1265,8 +1305,8 @@ v-model="ruleForm.category_id" :onChange="changeCategory" filterable placeholder
 
         <el-form-item id="btn8" label="Frequency" prop="frequency">
           <el-select
-v-model="ruleForm.frequency" placeholder="Select Frequency"
-            style="width: 90%; margin-right: 10px;">
+          v-model="ruleForm.frequency" placeholder="Select Frequency"
+          style="width: 70%; margin-right: 10px;">
             <el-option v-for="item in frequencyOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
           <el-button type="primary" @click="AddNewFreq" :icon="Plus" plain />
@@ -1401,6 +1441,22 @@ target="#btn8" title="Frequency"
 </template>
 
 <style scoped>
+.custom-switch .el-switch__label--left {
+  color: gray;
+  /* Gray out the inactive text */
+  opacity: 0.1;
+  /* Optional: Adjust the opacity */
+}
+
+.custom-switch .el-switch__label--right {
+  color: inherit;
+  /* Keep the active text as it is */
+}
+
+
+
+
+
 .responsive-container {
   display: flex;
   flex-wrap: wrap;
@@ -1427,6 +1483,7 @@ target="#btn8" title="Frequency"
   flex-shrink: 0;
   /* Prevents buttons from shrinking */
 }
+
 
 @media (max-width: 768px) {
   .responsive-container {
