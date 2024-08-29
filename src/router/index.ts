@@ -1067,47 +1067,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               icon:'mdi:file-document-plus',
             }
           },
-        ]
-      },
- 
-
-      {
-        path: 'evaluations',
-        component: Layout,
-        name: 'Evaluation',
-        meta: {
-          icon: 'ph:exam-fill',
-          role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
-
-          title: 'Evaluation'
-        },
-        children: [
-      
-          {  
-            path: 'new',
-          //  component: 'views/Indicators/indicator_category_report',
-          component: () => import('@/views/Indicators/indicator_category_report_new.vue'),
-          name: 'OutcomeEvaluationNew',
-            meta: {
-              title: 'Impacts(New)',
-              role: ['admin', 'super_admin' ,'staff'  ] ,
-
-              icon:'carbon:result-new',
-            }
-          },
-          {
-            path: 'outcomes',
-          //  component: 'views/Indicators/indicator_category_report',
-          component: () => import('@/views/Indicators/indicator_category_outcome.vue'),
-          name: 'OutcomeEvaluation',
-            meta: {
-              title: 'Impacts',
-              icon:'mdi:file-document-plus',
-              role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
-
-            }
-          },
-
 
           {
             path: 'all',
@@ -1136,6 +1095,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           },
         ]
       },
+ 
+ 
 
       {
         path: 'ben',

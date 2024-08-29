@@ -200,15 +200,7 @@ const rules = reactive<FormRules>({
 })
 
 
-
-
-
-
-
-
-
-
-
+ 
 
 const AddDialogVisible = ref(false)
 const ImportDialogVisible = ref(false)
@@ -229,8 +221,9 @@ var filterValues = [[userInfo.id]]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document', 'settlement', 'county', 'users', 'project']
-const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
+const associated_multiple_models = ['document', 'settlement', 'county', 'users','indicator_category' ]
+//const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
+const nested_models =['activity', 'project']  // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
 
@@ -378,9 +371,10 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('Reports collected........', res)
-  tableDataList.value = res.data.filter(item => item.indicator_category.indicator.type === 'output');
+  
+  // tableDataList.value = res.data.filter(item => item.indicator_category.indicator_level === 'activity');
 
-
+  tableDataList.value=res.data
 
 
   //tableDataList.value = res.data
@@ -404,8 +398,39 @@ const projectOptions = ref([])
 const indicatorsOptions = ref([])
 const indicatorsOptionsFiltered = ref([])
 
+
+const getProjects = async () => {
+
+  const formData = {
+    curUser: 1,
+    model: 'project',
+    searchField: 'name',
+    searchKeyword: '',
+    assocModel: '',
+    filters: [],
+    filterValues: [],
+    associated_multiple_models: ['project' ],
+  };
+
+  const res = await getSettlementListByCounty(formData);
+  console.log('All Proejcts Response:', res);
+
+
+  res.data.forEach((project) => {
+    console.log('==project===>', project); 
+    const prj = {
+          value: project.id,
+          label: project.title,
+          programme_implementation_id: project.implementation_id,
+        };
+        projectOptions.value.push(prj);
+  
+  })
+}
+
 const getIndicatorNames = async () => {
-  console.log('getIndicatorNames >>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+  console.log('getIndicatorNames >>>>>>>>>>>>>>>>>>>>>>>>>>>>');
+
   const formData = {
     curUser: 1,
     model: 'indicator_category',
@@ -415,59 +440,49 @@ const getIndicatorNames = async () => {
     filters: [],
     filterValues: [],
     associated_multiple_models: ['project', 'category', 'activity', 'indicator'],
+    nested_models: ['activity', 'project'],
   };
 
   const res = await getSettlementListByCounty(formData);
   console.log('indicator_category Response:', res);
 
   res.data.forEach((arrayItem) => {
+    console.log('=====>', arrayItem);
 
-    console.log('=====>',arrayItem.project)
     const opt = {
       value: arrayItem.id,
       label: `${arrayItem.indicator_name} | ${arrayItem.category.category}`,
       title: arrayItem.category.title,
-      project_id: arrayItem.project.id,
-    // activity_id: arrayItem.activity.id,
-      programme_implementation_id: arrayItem.programme_implementation_id,
-      county_id: arrayItem.project.county_id,
-      subcounty_id: arrayItem.project.subcounty_id,
-      settlement_id: arrayItem.project.settlement_id,
-      ward_id: arrayItem.project.ward_id,
+      activity_id: arrayItem.activity ? arrayItem.activity.id : null,
       unit: arrayItem.indicator.unit,
-      baseline: arrayItem.baseline,
-      target: arrayItem.target,
     };
 
     // Collect only output indicators
-    if (arrayItem.indicator.type === 'output') {
+    ///if (arrayItem.indicator_level === 'activity') {
       indicatorsOptions.value.push(opt);
       indicatorsOptionsFiltered.value.push(opt);
+  //  }
+
+    // Check if `activity` exists and has `projects`
+    if (arrayItem.activity && Array.isArray(arrayItem.activity.projects)) {
+      arrayItem.activity.projects.forEach((project) => {
+        const prj = {
+          value: project.id,
+          label: project.title,
+          programme_implementation_id: project.implementation_id,
+        };
+        projectOptions.value.push(prj);
+      });
+    } else {
+      console.log('No projects found for this activity');
+      
     }
-
-    // Configure the project select options
-    const projectExists = projectOptions.value.some(
-      (prj) => prj.value === arrayItem.project.id
-    );
-
-    if (!projectExists) {
-      const prj = {
-        value: arrayItem.project.id,
-        label: arrayItem.project.title,
-        programme_implementation_id: arrayItem.project.implementation_id,
-      };
-      projectOptions.value.push(prj);
-    }
-
-
-
-    
   });
 
-  console.log('indicatorsOptions.value', indicatorsOptions.value);
+  console.log('indicatorsOptionsFiltered.value', indicatorsOptionsFiltered.value);
   console.log('projectOptions.value', projectOptions.value);
-
 };
+
 
 
  
@@ -630,7 +645,8 @@ const getProjectLocations = async (project_id) => {
 };
 
 
-const getProjectActivityIndicators = async (project_id) => {
+
+const getProjectActivityIndicators = async (activity_ids) => {
   const formData = {}
  
   formData.model = 'indicator_category'
@@ -643,8 +659,8 @@ const getProjectActivityIndicators = async (project_id) => {
   // - multiple filters -------------------------------------
  
 
-  formData.filters = ['project_id']
-  formData.filterValues = [[project_id]]
+  formData.filters = ['activity_id']
+  formData.filterValues = [activity_ids]
  
 
   formData.associated_multiple_models = ['indicator']
@@ -657,37 +673,94 @@ const getProjectActivityIndicators = async (project_id) => {
   return res.data
 }
 
+const getProjectProjectOutcomeIndicators = async () => {
+  const formData = {}
+ 
+  formData.model = 'indicator_category'
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+ 
+  // - multiple filters -------------------------------------
+ 
+
+  formData.filters = ['indicator_level']
+  formData.filterValues = ['project']
+ 
+
+  formData.associated_multiple_models = ['indicator']
+ 
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+ 
+  console.log('This Project  level  indicaors', res.data)
+  return res.data
+}
+
+const getProjectActivities = async (project_id) => {
+  const formData = {
+    model: 'project_activity',
+    searchField: 'title',
+    searchKeyword: '',
+    filters: ['project_id'],
+    filterValues: [[project_id]],
+    associated_multiple_models: [],
+  };
+
+  const res = await getSettlementListByCounty(formData);
+  
+  console.log('This Project Activiies...:', res.data);
+  
+  // Return an array of ids
+  const activityIds = res.data.map(activity => activity.activity_id);
+  
+  return activityIds;
+};
+
 
 
 const disableIndicator=ref(false)
 const changeProject = async (project: any) => {
   
   ruleForm.project_location_id=null
+  ruleForm.project_id=project
+
+
 
   console.log('changeProject', project)
+  const project_activities = await getProjectActivities(project)
+  console.log('project_activities', project_activities)
 
-  const sel_indicators = await getProjectActivityIndicators(project)
 
-  const transformedArray = sel_indicators.map(item => {
+  
+  const sel_indicators = await getProjectActivityIndicators(project_activities)
 
-        if (item.indicator.type=='output'){
+  console.log('sel_indicators',sel_indicators)
 
-          disableIndicator.value=false
+  
+
+  const outcome_indicators = await getProjectProjectOutcomeIndicators()
+  console.log('outcome_indicators',outcome_indicators)
+
+  
+// Merging the two arrays
+const merged_indicators = [...sel_indicators, ...outcome_indicators];
+
+
+  const transformedArray = merged_indicators.map(item => { 
           return {
               label: item.indicator_name,
               value: item.id,
               project_id: item.project_id,
-              unit: item.indicator.unit
+              unit: item.indicator.unit,
+              activity_id: item.activity_id
             };
-
-        }else{
-          disableIndicator.value=true
-          return []
-        }
-
         });
 
-        indicatorsOptionsFiltered.value =transformedArray
+      indicatorsOptionsFiltered.value =transformedArray
 
 
 
@@ -698,6 +771,8 @@ const changeProject = async (project: any) => {
   ruleForm.programme_implementation_id = filteredOpts[0].programme_implementation_id
 
   console.log(ruleForm)
+
+
 
   ruleForm.indicator_category_id = []
   ruleForm.activity_id = null
@@ -744,8 +819,9 @@ const changeIndicator = async (indicator_category_id: any) => {
     return el.value == indicator_category_id
   });
 
-  console
-  ruleForm.project_id = filtredOptions[0].project_id
+
+ // ruleForm.project_id = filtredOptions[0].project_id
+  ruleForm.activity_id= filtredOptions[0].activity_id
 
 
 
@@ -754,7 +830,7 @@ const changeIndicator = async (indicator_category_id: any) => {
   ruleForm.cumUnits = "Cumulative(" + filtredOptions[0].unit + ")"
 
   ruleForm.baseline = filtredOptions[0].baseline
-  ruleForm.target = filtredOptions[0].target
+  //ruleForm.target = filtredOptions[0].target
 
   //ruleForm.indicator_category_title = filtredOptions[0].category_title
 
@@ -798,7 +874,6 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         ruleForm.cumProgress = '0.00';
       }
 
-      //   ruleForm.cumProgress =  100*((ruleForm.cumAmount - ruleForm.baseline )/(ruleForm.target - ruleForm.baseline )).toFixed(2)
 
       //Progress towards target (%realized) [(B-A)/(C- A)]
 
@@ -944,7 +1019,7 @@ const submitBatchImport = async () => {
 
 
 
-
+const firstReport=ref(true)
 
 const getCumulativeProgress = async () => {
 
@@ -954,7 +1029,7 @@ const getCumulativeProgress = async () => {
   var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
   [ruleForm.project_id], [ruleForm.programme_implementation_id]]  // remember to change here!
 
-
+console.log(ruleForm.value)
 
   if (ruleForm.settlement_id) {
     filters.push('settlement_id')
@@ -988,7 +1063,11 @@ const getCumulativeProgress = async () => {
 
 
   console.log('yaay. Got last reports', res.data)
-
+  if (res.data.length==0){
+    firstReport.value=true
+  }else {
+    firstReport.value=false
+  }
 
   function getLatestReport(dataList) {
     if (dataList.length === 0) {
@@ -1015,6 +1094,8 @@ const getCumulativeProgress = async () => {
   ruleForm.cumAmount = parseInt(objectWithLatestDate.cumAmount)
   ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
   ruleForm.prevAmount = parseInt(objectWithLatestDate.amount)
+
+  ruleForm.target = parseInt(objectWithLatestDate.target)
 
   console.log('cumProgress ats tart', ruleForm);
 
@@ -1311,7 +1392,7 @@ const submitFiles = async () => {
 
 getModeldefinition(model)
 
-  getIndicatorNames()
+ getIndicatorNames()
  
 //getCategoryOptions()
 getInterventionsAll()
@@ -1786,7 +1867,9 @@ const handleCancel = () => {
         </template>
       </el-table-column>
 
-      <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
+      <el-table-column label="Indicator" width="350" prop="indicator_category.indicator_name" sortable />
+      <el-table-column label="Settlement" width="350"  prop="settlement.name" sortable />
+
       <el-table-column label="Date" prop="date" sortable>
         <template #default="scope">
           {{ formatDate(scope.row.date) }}
@@ -1935,7 +2018,7 @@ const handleCancel = () => {
             </el-input-number>
           </el-form-item>
           <el-form-item id="btn9" label="Target">
-            <el-input-number v-model="ruleForm.target" type="number" disabled style="width: 100%;">
+            <el-input-number v-model="ruleForm.target" type="number" :disabled ="!firstReport" style="width: 100%;">
               <template #prepend>Target(Amount)</template>
             </el-input-number>
           </el-form-item>

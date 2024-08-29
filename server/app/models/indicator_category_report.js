@@ -64,7 +64,11 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.DECIMAL,
         allowNull: false
       },  
-
+      
+      target: {
+        type: DataTypes.DECIMAL,
+        allowNull: true
+      },
       progress: {
         type: DataTypes.DECIMAL,
         allowNull: false
@@ -116,7 +120,7 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       },
       cumAmount: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.DECIMAL,
         allowNull: true
       },
 
