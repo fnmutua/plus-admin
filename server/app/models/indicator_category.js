@@ -3,6 +3,11 @@ module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
     'indicator_category',
     {
+
+      indicator_level: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
       indicator_id: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -15,18 +20,12 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      project_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-      },
+     
       activity_id: {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
-      project_location_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-      },
+   
       category_title: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -35,14 +34,8 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      target: {
-        type: DataTypes.DECIMAL,
-        allowNull: false,
-      },
-      baseline: {
-        type: DataTypes.DECIMAL,
-        allowNull: true,
-      },
+    
+     
       createdBy: {
         type: DataTypes.INTEGER,
         allowNull: true,
