@@ -62,3 +62,11 @@ EXECUTE FUNCTION updatedAt();
 
 DELETE FROM grievances;
 ALTER SEQUENCE resolution_level_id_seq RESTART WITH 4;
+
+
+
+
+UPDATE public.project SET  implementation_scope = 'Settlement'; 
+
+
+ALTER TABLE project ADD COLUMN implementation_scope VARCHAR(100);
