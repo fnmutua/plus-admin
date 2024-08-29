@@ -2253,7 +2253,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
   // Associated Models
   var associated_multiple_models = req.body.associated_multiple_models;
-  console.log('associated_multiple_models', associated_multiple_models.length);
+  //console.log('associated_multiple_models', associated_multiple_models.length);
 
   // Nested Models
   var nested_models = req.body.nested_models;
@@ -2389,8 +2389,10 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         });
       }
     } catch (error) {
+
+      console.log(error)
       res.status(500).send({
-        message: 'Internal server error',
+        message: 'Internal server error 1',
         code: 'SERVER_ERROR'
       });
     }
@@ -2405,8 +2407,9 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
         code: '0000'
       });
     } catch (error) {
+      console.log(error)
       res.status(500).send({
-        message: 'Internal server error',
+        message: 'Internal server error 2',
         code: 'SERVER_ERROR'
       });
     }

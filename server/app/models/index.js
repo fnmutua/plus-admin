@@ -763,6 +763,23 @@ db.models.project.hasMany(db.models.indicator_category_report, {
   foreignKey: 'project_id'
 })
 
+
+
+// Activcty  - indicator_category_report
+db.models.indicator_category_report.belongsTo(db.models.activity, {
+  foreignKey: 'activity_id'
+})
+
+db.models.activity.hasMany(db.models.indicator_category_report, {
+  foreignKey: 'activity_id'
+})
+
+
+
+
+
+
+
 // project  - contractor
 db.models.project.belongsTo(db.models.contractor, {
   foreignKey: 'contractor_id'
