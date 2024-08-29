@@ -395,6 +395,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 }
 
 const projectOptions = ref([])
+const projectOptionsAll = ref([])
 const indicatorsOptions = ref([])
 const indicatorsOptionsFiltered = ref([])
 
@@ -424,6 +425,7 @@ const getProjects = async () => {
           programme_implementation_id: project.implementation_id,
         };
         projectOptions.value.push(prj);
+        projectOptionsAll.value.push(prj);
   
   })
 }
@@ -472,6 +474,8 @@ const getIndicatorNames = async () => {
           programme_implementation_id: project.implementation_id,
         };
         projectOptions.value.push(prj);
+        projectOptionsAll.value.push(prj);
+        
       });
     } else {
       console.log('No projects found for this activity');
@@ -479,8 +483,7 @@ const getIndicatorNames = async () => {
     }
   });
 
-  console.log('indicatorsOptionsFiltered.value', indicatorsOptionsFiltered.value);
-  console.log('projectOptions.value', projectOptions.value);
+   
 };
 
 
@@ -749,10 +752,11 @@ const changeProject = async (project: any) => {
 // Merging the two arrays
 const merged_indicators = [...sel_indicators, ...outcome_indicators];
 
+console.log('merged_indicators',merged_indicators)
 
   const transformedArray = merged_indicators.map(item => { 
           return {
-              label: item.indicator_name,
+              label: item.indicator_name + ' ' + item.category_title,
               value: item.id,
               project_id: item.project_id,
               unit: item.indicator.unit,
@@ -764,7 +768,7 @@ const merged_indicators = [...sel_indicators, ...outcome_indicators];
 
 
 
-  const filteredOpts = projectOptions.value.filter(item => item.value == project);
+  const filteredOpts = projectOptionsAll.value.filter(item => item.value == project);
 
   console.log('filteredOpts', filteredOpts[0].programme_implementation_id)
 
@@ -1797,6 +1801,35 @@ const handleCancel = () => {
   AddDialogVisible.value = false
 }
 
+const getFilteredProjects = (query) => {
+  const filteredProjects = projectOptionsAll.value.filter(project =>
+    project.label.toLowerCase().includes(query.toLowerCase())
+  );
+
+  // Create a new Set to store unique project labels
+  const uniqueProjects = new Map();
+
+  filteredProjects.forEach(project => {
+    if (!uniqueProjects.has(project.label)) {
+      uniqueProjects.set(project.label, project);
+    }
+  });
+
+  // Return the unique values as an array
+  return Array.from(uniqueProjects.values());
+};
+
+const searchProject = (query) => {
+  if (query !== '') {
+    // Simulate API call
+    setTimeout(() => {
+      projectOptions.value = getFilteredProjects(query); // Replace with API call
+    }, 500);
+  } else {
+    projectOptions.value = [];
+  }
+};
+
 
 
 </script>
@@ -1953,8 +1986,8 @@ const handleCancel = () => {
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
       <el-row v-if="activeStep == 0" :gutter="20">
         <el-col :span="24">
-          <el-form-item id="btn1" label="Project" prop="project_id">
-            <el-select v-model="ruleForm.project_id" prop="project_id" placeholder="Select Project" clearable filterable
+          <!-- <el-form-item id="btn1" label="Project" prop="project_id">
+            <el-select v-model="ruleForm.project_id" prop="project_id" placeholder="Select Project" searchable clearable filterable
               :onChange="changeProject" style="width: 90%;">
               <el-option v-for="option in projectOptions" :key="option.value" :label="option.label"
                 :value="option.value">
@@ -1962,8 +1995,34 @@ const handleCancel = () => {
               </el-option>
             </el-select>
             <el-text v-if="disableIndicator" class="mx-1" type="danger">No output indicators are configured for this project</el-text>
+          </el-form-item> -->
 
+
+          <el-form-item id="btn1" label="Project" prop="project_id">
+            <el-select
+              v-model="ruleForm.project_id"
+              placeholder="Search by Project title, county, settlement"
+              filterable
+              remote
+              :remote-method="searchProject"
+              :loading="loading"
+              clearable
+              :onChange="changeProject"
+              style="width: 90%;"
+            >
+              <el-option
+                v-for="option in projectOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              >
+                <span class="option-text">{{ option.label }}</span>
+              </el-option>
+            </el-select>
+            <el-text v-if="disableIndicator" class="mx-1" type="danger">No output indicators are configured for this project</el-text>
           </el-form-item>
+
+
 
           <el-form-item id="btn2" label="Location" prop="project_location_id">
             <el-select :disabled="disableIndicator"  ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
