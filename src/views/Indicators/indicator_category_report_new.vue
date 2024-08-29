@@ -3,7 +3,7 @@
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, FormInstance, ElCard } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect,FormInstance, ElCard } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -11,7 +11,7 @@ import {
   Download,
   Filter,
   Delete,
-  View,
+  View,Position,CircleCloseFilled,
   InfoFilled
 } from '@element-plus/icons-vue'
 
@@ -34,6 +34,7 @@ import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
 import { getFile } from '@/api/summary'
 import xlsx from "json-as-xlsx"
+import {   getOneGeo  } from '@/api/settlements'
 
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
@@ -41,6 +42,16 @@ import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 
  
+import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
+import "mapbox-layer-switcher/styles.css";
+import * as turf from '@turf/turf'
+
+
+const MapBoxToken =
+  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
+mapboxgl.accessToken = MapBoxToken;
+
+
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -1181,6 +1192,294 @@ const goBack = () => {
   }
 }
 
+function isGeomNull(geom) {
+  console.log('---geom-----', geom)
+  return geom === null;
+}
+
+const dialogMap = ref(false)
+
+const reportGeom = ref([])
+const projectGeom = ref([])
+
+const reportDetails = ref();
+const locationStatus = ref('')
+const projectLocationColor = ref('red')
+const showMap = async (row) => {
+  reportDetails.value = row
+
+
+  // get the geometry of teh reprot 
+  const formData = {}
+  formData.model = 'indicator_category_report'
+  formData.id = row.id
+  console.log(formData)
+  const res = await getOneGeo(formData)
+  const loc_geom = res.data[0].json_build_object
+  var centroid = turf.centroid(loc_geom);
+  console.log('centroid',centroid)
+  reportGeom.value = centroid
+
+
+  // now get the geometry of the project lcoation 
+  console.log(row)
+  const projLocFormData = {}
+  projLocFormData.model = 'project_location'
+  projLocFormData.id = row.project_location_id
+ 
+  const prj_res = await getOneGeo(projLocFormData)
+  const proj_geom = prj_res.data[0].json_build_object
+  var proj_centroid = turf.centroid(proj_geom);
+  console.log('centroid',proj_centroid)
+  projectGeom.value = proj_centroid
+
+
+  console.log('  projectGeom.value',  projectGeom.value)
+  console.log('  projectGeom.value',  projectGeom.value)
+
+
+  dialogMap.value = true
+
+//   projectGeom.value = reportDetails.value.project.geom
+
+
+ 
+   var options = { units: 'kilometers' };
+
+   var distance = turf.distance(proj_centroid,centroid, options);
+  console.log('distance , ', distance)
+
+   if (distance < 1) {
+      projectLocationColor.value = 'green'
+   }
+
+    locationStatus.value = 'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
+  setTimeout(loadMap, 100); // delay for the dialog to fully load
+  //loadMap()
+}
+
+
+
+const closeMap = () => {
+
+  dialogMap.value = false
+}
+
+const loadMap = () => {
+  var mapCenter = reportGeom.value.geometry.coordinates;
+
+  var nmap = new mapboxgl.Map({
+    container: "mapContainer",
+    style: "mapbox://styles/mapbox/streets-v12",
+    center: mapCenter, // starting position
+    zoom: 18,
+  });
+
+
+
+  nmap.on("load", () => {
+    nmap.addLayer({
+      id: "Satellite",
+      source: { type: "raster", url: "mapbox://mapbox.satellite", tileSize: 256 },
+      type: "raster",
+    });
+
+    nmap.addLayer({
+      id: "Streets",
+      source: { type: "raster", url: "mapbox://mapbox.streets", tileSize: 256 },
+      type: "raster",
+    });
+
+    nmap.setLayoutProperty("Satellite", "visibility", "none");
+
+    const layers = [
+      {
+        id: "Satellite",
+        title: "Satellite",
+        visibility: "none",
+        type: "base",
+      },
+      {
+        id: "Streets",
+        title: "Streets",
+        visibility: "none",
+        type: "base",
+      },
+    ];
+
+    //     Add point layer
+    nmap.addLayer({
+      id: 'point-layer',
+      type: 'circle',
+      source: {
+        type: 'geojson',
+        data: projectGeom.value,
+      },
+      paint: {
+        'circle-color': 'red',
+        'circle-radius': 6,
+      },
+      filter: ['==', '$type', 'Point'],
+    });
+
+    // Add line layer
+    nmap.addLayer({
+      id: 'line-layer',
+      type: 'line',
+      source: {
+        type: 'geojson',
+        data: projectGeom.value,
+      },
+      paint: {
+        'line-color': projectLocationColor.value,
+        'line-width': 2,
+      },
+      filter: ['==', '$type', 'LineString'],
+    });
+
+    // Add polygon layer as outline
+    nmap.addLayer({
+      id: 'polygon-layer',
+      type: 'line', // Change to 'line' to display the outline
+      source: {
+        type: 'geojson',
+        data: projectGeom.value,
+      },
+      paint: {
+        'line-color': projectLocationColor.value, // Outline color (replace 'green' with your desired color)
+        'line-width': 2, // Outline width in pixels (adjust as needed)
+      },
+      filter: ['in', '$type', 'Polygon'], // Include both Polygon and MultiPolygon types
+    });
+
+
+
+  //     Add Project Location layer
+     nmap.addLayer({
+      id: 'project-layer',
+      type: 'circle',
+      source: {
+        type: 'geojson',
+        data: projectGeom.value,
+      },
+      paint: {
+        'circle-color': 'red',
+        'circle-radius': 6,
+      },
+      filter: ['==', '$type', 'Point'],
+    });
+
+
+     // Add marker to the map
+    // Create a new marker and set its position
+      const proj_marker = new mapboxgl.Marker()
+          .setLngLat(projectGeom.value.geometry.coordinates) // Set the marker position using the GeoJSON coordinates
+          .addTo(nmap); // Add the marker to the map
+
+      // Create a new popup
+      const project_popup = new mapboxgl.Popup({ offset: 25 }) // Optionally add an offset
+          .setHTML('<h3>Project Location</h3><p>Coordinates: ' + projectGeom.value.geometry.coordinates[1] + ', ' + projectGeom.value.geometry.coordinates[0] + '</p>'); // Set the HTML content of the popup
+
+      // Attach the popup to the marker
+      proj_marker.setPopup(project_popup).togglePopup(); // Automatically open the popup when the marker is added to the map
+
+
+
+      const lineString = {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                projectGeom.value.geometry.coordinates, // First point coordinates
+                reportGeom.value.geometry.coordinates  // Second point coordinates
+                ]
+            }
+        };
+
+        nmap.addLayer({
+            id: 'distance-layer',
+            type: 'line', // Change to 'line' to display the outline
+            source: {
+              type: 'geojson',
+              data: lineString
+            },
+            'paint': {
+                'line-color': 'red',
+                'line-width': 1,
+                'line-dasharray': [10, 10],
+
+                 
+            },
+            layout: {
+                'line-cap': 'round',
+                'line-join': 'round'
+            }
+          });
+
+
+         const bounds = turf.bbox((lineString))
+            console.log("From geo",bounds)
+          nmap.fitBounds(bounds, { padding: 100 })
+
+
+    
+
+
+  console.log(nmap)
+
+    nmap.addControl(new MapboxLayerSwitcherControl(layers));
+
+    const nav = new mapboxgl.NavigationControl();
+    nmap.addControl(nav, "top-left");
+
+    // Add a marker at the geom.value position
+
+    function formatDateToYYYYMMDD(dateString) {
+      const dateObj = new Date(dateString);
+      const year = dateObj.getUTCFullYear();
+      const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    // Add a marker at the geom.value position
+    var marker = new mapboxgl.Marker().setLngLat(mapCenter).addTo(nmap);
+    // Create the marker and specify the color
+    var marker = new mapboxgl.Marker({
+      color: projectLocationColor.value,
+    }).setLngLat(mapCenter)
+      .addTo(nmap);
+    // Create a simple popup with user information displayed using line breaks
+    var popupContent = document.createElement('div');
+
+    // Sample user information (replace these with actual data)
+    var userName = reportDetails.value.user.name;
+    var phoneNumber = reportDetails.value.user.phone;
+    var date = formatDateToYYYYMMDD(reportDetails.value.date);
+
+    var userInfo = `
+        <div style="text-align: center;">
+          <strong>Submitted By:</strong>
+          <hr style="margin: 5px 0;">
+
+        </div>
+        <strong>Name:</strong> ${userName}<br>
+          <strong>Phone Number:</strong> ${phoneNumber}<br>
+          <strong>Date:</strong> ${date}
+        `;
+
+    popupContent.innerHTML = userInfo;
+
+    var popup = new mapboxgl.Popup({ anchor: 'right', offset: [-20, 0] }).setDOMContent(popupContent);
+
+    // Attach the popup to the marker
+    marker.setPopup(popup);
+    nmap.resize();
+  });
+};
+
+
+
 </script>
 
 <template>
@@ -1255,6 +1554,7 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
 
       
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
+      <el-table-column label="Settlement" width="350"  prop="settlement.name" sortable />
 
       <el-table-column label="Date" prop="date" sortable>
         <template #default="scope">
@@ -1294,7 +1594,10 @@ v-if="showAdminButtons" type="primary" :icon="View"
                 @click="editIndicator(scope as TableSlotDefault)" circle />
             </el-tooltip>
 
-
+            <el-tooltip content="Map" placement="top">
+              <el-button v-if="showEditButtons" type="warning"   :icon="Position"
+                :disabled="isGeomNull(scope.row.geom)" @click="showMap(scope.row as TableSlotDefault)" circle />
+            </el-tooltip>
 
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
@@ -1462,6 +1765,21 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
     </template>
   </el-dialog>
 
+
+  <el-dialog v-model="dialogMap" width="50%" draggable :before-close="closeMap" :show-close="false">
+    <template #header="{ titleId, titleClass }">
+      <div class="my-header">
+        <h4 :id="titleId" :class="titleClass">Reporting Location</h4>
+        <h2 :style="`color: ${projectLocationColor}; font-style: italic;`">{{ locationStatus }}</h2>
+        <!-- Use the 'italicizedColor' variable -->
+        <el-button type="danger" :icon="CircleCloseFilled" @click="closeMap">Close Map</el-button>
+      </div>
+    </template>
+    <div id="mapContainer" class="basemap"></div>
+
+  </el-dialog>
+
+
 </template>
 
 <style>
@@ -1471,5 +1789,23 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
 
 .el-table .success-row {
   --el-table-tr-bg-color: var(--el-color-success-light-9);
+}
+</style>
+
+
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 450px;
+  border: 1px solid #e2dcdc;
+  /* Outline */
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+  /* Shadow */
+}
+
+.my-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
 }
 </style>
