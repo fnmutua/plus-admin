@@ -3743,6 +3743,7 @@ exports.batchDocumentsUploadByParentCode = async (req, res) => {
         obj.format = req.body.format
         obj.size = req.body.size
         obj.createdBy = req.body.createdBy
+        obj.category = req.body.category
         obj.protectedFile = req.body.protected
         obj.public = req.body.public 
 
