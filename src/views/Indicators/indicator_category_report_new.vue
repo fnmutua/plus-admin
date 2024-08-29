@@ -1117,7 +1117,7 @@ const editIndicator = (data: TableSlotDefault) => {
   report.value.amount = data.row.amount
   report.value.user = data.row.user.name
   report.value.project = data.row.project.title
-  report.value.location = data.row.settlement.name
+  report.value.location =  data.row.settlement ? data.row.settlement.name : ''
 
 
 
@@ -1242,6 +1242,18 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
           </div>
         </template>
       </el-table-column>
+
+      <el-table-column label="#" width="80" prop="id" sortable>
+        <template #default="scope">
+          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+            <span>{{ scope.row.id }}</span>
+            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+          </div>
+        </template>
+      </el-table-column>
+
+
+      
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
 
       <el-table-column label="Date" prop="date" sortable>

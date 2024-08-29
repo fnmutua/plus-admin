@@ -422,6 +422,7 @@ const getProjects = async () => {
     const prj = {
           value: project.id,
           label: project.title,
+          implementation_scope: project.implementation_scope,
           programme_implementation_id: project.implementation_id,
         };
         projectOptions.value.push(prj);
@@ -471,6 +472,7 @@ const getIndicatorNames = async () => {
         const prj = {
           value: project.id,
           label: project.title,
+          implementation_scope: project.implementation_scope,
           programme_implementation_id: project.implementation_id,
         };
         projectOptions.value.push(prj);
@@ -532,6 +534,28 @@ const editReport = async (data: TableSlotDefault) => {
 
   getCumulativeProgressEditPhase(data.indicator_category_id)
   changeIndicator(data.indicator_category_id)
+
+
+
+
+  const thisProject = projectOptionsAll.value.filter(prj =>
+          prj.value ==  data.project_id
+      );
+      console.log('Edit thisProject', thisProject)
+      if(thisProject && thisProject[0].implementation_scope =='National' ){
+        isNationalProject.value=true
+
+      } else {
+        isNationalProject.value=false
+
+
+      }
+
+
+
+
+
+
 
   AddDialogVisible.value = true
 }
@@ -726,6 +750,8 @@ const getProjectActivities = async (project_id) => {
 
 
 const disableIndicator=ref(false)
+const isNationalProject=ref(false)
+
 const changeProject = async (project: any) => {
   
   ruleForm.project_location_id=null
@@ -734,6 +760,24 @@ const changeProject = async (project: any) => {
 
 
   console.log('changeProject', project)
+  console.log('projectOptionsAll', projectOptionsAll)
+
+  const thisProject = projectOptionsAll.value.filter(prj =>
+          prj.value == project
+      );
+      console.log('thisProject', thisProject)
+      if(thisProject && thisProject[0].implementation_scope =='National' ){
+        isNationalProject.value=true
+
+      } else {
+        isNationalProject.value=false
+
+
+      }
+
+      console.log('isNationalProject', isNationalProject.value)
+
+
   const project_activities = await getProjectActivities(project)
   console.log('project_activities', project_activities)
 
@@ -1986,17 +2030,7 @@ const searchProject = (query) => {
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
       <el-row v-if="activeStep == 0" :gutter="20">
         <el-col :span="24">
-          <!-- <el-form-item id="btn1" label="Project" prop="project_id">
-            <el-select v-model="ruleForm.project_id" prop="project_id" placeholder="Select Project" searchable clearable filterable
-              :onChange="changeProject" style="width: 90%;">
-              <el-option v-for="option in projectOptions" :key="option.value" :label="option.label"
-                :value="option.value">
-                <span class="option-text">{{ option.label }}</span>
-              </el-option>
-            </el-select>
-            <el-text v-if="disableIndicator" class="mx-1" type="danger">No output indicators are configured for this project</el-text>
-          </el-form-item> -->
-
+       
 
           <el-form-item id="btn1" label="Project" prop="project_id">
             <el-select
@@ -2024,8 +2058,8 @@ const searchProject = (query) => {
 
 
 
-          <el-form-item id="btn2" label="Location" prop="project_location_id">
-            <el-select :disabled="disableIndicator"  ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
+          <el-form-item v-if="!isNationalProject" id="btn2" label="Location" prop="project_location_id">
+            <el-select  :disabled="disableIndicator"  ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
               @change="changeLocation" style="width: 100%;">
               <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
                 <div style="display: flex; align-items: center;">

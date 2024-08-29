@@ -70,7 +70,12 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
- 
+
+    implementation_scope: {
+      type: DataTypes.STRING,
+      allowNull: false,
+     },
+
 
     code: {
       type: DataTypes.STRING,
