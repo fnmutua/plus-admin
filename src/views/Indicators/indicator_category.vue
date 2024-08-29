@@ -59,18 +59,15 @@ if (isMobile.value) {
 
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-  indicator_id: '',
-  indicator_name: '',
-  category_id: '',
-  baseline: null,
-  target: null,
-  category_title: '',
-  frequency: '',
+  indicator_level:null,
+  indicator_id: null,
   activity_id: null,
+  indicator_name: null,
+  category_id: null,
+  category_title:null,
+  frequency: null,
   code: null,
-  project_id: null,
-  project_location_id: null
-})
+ }) 
 
 
 const { push } = useRouter()
@@ -351,6 +348,41 @@ const getCategoryOptions = async () => {
   })
 }
 
+const getActivityOptions = async () => {
+  const res = await getCountyListApi({
+    params: {
+      //   pageIndex: 1,
+      //   limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'activity',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Activities response:', response)
+
+ 
+
+    response.data.forEach((arrayItem) => { 
+
+      let act = {}
+      act.value=arrayItem.id
+      act.label=arrayItem.title
+      activityOptionsFiltered.value.push(act)
+
+    })
+
+    console.log('activityOptionsFiltered.value',activityOptionsFiltered.value)
+   
+   
+  })
+}
+
+
+
+
+
 const makeSettlementOptions = (list) => {
   console.log('making the options..............', list)
   categoryOptions.value = []
@@ -527,32 +559,7 @@ const getProjectLocations = async (project_id) => {
   console.log('project_locations', project_locations.value);
 };
 
-
-const changeProject = async (project: any) => {
-
-  console.log('!editingMode.value', editingMode.value)
-
-  if (!editingMode.value) {
-    ruleForm.activity_id = null
-    ruleForm.indicator_id = null
-    ruleForm.category_id = null
-    ruleForm.frequency = null
-  }
-
-
-
-  console.log('Activities List Project ID>>', activityOptions.value)
-  console.log('Activities List >>', project)
-
-  const filter_activities = await activityOptions.value.filter(function (el) {
-    return el.project_id == project
-  });
-  activityOptionsFiltered.value = filter_activities
-
-  getProjectLocations(project)
-
-}
-
+ 
 
 // Get Filted Indicators 
 
@@ -614,16 +621,14 @@ const changeActivity = async (activity: any) => {
 });
 
   indicatorsOptionsFiltered.value =transformedArray
-  // indicatorsOptionsFiltered.value = indicatorsOptions.value.filter(function (el) {
-  //   return el.activity_id == activity
-  // });
+ 
 
 }
 
 
 
 getProjectActivities()
-//getActivityOptions()
+getActivityOptions()
 //getProjectOptions()
 
 //getIndicatorNames()
@@ -652,7 +657,7 @@ const editIndicator = async (data: TableSlotDefault) => {
   ruleForm.project_location_id = data.row.project_location_id
 
   formHeader.value = 'Edit Indicator'
-  changeProject(data.row.project_id)
+ // changeProject(data.row.project_id)
 
   console.log(frequencyOptions.value)
 
@@ -727,6 +732,8 @@ const rules = reactive<FormRules>({
   indicator_id: [
     { required: true, message: 'Please select an indicator', trigger: 'blur' }
   ],
+  
+  indicator_level:  [{ required: true, message: 'The Indicator level is required', trigger: 'blur' }],
   category_id: [{ required: true, message: 'The Indicator category is required', trigger: 'blur' }],
   frequency: [{ required: true, message: 'The Indicator frequency is required', trigger: 'blur' }],
   activity_id: [{ required: true, message: 'The Indicator Activity is required', trigger: 'blur' }],
@@ -1054,18 +1061,15 @@ const goBack = () => {
   }
 }
 
-const indicator_level = ref(true)
-
+ 
 
 
 
 const handleSwitchChange = async (value) => {
   indicatorsOptionsFiltered.value=[]
-  if (!value) {
-        // The switch is inactive (set to 'Project Level Indicator')
-        console.log('Switch is inactive');
-        //getProjectActivityIndicators(undefined)
 
+  if (value=='project') {
+         console.log('Switch is inactive'); 
         const sel_indicators = await getProjectActivityIndicators(undefined)
           const transformedArray = sel_indicators.map(item => {
           return {
@@ -1086,11 +1090,10 @@ const handleSwitchChange = async (value) => {
 
 
 
-const options = [
-        { value: '1', label: ' This is a very long text option that might overflow the select box This is a very long text option that might overflow the select box This is a very long text option that might overflow the select box' },
-        { value: '2', label: 'Another long text option to test wrapping or truncation' },
-        { value: '3', label: 'Short option' }
-      ]
+const indicatorLevels = [
+        { value: 'project', label: 'Project' },
+        { value: 'activity', label: 'Activity' },
+       ]
 
 
 
@@ -1145,16 +1148,16 @@ v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multipl
     <el-table :data="tableDataList" :loading="loading" border style="width: 100%; margin-top: 10px;">
       <el-table-column label="Id" prop="id" width="50px" sortable />
       <!-- <el-table-column label="Activity" prop="activity.title" sortable /> -->
-      <el-table-column label="Settlement" prop="project_location.location_name" sortable />
+      <!-- <el-table-column label="Settlement" prop="project_location.location_name" sortable /> -->
       <!-- <el-table-column label="Project" prop="project.title" sortable /> -->
-      <el-table-column
+      <!-- <el-table-column
       property="project.title"
       label="Project"
       show-overflow-tooltip
-    />
+    /> -->
     <el-table-column label="Indicator" prop="indicator.name" sortable />
     <el-table-column label="Dimension" prop="category_title" sortable />
-      <el-table-column label="Target" prop="target" sortable />
+      <!-- <el-table-column label="Target" prop="target" sortable /> -->
       <!-- <el-table-column label="Baseline" prop="baseline" sortable /> -->
 
 
@@ -1214,59 +1217,28 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="200px" label-position="left">
 
  
-  
-        <el-form-item id="btn1" label="Project" prop="project_id">
-        
-
-            <el-select
-                v-model="ruleForm.project_id"  
-                prop="project_id" 
-                placeholder="Select an option" 
-                clearable filterable 
-                :onChange="changeProject"  
-                style="width: 90%;" >
-                  <el-option
-                    v-for="option in projectOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value">
-                    <span class="option-text">{{ option.label }}</span>
-                  </el-option>
-                </el-select>
-
-
-
-        </el-form-item>
-        <el-form-item id="btn2" label="Location" prop="project_id">
+   
+        <el-form-item id="btn4" label="Indicator level" prop="indicator_level" >
           <el-select
-ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
-            style="width: 90%; vertical-align: middle">
-            <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
-              <div style="display: flex; align-items: center;">
-                <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
-                <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
-                  {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
-                </span>
-              </div>
-            </el-option>
+ref="ref4" filterable v-model="ruleForm.indicator_level" :onChange="handleSwitchChange"
+            placeholder="Select Level" style="width: 70%; margin-right: 10px;">
+            <el-option
+v-for="item in indicatorLevels" :key="item.value" :label="item.label"
+              :value="item.value" />
+
           </el-select>
-        </el-form-item>
-        <el-form-item id="xbtn3" label="Activity Level Indicator" prop="">
-          <el-switch
-            v-model="indicator_level"      
-            class="custom-switch"
-            @change="handleSwitchChange"
-          />
-        </el-form-item>
+         </el-form-item>
 
-        <el-form-item v-if="indicator_level" id="btn3" label="Activity" prop="activity_id">
+ 
+
+        <el-form-item v-if="ruleForm.indicator_level =='activity'" id="btn3" label="Activity" prop="activity_id">
           <el-select
-ref="ref3" filterable v-model="ruleForm.activity_id" :onChange="changeActivity"
+ref="ref3" filterable v-model="ruleForm.activity_id"   :onChange="changeActivity"
             placeholder="Select Activity" style="width: 90%">
             <el-option
 v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
               :value="item.value" />
-          </el-select>
+          </el-select> 
 
         </el-form-item>
 
@@ -1282,18 +1254,7 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
           <el-button type="primary" @click="AddIndicator" :icon="Plus" plain />
         </el-form-item>
 
-
-        <el-row>
-
-          <el-form-item id="btn5" label="Baseline" prop="baseline">
-            <el-input-number ref="ref5" v-model="ruleForm.baseline" />
-          </el-form-item>
-
-
-          <el-form-item id="btn6" label="Target" prop="target">
-            <el-input-number ref="ref6" v-model="ruleForm.target" />
-          </el-form-item>
-        </el-row>
+ 
 
 
 
