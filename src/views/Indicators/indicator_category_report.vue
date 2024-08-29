@@ -35,6 +35,7 @@ import { BatchImportUpsert } from '@/api/settlements'
 import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
 import xlsx from "json-as-xlsx"
+import {   getOneGeo  } from '@/api/settlements'
 
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
@@ -221,7 +222,7 @@ var filterValues = [[userInfo.id]]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document', 'settlement', 'county', 'users','indicator_category' ]
+const associated_multiple_models = ['document', 'settlement', 'county', 'users','indicator_category'  ]
 //const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 const nested_models =['activity', 'project']  // The mother, then followed by the child
 
@@ -379,19 +380,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   //tableDataList.value = res.data
   total.value = res.total
-
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
-
-    var dd = flattenJSON(arrayItem)
-
-    tblData.push(dd)
-  })
-
-  console.log('TBL-4f', tblData)
+ 
+ 
 }
 
 const projectOptions = ref([])
@@ -450,7 +440,7 @@ const getIndicatorNames = async () => {
   console.log('indicator_category Response:', res);
 
   res.data.forEach((arrayItem) => {
-    console.log('=====>', arrayItem);
+    //console.log('=====>', arrayItem);
 
     const opt = {
       value: arrayItem.id,
@@ -1492,60 +1482,6 @@ if (isMobile.value) {
 }
 
 
-const DownloadXlsx = async () => {
-  console.log(tableDataList.value)
-
-  // change here !
-  let fields = [
-    { label: "S/No", value: "index" }, // Top level data
-    { label: "Indicator", value: "indicator" }, // Top level data
-    { label: "Category", value: "category" }, // Top level data
-    { label: "Quantity", value: "quantity" }, // Custom format
-    { label: "Settlement", value: "settlement" }, // Custom format
-    { label: "County", value: "county" }, // Custom format
-    { label: "Date", value: "date" }, // Custom format
-
-  ]
-
-
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
-    let thisRecord = {}
-    tableDataList.value[i]
-    thisRecord.index = i + 1
-    thisRecord.indicator = tableDataList.value[i].indicator_category.indicator.name
-    thisRecord.category = tableDataList.value[i].indicator_category.category_title
-    thisRecord.quantity = tableDataList.value[i].amount
-    thisRecord.settlement = tableDataList.value[i].settlement.name
-    thisRecord.county = tableDataList.value[i].county.name
-    thisRecord.date = tableDataList.value[i].date
-
-
-    dataHolder.push(thisRecord)
-  }
-  dataObj.content = dataHolder
-
-
-
-
-  let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
-}
-
 
 /// Uplaod docuemnts from a central component 
 const mfield = 'report_id'
@@ -1606,30 +1542,55 @@ const projectGeom = ref([])
 const reportDetails = ref();
 const locationStatus = ref('')
 const projectLocationColor = ref('red')
-const showMap = (row) => {
-  console.log(row)
-
+const showMap = async (row) => {
   reportDetails.value = row
 
 
+  // get the geometry of teh reprot 
+  const formData = {}
+  formData.model = 'indicator_category_report'
+  formData.id = row.id
+  console.log(formData)
+  const res = await getOneGeo(formData)
+  const loc_geom = res.data[0].json_build_object
+  var centroid = turf.centroid(loc_geom);
+  console.log('centroid',centroid)
+  reportGeom.value = centroid
+
+
+  // now get the geometry of the project lcoation 
+  console.log(row)
+  const projLocFormData = {}
+  projLocFormData.model = 'project_location'
+  projLocFormData.id = row.project_location_id
+ 
+  const prj_res = await getOneGeo(projLocFormData)
+  const proj_geom = prj_res.data[0].json_build_object
+  var proj_centroid = turf.centroid(proj_geom);
+  console.log('centroid',proj_centroid)
+  projectGeom.value = proj_centroid
+
+
+  console.log('  projectGeom.value',  projectGeom.value)
+  console.log('  projectGeom.value',  projectGeom.value)
+
 
   dialogMap.value = true
-  reportGeom.value = reportDetails.value.geom.coordinates
-  projectGeom.value = reportDetails.value.project.geom
+
+//   projectGeom.value = reportDetails.value.project.geom
 
 
-  var centroid = turf.centroid(reportDetails.value.project.geom);
+ 
+   var options = { units: 'kilometers' };
 
-  var options = { units: 'kilometers' };
-
-  var distance = turf.distance(reportDetails.value.geom, centroid, options);
+   var distance = turf.distance(proj_centroid,centroid, options);
   console.log('distance , ', distance)
 
-  if (distance < 1) {
-    projectLocationColor.value = 'green'
-  }
+   if (distance < 1) {
+      projectLocationColor.value = 'green'
+   }
 
-  locationStatus.value = 'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
+    locationStatus.value = 'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
   setTimeout(loadMap, 100); // delay for the dialog to fully load
   //loadMap()
 }
@@ -1642,7 +1603,7 @@ const closeMap = () => {
 }
 
 const loadMap = () => {
-  var mapCenter = reportGeom.value;
+  var mapCenter = reportGeom.value.geometry.coordinates;
 
   var nmap = new mapboxgl.Map({
     container: "mapContainer",
@@ -1692,7 +1653,7 @@ const loadMap = () => {
         data: projectGeom.value,
       },
       paint: {
-        'circle-color': projectLocationColor.value.color,
+        'circle-color': 'red',
         'circle-radius': 6,
       },
       filter: ['==', '$type', 'Point'],
@@ -1730,8 +1691,79 @@ const loadMap = () => {
 
 
 
+  //     Add Project Location layer
+     nmap.addLayer({
+      id: 'project-layer',
+      type: 'circle',
+      source: {
+        type: 'geojson',
+        data: projectGeom.value,
+      },
+      paint: {
+        'circle-color': 'red',
+        'circle-radius': 6,
+      },
+      filter: ['==', '$type', 'Point'],
+    });
 
 
+     // Add marker to the map
+    // Create a new marker and set its position
+      const proj_marker = new mapboxgl.Marker()
+          .setLngLat(projectGeom.value.geometry.coordinates) // Set the marker position using the GeoJSON coordinates
+          .addTo(nmap); // Add the marker to the map
+
+      // Create a new popup
+      const project_popup = new mapboxgl.Popup({ offset: 25 }) // Optionally add an offset
+          .setHTML('<h3>Project Location</h3><p>Coordinates: ' + projectGeom.value.geometry.coordinates[1] + ', ' + projectGeom.value.geometry.coordinates[0] + '</p>'); // Set the HTML content of the popup
+
+      // Attach the popup to the marker
+      proj_marker.setPopup(project_popup).togglePopup(); // Automatically open the popup when the marker is added to the map
+
+
+
+      const lineString = {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                projectGeom.value.geometry.coordinates, // First point coordinates
+                reportGeom.value.geometry.coordinates  // Second point coordinates
+                ]
+            }
+        };
+
+        nmap.addLayer({
+            id: 'distance-layer',
+            type: 'line', // Change to 'line' to display the outline
+            source: {
+              type: 'geojson',
+              data: lineString
+            },
+            'paint': {
+                'line-color': 'red',
+                'line-width': 1,
+                'line-dasharray': [10, 10],
+
+                 
+            },
+            layout: {
+                'line-cap': 'round',
+                'line-join': 'round'
+            }
+          });
+
+
+         const bounds = turf.bbox((lineString))
+            console.log("From geo",bounds)
+          nmap.fitBounds(bounds, { padding: 100 })
+
+
+    
+
+
+  console.log(nmap)
 
     nmap.addControl(new MapboxLayerSwitcherControl(layers));
 
