@@ -2068,8 +2068,20 @@ size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear
         <el-table
 ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
           :row-class-name="tableRowClassName" flexible @expand-change="handleExpand">
+
+          
+          <el-table-column label="ID" width="80" prop="id" sortable>
+                <template #default="scope">
+                  <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+                  <span>{{ scope.row.id }}</span>
+                  <Icon icon="material-symbols:attachment"  style="margin-left: 4px;"  />
+                </div>
+                </template>
+              </el-table-column>
+
+          
           <el-table-column type="expand">
-            <template #default="props">
+             <template #default="props">
               <div m="4">
                 <el-tabs tab-position="top" class="demo-tabs">
                   <el-tab-pane >
@@ -2173,6 +2185,7 @@ size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
                   </el-tab-pane>
                 </el-tabs>
 
+              
 
               </div>
             </template>

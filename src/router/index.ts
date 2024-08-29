@@ -876,66 +876,66 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         ]
       },
-      {
-        path: 'repository',
-        component: Layout,
-        //redirect: '/settings',
-        name: 'Repository',
-        meta: {
-          title: 'Repository',
-          icon: 'material-symbols:home-storage-rounded',
-          role: ['admin', 'super_admin', 'monitoring', 'grm' , 'staff', 'consultant' ] ,
-          locationLevel:['national','county' ],
+      // {
+      //   path: 'repository',
+      //   component: Layout,
+      //   //redirect: '/settings',
+      //   name: 'Repository',
+      //   meta: {
+      //     title: 'Repository',
+      //     icon: 'material-symbols:home-storage-rounded',
+      //     role: ['admin', 'super_admin', 'monitoring', 'grm' , 'staff', 'consultant' ] ,
+      //     locationLevel:['national','county' ],
 
-          alwaysShow: true
-        },
-        children: [
+      //     alwaysShow: true
+      //   },
+      //   children: [
           
-          {
-            path: 'docs',
-          //  component: 'views/Users/County',
-            component: () => import('@/views/Repository/DocumentsTagged.vue'),
-            name: 'RepositoryTagged',
-            meta: {
-              title: 'Documents',
-              hidden: false,
-              role: ['admin', 'super_admin', 'monitoring', 'grm' , 'staff', 'consultant' ] ,
+      //     {
+      //       path: 'docs',
+      //     //  component: 'views/Users/County',
+      //       component: () => import('@/views/Repository/DocumentsTagged.vue'),
+      //       name: 'RepositoryTagged',
+      //       meta: {
+      //         title: 'Documents',
+      //         hidden: false,
+      //         role: ['admin', 'super_admin', 'monitoring', 'grm' , 'staff', 'consultant' ] ,
 
-              icon:'bi:clipboard2-data-fill'
-            }
-          },
+      //         icon:'bi:clipboard2-data-fill'
+      //       }
+      //     },
 
-          {
-            path: 'cleanup',
-          //  component: 'views/Users/County',
-            component: () => import('@/views/Repository/DeleteDocuments.vue'),
-            name: 'RepositoryCleanup',
-            meta: {
-              title: 'Cleanup',
-              hidden: false,
-               role: ['admin', 'super_admin' ] ,
-              icon:'fluent:delete-32-filled'
-            }
-          },
+      //     {
+      //       path: 'cleanup',
+      //     //  component: 'views/Users/County',
+      //       component: () => import('@/views/Repository/DeleteDocuments.vue'),
+      //       name: 'RepositoryCleanup',
+      //       meta: {
+      //         title: 'Cleanup',
+      //         hidden: false,
+      //          role: ['admin', 'super_admin' ] ,
+      //         icon:'fluent:delete-32-filled'
+      //       }
+      //     },
 
 
          
-          {
-            path: 'imagery',
-          //  component: 'views/Users/County',
-            component: () => import('@/views/Repository/Imagery.vue'),
-            name: 'DroneImagery',
-            meta: {
-              title: 'Imagery',
-              hidden: false,
-              role: ['admin', 'super_admin', 'monitoring','grm' ,'consultant','staff' ] ,
+      //     {
+      //       path: 'imagery',
+      //     //  component: 'views/Users/County',
+      //       component: () => import('@/views/Repository/Imagery.vue'),
+      //       name: 'DroneImagery',
+      //       meta: {
+      //         title: 'Imagery',
+      //         hidden: false,
+      //         role: ['admin', 'super_admin', 'monitoring','grm' ,'consultant','staff' ] ,
 
-              icon:'mdi:space-station'
+      //         icon:'mdi:space-station'
 
-            }
-          },
-        ]
-      },
+      //       }
+      //     },
+      //   ]
+      // },
  
 
     ]
@@ -1154,6 +1154,67 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     ]
   },
   
+  {
+    path: '/repo',
+    component: Layout,
+    redirect: '/repo/open',
+    name: 'Repository',
+    meta: {
+      title: 'Repository',
+      icon: 'material-symbols:home-storage-rounded',
+      role: [ 'super_admin', 'grm' ] ,
+      locationLevel:['national','county','settlement'],
+      alwaysShow: false
+    },
+    children: [
+
+      {
+        path: 'docs',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/DocumentsTagged.vue'),
+        name: 'RepositoryTagged',
+        meta: {
+          title: 'Documents',
+          hidden: false,
+          role: ['admin', 'super_admin', 'monitoring', 'grm' , 'staff', 'consultant' ] ,
+
+          icon:'bi:clipboard2-data-fill'
+        }
+      },
+      
+      {
+        path: 'cleanup',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/DeleteDocuments.vue'),
+        name: 'RepositoryCleanup',
+        meta: {
+          title: 'Cleanup',
+          hidden: false,
+           role: ['admin', 'super_admin' ] ,
+          icon:'fluent:delete-32-filled'
+        }
+      },
+
+
+     
+      {
+        path: 'imagery',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Repository/Imagery.vue'),
+        name: 'DroneImagery',
+        meta: {
+          title: 'Imagery',
+          hidden: false,
+          role: ['admin', 'super_admin', 'monitoring','grm' ,'consultant','staff' ] ,
+
+          icon:'mdi:space-station'
+
+        }
+      },
+    ]
+
+  },
+
   {
     path: '/grv',
     component: Layout,

@@ -1152,7 +1152,8 @@ v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multipl
       label="Project"
       show-overflow-tooltip
     />
-      <el-table-column label="Indicator" prop="indicator.name" sortable />
+    <el-table-column label="Indicator" prop="indicator.name" sortable />
+    <el-table-column label="Dimension" prop="category_title" sortable />
       <el-table-column label="Target" prop="target" sortable />
       <!-- <el-table-column label="Baseline" prop="baseline" sortable /> -->
 
