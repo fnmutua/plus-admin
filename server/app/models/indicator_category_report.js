@@ -142,9 +142,23 @@ module.exports = function (sequelize, DataTypes) {
           name: 'indicator_category_report_pkey',
           unique: true,
           fields: [{ name: 'id' }]
-        }
+        },
+        {
+          name: 'indicator_category_report_composite_key',
+          unique: true,
+          fields: [
+            { name: 'indicator_category_id' },
+            { name: 'programme_implementation_id' },
+            { name: 'settlement_id' },
+            { name: 'project_location_id' },
+            { name: 'amount' },
+            { name: 'project_location_id' },
+           ],
+        },
        
       ]
+
+      
     }
   )
 }

@@ -1601,7 +1601,7 @@ v-if="showAdminButtons" type="primary" :icon="View"
 
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF" width="300" 
                 title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
                 <template #reference>
                   <el-button v-if="showAdminButtons" type="danger" :icon=Delete circle />

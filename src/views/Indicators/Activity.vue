@@ -392,24 +392,41 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 }
 
 
+ 
+
+
 const editForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
+  if (!formEl) return;
+
   await formEl.validate((valid, fields) => {
     if (valid) {
-      ruleForm.model = model
+      ruleForm.model = model;
 
-      updateOneRecord(ruleForm).then(() => { })
+      updateOneRecord(ruleForm)
+        .then((updatedRecord) => {
+          // Assuming you get the updated record back from the API
+          if (updatedRecord) {
+            console.log('updatedRecord',updatedRecord)
+            // Find the index of the original record in the table data list
+            const index = tableDataList.value.findIndex((item) => item.id === updatedRecord.data.id);
 
-      // dialogFormVisible.value = false
-
-
+            if (index !== -1) {
+              // Replace the original record with the updated one
+              tableDataList.value[index] = updatedRecord.data;
+            }
+         
+            AddDialogVisible.value=false
+            handleClose()
+          }
+        })
+        .catch((error) => {
+          console.error('Error updating record:', error);
+        });
     } else {
-      console.log('error submit!', fields)
+      console.log('error submit!', fields);
     }
-  })
-}
-
-
+  });
+};
 
 getIndicatorOptions()
 getInterventionsAll()
@@ -585,7 +602,7 @@ type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlo
             <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
               <el-popconfirm
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                title="Are you sure to delete this record?" width="150"
+                title="Are you sure to delete this record?" width="300"
                 @confirm="DeleteIndicator(scope.row as TableSlotDefault)">
                 <template #reference>
                   <el-button type="danger" size="small" :icon=Delete circle />
