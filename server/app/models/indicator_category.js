@@ -60,11 +60,11 @@ module.exports = function (sequelize, DataTypes) {
           name: 'unique_indicator_project_category',
           unique: true,
           fields: [
+            { name: 'indicator_level' },
             { name: 'indicator_id' },
-            { name: 'project_location_id' },
             { name: 'category_id' },
-            { name: 'project_id' },
-          ],
+            { name: 'frequency' },
+           ],
         },
       ],
     }
