@@ -395,7 +395,7 @@ const rules = reactive({
 
 
   format: [
-    { required: true, message: 'Indicator Formatt is required', trigger: 'blur' }],
+    { required: true, message: 'Indicator measurement is required', trigger: 'blur' }],
 
   level: [
     { required: true, message: 'The  level is required', trigger: 'blur' }
@@ -703,7 +703,7 @@ filterable v-model="ruleForm.activity_id" placeholder="Select Activity"
           <el-option label="Impact" value="outcome" />
         </el-select>
       </el-form-item>
-      <el-form-item id="btn4" label="Format" prop="format">
+      <el-form-item id="btn4" label="Measurement" prop="format">
         <el-select v-model="ruleForm.format" placeholder="Format">
           <el-option label="Number" value="number" />
           <el-option label="Percent" value="percent" />

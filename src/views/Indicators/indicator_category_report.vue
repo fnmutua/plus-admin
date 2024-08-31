@@ -62,10 +62,13 @@ mapboxgl.accessToken = MapBoxToken;
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
-const userInfo = wsCache.get(appStore.getUserInfo)
+const userInfo =  (appStore.getUserInfo)
+
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
 
 
-console.log("userInfo--->", userInfo)
+console.log("showAdminButtons--->", showAdminButtons.value)
 
 
 
@@ -86,8 +89,6 @@ const page = ref(1)
 const selCounties = []
 const currentPage = ref(1)
 const total = ref(0)
-const showAdminButtons = ref(appStore.getAdminButtons)
-const showEditButtons = ref(appStore.getEditButtons)
 
 
 const mobileBreakpoint = 768;
@@ -747,7 +748,9 @@ const changeProject = async (project: any) => {
   ruleForm.project_location_id=null
   ruleForm.project_id=project
 
-
+  let project_activities=[]
+  let sel_indicators=[]
+  let outcome_indicators=[]
 
   console.log('changeProject', project)
   console.log('projectOptionsAll', projectOptionsAll)
@@ -758,28 +761,30 @@ const changeProject = async (project: any) => {
       console.log('thisProject', thisProject)
       if(thisProject && thisProject[0].implementation_scope =='National' ){
         isNationalProject.value=true
+        console.log('isNationalProject', isNationalProject.value)
+
 
       } else {
         isNationalProject.value=false
+        project_activities = await getProjectActivities(project)
+        sel_indicators = await getProjectActivityIndicators(project_activities)
 
+        console.log('project_activities', project_activities)
 
       }
 
-      console.log('isNationalProject', isNationalProject.value)
 
+      outcome_indicators = await getProjectProjectOutcomeIndicators()
 
-  const project_activities = await getProjectActivities(project)
-  console.log('project_activities', project_activities)
+      console.log('outcome_indicators', outcome_indicators)
 
 
   
-  const sel_indicators = await getProjectActivityIndicators(project_activities)
 
   console.log('sel_indicators',sel_indicators)
 
   
 
-  const outcome_indicators = await getProjectProjectOutcomeIndicators()
   console.log('outcome_indicators',outcome_indicators)
 
   
@@ -789,8 +794,9 @@ const merged_indicators = [...sel_indicators, ...outcome_indicators];
 console.log('merged_indicators',merged_indicators)
 
   const transformedArray = merged_indicators.map(item => { 
+    console.log(item)
           return {
-              label: item.indicator_name + ' ' + item.category_title,
+              label: item.indicator.name + ' ' + item.category_title,
               value: item.id,
               project_id: item.project_id,
               unit: item.indicator.unit,
@@ -800,6 +806,7 @@ console.log('merged_indicators',merged_indicators)
 
       indicatorsOptionsFiltered.value =transformedArray
 
+      console.log('transformedArray',transformedArray)
 
 
   const filteredOpts = projectOptionsAll.value.filter(item => item.value == project);
@@ -1923,7 +1930,8 @@ const searchProject = (query) => {
       </div>
 
       <!-- Title Search -->
-      <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Filter by Project/Indicator" style="width: 450px; margin-right: 10px;">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -1954,14 +1962,16 @@ const searchProject = (query) => {
 
 
 
-    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+    <el-table
+:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
       @expand-change="handleExpand" ref="tableRef">
 
       <el-table-column type="expand">
         <template #default="props">
 
           <div>
-            <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+            <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
               @openDialog="toggleComponent(props.row)" />
           </div>
 
@@ -2010,25 +2020,30 @@ const searchProject = (query) => {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item v-if="showEditButtons" @click="editReport(scope as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showEditButtons" @click="editReport(scope as TableSlotDefault)"
                   :icon="Edit">Edit</el-dropdown-item>
-                <el-dropdown-item v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
+                <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
           <div v-else>
             <el-tooltip content="Edit" placement="top">
-              <el-button v-if="showEditButtons" type="success" size="small" :icon="Edit"
+              <el-button
+v-if="showEditButtons" type="success" size="small" :icon="Edit"
                 @click="editReport(scope.row as TableSlotDefault)" :disabled="scope.row.status == 'Approved'" circle />
             </el-tooltip>
 
             <el-tooltip content="Map" placement="top">
-              <el-button v-if="showEditButtons" type="warning" size="small" :icon="Position"
+              <el-button
+v-if="showEditButtons" type="warning" size="small" :icon="Position"
                 :disabled="isGeomNull(scope.row.geom)" @click="showMap(scope.row as TableSlotDefault)" circle />
             </el-tooltip>
             <el-tooltip content="Delete" placement="top">
-              <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+              <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
                 title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
                 <template #reference>
                   <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
@@ -2043,7 +2058,8 @@ const searchProject = (query) => {
     </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
@@ -2091,7 +2107,8 @@ const searchProject = (query) => {
 
 
           <el-form-item v-if="!isNationalProject" id="btn2" label="Location" prop="project_location_id">
-            <el-select  :disabled="disableIndicator"  ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
+            <el-select
+:disabled="disableIndicator"  ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
               @change="changeLocation" style="width: 100%;">
               <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
                 <div style="display: flex; align-items: center;">
@@ -2115,7 +2132,8 @@ const searchProject = (query) => {
           </el-form-item> -->
 
           <el-form-item id="btn4" label="Indicator" prop="indicator_category_id">
-            <el-select-v2 filterable v-model="ruleForm.indicator_category_id" @change="changeIndicator"
+            <el-select-v2
+filterable v-model="ruleForm.indicator_category_id" @change="changeIndicator"
               :options="indicatorsOptionsFiltered" style="width: 100%" placeholder="Select Indicator" />
           </el-form-item>
         </el-col>
@@ -2161,7 +2179,8 @@ const searchProject = (query) => {
             <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
           </el-form-item>
 
-          <el-upload id="btn13" v-model:file-list="fileUploadList" class="upload-demo"
+          <el-upload
+id="btn13" v-model:file-list="fileUploadList" class="upload-demo"
             action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
             :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
             :on-exceed="handleExceed">
@@ -2185,9 +2204,11 @@ const searchProject = (query) => {
 
             <el-button :disabled="disableIndicator"   @click="nextStep" v-if="activeStep < 3">Next</el-button>
             <el-button @click="handleCancel">Cancel</el-button>
-            <el-button v-if="showSubmitBtn && activeStep === 3" type="primary"
+            <el-button
+v-if="showSubmitBtn && activeStep === 3" type="primary"
               @click="submitForm(ruleFormRef)">Submit</el-button>
-            <el-button v-if="showEditSaveButton && activeStep === 3" type="primary"
+            <el-button
+v-if="showEditSaveButton && activeStep === 3" type="primary"
               @click="editForm(ruleFormRef)">Save</el-button>
           </el-col>
         </el-row>
@@ -2198,9 +2219,11 @@ const searchProject = (query) => {
   </el-dialog>
 
 
-  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
+  <el-dialog
+v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
     draggable>
-    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+    <el-upload
+class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="5" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>
@@ -2248,14 +2271,18 @@ const searchProject = (query) => {
 
   <el-tour v-model="openHelp" z-index="100000">
     <el-tour-step target="#btn1" title="Project" description="Select the project you want to set up" />
-    <el-tour-step target="#btn2" title="Location"
+    <el-tour-step
+target="#btn2" title="Location"
       description="Select the location where this project is implemented. Repeat this for every settlement the project is being implemented" />
-    <el-tour-step target="#btn3" title="Activity"
+    <el-tour-step
+target="#btn3" title="Activity"
       description="Select the  specific activity you wish to configure monitoring for" />
-    <el-tour-step target="#btn4" title="Indicator"
+    <el-tour-step
+target="#btn4" title="Indicator"
       description="Select the  indicator associated with that activity. If not configured, use the + button to create a new indicator" />
 
-    <el-tour-step target="#btn5" title="Quantity"
+    <el-tour-step
+target="#btn5" title="Quantity"
       description="Specify the amount/value/quantity for this reporting period.  " />
 
     <el-tour-step target="#btn6" title="Cumulative" description=" Shows the cumulative achievements todate" />
@@ -2270,14 +2297,17 @@ const searchProject = (query) => {
 
     <el-tour-step target="#btn10" title="Date" description="Specify reporting date." />
 
-    <el-tour-step target="#btn11" title="Progress"
+    <el-tour-step
+target="#btn11" title="Progress"
       description="Progress of achievements. How much of the quantity has been achieved todate?" />
 
 
-    <el-tour-step target="#btn12" title="Comments"
+    <el-tour-step
+target="#btn12" title="Comments"
       description="Provide any commentary or additional information related to this submission" />
 
-    <el-tour-step target="#btn13" title="Documentation"
+    <el-tour-step
+target="#btn13" title="Documentation"
       description="Upload any documentation that is required. It includes photos, reports of data" />
 
 
