@@ -33,14 +33,7 @@ module.exports = function (sequelize, DataTypes) {
       activity_id: {
         type: DataTypes.INTEGER,
         allowNull: true
-      },
-   
-
-
-      
-
-
-
+      }, 
        code: {
         type: DataTypes.STRING,
         allowNull: true
@@ -59,7 +52,7 @@ module.exports = function (sequelize, DataTypes) {
         },
         {
           unique: true,
-          fields: ['name', 'activity_id', 'type','format', 'level' ]
+          fields: ['name','createdBy',   'type','format', 'level','unit' ]
         },
       ]
     }

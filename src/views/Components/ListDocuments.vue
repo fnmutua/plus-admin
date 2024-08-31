@@ -247,14 +247,14 @@ const addDocument = () => {
         v-model="searchQuery" 
         placeholder="Search documents..." 
         clearable
-        style="margin-left: 10px"
+        style="margin-left: 10px ; width:95%"
        
         @input="onSearch"
       />
    
 
       <el-tooltip content="Import Documents" placement="top">
-        <el-button 
+        <el-button  
         type="primary" 
          :icon="UploadFilled"
         @click="addDocument"
@@ -302,6 +302,8 @@ const addDocument = () => {
   height: 150px;
   padding: 0;
   margin: 0;
+  width: 60%;
+
   list-style: none;
 }
 .infinite-list .infinite-list-item {
@@ -355,6 +357,7 @@ const addDocument = () => {
   display: flex;
   justify-content: space-between;
   margin-bottom: 10px;
+  width:60%
 }
 
 .el-button {
