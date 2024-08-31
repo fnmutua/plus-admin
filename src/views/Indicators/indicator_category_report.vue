@@ -218,8 +218,8 @@ const showEditSaveButton = ref(false)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = ['userId']
-var filterValues = [[userInfo.id]]  // remember to change here!
+var filters = [ ]
+var filterValues = [ ]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
@@ -2043,7 +2043,7 @@ v-if="showEditButtons" type="warning" size="small" :icon="Position"
             </el-tooltip>
             <el-tooltip content="Delete" placement="top">
               <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"  width="300" icon-color="#626AEF"
                 title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
                 <template #reference>
                   <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />

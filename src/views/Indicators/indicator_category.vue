@@ -66,6 +66,7 @@ const ruleForm = reactive({
   category_id: null,
   category_title:null,
   frequency: null,
+  level: null,
   code: null,
  }) 
 
@@ -646,6 +647,13 @@ const editIndicator = async (data: TableSlotDefault) => {
   console.log(data)
   ruleForm.id = data.row.id
   ruleForm.indicator_name = data.row.indicator.indicator_name
+  ruleForm.indicator_level = data.row.indicator_level
+
+  
+
+  handleSwitchChange(data.row.indicator_level)
+  changeActivity(data.row.activity_id)
+
   ruleForm.indicator_id = data.row.indicator_id
   ruleForm.category_id = data.row.category_id
   ruleForm.frequency = data.row.frequency
@@ -779,7 +787,23 @@ const editForm = async (formEl: FormInstance | undefined) => {
     ruleForm.model = 'indicator_category';
     ruleForm.code = ruleForm.indicator_id + '_' + ruleForm.activity_id + '_' + ruleForm.project_id + '_' + ruleForm.category_id;
 
-    await updateOneRecord(ruleForm);
+    //await updateOneRecord(ruleForm);
+
+    await updateOneRecord(ruleForm)
+        .then((updatedRecord) => {
+          // Assuming you get the updated record back from the API
+          if (updatedRecord) {
+            getFilteredData(filters, filterValues)
+          AddDialogVisible.value=false
+            handleClose()
+          }
+         
+        })
+        .catch((error) => {
+          console.error('Error updating record:', error);
+        });
+
+
 
     AddDialogVisible.value = false;
     ruleForm.project_id = null;
@@ -925,6 +949,7 @@ const indicatorForm = reactive({
   level: '',
   format: '',
   activity_id: '',
+ 
   desc: '',
 })
 
