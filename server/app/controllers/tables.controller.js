@@ -983,17 +983,33 @@ exports.modelCreateOneRecord = (req, res) => {
       code: '0000',
     });
   })
-  .catch(async function (err) {
+  .catch(async function (error) {
     // handle error;
-    console.log('error0--90----->', err);
+    console.log('error0--90----->', error);
     event.status= 'failed' 
 
     logEvents(event)
+
+
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      console.error('Duplicate entry error:', error.errors.map(e => e.message).join(', '));
+      // Handle the duplicate key error (e.g., return a user-friendly message)
+      return res.status(400).json({
+        message: 'Duplicate records for '+ reg_model + ' not allowed'
+      });
+    } else {
+      // Handle other errors
+      console.error('Error creating indicator:', error);
+      return res.status(500).json({
+        message: 'An unexpected error occurred while creating the indicator.'
+      });
+    }
+
+
+
+      
   
-  
-    var message = err.message || 'An error occurred';
-  
-    return res.status(500).send({ message: message });
+ 
   });
   
 

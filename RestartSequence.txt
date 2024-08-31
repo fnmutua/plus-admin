@@ -70,3 +70,28 @@ UPDATE public.project SET  implementation_scope = 'Settlement';
 
 
 ALTER TABLE project ADD COLUMN implementation_scope VARCHAR(100);
+
+
+
+// Delete indexes
+DROP INDEX IF EXISTS unique_indicator_project_category;
+
+
+
+// remvoe duplciates  
+WITH CTE AS (
+    SELECT
+        id, -- Assuming `id` is your primary key or unique identifier
+        ROW_NUMBER() OVER (
+            PARTITION BY frequency, indicator_level, indicator_id, category_id 
+            ORDER BY id
+        ) AS rn
+    FROM
+        indicator_category
+)
+DELETE FROM indicator_category
+WHERE id IN (
+    SELECT id
+    FROM CTE
+    WHERE rn > 1
+);
