@@ -1907,7 +1907,17 @@ v-model="search_string" clearable :onClear="handleClear" placeholder="Please inp
       </el-table-column>
 
 
-          <el-table-column label="ID" prop="id" sortable />
+ 
+     <el-table-column label="Id" width="80" prop="id" sortable>
+        <template #default="scope">
+          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+            <span>{{ scope.row.id }}</span>
+            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+          </div>
+        </template>
+      </el-table-column>
+
+      
           <el-table-column label="Name" width="200" prop="name" sortable />
           <el-table-column label="County" prop="county.name" sortable />
           <el-table-column label="Subcounty" prop="subcounty.name" sortable />
@@ -2025,7 +2035,14 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="ID" prop="id" sortable />
+          <el-table-column label="Id" width="80" prop="id" sortable>
+        <template #default="scope">
+          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+            <span>{{ scope.row.id }}</span>
+            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+          </div>
+        </template>
+      </el-table-column>
           <el-table-column label="Name" width="200" prop="name" sortable />
           <el-table-column label="County" prop="county.name" sortable />
           <el-table-column label="Subcounty" prop="subcounty.name" sortable />
@@ -2140,7 +2157,14 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="ID" prop="id" sortable />
+          <el-table-column label="Id" width="80" prop="id" sortable>
+        <template #default="scope">
+          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+            <span>{{ scope.row.id }}</span>
+            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+          </div>
+        </template>
+      </el-table-column>
           <el-table-column label="Name" width="200" prop="name" sortable />
           <el-table-column label="County" prop="county.name" sortable />
           <el-table-column label="Subcounty" prop="subcounty.name" sortable />

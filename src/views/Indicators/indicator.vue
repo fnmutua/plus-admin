@@ -427,16 +427,12 @@ const editForm = async (formEl: FormInstance | undefined) => {
           // Assuming you get the updated record back from the API
           if (updatedRecord) {
             console.log('updatedRecord',updatedRecord)
-            // Find the index of the original record in the table data list
-            const index = tableDataList.value.findIndex((item) => item.id === updatedRecord.data.id);
+            getFilteredData(filters, filterValues)
 
-            if (index !== -1) {
-              // Replace the original record with the updated one
-              tableDataList.value[index] = updatedRecord.data;
-            }
+              AddDialogVisible.value=false
+                handleClose()
           }
-          AddDialogVisible.value=false
-            handleClose()
+         
         })
         .catch((error) => {
           console.error('Error updating record:', error);
@@ -575,6 +571,25 @@ const goBack = () => {
 }
 
 
+const handleSwitchChange = async (value) => {
+ 
+  console.log(value)
+
+  if (value=='project') {
+       
+          ruleForm.activity_id=null
+        // Add your custom logic here
+      } else {
+        // The switch is active (set to 'Activity Level Indicator')
+        console.log('Switch is active');
+
+        
+      }
+
+
+}
+
+
 </script>
 
 <template>
@@ -680,7 +695,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
 
       <el-form-item id="btn6" label="Level" prop="level">
-        <el-select v-model="ruleForm.level" placeholder="Level">
+        <el-select v-model="ruleForm.level" placeholder="Level"  :onChange="handleSwitchChange">
           <el-option label="Activity" value="activity" />
           <el-option label="Project" value="project" />
          </el-select>

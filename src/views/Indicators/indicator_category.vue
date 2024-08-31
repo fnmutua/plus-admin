@@ -652,7 +652,7 @@ const editIndicator = async (data: TableSlotDefault) => {
   
 
   handleSwitchChange(data.row.indicator_level)
-  changeActivity(data.row.activity_id)
+  changeActivity()
 
   ruleForm.indicator_id = data.row.indicator_id
   ruleForm.category_id = data.row.category_id
@@ -1093,6 +1093,8 @@ const goBack = () => {
 const handleSwitchChange = async (value) => {
   indicatorsOptionsFiltered.value=[]
 
+  console.log(value)
+
   if (value=='project') {
          console.log('Switch is inactive'); 
         const sel_indicators = await getProjectActivityIndicators(undefined)
@@ -1103,10 +1105,13 @@ const handleSwitchChange = async (value) => {
           };
           });
           indicatorsOptionsFiltered.value =transformedArray 
+          ruleForm.activity_id=null
         // Add your custom logic here
       } else {
         // The switch is active (set to 'Activity Level Indicator')
         console.log('Switch is active');
+
+        
       }
 
 

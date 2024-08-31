@@ -1031,7 +1031,7 @@ const showEditButtons =  ref(appStore.getEditButtons)
         </div>
 
 
-        <h1>{{ toTitleCase(title.replace('_', ' ')) + ' Settlement' }}</h1>
+        <h1 style="font-weight: bold;">{{ toTitleCase(title.replace('_', ' ')) + ' Settlement' }}</h1>
 
         <div>
           
