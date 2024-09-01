@@ -83,13 +83,13 @@ WITH CTE AS (
     SELECT
         id, -- Assuming `id` is your primary key or unique identifier
         ROW_NUMBER() OVER (
-            PARTITION BY frequency, indicator_level, indicator_id, category_id 
+            PARTITION BY programme_implementation_id, indicator_category_id, settlement_id, amount 
             ORDER BY id
         ) AS rn
     FROM
-        indicator_category
+        indicator_category_report
 )
-DELETE FROM indicator_category
+DELETE FROM indicator_category_report
 WHERE id IN (
     SELECT id
     FROM CTE

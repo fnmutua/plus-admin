@@ -5,7 +5,7 @@ import { getCountyListApi } from '@/api/counties'
 
 import { getGrievances } from '@/api/grievance'
 
-import { ElButton, ElSelect } from 'element-plus'
+import { ElButton, ElSelect, ElCheckbox,ElCol,} from 'element-plus'
 import {
   Plus,
   Download,
@@ -28,7 +28,8 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
-
+ 
+import writeXlsxFile from 'write-excel-file';
 
 
 
@@ -235,6 +236,11 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   console.log('After Querry', res)
   tableDataList.value = res.data
+
+  availableFields.value = extractFields(tableDataList.value);
+
+
+
   total.value = res.total
 }
 
@@ -510,9 +516,128 @@ const formAction = ref({
   prev_status : null ,
   new_status : null ,
 });
+  
+const showDownloadDialog = ref(false);
+
+const selectedFields = ref([]);
+const availableFields = ref([]);
+
+const selectDownload = () => {
+showDownloadDialog.value = true;
+};
+
+
+const extractFields = (data) => {
+  const fields = new Set();
+
+  function traverse(obj, prefix = "", isNested = false) {
+    for (let key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        const fullPath = prefix ? `${prefix}.${key}` : key;
+
+        if (isNested) {
+          // In nested objects or arrays, include only id, name, or title
+          if (["id", "name", "title"].includes(key)) {
+            fields.add(fullPath);
+          }
+        } else {
+          // In the main array, exclude geo fields
+          if (!isGeoField(fullPath)) {
+            if (typeof obj[key] === "object" && obj[key] !== null) {
+              if (Array.isArray(obj[key])) {
+                if (obj[key].length > 0 && typeof obj[key][0] === "object") {
+                  traverse(obj[key][0], fullPath, true); // Nested array
+                }
+              } else {
+                traverse(obj[key], fullPath, true); // Nested object
+              }
+            } else {
+              fields.add(fullPath);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  function isGeoField(fieldName) {
+    const geoKeywords = ["geo", "lat", "lng", "coordinate", "longitude", "latitude","createdAt"];
+    return geoKeywords.some(keyword => fieldName.toLowerCase().includes(keyword));
+  }
+
+  data.forEach(item => traverse(item));
+  return Array.from(fields);
+};
+
+// Function to extract data based on selected fields
+const extractData = (data, selectedFields) => {
+  return data.map(row => {
+    const extractedRow = {};
+    selectedFields.forEach(field => {
+      if (row.hasOwnProperty(field)) {
+        extractedRow[field] = row[field];
+      }
+    });
+    return extractedRow;
+  });
+};
+
+
+const downloadCSV = async() => {
+  // Implement your CSV download logic here
+console.log(selectedFields.value)
+ 
+
+const formattedData = computed(() => extractData( tableDataList.value, selectedFields.value));
+
+
+console.log(formattedData.value)
+
+
+ 
+  // Define column headers
+  // Define column headers
+  const  columns = selectedFields.value.map(field => ({
+      type: String,
+      value: field,
+      fontWeight: 'bold',
+      width: 20 // Set the width for each column
+
+    }));
+
+
+     
+    console.log(columns)
+      // Format data according to selected fields
+ const formatDataForExport = () => {
+      return tableDataList.value.map(row => {
+        return selectedFields.value.map(field => {
+          return {
+            type: String,
+            value: row[field] ? String(row[field]) : '',
+          };
+        });
+      });
+    };
+   // Function to download the Excel file
+ 
+      const rows = formatDataForExport();
+       // Prepend the headers (columns) as the first row
+       rows.unshift(columns);
+
+      await writeXlsxFile(rows, {
+        columns: columns,
+        fileName: 'data.xlsx',
+      });
  
 
 
+};
+
+ 
+ 
+ 
+ 
 </script>
 
 <template>
@@ -533,7 +658,7 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
       </el-select>
 
       <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; margin-bottom: 10px;">
+      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; ">
 
         <el-tooltip content="Add Activity" placement="top">
           <el-button v-if="showAdminButtons" :onClick="AddComponent" type="primary" :icon="Plus" />
@@ -544,8 +669,11 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
         </el-tooltip>
 
         <el-tooltip content="Download" placement="top">
-          <el-button @click="DownloadXlsx" type="primary" :icon="Download" />
+          <el-button @click="selectDownload" type="primary" :icon="Download" />
         </el-tooltip>
+
+         
+    
       </div>
 
       <!-- Download All Component -->
@@ -633,11 +761,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           :value="item.value"
         />
       </el-select>
-      </el-form-item>
-
-     
-
-
+      </el-form-item> 
       <el-form-item label="Short Title">
         <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" />
       </el-form-item>
@@ -650,5 +774,32 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
       </span>
     </template>
+  </el-dialog>
+ 
+ 
+  <el-dialog
+    title="Select Fields"
+    v-model="showDownloadDialog"
+    width="60%" 
+  >
+    <el-form>
+      <el-form-item  >
+        <el-row :gutter="20"> <!-- Add gutter for spacing between columns -->
+          <el-col
+            v-for="(field) in availableFields"
+            :key="field"
+            :span="6"
+          >
+            <el-checkbox :label="field" v-model="selectedFields">
+              {{ field }}
+            </el-checkbox>
+          </el-col>
+        </el-row>
+      </el-form-item>
+    </el-form>
+    <div class="dialog-footer">
+      <el-button @click="showDownloadDialog = false">Cancel</el-button>
+      <el-button type="primary" @click="downloadCSV">Download CSV</el-button>
+    </div>
   </el-dialog>
 </template>
