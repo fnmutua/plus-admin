@@ -177,17 +177,42 @@ const downloadCSV = async () => {
 
   const extractedData = extractData(tableDataList.value, selectedFields.value);
 
-  const columns = selectedFields.value.map((field) => ({
-    column: field,
-    type: String,
-  }));
+  // const columns = selectedFields.value.map((field) => ({
+  //   column: field,
+  //   type: String,
+  // }));
 
+
+  const columns = selectedFields.value.map((field) => {
+  // Remove everything before and including the first underscore
+  const cleanedField = field.replace(/^.*?_/, '');
+  
+  return {
+    column: cleanedField.replace(/\./g, ' ').replace(/\b\w/g, char => char.toUpperCase()),
+    type: String,
+  };
+});
+
+
+  // const rows = extractedData.map((row) =>
+  //   selectedFields.value.map((field) => ({
+  //     type: String,
+  //     value: row[field] ? String(row[field]) : '',
+  //   }))
+  // );
+
+  
   const rows = extractedData.map((row) =>
     selectedFields.value.map((field) => ({
       type: String,
+      fontStyle: 'italic',
+      wrap:true,
+     // span: 145,
       value: row[field] ? String(row[field]) : '',
+      
     }))
   );
+
 
   rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
 
@@ -221,17 +246,28 @@ const downloadAll = async () => {
 
   const extractedData = extractData(tableDataList.value, selectedFields.value);
 
-  const columns = selectedFields.value.map((field) => ({
-    column: field,
+
+  const columns = selectedFields.value.map((field) => {
+  // Remove everything before and including the first underscore
+  const cleanedField = field.replace(/^.*?_/, '');
+  
+  return {
+    column: cleanedField.replace(/\./g, ' ').replace(/\b\w/g, char => char.toUpperCase()),
     type: String,
-  }));
+  };
+});
+
+
+
+
+    console.log('columns',columns)
 
   const rows = extractedData.map((row) =>
     selectedFields.value.map((field) => ({
       type: String,
       fontStyle: 'italic',
       wrap:true,
-      span: 30,
+     // span: 145,
       value: row[field] ? String(row[field]) : '',
       
     }))
