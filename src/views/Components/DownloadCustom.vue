@@ -229,11 +229,15 @@ const downloadAll = async () => {
   const rows = extractedData.map((row) =>
     selectedFields.value.map((field) => ({
       type: String,
+      fontStyle: 'italic',
+      wrap:true,
+      span: 30,
       value: row[field] ? String(row[field]) : '',
+      
     }))
   );
 
-  rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
+  rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' ,})));
 
   await writeXlsxFile(rows, {
     fileName: 'data.xlsx',
