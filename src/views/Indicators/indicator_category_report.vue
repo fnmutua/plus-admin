@@ -43,7 +43,7 @@ import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 import DownloadToCSV from '@/views/Components/DownloadToCSV.vue';
-import DownloadAll from '@/views/Components/DownloadAll.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 
 //import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
@@ -1949,7 +1949,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
 
       <!-- Download All Component -->
       <!-- <DownloadToCSV v-if="showEditButtons && tableDataList.length >0" :model="model"  />  -->
-      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
+        <DownloadCustom   v-if="showEditButtons"  :data="tableDataList" :model="model" :associated_models="associated_multiple_models"  />
 
     </el-row>
 

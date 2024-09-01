@@ -33,6 +33,11 @@ module.exports = function (app) {
   app.post('/api/v1/data/column/paginated', [authJwt.verifyToken], controller.modelPaginatedDatafilterByColumn)
   app.post('/api/v1/data/column/paginated/nogeo', [authJwt.verifyToken], controller.modelPaginatedDatafilterByColumnNoGeo)
   
+  app.post('/api/v1/data/download/all', [authJwt.verifyToken, authJwt.isAdmin], controller.getAllListforDownload)
+
+  
+
+
 
   // Gets the  data filtereed by column for a Many2many relationship
 

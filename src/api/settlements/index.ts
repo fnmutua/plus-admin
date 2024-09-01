@@ -20,6 +20,16 @@ export const getSettlementListByCounty = (
 }
 
 
+export const getAllForDownload = (
+  data: SettlementType
+): Promise<IResponse<SettlementType>> => {
+  return request.post({ url: prod + '/api/v1/data/download/all', data })
+}
+
+
+
+
+
 export const getHHsByCounty = (
   data: SettlementType
 ): Promise<IResponse<SettlementType>> => {

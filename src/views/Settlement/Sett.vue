@@ -55,7 +55,8 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadAll from '@/views/Components/DownloadAll.vue';
- 
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+
 
 
 
@@ -1867,14 +1868,12 @@ v-model="search_string" clearable :onClear="handleClear" placeholder="Please inp
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
         </el-tooltip>
 
-        <el-tooltip content="Download" placement="top">
-          <el-button @click="DownloadXlsx" type="primary" :icon="Download" />
-        </el-tooltip>
-      </div>
+           <DownloadCustom   v-if="showEditButtons"  :data="tableDataList" :model="model" :associated_models="associated_multiple_models"  />
+       </div>
 
       <!-- Download All Component -->
-      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-    </el-row>
+
+     </el-row>
 
 
  

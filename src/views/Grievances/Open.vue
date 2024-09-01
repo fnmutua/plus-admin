@@ -30,6 +30,7 @@ import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
  
 import writeXlsxFile from 'write-excel-file';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 
 
@@ -573,11 +574,26 @@ const extractFields = (data) => {
 const extractData = (data, selectedFields) => {
   return data.map(row => {
     const extractedRow = {};
+
     selectedFields.forEach(field => {
-      if (row.hasOwnProperty(field)) {
-        extractedRow[field] = row[field];
+      // Split field by dot notation
+      const keys = field.split('.');
+      let value = row;
+
+      // Traverse through the object using the keys
+      for (let key of keys) {
+        if (value && value.hasOwnProperty(key)) {
+          value = value[key];
+        } else {
+          value = null;
+          break;
+        }
       }
+
+      // Assign the extracted value to the extractedRow
+      extractedRow[field] = value;
     });
+
     return extractedRow;
   });
 };
@@ -585,13 +601,14 @@ const extractData = (data, selectedFields) => {
 
 const downloadCSV = async() => {
   // Implement your CSV download logic here
-console.log(selectedFields.value)
+  console.log('selectedFields.value',selectedFields.value)
+  console.log('tableDataList.value',tableDataList.value)
  
 
 const formattedData = computed(() => extractData( tableDataList.value, selectedFields.value));
 
 
-console.log(formattedData.value)
+console.log('formattedData',formattedData.value)
 
 
  
@@ -610,7 +627,7 @@ console.log(formattedData.value)
     console.log(columns)
       // Format data according to selected fields
  const formatDataForExport = () => {
-      return tableDataList.value.map(row => {
+      return formattedData.value.map(row => {
         return selectedFields.value.map(field => {
           return {
             type: String,
@@ -622,6 +639,8 @@ console.log(formattedData.value)
    // Function to download the Excel file
  
       const rows = formatDataForExport();
+
+      console.log('rows', rows)
        // Prepend the headers (columns) as the first row
        rows.unshift(columns);
 
@@ -671,13 +690,13 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
         <el-tooltip content="Download" placement="top">
           <el-button @click="selectDownload" type="primary" :icon="Download" />
         </el-tooltip>
-
+        <DownloadCustom   v-if="showEditButtons"  :data="tableDataList" :model="model" :associated_models="associated_multiple_models"  />
+ 
          
     
       </div>
 
       <!-- Download All Component -->
-      <DownloadAll v-if="showAdminButtons" :model="model" :associated_models="associated_multiple_models" />
     </el-row>
 
 
