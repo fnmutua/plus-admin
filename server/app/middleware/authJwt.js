@@ -52,22 +52,47 @@ verifyToken = (req, res, next) => {
 };
 
 
-isAdmin = (req, res, next) => {
+// isAdmin = (req, res, next) => {
+//   User.findByPk(req.userid).then(user => {
+//     user.getRoles().then(roles => {
+//       for (let i = 0; i < roles.length; i++) {
+//         if (roles[i].name === "admin") {
+//           next();
+//           return;
+//         }
+//       }
+//       res.status(403).send({
+//         message: "This resource requires an Admin Role!"
+//       });
+//       return;
+//     });
+//   });
+// };
+
+ isAdmin = (req, res, next) => {
   User.findByPk(req.userid).then(user => {
     user.getRoles().then(roles => {
+      const acceptedRoles = ["admin", "super_admin", "staff"];
+
       for (let i = 0; i < roles.length; i++) {
-        if (roles[i].name === "admin") {
+        if (acceptedRoles.includes(roles[i].name)) {
           next();
           return;
         }
       }
+
       res.status(403).send({
-        message: "This resource requires an Admin Role!"
+        message: "This resource requires an elevated role!"
       });
-      return;
+    });
+  }).catch(err => {
+    res.status(500).send({
+      message: "Unable to validate role!",
+      error: err.message
     });
   });
 };
+
 
 isSuperAdmin = (req, res, next) => {
   User.findByPk(req.userid).then(user => {
