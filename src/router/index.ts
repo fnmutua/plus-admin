@@ -1123,7 +1123,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'Repository',
       icon: 'material-symbols:home-storage-rounded',
-      role: [ 'super_admin', 'grm' ] ,
+      role: [ 'super_admin',  'admin','staff' ] ,
       locationLevel:['national','county','settlement'],
       alwaysShow: false
     },
