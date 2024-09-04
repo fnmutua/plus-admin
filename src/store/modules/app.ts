@@ -215,14 +215,8 @@ export const useAppStore = defineStore({
     setEditButtons(showEditButtons: boolean) {
       this.showEditButtons = showEditButtons
     },
-
-    handleFirstTimeLogin() {
-      // Example: Reset certain variables or perform actions
-      console.log('handleFirstTimeLogin','...............')
-      // Optionally reload the page or navigate to a different route
-      window.location.reload(); // or use Vue Router to navigate
-    },
-
+ 
+     
 
   }
 })

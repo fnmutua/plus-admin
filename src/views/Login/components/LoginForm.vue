@@ -2,9 +2,9 @@
 import { reactive, ref, unref, watch } from 'vue'
 import { Form } from '@/components/Form'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElButton, ElCheckbox, ElLink,  ElDialog, ElForm, ElFormItem, ElInput,FormInstance,ElMessage, ElTooltip } from 'element-plus'
+import { ElButton, ElLink,  ElDialog, ElForm, ElFormItem, ElInput,FormInstance,ElMessage, ElTooltip } from 'element-plus'
 import { useForm } from '@/hooks/web/useForm'
-import { loginApi, getTestRoleApi, getOtherRoutesApi, getAdminRoleApi, getSuperAdminRoleApi } from '@/api/login'
+import { loginApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStore } from '@/store/modules/app'
 import { usePermissionStore } from '@/store/modules/permission'
@@ -17,11 +17,6 @@ import { uuid } from 'vue-uuid'
 import { Icon } from '@iconify/vue';
 
 
-import {
-  Guide,
-    InfoFilled,
-  Document
-} from '@element-plus/icons-vue'
 
 const { required } = useValidator()
  
@@ -43,7 +38,6 @@ const rules = {
 }
 
 const dialogFormVisible = ref(false)
-const formLabelWidth = '140px'
 
 const form = reactive({
   email: '',
@@ -135,6 +129,11 @@ watch(
 
 // 登录
 const signIn = async () => {
+
+  appStore.dynamicRouter = true    // felix to edit 
+  console.log("Dynamic router--->", appStore.getDynamicRouter)
+
+
   const formRef = unref(elFormRef)
   await formRef?.validate(async (isValid) => {
     if (isValid) {
@@ -152,17 +151,12 @@ const signIn = async () => {
           const userDeatilsAfterLogin = wsCache.get(appStore.getUserInfo)
 
           console.log("----userDeatilsAfterLogin----", userDeatilsAfterLogin)
-
-          appStore.dynamicRouter = true    // felix to edit 
-          console.log("Dynamic router--->", appStore.getDynamicRouter)
-
-
+ 
           if (appStore.getDynamicRouter) {
 
-
-             getRole(userDeatilsAfterLogin)
+            await getRole(userDeatilsAfterLogin)
           } else {
-            //getRole() // temp 
+       
             await permissionStore.generateRoutes('none').catch(() => { })
             permissionStore.getAddRouters.forEach((route) => {
               addRoute(route as RouteRecordRaw) // 动态添加可访问路由表
@@ -184,74 +178,69 @@ const signIn = async () => {
 const getRole = async (authenticatedUser) => {
   const { getFormData } = methods;
   const formData = await getFormData<UserType>();
-  console.log('authenticatedUser roles', authenticatedUser);
+  console.log('authenticatedUser role xxxxs', authenticatedUser);
 
   // Set default permissions
   formData.permissions = ['*.*.*'];
 
-  const rolePriorityOrder = [
-    'super_admin',
-    'admin',
-    'staff',
-     'consultant',
-    'others',
-  ];
+  console.log('formData.roles', formData.roles);
 
-  // Find superior role based on priority order
-  const superiorRole = authenticatedUser.roles.find((role) =>
-    rolePriorityOrder.includes(role)
-  );
 
-  if (superiorRole) {
-    formData.role = superiorRole;
-  } else {
-    formData.role = 'others';
-  }
+  
+  // Extract roles from authenticatedUser
+  formData.roles = authenticatedUser.roles.map(role => role.name); // Assuming role objects have a 'name' field
 
- 
 
   let routers = [];
   const { wsCache } = useCache();
   wsCache.set('roleRouters', routers);
-  console.log("formData.role >>", formData.role);
-
-  switch (formData.role) {
-    case 'super_admin':
+ 
+  // Iterate over the roles and apply the appropriate logic for each
+  for (const role of formData.roles) {
+    switch (role) {
+      case 'super_admin':
         appStore.setAdminButtons(true);
         appStore.setEditButtons(true);
         appStore.setAdmin(true);
-        appStore.handleFirstTimeLogin()
-      await permissionStore.generateRoutes('super_admin', routers).catch(() => {});
-      break;
-    case 'admin':
-    appStore.setAdminButtons(true);
-    appStore.setEditButtons(true);
-    await permissionStore.generateRoutes('admin', routers).catch(() => {});
-      console.log('0003');
-      break;
-    case 'staff':
+    
+        await permissionStore.generateRoutes('super_admin', routers).catch(() => {});
+        break;
+
+      case 'admin':
         appStore.setAdminButtons(true);
         appStore.setEditButtons(true);
-  
-      console.log('0003');
-      console.log("is user getEditButtons?--->", appStore.getEditButtons);
-      await permissionStore.generateRoutes('staff', routers).catch(() => {});
-      break;
-   
-    case 'consultant':
-         appStore.setAdminButtons(true);
+        await permissionStore.generateRoutes('admin', routers).catch(() => {});
+        console.log('Admin role processed');
+        break;
+
+      case 'staff':
+        appStore.setAdminButtons(true);
         appStore.setEditButtons(true);
- 
-      await permissionStore.generateRoutes('consultant', routers).catch(() => {});
-      console.log('0004--consultant');
-      break;
-    default:
-      await permissionStore.generateRoutes('public', routers).catch(() => {});
+        console.log("is user getEditButtons?--->", appStore.getEditButtons);
+        await permissionStore.generateRoutes('staff', routers).catch(() => {});
+        console.log('Staff role processed');
+        break;
+
+      case 'consultant':
+        appStore.setAdminButtons(true);
+        appStore.setEditButtons(true);
+        await permissionStore.generateRoutes('consultant', routers).catch(() => {});
+        console.log('Consultant role processed');
+        break;
+
+      default:
+        await permissionStore.generateRoutes('public', routers).catch(() => {});
+        break;
+    }
   }
 
+  console.log('appStore.getAdminButtons()',appStore.getAdminButtons)
+
+  // Add the routes to the router dynamically
   permissionStore.getAddRouters.forEach((route) => {
     addRoute(route as RouteRecordRaw); // Dynamically add accessible routes
   });
+
   permissionStore.setIsAddRouters(true);
   push({ path: redirect.value || permissionStore.addRouters[0].path });
 };
@@ -275,10 +264,9 @@ const sendFeedback = async (formEl: FormInstance | undefined) => {
  
   feedback.code = uuid.v4()
   if (!formEl) return
-  await formEl.validate(async (valid, fields) => {
+  await formEl.validate(async (valid) => {
     if (valid) {
         // The form is valid, you can perform further actions here
-      const res = setUserFeedback(feedback)
 
       
       dialogFeedback.value=false
