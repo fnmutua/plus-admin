@@ -10,7 +10,13 @@ const { wsCache } = useCache()
 
 export const useAppStore = defineStore({
   id: 'app',
-  state: (): AppState => appModules,
+  //state: (): AppState => appModules,
+
+  state: (): AppState => ({
+    ...appModules,
+ 
+  }),
+
   persist: {
     enabled: true
   },
@@ -210,6 +216,12 @@ export const useAppStore = defineStore({
       this.showEditButtons = showEditButtons
     },
 
+    handleFirstTimeLogin() {
+      // Example: Reset certain variables or perform actions
+      console.log('handleFirstTimeLogin','...............')
+      // Optionally reload the page or navigate to a different route
+      window.location.reload(); // or use Vue Router to navigate
+    },
 
 
   }
