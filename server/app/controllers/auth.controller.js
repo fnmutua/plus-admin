@@ -117,149 +117,10 @@ exports.signup = (req, res) => {
     })
 }
  
-exports.xupdateUser = (req, res) => {
-  console.log('Update user....')
- 
-  console.log('Request:----->', req.body)
-  
-
-  // get this one  record and update it by replacing the whole docuemnt
-  User.findAll({ where: { id: req.body.id } }).then((result) => {
-    if (result) {
-      // Result is array because we have used findAll. We can use findOne as well if you want one row and update that.
-      result[0].set(req.body)
-      result[0].save()
-
-      // Now insert the roles
-      console.log("Roles Leng",req.body.roles.length )
-      if (req.body.roles.length>0) {
-        Role.findAll({
-          where: {
-            id: {
-              [Op.or]: req.body.roles
-            }
-          }
-        }).then((roles) => {
-
-          console.log('Edit Roles found:----->', roles)
-          result[0].setRoles(roles).then(() => {
-            var token = jwt.sign({ id: result[0].id }, config.secret, {
-              expiresIn: 86400 // 24 hours
-            })
-
-            //console.log(roles)
-            res.send({
-              message: 'User and roles updated successfully!',
-              code: "0000",
-              roles: roles[0].name,
-              data: token,
-              user: result[0]
-            })
-          })
-        })
-      } else {
-        // return success
-        res.status(400).send({
-          data: result,
-          message: 'A user requires at least one role on this system'
-        })
-      }
-    }
-  })
-}
  
 
  
-
-exports._updateUser = (req, res) => {
-  console.log('Update user....');
-  console.log('Request:----->', req.body.id);
-
-  // Find the user by ID and update their information
-  User.findOne({ where: { id: req.body.id } }).then((user) => {
-    if (user) {
-      user.set(req.body);
-      user.save().then(() => {
-        // Now update or insert the roles one by one
-        console.log('Roles Length:', req.body.roles);
-
-        if (req.body.roles && req.body.roles.length > 0) {
-          // Loop through each role and update/insert into user_roles
-          const updateRolePromises = req.body.roles.map(role => {
-            // Ensure that the role object has the necessary properties
-            if (!role.roleid || !role.userid || !role.location_level) {
-              return Promise.reject(new Error('Role object is missing required properties'));
-            }
-            // Determine location_id based on role level
-            const location_id = role.location_level == 'national'
-              ? null
-              : role.location_level == 'county'
-              ? role.county_id || null
-              : role.location_level == 'settlement'
-              ? role.settlement_id || null
-              : null;
-
-
-            // Update or insert the role for the user
-            return db.models.user_roles.upsert({
-              roleid: role.roleid,
-              userid: role.userid,
-              location_level: role.location_level,
-              location_id: location_id,    // Use null if not provided
-              county_id: role.county_id || null,      // Use null if not provided
-              settlement_id: role.settlement_id || null // Use null if not provided
-            }, {
-              // Define the unique constraints for upsert
-              where: {
-                roleid: role.roleid,
-                userid: role.userid
-              }
-            });
-          });
-
-          // Execute all update/insert operations
-          Promise.all(updateRolePromises).then(() => {
-            var token = jwt.sign({ id: user.id }, config.secret, {
-              expiresIn: 86400 // 24 hours
-            });
-
-            res.send({
-              message: 'User and roles updated successfully!',
-              code: "0000",
-              data: token,
-              user: user
-            });
-          }).catch(err => {
-            console.log(err);
-            res.status(500).send({
-              message: 'Error updating user roles',
-              error: err
-            });
-          });
-        } else {
-          res.status(400).send({
-            data: user,
-            message: 'A user requires at least one role on this system'
-          });
-        }
-      }).catch(err => {
-        res.status(500).send({
-          message: 'Error saving user information',
-          error: err
-        });
-      });
-    } else {
-      res.status(404).send({
-        message: 'User not found'
-      });
-    }
-  }).catch(err => {
-    res.status(500).send({
-      message: 'Error finding user',
-      error: err
-    });
-  });
-};
+ 
 
 exports.updateUser = (req, res) => {
   console.log('Update user....');
@@ -756,49 +617,6 @@ exports.countyController = (req, res) => {
 
  
 
-
-
-exports.xcountyByLocationController = (req, res) => {
-  var reg_model = 'county'
-  var point = req.body.MyLocation
-  console.log(point)
-  //  db.models[reg_model]
-  //   .findAll({attributes: { exclude: ['geom' ] }})
-  //   .then((list) => {
-  //     //console.log(list.rows)
-  //     res.status(200).send(loc)
-  //   })
-  
-  
-    
-// Find the intersecting polygon
-db.models[reg_model].findAll().then(features => {
-  var intersectingPolygon = null;
-  for (let feature of features) {
-  // console.log(feature)
-    if (turf.booleanPointInPolygon(point, feature.geom)) {
-      intersectingPolygon = feature;
-      delete intersectingPolygon.geom
-      break;
-    }
-  }
-  if (intersectingPolygon) {
- 
-   let county = { id: intersectingPolygon.id, name: intersectingPolygon.name,code: intersectingPolygon.code } // Pick only the properties we need to store on the deivce
-    res.status(200).send([county])
-  } else {
-    // Route for handling requests when there is no intersecting polygon
- 
-    console.log('No intersecting polygon found');
-  
-    res.status(500).send({ message: 'Unable to determine your county based on your location' })
-
-
-  }
-});
-
-}
-
 exports.countyByLocationController = (req, res) => {
   var reg_model = 'county'
   var point = req.body.MyLocation
@@ -849,18 +667,7 @@ exports.countyPostController = async (req, res) => {
 
  
 
-
-exports.xsettlementController = (req, res) => {
-  var reg_model = 'settlement'
-   db.models[reg_model]
-    .findAll({attributes: { exclude: ['geom' ] }})
-    .then((list) => {
-      //console.log(list.rows)
-      res.status(200).send(list)
-    })
-}
-
-
+ 
 
 exports.settlementController = (req, res) => {
   var reg_model = 'settlement'
@@ -963,32 +770,7 @@ exports.subCountyController = (req, res) => {
 }
 
 
- 
-exports.xmyProfile = (req, res) => {
-  console.log('Update user....')
- 
-  console.log('Request:----->', req.body)
-  var qry = {}
-  qry.where =  {
-    id: req.body.id 
-  }
-  qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'isactive',  'resetPasswordToken'] } // will be applciable to users only 
-
-  // get this one  record and update it by replacing the whole docuemnt
-  User.findAll(qry).then((result) => {
-    if (result) {
-      res.status(200).send({
-        data: result,
-         code: '0000'
-      })
-    
-    } else {
-      res.status(500).send({ message: 'Retriveing your profile failed' })
-
-
-    }
-  })
-}
+  
 
  
 exports.myProfile = (req, res) => {
@@ -1142,3 +924,6 @@ exports.settlementByCountyController = (req, res) => {
       res.status(500).send({ message: 'Unable to retrieve settlements. Please try again later.' });
     });
 };
+
+
+ 

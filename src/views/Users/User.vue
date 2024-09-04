@@ -66,6 +66,7 @@ const value2 = ref([])
 var value3 = ref([])
 const countiesOptions = ref([])
 const RolesOptions = ref([])
+const FilteredRolesOptions = ref([])
 
 
 const settlementOptions = ref([])
@@ -119,8 +120,8 @@ let tableDataList_orig = ref<UserType[]>([])
 
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = ['county_id']
-var filterValues = [currentUser.county_id]
+var filters = [ ]
+var filterValues = [ ]
 var tblData = []
 
 const associated_multiple_models = ['county', 'user_roles']
@@ -273,7 +274,7 @@ const getCountyNames = async () => {
   })
 }
 
-
+ 
 
 const getRoles = async () => {
 
@@ -302,6 +303,7 @@ const getRoles = async () => {
     opt.label = arrayItem.name
     //  console.log(countyOpt)
     RolesOptions.value.push(opt)
+    FilteredRolesOptions.value.push(opt)
   })
 
   console.log('RolesOptions', RolesOptions)
