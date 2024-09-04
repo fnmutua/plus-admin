@@ -25,8 +25,7 @@ const appStore = useAppStore()
 
 const userInfo = wsCache.get(appStore.getUserInfo)
  
-console.log('Setting Admin Buttons: >>>>>,',userInfo)
- 
+  
  
 
 const programmeComponentOptions = ref([])
@@ -97,21 +96,7 @@ console.log("programmeComponentOptions", programmeComponentOptions.value)
 }
 getProgrameComponents()
 
-
-// const activity = {
-//   path: 'activity',
-//    component: () => import('@/views/Indicators/Activity.vue'),
-//   name: 'ProgrammeActivity',
-//   meta: {
-//     title: 'Activities',
-//     icon:'icon-park-outline:activity-source',
-    
-//   }
-// }
-
-// programmeComponentOptions.value.push(activity)
-
-
+ 
  // Wrap your code in an async function
  
   const getDynamicDashboards = async () => {
@@ -294,10 +279,7 @@ const subprograms = [
  
   //push the subprograms to 3rd in row 
     adminRoutes.splice(2, 0, ...subprograms);
-
-// Push the 'dynamicDashbaordOptions' to the 'children' of the first route in 'adminRoutes'
-//adminRoutes[0].children.push(...dynamicDashbaordOptions.value);
-
+ 
  
  
  
@@ -351,7 +333,7 @@ export const usePermissionStore = defineStore('permission', {
             const matchesRole = route.meta.role ? route.meta.role.includes(type) : true;
             const matchesLocation = route.meta.locationLevel ? route.meta.locationLevel.includes(locationLevel) : true;
 
-            console.log("Checking roles >>>------",route.meta.locationLevel,locationLevel)
+            //console.log("Checking roles >>>------",route.meta.locationLevel,locationLevel)
 
             return matchesRole && matchesLocation;
           });
