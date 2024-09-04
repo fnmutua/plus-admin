@@ -47,7 +47,7 @@
                     </el-form-item>
 
                     <el-form-item  id="btn5"  label="Phone" prop="phone">
-                      <el-input v-model="grmForm.phone" placeholder="Enter phone number" style="width:90%" />
+                      <el-input v-model="grmForm.phone" placeholder="Enter phone number" style="width:90%" :onChange="convertPhoneNumber" />
                     </el-form-item>
 
                     <el-form-item   id="btn6"  label="Email" prop="email">
@@ -285,19 +285,17 @@ const fileList = ref<UploadUserFile[]>([
 const validationRules = ({
   // Validation rules for each step
   step1: {
-    name: [{ required: true, message: 'Name is required', trigger: 'blur' }],
+     name: [{ required: true, message: 'Name is required', trigger: 'blur' }],
       gender: [{ required: true, message: 'Gender is required', trigger: 'change' }],
       age: [{ required: true, message: 'Age is required', trigger: 'change' }],
       national_id: [{ required: true, message: 'National ID is required', trigger: 'blur' }],
       phone: [{ required: true, message: 'Phone number is required', trigger: 'blur' }],
-      email: [{ required: true, message: 'Email is required', trigger: 'blur' }],
-  },
+   },
 
   step2: {
   county_id: [{ required: true, message: 'County is required', trigger: 'change' }],
   settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'change' }],
-  address: [{ required: true, message: 'Address is required', trigger: 'blur' }],
-  nature: [{ required: true, message: 'Nature of complaint is required', trigger: 'change' }],
+   nature: [{ required: true, message: 'Nature of complaint is required', trigger: 'change' }],
   description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
   plea: [{ required: true, message: 'Plea/request is required', trigger: 'blur' }],
   },
@@ -603,7 +601,7 @@ const tourSteps = ref([
     step: 0,
     target: '#btn1',
     title: 'Name',
-    content: 'Please provide your name as it appears on the National ID. Feel free to leave this blank if you want anonymity.',
+    content: 'Please provide your name as it appears on the National ID. Fill Anonymous if you want anonymity.',
     visible:true
   },
   {
@@ -757,10 +755,25 @@ const tourSteps = ref([
   visible: true
 }
 
-
-
 ]);
 
+
+function convertPhoneNumber(phoneNumber: string | undefined) {
+
+// console.log(phoneNumber)
+ let trimmedPhoneNumber = phoneNumber.replace(/\s+/g, '').trim();
+ console.log(trimmedPhoneNumber.startsWith('0'))
+
+
+ if (trimmedPhoneNumber.startsWith('0')) {
+   trimmedPhoneNumber = '254' + trimmedPhoneNumber.slice(1);
+ }
+
+ console.log(trimmedPhoneNumber)
+// return trimmedPhoneNumber;
+ grmForm.value.phone=trimmedPhoneNumber
+
+}
 
 </script>
 
