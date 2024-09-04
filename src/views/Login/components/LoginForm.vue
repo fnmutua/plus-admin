@@ -193,8 +193,7 @@ const getRole = async (authenticatedUser) => {
     'super_admin',
     'admin',
     'staff',
-    'county_admin',
-    'county_user',
+     'consultant',
     'others',
   ];
 
@@ -217,15 +216,17 @@ const getRole = async (authenticatedUser) => {
   console.log("formData.role >>", formData.role);
 
   switch (formData.role) {
-    case 'admin':
+    case 'super_admin':
         appStore.setAdminButtons(true);
         appStore.setEditButtons(true);
         appStore.setAdmin(true);
-      await permissionStore.generateRoutes('admin', routers).catch(() => {});
+        appStore.handleFirstTimeLogin()
+      await permissionStore.generateRoutes('super_admin', routers).catch(() => {});
       break;
-    case 'county_admin':
-         appStore.setEditButtons(true);
-       await permissionStore.generateRoutes('county_admin', routers).catch(() => {});
+    case 'admin':
+    appStore.setAdminButtons(true);
+    appStore.setEditButtons(true);
+    await permissionStore.generateRoutes('admin', routers).catch(() => {});
       console.log('0003');
       break;
     case 'staff':
@@ -236,17 +237,13 @@ const getRole = async (authenticatedUser) => {
       console.log("is user getEditButtons?--->", appStore.getEditButtons);
       await permissionStore.generateRoutes('staff', routers).catch(() => {});
       break;
-    case 'county_user':
-      await permissionStore.generateRoutes('county_staff', routers).catch(() => {});
-      console.log('0004--county_users');
-      break;
-    case 'super_admin':
+   
+    case 'consultant':
          appStore.setAdminButtons(true);
         appStore.setEditButtons(true);
-        appStore.setAdmin(true);
-
-      await permissionStore.generateRoutes('super_admin', routers).catch(() => {});
-      console.log('0004--super_admin');
+ 
+      await permissionStore.generateRoutes('consultant', routers).catch(() => {});
+      console.log('0004--consultant');
       break;
     default:
       await permissionStore.generateRoutes('public', routers).catch(() => {});

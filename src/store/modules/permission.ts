@@ -27,16 +27,7 @@ const userInfo = wsCache.get(appStore.getUserInfo)
  
 console.log('Setting Admin Buttons: >>>>>,',userInfo)
  
-// if( userInfo &&(userInfo.roles.includes('admin')|| userInfo.roles.includes('staff')   || userInfo.roles.includes('super_admin'))  ) {
-//   appStore.setAdminButtons(true);
-//   appStore.setEditButtons(true);
-//   appStore.setAdmin(true);
-// }
-
-// if(userInfo && (userInfo.roles.includes('county_admin')))  {
-//   appStore.setEditButtons(true);
-//  }
-
+ 
 
 const programmeComponentOptions = ref([])
 const dynamicDashbaordOptions = ref([])

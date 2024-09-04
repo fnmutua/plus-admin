@@ -38,12 +38,11 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 
+  
+const appStore = useAppStoreWithOut();
 
- 
- 
 
 const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 
@@ -60,6 +59,14 @@ const currentPage = ref(1)
 const total = ref(0)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
+
+const adminButtons = computed(() => appStore.getAdminButtons);
+const editButtons = computed(() => appStore.getEditButtons);
+ 
+
+console.log("Compare showAdminButtons :",showAdminButtons.value,)
+console.log("Compare adminButtons :",adminButtons.value,)
+
 
 
 const mobileBreakpoint = 768;
