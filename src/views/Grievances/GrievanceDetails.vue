@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted,computed } from 'vue'
-import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow ,  ElDivider,
-  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElRadioButton,ElRadioGroup,
+import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow ,  
+  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElRadioButton,ElRadioGroup,ElTooltip,
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
@@ -14,14 +13,6 @@ import { Icon } from '@iconify/vue';
 
 
 import {   ref } from 'vue'
-import {
-  Iphone,
-  Location,
-  OfficeBuilding,
-  Tickets,
-  User,
-} from '@element-plus/icons-vue'
-import type { ComponentSize } from 'element-plus'
 
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useRoute } from 'vue-router'
@@ -181,14 +172,7 @@ const goBack = () => {
 
 
 }
-
-
  
-
-
-
- 
-
 
 </script>
 
@@ -214,14 +198,7 @@ const goBack = () => {
     <el-tab-pane label="Grievance Details" name="details">
       
       <el-card> 
-        <el-radio-group v-model="action" :disabled="action=='Resolve'"> 
-          <el-radio-button value="Resolve">Mark As Resolved</el-radio-button>
-          <el-radio-button value="Escalate">Escalate to Next Level</el-radio-button>
-          <el-radio-button value="Documentation">Ask For Documentation</el-radio-button>
-         </el-radio-group>
- 
-
-          <el-table :data="grievanceData" style="width: 100%" size="large">
+          <el-table :data="grievanceData" style="width: 100%" size="small">
             <el-table-column
               prop="label"
               label=""
@@ -235,11 +212,32 @@ const goBack = () => {
               prop="value"
               label=""
             />
-
-            
           </el-table>
 
-          
+          <template #footer>
+            <div class="dialog-footer">
+              <el-tooltip content="Close the grievance if all issues have been resolved and complainant satisfied" placement="top">
+                <el-button type="success"  @click="dialogFormVisible = false">  <Icon icon="typcn:tick" /> Mark As Resolved</el-button>
+              </el-tooltip>
+
+              <el-tooltip content="Escalate to the next level" placement="top">
+                <el-button type="primary"  @click="dialogFormVisible = false">   <Icon icon="system-uicons:forward" />Escalate</el-button>
+ 
+
+              </el-tooltip>
+
+
+              <el-tooltip content="Send the grievance to the county for resolution" placement="top">
+                <el-button type="warning"  @click="dialogFormVisible = false">  <Icon icon="system-uicons:backward" /> Refer to County</el-button>
+              </el-tooltip>
+
+              <el-tooltip content="Dismiss as a frivilous grievance" placement="top">
+                <el-button type="danger"  @click="dialogFormVisible = false">   <Icon icon="ic:outline-cancel" /> Dismiss</el-button>
+              </el-tooltip>
+
+             
+            </div>
+          </template>
         </el-card>
 
 
@@ -341,8 +339,8 @@ const goBack = () => {
 
 .card-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+ 
+ 
   font-weight: bold;
   font-size: 1.2rem;
   color: #333;

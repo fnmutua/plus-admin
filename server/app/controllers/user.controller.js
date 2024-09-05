@@ -335,14 +335,10 @@ exports.modelPaginatedUsersfilterBykeyWord = (req, res) => {
 let page = 1; // Set the desired page number
 let limit = 5; // Set the number of items per page
 
-
-
-
- 
  
  
 
-exports.modelCountyUsers = async (req, res) => {
+exports.xmodelCountyUsers = async (req, res) => {
   try {
     console.log(req.body.currentUser);
     const user = req.body.currentUser;
@@ -423,167 +419,73 @@ exports.modelCountyUsers = async (req, res) => {
 };
 
  
- 
- 
-exports._modelUserByName = (req, res) => {
-  console.log(req.body.currentUser);
-  const user = req.body.currentUser;
-  const currentUserRoles = user.roles;
-  const searchString = req.body.searchString;
-  const userCounty = user.county_id;
+const { Op } = require('sequelize');
 
-  let limit = req.body.limit || 10; // Default limit if not provided
-  let page = req.body.page || 1; // Default page if not provided
+exports.modelCountyUsers = async (req, res) => {
+  try {
+    console.log('Request Body:', req.body);
+    const { currentUser, filters = [], filterValues = [], limit = 10, page = 1 } = req.body;
+    const { roles: currentUserRoles = [], county_id: userCounty } = currentUser;
 
-  console.log('Current >>>>User Roles, ', currentUserRoles);
+    console.log('Current User Roles:', currentUserRoles);
 
-  // Extract subordinates from the user's roles
-  const allSubordinates = currentUserRoles.reduce((subordinates, role) => {
-    if (role.subordinates && role.subordinates.length > 0) {
-      subordinates.push(...role.subordinates);
-    }
-    return subordinates;
-  }, []);
+    // Extract unique subordinate role IDs from the current user roles
+    const uniqueSubordinates = [
+      ...new Set(
+        currentUserRoles.flatMap(role => role.subordinates || [])
+      )
+    ];
 
-  // Remove duplicates from allSubordinates using Set
-  const uniqueSubordinates = [...new Set(allSubordinates)];
-
-  console.log('Subordinate Roles for this user:', uniqueSubordinates);
-
-  // Initialize findAndCountOptions with common properties
-  const findAndCountOptions = {
-    include: {
-      model: Role,
-      through: 'user_roles', // Name of the middle table
-      where: { id: uniqueSubordinates }, // Matching role IDs
-    },
-    where: {}, // Initialize an empty where object
-    limit: limit,
-    offset: (page - 1) * limit,
-  };
-
-  // Check if any of the current user's roles have location_level set to 'national'
-  const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
-  const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
-
-  // Apply the county filter only if the user does not have a 'national' role but has a 'county_admin' role
-  if (!hasNationalRole && hasCountyAdminRole) {
-    findAndCountOptions.where.county_id = userCounty;
-    console.log('Applying county filter:', userCounty);
-  }
-
-  // Add the 'searchString' condition if provided
-  if (searchString) {
-    findAndCountOptions.where.name = {
-      [op.iLike]: `%${searchString}%`, // Case-insensitive partial matching
+    // Define query options
+    const findAndCountOptions = {
+      include: [
+        {
+          model: Role,
+          as: 'roles', // Alias as defined in your User model associations
+          through: {
+            model: db.models.user_roles,
+            as: 'user_roles', // Alias for the user_roles join table
+            attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'], // Select specific fields from user_roles
+          },
+          required: true,
+          where: {
+            id: uniqueSubordinates,
+            name: { [Op.ne]: 'super_admin' } // Exclude super_admin roles from the results
+          }
+        }
+      ],
+      where: {  },
+      limit,
+      offset: (page - 1) * limit
     };
-  }
 
-  User.findAndCountAll(findAndCountOptions)
-    .then(({ count, rows: usersWithSubordinates }) => {
-      console.log('Total Users with Subordinate Roles in userCounty:', count);
+    // Add filter conditions if filters and values are provided
+    if (filters.length === filterValues.length) {
+      findAndCountOptions.where[Op.and] = filters.map((filter, index) => ({
+        [filter]: { [Op.eq]: filterValues[index] }
+      }));
+    }
 
-      res.status(200).send({
-        data: usersWithSubordinates,
-        total: count,
-        code: '0000',
-        message: 'Users retrieved successfully',
-      });
-    })
-    .catch((error) => {
-      console.error('Error fetching users:', error);
-      res.status(500).send({ message: 'Unable to retrieve users. Please try again later.' });
+    console.log('Final Query Options:', findAndCountOptions);
+
+    // Query users and include their roles with user_roles details
+    const { count, rows: usersWithSubordinates } = await User.findAndCountAll(findAndCountOptions);
+
+    res.status(200).send({
+      data: usersWithSubordinates,
+      total: count,
+      code: '0000',
+      message: 'Users retrieved successfully',
     });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send({ message: 'Unable to retrieve users. Please try again later.' });
+  }
 };
 
 
-exports.xmodelUserByName = (req, res) => {
-  console.log(req.body.currentUser);
-  const user = req.body.currentUser;
-  const currentUserRoles = user.roles;
-  const searchString = req.body.searchString;
-  const userCounty = user.county_id;
-  const filters = req.body.filters || []; // Array of filter fields
-  const filterValues = req.body.filterValues || []; // Array of filter values corresponding to each filter field
 
-  let limit = req.body.limit || 10; // Default limit if not provided
-  let page = req.body.page || 1; // Default page if not provided
-
-  console.log('Current >>>>User Roles, ', currentUserRoles);
-
-  // Extract subordinates from the user's roles
-  const allSubordinates = currentUserRoles.reduce((subordinates, role) => {
-    if (role.subordinates && role.subordinates.length > 0) {
-      subordinates.push(...role.subordinates);
-    }
-    return subordinates;
-  }, []);
-
-  // Remove duplicates from allSubordinates using Set
-  const uniqueSubordinates = [...new Set(allSubordinates)];
-
-  console.log('Subordinate Roles for this user:', uniqueSubordinates);
-
-  // Initialize findAndCountOptions with common properties
-  const findAndCountOptions = {
-    include: {
-      model: Role,
-      through: 'user_roles', // Name of the middle table
-      where: { id: uniqueSubordinates }, // Matching role IDs
-    },
-    where: {}, // Initialize an empty where object
-    limit: limit,
-    offset: (page - 1) * limit,
-  };
-
-  // Check if any of the current user's roles have location_level set to 'national'
-  const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
-  const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
-
-  // Apply the county filter only if the user does not have a 'national' role but has a 'county_admin' role
-  if (!hasNationalRole && hasCountyAdminRole) {
-    findAndCountOptions.where.county_id = userCounty;
-    console.log('Applying county filter:', userCounty);
-  }
-
-  // Add the 'searchString' condition if provided
-  if (searchString) {
-    findAndCountOptions.where.name = {
-      [op.iLike]: `%${searchString}%`, // Case-insensitive partial matching
-    };
-  }
-
-  // Apply additional filters based on `filters` and `filterValues`
-  filters.forEach((filter, index) => {
-    const value = filterValues[index];
-    if (Array.isArray(value)) {
-      // If the value is an array, use the Op.in operator to match any of the values
-      findAndCountOptions.where[filter] = {
-        [op.in]: value,
-      };
-    } else {
-      // If the value is a single value, use the Op.eq operator for exact matching
-      findAndCountOptions.where[filter] = value;
-    }
-  });
-
-  User.findAndCountAll(findAndCountOptions)
-    .then(({ count, rows: usersWithSubordinates }) => {
-      console.log('Total Users with Subordinate Roles in userCounty:', count);
-
-      res.status(200).send({
-        data: usersWithSubordinates,
-        total: count,
-        code: '0000',
-        message: 'Users retrieved successfully',
-      });
-    })
-    .catch((error) => {
-      console.error('Error fetching users:', error);
-      res.status(500).send({ message: 'Unable to retrieve users. Please try again later.' });
-    });
-};
-
+ 
 exports.modelUserByName = (req, res) => {
   console.log(req.body.currentUser);
   const user = req.body.currentUser;

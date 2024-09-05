@@ -135,6 +135,13 @@ watch(
 
 // 登录
 const signIn = async () => {
+
+  appStore.dynamicRouter = true    // felix to edit 
+          console.log("Dynamic router--->", appStore.getDynamicRouter)
+
+
+
+          
   const formRef = unref(elFormRef)
   await formRef?.validate(async (isValid) => {
     if (isValid) {
@@ -153,14 +160,13 @@ const signIn = async () => {
 
           console.log("----userDeatilsAfterLogin----", userDeatilsAfterLogin)
 
-          appStore.dynamicRouter = true    // felix to edit 
-          console.log("Dynamic router--->", appStore.getDynamicRouter)
-
-
+        
           if (appStore.getDynamicRouter) {
 
 
              getRole(userDeatilsAfterLogin)
+
+             
           } else {
             //getRole() // temp 
             await permissionStore.generateRoutes('none').catch(() => { })
@@ -177,12 +183,8 @@ const signIn = async () => {
     }
   })
 }
-
-
  
-
- 
-const getRole = async (authenticatedUser) => {
+const xgetRole = async (authenticatedUser) => {
   const { getFormData } = methods;
   const formData = await getFormData<UserType>();
   console.log('authenticatedUser roles', authenticatedUser);
@@ -219,6 +221,108 @@ const getRole = async (authenticatedUser) => {
   permissionStore.setIsAddRouters(true);
   push({ path: redirect.value || permissionStore.addRouters[0].path });
 };
+
+
+const getRole = async (authenticatedUser) => {
+  const { getFormData } = methods;
+  const formData = await getFormData<UserType>();
+  console.log('authenticatedUser roles', authenticatedUser);
+
+  // Set default permissions
+  formData.permissions = ['*.*.*'];
+
+  // Define the role hierarchy (lower index means higher priority)
+  const roleHierarchy = {
+    'super_admin': 1,
+    'admin': 2,
+    'grm': 2,
+    'staff': 3,
+    'consultant': 4,
+    'public': 5 // Default or fallback role
+  };
+
+  // Initialize variables to track the highest role and its level
+  let highestRole = 'public';
+  let highestLevel = 'settlement';
+
+  // Process each role to find the highest one based on the hierarchy
+  authenticatedUser.roles.forEach((roleObj) => {
+
+    console.log('roleObj >>',roleObj)
+    const roleName = roleObj.name;
+    const roleLevel = roleObj.user_roles.location_level;
+
+    if (roleHierarchy[roleName] < roleHierarchy[highestRole]) {
+      highestRole = roleName;
+      highestLevel = roleLevel;
+    }
+
+   
+
+
+
+  });
+
+  switch (highestRole) {
+      case 'super_admin':
+        appStore.setAdminButtons(true);
+        appStore.setEditButtons(true);
+        appStore.setAdmin(true);
+        console.log('super_admin role processed');
+
+        break;
+
+      case 'admin':
+        appStore.setAdminButtons(true);
+        appStore.setEditButtons(true);
+        console.log('admin role processed');
+
+        break;
+
+      case 'staff':
+        appStore.setAdminButtons(true);
+        appStore.setEditButtons(true);
+        console.log("is user getEditButtons?--->", appStore.getEditButtons);
+        console.log('Staff role processed');
+        break;
+
+      case 'consultant':
+        appStore.setAdminButtons(true);
+        appStore.setEditButtons(true);
+        console.log('Consultant role processed');
+        break;
+
+      default:
+        break;
+    }
+
+  // Assign the highest role and level to the formData
+  formData.role = highestRole;
+  formData.level = highestLevel;
+
+  console.log('<<>>', highestRole,highestLevel,appStore.getAdminButtons)
+
+  // Generate and collect routes based on the highest role and level
+  let routers = [];
+  await permissionStore.generateRoutes(formData.role, formData.level).catch(() => {});
+  routers = [...new Set(permissionStore.getAddRouters.map(route => route as RouteRecordRaw))];
+
+  // Cache the role's routers
+  const { wsCache } = useCache();
+  wsCache.set('roleRouters', routers);
+
+  console.log("formData.role >>", formData.role);
+  console.log("formData.level >>", formData.level);
+
+  // Dynamically add accessible routes
+  routers.forEach((route) => {
+    addRoute(route);
+  });
+
+  permissionStore.setIsAddRouters(true);
+  push({ path: redirect.value || routers[0].path });
+};
+
 
 
 const toRegister = () => {
