@@ -37,7 +37,8 @@ import { Icon } from '@iconify/vue';
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
-
+import TableActions from '@/views/Components/TableActions.vue';
+ 
   
 const appStore = useAppStoreWithOut();
 
@@ -1310,6 +1311,18 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
           </div>
         </template>
       </el-table-column>
+
+      <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+      <template #default="scope">
+        <TableActions
+          :row="scope.row"
+          :isMobile="isMobile"
+          :showEditButtons="true"
+          :showAdminButtons="true"
+
+        />
+      </template>
+    </el-table-column> -->
 
     </el-table>
 

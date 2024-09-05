@@ -6,6 +6,7 @@ const Sequelize = require('sequelize')
  const moment = require('moment');
  const User = db.user
  const Grievance = db.models.grievance
+ const axios = require('axios') ;
 
 
  var bcrypt = require('bcryptjs')
@@ -58,7 +59,42 @@ exports.generateGRMCode = async (req, res) => {
 };
 
  
- 
+async function sendSMS(sms_obj) {
+  // Send OTP via Leopard (not implemented in this code snippet)
+  const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+  let encrytped_name= [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'),'maluini'),'name']
+
+
+  let msg =
+    "Dear " +
+    sms_obj.name +
+
+    ", your grievance has been registered. Your reference is : " +
+    sms_obj.code + ". You can monitor the status of your report here -> https://kesmis.go.ke/grv/status/"+sms_obj.id;
+    
+
+    //http://localhost:3000/status/6652e0486b49fb5075942951
+
+
+  const requestData = {
+    apikey: "25979d894f97b2a8df210fe0c20d68c5",
+    partnerID: "10322",
+    shortcode: "AGS",
+    message: msg,
+    mobile: sms_obj.phone,
+  };
+
+  axios
+    .post(url, requestData)
+    .then((response) => {
+      console.log("Response:", response.data);
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+    });
+}
+
+
 
 const generateGRMCode = async () => {
   const prefix = 'GRM';
@@ -89,7 +125,7 @@ const generateGRMCode = async () => {
 };
 
 
-exports.createGrievanceRecord = async (req, res) => {
+exports._createGrievanceRecord = async (req, res) => {
   try {
     // Generate the GRM code before creating the record
     const generatedCode = await generateGRMCode();
@@ -113,6 +149,8 @@ exports.createGrievanceRecord = async (req, res) => {
     const item = await db.models.grievance.create(obj);
 
     console.log('Created item:', item);
+
+    sendSMS(item);
 
     res.status(200).send({
       data: item,
@@ -146,6 +184,84 @@ exports.createGrievanceRecord = async (req, res) => {
   }
 };
 
+exports.createGrievanceRecord = async (req, res) => {
+  try {
+    // Generate the GRM code before creating the record
+    const generatedCode = await generateGRMCode();
+
+    // Prepare the object for creation
+    let obj = req.body;
+
+    let name = req.body.name;
+    let national_id = req.body.national_id;
+    
+    // Encrypt the fields
+    obj.name = Sequelize.fn('PGP_SYM_ENCRYPT', name, 'maluini');
+    obj.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', national_id, 'maluini');
+
+    obj.code = generatedCode; // Assign the generated code
+
+    console.log('Grievance record to be created:', obj);
+
+    // Create the record
+    const item = await db.models.grievance.create(obj);
+
+    console.log('Created item:', item);
+
+    // Decrypt the fields after creation
+    const decryptedName = await db.sequelize.query(
+      `SELECT PGP_SYM_DECRYPT(name::bytea, 'maluini') AS name FROM grievance WHERE id = :id`,
+      {
+        replacements: { id: item.id },
+        type: Sequelize.QueryTypes.SELECT
+      }
+    );
+
+    const decryptedNationalId = await db.sequelize.query(
+      `SELECT PGP_SYM_DECRYPT(national_id::bytea, 'maluini') AS national_id FROM grievance WHERE id = :id`,
+      {
+        replacements: { id: item.id },
+        type: Sequelize.QueryTypes.SELECT
+      }
+    );
+
+    // Add the decrypted values to the response object
+    item.name = decryptedName[0].name;
+    item.national_id = decryptedNationalId[0].national_id;
+
+    sendSMS(item);
+
+    res.status(200).send({
+      data: item,
+      code: '0000',
+      message: 'Grievance reported successfully.'
+    });
+
+  } catch (err) {
+    // Handle specific duplicate key error
+    if (err.code === '23505') {
+      console.log('Duplicate key error:', err.detail);
+
+      // Return a custom message for the duplicate key error
+      return res.status(400).send({
+        code: '23505',
+        message: 'A grievance with the same name, ward, sub-county, and county already exists. Please use a different name or location.'
+      });
+    }
+
+    // Handle other errors
+    console.log('Error:', err);
+    const message = err.message || 'An error occurred';
+    let msg;
+    if (message == 'Validation error') {
+      msg = "Duplicate Grievances are not allowed";
+    } else {
+      msg = message;
+    }
+    res.status(500).send({ message: msg });
+  }
+};
+
 
 exports.logGrievanceAction = async (req, res) => {
   try {
@@ -172,9 +288,7 @@ exports.logGrievanceAction = async (req, res) => {
     res.status(500).send({ message: 'Logging action failed' });
   }
 };
-
  
-
  
 exports.getGrievances =async (req, res) => {
   console.log(req.thisUser);
@@ -299,9 +413,7 @@ exports.getGrievances =async (req, res) => {
     });
 };
  
-
-
-
+ 
 
 const multer = require('multer');
 
@@ -513,7 +625,7 @@ exports.zgetGrievanceById = async (req, res) => {
         });
     };
     
-    exports.getGrievanceById = async (req, res) => {
+ exports.getGrievanceById = async (req, res) => {
       const user = req.thisUser;
       const grievanceId = req.body.id; // Retrieve grievance ID from the request parameters
     
