@@ -61,12 +61,14 @@ const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
 const adminButtons = computed(() => appStore.getAdminButtons);
-const editButtons = computed(() => appStore.getEditButtons);
+  
+
+ 
  
 
-console.log("Compare showAdminButtons :",showAdminButtons.value,)
-console.log("Compare adminButtons :",adminButtons.value,)
 
+console.log("Compare adminButtons :",adminButtons.value)
+ 
 
 
 const mobileBreakpoint = 768;
