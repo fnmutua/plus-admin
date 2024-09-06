@@ -5,6 +5,8 @@ const config = require('../config/auth.config')
 //const User = db.user;
 const Role = db.role
 const User = db.user
+const OTP = db.models.otp
+
  //db.models[reg_model]
 const Op = db.Sequelize.Op
 var jwt = require('jsonwebtoken')
@@ -15,6 +17,7 @@ const turf = require('@turf/turf');
 const fs = require('fs');
 const path = require('path');
 const requestIp = require('request-ip');
+const axios = require('axios');
 
  
 exports.signup = (req, res) => {
@@ -923,6 +926,297 @@ exports.settlementByCountyController = (req, res) => {
       console.error('Error fetching settlements:', error);
       res.status(500).send({ message: 'Unable to retrieve settlements. Please try again later.' });
     });
+};
+
+
+
+exports.signupViaApp = async (req, res) => {
+  console.log("App signup.....")
+  console.log(req.body)
+
+  try {
+    // Save User to Database
+    const user = await User.create({
+      username: req.body.phone,
+      name: req.body.name,
+      phone: req.body.phone,
+    });
+
+
+  
+
+
+    // Find roles based on request body
+    const roles = await Role.findAll({
+      where: {
+        name: {
+          [Op.in]: req.body.role,
+        },
+      },
+    });
+
+    // Set roles for the user
+    await user.setRoles(roles);
+
+    // Generate a 4-digit OTP
+    const otpCode = Math.floor(1000 + Math.random() * 9000);
+
+    // Save the OTP to the database
+    const otp = await OTP.create({
+      user_id: user.id,
+      otp: otpCode,
+      status:'Valid'
+    });
+
+     console.log("OTP saved:", otp);
+
+    // Send OTP via Leopard (not implemented in this code snippet)
+    const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+    const requestData = {
+      apikey: '684f84e9aa485a0e72e6734c6b84d9b4',
+      partnerID: '10322',
+      shortcode: 'AGS',
+      message: 'Your KeSMIS registration code is: ' + otpCode + '.',
+      //message: 'Your UAFSD Login code is: ' + otpCode + '. \n gyQbWWWRcc5',
+      mobile: req.body.phone  
+    }; 
+    
+
+
+      axios.post(url, requestData)
+      .then(response => {
+        console.log('Response:', response.data);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+ 
+
+
+    // Send response to client
+    res.send({
+      message: 'App User registered successfully! ',
+      code: '0000',
+      data: otpCode,
+    });
+  } catch (error) {
+    console.error('Error during user registration:', error);
+    res.status(500).send({ message: error.message });
+  }
+}
+
+ 
+function convertPhoneNumber(number) {
+  // Remove leading plus sign (+) and any spaces
+  number = number.replace(/\+/g, '').trim();
+
+  // Check if the number starts with "254" or "+254"
+  if (number.startsWith('254')) {
+      // Replace "254" with "0"
+      number = '0' + number.substring(3);
+  }
+
+  return number;
+}
+
+
+exports.signinViaApp = async (req, res) => {
+  const  instlog = {}
+  instlog.table='auth'
+  instlog.action='Login'
+  instlog.date = new Date();
+  // let ip = req.header('x-forwarded-for') || req.connection.remoteAddress;
+  //console.log(req)
+  const clientIp = req.connection.remoteAddress; // This will give you the remote IP address of the client
+  console.log(clientIp);
+  instlog.source = clientIp;
+
+  console.log('Logging in:', req.body.phone)
+ // const username = req.body.username.trim();
+ let user_phone = convertPhoneNumber(req.body.phone)
+
+ console.log(user_phone)
+ 
+    User.findOne({
+      where: {
+        [Op.or]: [
+          {
+            username: {  // chek user input against username 
+              [Op.iLike]: user_phone 
+            }
+          },
+          {
+            phone: {  // chek user input against username 
+              [Op.iLike]: user_phone
+            }
+          },
+        ]
+      }
+    })
+    .then(async (user) => {
+      if (!user) {
+         instlog.userId = 0
+        instlog.userName =user_phone
+        instlog.status = 'Fail. User not found'
+        console.log(instlog)
+        await db.models.logs.create(instlog);
+        return res.status(404).send({ message: 'No account is associated with this number' })
+      }
+  
+      if (!user.isactive) {
+        instlog.userId = 0
+        instlog.userName = user_phone
+        instlog.status = 'Fail.  Inactive account'
+        console.log(instlog)
+        await db.models.logs.create(instlog);
+
+        return res.status(401).send({
+          accessToken: null,
+          message: 'Your account has deactivated. Please contact the admin'
+        })
+      }
+
+      //  if all is good
+       // Generate a 4-digit OTP
+      const otpCode = Math.floor(1000 + Math.random() * 9000);
+
+      console.log(otpCode)
+
+      // Save the OTP to the database
+      const otp = await OTP.create({
+        user_id: user.id,
+        otp: otpCode,
+        status:'Valid'
+      });
+
+      console.log("OTP saved:", otp);
+
+      // Send OTP via Leopard (not implemented in this code snippet)
+       const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+       const requestData = {
+          apikey: '684f84e9aa485a0e72e6734c6b84d9b4',
+          partnerID: '10322',
+          shortcode: 'AGS',
+          message: 'Your KeSMIS Login code is: ' + otpCode + '.',
+          //message: 'Your UAFSD Login code is: ' + otpCode + '. \n gyQbWWWRcc5',
+          mobile:   user_phone 
+          
+        };
+ 
+        axios.post(url, requestData)
+        .then(response => {
+          console.log('Response:', response.data);
+          res.send({
+            message: 'Check your phone for login verification SMS! ',
+            code: '0000',
+            data: otpCode,
+          });
+
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          let msg = error.response && error.response.data && error.response.data.message ? error.response.data.message : "Our SMS service provider is down. Please try again later";
+          res.status(500).send({ message:msg})
+        });
+    })
+    .catch((err) => {
+      res.status(500).send({ message: err.message })
+    })
+  
+
+}
+
+
+
+exports.verifyCode = async (req, res) => {
+  try {
+    const otp = await OTP.findOne({
+      where: {
+        otp: req.body.otp,
+        status: 'Valid', // Check if the OTP status is 'valid'
+      }
+    });
+
+    if (!otp) {
+      return res.status(404).send({ message: 'Invalid Code.' });
+    }
+
+    if (otp.expires < new Date()) {
+      return res.status(401).send({ message: 'Fail. Expired code' });
+    }
+
+    // Update the OTP status to invalid
+    await otp.update({ status: 'Invalid' });
+
+    console.log("otp.user_id",otp.user_id )
+
+    // Get the associated user using user_id from the OTP
+    const user = await User.findOne({
+      where: {
+        id: otp.user_id // Assuming user_id is the field representing user's id in the OTP table
+      },
+      attributes: {
+        exclude: ['photo'] // Exclude the 'photo' field from the result
+      }
+    });
+
+    if (!user) {
+      return res.status(404).send({ message: 'User not found.' });
+    }
+
+    var token = jwt.sign({ id: user.id }, config.secret, {
+      expiresIn: 86400 // 24 hours
+    })
+    
+    const expiryDate = new Date();
+    // Add 24 hours to the current date
+    expiryDate.setHours(expiryDate.getHours() + 24);
+
+
+    var authorities = []
+    user.getRoles().then((roles) => {
+      for (let i = 0; i < roles.length; i++) {
+        authorities.push(roles[i].name)
+      }
+
+      const expiryDate = new Date();
+      // Add 24 hours to the current date
+      expiryDate.setHours(expiryDate.getHours() + 24);
+
+      console.log('Logged User:', user)
+      res.status(200).send({
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        email: user.email,
+        roles: authorities,
+        phone: user.username,
+        county_id: user.county_id,
+        accessToken: token,
+        tokenExpiryDate:expiryDate,
+        code: '0000',
+        user: user,
+        photo: user.photo,
+        //avatar: user.avatar,
+        avatar : user.photo ? 'data:image/png;base64,' + user.photo.toString('base64') : user.avatar, 
+        //avatar : user.avatar, 
+        data: token,
+        message: 'Login Successful'
+      })
+    })
+
+
+
+    // res.send({
+    //   message: 'Login Successful',
+    //   code: '0000',
+    //   accessToken: token,
+    //   tokenExpiryDate:expiryDate,
+    //   user: user // You can include the user data in the response if needed
+    // });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
 };
 
 
