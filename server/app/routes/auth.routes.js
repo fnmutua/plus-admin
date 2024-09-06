@@ -49,6 +49,23 @@ module.exports = function (app) {
   app.post('/api/auth/settlement/bycounty', controller.settlementByCountyController)
 
 
+ // Signups via APP
+ app.post(
+  '/api/app/signup',  [verifySignUp.checkDuplicatePhone],
+  controller.signupViaApp
+)
+
+// Signin via APP
+app.post(
+'/api/app/signin',  
+controller.signinViaApp
+)
+
+//verify OTP code 
+app.post(
+'/api/app/verify',  
+controller.verifyCode
+)
 
 
 
