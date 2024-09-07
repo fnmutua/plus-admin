@@ -93,9 +93,11 @@ const navigateTo = (page: string) => {
   bottom: 0;
   background: linear-gradient(45deg, transparent 49%, #ececec 49% 51%, transparent 51%), 
               linear-gradient(-45deg, transparent 49%, #ececec 49% 51%, transparent 51%);
-  background-size: 6em 6em;
+  
   background-color: #ffffff;
-  opacity: 0.3;
+  background-image: url('@/assets/imgs/background.png'); /* Correct syntax for background image */
+
+  opacity: 0.1;
   z-index: -1; /* Ensure the background is behind the content */
 }
 
@@ -118,6 +120,7 @@ const navigateTo = (page: string) => {
               linear-gradient(-45deg, transparent 49%, #e0dff5 49%, #e0dff5 51%, transparent 51%) 0 0;
   background-size: 6em 6em;
   background-color: #ffffff;
+  background-image: url('@/assets/imgs/logo.png'); /* Correct syntax for background image */
   opacity: 1;
   height: 70vh;
 }

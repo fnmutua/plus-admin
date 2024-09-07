@@ -1559,6 +1559,17 @@ db.models.users.hasMany(db.models.grievance_log, {
  });
 
 
+ 
+// user  - indicator_category_report
+db.models.otp.belongsTo(db.models.users, {
+  foreignKey: 'user_id'
+})
+
+db.models.users.hasMany(db.models.otp, {
+  foreignKey: 'user_id'
+})
+
+
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

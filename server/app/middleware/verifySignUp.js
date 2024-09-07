@@ -54,8 +54,28 @@ checkRolesExisted = (req, res, next) => {
   
   next();
 };
+
+
+checkDuplicatePhone = (req, res, next) => {
+  // Username
+  User.findOne({
+    where: {
+      username: req.body.username
+    }
+  }).then(user => {
+    if (user) {
+      res.status(400).send({
+        message: "Failed! Phone number is already in use!"
+      });
+      return;
+    }
+    next();
+  });
+};
+
+
 const verifySignUp = {
-  checkDuplicateUsernameOrEmail: checkDuplicateUsernameOrEmail,
+  checkDuplicateUsernameOrEmail: checkDuplicateUsernameOrEmail,checkDuplicatePhone:checkDuplicatePhone,
   checkRolesExisted: checkRolesExisted
 };
 module.exports = verifySignUp;
