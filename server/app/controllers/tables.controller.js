@@ -1603,60 +1603,41 @@ exports.modelEditOneRecord = (req, res) => {
 };
 
 
-exports.modelActivateUser = (req, res) => {
-  var reg_model = req.query.model
+exports.modelActivateUser = async (req, res) => {
+  try {
+    const { model } = req.query;
+    const { id, isactive } = req.body;
 
-  console.log('Request:----->', req.body)
+    // Find the user by ID
+    const user = await db.models[model].findOne({ where: { id } });
 
-  // get this one  record and update it by replacing the whole docuemnt
-  db.models[reg_model].findAll({ where: { id: req.body.id } }).then((result) => {
-    if (result) {
-      // Result is array because we have used findAll. We can use findOne as well if you want one row and update that.
-      result[0].set(req.body)
-      result[0].save() // This is a promise
-      // res.status(200).send(result);
-
-      if (req.body.isactive) {
-        var msg =
-          'Your account has been activated. Please login using the credentials you signed up with.'
-      } else {
-        var msg =
-          'Your account has been deactivated. Please reach out to the systems administrator should you require to use the system again.'
-      }
-
-      var transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: 'kisip.mis@gmail.com',
-          pass: 'ycoxaqavmfiqljjg'
-        }
-      }) // initialize create Transport service
-
-      const mailOptions = {
-        from: 'kisip.mis@gmail.com',
-        to: `${req.body.email}`,
-        subject: 'Account Status',
-        text: 'Dear ' + `${req.body.name}` + '. \n\n' + msg + '\n\n' + 'Systems Administrator.'
-      }
-
-      console.log('sending mail')
-
-      transporter.sendMail(mailOptions, (err, response) => {
-        if (err) {
-          console.error('there was an error: ', err)
-        } else {
-          console.log('here is the res: ', response)
-          //  res.status(200).json('recovery email sent');
-          res.status(200).send({
-            message: 'Activation Email Sent',
-            data: result,
-            code: "0000"
-          })
-        }
-      })
+    if (!user) {
+      return res.status(404).send({
+        message: 'User not found',
+        code: '0001'
+      });
     }
-  })
-}
+
+    // Update the status field
+    user.isactive = isactive;
+
+    // Save the updated record
+    await user.save();
+
+    res.status(200).send({
+      message: 'User status updated successfully',
+      data: user,
+      code: '0000'
+    });
+  } catch (error) {
+    console.error('Error updating user status:', error);
+    res.status(500).send({
+      message: 'Unable to update user status. Please try again later.',
+      code: '9999'
+    });
+  }
+};
+
 
 
  

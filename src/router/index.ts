@@ -1294,7 +1294,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'Users',
       icon: 'wpf:usershield',
       alwaysShow: true,
-      role: ['admin', 'super_admin', ],
+      role: ['admin', 'super_admin', 'admin',],
       locationLevel:['national'],
 
     },
@@ -1361,6 +1361,10 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       }, 
     ]
   },
+ 
+
+ 
+ 
   {
     path: '/settings',
     component: Layout,
@@ -1662,7 +1666,38 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     ]
   },
  
+ 
+  {
+    path: '/me',
+    component: Layout,
+    redirect: '/mne/indicator',
+    name: 'MyPages',
+    meta: {
+      title: 'My Space',
+      icon: 'wpf:usershield',
+      alwaysShow: true,
+      role: ['admin', 'super_admin', 'admin', 'staff','grm','monitoring','consultant','support'],
+      locationLevel:['national','county'],
 
+    },
+    children: [  
+     
+      {
+        path: 'profile',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Users/Profile.vue'),
+        name: 'userProfile',
+        meta: {
+          title: 'Profile',
+          hidden: false,
+          icon:'pajamas:profile'
+        }
+      }, 
+
+   
+ 
+    ]
+  },
 
 ]
 

@@ -1,6 +1,7 @@
 <template>
  
   <div class="landing-page">
+   
     <el-container>
       <el-header>
         <div class="header-content">
@@ -361,4 +362,40 @@ const handleSelect = (index: string) => {
 .dark-mode .logo img {
   filter: brightness(0) invert(1); /* Invert logo color for dark mode */
 }
+
+
+ 
+.hero {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 100px 20px;
+  height: 80vh;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 49%, #ececec 49% 51%, transparent 51%), 
+              linear-gradient(-45deg, transparent 49%, #ececec 49% 51%, transparent 51%);
+  background-color: #ffffff;
+  background-image: url('@/assets/imgs/background.png'); /* Correct syntax for background image */
+
+  opacity: 0.1;
+  z-index: -1; /* Ensure the background is behind the content */
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1; /* Ensure content is above the background */
+}
+
 </style>

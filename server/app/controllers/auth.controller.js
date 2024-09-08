@@ -18,11 +18,77 @@ const fs = require('fs');
 const path = require('path');
 const requestIp = require('request-ip');
 const axios = require('axios');
+ 
+ 
 
  
+function formatPhoneNumber(phoneNumber) {
+  // Convert phone number to a string in case it's not already
+  console.log(phoneNumber)
+  let formattedNumber = phoneNumber.toString();
+
+  // Check if the phone number starts with '254'
+  if (formattedNumber.startsWith('254')) {
+    return formattedNumber; // Phone number is already in the correct format
+  }
+
+  // Check if the phone number starts with '0'
+  if (formattedNumber.startsWith('0')) {
+    // Replace the '0' with '254'
+    return '254' + formattedNumber.slice(1);
+  }
+
+  // If it starts with any other digit, prepend '254'
+  return '254' + formattedNumber;
+}
+
+async function sendSMS(sms_obj, admins_phones) {
+  // URL for the SMS service
+  const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+
+  // Message to be sent to the admins
+  let adminMessage = 
+    "Dear Admin, a new account has been registered for your review. " +
+    "The user's name is " + sms_obj.name + ". " +
+    "Please review the account at the following link: " +
+    "https://kesmis.go.ke/users/new";
+
+   
+// Send SMS to each admin in the `admins` list
+for (const phone of admins_phones) {
+  // Check if phone number exists and is valid (not null or undefined)
+  if (phone) {
+    const requestData = {
+      apikey: "684f84e9aa485a0e72e6734c6b84d9b4", // Replace with your actual API key
+      partnerID: "10322", // Replace with your actual partner ID
+      shortcode: "AGS",
+      message: adminMessage,
+      mobile: formatPhoneNumber(phone), // Send the message to the admin's phone number
+    };
+
+    try {
+      const response = await axios.post(url, requestData);
+      console.log(`Message sent to admin (${phone}):`, response.data);
+    } catch (error) {
+      console.error(`Error sending message to admin (${phone}):`, error);
+    }
+  } else {
+    console.warn(`Admin ${phone} does not have a valid phone number.`);
+  }
+}
+
+
+  
+ 
+}
+
+
+
+
 exports.signup = (req, res) => {
 
   const emails = []
+  const admin_phones = []
   // Save User to Database
   User.create({
     username: req.body.username.trim().toLowerCase(),
@@ -52,7 +118,7 @@ exports.signup = (req, res) => {
                   include: [
                     {
                       model: Role,
-                      where: { id: 1 }
+                      where: { id: 0 }  // here get the Super Admin Roles only 
                     }
                   ]
                 }).then(admins => {
@@ -60,6 +126,7 @@ exports.signup = (req, res) => {
  
                   admins.forEach(admin => {
                     emails.push(admin.email);
+                    admin_phones.push(admin.phone)
                   });
                   console.log(emails); // an array of email addresses
 
@@ -102,6 +169,9 @@ exports.signup = (req, res) => {
             
           }
         })
+
+
+        sendSMS(user,admin_phones)
             console.log(roles)
             res.send({
               message: 'User registered successfully! Please wait for the account to be activated',
