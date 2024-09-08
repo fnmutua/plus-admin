@@ -8,7 +8,9 @@ const https = require('https');
 // ... Your other code ...
 
 const corsOptions = {
-  origin: ['http://localhost', 'http://localhost:4000', 'http://localhost:3000', 'http://localhost:8100', 'http://localhost:8080', '*']
+  //origin: ['http://localhost', 'http://localhost:4000', 'http://localhost:3000', 'http://localhost:8100', 'http://localhost:8080', '*']
+  origin: ['http://localhost','https://localhost','http://localhost:4000', 'http://localhost:3000','http://localhost:8100','http://localhost:8080','https://localhost:8100', '*']
+
 };
 
 

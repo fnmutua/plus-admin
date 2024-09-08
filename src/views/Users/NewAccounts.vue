@@ -66,6 +66,7 @@ const value2 = ref([])
 var value3 = ref([])
 const countiesOptions = ref([])
 const RolesOptions = ref([])
+const FilteredRolesOptions = ref([])
 
 
 const settlementOptions = ref([])
@@ -120,7 +121,7 @@ let tableDataList_orig = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
 var filters = ['isactive']
-var filterValues = [[false]]
+var filterValues = [false]
 var tblData = []
 
 const associated_multiple_models = ['county', 'user_roles']
@@ -273,7 +274,7 @@ const getCountyNames = async () => {
   })
 }
 
-
+ 
 
 const getRoles = async () => {
 
@@ -302,6 +303,7 @@ const getRoles = async () => {
     opt.label = arrayItem.name
     //  console.log(countyOpt)
     RolesOptions.value.push(opt)
+    FilteredRolesOptions.value.push(opt)
   })
 
   console.log('RolesOptions', RolesOptions)
@@ -381,7 +383,7 @@ const getFilteredBySearchData = async (searchString) => {
 
   console.log('After -----x ------Querry', res)
   tableDataList.value = res.data
-  tableDataList_orig.value = res.data // back for post filter
+ // tableDataList_orig.value = res.data // back for post filter
 
   total.value = res.total
   loading.value = false
@@ -447,11 +449,10 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 const searchByName = async (filterString: any) => {
   searchString.value = filterString
 
+
+  
   getFilteredBySearchData(searchString.value)
 }
-
-
-
 
 getRoles()
 getCountyNames()
@@ -785,10 +786,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
         </el-tooltip>
 
 
-        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-        <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-
+   
       </div>
 
     </el-row>
@@ -803,10 +801,16 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           {{ scope.$index + 1 }}
         </template>
       </el-table-column>
-      <!-- Avatar column -->
-      <el-table-column label="Avatar" width="100">
+
+       <!-- Avatar column -->
+       <el-table-column label="Avatar" width="100">
         <template #default="scope">
-          <el-avatar :src="scope.row.avatar" size="80px" />
+          <div v-if="scope.row.photo">
+            <el-avatar :src="scope.row.photo" size="80px" />
+          </div>
+          <div v-else>
+            <el-avatar size="80px" />
+          </div>
         </template>
       </el-table-column>
 

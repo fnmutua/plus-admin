@@ -383,7 +383,8 @@ const getFilteredBySearchData = async (searchString) => {
 
   console.log('After -----x ------Querry', res)
   tableDataList.value = res.data
-  tableDataList_orig.value = res.data // back for post filter
+
+  //tableDataList_orig.value = res.data // back for post filter
 
   total.value = res.total
   loading.value = false
@@ -786,10 +787,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
         </el-tooltip>
 
 
-        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-        <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-
+   
       </div>
 
     </el-row>
@@ -804,13 +802,18 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
           {{ scope.$index + 1 }}
         </template>
       </el-table-column>
+      
       <!-- Avatar column -->
       <el-table-column label="Avatar" width="100">
         <template #default="scope">
-          <el-avatar :src="scope.row.avatar" size="80px" />
+          <div v-if="scope.row.photo">
+            <el-avatar :src="scope.row.photo" size="80px" />
+          </div>
+          <div v-else>
+            <el-avatar size="80px" />
+          </div>
         </template>
       </el-table-column>
-
 
       <el-table-column label="Name" prop="name" width="200" sortable />
       <el-table-column label="Username" prop="username" sortable />

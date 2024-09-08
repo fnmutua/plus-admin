@@ -1,25 +1,76 @@
 <script setup lang="ts">
- 
+import { Descriptions } from '@/components/Descriptions'
+import { useI18n } from '@/hooks/web/useI18n'
 import { onMounted, ref, reactive, unref } from 'vue'
- 
+import { Form } from '@/components/Form'
 import { ElFormItem, ElInput, ElButton, ElDialog, ElForm, ElMessage ,FormInstance, ElCard, ElDivider} from 'element-plus'
+import { useValidator } from '@/hooks/web/useValidator'
+import { useForm } from '@/hooks/web/useForm'
+import { useRoute } from 'vue-router'
  
-  
 // Locally
- import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
+import { VueCollapsiblePanelGroup, VueCollapsiblePanel } from '@dafcoe/vue-collapsible-panel'
+import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import {  updateByUserApi,  getMyProfile } from '@/api/users'
+import { activateUserApi, updateByUserApi, getUserListApi, setUserFeedback, getMyProfile } from '@/api/users'
 import {
   ElAvatar
 } from 'element-plus'
 
- 
- 
+import {
+  UserFilled,
+  TopRight,
+  Edit,
+  User,
+  Plus,
+  Download,
+  Filter,
+  MessageBox
+} from '@element-plus/icons-vue'
+
+import { uuid } from 'vue-uuid'
 
 import { Icon } from '@iconify/vue';
 
- 
+
+const { register, elFormRef } = useForm()
+
+const route = useRoute()
+
+const { t } = useI18n()
+
+
+
+const schemaProfile = reactive<DescriptionsSchema[]>([
+  {
+    field: 'name',
+    label: t('Name')
+  },
+  {
+    field: 'email',
+    label: t('Email')
+  },
+  {
+    field: 'username',
+    label: t('User Name')
+  },
+  {
+    field: 'county',
+    label: t('County')
+  },
+
+  {
+    field: 'phone',
+    label: t('Phone')
+  },
+
+
+
+])
+
+
+
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 
@@ -27,7 +78,13 @@ const appStore = useAppStoreWithOut()
 
 const userInfo = wsCache.get(appStore.getUserInfo)
 
- 
+
+
+
+
+const page = ref(1)
+const pSize = ref(5)
+////Configurations //////////////
 
 //// ------------------parameters -----------------------////
 var filters = ['id']
@@ -46,7 +103,8 @@ let settlement = reactive({
   flag: false
 })
 ////////////
- 
+const profileRef = ref<FormInstance>()
+
 
 const profile = reactive({
   id:'',
@@ -67,7 +125,10 @@ const profile = reactive({
 
 
 const userDetails = ref()
- 
+const userName = ref('')
+const avatar = ref('')
+const email = ref('')
+
 
 function getInitials(name) {
   const words = name.split(' ');
@@ -96,9 +157,9 @@ const getFilteredData = async () => {
   profile.county = res.data.county_id
   profile.id = res.data.id
   profile.county_id = res.data.county_id
-  profile.roles = res.data.roles
-  profile.phone = res.data.phone
-  profile.photo = res.data.photo
+   profile.roles = res.data.roles
+   profile.phone = res.data.phone
+   profile.photo = res.data.photo
 
   initials.value = getInitials(res.data.name)
   console.log(userDetails)
@@ -107,13 +168,73 @@ const getFilteredData = async () => {
 
 
 onMounted(() => {
-  
+  const id = route.params.id
+  const settData = route.params.data
+  // console.log('Settlement ID, Data:', id, settData)
+  //getThisSettlement()
 
   getFilteredData(filters, filterValues)
   console.log(settlement)
 })
 
+
+const feedback = reactive({
+  name: '',
+  email: '',
+  message: '',
+  phone: '',
+  code:''
+})
+
+const dialogFeedback = ref(false)
+
+const ruleFormRef = ref<FormInstance>()
+
+
+const setFeedback = async () => { 
+  feedback.name = profile.name 
+  feedback.email = profile.email
   
+  dialogFeedback.value=true 
+}
+
+
+
+
+const sendFeedback = async (formEl: FormInstance | undefined) => {
+
+ 
+  feedback.code = uuid.v4()
+  if (!formEl) return
+  await formEl.validate(async (valid, fields) => {
+    if (valid) {
+        // The form is valid, you can perform further actions here
+      const res = setUserFeedback(feedback)
+
+      
+      dialogFeedback.value=false
+        
+      } else {
+        // The form is invalid, you can show an error message or perform other actions
+      console.log('Form validation failed.');
+        ElMessage.error('Validation Errors. Please address')
+      }
+    });
+
+}
+
+const feedbackRules =  {
+      name: [
+        { required: true, message: 'Please enter your name', trigger: 'blur' }
+      ],
+      email: [
+        { required: true, message: 'Please enter your email', trigger: 'blur' },
+        { type: 'email', message: 'Please enter a valid email address', trigger: ['blur', 'change'] }
+      ],
+      message: [
+        { required: true, message: 'Please enter a message', trigger: 'blur' }
+      ]
+    }
  
 
 
@@ -154,20 +275,8 @@ const uploadProfilePhoto = async (event) => {
   
   const file = event.target.files[0];
     photofile.value = event.target.files[0];
-
-
-    // Check file size (5MB = 5 * 1024 * 1024 bytes)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-      if (file.size > maxSize) {
-       ElMessage.error('File size exceeds 5MB.');
-        return;
-      } else {
-        formData.value.append('profilePhoto', file); // Append the profile photo file to the formData
-
-      }
-
-
   
+  formData.value.append('profilePhoto', file); // Append the profile photo file to the formData
 
 
   // Append other form data properties as needed
@@ -187,11 +296,11 @@ const updateUser = async (formEl: FormInstance | undefined) => {
   console.log(ruleForm)
 
   const formData = new FormData(); 
-   formData.append('id', profile.id);
-  formData.append('name', profile.name);
-   formData.append('email', profile.email);
-   formData.append('username', profile.username);
-  formData.append('phone', profile.phone);
+   formData.append('id', ruleForm.id);
+  formData.append('name', ruleForm.name);
+   formData.append('email', ruleForm.email);
+   formData.append('username', ruleForm.username);
+  formData.append('phone', ruleForm.phone);
   formData.append('county_id',ruleForm.county_id);
   formData.append('profilePhoto', photofile.value); // Append the profile photo file to the formData
 
@@ -222,11 +331,14 @@ dialogFormVisible.value = false; // Close the form dialog regardless of the API 
 </script>
 
 <template>
-     <div class="profile-header">
+  <div class="user-profile">
+    <div class="profile-header">
     <!-- Use the avatarPath to display the user's avatar -->
     <div class="profile-photo-wrapper" @click="EditUser">
       <!-- Edit icon -->
-     
+      <span class="edit-icon" @click="EditUser">
+        <Icon icon="basil:edit-outline" color="blue" width="24" />
+      </span>
       <img :src="profile.photo" alt="User Profile Image" v-if="profile.photo" />
       <el-avatar size="large" v-else>
         {{ initials }}
@@ -234,36 +346,126 @@ dialogFormVisible.value = false; // Close the form dialog regardless of the API 
     </div>
   </div>
   
+  
 
 
-       <el-form ref="ruleFormRefProfile" :model="profile" >
+    <div class="profile-details">
+      <div class="profile-card">
+        <div class="card-icon">
+          <Icon icon="mdi:email-mark-as-unread" color="red" width="48" />
+        </div>
+        <div class="card-content">
+          <h3>Email:</h3>
+          <p>{{ profile.email }}</p>
+        </div>
+      </div>
+
+      <div class="profile-card">
+        <div class="card-icon">
+          <Icon icon="ic:baseline-phone" color="green" width="48" />
+        </div>
+        <div class="card-content">
+          <h3>Phone:</h3>
+          <p>{{ profile.phone }}</p>
+        </div>
+      </div>
+
+     
+
+      <div class="profile-card">
+ 
+        <div class="card-content">
+          <ElButton  type="primary" class="w-[100%]" @click="setFeedback()" > Feedback/Querries?       
+        </ElButton>
+         </div>
+
+         
+      </div>
+
+      <div class="profile-card">
+  
+
+  
+ <div class="card-content">
+   <ElButton  type="primary" class="w-[100%]" @click="EditUser()" > Edit Profile       
+ </ElButton>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+  
+<el-dialog
+  title="Send us a message"
+  v-model="dialogFeedback"
+  width="25%"
+  :center="true"
+>
+  <el-form :model="feedback" :rules="feedbackRules" ref="ruleFormRef"> 
+    <el-row>
+      <el-col :xs="24" :sm="12">
+        <el-form-item label="Name" prop="name">
+          <el-input v-model="feedback.name" disabled/>
+        </el-form-item>
+      </el-col>
+    </el-row>
+    <el-row>
+      <el-col :xs="24" :sm="12">
+        <el-form-item label="Email" prop="email">
+          <el-input v-model="feedback.email" disabled/>
+        </el-form-item>
+      </el-col>
+    </el-row>
+    
+    <el-row>
+      <el-col :xs="24" :sm="12">
+        <el-form-item label="Message" prop="message">
+          <el-input v-model="feedback.message" type="textarea"/>
+        </el-form-item>
+      </el-col>
+    </el-row>
+
+  </el-form>
+  <div style="text-align: center">
+    <el-button @click="dialogFeedback = false">Cancel</el-button>
+    <el-button type="primary" @click="sendFeedback(ruleFormRef)">Submit</el-button>
+  </div>
+
+  </el-dialog>
+
+
+  
+  <el-dialog v-model="dialogFormVisible" title="My Details">
+      <el-form ref="ruleFormRefProfile" :model="ruleForm" >
         <el-form-item label="Name" >
-          <el-input v-model="profile.name" autocomplete="off" />
+          <el-input v-model="ruleForm.name" autocomplete="off" />
         </el-form-item>
         <el-form-item label="Username" >
-          <el-input v-model="profile.username" autocomplete="off" disabled />
+          <el-input v-model="ruleForm.username" autocomplete="off" disabled />
         </el-form-item>
         <el-form-item label="Email" >
-          <el-input v-model="profile.email" autocomplete="off" />
+          <el-input v-model="ruleForm.email" autocomplete="off" />
         </el-form-item>
         <el-form-item label="Phone" >
-          <el-input v-model="profile.phone" autocomplete="off" />
+          <el-input v-model="ruleForm.phone" autocomplete="off" />
         </el-form-item>
 
         <el-form-item label="Profile" >
           <input type="file" @change="uploadProfilePhoto" accept="image/*"/> <!-- Profile photo input -->
         </el-form-item>
 
-        <el-form-item>
-      <el-button type="primary" @click="updateUser(ruleFormRefProfile)">
-        Update
-      </el-button>
-     </el-form-item>
-
-
       </el-form>
-     
- 
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogFormVisible = false">Cancel</el-button>
+          <el-button type="primary" @click="updateUser(ruleFormRefProfile)">
+            Confirm
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
 </template>
 
 <style lang="less" scoped>

@@ -77,7 +77,7 @@ async function sendSMS(sms_obj) {
 
 
   const requestData = {
-    apikey: "25979d894f97b2a8df210fe0c20d68c5",
+    apikey: "684f84e9aa485a0e72e6734c6b84d9b4",
     partnerID: "10322",
     shortcode: "AGS",
     message: msg,
