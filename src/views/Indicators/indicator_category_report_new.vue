@@ -3,7 +3,7 @@
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect,FormInstance, ElCard } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect,FormInstance, ElCard, ElLink } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -154,7 +154,7 @@ var tblData = []
 
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document', 'settlement',  'users', 'project']
+const associated_multiple_models = ['document', 'settlement', 'county', 'ward', 'subcounty', 'users', 'project']
 const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
@@ -345,7 +345,7 @@ const getIndicatorNames = async () => {
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
-  console.log('Idnicator_categor', res)
+  //console.log('Idnicator_categor', res)
 
   res.data.forEach(function (arrayItem: { id: string; type: string }) {
     var opt = {}
@@ -402,7 +402,7 @@ const getProjects = async () => {
 
 
     arrayItem.activities.forEach(function (activity: any) {
-      console.log('activity--->', activity)
+     // console.log('activity--->', activity)
 
       var act = {}
       console.log(activity)
@@ -1085,7 +1085,10 @@ const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
 
   showEditSaveButton.value = true
-  console.log(data)
+  console.log(data.row.county.name  )
+  console.log( data.row.subcounty.name)
+  console.log( data.row.ward.name)
+  console.log( data.row.user.name)
   ruleForm.id = data.row.id
   ruleForm.county_id = data.row.county_id
   ruleForm.subcounty_id = data.row.subcounty_id
@@ -1127,14 +1130,22 @@ const editIndicator = (data: TableSlotDefault) => {
   report.value.date = formatDate(data.row.date )
   report.value.amount = data.row.amount
   report.value.user = data.row.user.name
+  report.value.phone = data.row.user.phone
   report.value.project = data.row.project.title
   report.value.location =  data.row.settlement ? data.row.settlement.name : ''
+  //report.value.document =  data.row.documents[0] ? data.row.documents[0].name : ''
 
 
 
   console.log(' ruleForm.location', ruleForm.location)
 
   ReviewDialog.value = true
+
+  report.value.documents = Array.isArray(data.row.documents) && data.row.documents.length
+  ? data.row.documents.map(doc => doc) // Pushes the entire document object
+  : [];
+
+
 }
 
 
@@ -1478,6 +1489,43 @@ const loadMap = () => {
   });
 };
 
+const viewLoading =ref(false)
+const downloadFile = async (data) => {
+  console.log(data);
+  viewLoading.value = true;
+  const formData = {};
+  formData.filename = data.name;
+  formData.doc_id = data.id;
+  formData.responseType = 'blob';
+
+  // Add a flag to track if the download has started
+
+
+  // Attach a 'beforeunload' event listener to the window
+  window.addEventListener('beforeunload', () => {
+    if (viewLoading.value) {
+      console.log('Download has started.');
+      viewLoading.value = false;
+    }
+  });
+
+  try {
+    const response = await getFile(formData);
+    console.log(response);
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', data.name);
+    document.body.appendChild(link);
+    link.click();
+    viewLoading.value = false;
+  } catch (error) {
+    ElMessage.error('Failed');
+    viewLoading.value = false;
+  }
+};
+
 
 
 </script>
@@ -1595,7 +1643,8 @@ v-if="showAdminButtons" type="primary" :icon="View"
             </el-tooltip>
 
             <el-tooltip content="Map" placement="top">
-              <el-button v-if="showEditButtons" type="warning"   :icon="Position"
+              <el-button
+v-if="showEditButtons" type="warning"   :icon="Position"
                 :disabled="isGeomNull(scope.row.geom)" @click="showMap(scope.row as TableSlotDefault)" circle />
             </el-tooltip>
 
@@ -1740,7 +1789,19 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
       <el-descriptions-item label="Amount">{{ report.amount }}</el-descriptions-item>
       <el-descriptions-item label="Date"> {{ report.date }} </el-descriptions-item>
       <el-descriptions-item label="Submitted By"> {{ report.user }} </el-descriptions-item>
+      <el-descriptions-item label="Telephone"> {{ report.phone }} </el-descriptions-item>
+ 
+      
+      <el-descriptions-item label="Documentation" v-if="report.documents && report.documents.length">
+          <div v-for="(doc, index) in report.documents" :key="index">
+            <el-button  @click="downloadFile(doc)"   link type="primary" size="small" :icon="Download">{{ doc.name }}</el-button>
+          </div>
+        </el-descriptions-item>
+
+
     </el-descriptions>
+  
+    
 
 
 
