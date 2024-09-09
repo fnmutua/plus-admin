@@ -83,6 +83,19 @@ const schema = reactive<FormSchema[]>([
     }
   },
   {
+    field: 'phone',
+    label: t('Phone'),
+    value: '',
+    component: 'Input',
+    colProps: {
+      span: 24
+    },
+    componentProps: {
+      placeholder: t('Phone')
+    }
+  },
+
+  {
     field: 'username',
     label: t('Username'),
     value: '',
@@ -103,7 +116,7 @@ const schema = reactive<FormSchema[]>([
       span: 24
     },
     componentProps: {
-      placeholder: t('login.usernamePlaceholder'),
+      placeholder: t('Email'),
       style: {
         width: '100%',
         paddingTop: '10px'
@@ -289,8 +302,15 @@ const rules: FormRules = {
   email:[{ validator: validateEmail, trigger: 'blur' }  ], 
   password: [{ validator: passwordValidator, trigger: 'blur' }],
   county_id: [required()],
-  agree_terms: [{ validator: validateAgreeTerms, trigger: 'change' }]
-  
+  agree_terms: [{ validator: validateAgreeTerms, trigger: 'change' }],
+  phone: [
+    { required: true, message: 'Phone number is required' },
+    { 
+      pattern: /^0[17]\d{8}$/, 
+      message: 'Please enter a valid Kenyan phone number', 
+      trigger: 'blur' 
+    }
+  ]
 }
 
 
@@ -335,7 +355,7 @@ const loginRegister = async () => {
   <el-card>
   <Form
 :schema="schema" :rules="rules" label-position="side" hide-required-asterisk  
-    class="dark:(border-1 border-[var(--el-border-color)] border-solid)" @register="register">
+    class="dark:(border-1 border-[var(--el-border-color)] border-solid)  mb-5" @register="register">
     <template #title>
       <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('login.register') }}</h2>
     </template>
@@ -346,7 +366,7 @@ const loginRegister = async () => {
           {{ t('login.register') }}
         </ElButton>
       </div>
-      <div class="w-[100%] mt-15px">
+      <div class="w-[100%] mt-8px">
         <ElButton class="w-[100%]" @click="toLogin">
           {{ t('login.hasUser') }}
         </ElButton>
