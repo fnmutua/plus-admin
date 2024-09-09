@@ -49,7 +49,7 @@ async function sendSMS(sms_obj, admins_phones) {
   // Message to be sent to the admins
   let adminMessage = 
     "Dear Admin, a new account has been registered for your review. " +
-    "The user's name is " + sms_obj.name + ". " +
+    "The user's name is " + sms_obj.name + "(" + sms_obj.phone+ "). "+
     "Please review the account at the following link: " +
     "https://kesmis.go.ke/users/new";
 
