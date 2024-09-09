@@ -93,6 +93,7 @@ exports.signup = (req, res) => {
   User.create({
     username: req.body.username.trim().toLowerCase(),
     name: req.body.name,
+    phone: req.body.phone,
     email: req.body.email,
     avatar: req.body.avatar,
     county_id: req.body.county_id,

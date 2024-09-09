@@ -37,7 +37,7 @@ module.exports = function (sequelize, DataTypes) {
         defaultValue: false
       },
       phone: {
-        type: DataTypes.BIGINT
+        type: DataTypes.STRING
       },
       resetPasswordToken: {
         type: DataTypes.STRING(255),
