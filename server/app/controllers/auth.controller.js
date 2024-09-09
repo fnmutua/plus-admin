@@ -528,27 +528,72 @@ exports.signin = async (req, res) => {
   console.log(clientIp);
   instlog.source = clientIp;
 
-  console.log('Logging in:', req.body.username)
+  console.log('Logging in:', req.body.username,req.body.email)
  // const username = req.body.username.trim();
  
+
+ let whereClause = [];
+
+        if(req.body.username) {
+          whereClause.push({
+            username: {
+              [Op.iLike]: req.body.username.trim().toLowerCase()
+            }
+          });
+        }
+
+        if(req.body.username) {
+          whereClause.push({
+            email: {
+              [Op.iLike]: req.body.username.trim().toLowerCase()
+            }
+          });
+        }
+
+        if(req.body.username) {
+          whereClause.push({
+            phone: {
+              [Op.iLike]: req.body.username.trim().toLowerCase()
+            }
+          });
+        }
+
+
+        if(req.body.phone) {
+          whereClause.push({
+            phone: {
+              [Op.iLike]: req.body.phone.trim().toLowerCase()
+            }
+          });
+        }
+
+
+        console.log('Logging in whereClause:', whereClause)
+
+
+ 
     User.findOne({
-      where: {
-        [Op.or]: [
-          {
-            username: {  // chek user input against username 
-              [Op.iLike]: req.body.username.trim().toLowerCase()
+      // where: {
+      //   [Op.or]: [
+      //     {
+      //       username: {  // chek user input against username 
+      //         [Op.iLike]: req.body.username.trim().toLowerCase()
+      //       }
+      //     },
+      //     {
+      //       email: { // we test what user has put against   email
+      //         [Op.iLike]: req.body.username.trim().toLowerCase()
+      //       }
+      //     }
+      //   ]
+      // }
+      where:{ [Op.or]:
+              whereClause
             }
-          },
-          {
-            email: { // we test what user has put against   email
-              [Op.iLike]: req.body.username.trim().toLowerCase()
-            }
-          }
-        ]
-      }
     })
     .then(async (user) => {
     
+      console.log(user)
       if (!user) {
         instlog.userId = 0
         instlog.userName = req.body.username
@@ -629,6 +674,7 @@ exports.signin = async (req, res) => {
       })
     })
     .catch((err) => {
+      console.log(err)
       res.status(500).send({ message: err.message })
     })
   

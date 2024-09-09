@@ -343,7 +343,12 @@ const loginRegister = async () => {
 
         const res = await registerApi(formData)
         console.log('After Registre', res)
-      } finally {
+      }
+      catch (e) {
+            // Handle any JSON parsing errors
+            console.error( 'Errors');
+          }
+      finally {
         loading.value = false
       }
     }
