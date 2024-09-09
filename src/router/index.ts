@@ -792,7 +792,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Import',
           icon: 'mdi:database-plus',
-          role: ['admin', 'super_admin', 'staff'  ] ,
+          role: ['admin', 'super_admin', 'staff','monitoring' ,'consultant' ] ,
           locationLevel:['national','county','settlement'],
 
           alwaysShow: false
@@ -951,7 +951,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'M&E',
       icon: 'uis:graph-bar',
-      role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+      role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring'] ,
       locationLevel:['national','county' ],
 
       alwaysShow: false
@@ -1123,7 +1123,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'Repository',
       icon: 'material-symbols:home-storage-rounded',
-      role: [ 'super_admin',  'admin','staff' ] ,
+      role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring'] ,
       locationLevel:['national','county','settlement'],
       alwaysShow: false
     },
@@ -1251,7 +1251,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'Interventions',
       icon: 'mdi:office-building-marker-outline',
       hidden: true,
-      role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
+      role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring'] ,
       locationLevel:['national'],
 
     },
