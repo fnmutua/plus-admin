@@ -8,15 +8,13 @@ import { ElMessage } from 'element-plus'
 import {
   Plus,
   Edit,
-  Download,
-  Filter,
   Delete,
   UploadFilled,
   Position, Back,
   InfoFilled
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, watch, onMounted, nextTick, computed } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
@@ -34,7 +32,6 @@ import { getModelSpecs } from '@/api/fields'
 import { BatchImportUpsert } from '@/api/settlements'
 import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
-import xlsx from "json-as-xlsx"
 import {   getOneGeo  } from '@/api/settlements'
 
 
@@ -42,7 +39,6 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 
-import DownloadToCSV from '@/views/Components/DownloadToCSV.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 
@@ -62,13 +58,14 @@ mapboxgl.accessToken = MapBoxToken;
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
-const userInfo =  (appStore.getUserInfo)
+const userInfo = wsCache.get(appStore.getUserInfo)
 
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
 
 console.log("showAdminButtons--->", showAdminButtons.value)
+console.log("userInfo--->", userInfo)
 
 
 
@@ -390,38 +387,7 @@ const projectOptionsAll = ref([])
 const indicatorsOptions = ref([])
 const indicatorsOptionsFiltered = ref([])
 
-
-const getProjects = async () => {
-
-  const formData = {
-    curUser: 1,
-    model: 'project',
-    searchField: 'name',
-    searchKeyword: '',
-    assocModel: '',
-    filters: [],
-    filterValues: [],
-    associated_multiple_models: ['project' ],
-  };
-
-  const res = await getSettlementListByCounty(formData);
-  console.log('All Proejcts Response:', res);
-
-
-  res.data.forEach((project) => {
-    console.log('==project===>', project); 
-    const prj = {
-          value: project.id,
-          label: project.title,
-          implementation_scope: project.implementation_scope,
-          programme_implementation_id: project.implementation_id,
-        };
-        projectOptions.value.push(prj);
-        projectOptionsAll.value.push(prj);
-  
-  })
-}
-
+ 
 const getIndicatorNames = async () => {
   console.log('getIndicatorNames >>>>>>>>>>>>>>>>>>>>>>>>>>>>');
 
@@ -839,6 +805,7 @@ const changeLocation = async (location: any) => {
   const selected_location = project_locations.value.find(
     (item) => item.id === location
   );
+
   console.log('selected_location', selected_location)
 
 
@@ -849,7 +816,7 @@ const changeLocation = async (location: any) => {
   //ruleForm.project_location_id = location.id
 
 
-  console.log('changeLocation', location)
+  console.log('changeLocationruleForm', ruleForm)
 
 }
 
