@@ -247,7 +247,7 @@ const addDocument = () => {
         v-model="searchQuery" 
         placeholder="Search documents..." 
         clearable
-        style="margin-left: 10px ; width:95%"
+        style="margin-left: 10px ; width:90%"
        
         @input="onSearch"
       />
@@ -302,7 +302,7 @@ const addDocument = () => {
   height: 150px;
   padding: 0;
   margin: 0;
-  width: 60%;
+  width: 90%;
 
   list-style: none;
 }
@@ -345,7 +345,7 @@ const addDocument = () => {
 
 .document-name {
   flex-grow: 1;
-  max-width: 70%; /* Takes up 70% of the space */
+  max-width: 90%; /* Takes up 70% of the space */
   margin-right: 10px;
   color: rgb(71, 111, 186);
   word-wrap: break-word; /* Ensures text wraps */
@@ -357,7 +357,7 @@ const addDocument = () => {
   display: flex;
   justify-content: space-between;
   margin-bottom: 10px;
-  width:60%
+  width:90%
 }
 
 .el-button {
