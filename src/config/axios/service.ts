@@ -74,7 +74,8 @@ service.interceptors.response.use(
       if ( response.data.message) {
         ElMessage({
           message: response.data.message,
-          type: 'success'
+          type: 'success',
+          duration:5000,
         })    // felix - show message on success request 
 
       }
@@ -100,7 +101,13 @@ service.interceptors.response.use(
     // }
 
     
-     ElMessage.error(error.response.data.message )   /// Revist Felix 
+     //ElMessage.error(error.response.data.message )   /// Revist Felix 
+     ElMessage({
+      message: error.response.data.message,
+      type: 'error',
+      duration:5000,
+    })    // felix - show message on success request 
+
     return Promise.reject(error)
   }
 )

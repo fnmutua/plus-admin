@@ -6,6 +6,12 @@
   </div>
 
   <el-dialog title="Select the columns to include in the excel sheet" v-model="showDownloadDialog" draggable width="60%">
+    <el-checkbox
+    v-model="checkAll"
+    @change="handleCheckAllChange"
+  >
+    Select all Fields
+  </el-checkbox>
     <el-form>
       <el-form-item>
         <el-row :gutter="20">
@@ -61,6 +67,19 @@ const selectedFields = ref([]);
 const availableFields = ref([]);
 const currentModel = ref();
 const associated_models = ref();
+
+
+const checkAll = ref(false);
+
+// Handle "Check All" behavior
+const handleCheckAllChange = (val) => {
+      if (val) {
+        selectedFields.value = [...availableFields.value]; // Select all fields
+      } else {
+        selectedFields.value = []; // Deselect all fields
+      }
+    };
+
 
 const selectDownload = () => {
   showDownloadDialog.value = true;
@@ -170,18 +189,13 @@ const extractData = (data, selectedFields) => {
   });
 };
 
-const downloadCSV = async () => {
+const xdownloadCSV = async () => {
   if (!selectedFields.value.length) {
     return ElMessage.warning("Please select at least one field.");
   }
 
   const extractedData = extractData(tableDataList.value, selectedFields.value);
-
-  // const columns = selectedFields.value.map((field) => ({
-  //   column: field,
-  //   type: String,
-  // }));
-
+ 
 
   const columns = selectedFields.value.map((field) => {
   // Remove everything before and including the first underscore
@@ -194,13 +208,7 @@ const downloadCSV = async () => {
 });
 
 
-  // const rows = extractedData.map((row) =>
-  //   selectedFields.value.map((field) => ({
-  //     type: String,
-  //     value: row[field] ? String(row[field]) : '',
-  //   }))
-  // );
-
+  
   
   const rows = extractedData.map((row) =>
     selectedFields.value.map((field) => ({
@@ -220,6 +228,62 @@ const downloadCSV = async () => {
     fileName: 'data.xlsx',
   });
 };
+
+
+const downloadCSV = async () => {
+  if (!selectedFields.value.length) {
+    return ElMessage.warning("Please select at least one field.");
+  }
+
+  const extractedData = extractData(tableDataList.value, selectedFields.value);
+
+  // Clean up the field names and prepare column headers
+  const columns = selectedFields.value.map((field) => {
+    const cleanedField = field.replace(/^.*?_/, ''); // Remove prefix
+    return {
+      column: cleanedField.replace(/\./g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+      type: String,
+    };
+  });
+
+  // Create rows for the data, with each cell wrapped and in italic
+  const rows = extractedData.map((row) =>
+    selectedFields.value.map((field) => ({
+      type: String,
+      //fontStyle: 'italic',
+      wrap: true,
+      value: row[field] ? String(row[field]) : '',
+    }))
+  );
+
+  // Add headers as the first row
+  rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
+
+  // Calculate column widths based on the maximum length of data in each column
+  const columnWidths = columns.map((col, index) => {
+    // Get the column header length
+    let maxLength = col.column.length;
+
+    // Check each row's value in this column
+    extractedData.forEach((row) => {
+      const cellValue = row[selectedFields.value[index]] ? String(row[selectedFields.value[index]]) : '';
+      if (cellValue.length > maxLength) {
+        maxLength = cellValue.length;
+      }
+    });
+
+    // Return width (you can scale it by a factor, e.g., multiplying by a constant for better spacing)
+    return maxLength + 5; // Add padding for better readability
+  });
+
+  // Export the file with calculated column widths
+  await writeXlsxFile(rows, {
+    fileName: 'data.xlsx',
+    columns: columnWidths.map((width) => ({ width })),
+  });
+};
+
+
 
 const getFilteredData = async () => {
   const formData = {};

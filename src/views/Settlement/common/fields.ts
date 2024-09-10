@@ -182,9 +182,9 @@ const formFields: Field[][] = [
     { id: "btn17", name: "development", label: "Level of Development", type: "select", multiselect: 'true', adminUnit: false, options: levelDevt.value },
     { id: "btn18", name: "typical_building_materials", label: "Typical Building Materials", type: "select", multiselect: 'true', adminUnit: false, options: buildingMaterials.value },
     { id: "btn19", name: "avg_dist_between", label: "Dist. between structures (M)", type: "number", multiselect: 'true', adminUnit: false, options: [] },
-    { id: "btn20", name: "dist_town", label: "Distance to Urban Center", type: "number", adminUnit: false, multiselect: 'false', options: [] },
-    { id: "btn21", name: "dist_trunk", label: "Distance to Trunk Road", type: "number", adminUnit: false, multiselect: 'false', options: [] },
-    { id: "btn22", name: "encumbrance", label: "Any court cases/claims?", type: "select", multiselect: 'false', adminUnit: false, options: yesNoUnknown.value },
+    { id: "btn20", name: "dist_town", label: "Distance to Urban Center (Km)", type: "number", adminUnit: false, multiselect: 'false', options: [] },
+    { id: "btn21", name: "dist_trunk", label: "Distance to Trunk Road (Km)", type: "number", adminUnit: false, multiselect: 'false', options: [] },
+    { id: "btn22", name: "encumbrance", label: "Are there any court cases/claims?", type: "select", multiselect: 'false', adminUnit: false, options: yesNoUnknown.value },
     {
       id: "btn23", name: "isActive", label: "Status", type: "select", multiselect: 'false', adminUnit: false,
       options: [

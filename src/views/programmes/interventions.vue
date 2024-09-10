@@ -2063,9 +2063,7 @@ size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear
     </el-row>
 
 
-    <el-tabs @tab-click="onClickTab" v-model="activeName" type="border-card" style="width: 100%; margin-top: 5px;">
-      <el-tab-pane label="Interventions" name="list">
-        <el-table
+    <el-table
 ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
           :row-class-name="tableRowClassName" flexible @expand-change="handleExpand">
 
@@ -2230,7 +2228,7 @@ type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotD
                 <el-tooltip content="Delete" placement="top">
                   <el-popconfirm
 confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to delete this report?"
+                    icon-color="#626AEF" title="Are you sure to delete this project?"
                     @confirm="DeleteProject(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete circle />
@@ -2241,23 +2239,11 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
             </template>
           </el-table-column>
         </el-table>
-
         <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           v-model:page-size="pageSize" :page-sizes="[3, 5, 10, 20, 50, 100]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-      </el-tab-pane>
-
-
-
-
-      <el-tab-pane label="Map" name="Map" :disabled="tabDisabled">
-        <div id="mapContainer" class="basemap"></div>
-      </el-tab-pane>
-    </el-tabs>
-
-
-
+  
      
 
     <el-dialog v-model="showUploadDialog" title="Upload a Zipped Shapefile/Geojson/KML/KMZ" width="30%" draggable>

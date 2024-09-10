@@ -8,7 +8,7 @@ import { ElMessage } from 'element-plus'
 import {
   Plus,
   Edit,
-  Delete,
+  Delete,CircleCloseFilled,
   UploadFilled,
   Position, Back,
   InfoFilled
@@ -184,17 +184,11 @@ const rules = reactive<FormRules>({
   ],
 
 
-  comments: [
-    { required: true, message: 'Required', trigger: 'blur' },
-  ],
+  // comments: [
+  //   { required: true, message: 'Required', trigger: 'blur' },
+  // ],
 
-
-
-
-
-
-
-
+ 
 
 })
 
@@ -1488,6 +1482,13 @@ function toggleComponent(row) {
 }
 
 
+function disabledFutureDates(date) {
+      const today = new Date();
+      return date.getTime() > today.getTime(); // Disable dates after today
+    }
+  
+
+
 // component for docuemnts 
 const rowData = ref()
 const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
@@ -2120,7 +2121,8 @@ filterable v-model="ruleForm.indicator_category_id" @change="changeIndicator"
             </el-input-number>
           </el-form-item>
           <el-form-item id="btn10" label="Date" prop="date">
-            <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" style="width: 100%;" />
+            <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" style="width: 100%;"     :disabled-date="disabledFutureDates"
+            />
           </el-form-item>
         </el-col>
 

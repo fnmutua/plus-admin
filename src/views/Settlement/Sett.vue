@@ -2021,19 +2021,21 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
         <el-table
 :data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100%" border
           :row-class-name="tableRowClassName" @expand-change="handleExpand">
+        
+
+          
           <el-table-column type="expand">
-            <template #default="props">
-              <div m="4">
-                <h3>Documents</h3>
-                <div>
-                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
-                </div>
-                <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                  :icon="Plus" circle @click="toggleComponent(props.row)" />
-              </div>
-            </template>
-          </el-table-column>
+        <template #default="props">
+          
+             <div>
+              <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+                @openDialog="toggleComponent(props.row)" />
+            </div>
+ 
+        </template>
+      </el-table-column>
+
           <el-table-column label="Id" width="80" prop="id" sortable>
         <template #default="scope">
           <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
