@@ -86,7 +86,7 @@ const formFields: Field[][] = [
 
     { name: "start_date", label: "Commencement Date",  id:"btn5",  type: "date", multiselect: 'false', adminUnit: false,      options: [] },
     { name: "end_date", label: "Completion Date", id:"btn6",  type: "date", multiselect: 'false',adminUnit: false,     options: [] },
-    { name: "cost", label: "Total Project Cost", id:"btn7",   min: "0", type: "number", multiselect: 'false',adminUnit: false,  options: [] },
+    { name: "cost", label: "Total Project Cost", id:"btn7",   min: "0", type: "money", multiselect: 'false',adminUnit: false,  options: [] },
     {name: "sourceFunding", label: "Source of Funding", id:"btn8",  type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions },
     { name: "contractor", label: "Contractor/Implementer", id:"btn9",  type: "select_add", multiselect: 'false', adminUnit: false,options: contractorOptions.value, source_model:'SettingsContractor' }, 
   
