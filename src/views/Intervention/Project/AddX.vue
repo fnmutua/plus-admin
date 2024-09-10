@@ -1281,6 +1281,21 @@ const tourSteps = ref([
     content: 'Choose the delivery unit responsible for the project.',
     visible:true
   },
+
+  {
+    step: 0,
+    target: '#btn41',
+    title: 'Scope',
+    content: 'At What level is the project being Implemented?',
+    visible:true
+  },
+  {
+    step: 0,
+    target: '#btn7',
+    title: 'Total Project Cost',
+    content: 'Enter the total cost of the project.',
+    visible:true
+  },
   {
     step: 0,
     target: '#btn5',
@@ -1295,13 +1310,7 @@ const tourSteps = ref([
     content: 'Select the end date of the project.',
     visible:true
   },
-  {
-    step: 0,
-    target: '#btn7',
-    title: 'Total Project Cost',
-    content: 'Enter the total cost of the project.',
-    visible:true
-  },
+
   {
     step: 0,
     target: '#btn8',

@@ -10,9 +10,8 @@ import {
 } from "./index.ts";
  
 const steps = [
-  { title: "Profile" },
-  { title: "Details" },
- 
+  { title: "Project Details" },
+  
  
 ];
 
@@ -43,11 +42,14 @@ interface FormData {
   [key: string]: any;
 }
 
-const yes_no = [
-  { label: "Yes", value: "yes" },
-  { label: "No", value: "no" },
-];
+ 
 
+
+const scope = [
+  { label: "National", value: "national" },
+  { label: "County", value: "county" },
+  { label: "Settlement", value: "settlement" },
+];
 const sourceFundingOptions = [
   { label: "Gok", value: 1 },
   { label: "IDA", value: 2 },
@@ -83,19 +85,20 @@ const formFields: Field[][] = [
     },
 
     {name: "implementation_id", label: "Delivery Unit", id:"btn4",  type: "select", multiselect: 'false', adminUnit: false,options: implementationOptions.value },
+    {name: "implementation_scope", label: "Scope", id:"btn41",  type: "select", multiselect: 'false', adminUnit: false,options: scope },
+    { name: "cost", label: "Total Project Cost", id:"btn7",   min: "0", type: "money", multiselect: 'false',adminUnit: false,  options: [] },
 
     { name: "start_date", label: "Commencement Date",  id:"btn5",  type: "date", multiselect: 'false', adminUnit: false,      options: [] },
     { name: "end_date", label: "Completion Date", id:"btn6",  type: "date", multiselect: 'false',adminUnit: false,     options: [] },
-    { name: "cost", label: "Total Project Cost", id:"btn7",   min: "0", type: "money", multiselect: 'false',adminUnit: false,  options: [] },
     {name: "sourceFunding", label: "Source of Funding", id:"btn8",  type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions },
     { name: "contractor", label: "Contractor/Implementer", id:"btn9",  type: "select_add", multiselect: 'false', adminUnit: false,options: contractorOptions.value, source_model:'SettingsContractor' }, 
   
   ],
 
  [
-  { name: "activities", label: "Project Activities", id:"btn10",  type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
+  // { name: "activities", label: "Project Activities", id:"btn10",  type: "select", multiselect: 'true', adminUnit: false,  options: activityOptions.value },
 
-   { name: "Location", label: "Location", id:"btn11",   type: "select_remote", multiselect: 'false', adminUnit: false, options:cascadedAdminOptions.value },
+  //  { name: "Location", label: "Location", id:"btn11",   type: "select_remote", multiselect: 'false', adminUnit: false, options:cascadedAdminOptions.value },
 
  ],
 
@@ -112,6 +115,11 @@ const formRules: FormRules = reactive({
         { required: true, message: 'Name is required', trigger: 'blur' }
     ],
 
+    implementation_scope: [
+      { required: true, message: 'Scope is required', trigger: 'blur' }
+  ],
+
+    
     status: [
       { required: true, message: 'Status is required', trigger: 'blur' }
     ],

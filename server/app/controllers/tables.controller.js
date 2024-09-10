@@ -955,17 +955,19 @@ exports.modelCreateOneRecord = (req, res) => {
       // send the ouput to be put send to ODK central
       sendSettDataToODK([item])
      }
-    if (reg_model === 'project') {
-      var activity_list = req.body.activities;
-      const list_activities = await db.models.activity.findAll({
-        where: {
-          id: activity_list,
-        },
-      });
+    // if (reg_model === 'project') {
+    //   var activity_list = req.body.activities;
+    //   const list_activities = await db.models.activity.findAll({
+    //     where: {
+    //       id: activity_list,
+    //     },
+    //   });
 
-      // await item.addActivities(list_activities)
-      await item.setActivities(list_activities);
-    } else if (reg_model === 'dashboard_section_chart') {
+    //   // await item.addActivities(list_activities)
+    //   await item.setActivities(list_activities);
+    // } 
+    
+    else if (reg_model === 'dashboard_section_chart') {
       var indicator_list = req.body.indicator_id;
       const list_indicators = await db.models.indicator.findAll({
         where: {
@@ -999,9 +1001,10 @@ exports.modelCreateOneRecord = (req, res) => {
       });
     } else {
       // Handle other errors
-      console.error('Error creating indicator:', error);
+
+      console.log('Error creating record:', error);
       return res.status(500).json({
-        message: 'An unexpected error occurred while creating the indicator.'
+        message: 'An unexpected error occurred while creating the record.'
       });
     }
 
