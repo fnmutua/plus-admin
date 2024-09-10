@@ -279,7 +279,10 @@ const getModeldefinition = async (selModel) => {
 
 }
 
+const loading=ref(false)
 const getFilteredData = async (selFilters, selfilterValues) => {
+
+  loading.value=true
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -304,6 +307,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   console.log('Reports collected........', res)
   tableDataList.value = res.data
+  loading.value=false
  // tableDataList.value = res.data.filter(item => item.indicator_category.indicator.type === 'output');
 
   total.value = res.total
@@ -1575,18 +1579,16 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
 
     <el-table
 :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
-      @expand-change="handleExpand">
+      @expand-change="handleExpand"  v-loading="loading">
       <el-table-column type="expand">
         <template #default="props">
-          <div m="4">
-            <h3>Documents</h3>
-            <div>
-              <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
-            </div>
-            <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-              :icon="Plus" circle @click="toggleComponent(props.row)" />
+
+          <div>
+            <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+              @openDialog="toggleComponent(props.row)" />
           </div>
+
         </template>
       </el-table-column>
 

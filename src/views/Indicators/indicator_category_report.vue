@@ -346,7 +346,10 @@ const getModeldefinition = async (selModel) => {
 
 }
 
+const loading =ref(false)
 const getFilteredData = async (selFilters, selfilterValues) => {
+
+  loading.value=true
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -374,7 +377,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   // tableDataList.value = res.data.filter(item => item.indicator_category.indicator_level === 'activity');
 
   tableDataList.value=res.data
-
+  loading.value=false
 
   //tableDataList.value = res.data
   total.value = res.total
@@ -1931,7 +1934,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
 
     <el-table
 :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
-      @expand-change="handleExpand" ref="tableRef">
+      @expand-change="handleExpand" ref="tableRef"  v-loading="loading">
 
       <el-table-column type="expand">
         <template #default="props">
