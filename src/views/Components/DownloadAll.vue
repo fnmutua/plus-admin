@@ -7,6 +7,13 @@
 
   <el-dialog  v-model="showSelectFields" title="Select Fields" width="70%">
     <div>
+      <el-checkbox
+    v-model="checkAll"
+    @change="handleCheckAllChange"
+  >
+    Check all
+  </el-checkbox>
+ 
     <el-row v-if="model_fields && model_fields.length > 0">
       <el-col :span="6" v-for="(field, index) in model_fields" :key="index">
         <el-checkbox v-model="selectedFields" :label="field">{{ field }}</el-checkbox>
@@ -25,7 +32,7 @@
 <script setup>
 import { ref, onMounted, defineProps,  toRefs } from 'vue';
 import {
-  ElButton, ElTooltip, ElDialog, ElRow, ElCol, ElMessage, ElCheckbox
+  ElButton, ElTooltip, ElDialog, ElRow, ElCol, ElMessage, ElCheckbox,ElDivider
   // Import other Element Plus components here
 } from 'element-plus';
 import {
@@ -54,6 +61,19 @@ const model_fields = ref([])
 
 const model = ref()
 const associated_multiple_models = ref([])
+
+
+ 
+const checkAll = ref(false);
+
+// Handle "Check All" behavior
+const handleCheckAllChange = (val) => {
+      if (val) {
+        selectedFields.value = [...model_fields.value]; // Select all fields
+      } else {
+        selectedFields.value = []; // Deselect all fields
+      }
+    };
 
 onMounted(() => {
   console.log('data----x', props.model);
