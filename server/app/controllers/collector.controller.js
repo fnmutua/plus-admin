@@ -796,3 +796,49 @@ exports.modelDataCollectorCSVWithMedia = (req, res) => {
     }
   });
 };
+
+
+
+exports.modelGetSubmissions = (req, res) => {
+  // console.log('Body', req.body);
+ 
+   // Extract email and password from req.body
+   const { project, form, token } = req.body;
+ 
+   
+
+   let url 
+   url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions`;
+
+       
+   // Login and get a token
+   request({
+     method: 'GET',
+     url: url,
+     headers: {
+       'Content-Type': 'application/json',
+       'Authorization': `Bearer ${token}`,
+     },
+     encoding: null, // This option ensures that the response is treated as binary data
+   }, function (error, response, body) {
+     if (!error && response.statusCode === 200) {
+        
+      const responseData = {
+        message: 'Data acquired Successfully',
+        code: '0000',
+        data: body.toString('base64'), // Convert binary data to base64
+      };
+
+      res.status(200).json(responseData);
+       
+     }
+     else {
+       // Handle errors here
+       console.error('Error:', error);
+       res.status(500).send({
+         error: 'Internal Server Error'
+       });
+     }
+   });
+ };
+ 
