@@ -80,3 +80,11 @@ export const getSubmitters = (data)  => {
    data    
  });
 };
+
+
+export const getSubmissions = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/submissions',
+   data    
+ });
+};
