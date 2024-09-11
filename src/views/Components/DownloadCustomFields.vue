@@ -1,7 +1,7 @@
 <template>
   <div v-loading="downloading" style="display: inline-block; margin-left: 5px">
     <el-tooltip content="Download" placement="top">
-      <el-button @click="selectDownload" type="primary" :icon="Finished" />
+      <el-button @click="selectDownload" type="primary" :icon="Download" />
     </el-tooltip>
   </div>
 
@@ -53,7 +53,7 @@ import { ElButton, ElTooltip, ElDialog, ElRow, ElCol, ElCheckbox, ElForm, ElIcon
 import { Finished } from '@element-plus/icons-vue';
 import writeXlsxFile from 'write-excel-file';
 import { getAllForDownload } from '@/api/settlements';
-import { Delete, Edit, Search, Share, List, Upload, Filter, Document } from '@element-plus/icons-vue';
+import { Delete, Edit, Search, Share, List, Upload, Filter,Download, Document } from '@element-plus/icons-vue';
 
 const props = defineProps({
   data: Array,

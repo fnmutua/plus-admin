@@ -7,7 +7,7 @@ import {  Back} from '@element-plus/icons-vue'
 
 import { ref,computed } from 'vue'
 import {
-  ElPagination, ElInput,
+  ElPagination, ElInput,ElSelect,ElOption,
   ElRow, ElTableV2, ElCard} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -18,6 +18,7 @@ import {
 import { watch,onMounted } from 'vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
+import { useRouter } from 'vue-router'
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -31,8 +32,6 @@ const pageSize = ref(10);
 const currentPage = ref(1);
 const width = ref(1080);
  
-
-
 // Function to update pageSize based on window width
 const updatePageSize = () => {
 
@@ -65,15 +64,7 @@ const projects =ref([])
 const forms =ref([])
 const loading =ref(false)
  
-
  
- 
-
-console.log("projects--->", projects.value)
-console.log("forms--->", forms.value)
-
-// temp data 
-
  
 
  
@@ -82,7 +73,7 @@ const loginUserToCollector = async () => {
     formData.email = "kisip.mis@gmail.com"
     formData.password = "Admin@2011"
 
- 
+    loading.value=true
 
 
     await loginCollector(formData).then((response) => {
@@ -119,7 +110,17 @@ const loginUserToCollector = async () => {
 
 const sec_officials =ref([])
 
+
+
+const countyOptions  =ref([])
+const settlementOptions  =ref([])
 const extractData = async (dataArray) => {
+
+  // Extract unique counties and settlements
+const uniqueCounties = new Set();
+const uniqueSettlements = new Set();
+
+
   // Clear the sec_officials array
   sec_officials.value = [];
 
@@ -129,6 +130,7 @@ const extractData = async (dataArray) => {
       existingOfficial.county === newOfficial.county &&
       existingOfficial.settlement === newOfficial.settlement &&
       existingOfficial.returning_officer === newOfficial.returning_officer &&
+      existingOfficial.npct_representative === newOfficial.npct_representative &&     
       existingOfficial.date === newOfficial.date &&
       existingOfficial.category === newOfficial.category &&
       existingOfficial.gender === newOfficial.gender &&
@@ -143,12 +145,26 @@ const extractData = async (dataArray) => {
   dataArray.forEach(data => {
     if (!data) return; // Skip if no data exists
 
+
+    // Etxract Counties 
+
+    if (data.group_location?.county) {
+        uniqueCounties.add(data.group_location.county);
+      }
+      //Extratc Settleemnts 
+      if (data.settlement_name) {
+        uniqueSettlements.add(data.settlement_name);
+      }
+
+
     // Ensure group_location and settlement_name exist before using them
     const official_details = {
       county: data.group_location?.county || "N/A",
       settlement: data.settlement_name || "N/A",
       returning_officer: data.grp_certification?.returning_officer || "N/A",
+      npct_representative: data.grp_certification?.npct_representative || "N/A",
       date: data.date || "N/A",
+      settlement: data.settlement_name || "N/A",
     };
 
     // Check if sec_officials array exists in each data object
@@ -173,7 +189,12 @@ const extractData = async (dataArray) => {
       });
     }
   });
+
+    countyOptions.value = Array.from(uniqueCounties).map(county => ({ label: county, value: county }));
+    settlementOptions.value = Array.from(uniqueSettlements).map(settlement => ({ label: settlement, value: settlement }));
+    console.log(  countyOptions.value )
 };
+
 
 
 const getSecData = async () => {  
@@ -253,7 +274,7 @@ const selectedAttributes = [
   'national_id',
   'mobile',
   'category',
-  
+  'npct_representative',
 ];
 
  
@@ -286,34 +307,51 @@ console.log(columnsx);
     };
 
 // Computed property for filtered data based on the search term
+
+const county_value =ref()
+const sett_value =ref()
 const filteredData = computed(() => {
-  const searchTerm = search.value.toLowerCase();
+  //const searchTerm = search.value.toLowerCase();
+  // if (searchTerm) {
+  //   return sec_officials.value.filter((data) => {
+  //     const nameMatch = data.name?.toLowerCase().includes(searchTerm);
+  //     const settlementMatch = data.settlement?.toLowerCase().includes(searchTerm);
+  //     const telephoneMatch = data.mobile?.toLowerCase().includes(searchTerm); // Assuming 'mobile' is the telephone number
+  //     const idMatch = data.national_id?.toLowerCase().includes(searchTerm); // Assuming 'national_id' is the unique identifier
+  //     const countyMatch = data.county?.toLowerCase().includes(searchTerm); // Assuming 'national_id' is the unique identifier
+  //     const NPCTMatch = data.npct_representative?.toLowerCase().includes(searchTerm); // Assuming 'national_id' is the unique identifier
 
-  if (searchTerm) {
-    return sec_officials.value.filter((data) => {
-      const nameMatch = data.name?.toLowerCase().includes(searchTerm);
-      const settlementMatch = data.settlement?.toLowerCase().includes(searchTerm);
-      const telephoneMatch = data.mobile?.toLowerCase().includes(searchTerm); // Assuming 'mobile' is the telephone number
-      const idMatch = data.national_id?.toLowerCase().includes(searchTerm); // Assuming 'national_id' is the unique identifier
-      const countyMatch = data.county?.toLowerCase().includes(searchTerm); // Assuming 'national_id' is the unique identifier
+  //     return nameMatch || settlementMatch || telephoneMatch || idMatch ||countyMatch ||NPCTMatch;
+  //   });
+  // }
 
-      return nameMatch || settlementMatch || telephoneMatch || idMatch ||countyMatch;
-    });
-  }
+  // return sec_officials.value; // Return all data if no search term
 
-  return sec_officials.value; // Return all data if no search term
+     const searchTerm = search.value.toLowerCase();
+        const selectedCounty = county_value.value;
+        const selectedSettlement = sett_value.value;
+  
+        return sec_officials.value.filter((data) => {
+          const countyMatch = selectedCounty ? data.county === selectedCounty : true;
+          const settlementMatch = selectedSettlement ? data.settlement === selectedSettlement : true;
+  
+          if (searchTerm) {
+            const nameMatch = data.name?.toLowerCase().includes(searchTerm);
+            const settlementTermMatch = data.settlement?.toLowerCase().includes(searchTerm);
+            const telephoneMatch = data.mobile?.toLowerCase().includes(searchTerm);
+            const idMatch = data.national_id?.toLowerCase().includes(searchTerm);
+            const NPCTMatch = data.npct_representative?.toLowerCase().includes(searchTerm);
+  
+            return countyMatch && settlementMatch && (nameMatch || settlementTermMatch || telephoneMatch || idMatch || NPCTMatch);
+          }
+  
+          return countyMatch && settlementMatch;
+        });
+
 });
 
     
-    // Computed property for filtered data based on the search term
-    const xfilteredData = computed(() => {
-      if (search.value) {
-        return sec_officials.value.filter((data) =>
-          data.name.toLowerCase().includes(search.value.toLowerCase())
-        );
-      }
-      return sec_officials.value; // Return all data if no search term
-    });
+    
 
     // Computed property for paginated data based on filtered results
     const paginatedData = computed(() => {
@@ -330,18 +368,65 @@ const filteredData = computed(() => {
       }
     });
 
+
+    const router = useRouter()
+
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+
+}
+
+
+
 </script>
 
 <template>
-  <el-card>
+  <el-card  v-loading="loading">
     <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
-
+ 
       <div class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
           Back
         </el-button>
       </div>
-      <el-input  v-model="search" placeholder="Search by Name, ID, Phone,County or Settlement" :onInput="filterTableData" style=" margin-right: 15px;" />
+
+      
+    <el-select
+      v-model="county_value"
+      placeholder="Filter County"
+      style=" margin-right: 5px;  width:250px"
+     clearable
+     filterable
+    >
+      <el-option
+        v-for="item in countyOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+    <el-select v-model="sett_value" 
+    placeholder="Filter Settlement"
+    clearable
+     filterable
+      style=" margin-right: 5px; width:350px">
+      <el-option
+        v-for="item in settlementOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select> 
+
+      <el-input clearable  v-model="search" placeholder="Search by Name, ID, Phone,County or Settlement" :onInput="filterTableData" style=" margin-right: 15px;" />
 
       <DownloadCustom    :data="paginatedData"   :all="sec_officials" />
 
@@ -355,7 +440,7 @@ const filteredData = computed(() => {
     <div>
     <el-table-v2
     
-      v-loading="loading"
+     
       :columns="columnsx"
       :data="paginatedData"
       :width="width"
