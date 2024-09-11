@@ -3,14 +3,12 @@
 
 
 import { ElButton} from 'element-plus'
-import {
-  
-  Back} from '@element-plus/icons-vue'
+import {  Back} from '@element-plus/icons-vue'
 
 import { ref } from 'vue'
 import {
   ElPagination, 
-  ElRow, ElTable, ElTableColumn,ElTableV2, ElCard} from 'element-plus'
+  ElRow, ElTable, ElTableColumn,ElTableV2, ElCard, ElIcon} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
@@ -32,7 +30,7 @@ console.log("userInfo--->", userInfo)
 
 const projects =ref([])
 const forms =ref([])
- 
+const loading =ref(false)
  
 
  
@@ -43,36 +41,7 @@ console.log("forms--->", forms.value)
 
 // temp data 
 
-const generateColumns = (length = 10, prefix = 'column-', props?: any) =>
-  Array.from({ length }).map((_, columnIndex) => ({
-    ...props,
-    key: `${prefix}${columnIndex}`,
-    dataKey: `${prefix}${columnIndex}`,
-    title: `Column ${columnIndex}`,
-    width: 150,
-  }))
-
-const generateData = (
-  columns: ReturnType<typeof generateColumns>,
-  length = 200,
-  prefix = 'row-'
-) =>
-  Array.from({ length }).map((_, rowIndex) => {
-    return columns.reduce(
-      (rowData, column, columnIndex) => {
-        rowData[column.dataKey] = `Row ${rowIndex} - Col ${columnIndex}`
-        return rowData
-      },
-      {
-        id: `${prefix}${rowIndex}`,
-        parentId: null,
-      }
-    )
-  })
-
-const columns = generateColumns(10)
-const data = generateData(columns, 1000)
-
+ 
 
  
 const loginUserToCollector = async () => { 
@@ -151,30 +120,45 @@ const extractData = async (dataArray) => {
 
       });
     }
+
   });
+
+   
 };
 
 
-const getSecData = async () => { 
-  var formData = {}
-  formData.project = "1"
-  formData.form = "sec_officials"
+const getSecData = async () => {  
+  // Define the formData object with necessary fields
+  const formData = {
+    project: "1",
+    form: "sec_officials",
+    token: localStorage.getItem('collectorToken')
+  };
 
+  // Set loading state
+ /// loading.value = true;
 
-  var userToken = localStorage.getItem('collectorToken');
-  formData.token =userToken
-  await getSubmissions(formData).then((response) => {
-    console.log('Subissions', response)
+  try {
+    // Await the response from getSubmissions
+    const response = await getSubmissions(formData);
 
-      extractData(response.data)
+    console.log('Submissions:', response);
 
-   console.log(sec_officials.value) 
+    // Await the extraction of data
+    await extractData(response.data);
 
-  })
+    // Log the extracted data
+    console.log(sec_officials.value); 
 
+  } catch (error) {
+    // Handle errors here
+    console.error('Error:', error);
+  } finally {
+    // Reset loading state
+    loading.value = false;
+  }
+};
 
- 
-}
  
 
 console.log("projects--->", projects.value)
@@ -240,15 +224,22 @@ console.log(columnsx);
       <!-- Download All Component -->
     </el-row>
 
-    <el-table-v2
-    :columns="columnsx"
-    :data="sec_officials"
-    :width="1920"
-    :height="650"
-    fixed
-  />
-  
+    <el-table-v2 v-loading=loading
+      :columns="columnsx"
+      :data="sec_officials"
+      :width="1050"
+      :height="650"
+      fixed
+    >
+    <template #empty>
+        <div class="flex items-center justify-center h-100%">
+          <el-empty />
+        </div>
+      </template>
 
+ 
+
+    </el-table-v2>
     
   </el-card>
  
