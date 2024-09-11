@@ -1241,27 +1241,47 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       },
   
       {
-        path: 'sec',
-        component: () => import('@/views/Grievances/SEC.vue'),
-       name: 'SEC',
+        path: 'commitees',
+        component: Layout,
+        name: 'Committees',
        meta: {
-         title: 'SEC',
+         title: 'Committees',
          icon:'fa:user-secret',
          role: [  'super_admin', 'grm' ] ,
          locationLevel:['national','county','settlement'],
 
-       }},
-       {
-        path: 'grc',
-        component: () => import('@/views/Grievances/Open.vue'),
-       name: 'GRC',
-       meta: {
-         title: 'GRC',
-         icon:'oui:security-signal-detected',
-         role: [  'super_admin', 'grm' ] ,
-         locationLevel:['national','county','settlement'],
+       },
+       children: [ 
+       
+         {
+          path: 'sec',
+            component: () => import('@/views/Grievances/SEC.vue'),
+          name: 'SEC',
+          meta: {
+            title: 'SEC',
+            icon:'fa:user-secret',
+            role: [  'super_admin', 'grm' ] ,
+            locationLevel:['national','county','settlement'],
 
-       }},
+          },
+         },
+         {
+          path: 'grc',
+          component: () => import('@/views/Grievances/GRC.vue'),
+         name: 'GRC',
+         meta: {
+           title: 'GRC',
+           icon:'oui:security-signal-detected',
+           role: [  'super_admin', 'grm' ] ,
+           locationLevel:['national','county','settlement'],
+  
+         }
+        },
+         
+       ]
+      
+      },
+      
 
 
 

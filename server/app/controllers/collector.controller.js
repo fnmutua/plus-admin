@@ -837,7 +837,7 @@ exports.modelGetSubmissions = (req, res) => {
       if (!error && response.statusCode === 200) {
          
         let objResults = JSON.parse(body)
-        console.log(objResults.value )
+     //   console.log(objResults.value )
         let tmp_objs = objResults.value 
 
         const objs = tmp_objs.filter(submission => {
@@ -870,6 +870,7 @@ exports.modelGetSubmissions = (req, res) => {
             grp_certification: submission.grp_certification,
             pcode: submission.group_location.pcode,
             sec_officials: submission.sec_officials,
+            grc_officials: submission.grc_officials,
             meta_instanceID: submission.meta?.instanceID,
             settlement_name: entitiesMap.get(submission.group_location.pcode) || 'Unknown', // Append settlement name
           };
