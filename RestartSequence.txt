@@ -95,3 +95,11 @@ WHERE id IN (
     FROM CTE
     WHERE rn > 1
 );
+
+
+
+https://learn.microsoft.com/en-us/windows/wsl/install
+
+
+sudo service redis-server start
+redis-cli
