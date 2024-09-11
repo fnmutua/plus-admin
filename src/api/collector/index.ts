@@ -88,3 +88,14 @@ export const getSubmissions = (data)  => {
    data    
  });
 };
+
+
+export const deleteSubmissions = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/submissions/delete',
+   data    
+ });
+};
+
+
+ 
