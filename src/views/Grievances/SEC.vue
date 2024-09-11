@@ -7,12 +7,12 @@ import {  Back} from '@element-plus/icons-vue'
 
 import { ref,computed } from 'vue'
 import {
-  ElPagination, ElInput,ElSelect,ElOption,
+  ElPagination, ElInput,ElSelect,ElOption, 
   ElRow, ElTableV2, ElCard} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
-    loginCollector,
+    loginCollector,deleteSubmissions,
     getSubmissions} from '@/api/collector'
 
 import { watch,onMounted } from 'vue';
@@ -230,6 +230,27 @@ const getSecData = async () => {
 };
 
  
+
+const deleteRecord = async (row) => {  
+  const formData = {
+    project: "1",
+    form: "sec_officials",
+    token: localStorage.getItem('collectorToken')
+  };
+
+  try {
+    // Await the response from getSubmissions
+    const response = await deleteSubmissions(formData);
+
+    console.log('Delete Submissions:', response);
+ 
+
+  } catch (error) {
+    // Handle errors here
+    console.error('Delete Error:', error);
+  }  
+
+}
 const totalItems = ref(); // Total number of rows (initially full dataset)
 
 
@@ -279,10 +300,10 @@ const selectedAttributes = [
 
  
 
-const columnsx = generateColumnsX(selectedAttributes);
+let columnsx = generateColumnsX(selectedAttributes);
 console.log(columnsx);
 
-
+ 
 
     const handlePageChange = (page) => {
       currentPage.value = page;

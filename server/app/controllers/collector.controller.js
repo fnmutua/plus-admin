@@ -808,9 +808,13 @@ exports.modelGetSubmissions = (req, res) => {
 
   // let url 
  //  url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions`;
-   let url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions?%24expand=*'
+ const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions?%24expand=*`;
 
-       
+ 
+  //const baseUrl = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions`;
+  //const url = `${baseUrl}?%24expand=*&%24filter=year(__system/createdAt) lt year(now())`;
+
+
    // Login and get a token
     // Login and get a token 
     request({
@@ -833,14 +837,19 @@ exports.modelGetSubmissions = (req, res) => {
       if (!error && response.statusCode === 200) {
          
         let objResults = JSON.parse(body)
-       //  console.log(objResults.value )
-        let objs = objResults.value 
-       
+        console.log(objResults.value )
+        let tmp_objs = objResults.value 
+
+        const objs = tmp_objs.filter(submission => {
+        // Handle null or undefined values for reviewState
+        const reviewState = submission.__system?.reviewState?.toLowerCase();
+        return reviewState !== 'rejected';
+      });
 
 
           // Retrieve entities
           let entities = await getEntities(token, project);
-          console.log(entities)
+         // console.log(entities)
 
           // Convert entities to a lookup map for quick access
           let entitiesMap = new Map();
@@ -890,3 +899,37 @@ exports.modelGetSubmissions = (req, res) => {
     });
  };
  
+
+
+ exports.modelDeleteSubmission = (req, res) => {
+  // Extract necessary fields from the request body
+  const { project, form, token, submissionId } = req.body;
+
+  // Construct the URL for deleting a specific submission
+  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionId}`;
+
+  // Make the DELETE request to the ODK Central API
+  request({
+    method: 'DELETE',
+    url: url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`, // Auth token from the request
+    },
+  }, function (error, response, body) {
+    // Handle response
+    if (!error && response.statusCode === 200) {
+      res.status(200).send({
+        message: 'Submission deleted successfully',
+        code: '0000',
+      });
+    } else {
+      // Log and handle errors
+      console.error('Error:', error || body);
+      res.status(500).send({
+        error: 'Internal Server Error',
+        message: body || error,
+      });
+    }
+  });
+};
