@@ -797,48 +797,96 @@ exports.modelDataCollectorCSVWithMedia = (req, res) => {
   });
 };
 
-
+ 
 
 exports.modelGetSubmissions = (req, res) => {
-  // console.log('Body', req.body);
  
    // Extract email and password from req.body
    const { project, form, token } = req.body;
  
    
 
-   let url 
-   url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions`;
+  // let url 
+ //  url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions`;
+   let url = 'https://collector.kesmis.go.ke/v1/projects/' + project + '/forms/' + form + '.svc/Submissions?%24expand=*'
 
        
    // Login and get a token
-   request({
-     method: 'GET',
-     url: url,
-     headers: {
-       'Content-Type': 'application/json',
-       'Authorization': `Bearer ${token}`,
-     },
-     encoding: null, // This option ensures that the response is treated as binary data
-   }, function (error, response, body) {
-     if (!error && response.statusCode === 200) {
-        
-      const responseData = {
-        message: 'Data acquired Successfully',
-        code: '0000',
-        data: body.toString('base64'), // Convert binary data to base64
-      };
+    // Login and get a token 
+    request({
+      method: 'GET',
+      url: url,
+    // url: `${url}?%24expand=*&$select=sec_officials`,  // Add query parameter here
+    // url: `${url}?%24expand=*&%24count=true&%24top=1`,  // Add query parameter here
+   // http://services.odata.org/V4/OData/OData.svc/Suppliers?$select=Name, ID, &$filter=ID eq 1
 
-      res.status(200).json(responseData);
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+  
+      },
+    }, async function (error, response, body) {
+     
+  
+     // console.log('------>', error)
+  
+      if (!error && response.statusCode === 200) {
+         
+        let objResults = JSON.parse(body)
+       //  console.log(objResults.value )
+        let objs = objResults.value 
        
-     }
-     else {
-       // Handle errors here
-       console.error('Error:', error);
-       res.status(500).send({
-         error: 'Internal Server Error'
-       });
-     }
-   });
+
+
+          // Retrieve entities
+          let entities = await getEntities(token, project);
+          console.log(entities)
+
+          // Convert entities to a lookup map for quick access
+          let entitiesMap = new Map();
+          entities.value.forEach(entity => {
+            entitiesMap.set(entity.code, entity.sett_name);
+          });
+
+
+
+ 
+ 
+              // Select only the desired fields and map settlements
+        let filteredData = objs.map(submission => {
+          return {
+            id: submission.id,
+            date: submission.today,
+            group_location: submission.group_location,
+            grp_certification: submission.grp_certification,
+            pcode: submission.group_location.pcode,
+            sec_officials: submission.sec_officials,
+            meta_instanceID: submission.meta?.instanceID,
+            settlement_name: entitiesMap.get(submission.group_location.pcode) || 'Unknown', // Append settlement name
+          };
+        });
+
+
+
+    
+
+     
+          res.status(200).send({
+            data: filteredData,
+            code: '0000',
+            token: token // Include the token in the response
+          });
+   
+  
+  
+   
+      } else {
+        // Handle errors here
+        console.error('Error:', error);
+        res.status(500).send({
+          error: 'Internal Server Error'
+        });
+      }
+    });
  };
  

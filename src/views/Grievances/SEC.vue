@@ -10,7 +10,7 @@ import {
 import { ref } from 'vue'
 import {
   ElPagination, 
-  ElRow, ElTable, ElTableColumn, ElCard} from 'element-plus'
+  ElRow, ElTable, ElTableColumn,ElTableV2, ElCard} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
@@ -32,70 +32,50 @@ console.log("userInfo--->", userInfo)
 
 const projects =ref([])
 const forms =ref([])
-const loginUserToCollector = async () => { 
-    var formData = {}
-    formData.email = "kisip.mis@gmail.com"
-    formData.password = "Admin@2011"
-
+ 
  
 
-
-    await loginCollector(formData).then((response) => {
-        // Assuming the token is in the response data
-        const token = response.token;
-        // Save the token to localStorage
-        localStorage.setItem('collectorToken', token);
-        console.log('collectorToken:', response);
-        const all_projects = JSON.parse(response.data);
-        console.log('projects:', projects);
-
-        // loop through each project 
-        all_projects.forEach(function (project) {
-            
-          projects.value.push(project)
-
-            project.formList.forEach(function (form) {
-                
-              forms.value.push(form)
-
-
-            })
-
-        })
-
-
-        getSecData()
-         
-    })
-
-
-
-}
-
-
-const getSecData = async () => { 
-  var formData = {}
-  formData.project = "1"
-  formData.form = "sec_officials"
-
-
-  var userToken = localStorage.getItem('collectorToken');
-  formData.token =userToken
-  await getSubmissions(formData).then((response) => {
-    console.log('Subissions', response)
-
-  })
-
-
  
-}
  
-await loginUserToCollector()
 
 console.log("projects--->", projects.value)
 console.log("forms--->", forms.value)
 
+// temp data 
 
+const generateColumns = (length = 10, prefix = 'column-', props?: any) =>
+  Array.from({ length }).map((_, columnIndex) => ({
+    ...props,
+    key: `${prefix}${columnIndex}`,
+    dataKey: `${prefix}${columnIndex}`,
+    title: `Column ${columnIndex}`,
+    width: 150,
+  }))
+
+const generateData = (
+  columns: ReturnType<typeof generateColumns>,
+  length = 200,
+  prefix = 'row-'
+) =>
+  Array.from({ length }).map((_, rowIndex) => {
+    return columns.reduce(
+      (rowData, column, columnIndex) => {
+        rowData[column.dataKey] = `Row ${rowIndex} - Col ${columnIndex}`
+        return rowData
+      },
+      {
+        id: `${prefix}${rowIndex}`,
+        parentId: null,
+      }
+    )
+  })
+
+const columns = generateColumns(10)
+const data = generateData(columns, 1000)
+
+
+
+ 
 </script>
 
 <template>
@@ -112,31 +92,16 @@ console.log("forms--->", forms.value)
       <!-- Download All Component -->
     </el-row>
 
+    <el-table-v2
+    :columns="columns"
+    :data="data"
+    :width="700"
+    :height="400"
+    fixed
+  />
+  
 
-    <el-table :data="tableDataList" :loading="loading" size="small" border>
-      <el-table-column label="#" width="80" prop="id" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-            <span>{{ scope.row.id }}</span>
-            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="Code" prop="code" sortable />
-      <el-table-column label="Complainant" prop="name" sortable />
-      <el-table-column label="Description" prop="description" sortable />
-      <el-table-column label="County" prop="county.name" sortable />
-      <el-table-column label="Settlement" prop="settlement.name" sortable />
-      
-   
-    </el-table>
-
-    <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    
   </el-card>
-
- 
  
 </template>
