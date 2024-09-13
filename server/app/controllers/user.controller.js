@@ -381,7 +381,9 @@ exports.modelCountyUsers = async (req, res) => {
       ],
       where: {},
       limit,
-      offset: (page - 1) * limit
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']] // Add this line to sort by ID in descending order
+
     };
 
     // Normalize and cast filter values based on the column type
@@ -665,7 +667,9 @@ exports.modelUserByName = async (req, res) => {
       },
       where: {},
       limit,
-      offset: (page - 1) * limit
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']] // Add this line to sort by ID in descending order
+
     };
 
     // Check if the current user has the 'super_admin' role
