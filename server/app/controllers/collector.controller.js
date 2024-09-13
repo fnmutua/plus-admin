@@ -941,19 +941,20 @@ exports.modelGetSubmissions = (req, res) => {
  
 exports.modelDeleteSubmission = (req, res) => {
   // Extract necessary fields from the request body
-  const { project, form, token, submissionId } = req.body;
+  const { project, form, token, submissionID } = req.body;
+
+  console.log( req.body)
   let id='uuid:abf3aa08-33b0-4801-8f15-119a1e8fa42a'
   // Construct the URL for deleting a specific submission
-  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${id}`;
+  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionID}`;
 
   // Construct the URL for updating the submission
   //let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionId}`;
 
   // Prepare the data to update the review status
-  const data = {
-    reviewStatus: 'rejected',
-  };
+  const reviewStates = ["approved", "hasIssues", "rejected"];
 
+//data.__system.reviewStatus='rejected'
   // Make the PATCH request to the ODK Central API to update the reviewStatus
   request({
     method: 'PATCH',
@@ -962,10 +963,13 @@ exports.modelDeleteSubmission = (req, res) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`, // Auth token from the request
     },
-    body: JSON.stringify(data), // Send the review status update in the body
+   // body: JSON.stringify(data), // Send the review status update in the body
+    body: JSON.stringify({ reviewState: reviewStates[2] }), // Set reviewState to 'rejected'
+
   }, function (error, response, body) {
     // Handle the response
     if (!error && response.statusCode === 200) {
+   //   console.log(response)
       res.status(200).send({
         message: 'Submission review status updated to rejected',
         code: '0000',
