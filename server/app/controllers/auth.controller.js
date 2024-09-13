@@ -611,20 +611,7 @@ exports.signin = async (req, res) => {
 
  
     User.findOne({
-      // where: {
-      //   [Op.or]: [
-      //     {
-      //       username: {  // chek user input against username 
-      //         [Op.iLike]: req.body.username.trim().toLowerCase()
-      //       }
-      //     },
-      //     {
-      //       email: { // we test what user has put against   email
-      //         [Op.iLike]: req.body.username.trim().toLowerCase()
-      //       }
-      //     }
-      //   ]
-      // }
+  
       where:{ [Op.or]:
               whereClause
             }
@@ -1091,10 +1078,16 @@ exports.signupViaApp = async (req, res) => {
 
   try {
     // Save User to Database
+    const { phone, name, password } = req.body;
+
+    // Ensure password is not null or undefined, otherwise provide a default value or handle as needed
+    const hashedPassword = password ? bcrypt.hashSync(password, 8) : null;
+
     const user = await User.create({
-      username: req.body.phone,
-      name: req.body.name,
-      phone: req.body.phone,
+      username: phone,
+      name: name,
+      phone: phone,
+      password: hashedPassword // Set to null if password is null
     });
 
     // Find roles based on request body
