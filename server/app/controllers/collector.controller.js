@@ -902,13 +902,17 @@ exports.modelGetSubmissions = (req, res) => {
  
 
 
- exports.modelDeleteSubmission = (req, res) => {
+ exports.xmodelDeleteSubmission = (req, res) => {
   // Extract necessary fields from the request body
   const { project, form, token, submissionId } = req.body;
 
+  let id='uuid:abf3aa08-33b0-4801-8f15-119a1e8fa42a'
   // Construct the URL for deleting a specific submission
-  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionId}`;
+  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${id}`;
 
+  console.log(url)
+  
+  // PUT /v1/projects/{projectId}/forms/{xmlFormId}/submissions/{instanceId}
   // Make the DELETE request to the ODK Central API
   request({
     method: 'DELETE',
@@ -922,6 +926,48 @@ exports.modelGetSubmissions = (req, res) => {
     if (!error && response.statusCode === 200) {
       res.status(200).send({
         message: 'Submission deleted successfully',
+        code: '0000',
+      });
+    } else {
+      // Log and handle errors
+      console.error('Error:', error || body);
+      res.status(500).send({
+        error: 'Internal Server Error',
+        message: body || error,
+      });
+    }
+  });
+};
+ 
+exports.modelDeleteSubmission = (req, res) => {
+  // Extract necessary fields from the request body
+  const { project, form, token, submissionId } = req.body;
+  let id='uuid:abf3aa08-33b0-4801-8f15-119a1e8fa42a'
+  // Construct the URL for deleting a specific submission
+  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${id}`;
+
+  // Construct the URL for updating the submission
+  //let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionId}`;
+
+  // Prepare the data to update the review status
+  const data = {
+    reviewStatus: 'rejected',
+  };
+
+  // Make the PATCH request to the ODK Central API to update the reviewStatus
+  request({
+    method: 'PATCH',
+    url: url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`, // Auth token from the request
+    },
+    body: JSON.stringify(data), // Send the review status update in the body
+  }, function (error, response, body) {
+    // Handle the response
+    if (!error && response.statusCode === 200) {
+      res.status(200).send({
+        message: 'Submission review status updated to rejected',
         code: '0000',
       });
     } else {

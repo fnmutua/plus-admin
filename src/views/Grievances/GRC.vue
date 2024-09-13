@@ -1,5 +1,5 @@
 <!-- eslint-disable prettier/prettier -->
-<script setup lang="ts">
+<script setup lang="tsx">
 
 
 import { ElButton} from 'element-plus'
@@ -19,6 +19,24 @@ import { watch,onMounted } from 'vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
 import { useRouter } from 'vue-router'
+
+
+
+import {
+ 
+  ElIcon,
+  ElTag,
+  ElTooltip,
+ 
+} from 'element-plus'
+
+
+
+
+
+
+
+
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -232,6 +250,8 @@ const getGRCData = async () => {
  
 
 const deleteRecord = async (row) => {  
+
+  console.log("Delete..............")
   const formData = {
     project: "1",
     form: "grc_officials",
@@ -332,19 +352,7 @@ console.log(columnsx);
 const county_value =ref()
 const sett_value =ref()
 const filteredData = computed(() => {
-  //const searchTerm = search.value.toLowerCase();
-  // if (searchTerm) {
-  //   return grc_officials.value.filter((data) => {
-  //     const nameMatch = data.name?.toLowerCase().includes(searchTerm);
-  //     const settlementMatch = data.settlement?.toLowerCase().includes(searchTerm);
-  //     const telephoneMatch = data.mobile?.toLowerCase().includes(searchTerm); // Assuming 'mobile' is the telephone number
-  //     const idMatch = data.national_id?.toLowerCase().includes(searchTerm); // Assuming 'national_id' is the unique identifier
-  //     const countyMatch = data.county?.toLowerCase().includes(searchTerm); // Assuming 'national_id' is the unique identifier
-  //     const NPCTMatch = data.npct_representative?.toLowerCase().includes(searchTerm); // Assuming 'national_id' is the unique identifier
 
-  //     return nameMatch || settlementMatch || telephoneMatch || idMatch ||countyMatch ||NPCTMatch;
-  //   });
-  // }
 
   // return grc_officials.value; // Return all data if no search term
 
@@ -404,6 +412,29 @@ const goBack = () => {
   }
 
 }
+
+
+const columns: Column<any>[] = [
+  {
+    key: 'operations',
+    title: 'Operations',
+    cellRenderer: ({ rowData }) => (
+      <>
+        <ElButton size="small">Edit</ElButton>
+        <ElButton onClick={() => deleteRecord(rowData)}  size="small" type="danger">
+          Delete
+        </ElButton>
+      </>
+    ),
+    width: 150,
+    align: 'center',
+  }
+]
+
+// Assuming columnsx is an array
+columnsx.push(...columns);
+
+//columnsx.push(columns)
 
 
 
