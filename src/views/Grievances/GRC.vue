@@ -183,6 +183,7 @@ const uniqueSettlements = new Set();
       npct_representative: data.grp_certification?.npct_representative || "N/A",
       date: data.date || "N/A",
       settlement: data.settlement_name || "N/A",
+      submissionID: data.meta_instanceID
     };
 
     // Check if grc_officials array exists in each data object
@@ -251,10 +252,11 @@ const getGRCData = async () => {
 
 const deleteRecord = async (row) => {  
 
-  console.log("Delete..............")
+  console.log("Delete..............", row)
   const formData = {
     project: "1",
     form: "grc_officials",
+    submissionID:row.submissionID,
     token: localStorage.getItem('collectorToken')
   };
 
