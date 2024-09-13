@@ -45,3 +45,11 @@ ALTER TABLE users ALTER COLUMN phone TYPE VARCHAR(50);
 
 
 INSERT INTO public.user_roles(roleid, userid) VALUES (0,9);
+
+
+# get newest Memebrs 
+
+SELECT id, username
+FROM users
+ORDER BY id DESC
+LIMIT 10;

@@ -90,6 +90,7 @@ exports.signup = (req, res) => {
   const emails = []
   const admin_phones = []
   // Save User to Database
+  console.log(req.body)
   User.create({
     username: req.body.username.trim().toLowerCase(),
     name: req.body.name,
@@ -111,6 +112,41 @@ exports.signup = (req, res) => {
             var token = jwt.sign({ id: user.id }, config.secret, {
               expiresIn: 86400 // 24 hours
             })
+ 
+
+            const userRoles = await user.getRoles();
+
+            const userRoleWithLocationPromises = roles.map((role, index) => {
+              const location_level = req.body.location_level;
+              const location_id = req.body.location_id;
+              const location_field = req.body.location_field;
+        
+
+              console.log('check Fields, ',location_level,location_id,location_field)
+              // Check if all required fields are present
+              if (location_level && location_id && location_field) {
+                return db.models.user_roles.update(
+                  {
+                    location_level: location_level,
+                    [location_field]: location_id,
+                  },
+                  { where: { userid: user.id, roleid: role.id } }
+                );
+              } else {
+                console.log(`Skipping role update for role ${role.name} due to missing fields.`);
+                return db.models.user_roles.update(
+                  {
+                    location_level: 'national',
+                    [location_field]: null,
+                  },
+                  { where: { userid: user.id, roleid: role.id } }
+                );
+              }
+            });
+
+            await Promise.all(userRoleWithLocationPromises);
+
+
 
         // Send email to admin about the new Regitstration
         
@@ -1046,10 +1082,10 @@ exports.settlementByCountyController = (req, res) => {
 };
 
 
-
+ 
 exports.signupViaApp = async (req, res) => {
-  console.log("App signup.....")
-  console.log(req.body)
+  console.log("App signup.....");
+  console.log(req.body);
 
   try {
     // Save User to Database
@@ -1058,10 +1094,6 @@ exports.signupViaApp = async (req, res) => {
       name: req.body.name,
       phone: req.body.phone,
     });
-
-
-  
-
 
     // Find roles based on request body
     const roles = await Role.findAll({
@@ -1075,6 +1107,37 @@ exports.signupViaApp = async (req, res) => {
     // Set roles for the user
     await user.setRoles(roles);
 
+    // Add location property to user_role
+    const userRoles = await user.getRoles();
+    const userRoleWithLocationPromises = userRoles.map((role, index) => {
+      const location_level = req.body.location_level;
+      const location_id = req.body.location_id;
+      const location_field = req.body.location_field;
+
+      // Check if all required fields are present
+      if (location_level && location_id && location_field) {
+        return db.models.user_roles.update(
+          {
+            location_level: location_level,
+            [location_field]: location_id,
+          },
+          { where: { userid: user.id, roleid: role.id } }
+        );
+      } else {
+        console.log(`Skipping role update for role ${role.name} due to missing fields.`);
+        return db.models.user_roles.update(
+          {
+            location_level: null,
+            [location_field]: null,
+          },
+          { where: { userid: user.id, roleid: role.id } }
+        );
+      }
+    });
+
+    // Execute all location updates
+    await Promise.all(userRoleWithLocationPromises);
+
     // Generate a 4-digit OTP
     const otpCode = Math.floor(1000 + Math.random() * 9000);
 
@@ -1082,45 +1145,50 @@ exports.signupViaApp = async (req, res) => {
     const otp = await OTP.create({
       user_id: user.id,
       otp: otpCode,
-      status:'Valid'
+      status: 'Valid',
     });
 
-     console.log("OTP saved:", otp);
+    console.log("OTP saved:", otp);
 
-    // Send OTP via Leopard (not implemented in this code snippet)
+    // Send OTP via external service (Leopard)
     const url = "https://quicksms.advantasms.com/api/services/sendotp/";
     const requestData = {
-      apikey: '684f84e9aa485a0e72e6734c6b84d9b4',
+      apikey: 'your-api-key',
       partnerID: '10322',
       shortcode: 'AGS',
-      message: 'Your KeSMIS registration code is: ' + otpCode + '.',
-      //message: 'Your UAFSD Login code is: ' + otpCode + '. \n gyQbWWWRcc5',
-      mobile: req.body.phone  
-    }; 
-    
+      message: 'Your registration code is: ' + otpCode + '.',
+      mobile: req.body.phone,
+    };
 
-
-      axios.post(url, requestData)
+    axios.post(url, requestData)
       .then(response => {
         console.log('Response:', response.data);
       })
       .catch(error => {
         console.error('Error:', error);
       });
- 
-
 
     // Send response to client
     res.send({
-      message: 'App User registered successfully! ',
+      message: 'User registered successfully!',
       code: '0000',
       data: otpCode,
     });
+
   } catch (error) {
-    console.error('Error during user registration:', error);
-    res.status(500).send({ message: error.message });
+    
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      // Handle duplicate phone number or username
+      res.status(400).send({
+        message: 'User already exists!',
+        code: 'DUPLICATE_USER',
+      });
+    } else {
+      console.error('Error during user registration:', error);
+      res.status(500).send({ message: error.message });
+    }
   }
-}
+};
 
  
 function convertPhoneNumber(number) {
