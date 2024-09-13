@@ -98,4 +98,9 @@ export const deleteSubmissions = (data)  => {
 };
 
 
- 
+export const editSubmissions = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/submissions/edit',
+   data    
+ });
+};

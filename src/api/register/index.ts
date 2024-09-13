@@ -31,3 +31,7 @@ export const getSettlementByCountyAuth = (data: UserType): Promise<IResponse<Use
 
 
 
+export const signupGRC = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('regs....', data)
+  return request.post({ url: prod + '/api/app/signup', data })
+}

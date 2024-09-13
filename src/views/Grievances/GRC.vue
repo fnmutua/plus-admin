@@ -2,38 +2,34 @@
 <script setup lang="tsx">
 
 
-import { ElButton} from 'element-plus'
+import { ElButton,ElDialog} from 'element-plus'
 import {  Back} from '@element-plus/icons-vue'
 
-import { ref,computed } from 'vue'
+import { ref,computed,unref } from 'vue'
 import {
   ElPagination, ElInput,ElSelect,ElOption, 
   ElRow, ElTableV2, ElCard} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
-    loginCollector,deleteSubmissions,
+    loginCollector,deleteSubmissions,editSubmissions,
     getSubmissions} from '@/api/collector'
+
+    import {
+      signupGRC} from '@/api/register'
+
+
+    
 
 import { watch,onMounted } from 'vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
 import { useRouter } from 'vue-router'
 
+import { ElCheckbox } from 'element-plus'
+import type { CheckboxValueType, Column } from 'element-plus'
 
-
-import {
- 
-  ElIcon,
-  ElTag,
-  ElTooltip,
- 
-} from 'element-plus'
-
-
-
-
-
+import type { FunctionalComponent } from 'vue'
 
 
 
@@ -196,7 +192,7 @@ const uniqueSettlements = new Set();
           category: official.category || "N/A",
           gender: official.gender || "N/A",
           name: official.name || "N/A",
-          sec_position: official.sec_position || "N/A",
+          grc_position: official.grc_position || "N/A",
           national_id: official.national_id || "N/A",
           mobile: official.mobile || "N/A",
         };
@@ -248,7 +244,69 @@ const getGRCData = async () => {
   }
 };
 
+
+const dialogVisible=ref(false)
+
+const options = [
+  {
+    value: 'chairman',
+    label: 'Chairman',
+  },
+
+  {
+    value: 'secretary',
+    label: 'Secretary',
+  },
+  {
+    value: 'member',
+    label: 'Member',
+  },
+
+
+]
+
+const role =ref()
+
+
+
+
+
+
+
+const submissionID = ref()
+const dialog_title=ref('Edit Roles')
+const editRecord = async (row) => {  
+
+  dialogVisible.value=true
+  submissionID.value=row.submissionID
+
+}
  
+
+const editRecordSubmit = async (row) => {  
+ console.log(row)
+ 
+const formData = {
+project: "1",
+form: "grc_officials",
+submissionID:submissionID.value,
+role:role.value,
+token: localStorage.getItem('collectorToken')
+};
+
+try {
+// Await the response from getSubmissions
+ const response = await editSubmissions(formData);
+console.log('Editing....',response)
+//console.log('Delete Submissions:', response);
+
+
+} catch (error) {
+// Handle errors here
+console.error('Delete Error:', error);
+}  
+
+}
 
 const deleteRecord = async (row) => {  
 
@@ -273,6 +331,10 @@ const deleteRecord = async (row) => {
   }  
 
 }
+
+
+
+
 const totalItems = ref(); // Total number of rows (initially full dataset)
 
 
@@ -316,8 +378,8 @@ const selectedAttributes = [
   'gender',
   'national_id',
   'mobile',
-  'category',
-  'npct_representative',
+  'grc_position',
+  'category', 
 ];
 
  
@@ -353,30 +415,40 @@ console.log(columnsx);
 
 const county_value =ref()
 const sett_value =ref()
-const filteredData = computed(() => {
+const position =ref()
 
 
+const filteredData = computed(() => { 
   // return grc_officials.value; // Return all data if no search term
 
      const searchTerm = search.value.toLowerCase();
         const selectedCounty = county_value.value;
         const selectedSettlement = sett_value.value;
+        
+        const selectedPosition = position.value;
+
+        console.log('selectedPosition',selectedPosition)
   
+        
+
+
         return grc_officials.value.filter((data) => {
           const countyMatch = selectedCounty ? data.county === selectedCounty : true;
           const settlementMatch = selectedSettlement ? data.settlement === selectedSettlement : true;
+          const selectedPositionMatch = selectedPosition ? data.grc_position === selectedPosition : true;
   
           if (searchTerm) {
             const nameMatch = data.name?.toLowerCase().includes(searchTerm);
             const settlementTermMatch = data.settlement?.toLowerCase().includes(searchTerm);
             const telephoneMatch = data.mobile?.toLowerCase().includes(searchTerm);
             const idMatch = data.national_id?.toLowerCase().includes(searchTerm);
+            const postTMatch = data.grc_position?.toLowerCase().includes(searchTerm);
             const NPCTMatch = data.npct_representative?.toLowerCase().includes(searchTerm);
   
-            return countyMatch && settlementMatch && (nameMatch || settlementTermMatch || telephoneMatch || idMatch || NPCTMatch);
+            return countyMatch && settlementMatch && (nameMatch || settlementTermMatch || telephoneMatch || idMatch || NPCTMatch || postTMatch );
           }
   
-          return countyMatch && settlementMatch;
+          return countyMatch && settlementMatch &&selectedPositionMatch;
         });
 
 });
@@ -422,7 +494,8 @@ const columns: Column<any>[] = [
     title: 'Operations',
     cellRenderer: ({ rowData }) => (
       <>
-        <ElButton size="small">Edit</ElButton>
+        <ElButton  onClick={() => editRecord(rowData)} size="small">Edit</ElButton>
+        
         <ElButton onClick={() => deleteRecord(rowData)}  size="small" type="danger">
           Delete
         </ElButton>
@@ -437,6 +510,99 @@ const columns: Column<any>[] = [
 columnsx.push(...columns);
 
 //columnsx.push(columns)
+
+
+type SelectionCellProps = {
+  value: boolean
+  intermediate?: boolean
+  onChange: (value: CheckboxValueType) => void
+}
+const SelectionCell: FunctionalComponent<SelectionCellProps> = ({
+  value,
+  intermediate = false,
+  onChange,
+}) => {
+  return (
+    <ElCheckbox
+      onChange={onChange}
+      modelValue={value}
+      indeterminate={intermediate}
+    />
+  )
+}
+
+columnsx.unshift({
+  key: 'selection',
+  width: 50,
+  cellRenderer: ({ rowData }) => {
+    const onChange = (value: CheckboxValueType) => (rowData.checked = value)
+    return <SelectionCell value={rowData.checked} onChange={onChange} />
+  },
+
+  headerCellRenderer: () => {
+    const _data = unref(paginatedData)
+    const onChange = (value: CheckboxValueType) =>
+      (paginatedData.value = _data.map((row) => {
+        row.checked = value
+        return row
+      }))
+    const allSelected = _data.every((row) => row.checked)
+    const containsChecked = _data.some((row) => row.checked)
+
+    return (
+      <SelectionCell
+        value={allSelected}
+        intermediate={containsChecked && !allSelected}
+        onChange={onChange}
+      />
+    )
+  },
+})
+
+
+const getSelectedRows =  () => {
+  const selectedRows = paginatedData.value.filter((row) => row.checked)
+  console.log(selectedRows[0])
+
+
+    // Loop through the selected rows
+    selectedRows.forEach((row) => {
+
+      console.log(row)
+
+      var formData = {}
+        formData.username = "072x13770339",
+        formData.name = "John Doe"
+        formData.phone = "0721x3770339"
+        formData.role = ["grm"]
+        formData.location_level = "settlement"
+        formData.location_id = "1"
+        formData.location_field= "settlement_id"
+ 
+
+    signupGRC(formData).then((response) => {
+      console.log(reponse)
+    })
+
+     })
+  
+  // .post(server +'api/auth/signup', {
+  //     username: userForm.username,
+  //     password: userForm.password,
+  //     name: userForm.name,
+  //     email: userForm.email,
+  //     role: ['public']
+  //   })
+
+
+
+}
+
+
+// Computed property to check if any row is selected
+const anyRowSelected = computed(() => {
+  return paginatedData.value.some((row) => row.checked)
+})
 
 
 
@@ -480,6 +646,19 @@ columnsx.push(...columns);
       />
     </el-select> 
 
+    <el-select v-model="position" 
+    placeholder="Filter positions"
+    clearable
+     filterable
+      style=" margin-right: 5px; width:350px">
+      <el-option
+        v-for="item in options"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select> 
+
       <el-input clearable  v-model="search" placeholder="Search by Name, ID, Phone,County or Settlement" :onInput="filterTableData" style=" margin-right: 15px;" />
 
       <DownloadCustom    :data="paginatedData"   :all="grc_officials" />
@@ -492,6 +671,9 @@ columnsx.push(...columns);
 
 
     <div>
+
+ 
+
     <el-table-v2
     
      
@@ -507,6 +689,8 @@ columnsx.push(...columns);
         </div>
       </template>
     </el-table-v2>
+    <el-button style="margin-top: 20px;"  v-if="anyRowSelected" @click="getSelectedRows">Generate Accounts</el-button>
+
   </div>
 
 
@@ -523,4 +707,35 @@ columnsx.push(...columns);
   
   </el-card>
  
+  <el-dialog
+    v-model="dialogVisible"
+    :title="dialog_title"
+    width="450"
+ 
+  >
+  <el-select
+      v-model="role"
+      placeholder="Select Role"
+      size="small"
+      style="width: 95%"
+    >
+      <el-option
+        v-for="item in options"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="dialogVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="editRecordSubmit">
+          Confirm
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
+
+
 </template>
