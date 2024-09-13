@@ -582,6 +582,7 @@ const getSelectedRows =  () => {
                   formData.username = row.mobile,
                   formData.name = row.name,
                   formData.phone = row.mobile,
+                  formData.password = 'User@2024',
                   formData.role = ["grm"]
                   formData.location_level = "settlement"
                   formData.location_id = res.data.id
