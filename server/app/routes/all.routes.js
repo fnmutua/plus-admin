@@ -62,7 +62,12 @@ module.exports = function (app) {
 
   // Gets the  table names
   app.post('/api/v1/data/one', [authJwt.verifyToken], controller.modelOneRecord)
+  app.post('/api/v1/data/one/code', [authJwt.verifyToken], controller.modelOneRecordByCode)
 
+
+
+
+  
   // Gets the  table names
   app.post('/api/v1/data/edit', [authJwt.verifyToken, authJwt.isStaffOrAdmin], controller.modelEditOneRecord)
 

@@ -31,6 +31,7 @@ import type { CheckboxValueType, Column } from 'element-plus'
 
 import type { FunctionalComponent } from 'vue'
 
+import { getOneByCode } from '@/api/settlements'
 
 
 
@@ -178,7 +179,7 @@ const uniqueSettlements = new Set();
       returning_officer: data.grp_certification?.returning_officer || "N/A",
       npct_representative: data.grp_certification?.npct_representative || "N/A",
       date: data.date || "N/A",
-      settlement: data.settlement_name || "N/A",
+       settlement_code: data.pcode || "N/A",
       submissionID: data.meta_instanceID
     };
 
@@ -195,6 +196,7 @@ const uniqueSettlements = new Set();
           grc_position: official.grc_position || "N/A",
           national_id: official.national_id || "N/A",
           mobile: official.mobile || "N/A",
+      
         };
 
         // Only push the official if they do not already exist in the array
@@ -566,23 +568,39 @@ const getSelectedRows =  () => {
 
 
     // Loop through the selected rows
-    selectedRows.forEach((row) => {
+    selectedRows.forEach(async (row) => {
 
       console.log(row)
-
-      var formData = {}
-        formData.username = "072x13770339",
-        formData.name = "John Doe"
-        formData.phone = "0721x3770339"
-        formData.role = ["grm"]
-        formData.location_level = "settlement"
-        formData.location_id = "1"
-        formData.location_field= "settlement_id"
  
 
-    signupGRC(formData).then((response) => {
-      console.log(reponse)
-    })
+      await getOneByCode({'model':'settlement','code':row.settlement_code })
+            .then((res) => {
+             
+
+              console.log(res)
+              var formData = {}
+                  formData.username = row.mobile,
+                  formData.name = row.name,
+                  formData.phone = row.mobile,
+                  formData.role = ["grm"]
+                  formData.location_level = "settlement"
+                  formData.location_id = res.data.id
+                  formData.location_field= "settlement_id"
+          
+
+              signupGRC(formData).then((response) => {
+                console.log(response)
+              })
+
+            })
+            .catch((error) => {
+              // Handle the error here
+              console.log('Error:', error);
+            });
+
+
+
+
 
      })
   
