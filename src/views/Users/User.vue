@@ -796,12 +796,8 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
 
     <el-table :data="tableDataList" style="width: 100% ; margin-top: 30px"   v-loading="loading">
 
-      <el-table-column type="index" label="#" width="50">
-        <!-- Use the 'index' slot to customize the index column -->
-        <template #default="scope">
-          {{ scope.$index + 1 }}
-        </template>
-      </el-table-column>
+      <el-table-column  prop="id"  label="#" width="50"/>
+
       
       <!-- Avatar column -->
       <el-table-column label="Avatar" width="100">

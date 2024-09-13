@@ -261,7 +261,9 @@ exports.updateUser = (req, res) => {
 
             // Step 5: Upsert the new or updated roles
             const upsertRolePromises = req.body.roles.map(role => {
-              if (!role.roleid || !role.userid || !role.location_level) {
+
+              console.log('role >>>>>>>>>>,',role)
+              if (!role.location_level) {
                 return Promise.reject(new Error('Role object is missing required properties'));
               }
 
@@ -275,7 +277,7 @@ exports.updateUser = (req, res) => {
 
               return db.models.user_roles.upsert({
                 roleid: role.roleid,
-                userid: role.userid,
+                userid: user.id,
                 location_level: role.location_level,
                 location_id: location_id,
                 county_id: role.county_id || null,
