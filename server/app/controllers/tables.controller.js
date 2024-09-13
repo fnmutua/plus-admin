@@ -1512,6 +1512,31 @@ exports.modelOneRecord = (req, res) => {
   });
 };
 
+exports.modelOneRecordByCode = (req, res) => {
+  var reg_model = req.body.model;
+
+  var ass_model = db.models[req.body.assocModel];
+
+  var qry = {
+    include:[]
+  };
+
+  if (ass_model) {
+      qry.include= [{ model: ass_model }]
+    };
+  
+   
+
+  qry.where = { code: { [op.eq]: req.body.code } };
+
+  db.models[reg_model].findOne(qry).then((thisRecord) => {
+    res.status(200).send({
+      data: thisRecord,
+      code: '0000'
+    });
+  });
+};
+
 exports.modelEditOneRecord = (req, res) => {
 
    /// Create Log Events Object 

@@ -106,6 +106,18 @@ export const getOneSettlement = (data: SettlementType): Promise<IResponse<Settle
   return request.post({ url: prod + '/api/v1/data/one', data })
 }
 
+
+
+export const getOneByCode = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  //  console.log('Number of Settlements....', data)
+    return request.post({ url: prod + '/api/v1/data/one/code', data })
+  }
+  
+
+
+
+
+
 export const searchByKeyWord = (data: SettlementType): Promise<IResponse<SettlementType>> => {
  // console.log('....', data)
   return request.post({ url: prod + '/api/v1/data/paginated/filter', data })
