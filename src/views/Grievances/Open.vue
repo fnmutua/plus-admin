@@ -45,6 +45,70 @@ const settlementOptions = ref([])
 console.log("userInfo--->", userInfo)
 
 
+
+ // Check for the "grm" role and get its level, field, and fieldvalue
+const grmRole = userInfo.roles.map(role => {
+  if (role.name === "grm") {
+    let field = null;
+    let fieldvalue = null;
+
+    // Determine the field and fieldvalue based on the location level
+    if (role.user_roles.location_level === "county") {
+      field = "county_id";
+      fieldvalue = role.user_roles.county_id;
+    } else if (role.user_roles.location_level === "settlement") {
+      field = "settlement_id";
+      fieldvalue = role.user_roles.settlement_id;
+    } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
+      // If the level is national or not defined, return empty roles filter
+      return {
+        model: "national",
+        field: null,
+        fieldvalue: null
+      };
+    } else {
+      field = "location_id";
+      fieldvalue = role.user_roles.location_id; // Fallback to location_id
+    }
+
+    return {
+      model: role.user_roles.location_level,  // The level (county/settlement)
+      field: field,                          // Field name (county_id/settlement_id/location_id)
+      fieldvalue: fieldvalue                 // Actual value of the ID
+    };
+  }
+  return null;
+}).filter(role => role !== null);
+
+console.log('grmRole', grmRole);
+
+// Check for super_admin role
+const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin");
+
+// Determine the field_filter and value_filter based on roles
+let roles_filters = [];
+
+if (isSuperAdmin) {
+  // If user is a super_admin, no filters needed
+  roles_filters = [];
+} else if (grmRole.length > 0 && grmRole[0].model === "national") {
+  // If user has a grm role at national level, no filters needed
+  roles_filters = [];
+} else if (grmRole.length > 0) {
+  // Otherwise, set filters based on the grm role's field and fieldvalue
+  const field_filter = grmRole[0].field;
+  const value_filter = grmRole[0].fieldvalue;
+  roles_filters.push({
+    field: field_filter,
+    value: value_filter
+  });
+}
+
+console.log('roles_filters', roles_filters);
+
+
+
+
 const isMobile = computed(() => appStore.getMobile)
 
 console.log('IsMobile', isMobile)
@@ -121,8 +185,24 @@ const showEditButtons = ref(appStore.getEditButtons)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = ['status']
-var filterValues = [['Open']]
+// var filters = ['status',roles_filters.length>0?roles_filters[0].field]
+// var filterValues = [['Open'],[roles_filters.length>0?roles_filters[0].value] ]
+
+// Prepare filters array
+var filters = ['status'];
+if (roles_filters.length > 0) {
+  filters.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
+}
+
+// Prepare filterValues array
+var filterValues = [['Open']];
+if (roles_filters.length > 0) {
+  filterValues.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
+}
+
+console.log('filters', filters);
+console.log('filterValues', filterValues);
+
 var tblData = []
 const associated_Model = ''
 const associated_multiple_models = ['county', 'settlement', 'grievance_document']
@@ -135,8 +215,7 @@ const formHeader = ref('Add Grievance')
 const showSubmitBtn = ref(true)
 const showEditSaveButton = ref(false)
 
-
-
+ 
 
 
 
@@ -487,7 +566,11 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
 getIndicatorOptions()
-getInterventionsAll()
+ 
+if(userInfo) {
+  getInterventionsAll()
+
+}
 
 
 const DownloadXlsx = async () => {
