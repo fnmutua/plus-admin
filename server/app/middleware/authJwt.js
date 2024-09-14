@@ -253,19 +253,16 @@ isAdminOrCountyAdmin = (req, res, next) => {
            next();
            return;
          }
-         if (roles[i].name === "admin") {
+         if (roles[i].name === "grm") {
           next();
           return;
          }  
              
-         if (roles[i].name === "county_admin") {
-          next();
-          return;
-        }
+         
         
        }
        res.status(403).send({
-         message: "You require  Admin Role to perform this function"
+         message: "You require a grievance role to perform this function"
        });
      });
    });
