@@ -163,11 +163,20 @@ isStaffOrAdmin = (req, res, next) => {
           next();
           return;
         }   
-        if (roles[i].name === "county_admin") {
+        if (roles[i].name === "staff") {
           next();
           return;
         }   
+        if (roles[i].name === "grm") {
+          next();
+          return;
+        }     
+        if (roles[i].name === "consultant") {
+          next();
+          return;
+        }         
         
+
         if (roles[i].name === "admin") {
           next();
           return;
