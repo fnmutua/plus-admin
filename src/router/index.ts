@@ -372,8 +372,47 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               hidden: true,
               title: 'Map'
             }
-          }
+          },
+          {
+            path: 'committees',
+            component: Layout,
+            name: 'Committees',
+           meta: {
+             title: 'Committees',
+             icon:'fluent:people-team-add-20-filled',
+             role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
+             locationLevel:['national','county','settlement'],
     
+           },
+           children: [ 
+                    {
+              path: 'sec',
+                component: () => import('@/views/Grievances/SEC.vue'),
+              name: 'SEC',
+              meta: {
+                title: 'SEC',
+                icon:'fluent:people-team-16-filled',
+                role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
+                locationLevel:['national','county','settlement'],
+    
+              },
+             },
+             {
+              path: 'grc',
+              component: () => import('@/views/Grievances/GRC.vue'),
+             name: 'GRC',
+             meta: {
+               title: 'GRC',
+               icon:'fluent:people-checkmark-20-filled',
+               role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
+               locationLevel:['national','county','settlement'],
+      
+             }
+            },
+             
+           ]
+          
+          },
         ]
       },
       {
@@ -1240,47 +1279,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
   
-      {
-        path: 'commitees',
-        component: Layout,
-        name: 'Committees',
-       meta: {
-         title: 'Committees',
-         icon:'fa:user-secret',
-         role: [  'super_admin', 'grm' ] ,
-         locationLevel:['national','county','settlement'],
-
-       },
-       children: [ 
-       
-         {
-          path: 'sec',
-            component: () => import('@/views/Grievances/SEC.vue'),
-          name: 'SEC',
-          meta: {
-            title: 'SEC',
-            icon:'fa:user-secret',
-            role: [  'super_admin', 'grm' ] ,
-            locationLevel:['national','county','settlement'],
-
-          },
-         },
-         {
-          path: 'grc',
-          component: () => import('@/views/Grievances/GRC.vue'),
-         name: 'GRC',
-         meta: {
-           title: 'GRC',
-           icon:'oui:security-signal-detected',
-           role: [  'super_admin', 'grm' ] ,
-           locationLevel:['national','county','settlement'],
-  
-         }
-        },
-         
-       ]
-      
-      },
+    
       
 
 

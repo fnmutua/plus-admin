@@ -326,9 +326,9 @@ const deleteRecord = async (row) => {
 
   try {
     // Await the response from getSubmissions
-    const response = await deleteSubmissions(formData);
+    //const response = await deleteSubmissions(formData);
 
-    console.log('Delete Submissions:', response);
+    console.log('Delete Submissions disabled');
  
 
   } catch (error) {
