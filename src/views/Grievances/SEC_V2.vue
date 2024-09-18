@@ -30,7 +30,7 @@ const showEditButtons =  ref(appStore.getEditButtons)
 
  
 const mobileBreakpoint = 768;
-const defaultPageSize = 20;
+const defaultPageSize = 10;
 const mobilePageSize = 5;
 const pageSize = ref(10);
 const currentPage = ref(1);
@@ -122,7 +122,7 @@ const countyOptions  =ref([])
 const settlementOptions  =ref([])
  
 
-const extractData = async (dataArray) => {
+const xextractData = async (dataArray) => {
   // Create a map to store county and settlement records
   const recordsMap = new Map();
 
@@ -203,6 +203,106 @@ const extractData = async (dataArray) => {
 
   console.log(countyOptions.value);
 };
+
+const extractData = async (dataArray) => {
+  // Create a map to store county and settlement records
+  const recordsMap = new Map();
+
+  // Clear the sec_officials array
+  sec_officials.value = [];
+
+  // Clear the county and settlement options arrays
+  countyOptions.value = [];
+  settlementOptions.value = [];
+
+  // Loop through the array of data
+  dataArray.forEach(data => {
+    if (!data) return; // Skip if no data exists
+
+    // Extract county and settlement
+    const county = data.group_location?.county || "N/A";
+    const settlement = data.settlement_name  || "N/A";
+    const coordinator = data.grp_certification?.county_kisip_coordinator  || "N/A";
+    const npct_representative = data.grp_certification?.npct_representative  || "N/A";
+    const date = data.date  || "N/A";
+    const key = data.meta_instanceID  || "N/A";
+    const instanceID = data.meta_instanceID  || "N/A";
+    
+    // Ensure sec_officials array exists and is valid
+    if (data.sec_officials && Array.isArray(data.sec_officials)) {
+      // Check if the record for this county and settlement already exists
+      if (!recordsMap.has(key)) {
+        // If it doesn't exist, create a new entry in the map
+        recordsMap.set(key, {
+          county,
+          settlement,
+          coordinator,
+          npct_representative,
+          date, 
+          instanceID,
+          sec_officials: [] // Initialize empty array for officials
+        });
+      }
+
+      // Loop through the sec_officials array within each data object
+      data.sec_officials.forEach(official => {
+        // Construct the official details object
+        const newOfficial = {
+          category: official.category || "N/A",
+          gender: official.gender || "N/A",
+          name: official.name || "N/A",
+          sec_position: official.sec_position || "N/A",
+          national_id: official.national_id || "N/A",
+          mobile: official.mobile || "N/A",
+          returning_officer: data.grp_certification?.returning_officer || "N/A",
+          npct_representative: data.grp_certification?.npct_representative || "N/A",
+          date: data.date || "N/A"
+        };
+
+        // Add the official to the sec_officials array of the respective county and settlement
+        recordsMap.get(key).sec_officials.push(newOfficial);
+      });
+    }
+  });
+
+  // Convert the map back to an array and assign it to sec_officials.value
+  sec_officials.value = Array.from(recordsMap.values());
+
+  console.log('sec_officials.value', sec_officials.value);
+
+  // Extract unique counties and settlements for options
+  const countyMap = new Map(); // Store counties with nested settlements
+
+  recordsMap.forEach(record => {
+    const { county, settlement } = record;
+
+    // Add county if it doesn't already exist
+    if (!countyMap.has(county)) {
+      countyMap.set(county, new Set()); // Use a Set to ensure unique settlements
+    }
+
+    // Add the settlement to the respective county's settlement set
+    countyMap.get(county).add(settlement);
+  });
+
+  // Convert the countyMap to countyOptions and settlementOptions
+  countyOptions.value = Array.from(countyMap.keys()).map(county => ({
+    label: county,
+    value: county
+  }));
+
+  settlementOptions.value = Array.from(countyMap.entries()).flatMap(([county, settlements]) => 
+    Array.from(settlements).map(settlement => ({
+      label: settlement, // Combine county name with settlement
+      value: settlement,
+      county: county // Add the county field for easier filtering if needed
+    }))
+  );
+
+  console.log(countyOptions.value);
+  console.log(settlementOptions.value);
+};
+
 
 const extractGRCData = async (dataArray) => {
   // Create a map to store county and settlement records
@@ -457,7 +557,7 @@ console.log(columnsx);
 
 const county_value =ref()
 const sett_value =ref()
-const filteredData = computed(() => { 
+const xfilteredData = computed(() => { 
      const searchTerm = search.value.toLowerCase();
         const selectedCounty = county_value.value;
         const selectedSettlement = sett_value.value;
@@ -482,7 +582,62 @@ const filteredData = computed(() => {
 });
 
     
-    
+const filteredData = computed(() => {
+  const searchTerm = search.value.toLowerCase();
+  const selectedCounty = county_value.value;
+  const selectedSettlement = sett_value.value;
+
+  return sec_officials.value.map((data) => {
+    // Check SEC and GRC arrays for matches
+    const secArray = data.sec_officials || [];
+    const grcArray = data.grc_officials || [];
+
+    // County and settlement match logic for main data
+    const countyMatch = selectedCounty ? data.county === selectedCounty : true;
+    const settlementMatch = selectedSettlement ? data.settlement === selectedSettlement : true;
+
+    // Function to filter the SEC or GRC array based on the search term
+    const filterArray = (arr) => arr.filter((item) => {
+      const nameMatch = item.name?.toLowerCase().includes(searchTerm);
+      const settlementTermMatch = item.settlement?.toLowerCase().includes(searchTerm);
+      const telephoneMatch = item.mobile?.toLowerCase().includes(searchTerm);
+      const idMatch = item.national_id?.toLowerCase().includes(searchTerm);
+      const NPCTMatch = item.npct_representative?.toLowerCase().includes(searchTerm);
+      
+      // Return true if any field matches the search term
+      return nameMatch || settlementTermMatch || telephoneMatch || idMatch || NPCTMatch;
+    });
+
+    // Apply the filter to SEC and GRC arrays
+    const filteredSec = filterArray(secArray);
+    const filteredGrc = filterArray(grcArray);
+
+    // Search term filtering logic
+    if (searchTerm) {
+      // Return the main data if county/settlement matches and either SEC or GRC officials match
+      if (countyMatch && settlementMatch && (filteredSec.length || filteredGrc.length)) {
+        return {
+          ...data,
+          sec_officials: filteredSec, // Update the SEC officials array with the filtered result
+          grc_officials: filteredGrc, // Update the GRC officials array with the filtered result
+        };
+      }
+    } else {
+      // Return the data if county/settlement matches (no search term filtering needed)
+      if (countyMatch && settlementMatch) {
+        return {
+          ...data,
+          sec_officials: secArray, // Keep the original SEC officials array
+          grc_officials: grcArray, // Keep the original GRC officials array
+        };
+      }
+    }
+
+    return null; // Return null if no match
+  }).filter(data => data !== null); // Filter out any null results
+});
+
+  
 
     // Computed property for paginated data based on filtered results
     const paginatedData = computed(() => {
@@ -694,10 +849,17 @@ await writeXlsxFile([secSheetData[0] , secSheetData[1]], {
   sheets: ['SEC', 'GRC'],
     fileName: 'sec_grc.xlsx'
 })
-
-
-
 }
+
+ // Computed property to filter settlement options based on selected county
+ const filteredSettlementOptions = computed(() => {
+      if (!county_value.value) {
+        return settlementOptions.value; // Return all settlements if no county is selected
+      }
+      return settlementOptions.value.filter(
+        (settlement) => settlement.county === county_value.value
+      );
+    });
 
 </script>
 
@@ -724,19 +886,20 @@ await writeXlsxFile([secSheetData[0] , secSheetData[1]], {
         :value="item.value"
       />
     </el-select>
-    <el-select v-model="sett_value" 
+    <el-select
+    v-model="sett_value" 
     placeholder="Filter Settlement"
     clearable
      filterable
       style=" margin-right: 5px; width:350px">
       <el-option
-        v-for="item in settlementOptions"
+        v-for="item in filteredSettlementOptions"
         :key="item.value"
         :label="item.label"
         :value="item.value"
       />
     </el-select> 
-      <el-input clearable  v-model="search" placeholder="Search by Name, ID, Phone,County or Settlement" :onInput="filterTableData" style=" margin-right: 15px;" />
+      <el-input clearable  v-model="search" placeholder="Search by Name, ID or Phone" :onInput="filterTableData" style=" margin-right: 15px;" />
       <el-tooltip content="Add GRC" placement="top">   <el-button v-if="showEditButtons" :onClick="AddRecord" type="primary" :icon="Plus" style=" margin-right: 15px;"/> </el-tooltip>
       <el-tooltip content="Download" placement="top">   <el-button v-if="showEditButtons" :onClick="DownloadXlsx" type="primary" :icon="Download" /> </el-tooltip>
 
@@ -759,8 +922,7 @@ await writeXlsxFile([secSheetData[0] , secSheetData[1]], {
                       <el-table-column label="Category" prop="category" />
                       <el-table-column label="SEC Position" prop="sec_position" />
                     </el-table>
-                    <ElButton style="margin-left:10px" >Download</ElButton>
-                  </el-tab-pane>
+                   </el-tab-pane>
                   <el-tab-pane >
                     <template #label> Grievance Redress Committee (GRC)  </template>
                       <el-table :data="props.row.grc_officials" class="styled-table">
@@ -794,7 +956,8 @@ await writeXlsxFile([secSheetData[0] , secSheetData[1]], {
     </el-table-column>
   </el-table>
 
-  <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+  <el-pagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
         @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 

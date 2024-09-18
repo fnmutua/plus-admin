@@ -26,7 +26,7 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
  
 const mobileBreakpoint = 768;
-const defaultPageSize = 20;
+const defaultPageSize = 10;
 const mobilePageSize = 5;
 const pageSize = ref(10);
 const currentPage = ref(1);
