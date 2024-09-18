@@ -665,16 +665,32 @@ const DownloadXlsx = async ( ) => {
  //   const grcSheetData = prepareSheetData(paginatedData.value.grc_officials, false);
 
 
-    console.log('secSheetData',secSheetData[0])
-  
+ const calculateColumnWidths = (data, headers) => {
+    // Initialize column widths based on header lengths
+    const widths = headers.map(header => header.value.length);
 
-// await writeXlsxFile(secSheetData[0], {
-//    fileName: 'file.xlsx'
-// })
+    // Iterate over the data rows
+    data.forEach(row => {
+        headers.forEach((header, index) => {
+            const key = header.value.toLowerCase().replace(/\s+/g, '_'); // Convert header to key
+            const cellValue = row[index]?.value ?? ''; // Extract value from data row
+            const valueLength = cellValue.toString().length; // Length of the cell value
+            widths[index] = Math.max(widths[index], valueLength); // Update column width
+        });
+    });
+
+    // Ensure widths are within a reasonable limit
+    return widths.map(width => Math.min(width + 2, 50)); // Add padding and cap width
+};
+
+const sec_col_widths = calculateColumnWidths(secSheetData[0],secSheetData[0][1])
+const grc_col_widths = calculateColumnWidths(secSheetData[1],secSheetData[1][1])
+
+console.log('col_width',sec_col_widths)
 
 
 await writeXlsxFile([secSheetData[0] , secSheetData[1]], {
- 
+  columns: [sec_col_widths.map((width) => ({ width })), grc_col_widths.map((width) => ({ width }))],  
   sheets: ['SEC', 'GRC'],
     fileName: 'sec_grc.xlsx'
 })

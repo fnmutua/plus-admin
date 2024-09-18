@@ -385,6 +385,20 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     
            },
            children: [ 
+
+            {
+              path: 'secgrc',
+              component: () => import('@/views/Grievances/SEC_V2.vue'),
+              name: 'sec_grc',
+              meta: {
+                title: 'SEC/GRC',
+                icon:'fluent:people-team-16-filled',
+                role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
+                locationLevel:['national','county','settlement'],
+    
+              },
+             },
+
               {
               path: 'sec',
               component: () => import('@/views/Grievances/SEC.vue'),
@@ -409,18 +423,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       
              }
             },
-            {
-              path: 'sett',
-              component: () => import('@/views/Grievances/SEC_V2.vue'),
-              name: 'Sett',
-              meta: {
-                title: 'Sett',
-                icon:'fluent:people-team-16-filled',
-                role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
-                locationLevel:['national','county','settlement'],
-    
-              },
-             },
+            
            ]
           
           },
