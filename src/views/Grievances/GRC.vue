@@ -1,13 +1,12 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="tsx">
 
-
-import { ElButton,ElDialog} from 'element-plus'
-import {  Back} from '@element-plus/icons-vue'
+ 
+import { Plus, Back} from '@element-plus/icons-vue'
 
 import { ref,computed,unref } from 'vue'
 import {
-  ElPagination, ElInput,ElSelect,ElOption, 
+  ElPagination, ElInput,ElSelect,ElOption, ElButton, ElDialog,
   ElRow, ElTableV2, ElCard} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -38,6 +37,12 @@ import { getOneByCode } from '@/api/settlements'
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
+
+ 
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
+
+
 
  
 const mobileBreakpoint = 768;
@@ -339,7 +344,11 @@ const deleteRecord = async (row) => {
 }
 
 
+const showAddDialog=ref(false)
+const AddRecord = async () => {  
+  showAddDialog.value=true
 
+}
 
 const totalItems = ref(); // Total number of rows (initially full dataset)
 
@@ -684,9 +693,14 @@ const anyRowSelected = computed(() => {
 
       <el-input clearable  v-model="search" placeholder="Search by Name, ID, Phone,County or Settlement" :onInput="filterTableData" style=" margin-right: 15px;" />
 
+      <el-tooltip content="Add GRC" placement="top">
+              <el-button v-if="showEditButtons" :onClick="AddRecord" type="primary" :icon="Plus" />
+         </el-tooltip>
+
+
       <DownloadCustom    :data="paginatedData"   :all="grc_officials" />
 
-      <!-- Download All Component -->
+  
     </el-row>
 
    
@@ -760,5 +774,35 @@ const anyRowSelected = computed(() => {
     </template>
   </el-dialog>
 
+
+  <el-dialog
+    v-model="showAddDialog"
+    title="Add GRC Member"
+    width="450"
+ 
+  >
+  <el-select
+      v-model="role"
+      placeholder="Select Role"
+      size="small"
+      style="width: 95%"
+    >
+      <el-option
+        v-for="item in options"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="dialogVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="editRecordSubmit">
+          Confirm
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 
 </template>

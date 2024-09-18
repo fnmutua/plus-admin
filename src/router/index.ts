@@ -378,16 +378,16 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             component: Layout,
             name: 'Committees',
            meta: {
-             title: 'Committees',
+             title: 'Community',
              icon:'fluent:people-team-add-20-filled',
              role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
              locationLevel:['national','county','settlement'],
     
            },
            children: [ 
-                    {
+              {
               path: 'sec',
-                component: () => import('@/views/Grievances/SEC.vue'),
+              component: () => import('@/views/Grievances/SEC.vue'),
               name: 'SEC',
               meta: {
                 title: 'SEC',
@@ -409,7 +409,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       
              }
             },
-             
+            {
+              path: 'sett',
+              component: () => import('@/views/Grievances/SEC_V2.vue'),
+              name: 'Sett',
+              meta: {
+                title: 'Sett',
+                icon:'fluent:people-team-16-filled',
+                role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
+                locationLevel:['national','county','settlement'],
+    
+              },
+             },
            ]
           
           },
