@@ -12,7 +12,7 @@ import {
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
-    loginCollector,deleteSubmissions,
+    loginCollector,deleteSubmissions,getSubmissionAttachments,
     getSubmissions} from '@/api/collector'
 
 import { watch,onMounted } from 'vue';
@@ -122,88 +122,7 @@ const countyOptions  =ref([])
 const settlementOptions  =ref([])
  
 
-const xextractData = async (dataArray) => {
-  // Create a map to store county and settlement records
-  const recordsMap = new Map();
-
-  // Clear the sec_officials array
-  sec_officials.value = [];
-
-  // Helper function to create a unique key for each county and settlement
  
-  // Loop through the array of data
-  dataArray.forEach(data => {
-    if (!data) return; // Skip if no data exists
-
-    // Extract county and settlement
-    const county = data.group_location?.county || "N/A";
-    const settlement = data.settlement_name  || "N/A";
-    const coordinator = data.grp_certification?.county_kisip_coordinator  || "N/A";
-    const npct_representative = data.grp_certification?.npct_representative  || "N/A";
-    const date = data.date  || "N/A";
-    const key = data.meta_instanceID  || "N/A";
-    const instanceID = data.meta_instanceID  || "N/A";
-    
-    // Create a unique key based on county and settlement
-   // const key = createKey(county, settlement);
-
-    // Ensure sec_officials array exists and is valid
-    if (data.sec_officials && Array.isArray(data.sec_officials)) {
-      // Check if the record for this county and settlement already exists
-      if (!recordsMap.has(key)) {
-        // If it doesn't exist, create a new entry in the map
-        recordsMap.set(key, {
-          county,
-          settlement,
-          coordinator,
-          npct_representative,
-          date, 
-          instanceID,
-          sec_officials: [] // Initialize empty array for officials
-        });
-      }
-
-      // Loop through the sec_officials array within each data object
-      data.sec_officials.forEach(official => {
-        // Construct the official details object
-        const newOfficial = {
-          category: official.category || "N/A",
-          gender: official.gender || "N/A",
-          name: official.name || "N/A",
-          sec_position: official.sec_position || "N/A",
-          national_id: official.national_id || "N/A",
-          mobile: official.mobile || "N/A",
-          returning_officer: data.grp_certification?.returning_officer || "N/A",
-          npct_representative: data.grp_certification?.npct_representative || "N/A",
-          date: data.date || "N/A"
-        };
-
-        // Add the official to the sec_officials array of the respective county and settlement
-        recordsMap.get(key).sec_officials.push(newOfficial);
-      });
-    }
-  });
-
-  // Convert the map back to an array and assign it to sec_officials.value
-  sec_officials.value = Array.from(recordsMap.values());
-
-
-  console.log('sec_officials.value',sec_officials.value)
-  // Extract unique counties and settlements for options
-  const uniqueCounties = new Set();
-  const uniqueSettlements = new Set();
-
-  recordsMap.forEach(record => {
-    uniqueCounties.add(record.county);
-    uniqueSettlements.add(record.settlement);
-  });
-
-  countyOptions.value = Array.from(uniqueCounties).map(county => ({ label: county, value: county }));
-  settlementOptions.value = Array.from(uniqueSettlements).map(settlement => ({ label: settlement, value: settlement }));
-
-  console.log(countyOptions.value);
-};
-
 const extractData = async (dataArray) => {
   // Create a map to store county and settlement records
   const recordsMap = new Map();
@@ -256,7 +175,8 @@ const extractData = async (dataArray) => {
           mobile: official.mobile || "N/A",
           returning_officer: data.grp_certification?.returning_officer || "N/A",
           npct_representative: data.grp_certification?.npct_representative || "N/A",
-          date: data.date || "N/A"
+          date: data.date || "N/A",
+          instanceID:instanceID
         };
 
         // Add the official to the sec_officials array of the respective county and settlement
@@ -324,6 +244,7 @@ const extractGRCData = async (dataArray) => {
     const npct_representative = data.grp_certification?.npct_representative  || "N/A";
     const date = data.date  || "N/A";
     const key = data.meta_instanceID  || "N/A";
+    const instance_id = data.meta_instanceID  || "N/A";
     
     // Create a unique key based on county and settlement
    // const key = createKey(county, settlement);
@@ -339,6 +260,7 @@ const extractGRCData = async (dataArray) => {
           coordinator,
           npct_representative,
           date, 
+          instance_id,
           grc_officials: [] // Initialize empty array for officials
         });
       }
@@ -355,7 +277,8 @@ const extractGRCData = async (dataArray) => {
           mobile: official.mobile || "N/A",
           returning_officer: data.grp_certification?.returning_officer || "N/A",
           npct_representative: data.grp_certification?.npct_representative || "N/A",
-          date: data.date || "N/A"
+          date: data.date || "N/A",
+          instance_id: data.meta_instanceID 
         };
 
         // Add the official to the sec_officials array of the respective county and settlement
@@ -603,9 +526,12 @@ const filteredData = computed(() => {
       const telephoneMatch = item.mobile?.toLowerCase().includes(searchTerm);
       const idMatch = item.national_id?.toLowerCase().includes(searchTerm);
       const NPCTMatch = item.npct_representative?.toLowerCase().includes(searchTerm);
+      const GRCMatch = item.grc_position?.toLowerCase().includes(searchTerm);
+      const SecMatch = item.sec_position?.toLowerCase().includes(searchTerm);
+      const CategoryMatch = item.category?.toLowerCase().includes(searchTerm);
       
       // Return true if any field matches the search term
-      return nameMatch || settlementTermMatch || telephoneMatch || idMatch || NPCTMatch;
+      return nameMatch || settlementTermMatch || telephoneMatch || idMatch || NPCTMatch || SecMatch ||GRCMatch ||CategoryMatch;
     });
 
     // Apply the filter to SEC and GRC arrays
@@ -861,6 +787,58 @@ await writeXlsxFile([secSheetData[0] , secSheetData[1]], {
       );
     });
 
+ async function handleExpand(row) {
+
+  console.log(row)
+ 
+   // Define the formData object with necessary fields
+   const secForm = {
+    project: "1",
+    form: "sec_officials",
+    submissionID: row.sec_officials[0].instanceID,
+    token: localStorage.getItem('collectorToken')
+  };
+ 
+    const response = await getSubmissionAttachments(secForm);
+
+
+ // Ensure response.attachments is an array and append the fields
+const finalResponse = {
+  attachments: response.attachments.map(attachment => ({
+    ...attachment, // Spread the original attachment data
+    submissionID: secForm.submissionID, // Add submissionID
+    project: secForm.project // Add project
+  })),
+};
+
+console.log('finalResponse',finalResponse)
+
+// Get GRC 
+const grcForm = {
+    project: "1",
+    form: "grc_officials",
+    submissionID: row.grc_officials[0].instance_id,
+    token: localStorage.getItem('collectorToken')
+  };
+ 
+    const grc = await getSubmissionAttachments(grcForm);
+
+
+ // Ensure response.attachments is an array and append the fields
+const grcResponse = {
+  attachments: grc.attachments.map(attachment => ({
+    ...attachment, // Spread the original attachment data
+    submissionID: grcForm.submissionID, // Add submissionID
+    project: grcForm.project // Add project
+  })),
+};
+
+ 
+console.log('mergedArray',grcResponse)
+
+}
+
+
 </script>
 
 <template>
@@ -899,14 +877,14 @@ await writeXlsxFile([secSheetData[0] , secSheetData[1]], {
         :value="item.value"
       />
     </el-select> 
-      <el-input clearable  v-model="search" placeholder="Search by Name, ID or Phone" :onInput="filterTableData" style=" margin-right: 15px;" />
+      <el-input clearable  v-model="search" placeholder="Search by Name, ID ,Phone, Position, Category..." :onInput="filterTableData" style=" margin-right: 15px;" />
       <el-tooltip content="Add GRC" placement="top">   <el-button v-if="showEditButtons" :onClick="AddRecord" type="primary" :icon="Plus" style=" margin-right: 15px;"/> </el-tooltip>
       <el-tooltip content="Download" placement="top">   <el-button v-if="showEditButtons" :onClick="DownloadXlsx" type="primary" :icon="Download" /> </el-tooltip>
 
       <!-- <DownloadCustom    :data="paginatedData"   :all="sec_officials" /> -->
      </el-row>
    
-    <el-table :data="paginatedData" border style="width: 100%">  
+    <el-table :data="paginatedData" border style="width: 100%" @expand-change="handleExpand">  
      <el-table-column type="expand">
       <template #default="props">
         <div m="4"> 
@@ -934,6 +912,10 @@ await writeXlsxFile([secSheetData[0] , secSheetData[1]], {
                         <el-table-column label="Category" prop="category" />
                         <el-table-column label="GRC Position" prop="grc_position" />
                       </el-table>
+                  </el-tab-pane>
+                  <el-tab-pane >
+                    <template #label> Documents  </template>
+                      
                   </el-tab-pane>
                 </el-tabs>  
               </div>
