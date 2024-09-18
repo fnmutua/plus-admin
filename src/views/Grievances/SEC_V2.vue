@@ -3,12 +3,12 @@
 
 
 import { ElButton} from 'element-plus'
-import {  Back} from '@element-plus/icons-vue'
+import { Plus, Back, Download, Edit} from '@element-plus/icons-vue'
 
 import { ref,computed } from 'vue'
 import {
   ElPagination, ElInput,ElSelect,ElOption,ElTable,ElTableColumn, ElTabPane,ElTabs,
-  ElRow, ElTableV2, ElCard} from 'element-plus'
+  ElRow, ElTableV2, ElCard, ElDialog,ElIcon} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
@@ -16,13 +16,17 @@ import {
     getSubmissions} from '@/api/collector'
 
 import { watch,onMounted } from 'vue';
+ import writeXlsxFile from 'write-excel-file';
 
-import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
+
+// import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
 import { useRouter } from 'vue-router'
-
+ 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
+const showEditButtons =  ref(appStore.getEditButtons)
+
 
  
 const mobileBreakpoint = 768;
@@ -56,8 +60,7 @@ onMounted(async () => {
  
  })
 
-
-
+ 
 console.log("userInfo--->", userInfo)
 
 const projects =ref([])
@@ -92,6 +95,7 @@ const loginUserToCollector = async () => {
 
             project.formList.forEach(function (form) {
                 
+              if(form.xmlFormId=="sec_officials" || form.xmlFormId=="grc_officials")
               forms.value.push(form)
 
 
@@ -105,7 +109,7 @@ const loginUserToCollector = async () => {
          
     })
 
-
+console.log( 'forms.value', forms.value)
 
 }
 
@@ -138,6 +142,7 @@ const extractData = async (dataArray) => {
     const npct_representative = data.grp_certification?.npct_representative  || "N/A";
     const date = data.date  || "N/A";
     const key = data.meta_instanceID  || "N/A";
+    const instanceID = data.meta_instanceID  || "N/A";
     
     // Create a unique key based on county and settlement
    // const key = createKey(county, settlement);
@@ -153,6 +158,7 @@ const extractData = async (dataArray) => {
           coordinator,
           npct_representative,
           date, 
+          instanceID,
           sec_officials: [] // Initialize empty array for officials
         });
       }
@@ -451,9 +457,7 @@ console.log(columnsx);
 
 const county_value =ref()
 const sett_value =ref()
-const filteredData = computed(() => {
-  
-
+const filteredData = computed(() => { 
      const searchTerm = search.value.toLowerCase();
         const selectedCounty = county_value.value;
         const selectedSettlement = sett_value.value;
@@ -511,19 +515,173 @@ const goBack = () => {
 
 }
 
-const expandedRow = ref(null); // Track the expanded row
-      const tableData = ref([
-        // Your table data here
-      ]);
  
-const onExpandChange = (row, expanded) => {
-        expandedRow.value = expanded ? row : null;
-      };
+const select_form=ref()
+const action=ref()
+const showAddDialog=ref(false)
+const AddRecord = async () => {  
+  action.value='add'
+   showAddDialog.value=true
+}
+
+ 
+const row=ref()
+
+const getFieldChangeHandler = async () => {  
+ 
+  if (action.value=='add') {
+    const formValue = select_form.value; // Get the selected value
+    const url = `https://collector.kesmis.go.ke/-/${encodeURIComponent(formValue)}`; // Construct the URL
+
+    // Open the constructed URL in a new tab
+    window.open(url, '_blank');
+   
+  }else {
+
+    console.log('Editing......')
+    console.log(row.value)
+    const formValue = select_form.value; // Get the selected value
+
+    const url = `https://collector.kesmis.go.ke/-/edit/${encodeURIComponent(formValue)}?instance_id=${row.value.instanceID}&return_url=https%3A%2F%2Fcollector.kesmis.go.ke%2F%23%2Fprojects%2F1%2Fforms%2Fsec_officials%2Fsubmissions%2Fuuid%3A7800ad58-a9a9-40c6-9a8a-a10706e47fc3`; // Construct the URL
+    console.log(url)
+
+
+    //  https://collector.kesmis.go.ke/-/edit/1OsFcLEnpbbg5bP32nd9x2MDEOcYyP7?instance_id=uuid:7800ad58-a9a9-40c6-9a8a-a10706e47fc3&return_url=https%3A%2F%2Fcollector.kesmis.go.ke%2F%23%2Fprojects%2F1%2Fforms%2Fsec_officials%2Fsubmissions%2Fuuid%3A7800ad58-a9a9-40c6-9a8a-a10706e47fc3
+ 
+
+
+  }
+
+  showAddDialog.value=false
+    
+}
+
+
+
+const handleEdit = async (data) => {  
+  row.value=data
+
+ action.value='edit'
+showAddDialog.value=true
+
+}
+
+
+
+
+const prepareSheetData = (officialsArray) => {
+  const columns = [
+    {
+      value: 'County',
+      fontWeight: 'bold',
+      type: String
+    },
+    {
+      value: 'Settlement',
+      fontWeight: 'bold',
+      type: String
+    },
+    {
+      value: 'Category',
+      fontWeight: 'bold',
+      type: String
+    },
+    {
+      value: 'Name',
+      fontWeight: 'bold',
+      type: String
+    },
+    {
+      value: 'Gender',
+      fontWeight: 'bold',
+      type: String
+    },
+    {
+      value: 'Position',
+      fontWeight: 'bold',
+      type: String
+    },
+    {
+      value: 'National ID',
+      fontWeight: 'bold',
+      type: String
+    },
+    {
+      value: 'Mobile',
+      fontWeight: 'bold',
+      type: String
+    }
+  ];
+
+  let sec_officials = [];
+  let grc_officials = [];
+
+  // Check if the officialsArray is nested, and flatten if necessary
+  officialsArray.forEach(officialGroup => {
+    if (Array.isArray(officialGroup.sec_officials)) {
+      // If it's a nested array, loop through each official inside
+      officialGroup.sec_officials.forEach(official => {
+        sec_officials.push([
+          { type: String, value: officialGroup.county },
+          { type: String, value: officialGroup.settlement },
+          { type: String, value: official.category },
+          { type: String, value: official.name },
+          { type: String, value: official.gender },
+          { type: String, value: official.sec_position },
+          { type: String, value: official.national_id },
+          { type: String, value: official.mobile }
+        ]);
+      });
+    }
+
+    if (Array.isArray(officialGroup.grc_officials)) {
+      // If it's a nested array, loop through each official inside
+      officialGroup.grc_officials.forEach(official => {
+        grc_officials.push([
+          { type: String, value: officialGroup.county },
+          { type: String, value: officialGroup.settlement },
+          { type: String, value: official.category },
+          { type: String, value: official.name },
+          { type: String, value: official.gender },
+          { type: String, value: official.grc_position },
+          { type: String, value: official.national_id },
+          { type: String, value: official.mobile }
+        ]);
+      });
+    }
+  });
+
+  // Return the columns and data rows for both SEC and GRC officials
+  return [
+    [columns, ...sec_officials], // SEC Officials
+    [columns, ...grc_officials]  // GRC Officials
+  ];
+};
+const DownloadXlsx = async ( ) => {  
+
+  //console.log('paginatedData',paginatedData.value)
+
+  const secSheetData = prepareSheetData(paginatedData.value);
+ //   const grcSheetData = prepareSheetData(paginatedData.value.grc_officials, false);
+
+
+    console.log('secSheetData',secSheetData[0])
   
-      const getRowClass = ({ row }) => {
-        return expandedRow.value && expandedRow.value !== row ? 'gray-out' : '';
-      };
-  
+
+// await writeXlsxFile(secSheetData[0], {
+//    fileName: 'file.xlsx'
+// })
+
+
+await writeXlsxFile([secSheetData[0] , secSheetData[1]], {
+ 
+  sheets: ['SEC', 'GRC'],
+    fileName: 'sec_grc.xlsx'
+})
+
+
+
+}
 
 </script>
 
@@ -536,8 +694,6 @@ const onExpandChange = (row, expanded) => {
           Back
         </el-button>
       </div>
-
-      
     <el-select
       v-model="county_value"
       placeholder="Filter County"
@@ -564,14 +720,12 @@ const onExpandChange = (row, expanded) => {
         :value="item.value"
       />
     </el-select> 
-
       <el-input clearable  v-model="search" placeholder="Search by Name, ID, Phone,County or Settlement" :onInput="filterTableData" style=" margin-right: 15px;" />
+      <el-tooltip content="Add GRC" placement="top">   <el-button v-if="showEditButtons" :onClick="AddRecord" type="primary" :icon="Plus" style=" margin-right: 15px;"/> </el-tooltip>
+      <el-tooltip content="Download" placement="top">   <el-button v-if="showEditButtons" :onClick="DownloadXlsx" type="primary" :icon="Download" /> </el-tooltip>
 
-      <DownloadCustom    :data="paginatedData"   :all="sec_officials" />
-
-      <!-- Download All Component -->
-    </el-row>
-
+      <!-- <DownloadCustom    :data="paginatedData"   :all="sec_officials" /> -->
+     </el-row>
    
     <el-table :data="paginatedData" border style="width: 100%">  
      <el-table-column type="expand">
@@ -579,13 +733,8 @@ const onExpandChange = (row, expanded) => {
         <div m="4"> 
           <el-tabs tab-position="top" class="demo-tabs">
                   <el-tab-pane >
-                    <template #label>
-                        <el-badge  style="margin-left: 10px;" :value="props.row.sec_officials.length" type="warning" class="item" :offset="[10, 5]"> 
-                          Settlement Executive Committee(SEC)
-                        </el-badge>
-                      </template>
+                    <template #label>   Settlement Executive Committee(SEC)  </template>
                       <el-table :data="props.row.sec_officials" style=" margin-bottom:10px"  >
-                        
                         <el-table-column label="#" type="index" />
                         <el-table-column label="Name" prop="name" />
                       <el-table-column label="National ID" prop="national_id" />
@@ -597,11 +746,7 @@ const onExpandChange = (row, expanded) => {
                     <ElButton style="margin-left:10px" >Download</ElButton>
                   </el-tab-pane>
                   <el-tab-pane >
-                    <template #label>
-                        <el-badge  style="margin-left: 10px;" :value="props.row.grc_officials.length" type="warning" class="item" :offset="[10, 5]"> 
-                          Grievance Redress Committee (GRC)
-                        </el-badge>
-                      </template>
+                    <template #label> Grievance Redress Committee (GRC)  </template>
                       <el-table :data="props.row.grc_officials" class="styled-table">
                         <el-table-column label="#" type="index" />
                         <el-table-column label="Name" prop="name" />
@@ -611,7 +756,6 @@ const onExpandChange = (row, expanded) => {
                         <el-table-column label="Category" prop="category" />
                         <el-table-column label="GRC Position" prop="grc_position" />
                       </el-table>
-
                   </el-tab-pane>
                 </el-tabs>  
               </div>
@@ -625,18 +769,52 @@ const onExpandChange = (row, expanded) => {
     <el-table-column label="Coordinator" prop="coordinator" />
     <el-table-column label="NPCT Rep" prop="npct_representative" />
     <el-table-column label="Date" prop="date" />
-
+    <el-table-column fixed="right" label="" min-width="40">
+      <template #default="props">
+        <el-button type="primary" plain @click="handleEdit(props.row)"> Edit
+      <el-icon class="el-icon--right"><Edit /> </el-icon>
+    </el-button>
+       </template>
+    </el-table-column>
   </el-table>
 
-
-   
   <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
         @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
-  
   </el-card>
  
+  <el-dialog
+    v-model="showAddDialog"
+    title="Add/Edit Form"
+    width="450"
+ 
+  >
+  <el-select
+      v-model="select_form"
+      placeholder="Select Form"
+      size="small"
+      style="width: 95%"
+      @change="getFieldChangeHandler()"
+    >
+      <el-option
+        v-for="item in forms"
+        :key="item.enketoId"
+        :label="item.name"
+        :value="item.enketoId"
+      />
+    </el-select>
+ 
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="showAddDialog = false">Cancel</el-button>
+       
+      </div>
+    </template>
+  </el-dialog>
+
+
 </template>
 
 
