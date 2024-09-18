@@ -133,7 +133,7 @@ const extractData = async (dataArray) => {
 
     // Extract county and settlement
     const county = data.group_location?.county || "N/A";
-    const settlement = data.group_location?.county  || "N/A";
+    const settlement = data.settlement_name  || "N/A";
     const coordinator = data.grp_certification?.county_kisip_coordinator  || "N/A";
     const npct_representative = data.grp_certification?.npct_representative  || "N/A";
     const date = data.date  || "N/A";
@@ -213,7 +213,7 @@ const extractGRCData = async (dataArray) => {
 
     // Extract county and settlement
     const county = data.group_location?.county || "N/A";
-    const settlement = data.group_location?.county  || "N/A";
+    const settlement = data.settlement_name  || "N/A";
     const coordinator = data.grp_certification?.county_kisip_coordinator  || "N/A";
     const npct_representative = data.grp_certification?.npct_representative  || "N/A";
     const date = data.date  || "N/A";
@@ -510,14 +510,20 @@ const goBack = () => {
   }
 
 }
-const customCellStyle = () => {
-      return {
-        color: '#888', // Gray text
-        fontStyle: 'italic', // Italic font
+
+const expandedRow = ref(null); // Track the expanded row
+      const tableData = ref([
+        // Your table data here
+      ]);
+ 
+const onExpandChange = (row, expanded) => {
+        expandedRow.value = expanded ? row : null;
       };
-    } 
-
-
+  
+      const getRowClass = ({ row }) => {
+        return expandedRow.value && expandedRow.value !== row ? 'gray-out' : '';
+      };
+  
 
 </script>
 
@@ -567,8 +573,8 @@ const customCellStyle = () => {
     </el-row>
 
    
-    <el-table :data="paginatedData" border style="width: 100%">
-    <el-table-column type="expand">
+    <el-table :data="paginatedData" border style="width: 100%">  
+     <el-table-column type="expand">
       <template #default="props">
         <div m="4"> 
           <el-tabs tab-position="top" class="demo-tabs">
@@ -578,7 +584,8 @@ const customCellStyle = () => {
                           Settlement Executive Committee(SEC)
                         </el-badge>
                       </template>
-                      <el-table :data="props.row.sec_officials"  >
+                      <el-table :data="props.row.sec_officials" style=" margin-bottom:10px"  >
+                        
                         <el-table-column label="#" type="index" />
                         <el-table-column label="Name" prop="name" />
                       <el-table-column label="National ID" prop="national_id" />
@@ -587,6 +594,7 @@ const customCellStyle = () => {
                       <el-table-column label="Category" prop="category" />
                       <el-table-column label="SEC Position" prop="sec_position" />
                     </el-table>
+                    <ElButton style="margin-left:10px" >Download</ElButton>
                   </el-tab-pane>
                   <el-tab-pane >
                     <template #label>
@@ -611,11 +619,13 @@ const customCellStyle = () => {
           </el-table-column>
  
 
-    <el-table-column label="Date" prop="date" />
-    <el-table-column label="County" prop="county" />
     <el-table-column label="Settlement" prop="settlement" />
+    <el-table-column label="County" prop="county" />
+
     <el-table-column label="Coordinator" prop="coordinator" />
     <el-table-column label="NPCT Rep" prop="npct_representative" />
+    <el-table-column label="Date" prop="date" />
+
   </el-table>
 
 
@@ -635,4 +645,10 @@ const customCellStyle = () => {
   color: gray;        /* Gray text */
   font-style: italic; /* Italic font */
 }
+
+.gray-out {
+    background-color: #f0f0f0; /* Light gray background */
+    color: gray; /* Gray text */
+  }
+
 </style>
