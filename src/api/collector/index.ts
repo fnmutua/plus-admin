@@ -104,3 +104,10 @@ export const editSubmissions = (data)  => {
    data    
  });
 };
+
+export const getSubmissionAttachments = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/submissions/docs',
+   data    
+ });
+};

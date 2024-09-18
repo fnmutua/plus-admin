@@ -29,8 +29,9 @@ module.exports = function(app) {
   app.post("/api/v1/collector/submissions",  controller.modelGetSubmissions);
   app.post("/api/v1/collector/submissions/delete",  controller.modelDeleteSubmission);
   app.post("/api/v1/collector/submissions/edit",  controller.modelEditSubmission);
+  app.post("/api/v1/collector/submissions/docs",  controller.getSubmissionAttachments);
 
 
-
+  
   
 };

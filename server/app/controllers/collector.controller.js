@@ -1032,3 +1032,56 @@ exports.modelEditSubmission = (req, res) => {
     }
   });
 };
+
+
+ 
+exports.getSubmissionAttachments = (req, res) => {
+  // Extract necessary fields from the request body
+  const { project, form, token, submissionID } = req.body;
+
+  console.log(req.body);
+
+  // Construct the URL for retrieving a specific submission's attachments
+  let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionID}/attachments`;
+
+  // Make the GET request to the ODK Central API to retrieve the list of attachments
+  request({
+    method: 'GET',
+    url: url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`, // Auth token from the request
+    },
+
+  }, async function (error, response, body) {
+    // Handle the response
+    if (!error && response.statusCode === 200) {
+      const attachments = await JSON.parse(body); // Parse the attachments list
+
+      console.log(attachments);
+
+      // Check if there are any attachments
+      if (attachments.length > 0) {
+        // Send the list of attachments
+        res.status(200).send({
+          message: 'Attachments retrieved successfully',
+          code: '0000',
+          attachments: attachments, // Return the list of attachments
+        });
+      } else {
+        // No attachments found
+        res.status(404).send({
+          message: 'No attachments found for this submission',
+          code: '4040',
+        });
+      }
+    } else {
+      // Log and handle errors
+      console.error('Error:', error || body);
+      res.status(500).send({
+        error: 'Internal Server Error',
+        message: body || error,
+      });
+    }
+  });
+};
