@@ -208,10 +208,11 @@ exports.createGrievanceRecord = async (req, res) => {
             model: UserRoles,
              // here get the Super Admin Roles only 
             where: {
+              roleid: 4,  // GRM
               [op.or]: [
                 { settlement_id: obj.settlement_id.toString() }, // Settlement ID match
                 {  county_id: obj.county_id.toString()},              // Super Admin role
-                 { roleid: 4 }                  // Only active users
+                          
               ]
             }
 
