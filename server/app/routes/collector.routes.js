@@ -30,6 +30,7 @@ module.exports = function(app) {
   app.post("/api/v1/collector/submissions/delete",  controller.modelDeleteSubmission);
   app.post("/api/v1/collector/submissions/edit",  controller.modelEditSubmission);
   app.post("/api/v1/collector/submissions/docs",  controller.getSubmissionAttachments);
+  app.post("/api/v1/collector/submissions/download",  controller.downloadSubmissionAttachment);
 
 
   

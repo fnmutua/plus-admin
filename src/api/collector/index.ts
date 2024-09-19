@@ -111,3 +111,16 @@ export const getSubmissionAttachments = (data)  => {
    data    
  });
 };
+
+
+export const downloadSubmissionAttachments = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/submissions/download',
+   data    
+ });
+};
+
+
+
+
+ 

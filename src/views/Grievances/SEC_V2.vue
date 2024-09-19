@@ -2,17 +2,17 @@
 <script setup lang="ts">
 
 
-import { ElButton} from 'element-plus'
+ 
 import { Plus, Back, Download, Edit} from '@element-plus/icons-vue'
 
 import { ref,computed } from 'vue'
 import {
   ElPagination, ElInput,ElSelect,ElOption,ElTable,ElTableColumn, ElTabPane,ElTabs,
-  ElRow, ElTableV2, ElCard, ElDialog,ElIcon} from 'element-plus'
+  ElRow, ElTableV2, ElCard, ElDialog,ElIcon,ElButton,ElMessage} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
-    loginCollector,deleteSubmissions,getSubmissionAttachments,
+    loginCollector,deleteSubmissions,getSubmissionAttachments,downloadSubmissionAttachments,
     getSubmissions} from '@/api/collector'
 
 import { watch,onMounted } from 'vue';
@@ -793,8 +793,11 @@ await writeXlsxFile([secSheetData[0] , secSheetData[1]], {
       );
     });
 
- async function handleExpand(row) {
 
+
+const documents =ref([])
+ async function handleExpand(row) {
+  documents.value=[]
   console.log(row)
  
    // Define the formData object with necessary fields
@@ -813,6 +816,8 @@ const finalResponse = {
   attachments: response.attachments.map(attachment => ({
     ...attachment, // Spread the original attachment data
     submissionID: secForm.submissionID, // Add submissionID
+    category: 'SEC', // Add submissionID
+    form:'sec_officials',
     project: secForm.project // Add project
   })),
 };
@@ -820,6 +825,7 @@ const finalResponse = {
 console.log('finalResponse',finalResponse)
 
 // Get GRC 
+console.log('GRC',row.grc_officials)
 const grcForm = {
     project: "1",
     form: "grc_officials",
@@ -835,14 +841,77 @@ const grcResponse = {
   attachments: grc.attachments.map(attachment => ({
     ...attachment, // Spread the original attachment data
     submissionID: grcForm.submissionID, // Add submissionID
+    category: 'GRC', // Add submissionID
+    form:'grc_officials',
     project: grcForm.project // Add project
   })),
 };
 
  
-console.log('mergedArray',grcResponse)
+
+
+ // Merging arrays and removing duplicates based on 'submissionID'
+const mergedArray = finalResponse.attachments.concat(grcResponse.attachments).filter((item, index, self) =>
+  index === self.findIndex((t) => t.submissionID === item.submissionID)
+);
+
+
+documents.value=mergedArray
+
+console.log('mergedDocumentstsArray',documents.value)
 
 }
+
+const viewLoading =ref(false)
+const downloadFile = async (data) => {
+  console.log(data);
+  viewLoading.value = true;
+  const formData = {};
+  formData.attachmentName = data.name;
+  formData.submissionID = data.submissionID;
+  formData.project = data.project;
+  formData.form = data.form;
+  formData.token = localStorage.getItem('collectorToken')
+  formData.responseType = 'blob';
+ 
+
+
+ 
+  // token,   
+
+  // Add a flag to track if the download has started
+
+
+  // Attach a 'beforeunload' event listener to the window
+  window.addEventListener('beforeunload', () => {
+    if (viewLoading.value) {
+      console.log('Download has started.');
+      viewLoading.value = false;
+    }
+  });
+
+  try {
+    const response = await downloadSubmissionAttachments(formData);
+    console.log(response);
+
+   const url = window.URL.createObjectURL(new Blob([response.data ]));
+   console.log(url)
+
+   // const url = window.URL.createObjectURL(new Blob([await response.data.data.blob()]));
+
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', data.name);
+    document.body.appendChild(link);
+    link.click();
+    viewLoading.value = false;
+  } catch (error) {
+    ElMessage.error('Failed');
+    viewLoading.value = false;
+  }
+};
+
 
 
 </script>
@@ -921,7 +990,9 @@ console.log('mergedArray',grcResponse)
                   </el-tab-pane>
                   <el-tab-pane >
                     <template #label> Documents  </template>
-                      
+                    <div v-for="(doc, index) in documents" :key="index" style="margin-left: 25px">
+                      <el-button  @click="downloadFile(doc)"   link type="primary" size="small" :icon="Download">{{ doc.name }}  -  {{ doc.category }} </el-button>
+                    </div>
                   </el-tab-pane>
                 </el-tabs>  
               </div>
