@@ -6,7 +6,11 @@ const Sequelize = require('sequelize')
  const moment = require('moment');
  const User = db.user
  const Grievance = db.models.grievance
+ const UserRoles = db.models.user_roles
+ const Users = db.models.users
+
  const axios = require('axios') ;
+ const Role = db.role
 
 
  var bcrypt = require('bcryptjs')
@@ -59,6 +63,28 @@ exports.generateGRMCode = async (req, res) => {
 };
 
  
+async function sendNotificationSMS(sms_obj) {
+  // Send OTP via Leopard (not implemented in this code snippet)
+  const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+  
+  const requestData = {
+    apikey: "684f84e9aa485a0e72e6734c6b84d9b4",
+    partnerID: "10322",
+    shortcode: "AGS",
+    message: sms_obj.msg,
+    mobile: sms_obj.phone,
+  };
+
+  axios
+    .post(url, requestData)
+    .then((response) => {
+      console.log("Response:", response.data);
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+    });
+}
+
 async function sendSMS(sms_obj) {
   // Send OTP via Leopard (not implemented in this code snippet)
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
@@ -125,65 +151,6 @@ const generateGRMCode = async () => {
 };
 
 
-exports._createGrievanceRecord = async (req, res) => {
-  try {
-    // Generate the GRM code before creating the record
-    const generatedCode = await generateGRMCode();
-
-    // Prepare the object for creation
-    let obj = req.body;
-
-
-    let name = req.body.name
-    let national_id = req.body.national_id
-    obj.name=Sequelize.fn('PGP_SYM_ENCRYPT',name, 'maluini')
-    obj.national_id=Sequelize.fn('PGP_SYM_ENCRYPT',national_id, 'maluini')
-
-
-
-    obj.code = generatedCode; // Assign the generated code
-
-    console.log('Grievance record to be created:', obj);
-
-    // Create the record
-    const item = await db.models.grievance.create(obj);
-
-    console.log('Created item:', item);
-
-    sendSMS(item);
-
-    res.status(200).send({
-      data: item,
-      code: '0000',
-      message: 'Grievance reported successfully.'
-    });
-
-  } catch (err) {
-    // Handle specific duplicate key error
-    if (err.code === '23505') {
-      console.log('Duplicate key error:', err.detail);
-
-      // Return a custom message for the duplicate key error
-      return res.status(400).send({
-        code: '23505',
-        message: 'A grievance with the same name, ward, sub-county, and county already exists. Please use a different name or location.'
-      });
-    }
-
-    // Handle other errors
-    console.log('Error:', err);
-    const message = err.message || 'An error occurred';
-    let msg
-    if (message=='Validation error') {
-      msg="Duplicate Grievances are not allowed"
-    }
-    else {
-      msg=message
-    }
-    res.status(500).send({ message: msg });
-  }
-};
-
 exports.createGrievanceRecord = async (req, res) => {
   try {
     // Generate the GRM code before creating the record
@@ -230,6 +197,70 @@ exports.createGrievanceRecord = async (req, res) => {
     item.national_id = decryptedNationalId[0].national_id;
 
     sendSMS(item);
+
+    let grm_officials=[]
+    let grm_officials_names=[]
+    
+    // query for all users  with 
+      await Users.findAll({
+        include: [
+          {
+            model: UserRoles,
+             // here get the Super Admin Roles only 
+            where: {
+              [op.or]: [
+                { settlement_id: obj.settlement_id.toString() }, // Settlement ID match
+                {  county_id: obj.county_id.toString()},              // Super Admin role
+                 { roleid: 4 }                  // Only active users
+              ]
+            }
+
+          }
+        ]
+      }).then(grms => {
+        // handle the results
+        grms.forEach(grm => {
+          if (grm.name) { // Push only if name is not null or undefined
+            grm_officials_names.push(grm.name);
+          }
+        
+          if (grm.phone) { // Push only if phone is not null or undefined
+
+            let msg = 'A new grievance has been reported. Please review for your action. Reference:' + generatedCode
+           // grm_officials.push(grm.phone);
+            let obj={} 
+            obj.msg = msg 
+            obj.phone=grm.phone
+
+            // for each number send a notification SMS
+            sendNotificationSMS(obj)
+
+
+          }
+        });
+        
+ 
+        console.log('grm_officials_names',grm_officials_names,grm_officials)
+
+      }).catch(error => {
+        // handle the error
+        console.log('Fail:',error)
+      });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     res.status(200).send({
       data: item,
@@ -416,6 +447,8 @@ exports.getGrievances =async (req, res) => {
  
 
 const multer = require('multer');
+const user_roles = require('../models/user_roles');
+const settlement = require('../models/settlement');
 
 const uploadDir = '/data/grievances';
 
