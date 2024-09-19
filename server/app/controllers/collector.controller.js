@@ -1085,3 +1085,177 @@ exports.getSubmissionAttachments = (req, res) => {
     }
   });
 };
+
+ 
+const path = require('path');
+
+exports.xdownloadSubmissionAttachment = (req, res) => {
+  // Extract necessary fields from the request body
+  const { project, form, token, submissionID, attachmentName } = req.body;
+
+  console.log(req.body);
+
+  // Construct the URL for downloading the attachment
+  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionID}/attachments/${attachmentName}`;
+
+  console.log(url)
+  // Make the GET request to the ODK Central API to download the attachment
+  request({
+    method: 'GET',
+    url: url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`, // Auth token from the request
+    },
+    encoding: null, // Ensures the file is returned in binary format
+  }, (error, response, body) => {
+    if (!error && response.statusCode === 200) {
+      const contentType = response.headers['content-type'];
+      const filename = path.basename(attachmentName);
+
+      // Set the appropriate headers to allow file download
+      res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+      res.setHeader('Content-Type', contentType);
+
+      // Send the file as the response
+      //res.status(200).send(body);
+ 
+      res.status(200).send({
+        message: 'Attachments retrieved successfully',
+        code: '0000',
+        data: body, // Return the list of attachments
+      });
+
+      
+    } else {
+      // Handle errors
+      console.error('Error:', error || body);
+      res.status(500).send({
+        error: 'Failed to download attachment',
+        message: body || error,
+      });
+    }
+  });
+};
+
+
+
+exports.xdownloadSubmissionAttachment = (req, res) => {
+  const { project, form, token, submissionID, attachmentName } = req.body;
+
+  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionID}/attachments/${attachmentName}`;
+
+  request({
+    method: 'GET',
+    url: url,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    encoding: null, // Ensures binary data is handled correctly
+  }, (error, response, body) => {
+    if (!error && response.statusCode === 200) {
+      const contentType = response.headers['content-type'];
+      const filename = path.basename(attachmentName);
+
+      // Set headers for file download and custom metadata
+      res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Length', body.length); // Set file size
+      res.setHeader('X-Message', 'Attachments retrieved successfully'); // Add custom message
+      res.setHeader('code', '0000'); // Add custom code
+
+      // Send the file directly as the response
+      // res.status(200).send(body);
+      res.status(200).send({
+        message: 'Attachments retrieved successfully',
+        code: '0000',
+        data: body, // Return the list of attachments
+      });
+
+    } else {
+      console.error('Error:', error || body);
+      res.status(500).send({
+        error: 'Failed to download attachment',
+        message: body || error,
+      });
+    }
+  });
+};
+
+
+
+ 
+const tmp = require('tmp'); // For creating temporary files
+const fs = require('fs');
+
+exports.downloadSubmissionAttachment = (req, res) => {
+  const { project, form, token, submissionID, attachmentName } = req.body;
+
+  const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${submissionID}/attachments/${attachmentName}`;
+
+  request({
+    method: 'GET',
+    url: url,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    encoding: null, // Ensures binary data is handled correctly
+  }, (error, response, body) => {
+    if (!error && response.statusCode === 200) {
+      const contentType = response.headers['content-type'];
+      const filename = path.basename(attachmentName);
+
+      // Create a temporary file
+      tmp.file({ postfix: path.extname(filename) }, (err, tempFilePath, fd, cleanupCallback) => {
+        if (err) {
+          console.error('Error creating temporary file:', err);
+          return res.status(500).send({
+            error: 'Failed to create temporary file',
+            message: err.message,
+          });
+        }
+
+        // Write the binary data to the temporary file
+        fs.writeFile(tempFilePath, body, (writeError) => {
+          if (writeError) {
+            console.error('Error writing to temporary file:', writeError);
+            cleanupCallback(); // Clean up temporary file
+            return res.status(500).send({
+              error: 'Failed to write temporary file',
+              message: writeError.message,
+            });
+          }
+
+          // Set headers for file download and custom metadata
+          res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+          res.setHeader('Content-Type', contentType);
+
+          // Send the file directly as the response
+          //res.sendFile(tempFilePath, (fileSendError) => {
+          //   res.sendFile(path.resolve(tempFilePath), function(fileSendError) {
+          //   // Clean up temporary file after sending
+          //   cleanupCallback();
+
+          //   if (fileSendError) {
+          //     console.error('Error sending file:', fileSendError);
+          //     return res.status(500).send({
+          //       error: 'Failed to send file',
+          //       message: fileSendError.message,
+          //     });
+          //   }
+          // });
+
+          res.download(tempFilePath);
+
+        });
+      });
+
+    } else {
+      console.error('Error:', error || body);
+      res.status(500).send({
+        error: 'Failed to download attachment',
+        message: body || error,
+      });
+    }
+  });
+};
