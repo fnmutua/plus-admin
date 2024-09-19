@@ -1229,23 +1229,23 @@ exports.downloadSubmissionAttachment = (req, res) => {
           // Set headers for file download and custom metadata
           res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
           res.setHeader('Content-Type', contentType);
+ 
 
-          // Send the file directly as the response
-          //res.sendFile(tempFilePath, (fileSendError) => {
-          //   res.sendFile(path.resolve(tempFilePath), function(fileSendError) {
-          //   // Clean up temporary file after sending
-          //   cleanupCallback();
+         // res.download(tempFilePath);
+ 
+         res.sendFile((tempFilePath), function(fileSendError) {
+          // Clean up temporary file after sending
+          cleanupCallback();
 
-          //   if (fileSendError) {
-          //     console.error('Error sending file:', fileSendError);
-          //     return res.status(500).send({
-          //       error: 'Failed to send file',
-          //       message: fileSendError.message,
-          //     });
-          //   }
-          // });
+          if (fileSendError) {
+            console.error('Error sending file:', fileSendError);
+            return res.status(500).send({
+              error: 'Failed to send file',
+              message: fileSendError.message,
+            });
+          }
+        });
 
-          res.download(tempFilePath);
 
         });
       });

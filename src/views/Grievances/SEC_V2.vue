@@ -863,6 +863,7 @@ console.log('mergedDocumentstsArray',documents.value)
 }
 
 const viewLoading =ref(false)
+
 const downloadFile = async (data) => {
   console.log(data);
   viewLoading.value = true;
@@ -894,11 +895,23 @@ const downloadFile = async (data) => {
     const response = await downloadSubmissionAttachments(formData);
     console.log(response);
 
-   const url = window.URL.createObjectURL(new Blob([response.data ]));
-   console.log(url)
+   //const url = window.URL.createObjectURL(new Blob([response.data ]));
+
+
+
+      // Convert the binary data to an ArrayBuffer
+      const bufferArray = new Uint8Array(response.data ).buffer;
+
+
+      // Step 4: Create a Blob from the ArrayBuffer, specifying the file type
+      const blob = new Blob([bufferArray], {
+        type: "image/jpeg",
+      });
+
+      const url = URL.createObjectURL(blob);
 
    // const url = window.URL.createObjectURL(new Blob([await response.data.data.blob()]));
-
+   console.log(url)
 
     const link = document.createElement('a');
     link.href = url;

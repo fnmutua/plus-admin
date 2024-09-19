@@ -228,7 +228,8 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: t('Settlements'),
           icon: 'mdi:map-legend',
-          alwaysShow: true
+          alwaysShow: true,
+ 
         },
         children: [
     
@@ -381,7 +382,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
              title: 'Community',
              icon:'fluent:people-team-add-20-filled',
              role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
-             locationLevel:['national','county','settlement'],
+             locationLevel:['national','county' ],
     
            },
            children: [ 
@@ -394,7 +395,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
                 title: 'SEC/GRC',
                 icon:'fluent:people-team-16-filled',
                 role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
-                locationLevel:['national','county','settlement'],
+                locationLevel:['national','county' ],
     
               },
              },
@@ -411,18 +412,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     
               },
              },
-             {
-              path: 'grc',
-              component: () => import('@/views/Grievances/GRC.vue'),
-             name: 'GRC',
-             meta: {
-               title: 'GRC',
-               icon:'fluent:people-checkmark-20-filled',
-               role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
-               locationLevel:['national','county','settlement'],
-      
-             }
-            },
+            
             
            ]
           
@@ -1388,7 +1378,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       },
-     
+      {
+        path: 'grc',
+        component: () => import('@/views/Grievances/GRC.vue'),
+       name: 'GRC',
+       meta: {
+         title: 'GRC',
+         icon:'fluent:people-checkmark-20-filled',
+         role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
+         locationLevel:['national','county','settlement'],
+
+       }
+      },
       {
         path: 'profile',
       //  component: 'views/Users/County',

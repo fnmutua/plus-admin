@@ -36,22 +36,25 @@ db.user.belongsToMany(db.role, {
 })
  
 
-// db.models.user_roles.belongsTo(db.models.users, {
-//   foreignKey: 'userid'
-// })
 
-// db.models.users.hasMany(db.models.user_roles, {
-//   foreignKey: 'userid'
-// })
 
-// db.models.user_roles.belongsTo(db.models.roles, {
-//   foreignKey: 'roleid'
-// })
+db.models.user_roles.belongsTo(db.models.users, {
+  foreignKey: 'userid'
+})
 
-// db.models.roles.hasMany(db.models.user_roles, {
-//   foreignKey: 'roleid'
-// })
+db.models.users.hasMany(db.models.user_roles, {
+  foreignKey: 'userid'
+})
+
+db.models.user_roles.belongsTo(db.models.roles, {
+  foreignKey: 'roleid'
+})
+
+db.models.roles.hasMany(db.models.user_roles, {
+  foreignKey: 'roleid'
+})
  
+
 // A county can have many users, while a user can only have one county.W
 //db.user.belongsTo(db.models.county);
 
