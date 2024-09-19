@@ -141,6 +141,7 @@ const extractData = async (dataArray) => {
     // Extract county and settlement
     const county = data.group_location?.county || "N/A";
     const settlement = data.settlement_name  || "N/A";
+    const settlement_code = data.group_location.pcode  || "N/A";
     const coordinator = data.grp_certification?.county_kisip_coordinator  || "N/A";
     const npct_representative = data.grp_certification?.npct_representative  || "N/A";
     const date = data.date  || "N/A";
@@ -155,6 +156,7 @@ const extractData = async (dataArray) => {
         recordsMap.set(key, {
           county,
           settlement,
+          settlement_code,
           coordinator,
           npct_representative,
           date, 
@@ -240,6 +242,8 @@ const extractGRCData = async (dataArray) => {
     // Extract county and settlement
     const county = data.group_location?.county || "N/A";
     const settlement = data.settlement_name  || "N/A";
+    const settlement_code = data.group_location.pcode  || "N/A";
+
     const coordinator = data.grp_certification?.county_kisip_coordinator  || "N/A";
     const npct_representative = data.grp_certification?.npct_representative  || "N/A";
     const date = data.date  || "N/A";
@@ -257,6 +261,7 @@ const extractGRCData = async (dataArray) => {
         recordsMap.set(key, {
           county,
           settlement,
+          settlement_code,
           coordinator,
           npct_representative,
           date, 
@@ -342,13 +347,14 @@ const mergeOfficials = (sec_officials, grc_officials) => {
   // Loop through each sec_official entry
  
   sec_officials.forEach(secRecord => {
-    const { date, county, settlement } = secRecord;
+    const { date, county, settlement,settlement_code } = secRecord;
 
     // Find matching grc_official record by date, county, and settlement
     const matchingGrcRecord = grc_officials.find(grcRecord => 
-      grcRecord.date === date &&
-      grcRecord.county === county &&
-      grcRecord.settlement === settlement
+      grcRecord.settlement_code == settlement_code 
+      // &&
+      // grcRecord.county === county &&
+      // grcRecord.settlement === settlement
     );
 
   //  console.log("matchingGrcRecord....",matchingGrcRecord.grc_officials)
@@ -389,8 +395,8 @@ const getGRCData = async () => {
     // Log the extracted data
     console.log(grc_officials.value); 
 
-    console.log('Waiitng.....')
-    mergeOfficials(sec_officials.value, grc_officials.value)
+    console.log('mergeOfficials.....')
+    await mergeOfficials(sec_officials.value, grc_officials.value)
 
   } catch (error) {
     // Handle errors here
@@ -752,8 +758,8 @@ const DownloadXlsx = async ( ) => {
 
     // Iterate over the data rows
     data.forEach(row => {
-        headers.forEach((header, index) => {
-            const key = header.value.toLowerCase().replace(/\s+/g, '_'); // Convert header to key
+        headers.forEach((  index) => {
+           
             const cellValue = row[index]?.value ?? ''; // Extract value from data row
             const valueLength = cellValue.toString().length; // Length of the cell value
             widths[index] = Math.max(widths[index], valueLength); // Update column width
@@ -940,7 +946,7 @@ console.log('mergedArray',grcResponse)
 
   <el-pagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
+        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,200]" :total="totalItems" :background="true"
         @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
   </el-card>
