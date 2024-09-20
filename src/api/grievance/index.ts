@@ -35,3 +35,13 @@ export const logGrievanceAction = (data: any): Promise<IResponse> => {
 }
 
 
+
+export const getGrievanceStatus = (data: any): Promise<IResponse> => {
+   return request.post({ url: prod + '/api/v1/grv/status', data })
+ }
+ 
+
+
+ export const batchImportGrievances = (data: any): Promise<IResponse> => {
+   return request.post({ url: prod + '/api/v1/grv/upsert', data })
+ }

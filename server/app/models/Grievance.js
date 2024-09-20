@@ -29,7 +29,7 @@ module.exports = function (sequelize) {
       },
       // Complainant details
       name: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true
       },
       age: {
@@ -85,11 +85,11 @@ module.exports = function (sequelize) {
 
 
       description: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true
       },
       plea: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true
       },
       witness: {
