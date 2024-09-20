@@ -761,3 +761,161 @@ exports.zgetGrievanceById = async (req, res) => {
     };
     
     
+
+    exports.getGrievanceStatus = async (req, res) => {
+      try {
+        const grievanceCode = req.body.grievanceCode;
+        const phoneNumber = req.body.phoneNumber;
+    
+        if (!grievanceCode || !phoneNumber) {
+          return res.status(400).send({
+            code: '1001',
+            message: 'Grievance code and phone number are required',
+          });
+        }
+    
+        // Initialize findOne options with decrypted phone number
+        let attributes = [];
+    
+        
+        attributes.push('phone','code','date_reported');
+    
+        // Grievance status field
+        attributes.push('status');
+    
+        const findOptions = {
+          where: {
+            code: {
+              [op.iLike]: `%${grievanceCode}%`, // Case-insensitive partial matching for grievance code
+            },
+            phone: {
+              [op.iLike]: `%${phoneNumber}%`, // Case-insensitive partial matching for phone number
+            },
+          },
+          attributes: attributes, // Include decrypted phone_number and status
+        };
+    
+        console.log('Find options:', findOptions);
+    
+        // Fetch grievance by grievance_code and phone_number
+        const grievance = await Grievance.findOne(findOptions);
+    
+        if (!grievance) {
+          return res.status(404).send({
+            code: '1002',
+            message: 'No grievance found for the given code and phone number',
+          });
+        }
+    
+        // Return the grievance status
+        return res.status(200).send({
+          code: '0000',
+          message: 'Grievance status retrieved successfully',
+          data: {
+            code: grievance.code,
+            date_reported: grievance.date_reported,
+            phone: phoneNumber,
+            status: grievance.status, // The status of the grievance
+          },
+        });
+    
+      } catch (error) {
+        console.error('Error fetching grievance status:', error);
+        return res.status(500).send({
+          code: '9999',
+          message: 'Unable to retrieve grievance status. Please try again later.',
+        });
+      }
+    };
+    
+    const generateNextGrievanceCode = async (lastCode) => {
+      const prefix = 'GRM';
+      const year = new Date().getFullYear();
+      const codeLength = 4;  // Number of digits in the numeric part
+      
+      let lastNumber = 0;
+    
+      if (lastCode && lastCode.startsWith(`${prefix}-${year}`)) {
+        // Extract the numeric part if it's in the current year format
+        lastNumber = parseInt(lastCode.split('-')[2]);
+      }
+    
+      // Increment the numeric part
+      const nextNumber = lastNumber + 1;
+    
+      // Pad the numeric part with leading zeros and format the final code
+      const nextCode = `${prefix}-${year}-${nextNumber.toString().padStart(codeLength, '0')}`;
+    
+      return nextCode;
+    };
+    
+    exports.modelImportGrievances = async (req, res) => {
+      const reg_model = 'grievance';
+      const data = req.body.data;
+      const insertedDocuments = [];
+      const errors = [];
+    
+      console.log('req.body.data', req.thisUser);
+    
+      try {
+        // Fetch the latest grievance code from the database
+        const lastGrievance = await db.models[reg_model].findOne({
+          order: [['createdAt', 'DESC']], // Get the latest created grievance
+          attributes: ['code'],
+        });
+    
+        console.log(lastGrievance)
+        let lastCode = lastGrievance ? lastGrievance.code : await generateGRMCode();
+    
+        // Sequentially process grievances
+        for (const item of data) {
+          try {
+            // Generate a new code by incrementing the last code
+            const newCode = await generateNextGrievanceCode(lastCode);
+            lastCode = newCode; // Update lastCode for the next item
+    
+            item.code = newCode;
+    
+            // Encrypt 'name' and 'national_id'
+            item.name = Sequelize.fn('PGP_SYM_ENCRYPT', item.name, 'maluini');
+            item.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', item.national_id, 'maluini');
+    
+            // Use upsert to insert or update depending on conflicts
+            const [insertedData, created] = await db.models[reg_model].upsert(item, {
+              returning: true, // Get the inserted/updated data
+            });
+    
+            if (created) {
+              insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
+            }
+          } catch (err) {
+            errors.push(err.original);
+            console.log('Error while processing grievances:', err);
+          }
+        }
+    
+        // Check for errors and respond accordingly
+        if (errors.length > 0) {
+         // let errorCodes = [...new Set(errors.map((error) => error.code))];
+          let errorMsg = 'Import/Update failed for ' + errors.length + ' Records.';
+    
+          // if (errorCodes.includes('42P10')) {
+          //   errorMsg = 'There are one or more duplicate records';
+          // }
+    
+          res.status(500).send({ message: errorMsg });
+        } else {
+          res.status(200).send({
+            message: 'Import/Update Successful',
+            code: '0000',
+            insertedDocuments: insertedDocuments, // Add the inserted documents to the response
+          });
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err);
+        res.status(500).send({ message: 'Internal Server Error', error: err.message });
+      }
+    };
+    
+    
+    

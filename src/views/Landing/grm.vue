@@ -181,8 +181,9 @@
                   <el-col :span="24">
                     <div class="status-result" v-if="statusResult">
                       <el-card style="margin-top: 10px">
-                        <p><strong>Status:</strong> {{ statusResult.status }}</p>
-                        <p><strong>Details:</strong> {{ statusResult.details }}</p>
+                        <p style="margin-top: 10px"><strong>Ref:</strong> {{ statusResult.code }}</p>
+                        <p style="margin-top: 10px"><strong>Date Reported:</strong> {{ statusResult.date_reported  }} ({{getDaysSince(statusResult.date_reported)}} days ago)</p>
+                        <p style="margin-top: 10px"><strong>Status:</strong> {{ statusResult.status }}</p>
                       </el-card>
                     </div>
                   </el-col>
@@ -239,7 +240,7 @@ import {
 
 import BaseLayout from './BaseLayout.vue';
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
-import { uploadGrievanceDocuments,generateGrievance,logGrievanceAction } from '@/api/grievance'
+import { uploadGrievanceDocuments,generateGrievance,logGrievanceAction,getGrievanceStatus } from '@/api/grievance'
 import {
   ArrowLeft,
   ArrowRight,
@@ -546,11 +547,17 @@ const resetForm = () => {
   }
 };
 
-const checkStatus = () => {
+const checkStatus = async () => {
+
+  console.log(statusForm.value)
+ const res =  await getGrievanceStatus(statusForm.value)
+ console.log(res.data)
+
   // Handle checking status logic here
   statusResult.value = {
-    status: 'Pending',
-    details: 'Your grievance is under review.'
+    code: res.data.code,
+    date_reported: res.data.date_reported,
+    status: 'The status of your grievance is : '+   res.data.status
   };
 };
 
@@ -773,6 +780,22 @@ function convertPhoneNumber(phoneNumber: string | undefined) {
 // return trimmedPhoneNumber;
  grmForm.value.phone=trimmedPhoneNumber
 
+}
+
+function getDaysSince(dateString) {
+  // Parse the given date
+  const givenDate = new Date(dateString);
+  
+  // Get the current date
+  const currentDate = new Date();
+  
+  // Calculate the difference in time (milliseconds)
+  const timeDifference = currentDate - givenDate;
+  
+  // Convert time difference from milliseconds to days (1000 ms * 60 sec * 60 min * 24 hours)
+  const daysDifference = Math.floor(timeDifference / (1000 * 60 * 60 * 24));
+  
+  return daysDifference;
 }
 
 </script>

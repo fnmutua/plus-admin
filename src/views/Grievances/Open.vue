@@ -7,7 +7,7 @@ import { getGrievances } from '@/api/grievance'
 
 import { ElButton, ElSelect, ElCheckbox,ElCol,ElIcon} from 'element-plus'
 import {
-  Plus,  Download,  Filter, More,ArrowLeft,ArrowRight,
+  Plus,  Download,  Filter, More,ArrowLeft,ArrowRight,Upload,UploadFilled,
   Edit,
   Back,
   InfoFilled,
@@ -32,7 +32,14 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import type { UploadProps, UploadUserFile } from 'element-plus'
 
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
-import { uploadGrievanceDocuments,generateGrievance,logGrievanceAction } from '@/api/grievance'
+import { uploadGrievanceDocuments,generateGrievance,logGrievanceAction,batchImportGrievances } from '@/api/grievance'
+import { getModelSpecs } from '@/api/fields'
+import exportFromJSON from 'export-from-json'
+import Papa from 'papaparse';
+
+import {   BatchImportUpsert  } from '@/api/settlements'
+
+
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -1227,6 +1234,114 @@ function convertPhoneNumber(phoneNumber: string | undefined) {
 }
  
 
+const uploadDialog = ref(false)
+
+const field_set = ref([])
+const uploadData = async () => {
+  uploadDialog.value = true
+  console.log('Uploading data.......')
+  var formData = {}
+  formData.model = 'grievance'
+  await getModelSpecs(formData).then((response) => {
+    console.log(response.data)
+    field_set.value = response.data
+  })
+
+}
+
+const  DownloadTemplate = async () => {
+
+  const data = field_set.value
+  const fileName = 'grievance_template'
+  const exportType = exportFromJSON.types.csv
+  if (data) exportFromJSON({ data, fileName, exportType })
+
+}
+
+
+
+
+function convertStringArraysToProperArrays(data) {
+  return data.map(item => {
+    const newItem = { ...item }; // Create a shallow copy of the object
+
+    for (const key in newItem) {
+      if (newItem.hasOwnProperty(key)) {
+        const value = newItem[key];
+
+        // Check if the value is a string and can be parsed as an array
+        if (typeof value === 'string') {
+          try {
+            const parsedValue = JSON.parse(value);
+
+            if (Array.isArray(parsedValue)) {
+              newItem[key] = parsedValue;
+            }
+          } catch (e) {
+            // Handle any JSON parsing errors
+            console.error(`Error parsing string to array for key ${key}:`, e);
+          }
+        }
+      }
+    }
+
+    return newItem;
+  });
+}
+
+
+
+const ImportGrievances = async () => {
+
+//console.log('deleted_locations',deleted_locations)
+var form = {}
+form.model = 'grievance'
+
+const dta = convertStringArraysToProperArrays(parsedData.value)
+console.log('dta', dta)
+
+
+form.data = dta
+console.log('formData', form)
+
+ const results = await batchImportGrievances(form)
+
+ console.log('BatchImportUpsert', results.insertedDocuments)
+
+
+ 
+
+}
+
+
+
+
+
+const handleCsvUpload = async (file) => {
+
+if (file.raw) {
+  parseCSV(file.raw);
+}
+}
+
+const parsedData = ref([])
+
+const parseCSV = async (file) => {
+Papa.parse(file, {
+  header: true,
+  dynamicTyping: true,
+  skipEmptyLines: true,
+  complete: (result) => {
+    parsedData.value = result.data;
+
+    console.log('parsedData.value', parsedData.value)
+    ImportGrievances()
+  },
+  error: (error) => {
+    console.error('Error parsing CSV:', error);
+  },
+});
+}
 
 </script>
 
@@ -1250,7 +1365,12 @@ v-model="value3" :onChange="handleSelectGrievance" :onClear="handleClear" multip
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; ">
 
-        <el-tooltip content="Add Activity" placement="top">
+        
+        <el-tooltip content="Import Data" placement="top">
+          <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
+        </el-tooltip>
+
+        <el-tooltip content="Add Grievance" placement="top">
           <el-button v-if="showAdminButtons" :onClick="AddComponent" type="primary" :icon="Plus" />
         </el-tooltip>
 
@@ -1271,7 +1391,7 @@ v-model="value3" :onChange="handleSelectGrievance" :onClear="handleClear" multip
     </el-row>
 
 
-    <el-table :data="tableDataList" :loading="loading" size="small" border>
+    <el-table :data="tableDataList" :loading="loading"  border>
       <el-table-column label="#" width="80" prop="id" sortable>
         <template #default="scope">
           <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
@@ -1564,6 +1684,33 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         </template>
   </el-dialog>
 
+  <el-dialog v-model="uploadDialog" title="Import Document" width="400" @close="uploadDialog = false">
+    <span>
+      To upload data on projects, use this
+      <button @click="DownloadTemplate" class="template-link">template</button>
+      , then upload it below.
+    </span>
+
+
+    <el-upload
+class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
+      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15">
+      <div class="el-upload__text">
+        Drop file here or <em>click to upload</em>
+      </div>
+
+    </el-upload>
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="uploadDialog = false">Cancel</el-button>
+        <el-button type="primary" @click="uploadData">
+          Confirm
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
+
 
   <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
       <el-tour-step
@@ -1575,3 +1722,17 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       />
     </el-tour>
 </template>
+
+
+
+<style scoped>
+.upload-demo {
+  width: 300px;
+}
+
+.template-link {
+  text-decoration: underline;
+  color: #409EFF;
+  /* Optional: change link color */
+}
+</style>
