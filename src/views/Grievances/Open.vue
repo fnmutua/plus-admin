@@ -32,14 +32,12 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import type { UploadProps, UploadUserFile } from 'element-plus'
 
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
-import { uploadGrievanceDocuments,generateGrievance,logGrievanceAction,batchImportGrievances } from '@/api/grievance'
+import { uploadGrievanceDocuments,generateGrievance,logGrievanceAction,batchImportGrievances,getByKeyword } from '@/api/grievance'
 import { getModelSpecs } from '@/api/fields'
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
 
-import {   BatchImportUpsert  } from '@/api/settlements'
-
-
+ 
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -163,14 +161,28 @@ const mobileBreakpoint = 768;
 const defaultPageSize = 10;
 const mobilePageSize = 5;
 const pageSize = ref(defaultPageSize);
-
+const pageHeight = ref(600);
+const paginationLayout =ref("sizes, prev, pager, next, total")
+const pagerCount=ref()
 // Function to update pageSize based on window width
 const updatePageSize = () => {
   if (window.innerWidth <= mobileBreakpoint) {
     pageSize.value = mobilePageSize;
+
+   paginationLayout.value =("prev, pager, next")
+   pagerCount.value=2
+
+
   } else {
     pageSize.value = defaultPageSize;
+    paginationLayout.value =("sizes, prev, pager, next, total")
+    pagerCount.value=undefined
   }
+
+  pageHeight.value =  window.innerHeight -250
+
+  console.log(' pageHeight.value', pageHeight.value)
+
 };
 
 onMounted(async () => {
@@ -196,13 +208,13 @@ let tableDataList = ref<UserType[]>([])
 // var filterValues = [['Open'],[roles_filters.length>0?roles_filters[0].value] ]
 
 // Prepare filters array
-var filters = ['status'];
+var filters = [ ];
 if (roles_filters.length > 0) {
   filters.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
 }
 
 // Prepare filterValues array
-var filterValues = [['Open']];
+var filterValues = [ ];
 if (roles_filters.length > 0) {
   filterValues.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
 }
@@ -625,14 +637,7 @@ const DownloadXlsx = async () => {
   xlsx([dataObj], settings) //  download the excel file
 
 }
-
-const tableRowClassName = (data) => {
-  // console.log('Row Styling --------->', data.row)
-  if (data.row.documents.length > 0) {
-    return 'warning-row'
-  }
-  return ''
-}
+ 
 
 
 const router = useRouter()
@@ -1343,6 +1348,106 @@ Papa.parse(file, {
 });
 }
 
+const tableRowClassName = (data) => { 
+   if (data.row.status == 'Open') {
+    console.log(data.row.status)
+     return 'warning-row'
+   }
+   if (data.row.status == 'Resolved') {
+     return 'success-row'
+   }
+ 
+   return ''
+ }
+
+
+const getFilteredBySearchData = async (searchKey) => {
+  console.log('getFilteredBySearchData')
+const formData = {}
+formData.limit =  pageSize.value
+formData.page = page.value
+formData.curUser = 1 // Id for logged in user
+formData.model = model
+
+//-Search field--------------------------------------------
+formData.searchField = 'name'
+formData.searchString = searchKey
+//--Single Filter -----------------------------------------
+
+//formData.assocModel = associated_Model
+
+// - multiple filters -------------------------------------
+formData.filters = filters.value
+formData.filterValues = filterValues.value
+formData.associated_multiple_models = associated_multiple_models
+formData.nested_models = []
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+//-------------------------
+console.log(formData)
+ 
+const res = await getByKeyword(formData)
+ 
+console.log('---->',  res.data)
+
+  tableDataList.value = res.data
+
+   
+
+
+total.value = res.total
+loading.value = false
+
+
+}
+
+
+
+ 
+const handleSelectStatus = async (status: any) => {
+  var selectOption = 'status'
+  if (!filters.includes(selectOption)) {
+    filters.push(selectOption)
+  }
+  var index = filters.indexOf(selectOption) // 1
+  console.log('category : index--->', index)
+
+  // clear previously selected
+  if (filterValues[index]) {
+    // filterValues[index].length = 0
+    filterValues.splice(index, 1)
+  }
+
+  if (!filterValues.includes(status) && status.length > 0) {
+    filterValues.splice(index, 0, status) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+  }
+
+  // expunge the filter if the filter values are null
+  if (status.length === 0) {
+    filters.splice(index, 1)
+  }
+
+  console.log('FilterValues:', filterValues)
+
+  getFilteredData(filters, filterValues)
+}
+const StatusOptions = [
+  {
+    value: 'Resolved',
+    label: 'Resolved',
+  },
+  {
+    value: 'Open',
+    label: 'Open',
+  }]
+
+
+  const searchByName = async (filterString: any) => { 
+  
+  getFilteredBySearchData(filterString)
+}
+
+
 </script>
 
 <template>
@@ -1355,12 +1460,28 @@ Papa.parse(file, {
         </el-button>
       </div>
 
+
+      <el-select
+v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+        placeholder="Search by Name, settlement, complainnt.., phone .." />
+
+
+
       <!-- Title Search -->
       <el-select
 v-model="value3" :onChange="handleSelectGrievance" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Grievance" style=" margin-right: 5px;">
+        collapse-tags placeholder="Filter by Code" style=" margin-right: 5px;">
         <el-option v-for="item in GrvOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
+
+
+         <!-- status Search -->
+         <el-select
+v-model="value3" :onChange="handleSelectStatus" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="Filter By Status"  style=" margin-right: 5px;">
+        <el-option v-for="item in StatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select> 
+
 
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; ">
@@ -1390,8 +1511,8 @@ v-model="value3" :onChange="handleSelectGrievance" :onClear="handleClear" multip
       <!-- Download All Component -->
     </el-row>
 
-
-    <el-table :data="tableDataList" :loading="loading"  border>
+ 
+    <el-table :data="tableDataList" :loading="loading"  style="width: 100%" :max-height="pageHeight"   border :row-class-name="tableRowClassName">
       <el-table-column label="#" width="80" prop="id" sortable>
         <template #default="scope">
           <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
@@ -1400,18 +1521,23 @@ v-model="value3" :onChange="handleSelectGrievance" :onClear="handleClear" multip
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="Code" prop="code" sortable />
-      <el-table-column label="Complainant" prop="name" sortable />
-      <el-table-column label="Description" prop="description" sortable />
-      <el-table-column label="County" prop="county.name" sortable />
-      <el-table-column label="Settlement" prop="settlement.name" sortable />
-      <el-table-column prop="date" label="Date Reported" width="180">
+      <el-table-column prop="date" label="Date Reported"  >
         <!-- Use a scoped slot to customize the rendering of the date column -->
         <template #default="scope">
           <span>{{ formatDate(scope.row.date_reported) }}</span>
         </template>
       </el-table-column>
 
+      <el-table-column label="Code" prop="code" sortable  />
+      <el-table-column label="Complainant" prop="name" sortable />
+      <el-table-column label="Description" prop="description" sortable  />
+        <el-table-column label="Location" sortable>
+        <template #default="scope">
+          <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
+        </template>
+      </el-table-column>
+
+   
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -1440,10 +1566,11 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
       </el-table-column>
     </el-table>
 
-    <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination     :layout="paginationLayout"   v-model:currentPage="currentPage" :pager-count="pagerCount"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+
   </el-card>
 
  
@@ -1734,5 +1861,55 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   text-decoration: underline;
   color: #409EFF;
   /* Optional: change link color */
+}
+ 
+
+
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .el-pagination {
+    font-size: 12px; /* Adjust font size for small screens */
+  }
+
+  .el-pagination .el-pagination__sizes {
+    display: none; /* Hide size selector on small screens */
+  }
+
+  .el-pagination .el-pagination__total {
+    display: none; /* Hide total count on small screens */
+  }
+
+
+
+}
+
+</style>
+
+
+
+<style>
+.el-table .danger-row {
+  --el-table-tr-bg-color: var(--el-color-danger-light-9);
+  --el-table-tr-text-color: var(--el-color-danger);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .success-row {
+  --el-table-tr-text-color: var(--el-color-success);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .warning-row {
+  --el-table-tr-bg-color: var(--el-color-warning-light-9);
+}
+
+
+.item {
+  margin-top: 10px;
+  margin-right: 40px;
 }
 </style>

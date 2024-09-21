@@ -45,3 +45,8 @@ export const getGrievanceStatus = (data: any): Promise<IResponse> => {
  export const batchImportGrievances = (data: any): Promise<IResponse> => {
    return request.post({ url: prod + '/api/v1/grv/upsert', data })
  }
+
+ 
+ export const getByKeyword = (data: any): Promise<IResponse> => {
+   return request.post({ url: prod + '/api/v1/grv/keyword', data })
+ }
