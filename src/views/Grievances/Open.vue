@@ -1432,14 +1432,20 @@ const handleSelectStatus = async (status: any) => {
   getFilteredData(filters, filterValues)
 }
 const StatusOptions = [
+  
+  {
+    value: 'Open',
+    label: 'Open',
+  },
+  {
+    value: 'Escalated',
+    label: 'Escalated',
+  },
   {
     value: 'Resolved',
     label: 'Resolved',
   },
-  {
-    value: 'Open',
-    label: 'Open',
-  }]
+]
 
 
   const searchByName = async (filterString: any) => { 
@@ -1521,17 +1527,17 @@ v-model="value3" :onChange="handleSelectStatus" :onClear="handleClear" multiple 
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="date" label="Date Reported"  >
+      <el-table-column prop="date" label="Date Reported"  width="150"   >
         <!-- Use a scoped slot to customize the rendering of the date column -->
         <template #default="scope">
           <span>{{ formatDate(scope.row.date_reported) }}</span>
         </template>
       </el-table-column>
 
-      <el-table-column label="Code" prop="code" sortable  />
-      <el-table-column label="Complainant" prop="name" sortable />
-      <el-table-column label="Description" prop="description" sortable  />
-        <el-table-column label="Location" sortable>
+      <el-table-column label="Code" prop="code" sortable  width="150" />
+      <el-table-column label="Complainant" prop="name" sortable   width="250" />
+      <el-table-column label="Description" prop="description" sortable  width="550"   />
+        <el-table-column label="Location" sortable  width="350" >
         <template #default="scope">
           <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
         </template>

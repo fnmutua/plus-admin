@@ -766,7 +766,28 @@ exports.getGrievanceById = async (req, res) => {
     
       return nextCode;
     };
+  
+
+
+    async function logGrievanceAction(action) {
+      try {
+        // Prepare the object for creation
+        const obj = action;
     
+        console.log('Logging....>>', obj);
+    
+        // Simulate async database call
+       //const item = await createGrievanceLog(obj);
+        const item = await db.models.grievance_log.create(obj);
+
+        console.log('Created log:', item);
+     
+      } catch (err) {
+        console.log(err);
+       }
+    }
+
+
  exports.modelImportGrievances = async (req, res) => {
       const reg_model = 'grievance';
       const data = req.body.data;
@@ -802,9 +823,35 @@ exports.getGrievanceById = async (req, res) => {
             const [insertedData, created] = await db.models[reg_model].upsert(item, {
               returning: true, // Get the inserted/updated data
             });
+
+            console.log('Logged--------------->')
+            // 1. Create a log for creation 
+            let create_action ={}
+            create_action.grievance_id = insertedData.id
+            create_action.action_type = 'Created'
+            create_action.action_by = 1  // Rememner to change 
+            create_action.date_actioned = item.date_reported
+            create_action.prev_status ='Open'
+            create_action.new_status = 'Open'
+            logGrievanceAction (create_action)
+
+            // 2. Create a log for Current status 
+            let current_action ={}
+            current_action.grievance_id = insertedData.id
+            current_action.action_type = item.status
+            current_action.action_by = 1  // Rememner to change 
+            current_action.date_actioned = item.date_actioned
+            current_action.prev_status ='Open'
+            current_action.new_status = item.status
+            logGrievanceAction (current_action)
+
+
     
             if (created) {
               insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
+
+
+          
             }
           } catch (err) {
             errors.push(err.original);
