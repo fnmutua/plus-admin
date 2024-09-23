@@ -50,3 +50,12 @@ export const getGrievanceStatus = (data: any): Promise<IResponse> => {
  export const getByKeyword = (data: any): Promise<IResponse> => {
    return request.post({ url: prod + '/api/v1/grv/keyword', data })
  }
+
+
+ 
+export const getActionFile= (data: any) => {
+   // console.log('filters....', data)
+    return request.post({ url: prod + '/api/v1/grv/download',  data , responseType: 'blob' })
+ }
+ 
+  
