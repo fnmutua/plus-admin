@@ -521,10 +521,12 @@ exports.uploadGrievanceDocument = (req, res) => {
                 obj.name = myFiles[i].originalname
                 obj.location = myFiles[i].path
                 obj.code = shortid.generate()
+                obj.action_id = req.body.action_id[i]
                 objs.push(obj)
 
               } else {
                 obj.grievance_id =req.body.grievance_id 
+                obj.action_id = req.body.action_id 
                 obj.format = req.body.format 
                 obj.size = req.body.size 
                 obj.protected_file = req.body.protected_file[i] 
@@ -1029,3 +1031,51 @@ const generateNextGrievanceCode = async (lastCode) => {
         });
     };
     
+
+
+    exports.downloadFile = (req, res) => {
+      console.log("Received files:", req.body);
+    
+      const uploadedFile = path.join('/data/grievances' , req.body.filename);
+    
+      console.log(uploadedFile);
+    
+      // Check if the file exists
+      fs.access(uploadedFile, fs.constants.F_OK, (err) => {
+        if (err) {
+          console.log(err);
+       
+    
+          db.models.document.destroy({ where: { name: req.body.filename } })
+          .then(() => {
+            console.log('succeed')
+            res.status(500).send({
+              message: 'File not found.',
+              code: '0000'
+            });
+        }) 
+    
+          
+        } else {
+          // File exists, send it
+        //  res.sendFile(path.resolve(filePath));
+    
+          res.sendFile(path.resolve(uploadedFile), function(err) {
+            if (err) {
+              console.log(err);
+              res.status(500).send({
+                message: 'Download failed. Error occurred.',
+                code: '0000'
+              });
+            } else {
+              // File sent successfully
+              // Handle success logic here if needed
+              // res.status(200).send({
+              //   message: 'File Found. Downloading...',
+              //   code: '0000'
+              // });
+            }
+          });
+        }
+      });
+    };
