@@ -30,7 +30,16 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       },
 
- 
+      action: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+
+      action_level: {
+        type: DataTypes.STRING,
+        enum: ['none','settlement', 'county', 'national' ],
+        allowNull: true
+      },
 
       date_actioned: {
         type: DataTypes.DATE,

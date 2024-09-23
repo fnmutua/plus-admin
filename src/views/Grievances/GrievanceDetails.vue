@@ -273,31 +273,35 @@ const goBack = () => {
     </el-tab-pane>
     <el-tab-pane label="Action Logs" name="timeline">
       
-      <el-timeline style="max-width: 50%">
-          <el-timeline-item 
-            v-for="(log, index) in sortedGrievanceLogs" 
-            :key="index" 
-            :timestamp="log.date_actioned" 
-            placement="top" 
-           >
-            <el-card>
-              <el-row>
-                <!-- Icon in the first 1/4 of the card -->
-                <el-col :span="4">
-                  <Icon v-if="log.action_type=='Resolved'" icon="flat-color-icons:ok" width="48" />
-                  <Icon v-if="log.action_type=='Escalated'" icon="solar:square-forward-bold"  style="color: orange"   width="48"/>
-                  <Icon v-if="log.action_type=='Created'" icon="zondicons:add-solid" width="48"  style="color: gray"  />
-                </el-col>
-                <!-- Content in the remaining 3/4 of the card -->
-                <el-col :span="20">
-                  <h4>{{ log.action_type }}</h4>
-                  <p>By - {{ log.user ? log.user.name : Grievance.complainant }}</p>
-                </el-col>
-              </el-row>
-            </el-card>
-          </el-timeline-item>
-        </el-timeline>
-
+      <el-timeline style="max-width: 100%; padding: 20px;">
+    <el-timeline-item 
+      v-for="(log, index) in sortedGrievanceLogs" 
+      :key="index" 
+      :timestamp="log.date_actioned" 
+      placement="top" 
+      class="timeline-item"
+    >
+      <el-card shadow="always" class="timeline-card">
+        <el-row align="middle">
+          <!-- Icon in the first 1/4 of the card -->
+          <el-col :span="4" class="icon-col">
+            <Icon v-if="log.action_type == 'Resolved'" icon="flat-color-icons:ok" width="48" />
+            <Icon v-if="log.action_type == 'Escalated'" icon="solar:square-forward-bold" style="color: orange" width="48" />
+            <Icon v-if="log.action_type == 'Created'" icon="zondicons:add-solid" width="48" style="color: gray" />
+          </el-col>
+          <!-- Content in the remaining 3/4 of the card -->
+          <el-col :span="6" class="action-col">
+            <h4 class="action-header">{{ log.action_type }}</h4>
+            <p class="action-body">By - {{ log.user ? log.user.name : Grievance.complainant }}</p>
+          </el-col>
+          <el-col :span="14" class="action-col">
+            <h4 class="action-header">Action</h4>
+            <p class="action-body">{{ log.action ? log.action : 'None' }}</p>
+          </el-col>
+        </el-row>
+      </el-card>
+    </el-timeline-item>
+  </el-timeline>
 
     </el-tab-pane>
    </el-tabs>
@@ -358,5 +362,23 @@ const goBack = () => {
 
 .documents-container li {
   margin-bottom: 10px;
+}
+</style>
+<style scoped>
+.action-col {
+  padding: 10px;
+}
+
+.action-header {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.action-body {
+  font-size: 1rem;
+  font-weight: 300;
+  color: #666;
 }
 </style>
