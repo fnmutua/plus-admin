@@ -344,7 +344,8 @@ exports.getGrievances =async (req, res) => {
       where: {}, // Initialize an empty where object
     limit: limit,
     offset: (page - 1) * limit,
-    
+    order: [['createdAt', 'DESC']], // Sort by most recent (assuming createdAt is the field tracking creation date)
+
   };
 
   var attributes = []
@@ -746,7 +747,7 @@ exports.getGrievanceById = async (req, res) => {
       }
     };
     
-    const generateNextGrievanceCode = async (lastCode) => {
+const generateNextGrievanceCode = async (lastCode) => {
       const prefix = 'GRM';
       const year = new Date().getFullYear();
       const codeLength = 4;  // Number of digits in the numeric part
@@ -833,6 +834,7 @@ exports.getGrievanceById = async (req, res) => {
             create_action.date_actioned = item.date_reported
             create_action.prev_status ='Open'
             create_action.new_status = 'Open'
+            create_action.action_level= item.action_level
             logGrievanceAction (create_action)
 
             // 2. Create a log for Current status 
@@ -843,10 +845,19 @@ exports.getGrievanceById = async (req, res) => {
             current_action.date_actioned = item.date_actioned
             current_action.prev_status ='Open'
             current_action.new_status = item.status
+            current_action.action = item.action
+            current_action.action_level= item.action_level
+
             logGrievanceAction (current_action)
 
 
     
+
+
+
+
+
+
             if (created) {
               insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
 

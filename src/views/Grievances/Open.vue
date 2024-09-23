@@ -1580,37 +1580,6 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
   </el-card>
 
  
-
-  <el-dialog v-model="xAddDialogVisible" @close="handleClose"  title="Grievance Actions" :width="dialogWidth" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules">
-     
-      <el-form-item label="Action">
-        <el-select
-        v-model="formAction.action_type"
-        placeholder="Select"
-        style="width: 100%"
-      >
-        <el-option
-          v-for="item in ActionOptions"
-          :key="item.value"
-          :label="item.label"
-          :value="item.value"
-        />
-      </el-select>
-      </el-form-item> 
-      <el-form-item label="Short Title">
-        <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-
-      <span class="dialog-footer">
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <el-button v-if="showSubmitBtn" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-      </span>
-    </template>
-  </el-dialog>
  
  
   <el-dialog
