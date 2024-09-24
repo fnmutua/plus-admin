@@ -21,7 +21,7 @@ module.exports = function (sequelize, DataTypes) {
 
       action_type: {
         type: DataTypes.STRING,
-        enum: ['Created', 'Updated', 'Resolved', 'Escalated', 'Document Requested','Document Uploaded'],
+        enum: ['Reported', 'Updated', 'Resolved', 'Escalated', 'Document Requested','Document Uploaded','Referred','Rejected'],
         allowNull: false
       },
  

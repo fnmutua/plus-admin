@@ -465,7 +465,7 @@ const AddComponent = () => {
 
 
  
-const uploadFiles = async (grievance_id) => {
+const xuploadFiles = async (grievance_id) => {
   console.log('grievance_id',grievance_id)
 
  
@@ -497,6 +497,37 @@ console.log("Docuemnts Uploaded", res)
 }
 
 
+
+const uploadFiles = async (action_id, grievance_id) => { 
+  const formData = new FormData();
+
+// Assuming `fileList` is an array of file objects and `grievance_id` is defined
+for (var i = 0; i < fileList.value.length; i++) {
+  console.log('------>file', fileList.value[i]); 
+  formData.append('files', fileList.value[i].raw);
+  formData.append('format', fileList.value[i].name.split('.').pop());
+  formData.append('grievance_id', grievance_id);
+  formData.append('action_id', action_id);
+  formData.append('protected_file', true);
+  formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2));
+  formData.append('code', uuid.v4());
+}
+
+// Printing out the contents of formData
+for (let [key, value] of formData.entries()) {
+  console.log(`${key}: ${value}`);
+}
+
+const res =  await uploadGrievanceDocuments(formData)
+
+console.log("Docuemnts Uploaded", res)
+ 
+
+
+
+}
+
+
 const logAction = async (grievance) => {
   console.log('Log---->grievance',grievance)
 
@@ -504,7 +535,7 @@ const logAction = async (grievance) => {
   const formData ={};
 
   formData.grievance_id=grievance.id
-  formData.action_type='Created'
+  formData.action_type='Reported'
   formData.action_by=null
   formData.date_actioned=grievance.date_reported
   formData.prev_status=grievance.status
@@ -513,8 +544,10 @@ const logAction = async (grievance) => {
   
 
   const res =  await logGrievanceAction(formData)
+  console.log("Log Successful", res)
+  return res.data
 
-console.log("Log Successful", res)
+
  
 
 }
@@ -523,7 +556,7 @@ console.log("Log Successful", res)
 
 const submitForm = async () => {
  grmForm.value.date_reported = new Date();
- grmForm.value.status ='Open'
+ grmForm.value.status ='Sorting'
  grmForm.value.model = 'grievance';
  grmForm.value.current_level = '1';
   
@@ -535,19 +568,24 @@ const submitForm = async () => {
      console.log('Is Valid',grmForm)
      
      //1. Submit teh greivance 
-     const res =  await generateGrievance(grmForm.value)
-     console.log('res',res)
+     const grv =  await generateGrievance(grmForm.value)
+     console.log('res',grv)
+ 
 
-     // 2. Uplaod docuemnts 
-    await uploadFiles(res.data.id)
-   
+     // 2 Log the entry
+     let log =   await logAction (grv.data)
+ 
 
-     // 3. Log the entry
-     await logAction (res.data)
+
+     console.log('log',log)
+
+    // 3. Uplaod docuemnts 
+
+     await uploadFiles(log.id, grv.data.id)
 
 
      ElMessage({
-       message: res.message,
+       message: grv.message,
        type: 'success'
      })    
 
@@ -1349,7 +1387,7 @@ Papa.parse(file, {
 }
 
 const tableRowClassName = (data) => { 
-   if (data.row.status == 'Open') {
+   if (data.row.status == 'Sorting') {
     console.log(data.row.status)
      return 'warning-row'
    }
@@ -1431,12 +1469,17 @@ const handleSelectStatus = async (status: any) => {
 
   getFilteredData(filters, filterValues)
 }
+
 const StatusOptions = [
-  
   {
-    value: 'Open',
-    label: 'Open',
+    value: 'Sorting',
+    label: 'Sorting',
   },
+  {
+    value: 'Investigation',
+    label: 'Investigation',
+  },
+
   {
     value: 'Escalated',
     label: 'Escalated',
@@ -1445,7 +1488,25 @@ const StatusOptions = [
     value: 'Resolved',
     label: 'Resolved',
   },
+  {
+    value: 'Rejected',
+    label: 'Rejected',
+  },
+  {
+    value: 'Referred',
+    label: 'Referred',
+  },
+  {
+    value: 'Closed',
+    label: 'Closed',
+  },
 ]
+
+ 
+
+
+
+
 
 
   const searchByName = async (filterString: any) => { 
@@ -1469,10 +1530,8 @@ const StatusOptions = [
 
       <el-select
 v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by Name, settlement, complainnt.., phone .." />
-
-
-
+        placeholder="Search by Name, settlement, complaint,phone .."  style=" margin-right: 5px;"/>
+ 
       <!-- Title Search -->
       <el-select
 v-model="value3" :onChange="handleSelectGrievance" :onClear="handleClear" multiple clearable filterable
@@ -1615,9 +1674,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
 
 
 
-  <el-dialog
-     v-model="AddDialogVisible" @close="handleCloseDialog" title="File a grievance" width="65%"
-    draggable>
+  <el-dialog v-model="AddDialogVisible" @close="handleCloseDialog" title="File a grievance" width="65%"    draggable>
    
     <el-steps :active="active" finish-status="success">
               <el-step title="Complainant Details" />

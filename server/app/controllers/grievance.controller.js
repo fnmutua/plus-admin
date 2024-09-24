@@ -521,12 +521,12 @@ exports.uploadGrievanceDocument = (req, res) => {
                 obj.name = myFiles[i].originalname
                 obj.location = myFiles[i].path
                 obj.code = shortid.generate()
-                obj.action_id = req.body.action_id[i]
+                obj.action_id = req.body.action_id[i] ? req.body.action_id[i] : null
                 objs.push(obj)
 
               } else {
                 obj.grievance_id =req.body.grievance_id 
-                obj.action_id = req.body.action_id 
+                obj.action_id = req.body.action_id ?  req.body.action_id : null
                 obj.format = req.body.format 
                 obj.size = req.body.size 
                 obj.protected_file = req.body.protected_file[i] 
@@ -831,7 +831,7 @@ const generateNextGrievanceCode = async (lastCode) => {
             // 1. Create a log for creation 
             let create_action ={}
             create_action.grievance_id = insertedData.id
-            create_action.action_type = 'Created'
+            create_action.action_type = 'Reported'
             create_action.action_by = 1  // Rememner to change 
             create_action.date_actioned = item.date_reported
             create_action.prev_status ='Open'
