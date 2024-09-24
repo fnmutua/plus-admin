@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted,computed } from 'vue'
 import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow , ElForm,ElFormItem,ElInput,ElUpload,ElMessage,
-  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElTooltip,ElDialog
+  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElTooltip,ElDialog,ElDivider,ElSelect,ElOption
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
@@ -12,7 +12,7 @@ import { uuid } from 'vue-uuid'
 import { Icon } from '@iconify/vue';
 import type { UploadUserFile } from 'element-plus'
 import {
-  UploadFilled,
+  UploadFilled,Download,
 } from '@element-plus/icons-vue'
 
 import { getFile } from '@/api/summary'
@@ -96,6 +96,42 @@ function formatSentence(text) {
 }
 
 
+const button_label=ref()
+const button_color=ref()
+const button_icon=ref()
+
+const StatusOptions =ref([
+  {
+    value: 'Sorting',
+    label: 'Sorting',
+  },
+  {
+    value: 'Investigation',
+    label: 'Investigate Grievance',
+  },
+
+  {
+    value: 'Escalated',
+    label: 'Escalate Grievance',
+  },
+  {
+    value: 'Resolved',
+    label: 'Resolve Grievance',
+  },
+  {
+    value: 'Rejected',
+    label: 'Reject Grievance',
+  },
+  {
+    value: 'Referred',
+    label: 'Refer to Court',
+  },
+  {
+    value: 'Closed',
+    label: 'Close Grievance',
+  },
+])
+
  
 onMounted( async () => {
   const id = route.params.id 
@@ -103,11 +139,7 @@ onMounted( async () => {
   formData.associated_multiple_models = associated_multiple_models
   formData.id = id
 
-const res  =await getOneGrievance(formData)
-
-
- 
-
+const res  =await getOneGrievance(formData) 
  // Get the Details of the Grievance
  Grievance.value.id = id 
  Grievance.value.code = res.data.code
@@ -119,17 +151,195 @@ const res  =await getOneGrievance(formData)
  Grievance.value.is_GBV = res.data.isgbv
  Grievance.value.description = res.data.description
  Grievance.value.status = res.data.status
-Grievance.value.date_reported = res.data.date_reported
+ Grievance.value.date_reported = res.data.date_reported
  Grievance.value.plea = res.data.plea
 
- console.log("Grievance",Grievance.value)
+//'Sorting', 'Investigation', 'Rejected', 'Resolved', 'Escalated','Referred', 'Closed'
+ 
+if (Grievance.value.status == 'Sorting') {
+  button_label.value = 'Review and Sort';
+  button_color.value = 'primary';
+  button_icon.value = 'icon-park-solid:sort';
 
-  if(res.data.status=='Escalated'){
-    action.value='Escalated'
+  StatusOptions.value=[
+  {
+    value: 'Rejected',
+    label: 'Reject Grievance',
+  },
+  {
+    value: 'Escalated',
+    label: 'Escalate Grievance',
+  },
+  {
+    value: 'Referred',
+    label: 'Refer to Court',
   }
-  else if (res.data.status=='Resolved')  {
-    action.value=='Resolve'
-  }
+]
+
+
+} 
+else if (Grievance.value.status == 'Investigation') {
+  button_label.value = 'Review Status';
+  button_color.value = 'warning';
+  button_icon.value = 'icon-park-solid:preview-open';
+  
+  StatusOptions.value=[
+  {
+    value: 'Resolved',
+    label: 'Resolve Grievance',
+  },
+  {
+    value: 'Escalated',
+    label: 'Escalate Grievance',
+  },
+
+  {
+    value: 'Referred',
+    label: 'Refer to Court',
+  },
+  {
+    value: 'Rejected',
+    label: 'Reject Grievance',
+  },
+]
+
+
+} 
+
+else if (Grievance.value.status == 'Escalated') {
+  button_label.value = 'Review Status';
+  button_color.value = 'warning';
+  button_icon.value = 'icon-park-solid:preview-open';
+
+  StatusOptions.value=[
+    {
+      value: 'Resolved',
+      label: 'Resolve Grievance',
+    },
+    {
+      value: 'Escalated',
+      label: 'Escalate Grievance',
+    },
+
+    {
+      value: 'Referred',
+      label: 'Refer to Court',
+    },
+    {
+      value: 'Rejected',
+      label: 'Reject Grievance',
+    },
+  ]
+
+
+} 
+
+
+else if (Grievance.value.status == 'Referred') {
+  button_label.value = 'Review Status';
+  button_color.value = 'warning';
+  button_icon.value = 'icon-park-solid:preview-open';
+
+
+  StatusOptions.value=[
+    {
+      value: 'Resolved',
+      label: 'Resolve Grievance',
+    },
+    {
+      value: 'Closed',
+      label: 'Close Grievance',
+    }
+  ]
+
+
+
+} 
+
+else if (Grievance.value.status == 'Closed') {
+  button_label.value = 'Review Status';
+  button_color.value = 'warning';
+  button_icon.value = 'icon-park-solid:preview-open';
+  
+  StatusOptions.value=[
+       {
+          value: 'Referred',
+          label: 'Refer to Court',
+        } 
+     
+  ]
+
+
+
+} 
+ 
+else if (Grievance.value.status == 'Resolved' ) {
+  button_label.value = 'Review/Close grievance';
+  button_color.value = 'success';
+  button_icon.value = 'typcn:tick';
+
+  StatusOptions.value=[
+      {
+        value: 'Closed',
+        label: 'Close Grievance',
+      },
+      {
+          value: 'Referred',
+          label: 'Refer to Court',
+        } 
+       
+    ]
+
+
+} 
+
+ // current status = rejected
+else {
+  button_label.value = 'Review Status';
+  button_color.value = 'warning';
+  button_icon.value = 'icon-park-solid:preview-open';
+
+  StatusOptions.value=[
+  {
+    value: 'Sorting',
+    label: 'Sorting',
+  },
+  {
+    value: 'Investigation',
+    label: 'Investigation',
+  },
+
+  {
+    value: 'Escalated',
+    label: 'Escalated',
+  },
+  {
+    value: 'Resolved',
+    label: 'Resolved',
+  },
+  
+  {
+    value: 'Referred',
+    label: 'Refer to Court',
+  },
+  {
+    value: 'Closed',
+    label: 'Closed',
+  },
+] 
+}
+
+
+
+
+
+
+  // if(res.data.status=='Escalated'){
+  //   action.value='Escalated'
+  // }
+  // else if (res.data.status=='Resolved')  {
+  //   action.value=='Resolve'
+  // }
 
 
 
@@ -222,7 +432,10 @@ const fileList = ref<UploadUserFile[]>([
 const rules = ({
   
   action: [{ required: true, message: 'Action is required', trigger: 'blur' }],
- 
+  new_status: [{ required: true, message: 'Status is required', trigger: 'blur' }],
+  fileList: [
+          { required: true, message: 'Please upload supporting documentation', trigger: 'change' }
+        ]
  
   })
 
@@ -257,7 +470,7 @@ console.log("Log Successful", res)
    } else {
      console.log('is Not Valid')
      ElMessage({
-       message: 'Invalid Form',
+       message: 'Please provide all required details',
        type: 'error'
      })    // felix - show message on success request 
 
@@ -375,27 +588,13 @@ const downloadFile = async (data) => {
             />
           </el-table>
 
-          <template #footer>
+          <template #header>
             <div class="dialog-footer">
               <el-tooltip content="Close the grievance if all issues have been resolved and complainant satisfied" placement="top">
-                <el-button type="success"  @click="dialogFormVisible = true">  <Icon icon="typcn:tick" /> Mark As Resolved</el-button>
+                <el-button :type="button_color"  @click="dialogFormVisible = true">  <Icon :icon="button_icon" /> {{ button_label }}</el-button>
               </el-tooltip>
 
-              <el-tooltip content="Escalate to the next level" placement="top">
-                <el-button type="primary"  @click="dialogFormVisible = false">   <Icon icon="system-uicons:forward" />Escalate</el-button>
- 
-
-              </el-tooltip>
-
-
-              <el-tooltip content="Send the grievance to the county for resolution" placement="top">
-                <el-button type="warning"  @click="dialogFormVisible = false">  <Icon icon="system-uicons:backward" /> Refer to County</el-button>
-              </el-tooltip>
-
-              <el-tooltip content="Dismiss as a frivilous grievance" placement="top">
-                <el-button type="danger"  @click="dialogFormVisible = false">   <Icon icon="ic:outline-cancel" /> Dismiss</el-button>
-              </el-tooltip>
-
+           
              
             </div>
           </template>
@@ -451,7 +650,7 @@ const downloadFile = async (data) => {
             <el-col  :xs="24" :sm="24" :md="24" :lg="2"  >
               <Icon v-if="log.action_type  == 'Resolved'" icon="fluent-mdl2:completed-solid" width="60" />
               <Icon  v-if="log.action_type  == 'Escalated'"  icon="streamline:dangerous-zone-sign-solid" width="60" />
-              <Icon  v-if="log.action_type  == 'Created'" icon="fluent-mdl2:report-warning" width="60" />
+              <Icon  v-if="log.action_type  == 'Reported'" icon="fluent-mdl2:report-warning" width="60" />
             </el-col>
             
             <el-col  :xs="24" :sm="24" :md="14" :lg="14" :xl="14" :gutter="10">
@@ -460,8 +659,8 @@ const downloadFile = async (data) => {
               <p class="action-footer">By: {{ log.user ? log.user.name : 'System' }}</p>
             </el-col>
 
-            <el-col  :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
-              <p class="action-header">Documentation </p>
+            <el-col v-if=" log.grievance_documents.length>0"  :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+              <p class="documents-header">Documentation </p>
 
               <p v-for="(doc, docIndex) in log.grievance_documents" :key="docIndex">
                
@@ -485,35 +684,51 @@ const downloadFile = async (data) => {
 
  
   <el-dialog
-    title="Grievance Resolution"
+    title="Grievance Status Update"
     v-model="dialogFormVisible"
     width="60%" 
   >
   <el-form :model="form" label-width="auto"  ref="dynamicFormRef" :rules="rules">
-    <el-form-item label="Action Taken" label-position="top">
+
+    <el-form-item label="Update Grievance Status" label-position="top" prop="new_status">
+      <el-select
+      v-model="form.new_status"
+      placeholder="Select"
+      style="width: 100%"
+    >
+      <el-option
+        v-for="item in StatusOptions"
+        :key="item.value"
+        :label="item.label"
+        :value="item.value"
+      />
+    </el-select>
+      </el-form-item>
+
+    <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
       <el-input type="textarea"  :rows="4"  placeholder="Provide details of the resolution  here" v-model="form.action" />
     </el-form-item>
 
-    <el-upload
-      id="btn20" 
-      class="upload-demo"
-      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-      multiple
-      :on-preview="handlePreview"
-      :on-remove="handleRemove"
-      :before-remove="beforeRemove"
-      :limit="3"
-      v-model:file-list="fileList"
-      :auto-upload="false"
-      :on-exceed="handleExceed"
-     >
-       <el-button type="primary" :icon="UploadFilled">Upload Documentation e.g minutes</el-button>
+    <el-form-item label="Upload Documentation" label-position="top" prop="fileList">
+      <el-upload
+        class="upload-demo"
+        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+        multiple
+        :on-preview="handlePreview"
+        :on-remove="handleRemove"
+        :before-remove="beforeRemove"
+        :limit="3"
+        v-model:file-list="fileList"
+        :auto-upload="false"
+        :on-exceed="handleExceed"
+      >
+        <el-button type="primary" icon="UploadFilled">Upload Documentation e.g. minutes</el-button>
 
-      <template #tip>
-        <div class="el-upload__tip">pdf/jpg/png files with a size less than 500KB.</div>
-      </template>
-    </el-upload>
-
+        <template #tip>
+          <div class="el-upload__tip">pdf/jpg/png files with a size less than 500KB.</div>
+        </template>
+      </el-upload>
+    </el-form-item>
 
     </el-form>
 
@@ -597,6 +812,13 @@ const downloadFile = async (data) => {
   font-weight: bold;
   margin-bottom: 1px;
   color: #333;
+}
+
+.documents-header {
+  font-size: 0.95rem;
+  font-weight: bold;
+  margin-bottom: 1px;
+  color: #837f7f;
 }
 
 .action-body {

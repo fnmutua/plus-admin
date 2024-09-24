@@ -440,7 +440,7 @@ const dynamicFormRef = ref<FormInstance>()
 
 const router = useRouter();
 
-const uploadFiles = async (grievance_id) => {
+const xuploadFiles = async (grievance_id) => {
   console.log('grievance_id',grievance_id)
 
  
@@ -472,6 +472,34 @@ console.log("Docuemnts Uploaded", res)
 }
 
 
+const uploadFiles = async (action_id, grievance_id) => { 
+  const formData = new FormData();
+
+// Assuming `fileList` is an array of file objects and `grievance_id` is defined
+for (var i = 0; i < fileList.value.length; i++) {
+  console.log('------>file', fileList.value[i]); 
+  formData.append('files', fileList.value[i].raw);
+  formData.append('format', fileList.value[i].name.split('.').pop());
+  formData.append('grievance_id', grievance_id);
+  formData.append('action_id', action_id);
+  formData.append('protected_file', true);
+  formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2));
+  formData.append('code', uuid.v4());
+}
+
+// Printing out the contents of formData
+for (let [key, value] of formData.entries()) {
+  console.log(`${key}: ${value}`);
+}
+
+const res =  await uploadGrievanceDocuments(formData)
+
+console.log("Docuemnts Uploaded", res)
+ 
+
+
+
+}
 const logAction = async (grievance) => {
   console.log('Log---->grievance',grievance)
 
@@ -479,7 +507,7 @@ const logAction = async (grievance) => {
   const formData ={};
 
   formData.grievance_id=grievance.id
-  formData.action_type='Created'
+  formData.action_type='Reported'
   formData.action_by=null
   formData.date_actioned=grievance.date_reported
   formData.prev_status=grievance.status
@@ -489,8 +517,8 @@ const logAction = async (grievance) => {
 
   const res =  await logGrievanceAction(formData)
 
-console.log("Log Successful", res)
-router.push('/landing');
+  return res.data
+
 
 }
 const submitForm = async () => {
@@ -512,13 +540,19 @@ const submitForm = async () => {
        const res =  await generateGrievance(grmForm.value)
        console.log('res',res)
  
-       // 2. Uplaod docuemnts 
-      await uploadFiles(res.data.id)
+
      
 
        // 3. Log the entry
-       await logAction (res.data)
+      let log= await logAction (res.data)
  
+
+              // 2. Uplaod docuemnts 
+      await uploadFiles(log.id,res.data.id)
+
+      console.log("Log Successful", res)
+      router.push('/landing');
+
 
        ElMessage({
          message: res.message,

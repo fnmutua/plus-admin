@@ -69,18 +69,15 @@ module.exports = function (sequelize) {
         type: DataTypes.STRING,
         allowNull: false,
         validate: {
-          isIn: [['Open', 'Investigation', 'Review', 'Resolved', 'Escalated', 'Closed']]
+          isIn: [['Sorting', 'Investigation', 'Rejected', 'Resolved', 'Escalated','Referred', 'Closed']]
         }
       },
      
-
+ 
       current_level: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        // references: {
-        //   model: 'grievance_resolution_level', // name of the Grievance model
-        //   key: 'id'
-        // }
+       
       }, 
 
 
