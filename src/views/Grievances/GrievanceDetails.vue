@@ -401,6 +401,7 @@ const form = ref({
   date_actioned:  null,
   prev_status:  null,
   new_status:  null,
+  fileList:  [],
 });
 
  
@@ -424,20 +425,42 @@ const handleExceed = (files, fileList) => {
 };
 
 
-const fileList = ref<UploadUserFile[]>([
- 
-])
+const fileList = ref([])
 
+const validateFileUploads= (rule: any, value: any, callback: any) => {
+  if (value === '') {
+    callback(new Error('Please input the password'))
+  } else {
+    if (form.value.fileList.length ==0) {
+      console.log("Error,",form.value)
+      callback(new Error('Please upload at least one document'));
+    }
+    callback()
+  }
+}
 
 const rules = ({
-  
   action: [{ required: true, message: 'Action is required', trigger: 'blur' }],
   new_status: [{ required: true, message: 'Status is required', trigger: 'blur' }],
-  fileList: [
-          { required: true, message: 'Please upload supporting documentation', trigger: 'change' }
-        ]
- 
-  })
+  fileList: [{ validator: validateFileUploads, trigger: 'change' }],
+
+  // fileList: [
+  //   { 
+  //     required: true, 
+  //     message: 'Please upload supporting documentation', 
+  //     trigger: 'change', 
+  //     validator: (rule, value, callback) => {
+  //       if (value && value.length > 0) {
+  //         callback();  // Validation passed
+  //       } else {
+  //         console.log('value >>>>',value)
+  //         callback(new Error('Please upload at least one document'));
+  //       }
+  //     }
+  //   }
+  // ]
+});
+
 
 const dynamicFormRef = ref<FormInstance>()
 
@@ -485,14 +508,14 @@ const uploadFiles = async (action_id, grievance_id) => {
   const formData = new FormData();
 
 // Assuming `fileList` is an array of file objects and `grievance_id` is defined
-for (var i = 0; i < fileList.value.length; i++) {
-  console.log('------>file', fileList.value[i]); 
-  formData.append('files', fileList.value[i].raw);
-  formData.append('format', fileList.value[i].name.split('.').pop());
+for (var i = 0; i < form.value.fileList.length; i++) {
+  console.log('------>file', form.value.fileList[i]); 
+  formData.append('files', form.value.fileList[i].raw);
+  formData.append('format', form.value.fileList[i].name.split('.').pop());
   formData.append('grievance_id', grievance_id);
   formData.append('action_id', action_id);
   formData.append('protected_file', true);
-  formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2));
+  formData.append('size', (form.value.fileList[i].raw.size / 1024 / 1024).toFixed(2));
   formData.append('code', uuid.v4());
 }
 
@@ -718,7 +741,7 @@ const downloadFile = async (data) => {
         :on-remove="handleRemove"
         :before-remove="beforeRemove"
         :limit="3"
-        v-model:file-list="fileList"
+        v-model:file-list="form.fileList"
         :auto-upload="false"
         :on-exceed="handleExceed"
       >
