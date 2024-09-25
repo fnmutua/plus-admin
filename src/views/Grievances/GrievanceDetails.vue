@@ -764,7 +764,7 @@ const downloadFile = async (data) => {
  
         <el-button  type="primary"  plain>  <Icon icon="basil:file-upload-outline"  width="24"/> Upload Documentation</el-button>
         <template #tip>
-        <p></p>E.g Minutes, forms, e.t.c. These should be pdf/jpg/png files with a size less than 10MB.</p>
+        <p>E.g Minutes, forms, e.t.c. These should be pdf/jpg/png files with a size less than 10MB.</p>
         </template>
       </el-upload>
     </el-form-item>

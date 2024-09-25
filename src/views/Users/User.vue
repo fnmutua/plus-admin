@@ -907,7 +907,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           </el-table-column>
           <el-table-column prop="level" label="Level">
             <template #default="{ row }">
-              <el-select v-model="row.location_level" placeholder="Select level" size="small"   @change="handleChangeLevel(row.location_level)" style="width:80%">
+              <el-select v-model="row.location_level" placeholder="Select level" size="small" filterable   @change="handleChangeLevel(row.location_level)" style="width:80%">
                 <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
@@ -916,7 +916,7 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
           <el-table-column prop="county_id" label="County">
             <template #default="{ row }">
               <el-select
-v-model="row.county_id" placeholder="County" clearable :disabled="isNationalLevel"
+v-model="row.county_id" placeholder="County" clearable :disabled="isNationalLevel" filterable
                 @change="getCountySettlements(row.county_id)" size="small" style="width:80%">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
@@ -925,7 +925,7 @@ v-model="row.county_id" placeholder="County" clearable :disabled="isNationalLeve
 
           <el-table-column prop="settlement_id" label="Settlement" >
             <template #default="{ row }">
-              <el-select v-model="row.settlement_id" placeholder="Settlement" size="small"   :disabled="!isSettlementLevel" style="width:80%" clearable>
+              <el-select v-model="row.settlement_id" placeholder="Settlement" size="small"   :disabled="!isSettlementLevel" style="width:80%" filterable clearable>
                 <el-option
 v-for="item in settlementOptions" :key="item.value" :label="item.label"
                   :value="item.value" />
