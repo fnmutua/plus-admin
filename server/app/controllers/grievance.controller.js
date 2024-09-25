@@ -11,6 +11,7 @@ const Sequelize = require('sequelize')
 
  const axios = require('axios') ;
  const Role = db.role
+ const { Op, literal } = require('sequelize');
 
 
  var bcrypt = require('bcryptjs')
@@ -896,9 +897,63 @@ const generateNextGrievanceCode = async (lastCode) => {
     };
     
     
-    const { Op, literal } = require('sequelize');
 
-
+ exports.updateGrievanceStatus = async (req, res) => {
+      try {
+        const grievanceCode = req.body.code;
+         const newStatus = req.body.new_status; // The new status to update
+    
+        if (!grievanceCode ||  !newStatus) {
+          return res.status(400).send({
+            code: '1001',
+            message: 'Grievance code and new status are required',
+          });
+        }
+    
+        // Find grievance by grievance code and phone number
+        const findOptions = {
+          where: {
+            code: {
+              [op.iLike]: `%${grievanceCode}%`, // Case-insensitive partial matching for grievance code
+            } 
+          },
+        };
+    
+        console.log('Find options:', findOptions);
+    
+        // Fetch grievance by grievance code and phone number
+        const grievance = await Grievance.findOne(findOptions);
+    
+        if (!grievance) {
+          return res.status(404).send({
+            code: '1002',
+            message: 'No grievance found for the given code ',
+          });
+        }
+    
+        // Update the grievance status
+        grievance.status = newStatus;
+        await grievance.save(); // Save the updated grievance
+    
+        // Return success message
+        return res.status(200).send({
+          code: '0000',
+          message: 'Grievance status updated successfully',
+          data: {
+            code: grievance.code,
+            date_reported: grievance.date_reported,
+            status: grievance.status, // The updated status of the grievance
+          },
+        });
+      } catch (error) {
+        console.error('Error updating grievance status:', error);
+        return res.status(500).send({
+          code: '9999',
+          message: 'Unable to update grievance status. Please try again later.',
+        });
+      }
+    };
+    
  exports.getGrievancesByKeyword = async (req, res) => {
       console.log('--------------------------------------------getGrievancesByKeyword',);
       const user = req.thisUser;

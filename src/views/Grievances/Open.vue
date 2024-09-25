@@ -5,7 +5,7 @@ import { getCountyListApi } from '@/api/counties'
 
 import { getGrievances } from '@/api/grievance'
 
-import { ElButton, ElSelect, ElCheckbox,ElCol,ElIcon} from 'element-plus'
+import { ElButton, ElSelect, ElCheckbox,ElCol,ElIcon,ElTag} from 'element-plus'
 import {
   Plus,  Download,  Filter, More,ArrowLeft,ArrowRight,Upload,UploadFilled,
   Edit,
@@ -1391,10 +1391,25 @@ const tableRowClassName = (data) => {
     console.log(data.row.status)
      return 'warning-row'
    }
+
    if (data.row.status == 'Resolved') {
-     return 'success-row'
+     return 'resolved-row'
    }
  
+   if (data.row.status == 'Rejected') {
+     return 'rejected-row'
+   }
+
+   if (data.row.status == 'Escalated') {
+     return 'escalated-row'
+   }
+
+   if (data.row.status == 'Closed') {
+     return 'closed-row'
+   }
+
+   
+
    return ''
  }
 
@@ -1514,6 +1529,21 @@ const StatusOptions = [
   getFilteredBySearchData(filterString)
 }
 
+const filterStatus = (value: string, row) => {
+  return row.status === value
+}
+
+const filterHandler = (
+  value: string,
+  row: row,
+  column: TableColumnCtx<row>
+) => {
+  const property = column['property']
+  return row[property] === value
+}
+
+
+
 
 </script>
 
@@ -1592,7 +1622,30 @@ v-model="value3" :onChange="handleSelectStatus" :onClear="handleClear" multiple 
           <span>{{ formatDate(scope.row.date_reported) }}</span>
         </template>
       </el-table-column>
+ 
+      <el-table-column
+      prop="status"
+      label="Status"
+      width="100"
+      sortable
+      
+    >
+      <template #default="scope">
+        <el-tag
+        :type="scope.row.status == 'Closed' ? 'info' 
+        : scope.row.status == 'Escalated' ? 'secondary' 
+        : scope.row.status == 'Referred' ? 'warning' 
+        : scope.row.status == 'Rejected' ? 'danger' 
+        : 'success'"
+          disable-transitions
+          
+          >{{ scope.row.status }}
+          </el-tag
+        >
+      </template>
+    </el-table-column>
 
+    
       <el-table-column label="Code" prop="code" sortable  width="150" />
       <el-table-column label="Complainant" prop="name" sortable   width="250" />
       <el-table-column label="Description" prop="description" sortable  width="550"   />
@@ -1939,9 +1992,41 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   --el-table-tr-bg-color: var(--el-color-warning-light-9);
 }
 
+.el-table .rejected-row {
+  --el-table-tr-bg-color: var(--el-color-danger-light-9);
+  --el-table-tr-text-color: var(--el-color-danger);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .referred-row {
+  --el-table-tr-bg-color: var(--el-color-warning-light-9);
+  --el-table-tr-text-color: var(--el-color-warning);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .escalated-row {
+  --el-table-tr-bg-color: var(--el-color-secondary);
+  --el-table-tr-text-color: var(--el-color-secondary);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .resolved-row {
+  --el-table-tr-bg-color: var(--el-color-success-light-9);
+  --el-table-tr-text-color: var(--el-color-success);
+  color: var(--el-table-tr-text-color);
+}
+ 
+.el-table .closed-row {
+  --el-table-tr-bg-color: var(--el-color-info-light-9);
+  --el-table-tr-text-color: var(--el-color-info);
+  color: var(--el-table-tr-text-color);
+}
 
 .item {
   margin-top: 10px;
   margin-right: 40px;
 }
 </style>
+
+
+ 
