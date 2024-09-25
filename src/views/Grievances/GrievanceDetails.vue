@@ -15,8 +15,7 @@ import {
   UploadFilled,Download,
 } from '@element-plus/icons-vue'
 
-import { getFile } from '@/api/summary'
-
+ 
 
 
 
@@ -27,6 +26,15 @@ import { useRoute } from 'vue-router'
 import {  Back} from '@element-plus/icons-vue'
  
 import { useRouter } from 'vue-router'
+import { useCache } from '@/hooks/web/useCache'
+import { useAppStoreWithOut } from '@/store/modules/app'
+
+
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
 
 
 
@@ -99,6 +107,7 @@ function formatSentence(text) {
 const button_label=ref()
 const button_color=ref()
 const button_icon=ref()
+const button_disable=ref(false)
 
 const StatusOptions =ref([
   {
@@ -470,11 +479,11 @@ const submitResolutionForm = async () => {
  formInstance.value.validate( async (valid: boolean) => {
    if (valid) {  
      form.value.grievance_id=Grievance.value.id
-     form.value.action_type='Resolved'
-     form.value.action_by=1  // remember t change 
+     form.value.action_type=form.value.new_status
+     form.value.action_by=userInfo.id  // remember t change 
      form.value.date_actioned=new Date();
      form.value.prev_status=Grievance.value.status
-     form.value.new_status= 'Resolved'
+ 
    
   const res =  await logGrievanceAction(form.value)
 
@@ -665,7 +674,17 @@ const downloadFile = async (data) => {
         :timestamp="log.date_actioned" 
         timestamp-class="timestamp-class" 
       >
-        <el-card  class="custom-card"   shadow="hover" :class="log.action_type  == 'Resolved' ? 'success-background' : log.action_type  == 'Escalated' ? 'warning-background' : 'info-background'">
+      <el-card 
+          class="custom-card" 
+          shadow="hover" 
+          :class="
+            log.action_type == 'Resolved' ? 'success-background' : 
+            log.action_type == 'Escalated' ? 'warning-background' : 
+            log.action_type == 'Closed' ? 'closed-background' : 
+            log.action_type == 'Referred' ? 'referred-background' : 
+            'info-background'
+          ">
+
 
           
           <el-row align="middle" :gutter="20">
@@ -674,6 +693,11 @@ const downloadFile = async (data) => {
               <Icon v-if="log.action_type  == 'Resolved'" icon="fluent-mdl2:completed-solid" width="60" />
               <Icon  v-if="log.action_type  == 'Escalated'"  icon="streamline:dangerous-zone-sign-solid" width="60" />
               <Icon  v-if="log.action_type  == 'Reported'" icon="fluent-mdl2:report-warning" width="60" />
+              <Icon  v-if="log.action_type  == 'Referred'" icon="mdi:justice" width="60" />
+              <Icon  v-if="log.action_type  == 'Closed'" icon="fluent:lock-closed-20-filled" width="60" />
+
+              
+              
             </el-col>
             
             <el-col  :xs="24" :sm="24" :md="14" :lg="14" :xl="14" :gutter="10">
@@ -873,6 +897,25 @@ const downloadFile = async (data) => {
     border: 1px solid #ffeeba; /* Border color */
 }
 
+.closed-background {
+  background-color: rgba(255, 0, 0, 0.14); /* Red with 80% opacity */
+  color: #fa0707; /* Darker text for contrast */
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #fb050552; /* Lighter red border */
+}
+
+.referred-background {
+  background-color: rgba(247, 155, 7, 0.2); /* Pink with 20% opacity */
+  color: rgb(255, 192, 254); /* Same text color */
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #d6d6d6; /* Lighter pink border */
+}
+
+
+
+
 .info-background {
   background-color: rgba(204, 229, 255, 0.4); /* Light blue with 80% opacity */
   color: #004085; /* Dark blue text */
@@ -880,6 +923,8 @@ const downloadFile = async (data) => {
     border-radius: 5px;
     border: 1px solid #b8daff; /* Border color */
 }
+
+
 .custom-card {
     padding: 5px;  /* Reduce padding */
     margin: 5px 0; /* Adjust margin as needed */
