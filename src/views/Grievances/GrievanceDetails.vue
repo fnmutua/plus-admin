@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import { onMounted,computed } from 'vue'
 import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow , ElForm,ElFormItem,ElInput,ElUpload,ElMessage,
-  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElTooltip,ElDialog,ElDivider,ElSelect,ElOption
+  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElTooltip,ElDialog,ElSelect,ElOption
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
-import { uploadGrievanceDocuments,logGrievanceAction,getActionFile } from '@/api/grievance'
+import { uploadGrievanceDocuments,logGrievanceAction,getActionFile ,updateGrievanceStatus} from '@/api/grievance'
 import { uuid } from 'vue-uuid'
 
 
 import { Icon } from '@iconify/vue';
-import type { UploadUserFile } from 'element-plus'
 import {
-  UploadFilled,Download,
+  Download,UploadFilled
 } from '@element-plus/icons-vue'
 
  
@@ -39,7 +38,6 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 
 const activeName = ref('details')
-const action = ref('')
 // Resolve, Escalate, Documentation 
  
 const route = useRoute()
@@ -107,7 +105,6 @@ function formatSentence(text) {
 const button_label=ref()
 const button_color=ref()
 const button_icon=ref()
-const button_disable=ref(false)
 
 const StatusOptions =ref([
   {
@@ -425,16 +422,15 @@ const handleRemove = (file, fileList) => {
   console.log('Remove:', file, fileList);
 };
 
-const beforeRemove = (file) => {
+const beforeRemove = () => {
   return true;
 };
 
-const handleExceed = (files, fileList) => {
+const handleExceed = () => {
   ElMessage.warning('You can only upload up to 3 files.');
 };
 
 
-const fileList = ref([])
 
 const validateFileUploads= (rule: any, value: any, callback: any) => {
   if (value === '') {
@@ -451,23 +447,9 @@ const validateFileUploads= (rule: any, value: any, callback: any) => {
 const rules = ({
   action: [{ required: true, message: 'Action is required', trigger: 'blur' }],
   new_status: [{ required: true, message: 'Status is required', trigger: 'blur' }],
-  fileList: [{ validator: validateFileUploads, trigger: 'change' }],
+  fileList: [{required: true,  validator: validateFileUploads, trigger: 'change' }],
 
-  // fileList: [
-  //   { 
-  //     required: true, 
-  //     message: 'Please upload supporting documentation', 
-  //     trigger: 'change', 
-  //     validator: (rule, value, callback) => {
-  //       if (value && value.length > 0) {
-  //         callback();  // Validation passed
-  //       } else {
-  //         console.log('value >>>>',value)
-  //         callback(new Error('Please upload at least one document'));
-  //       }
-  //     }
-  //   }
-  // ]
+ 
 });
 
 
@@ -484,14 +466,24 @@ const submitResolutionForm = async () => {
      form.value.date_actioned=new Date();
      form.value.prev_status=Grievance.value.status
  
+     // Log the action 
    
-  const res =  await logGrievanceAction(form.value)
+    const res =  await logGrievanceAction(form.value)
 
-  console.log('res-->',res.data)
+      
+    /// Upload fies
+    await uploadFiles(res.data.id,Grievance.value.id)
 
-  await uploadFiles(res.data.id,Grievance.value.id)
 
-console.log("Log Successful", res)
+    const formData = {
+      code: Grievance.value.code,
+      new_status: form.value.new_status,
+    };
+
+
+ 
+  /// udpate the status
+  await updateGrievanceStatus(formData)
 
      ElMessage({
        message: res.message,
@@ -769,10 +761,10 @@ const downloadFile = async (data) => {
         :auto-upload="false"
         :on-exceed="handleExceed"
       >
-        <el-button type="primary" icon="UploadFilled">Upload Documentation e.g. minutes</el-button>
-
+ 
+        <el-button  type="primary"  plain>  <Icon icon="basil:file-upload-outline"  width="24"/> Upload Documentation</el-button>
         <template #tip>
-          <div class="el-upload__tip">pdf/jpg/png files with a size less than 500KB.</div>
+        <p></p>E.g Minutes, forms, e.t.c. These should be pdf/jpg/png files with a size less than 10MB.</p>
         </template>
       </el-upload>
     </el-form-item>
