@@ -41,6 +41,9 @@ dotenv.config({ path: envFilePath });
  
 
 app.use(cors(corsOptions))
+
+
+
 // app.use(cors()) 
 
 // middle ware
@@ -61,6 +64,7 @@ app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }))
 
 app.use(express.static(path.join(__dirname, '/dist-pro')))
 // app.use(express.static('files'))
+app.use(express.static('public'))
 
 //app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')) })
 
