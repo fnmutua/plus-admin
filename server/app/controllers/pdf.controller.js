@@ -2,6 +2,7 @@ const { PDFDocument } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
 const shortid = require('shortid');
+const QRCode = require('qrcode')
 
 exports.generatePDF = async (req, res) => {
   try {
@@ -9,7 +10,12 @@ exports.generatePDF = async (req, res) => {
     const formData = req.body;
 
     // Read the PDF form template from the /data/forms directory
-    const formPath = path.join('/data/forms', `${formData.type}.pdf`);
+    //const formPath = path.join('/data/forms', `${formData.type}.pdf`);
+    //const formPath = `/assets/forms/${formData.type}.pdf`;
+   // const formPath = path.join(__dirname, '/assets', 'forms', `${formData.type}.pdf`);
+    const formPath = path.join(__dirname, '/../../../public', 'forms', `${formData.type}.pdf`);
+ 
+
     const formBytes = fs.readFileSync(formPath);
 
     // Load the PDF document
@@ -40,6 +46,43 @@ exports.generatePDF = async (req, res) => {
 
     // Define the upload path
     const uploadPath = path.join('/data/uploads', uniqueFilename);
+
+
+
+      // Generate QR code as a data URI
+      const qrCodeDataUri = await QRCode.toDataURL(JSON.stringify(formData), { errorCorrectionLevel: 'H' });
+
+      console.log(qrCodeDataUri)
+
+      // Embed the QR code into the PDF
+      const qrImage = await pdfDoc.embedPng(qrCodeDataUri);
+
+
+
+      // Define dimensions for QR code (width, height) and position (x, y)
+      const qrWidth = 150;  // Adjust as necessary
+      const qrHeight = 150; // Adjust as necessary
+      const qrX = 400;      // Adjust as necessary (right side of the page)
+      const qrY = 100;      // Adjust as necessary (bottom of the page)
+
+      // Get the first page of the PDF
+      const page = pdfDoc.getPages()[0];
+
+      // Draw the QR code on the page
+      page.drawImage(qrImage, {
+        x: qrX,
+        y: qrY,
+        width: qrWidth,
+        height: qrHeight,
+      });
+
+
+
+
+
+
+
+
 
     // Save the PDF to the /data/uploads directory
     fs.writeFileSync(uploadPath, pdfBytes);
