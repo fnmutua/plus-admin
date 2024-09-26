@@ -63,3 +63,11 @@ export const getActionFile= (data: any) => {
  }
  
   
+
+  
+export const sendAcknowledgement= (data: any) => {
+   // console.log('filters....', data)
+    return request.post({ url: prod + '/api/v1/pdf',  data })
+ }
+ 
+  

@@ -251,21 +251,24 @@ exports.createGrievanceRecord = async (req, res) => {
 
 
 
-
-
-
-
-
-
-
-
-
+ 
+      // Fetch the newly created item along with its associations
+      const itemWithAssociations = await db.models.grievance.findOne({
+        where: { id: item.id },
+        include: [
+          { model: db.models.county },
+          { model: db.models.subcounty},
+          { model: db.models.ward},
+          { model: db.models.settlement},
+          // Include any other associations here
+        ],
+      });
 
 
 
 
     res.status(200).send({
-      data: item,
+      data: itemWithAssociations,
       code: '0000',
       message: 'Grievance reported successfully.'
     });
