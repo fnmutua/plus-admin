@@ -41,10 +41,7 @@ exports.generatePDF = async (req, res) => {
     }
 
     // Flatten the form to prevent further editing
-    form.flatten();
-
-
-
+    form.flatten(); 
           // Generate QR code as a data URI
  
           // Embed the QR code into the PDF
@@ -53,8 +50,8 @@ exports.generatePDF = async (req, res) => {
           // Define dimensions for QR code (width, height) and position (x, y)
           const qrWidth = 70;  // Adjust as necessary
           const qrHeight = 70; // Adjust as necessary
-          const qrX = 450;      // Adjust as necessary (right side of the page)
-          const qrY = 75;      // Adjust as necessary (bottom of the page)
+          const qrX = 475;      // Adjust as necessary (right side of the page)
+          const qrY = 55;      // Adjust as necessary (bottom of the page)
 
           // Get the first page of the PDF
           const page = pdfDoc.getPages()[0];
@@ -78,14 +75,6 @@ exports.generatePDF = async (req, res) => {
 
     // Define the upload path
     const uploadPath = path.join('/data/uploads', uniqueFilename);
-
-
-
-
-
-
-
-
 
 
 

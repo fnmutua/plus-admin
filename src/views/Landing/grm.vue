@@ -240,7 +240,7 @@ import {
 
 import BaseLayout from './BaseLayout.vue';
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
-import { uploadGrievanceDocuments,generateGrievance,logGrievanceAction,getGrievanceStatus } from '@/api/grievance'
+import { uploadGrievanceDocuments,generateGrievance,logGrievanceAction,getGrievanceStatus,sendAcknowledgement } from '@/api/grievance'
 import {
   ArrowLeft,
   ArrowRight,
@@ -500,6 +500,7 @@ console.log("Docuemnts Uploaded", res)
 
 
 }
+
 const logAction = async (grievance) => {
   console.log('Log---->grievance',grievance)
 
@@ -521,11 +522,12 @@ const logAction = async (grievance) => {
 
 
 }
+
 const submitForm = async () => {
  
  
    grmForm.value.date_reported = new Date();
-   grmForm.value.status ='Open'
+   grmForm.value.status ='Sorting'
    grmForm.value.model = 'grievance';
    grmForm.value.current_level = '1';
     
@@ -550,6 +552,11 @@ const submitForm = async () => {
               // 2. Uplaod docuemnts 
       await uploadFiles(log.id,res.data.id)
 
+              // 3. Send Notification 
+
+      await sendNotification(res.data)
+
+
       console.log("Log Successful", res)
       router.push('/landing');
 
@@ -573,6 +580,45 @@ const submitForm = async () => {
  
 };
 
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+
+const sendNotification = async (grievance) => { 
+ const formData = {};
+ 
+// Additional properties based on the provided JSON object
+formData.type = "acknowledgement" 
+formData.phone = grievance.phone || null;
+formData.project_phone = grievance.project_phone || null;
+formData.code = grievance.code || null;
+formData.date = formatDate(grievance.date_reported)
+
+|| null;
+formData.age = grievance.age || null;
+formData.gender = grievance.gender || null;
+formData.barcode = grievance.barcode || null;
+formData.name = grievance.name || null;
+formData.address = grievance.address || null;
+formData.settlement = grievance.settlement || null;
+formData.email = grievance.email || null;
+formData.complaint = grievance.complaint || null;
+formData.county = grievance.county || null;
+formData.subcounty = grievance.subcounty || null;
+formData.documents = grievance.documents || null;
+
+console.log(formData);
+
+  const res =  await sendAcknowledgement(formData)
+
+//  console.log(res)
+
+}
 
 const resetForm = () => {
   const formRef = dynamicFormRef.value;
