@@ -15,6 +15,11 @@ exports.generatePDF = async (req, res) => {
    // const formPath = path.join(__dirname, '/assets', 'forms', `${formData.type}.pdf`);
     const formPath = path.join(__dirname, '/../../../public', 'forms', `${formData.type}.pdf`);
  
+   // Generate QR code as a data URI
+    const qrCodeDataUri = await QRCode.toDataURL(JSON.stringify(formData.code) );
+
+    
+   
 
     const formBytes = fs.readFileSync(formPath);
 
@@ -38,9 +43,36 @@ exports.generatePDF = async (req, res) => {
     // Flatten the form to prevent further editing
     form.flatten();
 
+
+
+          // Generate QR code as a data URI
+ 
+          // Embed the QR code into the PDF
+          const qrImage = await pdfDoc.embedPng(qrCodeDataUri);
+
+          // Define dimensions for QR code (width, height) and position (x, y)
+          const qrWidth = 70;  // Adjust as necessary
+          const qrHeight = 70; // Adjust as necessary
+          const qrX = 450;      // Adjust as necessary (right side of the page)
+          const qrY = 75;      // Adjust as necessary (bottom of the page)
+
+          // Get the first page of the PDF
+          const page = pdfDoc.getPages()[0];
+
+          // Draw the QR code on the page
+          page.drawImage(qrImage, {
+            x: qrX,
+            y: qrY,
+            width: qrWidth,
+            height: qrHeight,
+          });
+
+
+
     // Save the modified PDF to bytes
     const pdfBytes = await pdfDoc.save();
 
+    
     // Generate a random UUID for the file name
     const uniqueFilename = `${shortid.generate()}.pdf`;
 
@@ -48,33 +80,6 @@ exports.generatePDF = async (req, res) => {
     const uploadPath = path.join('/data/uploads', uniqueFilename);
 
 
-
-      // Generate QR code as a data URI
-      const qrCodeDataUri = await QRCode.toDataURL(JSON.stringify(formData), { errorCorrectionLevel: 'H' });
-
-      console.log(qrCodeDataUri)
-
-      // Embed the QR code into the PDF
-      const qrImage = await pdfDoc.embedPng(qrCodeDataUri);
-
-
-
-      // Define dimensions for QR code (width, height) and position (x, y)
-      const qrWidth = 150;  // Adjust as necessary
-      const qrHeight = 150; // Adjust as necessary
-      const qrX = 400;      // Adjust as necessary (right side of the page)
-      const qrY = 100;      // Adjust as necessary (bottom of the page)
-
-      // Get the first page of the PDF
-      const page = pdfDoc.getPages()[0];
-
-      // Draw the QR code on the page
-      page.drawImage(qrImage, {
-        x: qrX,
-        y: qrY,
-        width: qrWidth,
-        height: qrHeight,
-      });
 
 
 
