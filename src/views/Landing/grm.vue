@@ -409,6 +409,15 @@ const handleSelectSettlement = async (settlementId) => {
     console.log(filteredOptions[0].subcounty_id)
     grmForm.value.subcounty_id=filteredOptions[0].subcounty_id
     grmForm.value.ward_id=filteredOptions[0].ward_id
+    grmForm.value.county_id=filteredOptions[0].county_id
+    grmForm.value.current_level=1  // 1-settlement
+
+    
+     
+
+
+    console.log(grmForm.value)
+
 
 }
 
@@ -526,10 +535,6 @@ const logAction = async (grievance) => {
 const submitForm = async () => {
  
  
-   grmForm.value.date_reported = new Date();
-   grmForm.value.status ='Sorting'
-   grmForm.value.model = 'grievance';
-   grmForm.value.current_level = '1';
     
 
    const formInstance = dynamicFormRef
@@ -538,6 +543,14 @@ const submitForm = async () => {
      if (valid) {
        console.log('Is Valid',grmForm)
        
+       
+          grmForm.value.date_reported = new Date();
+          grmForm.value.status ='Sorting'
+          
+          grmForm.value.model = 'grievance';
+          grmForm.value.current_level = 1;
+
+
        //1. Submit teh greivance 
        const res =  await generateGrievance(grmForm.value)
        console.log('res',res)

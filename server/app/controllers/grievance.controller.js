@@ -66,31 +66,50 @@ exports.generateGRMCode = async (req, res) => {
  
 async function sendNotificationSMS(sms_obj) {
   // Send OTP via Leopard (not implemented in this code snippet)
+
+  console.log('------------',sms_obj)
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
   
   const requestData = {
     apikey: "684f84e9aa485a0e72e6734c6b84d9b4",
     partnerID: "10322",
     shortcode: "AGS",
-    message: sms_obj.msg,
+    message: sms_obj.grv_code + ": " +sms_obj.message,
     mobile: sms_obj.phone,
   };
+
+
+  const notification ={}
+
+  notification.grievance_id = sms_obj.id
+  notification.recipient = sms_obj.phone
+  notification.message =  sms_obj.grv_code + ": " + sms_obj.message
+  notification.medium = 'SMS'
+  notification.type = sms_obj.type?  sms_obj.type: 'Acknowledgement'
+  notification.code = shortid.generate()
+  notification.sender_id = sms_obj.sender_id
+
+  
 
   axios
     .post(url, requestData)
     .then((response) => {
       console.log("Response:", response.data);
+      notification.status = 'Success'
+      db.models.grievance_notification.create(notification);
     })
     .catch((error) => {
-      console.error("Error:", error);
+      notification.status = 'Fail'
+      db.models.grievance_notification.create(notification);
+
+      //console.error("Error:", error);
     });
 }
 
 async function sendSMS(sms_obj) {
   // Send OTP via Leopard (not implemented in this code snippet)
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
-  let encrytped_name= [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'),'maluini'),'name']
-
+ 
 
   let msg =
     "Dear " +
@@ -111,13 +130,30 @@ async function sendSMS(sms_obj) {
     mobile: sms_obj.phone,
   };
 
+  const notification ={}
+
+  notification.grievance_id = sms_obj.id
+  notification.recipient = sms_obj.phone
+  notification.message = msg
+  notification.medium = 'SMS'
+  notification.type = 'Notification'
+  notification.code = shortid.generate()
+ // notification.sender_id = 0  /// remember to change
+  
+
+
   axios
     .post(url, requestData)
     .then((response) => {
       console.log("Response:", response.data);
+      notification.status = 'Success'
+       db.models.grievance_notification.create(notification);
     })
     .catch((error) => {
       console.error("Error:", error);
+      notification.status = 'Fail'
+      db.models.grievance_notification.create(notification);
+
     });
 }
 
@@ -230,12 +266,15 @@ exports.createGrievanceRecord = async (req, res) => {
 
             let msg = 'A new grievance has been reported. Please review for your action. Reference:' + generatedCode
            // grm_officials.push(grm.phone);
-            let obj={} 
-            obj.msg = msg 
-            obj.phone=grm.phone
+            let msg_obj={} 
+            msg_obj.message = msg 
+            msg_obj.phone=grm.phone
+            msg_obj.grievance_id = item.id
+            msg_obj.grv_code = item.code 
+
 
             // for each number send a notification SMS
-            sendNotificationSMS(obj)
+            sendNotificationSMS(msg_obj)
 
 
           }
@@ -904,7 +943,10 @@ const generateNextGrievanceCode = async (lastCode) => {
  exports.updateGrievanceStatus = async (req, res) => {
       try {
         const grievanceCode = req.body.code;
-         const newStatus = req.body.new_status; // The new status to update
+        const newStatus = req.body.new_status; // The new status to update
+        const action = req.body.action; // The new status to update
+
+        console.log( 'req.body <action', req.body)
     
         if (!grievanceCode ||  !newStatus) {
           return res.status(400).send({
@@ -933,11 +975,33 @@ const generateNextGrievanceCode = async (lastCode) => {
             message: 'No grievance found for the given code ',
           });
         }
+
+
+        // -------- Escalated -------- //
+
+        if(newStatus =='Escalated') {
+
+          if(grievance.current_level==1){
+            grievance.current_level =2 
+          }else {
+            grievance.current_level =3 
+          }
+        }
     
         // Update the grievance status
         grievance.status = newStatus;
         await grievance.save(); // Save the updated grievance
-    
+
+        let msg_obj = {}
+        msg_obj.message =  req.body.message;
+        msg_obj.type = 'Notification'
+        msg_obj.phone = grievance.phone
+        msg_obj.grv_code = grievance.code
+        msg_obj.id = grievance.id
+        msg_obj.sender_id = req.body.action_by
+ 
+        sendNotificationSMS(msg_obj)
+
         // Return success message
         return res.status(200).send({
           code: '0000',
@@ -950,6 +1014,10 @@ const generateNextGrievanceCode = async (lastCode) => {
         });
       } catch (error) {
         console.error('Error updating grievance status:', error);
+
+      
+
+
         return res.status(500).send({
           code: '9999',
           message: 'Unable to update grievance status. Please try again later.',

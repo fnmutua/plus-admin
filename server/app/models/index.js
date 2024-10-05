@@ -1481,6 +1481,23 @@ db.models.grievance.hasMany(db.models.grievance_document, {
 })
 
 
+
+
+// grievance_notification  - grievance
+db.models.grievance_notification.belongsTo(db.models.grievance, {
+  foreignKey: 'grievance_id'
+})
+
+db.models.grievance.hasMany(db.models.grievance_notification, {
+  foreignKey: 'grievance_id'
+})
+
+
+
+
+
+
+
 // grievance_document  - grievance
 db.models.grievance_document.belongsTo(db.models.grievance_log, {
   foreignKey: 'action_id'

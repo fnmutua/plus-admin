@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted,computed } from 'vue'
 import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow , ElForm,ElFormItem,ElInput,ElUpload,ElMessage,
-  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElTooltip,ElDialog,ElSelect,ElOption
+  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElTooltip,ElDialog,ElSelect,ElOption, ElIcon,
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
@@ -22,7 +22,7 @@ import {   ref } from 'vue'
 
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useRoute } from 'vue-router'
-import {  Back} from '@element-plus/icons-vue'
+import { CircleCheck , Back,CloseBold} from '@element-plus/icons-vue'
  
 import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
@@ -63,11 +63,12 @@ const Grievance =ref(
 const GrievanceDocuments =ref( [])
  
 const GrievanceLogs =ref( [])
+const GrievanceNotifications =ref( [])
  
 //// ------------------parameters -----------------------////
  
 //const associated_Model = ''
-const associated_multiple_models = [ 'county', 'settlement','grievance_resolution_level', 'grievance_document',  {
+const associated_multiple_models = [ 'county', 'settlement','grievance_resolution_level', 'grievance_document', 'grievance_notification',  {
       "name": "grievance_log",
       "nestedAssociations": ["users","grievance_document"]
     }]
@@ -358,11 +359,12 @@ console.log('formattedLabels.value',formattedLabels)
 
  GrievanceDocuments.value=res.data.grievance_documents
  GrievanceLogs.value=res.data.grievance_logs
-
+ GrievanceNotifications.value=res.data.grievance_notifications
 
  console.log( 'Grievance.value', Grievance.value)
  console.log( 'GrievanceDocuments.value', GrievanceDocuments.value)
  console.log( 'GrievanceLogs.value', GrievanceLogs.value)
+ console.log( 'GrievanceNotifications.value', GrievanceNotifications.value)
 
  
 })
@@ -382,6 +384,9 @@ const sortedGrievanceLogs = computed(() => {
     });
 
 
+    const sortedGrievanceNotifications= computed(() => {
+      return GrievanceNotifications.value.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    });
 
 const router = useRouter()
 
@@ -478,12 +483,25 @@ const submitResolutionForm = async () => {
     const formData = {
       code: Grievance.value.code,
       new_status: form.value.new_status,
+      recipient: Grievance.value.phone,
+      grievance_id: Grievance.value.id,
+      message: form.value.action,
+      action_by: userInfo.id,
+
+
+      
+   
     };
 
-
+  //   notification.grievance_id = sms_obj.id
+  // notification.recipient = sms_obj.phone
+  // notification.message = msg
+  // notification.medium = 'SMS'
+  // notification.type = 'Notification'
+  // notification.code = shortid.generate()
  
   /// udpate the status
-  await updateGrievanceStatus(formData)
+ await updateGrievanceStatus(formData)
 
      ElMessage({
        message: res.message,
@@ -678,6 +696,11 @@ const downloadFile = async (data) => {
           ">
 
 
+
+
+
+
+
           
           <el-row align="middle" :gutter="20">
             <!-- Icon in the first 1/4 of the card -->
@@ -709,6 +732,57 @@ const downloadFile = async (data) => {
             </el-col>
             
           </el-row>
+        </el-card>
+      </el-timeline-item>
+
+      
+  </el-timeline>
+
+    </el-tab-pane>
+
+ 
+  <el-tab-pane label="Notifications" name="notifications">
+      
+     <el-timeline style="max-width: 100%;">
+      <el-timeline-item 
+        v-for="(notification, index) in sortedGrievanceNotifications" 
+        :key="index" 
+        placement="top"
+        :timestamp="notification.createdAt" 
+        timestamp-class="timestamp-class" 
+        :color=" notification.status == 'Success' ? 'green' : 'red' "
+
+      >
+      <el-card 
+          class="notification-custom-card " 
+          shadow="hover" 
+          :class=" notification.status == 'Success' ? 'success-background' : 'warning-background' ">
+
+
+            
+                    <div class="notification-container">
+                      <!-- Icon -->
+                    <!-- <el-icon v-if="notification.status == 'Success'"  class="success-icon" color="#67C23A">
+                        <CircleCheck />
+                      </el-icon>
+
+                      <el-icon v-if="notification.status == 'Fail'"  class="success-icon" color="red">
+                        <CloseBold />
+                      </el-icon>   -->
+
+
+                      <!-- Message -->
+                      <p class="action-header">{{notification.medium}}  </p>
+                      <p class="action-body">    Message: {{ notification.message }}</p>
+                      <p class="action-footer">    Date: {{ notification.createdAt }}</p>
+                      <p class="action-footer">    Delivery Status : {{ notification.status }}</p>
+                      <p class="action-footer">  Send By: {{ notification.user ? notification.user.name : 'System' }}</p>
+                     </div>
+              
+
+
+
+         
         </el-card>
       </el-timeline-item>
 
@@ -867,7 +941,8 @@ const downloadFile = async (data) => {
 }
 
 .action-footer {
-  font-size: 1rem;
+  font-size: 0.98rem;
+  margin-top:2px;
   font-weight: 300;
   color: #2e0dc2;
 }
@@ -923,6 +998,14 @@ const downloadFile = async (data) => {
     min-height: 10px; /* Set a minimum height if needed */
 }
 
+
+.notification-custom-card {
+    padding: 5px;  /* Reduce padding */
+    margin: 2px 0; /* Adjust margin as needed */
+    min-height: 5px; /* Set a minimum height if needed */
+}
+
+
 .timestamp-class {
     font-weight: bold; /* Example: Make it bold */
     color: #6c757d; /* Example: Set color */
@@ -934,4 +1017,41 @@ const downloadFile = async (data) => {
 </style>
 
 
+
+
+<style scoped>
+.notification-card {
+  border-radius: 12px; /* Rounded corners */
+  padding: 20px; /* Internal padding */
+}
+
+.notification-container {
+  display: flex;
+  align-items: left;
+  flex-direction: column; /* Ensures each <p> is on its own line */
+
+}
+
+.notification-icon {
+  font-size: 24px;
+  margin-right: 10px;
+}
+
+.success-message {
+  color: #67C23A; /* Success color from Element Plus */
+  font-weight: 500;
+}
+
+.fail-message {
+  color: #f21c26; /* Success color from Element Plus */
+  font-weight: 500;
+}
+
+
+.success-icon {
+  font-size: 24px;
+  margin-right: 10px;
+}
+
+</style>
  
