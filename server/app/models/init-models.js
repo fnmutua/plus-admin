@@ -77,6 +77,7 @@ var _grievance_escalation = require('./GrievanceEscalation')
 var _grievance_resolution= require('./GrievanceResolution')
 var _grievance_resolution_level= require('./GrievanceResolutionLevel')
 var _OTP= require('./otp')
+var _grievance_notification= require('./grievance_notification')
  
 
 
@@ -159,6 +160,7 @@ function initModels(sequelize) {
   var grievance_resolution = _grievance_resolution(sequelize, DataTypes)
   var grievance_resolution_level = _grievance_resolution_level(sequelize, DataTypes)
   var otp = _OTP(sequelize, DataTypes)
+  var grievance_notification = _grievance_notification(sequelize, DataTypes)
 
   
   
@@ -233,7 +235,7 @@ function initModels(sequelize) {
     project_beneficiary,grievance_resolution_level,
     grievance,
     grievance_log,
-     grievance_resolution,grievance_escalation,grievance_document, 
+     grievance_resolution,grievance_escalation,grievance_document, grievance_notification,
 
   }
 }

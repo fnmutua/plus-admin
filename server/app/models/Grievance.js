@@ -68,9 +68,9 @@ module.exports = function (sequelize) {
       status: {
         type: DataTypes.STRING,
         allowNull: false,
-        validate: {
-          isIn: [['Sorting', 'Investigation', 'Rejected', 'Resolved', 'Escalated','Referred', 'Closed']]
-        }
+        // validate: {
+        //   isIn: [['Sorting', 'Investigation', 'Rejected', 'Resolved', 'Escalated','Referred', 'Closed']]
+        // }
       },
      
  
