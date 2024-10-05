@@ -11,7 +11,7 @@ import { uuid } from 'vue-uuid'
 
 import { Icon } from '@iconify/vue';
 import {
-  Download,UploadFilled,CaretRight,Check,Close
+  Download,UploadFilled,CaretRight,Check,Close,Lock,Notification,Loading,More
 } from '@element-plus/icons-vue'
 
  
@@ -551,6 +551,19 @@ console.log("Docuemnts Uploaded", res)
 
 
 }
+const formatDate =   (dateString) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date);
+  }
+
+
 
 const viewLoading =ref(false)
 
@@ -681,44 +694,66 @@ const downloadFile = async (data) => {
         v-for="(log, index) in sortedGrievanceLogs" 
         :key="index" 
         placement="top"
-        :timestamp="log.date_actioned" 
+        color="green"
+        :timestamp="formatDate(log.date_actioned)" 
+
         timestamp-class="timestamp-class" 
       >
-      <el-card 
-          class="custom-card" 
-          shadow="hover" 
-          :class="
-            log.action_type == 'Resolved' ? 'success-background' : 
-            log.action_type == 'Escalated' ? 'warning-background' : 
-            log.action_type == 'Closed' ? 'closed-background' : 
-            log.action_type == 'Referred' ? 'referred-background' : 
-            'info-background'
-          ">
+    
+        <el-collapse accordion>
+             <el-collapse-item :name="log.action_type">
+              <!-- Scoped slot for custom title -->
+              <template #title>
+                <span  :class="{
+                              'resolved-title': log.action_type === 'Resolved',
+                              'escalated-title': log.action_type === 'Escalated',
+                              'reported-title': log.action_type === 'Reported',
+                              'referred-title': log.action_type === 'Referred',
+                              'closed-title': log.action_type === 'Closed'
+                            } " > 
+                                     
+
+                      <el-icon v-if="log.action_type === 'Resolved'">
+                        <Check />
+                      </el-icon>
+                      <el-icon v-else-if="log.action_type === 'Escalated'">
+                        <CaretRight />
+                      </el-icon>
+                      <el-icon v-else-if="log.action_type === 'Reported'">
+                        <Loading />
+                      </el-icon>
+                      <el-icon v-else-if="log.action_type === 'Referred'">
+                        <Notification />
+                      </el-icon>
+                      <el-icon v-else-if="log.action_type === 'Closed'">
+                        <Lock />
+                      </el-icon>
+
+ 
+
+                         {{ log.action_type }}
+                </span>
+              </template>
+
+              <el-card
+                class="notification-custom-card"
+                shadow="hover"
+                :class="
+                  log.action_type === 'Resolved' ? 'resolved-background' :
+                  log.action_type === 'Escalated' ? 'escalated-background' :
+                  log.action_type  === 'Reported' ? 'reported-background' :
+                  log.action_type === 'Referred' ? 'referred-background' :
+                  log.action_type === 'Closed' ? 'closed-background' :
+                  'info-background'                   "
 
 
-
-
-
-
-
-          
-          <el-row align="middle" :gutter="20">
-            <!-- Icon in the first 1/4 of the card -->
-            <el-col  :xs="24" :sm="24" :md="24" :lg="2"  >
-              <Icon v-if="log.action_type  == 'Resolved'" icon="fluent-mdl2:completed-solid" width="60" />
-              <Icon  v-if="log.action_type  == 'Escalated'"  icon="streamline:dangerous-zone-sign-solid" width="60" />
-              <Icon  v-if="log.action_type  == 'Reported'" icon="fluent-mdl2:report-warning" width="60" />
-              <Icon  v-if="log.action_type  == 'Referred'" icon="mdi:justice" width="60" />
-              <Icon  v-if="log.action_type  == 'Closed'" icon="fluent:lock-closed-20-filled" width="60" />
-
-              
-              
-            </el-col>
-            
-            <el-col  :xs="24" :sm="24" :md="14" :lg="14" :xl="14" :gutter="10">
-              <p class="action-header">{{log.action_type}} </p>
-              <p class="action-body">{{ log.action ? log.action : 'None' }}</p>
-              <p class="action-footer">By: {{ log.user ? log.user.name : 'System' }}</p>
+              >
+                <div class="notification-container">
+                  <el-row align="middle" :gutter="20">
+                  <el-col  :xs="24" :sm="24" :md="14" :lg="14" :xl="14" :gutter="10">
+                    <!-- <p class="action-header">{{log.action_type}} </p> -->
+                    <p class="action-body"> Action: {{ log.action ? log.action : 'None' }}</p>
+                    <p class="action-footer">By: {{ log.user ? log.user.name : 'System' }}</p>
             </el-col>
 
             <el-col v-if=" log.grievance_documents.length>0"  :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
@@ -729,10 +764,15 @@ const downloadFile = async (data) => {
                 <el-button  @click="downloadFile(doc)"   link type="primary" size="small" :icon="Download">{{ doc.name }}</el-button>
 
             </p>
-            </el-col>
-            
-          </el-row>
-        </el-card>
+          </el-col>
+        </el-row>
+                </div>
+              </el-card>
+            </el-collapse-item>
+          </el-collapse>
+
+
+        
       </el-timeline-item>
 
       
@@ -748,7 +788,7 @@ const downloadFile = async (data) => {
         v-for="(notification, index) in sortedGrievanceNotifications" 
         :key="index" 
         placement="top"
-        :timestamp="notification.createdAt" 
+        :timestamp="formatDate(notification.createdAt)" 
         timestamp-class="timestamp-class" 
         :color=" notification.status == 'Success' ? 'green' : 'red' " 
       >
@@ -996,10 +1036,68 @@ const downloadFile = async (data) => {
     
 }
 
+.resolved-title {
+  color: #4CAF50; /* Green */
+}
+
+.escalated-title {
+  color: #FF9800; /* Orange */
+}
+
+.reported-title {
+  color: #e412be; /* Red */
+}
+
+.referred-title {
+  color: #2196F3; /* Blue */
+}
+
+.resolved-background {
+    background-color: rgba(220, 240, 220, 0.4); /* Light green with 80% opacity */
+    color: #155724; /* Dark green text */
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid #c3e6cb; /* Border color */
+}
+
+.escalated-background {
+    background-color: rgba(255, 253, 206, 0.4); /* Light yellow with 80% opacity */
+    color: #856404; /* Dark yellow text */
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid #ffeeba; /* Border color */
+}
+
+.reported-background {
+    background-color: rgba(237, 209, 242, 0.4); /* Light orange with 80% opacity */
+    color: #7d3c98; /* Dark orange text */
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid #e412be; /* Border color */
+}
+
+.referred-background {
+    background-color: rgba(224, 240, 255, 0.4); /* Light cyan with 80% opacity */
+    color: #0c5460; /* Dark cyan text */
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid #bee5eb; /* Border color */
+}
+
+.closed-background {
+  background-color: rgba(224, 240, 255, 0.4); /* Light cyan with 80% opacity */
+  color: #333535; /* Dark cyan text */
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px dotted #333535; /* Border color */
+}
+
+
+
 .info-background {
   background-color: rgba(204, 229, 255, 0.4); /* Light blue with 80% opacity */
   color: #004085; /* Dark blue text */
-    padding: 10px;
+    padding: 5px;
     border-radius: 5px;
     border: 1px solid #b8daff; /* Border color */
 }
