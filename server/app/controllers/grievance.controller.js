@@ -886,7 +886,7 @@ const generateNextGrievanceCode = async (lastCode) => {
             let create_action ={}
             create_action.grievance_id = insertedData.id
             create_action.action_type = 'Reported'
-            create_action.action_by = 1  // Rememner to change 
+            //create_action.action_by = 1  // Rememner to change 
             create_action.date_actioned = item.date_reported
             create_action.prev_status ='Open'
             create_action.new_status = 'Open'
@@ -897,7 +897,7 @@ const generateNextGrievanceCode = async (lastCode) => {
             let current_action ={}
             current_action.grievance_id = insertedData.id
             current_action.action_type = item.status
-            current_action.action_by = 1  // Rememner to change 
+            //current_action.action_by = 1  // Rememner to change 
             current_action.date_actioned = item.date_actioned
             current_action.prev_status ='Open'
             current_action.new_status = item.status
