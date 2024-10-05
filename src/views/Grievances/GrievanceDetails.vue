@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted,computed } from 'vue'
 import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow , ElForm,ElFormItem,ElInput,ElUpload,ElMessage,
-  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElTooltip,ElDialog,ElSelect,ElOption, ElIcon,
+  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElTooltip,ElDialog,ElSelect,ElOption, ElIcon,ElCollapse,ElCollapseItem,
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
@@ -11,7 +11,7 @@ import { uuid } from 'vue-uuid'
 
 import { Icon } from '@iconify/vue';
 import {
-  Download,UploadFilled
+  Download,UploadFilled,CaretRight,Check,Close
 } from '@element-plus/icons-vue'
 
  
@@ -750,41 +750,46 @@ const downloadFile = async (data) => {
         placement="top"
         :timestamp="notification.createdAt" 
         timestamp-class="timestamp-class" 
-        :color=" notification.status == 'Success' ? 'green' : 'red' "
-
+        :color=" notification.status == 'Success' ? 'green' : 'red' " 
       >
-      <el-card 
-          class="notification-custom-card " 
-          shadow="hover" 
-          :class=" notification.status == 'Success' ? 'success-background' : 'warning-background' ">
+      <el-collapse>
+             <el-collapse-item :name="notification.id">
+              <!-- Scoped slot for custom title -->
+              <template #title>
+                <span
+                  :class="notification.status === 'Success' ? 'success-title' : 'fail-title'"
+                >
+                  <el-icon v-if="notification.status === 'Success'" class="success-icon" style="margin-right: 8px;">
+                    <!-- Use a checkmark icon for success (Element Plus provides many options) -->
+                    <Check />
+                  </el-icon>
 
+                  <el-icon v-if="notification.status != 'Success'" class="success-icon" style="margin-right: 8px;">
+                    <!-- Use a checkmark icon for success (Element Plus provides many options) -->
+                    <Close />
+                  </el-icon>
 
-            
-                    <div class="notification-container">
-                      <!-- Icon -->
-                    <!-- <el-icon v-if="notification.status == 'Success'"  class="success-icon" color="#67C23A">
-                        <CircleCheck />
-                      </el-icon>
+                  
+                  {{ notification.message }}
+                </span>
+              </template>
 
-                      <el-icon v-if="notification.status == 'Fail'"  class="success-icon" color="red">
-                        <CloseBold />
-                      </el-icon>   -->
-
-
-                      <!-- Message -->
-                      <p class="action-header">{{notification.medium}}  </p>
-                      <p class="action-body">    Message: {{ notification.message }}</p>
-                      <p class="action-footer">    Date: {{ notification.createdAt }}</p>
-                      <p class="action-footer">    Delivery Status : {{ notification.status }}</p>
-                      <p class="action-footer">  Send By: {{ notification.user ? notification.user.name : 'System' }}</p>
-                     </div>
-              
-
-
-
-         
-        </el-card>
-      </el-timeline-item>
+              <el-card
+                class="notification-custom-card"
+                shadow="hover"
+                :class="notification.status === 'Success' ? 'success-background' : 'closed-background'"
+              >
+                <div class="notification-container">
+                  <!-- Message -->
+                  <p class="action-body">Message: {{ notification.message }}</p>
+                  <p class="action-footer">Date: {{ notification.createdAt }}</p>
+                  <p class="action-footer">Delivery Status: {{ notification.status }}</p>
+                  <p class="action-footer">Sent By: {{ notification.user ? notification.user.name : 'System' }}</p>
+                </div>
+              </el-card>
+            </el-collapse-item>
+          </el-collapse>
+    </el-timeline-item>
 
       
   </el-timeline>
@@ -980,8 +985,16 @@ const downloadFile = async (data) => {
   border: 1px solid #d6d6d6; /* Lighter pink border */
 }
 
+.success-title
+{
+   color: rgb(25, 184, 60)/* Same text color */
+}
 
-
+.fail-title
+{
+   color:#f21c26/* Same text color */
+    
+}
 
 .info-background {
   background-color: rgba(204, 229, 255, 0.4); /* Light blue with 80% opacity */

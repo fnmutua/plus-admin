@@ -94,15 +94,26 @@ async function sendNotificationSMS(sms_obj) {
   axios
     .post(url, requestData)
     .then((response) => {
-      console.log("Response:", response.data);
-      notification.status = 'Success'
-      db.models.grievance_notification.create(notification);
+     /// console.log("Response:", response.data.responses[0]['response-description']);
+     // console.log("Response:", response.data.responses[0] );
+
+      if( response.data.responses[0]['response-description'] == 'Success') {
+        notification.status = 'Success'
+        db.models.grievance_notification.create(notification);
+      } else {
+          //console.log("Response all:", response);
+          notification.status = 'Fail. '+response.data.responses[0]['response-description']
+
+          db.models.grievance_notification.create(notification);
+
+      }
+    
     })
     .catch((error) => {
       notification.status = 'Fail'
       db.models.grievance_notification.create(notification);
 
-      //console.error("Error:", error);
+      console.error("Error:", error);
     });
 }
 
@@ -145,7 +156,7 @@ async function sendSMS(sms_obj) {
   axios
     .post(url, requestData)
     .then((response) => {
-      console.log("Response:", response.data);
+      //console.log("Response:", response.data);
       notification.status = 'Success'
        db.models.grievance_notification.create(notification);
     })
@@ -710,7 +721,7 @@ exports.getGrievanceById = async (req, res) => {
             });
           }
     
-          console.log('Grievance retrieved:', grievance);
+        //  console.log('Grievance retrieved:', grievance);
     
           res.status(200).send({
             data: grievance,
@@ -964,7 +975,7 @@ const generateNextGrievanceCode = async (lastCode) => {
           },
         };
     
-        console.log('Find options:', findOptions);
+        //console.log('Find options:', findOptions);
     
         // Fetch grievance by grievance code and phone number
         const grievance = await Grievance.findOne(findOptions);
