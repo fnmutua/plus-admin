@@ -219,9 +219,12 @@ export const useAppStore = defineStore({
 
 
        // Apply the saved colors to the root element
-       Object.keys(savedColors).forEach((key) => {
-        document.documentElement.style.setProperty(key, savedColors[key]);
-      });
+       if(savedColors){
+        Object.keys(savedColors).forEach((key) => {
+          document.documentElement.style.setProperty(key, savedColors[key]);
+        });
+       }
+     
   
 
 
