@@ -16,7 +16,7 @@ const { wsCache } = useCache();
 const { start, done } = useNProgress();
 const { loadStart, loadDone } = usePageLoading();
 
-const whiteList = ['/login', '/logoff', '/privacy', '/grm', '/landing', '/about', '/contact', '/faqs']; // Whitelisted routes
+const whiteList = ['/login', '/logoff', '/privacy','/status','/status/:id',  '/grm',  '/landing', '/about', '/contact',  '/faqs']; // Whitelisted routes
 
 router.beforeEach(async (to, from, next) => {
   start();
@@ -82,7 +82,11 @@ router.beforeEach(async (to, from, next) => {
       next();
     } else if (to.path.startsWith('/reset')) {
       next(); // For reset, do not redirect
-    } else {
+    } 
+    else if (to.path.startsWith('/status')) {
+      next(); // For reset, do not redirect
+    }
+    else {
       next(`/login?redirect=${to.path}`); // Otherwise, redirect to the login page
     }
   }

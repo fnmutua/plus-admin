@@ -11,7 +11,7 @@ import { uuid } from 'vue-uuid'
 
 import { Icon } from '@iconify/vue';
 import {
-  Download,UploadFilled,CaretRight,Check,Close,Lock,Notification,Loading,More
+  Download,CaretRight,Check,Close,Lock,Notification,Microphone
 } from '@element-plus/icons-vue'
 
  
@@ -22,7 +22,7 @@ import {   ref } from 'vue'
 
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useRoute } from 'vue-router'
-import { CircleCheck , Back,CloseBold} from '@element-plus/icons-vue'
+import { Back} from '@element-plus/icons-vue'
  
 import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
@@ -720,7 +720,7 @@ const downloadFile = async (data) => {
                         <CaretRight />
                       </el-icon>
                       <el-icon v-else-if="log.action_type === 'Reported'">
-                        <Loading />
+                        <Microphone />
                       </el-icon>
                       <el-icon v-else-if="log.action_type === 'Referred'">
                         <Notification />
@@ -730,7 +730,7 @@ const downloadFile = async (data) => {
                       </el-icon>
 
  
-
+            
                          {{ log.action_type }}
                 </span>
               </template>

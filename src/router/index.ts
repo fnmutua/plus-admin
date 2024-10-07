@@ -67,6 +67,20 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     }
   },
 
+ 
+  {
+    path: '/status/:id',
+    component: () => import('@/views/Landing/status.vue'),
+    name: 'GrievanceStatus',
+    meta: {
+      hidden: true,
+      title: 'Grievance Status',
+      icon:'pajamas:status',
+      noCache: true
+    }
+  },
+
+
   {
     path: '/privacy',
     component: () => import('@/views/Landing/Privacy.vue'),
