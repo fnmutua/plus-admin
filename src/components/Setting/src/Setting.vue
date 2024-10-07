@@ -233,20 +233,19 @@ const clear = () => {
 
       <!-- 系统主题 -->
       <ElDivider>{{ t('setting.systemTheme') }}</ElDivider>
-      <ColorRadioPicker
-        v-model="systemTheme"
-        :schema="[
-          '#409eff',
-          '#009688',
-          '#536dfe',
-          '#ff5c93',
-          '#ee4f12',
-          '#0096c7',
-          '#9c27b0',
-          '#ff9800'
-        ]"
-        @change="setSystemTheme"
-      />
+      
+      <ColorRadioPicker v-model="systemTheme" :schema="[
+        '#409eff',
+        '#684035', //   #684035  #cd7700  #d45500
+        '#009688',
+        '#536dfe',
+        '#ff5c93',
+        '#ee4f12',
+        '#0096c7',
+        '#9c27b0',
+        '#EDC7B7' //  #EDC7B7  #ff9800  #fb6600  KISIP theme 
+      ]" @change="setSystemTheme" />
+
 
       <!-- 头部主题 -->
       <ElDivider>{{ t('setting.headerTheme') }}</ElDivider>

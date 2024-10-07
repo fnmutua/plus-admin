@@ -701,7 +701,7 @@ const downloadFile = async (data) => {
       >
     
         <el-collapse accordion>
-             <el-collapse-item :name="log.action_type">
+             <el-collapse-item  :title="log.action_type" :name="log.action_type"  :icon="CaretRight">
               <!-- Scoped slot for custom title -->
               <template #title>
                 <span  :class="{
@@ -793,7 +793,7 @@ const downloadFile = async (data) => {
         :color=" notification.status == 'Success' ? 'green' : 'red' " 
       >
       <el-collapse>
-             <el-collapse-item :name="notification.id">
+             <el-collapse-item :name="notification.id"  :icon="CaretRight" :title="notification.id" >
               <!-- Scoped slot for custom title -->
               <template #title>
                 <span
@@ -1166,3 +1166,20 @@ const downloadFile = async (data) => {
 
 </style>
  
+
+<style scoped>
+/* Apply styles to the internal collapse item header using ::v-deep */
+::v-deep .el-collapse-item__header {
+  background-color: #f4f4f5; /* Custom background color */
+  border-radius: 5px; /* Round the corners */
+
+}
+
+::v-deep .el-collapse-item__header.is-active {
+  border-bottom-color: transparent;
+  background-color: #FFFFFF;
+  border-radius: 5px; /* Round the corners */
+
+}
+</style>
+
