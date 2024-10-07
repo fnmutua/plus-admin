@@ -12,6 +12,10 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
     
+    type: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
     grievance_id: {
       type: DataTypes.INTEGER,
       allowNull: false,

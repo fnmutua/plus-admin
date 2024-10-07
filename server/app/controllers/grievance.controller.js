@@ -612,6 +612,7 @@ exports.uploadGrievanceDocument = (req, res) => {
                 obj.location = myFiles[i].path
                 obj.code = shortid.generate()
                 obj.action_id = req.body.action_id[i] ? req.body.action_id[i] : null
+                obj.type = req.body.type[i] ? req.body.type[i] : 'Documentation'
                 objs.push(obj)
 
               } else {
@@ -624,6 +625,7 @@ exports.uploadGrievanceDocument = (req, res) => {
                 obj.location = myFiles[i].path
                 obj.code =shortid.generate()
                 obj.format = req.body.format 
+                obj.type = req.body.type 
 
                 objs.push(obj)
 
@@ -773,7 +775,7 @@ exports.getGrievanceById = async (req, res) => {
     
     
 
- exports.getGrievanceStatus = async (req, res) => {
+ exports.xgetGrievanceStatus = async (req, res) => {
       try {
         const grievanceCode = req.body.grievanceCode;
         const phoneNumber = req.body.phoneNumber;
@@ -842,6 +844,104 @@ exports.getGrievanceById = async (req, res) => {
       }
     };
     
+    exports.getGrievanceStatus = async (req, res) => {
+      try {
+        const grievanceCode = req.body.grievanceCode;
+        const phoneNumber = req.body.phoneNumber;
+        const grievanceId = req.body.id; // Get the grievance ID from the request body
+    
+        // The array of associated models to be included, if provided
+        const associatedModels = req.body.associated_multiple_models || null;
+    
+        // If both grievanceCode and phoneNumber are missing, but ID is also not provided, return error
+        if (!grievanceId && (!grievanceCode || !phoneNumber)) {
+          return res.status(400).send({
+            code: '1001',
+            message: 'Grievance code and phone number are required, or provide the grievance ID',
+          });
+        }
+    
+        // Initialize findOne options
+        let findOptions = {
+          attributes: ['phone', 'code', 'date_reported', 'status'], // Fields to include
+        };
+    
+        // If associated models are provided, build the include options dynamically
+        if (associatedModels && Array.isArray(associatedModels)) {
+          findOptions.include = associatedModels.map((modelName) => {
+            // Map each model name to an include object
+            return {
+              model: db.models[modelName], // Reference the model dynamically by name
+              attributes: ['id', 'name','type'], // You can specify attributes as needed for each model
+            };
+          });
+        }
+    
+        // If grievanceId is provided, use it to find the grievance
+        if (grievanceId) {
+          findOptions.where = { id: grievanceId };
+        } else {
+          // If ID is not provided, check by grievance code and phone number
+          findOptions.where = {
+            code: { [op.iLike]: `%${grievanceCode}%` }, // Case-insensitive partial matching for grievance code
+            phone: { [op.iLike]: `%${phoneNumber}%` }, // Case-insensitive partial matching for phone number
+          };
+        }
+    
+        console.log('Find options:', findOptions);
+    
+        // Fetch grievance by ID or by grievance code and phone number
+        const grievance = await Grievance.findOne(findOptions);
+    
+        if (!grievance) {
+          return res.status(404).send({
+            code: '1002',
+            message: 'No grievance found for the given criteria',
+          });
+        }
+    
+        console.log('grievance',grievance)
+
+
+        // Format the response object
+        const responseObject = {
+          code: grievance.code,
+          date_reported: grievance.date_reported,
+          phone: grievance.phone,
+          status: grievance.status,
+        };
+    
+
+                // If associated models are included, add their data to the response object
+            if (associatedModels && Array.isArray(associatedModels)) {
+              associatedModels.forEach((modelName) => {
+                // Convert model name to its plural form (e.g., 'county' -> 'counties')
+                const pluralModelName = `${modelName}s`;
+
+                // Check if the grievance record has the plural form of the model
+                if (grievance[pluralModelName]) {
+                  // Add the pluralized model data to the response object
+                  responseObject[pluralModelName] = grievance[pluralModelName];
+                }
+              });
+            }
+
+        console.log('responseObject',responseObject)
+        // Return the grievance status along with any included associations
+        return res.status(200).send({
+          code: '0000',
+          message: 'Grievance status retrieved successfully',
+          data: responseObject,
+        });
+      } catch (error) {
+        console.error('Error fetching grievance status:', error);
+        return res.status(500).send({
+          code: '9999',
+          message: 'Unable to retrieve grievance status. Please try again later.',
+        });
+      }
+    };
+
     
 const generateNextGrievanceCode = async (lastCode) => {
       const prefix = 'GRM';
@@ -866,7 +966,7 @@ const generateNextGrievanceCode = async (lastCode) => {
   
 
 
-    async function logGrievanceAction(action) {
+ async function logGrievanceAction(action) {
       try {
         // Prepare the object for creation
         const obj = action;
@@ -1210,7 +1310,7 @@ const generateNextGrievanceCode = async (lastCode) => {
     
 
 
-    exports.downloadFile = (req, res) => {
+ exports.downloadFile = (req, res) => {
       console.log("Received files:", req.body);
     
       const uploadedFile = path.join('/data/grievances' , req.body.filename);
