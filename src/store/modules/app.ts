@@ -5,7 +5,7 @@ import { appModules } from '@/config/app'
 import type { AppState, LayoutType, ThemeTypes } from '@/config/app'
 import { setCssVar, humpToUnderline } from '@/utils'
 import { ElMessage } from 'element-plus'
-
+import { useCssVar } from '@vueuse/core'
 const { wsCache } = useCache()
 
 export const useAppStore = defineStore({
@@ -171,14 +171,64 @@ export const useAppStore = defineStore({
       this.title = title
     },
     setIsDark(isDark: boolean) {
+
+ 
+      console.log("Setting Dark mode",isDark ) 
+
       this.isDark = isDark
-      if (this.isDark) {
-        document.documentElement.classList.add('dark')
-        document.documentElement.classList.remove('light')
-      } else {
-        document.documentElement.classList.add('light')
-        document.documentElement.classList.remove('dark')
-      }
+       
+
+
+      
+
+  // Apply dark mode settings
+  if (this.isDark) {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('light');
+
+     // Store the original light mode values temporarily
+        const originalLightColors = {
+          '--left-menu-bg-color': getComputedStyle(document.documentElement).getPropertyValue('--left-menu-bg-color'),
+          '--left-menu-bg-light-color': getComputedStyle(document.documentElement).getPropertyValue('--left-menu-bg-light-color'),
+          '--left-menu-text-color': getComputedStyle(document.documentElement).getPropertyValue('--left-menu-text-color'),
+          '--left-menu-text-active-color': getComputedStyle(document.documentElement).getPropertyValue('--left-menu-text-active-color'),
+        };
+
+      // Store the dark mode state in a cache (e.g., localStorage)
+      
+        localStorage.setItem('originalLightColors', JSON.stringify(originalLightColors));
+
+        // Force set the left menu background color for dark mode
+        document.documentElement.style.setProperty('--left-menu-bg-color', "#080808");
+        document.documentElement.style.setProperty('--left-menu-bg-light-color', "#080808");
+        document.documentElement.style.setProperty('--left-menu-text-color', "#bfcbd9");
+        document.documentElement.style.setProperty('--left-menu-text-active-color', "#fff");
+  } 
+  else {
+    document.documentElement.classList.add('light');
+    document.documentElement.classList.remove('dark');
+
+    const savedColors = JSON.parse(localStorage.getItem('originalLightColors'));
+    console.log(savedColors)
+
+    // Restore the original light mode colors
+    // document.documentElement.style.setProperty('--left-menu-bg-color', originalLightColors['--left-menu-bg-color']);
+    // document.documentElement.style.setProperty('--left-menu-bg-light-color', originalLightColors['--left-menu-bg-light-color']);
+    // document.documentElement.style.setProperty('--left-menu-text-color', originalLightColors['--left-menu-text-color']);
+    // document.documentElement.style.setProperty('--left-menu-text-active-color', originalLightColors['--left-menu-text-active-color']);
+
+
+       // Apply the saved colors to the root element
+       Object.keys(savedColors).forEach((key) => {
+        document.documentElement.style.setProperty(key, savedColors[key]);
+      });
+  
+
+
+  }
+
+ 
+            
       wsCache.set('isDark', this.isDark)
     },
     setCurrentSize(currentSize: ElememtPlusSize) {
