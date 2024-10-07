@@ -102,6 +102,7 @@ exports.generatePDF = async (req, res) => {
                 obj.name = uniqueFilename
                 obj.location = uploadPath
                 obj.code =uniqueFilename
+                obj.type = formData.type
  
     await db.models.grievance_document.create(obj); 
 

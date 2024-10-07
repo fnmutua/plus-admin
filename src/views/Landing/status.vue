@@ -2,9 +2,7 @@
   <div class="form-container">
     <BaseLayout>
       <el-main>
-      <el-card>
-
-    
+     
             <el-form :inline="false" :model="statusForm" class="status-form" label-position="top">
               <el-card shadow="hover">
                 <el-row :gutter="10"  v-if="!statusResult">
@@ -31,48 +29,40 @@
                         <p style="margin-top: 10px"><strong>Ref:</strong> {{ statusResult.code }}</p>
                         <p style="margin-top: 10px"><strong>Date Reported:</strong> {{ statusResult.date_reported  }} ({{getDaysSince(statusResult.date_reported)}} days ago)</p>
                         <p style="margin-top: 10px"><strong>Status:</strong> {{ statusResult.status }}</p>
+
+                        <p style="margin-top: 10px"><strong>Documents:</strong> </p>
+
+                        <div >
+                          <span v-for="(document, index) in files" :key="index">
+                              <el-button 
+                                type="primary"  plain
+                                @click="downloadFile(document)" 
+                                style="margin-right: 10px;"
+                              >
+                                <Icon icon="fa-solid:download" style="margin-right: 5px;" />
+                                Download {{ document.name }} ( {{ document.name }}) <!-- Display the document name -->
+                              </el-button>
+                            </span>
+                        </div>
+
+
                       </el-card>
+
+                      
                     </div>
                   </el-col>
                 </el-row>
               </el-card>
             </el-form>
          
-            
-        <template #footer>
-          <div class="steps-navigation" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;"  v-if="!statusResult">
-            <div>
-              <el-tooltip content="Help" placement="top">
-                <el-button color="#626aef"   type="info" @click="showTour"  :icon="InfoFilled" plain />
-              </el-tooltip> 
+      
 
-              <el-button  id="btn9"  v-if="active > 0" @click="prev" type="primary" :icon="ArrowLeft">Previous </el-button>
-            </div>
-            <div>
-               <el-button   id="btn7"   v-if="active < 2" type="primary" @click="next" >
-                  Next  <el-icon class="el-icon--right"><ArrowRight /></el-icon>
-             </el-button>
-
-              <el-button  id="btn2"  v-if="active === 2" type="primary" @click="submitForm" style="margin-left: 10px;">Submit</el-button>
-              <el-button  id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button>
-            </div>
-          </div>
-        </template>
-
-      </el-card>
+   
       </el-main>
     </BaseLayout>
 
     
-  <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
-      <el-tour-step
-        v-for="(step, index) in filteredTourSteps"
-        :key="index"
-        :target="step.target"
-        :title="step.title"
-        :description="step.content"
-      />
-    </el-tour>
+ 
 
 
   </div>
@@ -85,7 +75,9 @@ import {
 } from 'element-plus';
 
 import BaseLayout from './BaseLayout.vue';
-import { getGrievanceStatus } from '@/api/grievance'
+import { getGrievanceStatus,getActionFile } from '@/api/grievance'
+
+ 
 import {
   ArrowLeft,
   ArrowRight,
@@ -131,7 +123,43 @@ function getDaysSince(dateString) {
   return daysDifference;
 }
 
+const viewLoading =ref(false)
 
+const downloadFile = async (data) => {
+  console.log(data);
+  viewLoading.value = true;
+  const formData = {};
+  formData.filename = data.name;
+  formData.doc_id = data.id;
+  formData.responseType = 'blob';
+
+  // Add a flag to track if the download has started
+
+
+  // Attach a 'beforeunload' event listener to the window
+  window.addEventListener('beforeunload', () => {
+    if (viewLoading.value) {
+      console.log('Download has started.');
+      viewLoading.value = false;
+    }
+  });
+
+  try {
+    const response = await getActionFile(formData);
+    console.log(response);
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', data.name);
+    document.body.appendChild(link);
+    link.click();
+    viewLoading.value = false;
+  } catch (error) {
+    ElMessage.error('Failed');
+    viewLoading.value = false;
+  }
+};
  
 onMounted( async () => {
   const id = route.params.id 
@@ -143,13 +171,16 @@ onMounted( async () => {
 
  
    
-
+const files = ref([])
 const checkStatus = async () => {
 
   console.log(statusForm.value)
- const res =  await getGrievanceStatus(statusForm.value)
- console.log(res.data)
+  statusForm.value.associated_multiple_models=['grievance_document']
 
+ const res =  await getGrievanceStatus(statusForm.value)
+ console.log('res -->', res.data)
+
+ files.value = res.data.grievance_documents
   // Handle checking status logic here
   statusResult.value = {
     code: res.data.code,
