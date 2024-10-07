@@ -16,7 +16,7 @@ exports.generatePDF = async (req, res) => {
  
    // Generate QR code as a data URI
    const serverUrl = `${req.protocol}://${req.get('host')}`;
-   const url = serverUrl +'/status/'+req.body.grievance_id
+   const url = serverUrl +'/#/status/'+req.body.grievance_id
    console.log(url)
 
     const qrCodeDataUri = await QRCode.toDataURL(JSON.stringify((url)) );
