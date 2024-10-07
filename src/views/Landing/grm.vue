@@ -567,7 +567,7 @@ const submitForm = async () => {
 
               // 3. Send Notification 
 
-      await sendNotification(res.data)
+      await sendNotification(res.data,log.id)
 
 
       console.log("Log Successful", res)
@@ -602,34 +602,35 @@ function formatDate(dateString) {
 }
 
 
-const sendNotification = async (grievance) => { 
+const sendNotification = async (grievance,action_id) => { 
  const formData = {};
  
 // Additional properties based on the provided JSON object
 formData.type = "acknowledgement" 
+formData.action_id = action_id || null;
+formData.grievance_id = grievance.id || null;
 formData.phone = grievance.phone || null;
-formData.project_phone = grievance.project_phone || null;
+formData.project_phone = grievance.project_phone || 'Not Available';
 formData.code = grievance.code || null;
-formData.date = formatDate(grievance.date_reported)
-
-|| null;
+formData.date = formatDate(grievance.date_reported) || null;
 formData.age = grievance.age || null;
 formData.gender = grievance.gender || null;
 formData.barcode = grievance.barcode || null;
 formData.name = grievance.name || null;
 formData.address = grievance.address || null;
-formData.settlement = grievance.settlement || null;
+formData.settlement = grievance.settlement.name || null;
 formData.email = grievance.email || null;
-formData.complaint = grievance.complaint || null;
-formData.county = grievance.county || null;
-formData.subcounty = grievance.subcounty || null;
+formData.complaint = grievance.description || null;
+formData.county = grievance.county.name || null;
+formData.subcounty = grievance.subcounty.name || null;
 formData.documents = grievance.documents || null;
+ 
 
 console.log(formData);
 
   const res =  await sendAcknowledgement(formData)
 
-//  console.log(res)
+ console.log(res)
 
 }
 
@@ -890,6 +891,8 @@ function getDaysSince(dateString) {
   
   return daysDifference;
 }
+
+
 
 </script>
 

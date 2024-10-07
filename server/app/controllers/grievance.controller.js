@@ -89,7 +89,7 @@ async function sendNotificationSMS(sms_obj) {
   notification.code = shortid.generate()
   notification.sender_id = sms_obj.sender_id
 
-  
+  console.log('notification ----------?>',notification)
 
   axios
     .post(url, requestData)
@@ -117,17 +117,20 @@ async function sendNotificationSMS(sms_obj) {
     });
 }
 
-async function sendSMS(sms_obj) {
+async function sendSMS(sms_obj,serverUrl) {
   // Send OTP via Leopard (not implemented in this code snippet)
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
  
+     // Generate QR code as a data URI
+     const status_url = serverUrl +'/status/'+sms_obj.id
+     console.log(url)
+
 
   let msg =
     "Dear " +
     sms_obj.name +
-
     ", your grievance has been registered. Your reference is : " +
-    sms_obj.code + ". You can monitor the status of your report here -> https://kesmis.go.ke/grv/status/"+sms_obj.id;
+    sms_obj.code + ". You can monitor the status of your report here -> " + status_url
     
 
     //http://localhost:3000/status/6652e0486b49fb5075942951
@@ -244,7 +247,9 @@ exports.createGrievanceRecord = async (req, res) => {
     item.name = decryptedName[0].name;
     item.national_id = decryptedNationalId[0].national_id;
 
-    sendSMS(item);
+    const serverUrl = `${req.protocol}://${req.get('host')}`;
+
+    sendSMS(item,serverUrl);
 
     let grm_officials=[]
     let grm_officials_names=[]
@@ -279,6 +284,7 @@ exports.createGrievanceRecord = async (req, res) => {
            // grm_officials.push(grm.phone);
             let msg_obj={} 
             msg_obj.message = msg 
+            msg_obj.message = msg 
             msg_obj.phone=grm.phone
             msg_obj.grievance_id = item.id
             msg_obj.grv_code = item.code 
@@ -303,7 +309,7 @@ exports.createGrievanceRecord = async (req, res) => {
 
  
       // Fetch the newly created item along with its associations
-      const itemWithAssociations = await db.models.grievance.findOne({
+      const xitemWithAssociations = await db.models.grievance.findOne({
         where: { id: item.id },
         include: [
           { model: db.models.county },
@@ -314,7 +320,37 @@ exports.createGrievanceRecord = async (req, res) => {
         ],
       });
 
+ 
 
+      /// Select attribites ti include 
+      var attributes = []
+
+      for( let key in   db.models.grievance.rawAttributes ){
+        attributes.push(key)
+      }
+
+      var index = attributes.indexOf('name');
+      if (index !== -1) {
+          attributes.splice(index, 1);
+      }
+
+      let encrytpedField = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'),'maluini'),'name']
+        attributes.push(encrytpedField)
+
+
+
+  // Fetch the newly created item along with its associations and decrypted name
+  const itemWithAssociations = await db.models.grievance.findOne({
+    where: { id: item.id },
+    attributes: attributes,
+    include: [
+      { model: db.models.county },
+      { model: db.models.subcounty },
+      { model: db.models.ward },
+      { model: db.models.settlement },
+      // Include any other associations here
+    ],
+  });
 
 
     res.status(200).send({
@@ -741,44 +777,47 @@ exports.getGrievanceById = async (req, res) => {
       try {
         const grievanceCode = req.body.grievanceCode;
         const phoneNumber = req.body.phoneNumber;
+        const grievanceId = req.body.id; // Get the grievance ID from the request body
     
-        if (!grievanceCode || !phoneNumber) {
+        // If both grievanceCode and phoneNumber are missing, but ID is also not provided, return error
+        if (!grievanceId && (!grievanceCode || !phoneNumber)) {
           return res.status(400).send({
             code: '1001',
-            message: 'Grievance code and phone number are required',
+            message: 'Grievance code and phone number are required, or provide the grievance ID',
           });
         }
     
-        // Initialize findOne options with decrypted phone number
-        let attributes = [];
+        // Initialize findOne options
+        let findOptions = {
+          attributes: ['phone', 'code', 'date_reported', 'status'], // Fields to include
+        };
     
-        
-        attributes.push('phone','code','date_reported');
-    
-        // Grievance status field
-        attributes.push('status');
-    
-        const findOptions = {
-          where: {
+        // If grievanceId is provided, use it to find the grievance
+        if (grievanceId) {
+          findOptions.where = {
+            id: grievanceId, // Find by ID
+          };
+        } else {
+          // If ID is not provided, check by grievance code and phone number
+          findOptions.where = {
             code: {
               [op.iLike]: `%${grievanceCode}%`, // Case-insensitive partial matching for grievance code
             },
             phone: {
               [op.iLike]: `%${phoneNumber}%`, // Case-insensitive partial matching for phone number
             },
-          },
-          attributes: attributes, // Include decrypted phone_number and status
-        };
+          };
+        }
     
         console.log('Find options:', findOptions);
     
-        // Fetch grievance by grievance_code and phone_number
+        // Fetch grievance by ID or by grievance_code and phone_number
         const grievance = await Grievance.findOne(findOptions);
     
         if (!grievance) {
           return res.status(404).send({
             code: '1002',
-            message: 'No grievance found for the given code and phone number',
+            message: 'No grievance found for the given criteria',
           });
         }
     
@@ -789,7 +828,7 @@ exports.getGrievanceById = async (req, res) => {
           data: {
             code: grievance.code,
             date_reported: grievance.date_reported,
-            phone: phoneNumber,
+            phone: grievance.phone, // Return the phone number from the grievance record
             status: grievance.status, // The status of the grievance
           },
         });
@@ -802,6 +841,7 @@ exports.getGrievanceById = async (req, res) => {
         });
       }
     };
+    
     
 const generateNextGrievanceCode = async (lastCode) => {
       const prefix = 'GRM';
@@ -1008,7 +1048,7 @@ const generateNextGrievanceCode = async (lastCode) => {
         msg_obj.type = 'Notification'
         msg_obj.phone = grievance.phone
         msg_obj.grv_code = grievance.code
-        msg_obj.id = grievance.id
+        msg_obj.grievance_id = grievance.id
         msg_obj.sender_id = req.body.action_by
  
         sendNotificationSMS(msg_obj)

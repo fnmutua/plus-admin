@@ -3,23 +3,25 @@ const fs = require('fs');
 const path = require('path');
 const shortid = require('shortid');
 const QRCode = require('qrcode')
+const db = require('../models')
+const Sequelize = require('sequelize')
+
 
 exports.generatePDF = async (req, res) => {
   try {
     // Get the form data from the request body
     const formData = req.body;
 
-    // Read the PDF form template from the /data/forms directory
-    //const formPath = path.join('/data/forms', `${formData.type}.pdf`);
-    //const formPath = `/assets/forms/${formData.type}.pdf`;
-   // const formPath = path.join(__dirname, '/assets', 'forms', `${formData.type}.pdf`);
     const formPath = path.join(__dirname, '/../../../public', 'forms', `${formData.type}.pdf`);
  
    // Generate QR code as a data URI
-    const qrCodeDataUri = await QRCode.toDataURL(JSON.stringify(formData.code) );
+   const serverUrl = `${req.protocol}://${req.get('host')}`;
+   const url = serverUrl +'/status/'+req.body.grievance_id
+   console.log(url)
 
-    
-   
+    const qrCodeDataUri = await QRCode.toDataURL(JSON.stringify((url)) );
+
+     
 
     const formBytes = fs.readFileSync(formPath);
 
@@ -74,14 +76,37 @@ exports.generatePDF = async (req, res) => {
     const uniqueFilename = `${shortid.generate()}.pdf`;
 
     // Define the upload path
-    const uploadPath = path.join('/data/uploads', uniqueFilename);
+    const uploadPath = path.join('/data/grievances', uniqueFilename);
 
-
-
+  
     // Save the PDF to the /data/uploads directory
     fs.writeFileSync(uploadPath, pdfBytes);
 
     console.log(`PDF saved successfully at ${uploadPath}`);
+
+      // Get the file size
+      const stats = fs.statSync(uploadPath);
+      const fileSizeInBytes = stats.size;
+      const fileSizeInMB = (fileSizeInBytes / (1024 * 1024)).toFixed(2); // Rounded to 2 decimal places
+
+
+
+ 
+    const obj = {}
+
+                obj.grievance_id =formData.grievance_id 
+                obj.action_id = formData.action_id ?formData.action_id  :null
+                obj.format =  'pdf'
+                obj.size = fileSizeInMB 
+                obj.protected_file = false 
+                obj.name = uniqueFilename
+                obj.location = uploadPath
+                obj.code =uniqueFilename
+ 
+    await db.models.grievance_document.create(obj); 
+
+
+
 
     // Send a response with the file path or any other info you want to return
     res.status(200).send({
