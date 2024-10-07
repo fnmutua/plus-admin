@@ -122,7 +122,7 @@ async function sendSMS(sms_obj,serverUrl) {
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
  
      // Generate QR code as a data URI
-     const status_url = serverUrl +'/status/'+sms_obj.id
+     const status_url = serverUrl +'/#/status/'+sms_obj.id
      console.log(url)
 
 
