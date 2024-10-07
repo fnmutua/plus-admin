@@ -32,15 +32,9 @@ const systemTheme = ref(appStore.getTheme.elColorPrimary)
 const setSystemTheme = (color: string) => {
   setCssVar('--el-color-primary', color)
   appStore.setTheme({ elColorPrimary: color })
-
-
-
   const leftMenuBgColor = useCssVar('--left-menu-bg-color', document.documentElement)
   setMenuTheme(trim(unref(leftMenuBgColor)))
 }
-
- 
-
 
 // 头部主题相关
 const headerTheme = ref(appStore.getTheme.topHeaderBgColor || '')
@@ -71,9 +65,6 @@ const menuTheme = ref(appStore.getTheme.leftMenuBgColor || '')
 const setMenuTheme = (color: string) => {
   const primaryColor = useCssVar('--el-color-primary', document.documentElement)
   const isDarkColor = colorIsDark(color)
-
-
-  console.log('setMenuTheme,',color,isDarkColor)
   const theme: Recordable = {
     // 左侧菜单边框颜色
     leftMenuBorderColor: isDarkColor ? 'inherit' : '#eee',
@@ -209,16 +200,14 @@ const clear = () => {
 </script>
 
 <template>
-  <div
-    :class="prefixCls"
+  <div :class="prefixCls"
     class="fixed top-[45%] right-0 w-40px h-40px text-center leading-40px bg-[var(--el-color-primary)] cursor-pointer"
-    @click="drawer = true"
-  >
+    @click="drawer = true">
     <Icon icon="ant-design:setting-outlined" color="#fff" />
   </div>
 
   <ElDrawer v-model="drawer" direction="rtl" size="350px">
-    <template #title>
+    <template #header>
       <span class="text-16px font-700">{{ t('setting.projectSetting') }}</span>
     </template>
 
@@ -233,55 +222,46 @@ const clear = () => {
 
       <!-- 系统主题 -->
       <ElDivider>{{ t('setting.systemTheme') }}</ElDivider>
-      <ColorRadioPicker
-        v-model="systemTheme"
-        :schema="[
-          '#409eff',
-          '#009688',
-          '#536dfe',
-          '#ff5c93',
-          '#ee4f12',
-          '#0096c7',
-          '#9c27b0',
-          '#ff9800'
-        ]"
-        @change="setSystemTheme"
-      />
+      <ColorRadioPicker v-model="systemTheme" :schema="[
+        '#409eff',
+        '#684035', //   #684035  #cd7700  #d45500
+        '#009688',
+        '#536dfe',
+        '#ff5c93',
+        '#ee4f12',
+        '#0096c7',
+        '#9c27b0',
+        '#EDC7B7' //  #EDC7B7  #ff9800  #fb6600  KISIP theme 
+      ]" @change="setSystemTheme" />
 
       <!-- 头部主题 -->
       <ElDivider>{{ t('setting.headerTheme') }}</ElDivider>
-      <ColorRadioPicker
-        v-model="headerTheme"
-        :schema="[
-          '#fff',
-          '#151515',
-          '#5172dc',
-          '#e74c3c',
-          '#24292e',
-          '#394664',
-          '#009688',
-          '#383f45'
-        ]"
-        @change="setHeaderTheme"
-      />
+      <ColorRadioPicker v-model="headerTheme" :schema="[
+        '#fff',
+        '#f5f5f5',
+        '#684b45', // #803300  KISIP theme  
+        '#5172dc',
+        '#e74c3c',
+        '#24292e',
+        '#394664',
+        '#009688',
+        '#383f45'
+      ]" @change="setHeaderTheme" />
 
       <!-- 菜单主题 -->
       <template v-if="layout !== 'top'">
         <ElDivider>{{ t('setting.menuTheme') }}</ElDivider>
-        <ColorRadioPicker
-          v-model="menuTheme"
-          :schema="[
-            '#fff',
-            '#001529',
-            '#212121',
-            '#273352',
-            '#191b24',
-            '#383f45',
-            '#001628',
-            '#344058'
-          ]"
-          @change="setMenuTheme"
-        />
+        <ColorRadioPicker v-model="menuTheme" :schema="[
+          '#fff',
+          '#d45500',
+          '#684b45', // #d1d0d1  #e3e2df  KISIP theme 
+          '#001529',
+          '#212121',
+          '#273352',
+          '#191b24',
+          '#383f45',
+          '#344058'
+        ]" @change="setMenuTheme" />
       </template>
     </div>
 
