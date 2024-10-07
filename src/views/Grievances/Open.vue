@@ -509,6 +509,7 @@ for (var i = 0; i < fileList.value.length; i++) {
   formData.append('grievance_id', grievance_id);
   formData.append('action_id', action_id);
   formData.append('protected_file', true);
+  formData.append('type', 'Supporting Documentation');
   formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2));
   formData.append('code', uuid.v4());
 }
