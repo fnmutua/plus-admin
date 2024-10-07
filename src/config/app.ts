@@ -73,7 +73,7 @@ export const appModules: AppState = {
   currentSize: wsCache.get('default') || 'default', // 组件尺寸
   theme: wsCache.get('theme') || {
     // 主题色
-    elColorPrimary: '#409eff',
+    elColorPrimary: '#684035',
     // 左侧菜单边框颜色
     leftMenuBorderColor: 'inherit',
     // 左侧菜单背景颜色
