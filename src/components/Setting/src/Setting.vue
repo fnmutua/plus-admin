@@ -270,7 +270,7 @@ const clear = () => {
         <ColorRadioPicker
           v-model="menuTheme"
           :schema="[
-            '#fff',
+            '#080808',
             '#001529',
             '#212121',
             '#273352',
