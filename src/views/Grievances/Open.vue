@@ -10,7 +10,7 @@ import {
   Plus,  Download,  Filter, More,ArrowLeft,ArrowRight,Upload,UploadFilled,
   Edit,
   Back,
-  InfoFilled,
+  InfoFilled,Position,
   Delete
 } from '@element-plus/icons-vue'
 
@@ -1543,7 +1543,17 @@ const filterHandler = (
 }
 
 
+const handleRowDblClick = (row) => {
+ 
+ console.log('Double clicked row:', row);
+ 
 
+push({
+     name: 'GrievanceDetails',
+    params: { id: row.id }
+  })
+
+}
 
 </script>
 
@@ -1607,7 +1617,7 @@ v-model="value3" :onChange="handleSelectStatus" :onClear="handleClear" multiple 
     </el-row>
 
  
-    <el-table :data="tableDataList" :loading="loading"  style="width: 100%" :max-height="pageHeight"   border :row-class-name="tableRowClassName">
+    <el-table :data="tableDataList" :loading="loading"  style="width: 100%" :max-height="pageHeight" @row-click="handleRowDblClick"    border :row-class-name="tableRowClassName">
       <el-table-column label="#" width="80" prop="id" sortable>
         <template #default="scope">
           <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
@@ -1674,8 +1684,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
             </template>
           </el-dropdown>
           <div v-else>
-            <el-button size="small" type="primary" :icon="More" @click="getGrievanceDetails(scope)">
-              More
+            <el-button size="small" type="primary"  plain :icon="Position" @click="getGrievanceDetails(scope)">
+               More
             </el-button>
         
           </div>

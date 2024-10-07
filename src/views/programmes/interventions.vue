@@ -1978,36 +1978,7 @@ const ImportProjects = async () => {
   const results = await BatchImportUpsert(form)
 
   console.log('BatchImportUpsert', results.insertedDocuments)
-
-
-  // const save_projects = results.insertedDocuments
-  // const combinedData = parsedData.value.map(item1 => {
-  //   // Find the matching item in array2
-  //   const item2 = save_projects.find(item => item.code == item1.code);
-
-  //   // Return a new object with the combined properties
-  //   return {
-  //     id: item2.id,
-  //     locations: item1 ? item1.locations : [] // Add locations if found, otherwise an empty array
-  //   };
-  // });
-
-
-  //   const extractedData = combinedData.map(item => ({
-  //     id: item.id,
-  //     locations: item.locations
-  //   }));
-
-
-  //   extractedData.forEach(item => {
-  //     project_id.value = item.id 
-  //     extra_locations.value=item.locations
-
-  //     console.log('item.locations',item.id, item.locations)
-  //      AddLocation();
-  //   });
-
-  // // 
+ 
 
 }
 
@@ -2097,8 +2068,7 @@ ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top
                       <el-table-column width="50">
                         <template #header>
                           <el-tooltip content="Add Location" placement="top">
-                            <el-button
-size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
+                            <el-button size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
                               circle />
                           </el-tooltip>
                         </template>
@@ -2109,8 +2079,7 @@ size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
                         </template>
                         <template #default="scope">
                           <el-tooltip content="View on Map" placement="top">
-                            <el-button
-type="secondary" size="small" :icon="Position"
+                            <el-button type="secondary" size="small" :icon="Position"
                               @click="flyTo(scope as TableSlotDefault)" circle />
                           </el-tooltip>
                           <el-tooltip content="Delete" placement="top">
