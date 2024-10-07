@@ -103,3 +103,8 @@ https://learn.microsoft.com/en-us/windows/wsl/install
 
 sudo service redis-server start
 redis-cli
+
+
+
+
+DROP TABLE grievance_document CASCADE;
