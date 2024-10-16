@@ -922,22 +922,110 @@ console.log('filterString', search_string.value)
 
 const countiesOptions = ref([])
 
+
 const getCountyNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'county',
+      searchField: '',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received countiess:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var countyOpt = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.name 
+      //  console.log(countyOpt)
+      countiesOptions.value.push(countyOpt)
+    })
+  })
 }
+
+
+getCountyNames()
+
+
+ 
 
 const wardOptions = ref([])
 
-const getWardNames = async () => {
-}
+ 
 
 
+ 
+ 
 const subcountiesOptions = ref([])
+const subcountyfilteredOptions = ref([])
 
 const getSubCountyNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      searchField: 'county_id',
+      searchKeyword: selectedCounty.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received subcounties response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    subcountiesOptions.value = []
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var subcountyOpt = {}
+      subcountyOpt.value = arrayItem.id
+      subcountyOpt.county_id = arrayItem.county_id
+      subcountyOpt.label = arrayItem.name 
+      //  console.log(countyOpt)
+      subcountiesOptions.value.push(subcountyOpt)
+    })
+  })
 }
 
 
 
+const getWardNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'ward',
+      searchField: 'subcounty_id',
+      searchKeyword: selectedSubCounty.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received Wards:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+    wardOptions.value = []
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.label = arrayItem.name 
+      //  console.log(countyOpt)
+      wardOptions.value.push(opt)
+    })
+  })
+}
 
 
 const filterByCounty = async (county_id: any) => {
@@ -951,20 +1039,7 @@ const filterByCounty = async (county_id: any) => {
   value5.value = null // clear the subcounty 
   value6.value = null   // clear the ward sr
 
-
-
-
-  // var subset = [];
-  // for (let i = 0; i < subcountiesOptions.value.length; i++) {
-  //   if (subcountiesOptions.value[i].county_id == county_id) {
-  //     subset.push(subcountiesOptions.value[i]);
-  //   }
-  // }
-  // console.log('Subset--->', subset)
-  // subcountyfilteredOptions.value = subset
-
-
-  // getFilteredData(filters, filterValues)
+ 
 
   console.log(filters.value)
 
@@ -1014,8 +1089,7 @@ const filterByWard = async (ward_id: any) => {
 //getSettlementsOptions()
 getAllSetllementsInitially()
 
-
-getCountyNames()
+ 
 getSubCountyNames()
 
 
