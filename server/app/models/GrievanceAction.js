@@ -24,6 +24,8 @@ module.exports = function (sequelize, DataTypes) {
         enum: ['Reported', 'Updated', 'Resolved', 'Escalated', 'Document Requested','Document Uploaded','Referred','Rejected'],
         allowNull: false
       },
+
+
  
       action_by: {
         type: DataTypes.INTEGER,
@@ -56,9 +58,50 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.STRING,
         enum: ['Open', 'Investigation', 'Review', 'Resolved', 'Escalated', 'Closed'],
         allowNull: false
-      }
+      },
+
+        // resolution additional apramerts 
 
 
+      resolution_date: {
+        type: DataTypes.DATE,
+        allowNull: false
+      },
+
+      filer_present: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false
+      },
+
+      field_verification_conducted: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false
+      },
+ 
+      agreement_reached: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false
+      },
+      agreement: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },
+     
+      field_investigations: {
+        type: DataTypes.STRING,
+         allowNull: true
+      },
+
+      point_disagreement: {
+        type: DataTypes.STRING,
+         allowNull: true
+      },
+
+      issues: {
+        type: DataTypes.STRING,
+         allowNull: true
+      },
+  
        
     },
     {

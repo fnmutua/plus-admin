@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted,computed } from 'vue'
 import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow , ElForm,ElFormItem,ElInput,ElUpload,ElMessage,
-  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElTooltip,ElDialog,ElSelect,ElOption, ElIcon,ElCollapse,ElCollapseItem,
+  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElTooltip,ElDialog,ElSelect,ElOption, ElIcon,ElCollapse,ElCollapseItem,ElSwitch,ElDatePicker,
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
@@ -36,6 +36,19 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 
 
+function getLocationLevels(user) {
+  // Check if the 'roles' array exists and has data
+  if (user && user.roles && Array.isArray(user.roles)) {
+    // Extract the location_level from each role
+    return user.roles.map(role => role.user_roles.location_level).filter(level => level); // Filter to remove null/undefined values
+  }
+  return []; // Return an empty array if no roles exist
+}
+
+
+const current_user_roles = getLocationLevels(userInfo)
+
+console.log('current_user_roles',current_user_roles)
 
 const activeName = ref('details')
 // Resolve, Escalate, Documentation 
@@ -68,7 +81,7 @@ const GrievanceNotifications =ref( [])
 //// ------------------parameters -----------------------////
  
 //const associated_Model = ''
-const associated_multiple_models = [ 'county', 'settlement','grievance_resolution_level', 'grievance_document', 'grievance_notification',  {
+const associated_multiple_models = [ 'county', 'settlement', 'grievance_resolution_level', 'grievance_document', 'grievance_notification',  {
       "name": "grievance_log",
       "nestedAssociations": ["users","grievance_document"]
     }]
@@ -139,6 +152,8 @@ const StatusOptions =ref([
   },
 ])
 
+
+
  
 onMounted( async () => {
   const id = route.params.id 
@@ -147,6 +162,7 @@ onMounted( async () => {
   formData.id = id
 
 const res  =await getOneGrievance(formData) 
+console.log(res.data)
  // Get the Details of the Grievance
  Grievance.value.id = id 
  Grievance.value.code = res.data.code
@@ -178,9 +194,15 @@ if (Grievance.value.status == 'Sorting') {
     label: 'Escalate Grievance',
   },
   {
+      value: 'Resolved',
+      label: 'Resolve Grievance',
+    },
+
+  {
     value: 'Referred',
     label: 'Refer to Court',
-  }
+  },
+  
 ]
 
 
@@ -249,11 +271,7 @@ else if (Grievance.value.status == 'Referred') {
 
 
   StatusOptions.value=[
-    {
-      value: 'Resolved',
-      label: 'Resolve Grievance',
-    },
-    {
+      {
       value: 'Closed',
       label: 'Close Grievance',
     }
@@ -409,10 +427,20 @@ const form = ref({
   grievance_id:  null,
   action_type:  null,
   action_by:  null,
+  action:null,
   date_actioned:  null,
   prev_status:  null,
   new_status:  null,
   fileList:  [],
+  // resolution additional apramerts 
+  resolution_date:null,
+  filer_present : true ,
+  field_verification_conducted:false,
+  field_investigations:null,
+  agreement_reached:false, 
+  agreement:null,
+  point_disagreement:null,
+  issues:null,
 });
 
  
@@ -452,7 +480,12 @@ const validateFileUploads= (rule: any, value: any, callback: any) => {
 const rules = ({
   action: [{ required: true, message: 'Action is required', trigger: 'blur' }],
   new_status: [{ required: true, message: 'Status is required', trigger: 'blur' }],
-  fileList: [{required: true,  validator: validateFileUploads, trigger: 'change' }],
+  field_investigations: [{ required: true, message: 'This is required', trigger: 'blur' }],
+  agreement_reached: [{ required: true, message: 'This is required', trigger: 'blur' }],
+  field_verification_conducted: [{ required: true, message: 'Status is required', trigger: 'blur' }],
+  filer_present: [{ required: true, message: 'This is required', trigger: 'blur' }],
+  resolution_date: [{ required: true, message: 'Resolution date is required', trigger: 'blur' }],
+ // fileList: [{required: true,  validator: validateFileUploads, trigger: 'change' }],
 
  
 });
@@ -470,7 +503,8 @@ const submitResolutionForm = async () => {
      form.value.action_by=userInfo.id  // remember t change 
      form.value.date_actioned=new Date();
      form.value.prev_status=Grievance.value.status
- 
+     form.value.action_level=current_user_roles[0]?current_user_roles[0]:'settlement'
+  
      // Log the action 
    
     const res =  await logGrievanceAction(form.value)
@@ -485,12 +519,10 @@ const submitResolutionForm = async () => {
       new_status: form.value.new_status,
       recipient: Grievance.value.phone,
       grievance_id: Grievance.value.id,
-      message: form.value.action,
+      action: form.value.action,
       action_by: userInfo.id,
+      action_level:current_user_roles[0]?current_user_roles[0]:'settlement',
 
-
-      
-   
     };
 
   //   notification.grievance_id = sms_obj.id
@@ -508,7 +540,7 @@ const submitResolutionForm = async () => {
        type: 'success'
      })    
 
-    
+     dialogFormVisible.value=false
    } else {
      console.log('is Not Valid')
      ElMessage({
@@ -712,8 +744,12 @@ const downloadFile = async (data) => {
                               'closed-title': log.action_type === 'Closed'
                             } " > 
                                      
+                                
+                       <el-icon  >
+                        <CaretRight />
+                      </el-icon>
 
-                      <el-icon v-if="log.action_type === 'Resolved'">
+                      <!-- <el-icon v-if="log.action_type === 'Resolved'">
                         <Check />
                       </el-icon>
                       <el-icon v-else-if="log.action_type === 'Escalated'">
@@ -727,9 +763,7 @@ const downloadFile = async (data) => {
                       </el-icon>
                       <el-icon v-else-if="log.action_type === 'Closed'">
                         <Lock />
-                      </el-icon>
-
- 
+                      </el-icon>  -->
             
                          {{ log.action_type }}
                 </span>
@@ -845,6 +879,7 @@ const downloadFile = async (data) => {
     title="Grievance Status Update"
     v-model="dialogFormVisible"
     width="60%" 
+    draggable
   >
   <el-form :model="form" label-width="auto"  ref="dynamicFormRef" :rules="rules">
 
@@ -861,11 +896,84 @@ const downloadFile = async (data) => {
         :value="item.value"
       />
     </el-select>
+   </el-form-item>
+
+         
+   <el-row :gutter="2" v-if="form.new_status=='Resolved'">
+    <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+      <el-form-item label="Was Filer Present? " label-position="top" prop="filer_present">
+       <el-switch v-model="form.filer_present" />
+      </el-form-item>
+    </el-col>
+
+    <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+      <el-form-item label="Was field verification of complaint conducted?  " label-position="top" prop="field_verification_conducted">
+        <el-switch v-model="form.field_verification_conducted" />
+      </el-form-item>
+     </el-col> 
+ 
+     <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+      <el-form-item label="Date of Resolution" label-position="top" prop="resolution_date">
+       <el-date-picker
+        v-model="form.resolution_date"
+        type="date"
+        placeholder="Select"
+      />
+
+    </el-form-item>
+     </el-col> 
+ 
+
+
+  </el-row>
+ 
+  <el-form-item v-if="form.new_status=='Resolved'" label="Findings of field investigation" label-position="top" prop="field_investigations">
+      <el-input type="textarea"  :rows="2"  placeholder="Provide details of the resolution  here" v-model="form.field_investigations" />
+    </el-form-item>
+
+
+           
+  <el-row :gutter="2"  v-if="form.new_status=='Resolved'" >
+    <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+      <el-form-item label="Was agreement reached on the issues?	" label-position="top" prop="agreement_reached">
+        <el-switch v-model="form.agreement_reached" />
+      </el-form-item>
+     </el-col>
+     <el-col :xs="16" :sm="16" :md="16" :lg="16" :xl="16">
+      <el-form-item  v-if="form.agreement_reached"  label="If agreement was reached, detail the agreement below:" label-position="top" prop="agreement">
+        <el-input type="textarea"  :rows="2"  placeholder="Provide details of  here" v-model="form.agreement" />
       </el-form-item>
 
-    <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
-      <el-input type="textarea"  :rows="4"  placeholder="Provide details of the resolution  here" v-model="form.action" />
+      <el-form-item v-if="!form.agreement_reached" label="If agreement was not reached, specify the points of disagreement below" label-position="top" prop="point_disagreement">
+        <el-input type="textarea"  :rows="2"  placeholder="Provide details of  here" v-model="form.point_disagreement" />
+      </el-form-item>
+
+
+     </el-col>
+
+  </el-row>
+
+
+
+
+    <el-form-item v-if="form.new_status=='Resolved'"  label="Issues" label-position="top" prop="issues">
+      <el-input type="textarea"  :rows="2"  placeholder="Provide details of the resolution  here" v-model="form.issues" />
     </el-form-item>
+
+
+      
+
+    
+
+
+    <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
+      <el-input type="textarea"  :rows="2"  placeholder="Provide details of the resolution  here" v-model="form.action" />
+    </el-form-item>
+
+
+ 
+
+
 
     <el-form-item label="Upload Documentation" label-position="top" prop="fileList">
       <el-upload
