@@ -10,7 +10,7 @@
     v-model="checkAll"
     @change="handleCheckAllChange"
   >
-    Select all Fields
+  <em>Select all Fields</em>
   </el-checkbox>
     <el-form>
       <el-form-item>
