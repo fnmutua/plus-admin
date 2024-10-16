@@ -1809,6 +1809,17 @@ const goBack = () => {
 
 
 
+function formatDate (row, column, cellValue) {
+      if (!cellValue) return '';  // Handle null or undefined values
+
+      // Format the date (you can use libraries like moment.js or Day.js, or use native Date methods)
+      const date = new Date(cellValue);
+      return date.toLocaleDateString();  // Format to local date string
+    }
+  
+
+ 
+
 </script>
 
 <template>
@@ -1850,7 +1861,7 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
       </el-select>
 
       <el-input
-v-model="search_string" clearable :onClear="handleClear" placeholder="Please input"
+v-model="search_string" clearable :onClear="handleClear" placeholder="Search by name (or part of it).."
         @change="searchByNewName" class="input-with-select"  style=" margin-right: 5px;">
         <template #append>
           <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
@@ -1918,11 +1929,19 @@ v-model="search_string" clearable :onClear="handleClear" placeholder="Please inp
 
       
           <el-table-column label="Name" width="200" prop="name" sortable />
-          <el-table-column label="County" prop="county.name" sortable />
-          <el-table-column label="Subcounty" prop="subcounty.name" sortable />
-          <el-table-column label="Ward" prop="ward.name" sortable />
+       
+          <el-table-column label="Location" sortable  width="400" >
+            <template #default="scope">
+              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name }}</span>
+            </template>
+          </el-table-column>
+
+
+
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
+          <el-table-column label="Created" prop="createdAt" sortable  :formatter="formatDate"/>
+
           <el-table-column label="Code" prop="code" sortable>
             <template #default="{ row }">
               <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
@@ -1980,9 +1999,9 @@ v-show="showAdminButtons" type="success" size="small" :icon="User"
                     @click="viewHHs(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm
+                  <el-popconfirm width="300"
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to delete this report?"
+                    icon-color="#626AEF" title="Are you sure to delete  this settlement?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Delete circle />
@@ -1990,9 +2009,9 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                   </el-popconfirm>
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Decommision" placement="top">
-                  <el-popconfirm
+                  <el-popconfirm width="350"
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to decommision this settlement??"
+                    icon-color="#626AEF" title="Are you sure to decommision this settlement?"
                     @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Briefcase circle />
@@ -2018,8 +2037,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
           </span>
         </template>
 
-        <el-table
-:data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100%" border
+        <el-table  :data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100%" border
           :row-class-name="tableRowClassName" @expand-change="handleExpand">
         
 
@@ -2027,11 +2045,9 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
           <el-table-column type="expand">
         <template #default="props">
           
-             <div>
-              <list-documents
-:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+          <div>  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
                 @openDialog="toggleComponent(props.row)" />
-            </div>
+           </div>
  
         </template>
       </el-table-column>
@@ -2045,19 +2061,26 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
         </template>
       </el-table-column>
           <el-table-column label="Name" width="200" prop="name" sortable />
-          <el-table-column label="County" prop="county.name" sortable />
-          <el-table-column label="Subcounty" prop="subcounty.name" sortable />
-          <el-table-column label="Ward" prop="ward.name" sortable />
+           
+          <el-table-column label="Location" sortable  width="400" >
+            <template #default="scope">
+              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name }}</span>
+            </template>
+          </el-table-column>
+
+
+
 
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
+          <el-table-column label="Created" prop="createdAt" sortable  :formatter="formatDate"/>
+
           <el-table-column label="Code" prop="code" sortable>
             <template #default="{ row }">
               <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
                 <span>{{ row.code }}</span>
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button
-v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
+                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
                     plain
                     style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
@@ -2074,14 +2097,11 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item
-v-if="showEditButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item  v-if="showEditButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item  @click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                    <el-dropdown-item  v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -2089,24 +2109,20 @@ v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
               </el-dropdown>
               <div v-else>
                 <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
-                  <el-button
-type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
+                  <el-button  type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button
-type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="Review" placement="top">
-                  <el-button
-v-show="showAdminButtons" type="success" size="small" :icon="View"
+                  <el-button  v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm width="300"  confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete this settlement?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2115,9 +2131,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                   </el-popconfirm>
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Decommision" placement="top">
-                  <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to decommision this settlement??"
+                  <el-popconfirm width="350" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to decommision this settlement?"
                     @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button type="danger" size="small" :icon=Briefcase circle />
@@ -2167,14 +2182,18 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
         </template>
       </el-table-column>
           <el-table-column label="Name" width="200" prop="name" sortable />
-          <el-table-column label="County" prop="county.name" sortable />
-          <el-table-column label="Subcounty" prop="subcounty.name" sortable />
-          <el-table-column label="Ward" prop="ward.name" sortable />
-
+         
+          <el-table-column label="Location" sortable  width="400" >
+            <template #default="scope">
+              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name }}</span>
+            </template>
+          </el-table-column>
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
-          <el-table-column label="Code" prop="code" sortable>
-            <template #default="{ row }">
+          <el-table-column label="Created" prop="createdAt" sortable  :formatter="formatDate"/>
+
+           <el-table-column label="Code" prop="code" sortable>
+              <template #default="{ row }">
               <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
                 <span>{{ row.code }}</span>
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
@@ -2222,9 +2241,9 @@ v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm
+                  <el-popconfirm width="300"
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to delete this report?"
+                    icon-color="#626AEF" title="Are you sure to delete  this settlement?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
@@ -2233,9 +2252,9 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                 </el-tooltip>
 
                 <el-tooltip content="Decommision" placement="top">
-                  <el-popconfirm
+                  <el-popconfirm width="300"
 confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to decommision this settlement??"
+                    icon-color="#626AEF" title="Are you sure to decommision this settlement?"
                     @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
                       <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Briefcase circle />

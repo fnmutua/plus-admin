@@ -74,20 +74,21 @@ async function sendNotificationSMS(sms_obj) {
     apikey: "684f84e9aa485a0e72e6734c6b84d9b4",
     partnerID: "10322",
     shortcode: "AGS",
-    message: sms_obj.grv_code + ": " +sms_obj.message,
+    message: sms_obj.grv_code + ": (" + sms_obj.status+ ")" +sms_obj.message,
     mobile: sms_obj.phone,
   };
 
 
   const notification ={}
 
-  notification.grievance_id = sms_obj.id
+  notification.grievance_id = sms_obj.grievance_id
   notification.recipient = sms_obj.phone
   notification.message =  sms_obj.grv_code + ": " + sms_obj.message
   notification.medium = 'SMS'
   notification.type = sms_obj.type?  sms_obj.type: 'Acknowledgement'
   notification.code = shortid.generate()
   notification.sender_id = sms_obj.sender_id
+  notification.status = sms_obj.status
 
   console.log('notification ----------?>',notification)
 
@@ -284,10 +285,10 @@ exports.createGrievanceRecord = async (req, res) => {
            // grm_officials.push(grm.phone);
             let msg_obj={} 
             msg_obj.message = msg 
-            msg_obj.message = msg 
-            msg_obj.phone=grm.phone
+             msg_obj.phone=grm.phone
             msg_obj.grievance_id = item.id
             msg_obj.grv_code = item.code 
+            msg_obj.status = item.status 
 
 
             // for each number send a notification SMS
@@ -625,7 +626,9 @@ exports.uploadGrievanceDocument = (req, res) => {
                 obj.location = myFiles[i].path
                 obj.code =shortid.generate()
                 obj.format = req.body.format 
-                obj.type = req.body.type 
+                //obj.type = req.body.type 
+
+                obj.type = req.body.type ? req.body.type : 'Documentation'
 
                 objs.push(obj)
 
@@ -775,76 +778,9 @@ exports.getGrievanceById = async (req, res) => {
     
     
 
- exports.xgetGrievanceStatus = async (req, res) => {
-      try {
-        const grievanceCode = req.body.grievanceCode;
-        const phoneNumber = req.body.phoneNumber;
-        const grievanceId = req.body.id; // Get the grievance ID from the request body
+ 
     
-        // If both grievanceCode and phoneNumber are missing, but ID is also not provided, return error
-        if (!grievanceId && (!grievanceCode || !phoneNumber)) {
-          return res.status(400).send({
-            code: '1001',
-            message: 'Grievance code and phone number are required, or provide the grievance ID',
-          });
-        }
-    
-        // Initialize findOne options
-        let findOptions = {
-          attributes: ['phone', 'code', 'date_reported', 'status'], // Fields to include
-        };
-    
-        // If grievanceId is provided, use it to find the grievance
-        if (grievanceId) {
-          findOptions.where = {
-            id: grievanceId, // Find by ID
-          };
-        } else {
-          // If ID is not provided, check by grievance code and phone number
-          findOptions.where = {
-            code: {
-              [op.iLike]: `%${grievanceCode}%`, // Case-insensitive partial matching for grievance code
-            },
-            phone: {
-              [op.iLike]: `%${phoneNumber}%`, // Case-insensitive partial matching for phone number
-            },
-          };
-        }
-    
-        console.log('Find options:', findOptions);
-    
-        // Fetch grievance by ID or by grievance_code and phone_number
-        const grievance = await Grievance.findOne(findOptions);
-    
-        if (!grievance) {
-          return res.status(404).send({
-            code: '1002',
-            message: 'No grievance found for the given criteria',
-          });
-        }
-    
-        // Return the grievance status
-        return res.status(200).send({
-          code: '0000',
-          message: 'Grievance status retrieved successfully',
-          data: {
-            code: grievance.code,
-            date_reported: grievance.date_reported,
-            phone: grievance.phone, // Return the phone number from the grievance record
-            status: grievance.status, // The status of the grievance
-          },
-        });
-    
-      } catch (error) {
-        console.error('Error fetching grievance status:', error);
-        return res.status(500).send({
-          code: '9999',
-          message: 'Unable to retrieve grievance status. Please try again later.',
-        });
-      }
-    };
-    
-    exports.getGrievanceStatus = async (req, res) => {
+exports.getGrievanceStatus = async (req, res) => {
       try {
         const grievanceCode = req.body.grievanceCode;
         const phoneNumber = req.body.phoneNumber;
@@ -985,7 +921,7 @@ const generateNextGrievanceCode = async (lastCode) => {
     }
 
 
- exports.modelImportGrievances = async (req, res) => {
+exports.modelImportGrievances = async (req, res) => {
       const reg_model = 'grievance';
       const data = req.body.data;
       const insertedDocuments = [];
@@ -1144,12 +1080,16 @@ const generateNextGrievanceCode = async (lastCode) => {
         await grievance.save(); // Save the updated grievance
 
         let msg_obj = {}
-        msg_obj.message =  req.body.message;
+        msg_obj.message =  action;
         msg_obj.type = 'Notification'
         msg_obj.phone = grievance.phone
         msg_obj.grv_code = grievance.code
+        msg_obj.status = grievance.newStatus
         msg_obj.grievance_id = grievance.id
         msg_obj.sender_id = req.body.action_by
+        msg_obj.status = newStatus
+
+        console.log('Grievance ---->',msg_obj)
  
         sendNotificationSMS(msg_obj)
 
