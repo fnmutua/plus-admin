@@ -54,6 +54,8 @@ import { Finished } from '@element-plus/icons-vue';
 import writeXlsxFile from 'write-excel-file';
 import { getAllForDownload } from '@/api/settlements';
 import { Delete, Edit, Search, Share, List, Upload, Filter, Document } from '@element-plus/icons-vue';
+import * as turf from '@turf/turf'
+
 
 const props = defineProps({
   data: Array,
@@ -70,6 +72,70 @@ const associated_models = ref();
 
 
 const checkAll = ref(false);
+
+
+ 
+ // Function to extract latitude and longitude using turf for centroid or first point
+ function getLatLonFromGeom(geom) {
+  if (!geom || !geom.type || !geom.coordinates) {
+    return { latitude: null, longitude: null };
+  }
+
+  switch (geom.type) {
+    case 'Point':
+      // If geometry is a Point, return the coordinates directly
+      return {
+        latitude: geom.coordinates[1].toFixed(5),
+        longitude: geom.coordinates[0].toFixed(5)
+      };
+
+    case 'MultiPoint':
+      // For MultiPoint, return the first point's coordinates
+      if (geom.coordinates.length > 0) {
+        return {
+          latitude: geom.coordinates[0][1].toFixed(5),
+          longitude: geom.coordinates[0][0].toFixed(5)
+        };
+      }
+      return { latitude: null, longitude: null };
+
+    case 'Polygon':
+    case 'MultiPolygon':
+      // Use turf to calculate the centroid for Polygon and MultiPolygon
+      const polygonCentroid = turf.centroid(geom);
+      return {
+        latitude: polygonCentroid.geometry.coordinates[1].toFixed(5),
+        longitude: polygonCentroid.geometry.coordinates[0].toFixed(5)
+      };
+
+    case 'LineString':
+    case 'MultiLineString':
+      // Use turf to calculate the centroid for LineString and MultiLineString
+      const lineCentroid = turf.centroid(geom);
+      return {
+        latitude: lineCentroid.geometry.coordinates[1].toFixed(5),
+        longitude: lineCentroid.geometry.coordinates[0].toFixed(5)
+      };
+
+    default:
+      // For unsupported types, return null
+      return { latitude: null, longitude: null };
+  }
+}
+
+
+// Function to process the res.data and add latitude/longitude using turf
+ function addLatLonToData(data) {
+  for (const item of data) {
+    const geometry = item.geom; // Assuming the geometry is in `item.geom`
+    const { latitude, longitude } = getLatLonFromGeom(geometry);
+    item.latitude = latitude;
+    item.longitude = longitude;
+  }
+
+  return data; // Return the modified data with lat/lon added
+}
+
 
 // Handle "Check All" behavior
 const handleCheckAllChange = (val) => {
@@ -118,7 +184,7 @@ const extractFields = (data) => {
   }
 
   function isGeoField(fieldName) {
-    const geoKeywords = ["geo", "lat", "lng", "coordinate", "longitude", "latitude", "createdAt"];
+    const geoKeywords = ["geom",  "createdAt"];
     return geoKeywords.some((keyword) => fieldName.toLowerCase().includes(keyword));
   }
 
@@ -141,7 +207,7 @@ const extractFields = (data) => {
 
 watch(
   () => ({
-    data: props.data,
+    data: addLatLonToData (props.data),
     model: props.model,
     associated_models: props.associated_models,
   }),
@@ -189,45 +255,7 @@ const extractData = (data, selectedFields) => {
   });
 };
 
-const xdownloadCSV = async () => {
-  if (!selectedFields.value.length) {
-    return ElMessage.warning("Please select at least one field.");
-  }
 
-  const extractedData = extractData(tableDataList.value, selectedFields.value);
- 
-
-  const columns = selectedFields.value.map((field) => {
-  // Remove everything before and including the first underscore
-  const cleanedField = field.replace(/^.*?_/, '');
-  
-  return {
-    column: cleanedField.replace(/\./g, ' ').replace(/\b\w/g, char => char.toUpperCase()),
-    type: String,
-  };
-});
-
-
-  
-  
-  const rows = extractedData.map((row) =>
-    selectedFields.value.map((field) => ({
-      type: String,
-      fontStyle: 'italic',
-      wrap:true,
-     // span: 145,
-      value: row[field] ? String(row[field]) : '',
-      
-    }))
-  );
-
-
-  rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
-
-  await writeXlsxFile(rows, {
-    fileName: 'data.xlsx',
-  });
-};
 
 
 const downloadCSV = async () => {
@@ -298,7 +326,10 @@ const getFilteredData = async () => {
 
   const res = await getAllForDownload(formData);
   console.log('User download All', res);
-  tableDataList.value = res.data;
+  //tableDataList.value = res.data;
+  tableDataList.value  = await addLatLonToData (res.data )
+  console.log( tableDataList.value)
+
 }
 
 const downloadAll = async () => {
@@ -310,37 +341,52 @@ const downloadAll = async () => {
 
   const extractedData = extractData(tableDataList.value, selectedFields.value);
 
+ 
 
+  // Clean up the field names and prepare column headers
   const columns = selectedFields.value.map((field) => {
-  // Remove everything before and including the first underscore
-  const cleanedField = field.replace(/^.*?_/, '');
-  
-  return {
-    column: cleanedField.replace(/\./g, ' ').replace(/\b\w/g, char => char.toUpperCase()),
-    type: String,
-  };
-});
+    const cleanedField = field.replace(/^.*?_/, ''); // Remove prefix
+    return {
+      column: cleanedField.replace(/\./g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+      type: String,
+    };
+  });
 
 
-
-
-    console.log('columns',columns)
-
+  // Create rows for the data, with each cell wrapped and in italic
   const rows = extractedData.map((row) =>
     selectedFields.value.map((field) => ({
       type: String,
-      fontStyle: 'italic',
-      wrap:true,
-     // span: 145,
+      //fontStyle: 'italic',
+      wrap: true,
       value: row[field] ? String(row[field]) : '',
-      
     }))
   );
 
-  rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' ,})));
+  // Add headers as the first row
+  rows.unshift(columns.map((col) => ({ value: col.column, fontWeight: 'bold' })));
 
+  // Calculate column widths based on the maximum length of data in each column
+  const columnWidths = columns.map((col, index) => {
+    // Get the column header length
+    let maxLength = col.column.length;
+
+    // Check each row's value in this column
+    extractedData.forEach((row) => {
+      const cellValue = row[selectedFields.value[index]] ? String(row[selectedFields.value[index]]) : '';
+      if (cellValue.length > maxLength) {
+        maxLength = cellValue.length;
+      }
+    });
+
+    // Return width (you can scale it by a factor, e.g., multiplying by a constant for better spacing)
+    return maxLength + 5; // Add padding for better readability
+  });
+
+  // Export the file with calculated column widths
   await writeXlsxFile(rows, {
     fileName: 'data.xlsx',
+    columns: columnWidths.map((width) => ({ width })),
   });
 };
 </script>

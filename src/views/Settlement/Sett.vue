@@ -8,7 +8,7 @@ import {
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCard, ElPopconfirm, ElTable, ElCol, ElRow,
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox} from 'element-plus'
 import { ElMessage, } from 'element-plus'
-import { Position, View, Plus, User, Download, Briefcase, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
+import { Position, View, Plus, User, Briefcase, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
@@ -29,6 +29,7 @@ import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import filterDataByKeys from '@/utils/filterArrays'
 
 import { getSummarybyField } from '@/api/summary'
+import * as turf from '@turf/turf'
 
 
 
@@ -54,7 +55,6 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
  
 
 import ListDocuments from '@/views/Components/ListDocuments.vue';
-import DownloadAll from '@/views/Components/DownloadAll.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 
@@ -148,16 +148,13 @@ var value4 = ref([])
 var value5 = ref([])
 var value6 = ref([])
 
-const morefileList = ref<UploadUserFile[]>([])
 const loadingGetData = ref(false)
 
 const interVentionTypeOptions = ref([])
 
 
-const settlementOptions = ref([])
 const page = ref(1)
  
-const selCounties = []
 const loading = ref(true)
 
 const currentPage = ref(1)
@@ -514,17 +511,21 @@ const getNewOrRejectedSettlements = async (tab) => {
     //  total.value = totalPending.value
     //  console.log('total ---',total.value)
 
+    //tableDataListNew.value = addLatLonToData(tableDataListNew.value);
+
+
   } else if (tab === 'Rejected') {
     tableDataListRejected.value = res.data
+    //tableDataListRejected.value = addLatLonToData(tableDataListRejected.value);
+
     //   total.value = totalRejected.value
 
   } else {
     tableDataList.value = res.data
-    //  total.value=totalApproved.value
+   // tableDataList.value = addLatLonToData(tableDataList.value);
 
-   // console.log('Keys >>>>', flattenNestedArrays(res.data))
-   /// model_fields.value = await flattenNestedArrays(res.data)
-
+    
+    console.log('>>>> ---', tableDataList.value )
 
    res.data.forEach(function (arrayItem) {
     var dd = flattenJSON(arrayItem)
@@ -566,7 +567,70 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
 
 const model_fields = ref([])
 const flattenedData = ref([])
-const fieldColumns = ref(4)
+
+ 
+ // Function to extract latitude and longitude using turf for centroid or first point
+function getLatLonFromGeom(geom) {
+  if (!geom || !geom.type || !geom.coordinates) {
+    return { latitude: null, longitude: null };
+  }
+
+  switch (geom.type) {
+    case 'Point':
+      // If geometry is a Point, return the coordinates directly
+      return {
+        latitude: geom.coordinates[1].toFixed(5),
+        longitude: geom.coordinates[0].toFixed(5)
+      };
+
+    case 'MultiPoint':
+      // For MultiPoint, return the first point's coordinates
+      if (geom.coordinates.length > 0) {
+        return {
+          latitude: geom.coordinates[0][1].toFixed(5),
+          longitude: geom.coordinates[0][0].toFixed(5)
+        };
+      }
+      return { latitude: null, longitude: null };
+
+    case 'Polygon':
+    case 'MultiPolygon':
+      // Use turf to calculate the centroid for Polygon and MultiPolygon
+      const polygonCentroid = turf.centroid(geom);
+      return {
+        latitude: polygonCentroid.geometry.coordinates[1].toFixed(5),
+        longitude: polygonCentroid.geometry.coordinates[0].toFixed(5)
+      };
+
+    case 'LineString':
+    case 'MultiLineString':
+      // Use turf to calculate the centroid for LineString and MultiLineString
+      const lineCentroid = turf.centroid(geom);
+      return {
+        latitude: lineCentroid.geometry.coordinates[1].toFixed(5),
+        longitude: lineCentroid.geometry.coordinates[0].toFixed(5)
+      };
+
+    default:
+      // For unsupported types, return null
+      return { latitude: null, longitude: null };
+  }
+}
+
+
+// Function to process the res.data and add latitude/longitude using turf
+function addLatLonToData(data) {
+  data.forEach(item => {
+    const geometry = item.geom; // Assuming the geometry is in `item.geometry`
+    const { latitude, longitude } = getLatLonFromGeom(geometry);
+    item.latitude = latitude;
+    item.longitude = longitude;
+  });
+
+  return data; // Return the modified data with lat/lon added
+}
+
+
 
 const getFilteredData = async (selFilters, selfilterValues) => {
   loadingGetData.value = true
@@ -598,6 +662,13 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   
   console.log('After Querry - associated_multiple_models', res)
   tableDataList.value = res.data
+
+
+  
+// Process and add lat/lon fields to the tableDataList using Turf
+//tableDataList.value = addLatLonToData(tableDataList.value);
+
+
   total.value = res.total
   loadingGetData.value = false
 
@@ -816,8 +887,14 @@ const getFilteredBySearchData = async (tab, searchKey) => {
 
   }
 
+// Process and add lat/lon fields to the tableDataList using Turf
+//tableDataList.value = addLatLonToData(tableDataList.value);
+
 
   total.value = res.total
+
+
+  console.log('tableDataList.value',tableDataList.value)
   loading.value = false
 
 
@@ -840,115 +917,23 @@ console.log('filterString', search_string.value)
  
 }
 
-const searchByName = async (filterString: any) => {
-
-  console.log('filterString', filterString)
-  value3.value = filterString
-  search_string.value = filterString
-
-    filters.value.push('isActive')
-    filterValues.value.push(['true'] )  // make sure the inner array is array
-
-
-  
-
-  getFilteredBySearchData(activeTab.value, search_string.value)
-}
 
 
 
 const countiesOptions = ref([])
 
 const getCountyNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'county',
-      searchField: '',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received countiess:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      countiesOptions.value.push(countyOpt)
-    })
-  })
 }
 
 const wardOptions = ref([])
 
 const getWardNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'ward',
-      searchField: 'subcounty_id',
-      searchKeyword: selectedSubCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received Wards:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-    wardOptions.value = []
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      wardOptions.value.push(opt)
-    })
-  })
 }
 
 
 const subcountiesOptions = ref([])
-const subcountyfilteredOptions = ref([])
 
 const getSubCountyNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      searchField: 'county_id',
-      searchKeyword: selectedCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received subcounties response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-    subcountiesOptions.value = []
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var subcountyOpt = {}
-      subcountyOpt.value = arrayItem.id
-      subcountyOpt.county_id = arrayItem.county_id
-      subcountyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      subcountiesOptions.value.push(subcountyOpt)
-    })
-  })
 }
 
 
@@ -1053,7 +1038,6 @@ const typeOptions = [
 ]
 
 
-const documentCategory = ref()
 
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
@@ -1189,14 +1173,6 @@ const editSettlement = (data: TableSlotDefault) => {
   //AddDialogVisible.value = true
 }
 
-const removeDocument = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-  formData.filesToDelete = [data.name]
-  deleteDocument(formData)
-}
 
 
 const DeleteSettlement = (data: TableSlotDefault) => {
@@ -1309,10 +1285,6 @@ const showSelectFields =ref(false)
 const selectedFields =ref([])
 
 
-const DownloadXlsx = async () => {
-  showSelectFields.value=true
-
- } 
 
  
 
@@ -1459,51 +1431,6 @@ if (isMobile.value) {
 
 const DocTypes = ref([])
 const getDocumentTypes = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'document_type',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Document Typest:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-
-    const nestedData = ret.reduce((acc, cur) => {
-      const group = cur.group;
-      if (!acc[group]) {
-        acc[group] = [];
-      }
-      acc[group].push(cur);
-      return acc;
-    }, {});
-
-    console.log(nestedData.Map)
-    for (let property in nestedData) {
-      let opts = nestedData[property];
-      var doc = {}
-      doc.label = property
-      doc.options = []
-
-      opts.forEach(function (arrayItem) {
-        let opt = {}
-        opt.value = arrayItem.id
-        opt.label = arrayItem.type
-        doc.options.push(opt)
-
-      })
-      DocTypes.value.push(doc)
-
-    }
-    console.log(DocTypes)
-
-  })
 }
 getDocumentTypes()
 
@@ -1731,7 +1658,6 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
 /// Uplaod docuemnts from a central component 
 const mfield = 'settlement_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
-const selectedRow = ref([])
 const dynamicComponent = ref();
  const componentProps = ref({
       message: 'Hello from parent',

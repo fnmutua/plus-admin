@@ -2349,6 +2349,8 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
 
   console.log('Final Query:', qry);
 
+  
+
   // Cache handling
   if (req.body.cache_key && req.body.cache_key !== '') {
     const cache_key = req.body.cache_key;
@@ -2440,6 +2442,7 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     }
   }
 };
+
 
 
 exports.modelPaginatedDatafilterByColumnNoGeo = async (req, res) => {
@@ -2905,7 +2908,7 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
 
  
  
- exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
+exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
   try {
     console.log('/api/v1/data/paginated/filter --- Keyword', req.body);
 
@@ -4676,7 +4679,7 @@ exports.getAllListforDownload = async (req, res) => {
   // Base query without nested models and includes
   const baseQuery = {
     where: {},
-    attributes: { exclude: ['geom', 'latitude', 'longitude', 'coordinates', 'geometry'] }
+    attributes: { exclude: [ 'latitude', 'longitude', 'coordinates' ] }
   };
 
   // Filtering
