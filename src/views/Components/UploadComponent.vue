@@ -23,6 +23,8 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
+const showAdminButtons =  ref(appStore.getAdminButtons)
+const showEditButtons =  ref(appStore.getEditButtons)
 
 const props = defineProps({
   message: String,
@@ -129,10 +131,15 @@ getDocumentTypes()
 
 
  
-const addMoreDocuments = ref(props.showDialog)
- //const xmodel = ref(props.umodel)
-//const currentRow = ref(props.data)
-//const field_id = ref(props.field)
+const addMoreDocuments = ref(false)
+if ( showAdminButtons.value) {
+
+    addMoreDocuments.value = true
+
+} else {
+  addMoreDocuments.value = false
+}
+ 
 
 
 

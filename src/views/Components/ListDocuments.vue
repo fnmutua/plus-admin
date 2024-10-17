@@ -22,6 +22,7 @@ import { useCache } from '@/hooks/web/useCache'
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
+const showAdminButtons =  ref(appStore.getAdminButtons)
 
 
 const props = defineProps({
@@ -253,7 +254,7 @@ const addDocument = () => {
       />
    
 
-      <el-tooltip content="Import Documents" placement="top">
+      <el-tooltip v-if="showAdminButtons" content="Import Documents" placement="top">
         <el-button  
         type="primary" 
          :icon="UploadFilled"
@@ -271,7 +272,7 @@ const addDocument = () => {
 
       <div class="button-container">
         <el-button size="small" type="primary" @click="viewDocument(document)" :icon="TopRight" plain />
-        <el-button size="small" v-loading="downloadStarted" type="success" @click="downloadFile(document)" :icon="Download" plain />
+        <el-button  size="small" v-loading="downloadStarted" type="success" @click="downloadFile(document)" :icon="Download" plain />
         <el-popconfirm
           confirm-button-text="Yes"
           cancel-button-text="No"
@@ -280,6 +281,7 @@ const addDocument = () => {
           icon-color="#626AEF"
           title="Are you sure to delete this document?"
           @confirm="removeDocument(document)"
+          v-if="showAdminButtons" 
         >
           <template #reference>
             <el-button size="small" type="danger" v-if="userIsAdmin || documentOwner" :icon="Delete" plain />
