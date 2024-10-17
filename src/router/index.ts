@@ -898,12 +898,10 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             path: 'geo',
             //component: 'views/ImportData/geo',
             component: () => import('@/views/ImportData/geo.vue'),
-    
             name: 'Importgeo',
             meta: {
               title: 'GIS',
               icon: 'mdi:file-location-outline',
-    
             }
           },
           {
@@ -921,7 +919,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             path: 'collector',
         //    component: 'views/ImportData/excel',
             component: () => import('@/views/ImportData/Collector.vue'),
-    
             name: 'Integration',
             meta: {
               title: 'Integration',
