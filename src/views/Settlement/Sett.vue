@@ -1872,7 +1872,7 @@ v-model="search_string" clearable :onClear="handleClear" placeholder="Search by 
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
 
         <el-tooltip content="Add Settlement" placement="top">
-              <el-button v-if="showEditButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
+              <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
          </el-tooltip>
 
         <el-tooltip content="Clear" placement="top">
@@ -1967,7 +1967,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item
-v-if="showEditButtons" @click="editSettlement(scope as TableSlotDefault)"
+v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
                     <el-dropdown-item
 @click="viewOnMap(scope as TableSlotDefault)"
@@ -1982,7 +1982,7 @@ v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
 
 
               <div v-else>
-                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
+                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
                   <el-button
 type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
@@ -2028,7 +2028,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
 
       </el-tab-pane>
 
-      <el-tab-pane name="New" v-if=showEditButtons>
+      <el-tab-pane name="New" v-if=showAdminButtons>
         <template #label>
           <span class="custom-tabs-label">
             <el-badge type="success" :value="totalPending" class="item"  :offset="[10, 5]">
@@ -2097,7 +2097,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item  v-if="showEditButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item  v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
                     <el-dropdown-item  @click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
@@ -2108,7 +2108,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                 </template>
               </el-dropdown>
               <div v-else>
-                <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
+                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
                   <el-button  type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
@@ -2149,7 +2149,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
 
       </el-tab-pane>
 
-      <el-tab-pane name="Rejected" v-if=showEditButtons :badge="5" >
+      <el-tab-pane name="Rejected" v-if=showAdminButtons :badge="5" >
         <template #label>
           <span class="custom-tabs-label">
             <el-badge :value="totalRejected" class="item"  :offset="[10, 5]">
@@ -2168,7 +2168,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
                 <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
                   :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
@@ -2218,7 +2218,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item
-v-if="showEditButtons" @click="editSettlement(scope as TableSlotDefault)"
+v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
                     <el-dropdown-item
 @click="viewOnMap(scope as TableSlotDefault)"
