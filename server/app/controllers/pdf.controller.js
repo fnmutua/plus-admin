@@ -11,6 +11,13 @@ exports.generatePDF = async (req, res) => {
   try {
     // Get the form data from the request body
     const formData = req.body;
+    
+    Object.keys(formData).forEach(key => {
+      if (typeof formData[key] === 'boolean') {
+        formData[key] = formData[key] ? 'Yes' : 'No';
+      }
+    });
+
 
     const formPath = path.join(__dirname, '/../../../public', 'forms', `${formData.type}.pdf`);
  
@@ -90,11 +97,11 @@ exports.generatePDF = async (req, res) => {
       const fileSizeInMB = (fileSizeInBytes / (1024 * 1024)).toFixed(2); // Rounded to 2 decimal places
 
 
-
+      console.log(formData)
  
     const obj = {}
 
-                obj.grievance_id =formData.grievance_id 
+                obj.grievance_id =formData.grievance_id || formData.id
                 obj.action_id = formData.action_id ?formData.action_id  :null
                 obj.format =  'pdf'
                 obj.size = fileSizeInMB 

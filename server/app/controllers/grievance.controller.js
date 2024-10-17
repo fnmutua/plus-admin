@@ -285,7 +285,7 @@ exports.createGrievanceRecord = async (req, res) => {
            // grm_officials.push(grm.phone);
             let msg_obj={} 
             msg_obj.message = msg 
-             msg_obj.phone=grm.phone
+            msg_obj.phone=grm.phone
             msg_obj.grievance_id = item.id
             msg_obj.grv_code = item.code 
             msg_obj.status = item.status 
@@ -307,19 +307,7 @@ exports.createGrievanceRecord = async (req, res) => {
       });
 
 
-
  
-      // Fetch the newly created item along with its associations
-      const xitemWithAssociations = await db.models.grievance.findOne({
-        where: { id: item.id },
-        include: [
-          { model: db.models.county },
-          { model: db.models.subcounty},
-          { model: db.models.ward},
-          { model: db.models.settlement},
-          // Include any other associations here
-        ],
-      });
 
  
 
