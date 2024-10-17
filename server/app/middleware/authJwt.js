@@ -171,10 +171,10 @@ isStaffOrAdmin = (req, res, next) => {
           next();
           return;
         }     
-        if (roles[i].name === "consultant") {
-          next();
-          return;
-        }         
+        // if (roles[i].name === "consultant") {
+        //   next();
+        //   return;
+        // }         
         
 
         if (roles[i].name === "admin") {
@@ -189,7 +189,46 @@ isStaffOrAdmin = (req, res, next) => {
   });
 };
 
-
+isStaffOrAdmin = (req, res, next) => {
+  // console.log("Requrest,",req.userid)
+   User.findByPk(req.userid).then(user => {
+   //  console.log(user)
+     user.getRoles({raw:true}).then(roles => {
+       for (let i = 0; i < roles.length; i++) {
+           console.log(roles[i].name)
+         if (roles[i].name === "staff") {
+           next();
+           return;
+         }
+         if (roles[i].name === "super_admin") {
+           next();
+           return;
+         }   
+         if (roles[i].name === "staff") {
+           next();
+           return;
+         }   
+         if (roles[i].name === "grm") {
+           next();
+           return;
+         }     
+        //  if (roles[i].name === "consultant") {
+        //    next();
+        //    return;
+        // }         
+         
+ 
+         if (roles[i].name === "admin") {
+           next();
+           return;
+         }
+       }
+       res.status(403).send({
+         message: "You require a Staff or Admin Role to perform this function"
+       });
+     });
+   });
+ };
 isAdminOrCountyAdmin = (req, res, next) => {
   // console.log("Requrest,",req.userid)
    User.findByPk(req.userid).then(user => {
