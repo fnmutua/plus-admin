@@ -395,7 +395,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
            meta: {
              title: 'Community',
              icon:'fluent:people-team-add-20-filled',
-             role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
+             role: ['admin', 'super_admin', 'monitoring'  ,'staff' ,'monitoring','grm'] ,
              locationLevel:['national','county' ],
     
            },
@@ -408,7 +408,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               meta: {
                 title: 'SEC/GRC',
                 icon:'fluent:people-team-16-filled',
-                role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
+                role: ['admin', 'super_admin', 'monitoring' , 'staff' ,'monitoring','grm'] ,
                 locationLevel:['national','county' ],
     
               },
@@ -421,7 +421,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               meta: {
                 title: 'SEC',
                 icon:'fluent:people-team-16-filled',
-                role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
+                role: ['admin', 'super_admin', 'monitoring'  ,'staff' ,'monitoring','grm'] ,
                 locationLevel:['national','county','settlement'],
     
               },
@@ -849,7 +849,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Import',
           icon: 'mdi:database-plus',
-          role: ['admin', 'super_admin', 'staff','monitoring' ,'consultant' ] ,
+          role: ['admin', 'super_admin', 'staff','monitoring'   ] ,
           locationLevel:['national','county','settlement'],
 
           alwaysShow: false
@@ -933,67 +933,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         ]
       },
-      // {
-      //   path: 'repository',
-      //   component: Layout,
-      //   //redirect: '/settings',
-      //   name: 'Repository',
-      //   meta: {
-      //     title: 'Repository',
-      //     icon: 'material-symbols:home-storage-rounded',
-      //     role: ['admin', 'super_admin', 'monitoring', 'grm' , 'staff', 'consultant' ] ,
-      //     locationLevel:['national','county' ],
-
-      //     alwaysShow: true
-      //   },
-      //   children: [
-          
-      //     {
-      //       path: 'docs',
-      //     //  component: 'views/Users/County',
-      //       component: () => import('@/views/Repository/DocumentsTagged.vue'),
-      //       name: 'RepositoryTagged',
-      //       meta: {
-      //         title: 'Documents',
-      //         hidden: false,
-      //         role: ['admin', 'super_admin', 'monitoring', 'grm' , 'staff', 'consultant' ] ,
-
-      //         icon:'bi:clipboard2-data-fill'
-      //       }
-      //     },
-
-      //     {
-      //       path: 'cleanup',
-      //     //  component: 'views/Users/County',
-      //       component: () => import('@/views/Repository/DeleteDocuments.vue'),
-      //       name: 'RepositoryCleanup',
-      //       meta: {
-      //         title: 'Cleanup',
-      //         hidden: false,
-      //          role: ['admin', 'super_admin' ] ,
-      //         icon:'fluent:delete-32-filled'
-      //       }
-      //     },
-
-
-         
-      //     {
-      //       path: 'imagery',
-      //     //  component: 'views/Users/County',
-      //       component: () => import('@/views/Repository/Imagery.vue'),
-      //       name: 'DroneImagery',
-      //       meta: {
-      //         title: 'Imagery',
-      //         hidden: false,
-      //         role: ['admin', 'super_admin', 'monitoring','grm' ,'consultant','staff' ] ,
-
-      //         icon:'mdi:space-station'
-
-      //       }
-      //     },
-      //   ]
-      // },
- 
+  
 
     ]
   },
@@ -1008,7 +948,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     meta: {
       title: 'M&E',
       icon: 'uis:graph-bar',
-      role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring'] ,
+      role: ['admin', 'super_admin', 'monitoring'  ,'staff' ,'monitoring'] ,
       locationLevel:['national','county' ],
 
       alwaysShow: false
@@ -1022,7 +962,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        meta: {
          title: 'Activities',
          icon:'icon-park-outline:activity-source',
-         role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+         role: ['admin', 'super_admin', 'monitoring'  ,'staff' ] ,
          locationLevel:['national','county' ],
        }
        },
@@ -1034,7 +974,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         name: 'IdnicatorConfig',
         meta: {
           icon: 'icon-park-solid:dashboard-car',
-          role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+          role: ['admin', 'super_admin', 'monitoring' , 'staff' ] ,
           locationLevel:['national'  ],
 
           title: 'Framework'
@@ -1049,7 +989,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               title: 'Indicators',
               hidden: false,
               icon:'cil:gauge',
-              role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+              role: ['admin', 'super_admin', 'monitoring' , 'staff' ] ,
               locationLevel:['national'  ],
 
             }
@@ -1061,7 +1001,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'IndicatorConfigs',
             meta: {
               title: 'Configuration',
-              role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+              role: ['admin', 'super_admin', 'monitoring' , 'staff' ] ,
               locationLevel:['national'  ],
 
               icon:'material-symbols:settings',
@@ -1076,7 +1016,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           meta: {
             title: 'Category',
             icon: 'vaadin:options',
-            role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+            role: ['admin', 'super_admin', 'monitoring' , 'staff' ] ,
             locationLevel:['national'  ],
 
             hidden:true
@@ -1104,7 +1044,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'NewReports',
             meta: {
               title: 'Reports(New)',
-              role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+              role: ['admin', 'super_admin', 'monitoring' ,'staff' ] ,
               locationLevel:['national'  ],
 
               icon:'carbon:result-new',
@@ -1119,7 +1059,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Reports',
               locationLevel:['national'  ],
-              role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ] ,
+              role: ['admin', 'super_admin', 'monitoring'  ,'staff' ] ,
 
               icon:'mdi:file-document-plus',
             }
@@ -1132,7 +1072,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             name: 'All',
             meta: {
               title: 'Evaluations',
-               role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
+               role: ['admin', 'super_admin', 'monitoring', 'staff' ] ,
 
               icon:'solar:list-check-bold',
             }
@@ -1145,7 +1085,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
             meta: {
               title: 'Add Evaluation',
               hidden: true,
-               role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
+               role: ['admin', 'super_admin', 'monitoring' ,'staff' ] ,
 
               icon:'mdi:file-document-plus',
             }
@@ -1163,7 +1103,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Beneficiaries',
           icon:'ph:users-fill',
-          role: ['admin', 'super_admin', 'monitoring', 'consultant','staff' ] ,
+          role: ['admin', 'super_admin', 'monitoring', 'staff' ] ,
 
           hidden: false
         }
@@ -1399,7 +1339,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        meta: {
          title: 'GRC',
          icon:'fluent:people-checkmark-20-filled',
-         role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring','grm'] ,
+         role: ['admin', 'super_admin', 'monitoring' , 'staff' ,'monitoring','grm'] ,
          locationLevel:['national','county','settlement'],
 
        }
