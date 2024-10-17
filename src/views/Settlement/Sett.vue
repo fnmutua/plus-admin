@@ -6,7 +6,8 @@ import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCard, ElPopconfirm, ElTable, ElCol, ElRow,
-  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox} from 'element-plus'
+  ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox
+} from 'element-plus'
 import { ElMessage, } from 'element-plus'
 import { Position, View, Plus, User, Briefcase, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
 
@@ -17,7 +18,7 @@ import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements
 
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { defineAsyncComponent,onMounted } from 'vue';
+import { defineAsyncComponent, onMounted } from 'vue';
 
 import xlsx from "json-as-xlsx"
 import {
@@ -46,13 +47,13 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { UserType } from '@/api/register/types'
 
 
- 
+
 import proj4 from 'proj4';
 
- 
+
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
- 
+
 
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
@@ -69,11 +70,11 @@ mapboxgl.accessToken = MapBoxToken;
 const { wsCache } = useCache()
 const appStore = useAppStore()
 const userInfo = wsCache.get(appStore.getUserInfo)
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
 
 
-console.log('userInfo',userInfo)
+console.log('userInfo', userInfo)
 
 //*****************************Create**************************** */
 
@@ -106,7 +107,7 @@ const selectedSubCounty = ref(null)
 
 
 const search_string = ref()
- 
+
 
 const mobileBreakpoint = 768;
 const defaultPageSize = 10;
@@ -124,20 +125,20 @@ const updatePageSize = () => {
 
 
 
-console.log('window.innerHeight1',window.innerHeight)
+console.log('window.innerHeight1', window.innerHeight)
 
- 
 
-onMounted(async () => { 
- 
- 
-window.addEventListener('resize', updatePageSize);
+
+onMounted(async () => {
+
+
+  window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
 
 
 })
 
- 
+
 
 
 const { push } = useRouter()
@@ -154,7 +155,7 @@ const interVentionTypeOptions = ref([])
 
 
 const page = ref(1)
- 
+
 const loading = ref(true)
 
 const currentPage = ref(1)
@@ -222,7 +223,7 @@ const handleClear = async () => {
   value4.value = ''
   value5.value = ''
 
- 
+
   currentPage.value = 1
   tblData.value = []
   //----run the get data--------
@@ -244,7 +245,7 @@ const onPageChange = async (selPage: any) => {
   //console.log('', activeTab.value)
   if (activeTab.value == 'list') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Approved'],['true']]  // make sure the inner array is array
+    filterValues.value = [[1, 2], ['Approved'], ['true']]  // make sure the inner array is array
   } else if (activeTab.value == 'New') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
     filterValues.value = [[1, 2], ['Pending'], ['true']]  // make sure the inner array is array
@@ -302,7 +303,7 @@ const clickTab = async (obj) => {
   console.log("Loading tabs.............", obj.props.label)
   console.log("Loading activeTab.............", activeTab.value)
   console.log("Loading search_string.............", search_string.value)
-  dynamicDocumentComponent.value=null
+  dynamicDocumentComponent.value = null
 
   if (obj.props.name === 'list') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
@@ -479,7 +480,7 @@ const getNewOrRejectedSettlements = async (tab) => {
 
 
   const formData = {}
-  formData.limit =  pageSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -522,36 +523,36 @@ const getNewOrRejectedSettlements = async (tab) => {
 
   } else {
     tableDataList.value = res.data
-   // tableDataList.value = addLatLonToData(tableDataList.value);
-
-    
-    console.log('>>>> ---', tableDataList.value )
-
-   res.data.forEach(function (arrayItem) {
-    var dd = flattenJSON(arrayItem)
-
-    flattenedData.value.push(dd)
-  })
+    // tableDataList.value = addLatLonToData(tableDataList.value);
 
 
+    console.log('>>>> ---', tableDataList.value)
 
-   var obj = flattenJSON(res.data[0])
+    res.data.forEach(function (arrayItem) {
+      var dd = flattenJSON(arrayItem)
 
-   console.log('flatteda', obj)
-   model_fields.value  = Object.keys(obj);
+      flattenedData.value.push(dd)
+    })
 
-   
-  } 
 
- 
+
+    var obj = flattenJSON(res.data[0])
+
+    console.log('flatteda', obj)
+    model_fields.value = Object.keys(obj);
+
+
+  }
+
+
 
 }
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   for (let key in obj) {
-    if (key !== 'geom' && key !== 'id' && key !== 'createdAt'&& key !== 'updatedAt'&& key !== 'email'&& key !== 'phone'&& key !== 'isApproved' && key !== 'createdBy' && key !== 'isActive' && key !== 'documents'&& key !== 'user'   ) {
-      if ((typeof obj[key] !== 'object' || obj[key] === null) && key !== 'id' ) {
+    if (key !== 'geom' && key !== 'id' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'email' && key !== 'phone' && key !== 'isApproved' && key !== 'createdBy' && key !== 'isActive' && key !== 'documents' && key !== 'user') {
+      if ((typeof obj[key] !== 'object' || obj[key] === null) && key !== 'id') {
         res[extraKey + key] = obj[key];
-      } else if (Array.isArray(obj[key]) ) { 
+      } else if (Array.isArray(obj[key])) {
         obj[key].forEach((item, index) => {
           flattenJSON(item, res, `${extraKey}${key}.${index}.`);
         });
@@ -563,13 +564,13 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
- 
+
 
 const model_fields = ref([])
 const flattenedData = ref([])
 
- 
- // Function to extract latitude and longitude using turf for centroid or first point
+
+// Function to extract latitude and longitude using turf for centroid or first point
 function getLatLonFromGeom(geom) {
   if (!geom || !geom.type || !geom.coordinates) {
     return { latitude: null, longitude: null };
@@ -658,28 +659,28 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   //-------------------------
   console.log('FormSubmitted', formData)
   const res = await getSettlementListByCounty(formData)
- // const res = await getListWithoutGeo(formData)
-  
+  // const res = await getListWithoutGeo(formData)
+
   console.log('After Querry - associated_multiple_models', res)
   tableDataList.value = res.data
 
 
-  
-// Process and add lat/lon fields to the tableDataList using Turf
-//tableDataList.value = addLatLonToData(tableDataList.value);
+
+  // Process and add lat/lon fields to the tableDataList using Turf
+  //tableDataList.value = addLatLonToData(tableDataList.value);
 
 
   total.value = res.total
   loadingGetData.value = false
 
- 
+
 
 
 }
 
 
 
- 
+
 
 
 const viewHHs = (data: TableSlotDefault) => {
@@ -846,7 +847,7 @@ const getFilteredBySearchData = async (tab, searchKey) => {
 
 
   const formData = {}
-  formData.limit =  pageSize.value
+  formData.limit = pageSize.value
   formData.page = page.value
   formData.curUser = 1 // Id for logged in user
   formData.model = model
@@ -869,12 +870,12 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   console.log(formData)
   console.log('activeTab', tab)
   const res = await searchByKeyWord(formData)
-  searchLoading.value=false 
+  searchLoading.value = false
   if (tab === 'list') {
 
     tableDataList.value = res.data
 
-    
+
 
 
 
@@ -887,34 +888,34 @@ const getFilteredBySearchData = async (tab, searchKey) => {
 
   }
 
-// Process and add lat/lon fields to the tableDataList using Turf
-//tableDataList.value = addLatLonToData(tableDataList.value);
+  // Process and add lat/lon fields to the tableDataList using Turf
+  //tableDataList.value = addLatLonToData(tableDataList.value);
 
 
   total.value = res.total
 
 
-  console.log('tableDataList.value',tableDataList.value)
+  console.log('tableDataList.value', tableDataList.value)
   loading.value = false
 
 
 }
-const searchLoading=ref(false)
+const searchLoading = ref(false)
 const searchByNewName = async () => {
 
-console.log('filterString', search_string.value)
-//value3.value = filterString
-//search_string.value = filterString
- 
+  console.log('filterString', search_string.value)
+  //value3.value = filterString
+  //search_string.value = filterString
 
-  if (search_string.value){
+
+  if (search_string.value) {
     filters.value.push('isActive')
-    filterValues.value.push(['true'] )  // make sure the inner array is array
-    searchLoading.value=true 
-  getFilteredBySearchData(activeTab.value, search_string.value)
+    filterValues.value.push(['true'])  // make sure the inner array is array
+    searchLoading.value = true
+    getFilteredBySearchData(activeTab.value, search_string.value)
 
   }
- 
+
 }
 
 
@@ -944,7 +945,7 @@ const getCountyNames = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name 
+      countyOpt.label = arrayItem.name
       //  console.log(countyOpt)
       countiesOptions.value.push(countyOpt)
     })
@@ -955,15 +956,15 @@ const getCountyNames = async () => {
 getCountyNames()
 
 
- 
+
 
 const wardOptions = ref([])
 
- 
 
 
- 
- 
+
+
+
 const subcountiesOptions = ref([])
 const subcountyfilteredOptions = ref([])
 
@@ -989,7 +990,7 @@ const getSubCountyNames = async () => {
       var subcountyOpt = {}
       subcountyOpt.value = arrayItem.id
       subcountyOpt.county_id = arrayItem.county_id
-      subcountyOpt.label = arrayItem.name 
+      subcountyOpt.label = arrayItem.name
       //  console.log(countyOpt)
       subcountiesOptions.value.push(subcountyOpt)
     })
@@ -1020,7 +1021,7 @@ const getWardNames = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
       opt.value = arrayItem.id
-      opt.label = arrayItem.name 
+      opt.label = arrayItem.name
       //  console.log(countyOpt)
       wardOptions.value.push(opt)
     })
@@ -1039,7 +1040,7 @@ const filterByCounty = async (county_id: any) => {
   value5.value = null // clear the subcounty 
   value6.value = null   // clear the ward sr
 
- 
+
 
   console.log(filters.value)
 
@@ -1089,7 +1090,7 @@ const filterByWard = async (ward_id: any) => {
 //getSettlementsOptions()
 getAllSetllementsInitially()
 
- 
+
 getSubCountyNames()
 
 
@@ -1195,7 +1196,7 @@ const handleClose = () => {
 const activeName = ref('list')
 const AddSettlement = () => {
   push({
-     name: 'AddSettlementX'
+    name: 'AddSettlementX'
   })
 }
 
@@ -1205,9 +1206,9 @@ const formHeader = ref('Edit Settlement')
 const editSettlement = (data: TableSlotDefault) => {
 
   push({
-  name: 'AddSettlementX',
+    name: 'AddSettlementX',
     query: { id: data.row.id }
-  
+
   });
 
 
@@ -1355,17 +1356,17 @@ const decommisionSettlement = async (data: TableSlotDefault) => {
 
 }
 
-const showSelectFields =ref(false)
-const selectedFields =ref([])
+const showSelectFields = ref(false)
+const selectedFields = ref([])
 
 
 
- 
 
 
- const getFilteredDownloadData = async (selFilters, selfilterValues) => {
- 
-   const formData = {}
+
+const getFilteredDownloadData = async (selFilters, selfilterValues) => {
+
+  const formData = {}
   // formData.limit = 100
   // formData.page = page.value
   // formData.curUser = 1 // Id for logged in user
@@ -1387,60 +1388,60 @@ const selectedFields =ref([])
   //-------------------------
   console.log('FormSubmitted', formData)
   const res = await getSettlementListByCounty(formData)
- // const res = await getListWithoutGeo(formData)
-  
+  // const res = await getListWithoutGeo(formData)
+
   console.log('After Querry - associated_multiple_models', res)
- return res.data
- 
+  return res.data
+
 
 
 }
 
 const handleDownloadSelectFields = async () => {
-   console.log('selectedFields ---', selectedFields.value)
+  console.log('selectedFields ---', selectedFields.value)
 
-   let dataToDownload =[]
+  let dataToDownload = []
 
-   if (selectedFields.value.length < 1) {
+  if (selectedFields.value.length < 1) {
     ElMessage.warning('Specify the fields you want on the exported file')
-    return 
-    
-   }
-  if (filters.value.length>2 && filterValues.value.length>1) {
-    console.log(filters.value)
-      console.log('get all filtered data ')
+    return
 
-    const downData =  await getFilteredDownloadData(filters.value,filterValues.value)
+  }
+  if (filters.value.length > 2 && filterValues.value.length > 1) {
+    console.log(filters.value)
+    console.log('get all filtered data ')
+
+    const downData = await getFilteredDownloadData(filters.value, filterValues.value)
     console.log('downData ', downData)
 
     downData.forEach(function (arrayItem) {
-        var dd = flattenJSON(arrayItem)
-       dataToDownload.push(dd)
+      var dd = flattenJSON(arrayItem)
+      dataToDownload.push(dd)
     })
-  
 
-       }
+
+  }
   else {
     dataToDownload.push(...flattenedData.value)
 
-     }
+  }
 
 
-     console.log('dataToDownload ---', flattenedData.value)
+  console.log('dataToDownload ---', flattenedData.value)
 
 
-  let fields =[]
+  let fields = []
 
-  for (let i = 0; i < selectedFields.value.length; i++) { 
+  for (let i = 0; i < selectedFields.value.length; i++) {
     var fld = {}
-    fld.label=selectedFields.value[i]
+    fld.label = selectedFields.value[i]
     fld.value = selectedFields.value[i]
     fields.push(fld)
   }
 
   console.log(fields)
 
-   
+
 
 
   // Preprae the data object 
@@ -1454,19 +1455,19 @@ const handleDownloadSelectFields = async () => {
   for (let i = 0; i < dataToDownload.length; i++) {
     let thisRecord = {}
 
- //   console.log('flattened ??',i,  flattenedData.value[i])
-     
+    //   console.log('flattened ??',i,  flattenedData.value[i])
+
     thisRecord.index = i + 1
 
     for (let j = 0; j < fields.length; j++) {
       var fld = fields[j].label
       thisRecord[fld] = dataToDownload[i][fld]
 
-     // console.log('fld',thisRecord)
+      // console.log('fld',thisRecord)
 
 
     }
-  
+
 
     dataHolder.push(thisRecord)
   }
@@ -1487,7 +1488,7 @@ const handleDownloadSelectFields = async () => {
 }
 
 
- 
+
 
 console.log('IsMobile', isMobile)
 
@@ -1733,31 +1734,31 @@ const handleSelectSubCounty = async (subcounty_id: any) => {
 const mfield = 'settlement_id'
 const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const dynamicComponent = ref();
- const componentProps = ref({
-      message: 'Hello from parent',
-      showDialog:addMoreDocuments,
-      data:currentRow.value,
-      umodel:model,
-      field:mfield
-    });
+const componentProps = ref({
+  message: 'Hello from parent',
+  showDialog: addMoreDocuments,
+  data: currentRow.value,
+  umodel: model,
+  field: mfield
+});
 
- 
- 
+
+
 function toggleComponent(row) {
   console.log('Compnnent data', row)
-      componentProps.value.data=row
-      dynamicComponent.value = null; // Unload the component
-      addMoreDocuments.value = true; // Set any additional props
+  componentProps.value.data = row
+  dynamicComponent.value = null; // Unload the component
+  addMoreDocuments.value = true; // Set any additional props
 
-      setTimeout(() => {
-        dynamicComponent.value = ChildComponent; // Load the component
+  setTimeout(() => {
+    dynamicComponent.value = ChildComponent; // Load the component
   }, 100); // 0.1 seconds
 
 
-    }
+}
 
 
-    
+
 // component for docuemnts 
 const rowData = ref()
 const documentComponent = defineAsyncComponent(() => import('@/views/Components/ListDocuments.vue'));
@@ -1771,26 +1772,26 @@ const DocumentComponentProps = ref({
 
 
 function handleExpand(row) {
-   dynamicDocumentComponent.value = null; // Unload the component
-    rowData.value = row
-    DocumentComponentProps.value.data = row
-    setTimeout(() => {
-      dynamicDocumentComponent.value = documentComponent; // Load the component
-    }, 100); // 0.1 seconds
+  dynamicDocumentComponent.value = null; // Unload the component
+  rowData.value = row
+  DocumentComponentProps.value.data = row
+  setTimeout(() => {
+    dynamicDocumentComponent.value = documentComponent; // Load the component
+  }, 100); // 0.1 seconds
 }
 
 
 
 
 // Revised molde for downlaod
- 
+
 
 
 // get model fields 
 
 //  getModeldefinition()
 
-console.log('model_fields.value', model_fields.value )
+console.log('model_fields.value', model_fields.value)
 
 const router = useRouter()
 
@@ -1809,16 +1810,16 @@ const goBack = () => {
 
 
 
-function formatDate (row, column, cellValue) {
-      if (!cellValue) return '';  // Handle null or undefined values
+function formatDate(row, column, cellValue) {
+  if (!cellValue) return '';  // Handle null or undefined values
 
-      // Format the date (you can use libraries like moment.js or Day.js, or use native Date methods)
-      const date = new Date(cellValue);
-      return date.toLocaleDateString();  // Format to local date string
-    }
-  
+  // Format the date (you can use libraries like moment.js or Day.js, or use native Date methods)
+  const date = new Date(cellValue);
+  return date.toLocaleDateString();  // Format to local date string
+}
 
- 
+
+
 
 </script>
 
@@ -1833,106 +1834,123 @@ function formatDate (row, column, cellValue) {
 
 
 
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-          Back
-        </el-button>
-      </div>
+    <el-row :gutter="10" style=" margin-bottom:10px;">
+      <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
 
-      <!-- Title Search -->
-      <el-select
-size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="By County"  style=" margin-right: 5px;">
-        <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+        <div class="max-w-200px">
+          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+            Back
+          </el-button>
+        </div>
+      </el-col>
 
-      <el-select
-:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
-        clearable filterable collapse-tags placeholder="By Subcounty"  style=" margin-right: 5px;">
-        <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+      <el-col :xs="24" :sm="24" :md="12" :lg="5">
+        <el-select size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
+          filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
+          <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
 
-      <el-select
-:disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
-        clearable filterable collapse-tags placeholder="By Ward"  style=" margin-right: 5px;">
-        <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+      </el-col>
 
-      <el-input
-v-model="search_string" clearable :onClear="handleClear" placeholder="Search by name (or part of it).."
-        @change="searchByNewName" class="input-with-select"  style=" margin-right: 5px;">
-        <template #append>
-          <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
-        </template>
-      </el-input>
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+        <el-select :disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
+          clearable filterable collapse-tags placeholder="By Subcounty" style=" margin-right: 5px;">
+          <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-col>
 
-      <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+        <el-select :disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
+          clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
+          <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-col>
 
-        <el-tooltip content="Add Settlement" placement="top">
-              <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
-         </el-tooltip>
+      <el-col :xs="24" :sm="24" :md="12" :lg="5">
 
-        <el-tooltip content="Clear" placement="top">
-          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-        </el-tooltip>
+        <el-input v-model="search_string" clearable :onClear="handleClear"
+          placeholder="Search by name (or part of it).." @change="searchByNewName" class="input-with-select"
+          style=" margin-right: 5px;">
+          <template #append>
+            <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
+          </template>
+        </el-input>
+      </el-col>
 
-           <DownloadCustom   v-if="showEditButtons"  :data="tableDataList" :model="model" :associated_models="associated_multiple_models"  />
-       </div>
 
-      <!-- Download All Component -->
 
-     </el-row>
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+
+        <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+
+          <el-tooltip content="Add Settlement" placement="top">
+            <el-button v-if="showAdminButtons" :onClick="AddSettlement" type="primary" :icon="Plus" />
+          </el-tooltip>
+
+          <el-tooltip content="Clear" placement="top">
+            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+          </el-tooltip>
+
+          <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="model"
+            :associated_models="associated_multiple_models" />
+        </div>
+
+
+      </el-col>
+
+
+
+    </el-row>
+
 
 
  
+
 
     <el-tabs @tab-click="clickTab" v-model="activeName" class="custom-tab">
       <el-tab-pane name="list">
         <template #label>
           <span class="custom-tabs-label">
-            <el-badge type="primary" :value="totalApproved" class="item"  :offset="[10, 5]">
+            <el-badge type="primary" :value="totalApproved" class="item" :offset="[10, 5]">
               <el-button link>List</el-button>
             </el-badge>
           </span>
         </template>
 
-        <el-table
-:data="tableDataList" :show-overflow-tooltip="true" style="width: 100%" border
+        <el-table :data="tableDataList" :show-overflow-tooltip="true" style="width: 100%" border
           :row-class-name="tableRowClassName" @expand-change="handleExpand">
-          
+
 
           <el-table-column type="expand">
-        <template #default="props">
-          
-             <div>
-              <list-documents
-:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                @openDialog="toggleComponent(props.row)" />
-            </div>
- 
-        </template>
-      </el-table-column>
+            <template #default="props">
+
+              <div>
+                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+                  @openDialog="toggleComponent(props.row)" />
+              </div>
+
+            </template>
+          </el-table-column>
 
 
- 
-     <el-table-column label="Id" width="80" prop="id" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-            <span>{{ scope.row.id }}</span>
-            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-          </div>
-        </template>
-      </el-table-column>
 
-      
-          <el-table-column label="Name" width="200" prop="name" sortable />
-       
-          <el-table-column label="Location" sortable  width="400" >
+          <el-table-column label="Id" width="80" prop="id" sortable>
             <template #default="scope">
-              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name }}</span>
+              <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+                <span>{{ scope.row.id }}</span>
+                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+              </div>
+            </template>
+          </el-table-column>
+
+
+          <el-table-column label="Name" width="200" prop="name" sortable />
+
+          <el-table-column label="Location" sortable width="400">
+            <template #default="scope">
+              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+                }}</span>
             </template>
           </el-table-column>
 
@@ -1940,15 +1958,14 @@ v-model="search_string" clearable :onClear="handleClear" placeholder="Search by 
 
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
-          <el-table-column label="Created" prop="createdAt" sortable  :formatter="formatDate"/>
+          <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
 
           <el-table-column label="Code" prop="code" sortable>
             <template #default="{ row }">
               <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
                 <span>{{ row.code }}</span>
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button
-v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
+                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
                     plain
                     style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
@@ -1966,14 +1983,11 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -1983,24 +1997,20 @@ v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
 
               <div v-else>
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button
-type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
+                  <el-button type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button
-type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="View Households" placement="top">
-                  <el-button
-v-show="showAdminButtons" type="success" size="small" :icon="User"
+                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="User"
                     @click="viewHHs(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm width="300"
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete  this settlement?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2009,8 +2019,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                   </el-popconfirm>
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Decommision" placement="top">
-                  <el-popconfirm width="350"
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm width="350" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to decommision this settlement?"
                     @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2031,40 +2040,41 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
       <el-tab-pane name="New" v-if=showAdminButtons>
         <template #label>
           <span class="custom-tabs-label">
-            <el-badge type="success" :value="totalPending" class="item"  :offset="[10, 5]">
+            <el-badge type="success" :value="totalPending" class="item" :offset="[10, 5]">
               <el-button link>New</el-button>
             </el-badge>
           </span>
         </template>
 
-        <el-table  :data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100%" border
+        <el-table :data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100%" border
           :row-class-name="tableRowClassName" @expand-change="handleExpand">
-        
 
-          
+
+
           <el-table-column type="expand">
-        <template #default="props">
-          
-          <div>  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                @openDialog="toggleComponent(props.row)" />
-           </div>
- 
-        </template>
-      </el-table-column>
+            <template #default="props">
+
+              <div> <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+                  @openDialog="toggleComponent(props.row)" />
+              </div>
+
+            </template>
+          </el-table-column>
 
           <el-table-column label="Id" width="80" prop="id" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-            <span>{{ scope.row.id }}</span>
-            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-          </div>
-        </template>
-      </el-table-column>
-          <el-table-column label="Name" width="200" prop="name" sortable />
-           
-          <el-table-column label="Location" sortable  width="400" >
             <template #default="scope">
-              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name }}</span>
+              <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+                <span>{{ scope.row.id }}</span>
+                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Name" width="200" prop="name" sortable />
+
+          <el-table-column label="Location" sortable width="400">
+            <template #default="scope">
+              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+                }}</span>
             </template>
           </el-table-column>
 
@@ -2073,7 +2083,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
 
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
-          <el-table-column label="Created" prop="createdAt" sortable  :formatter="formatDate"/>
+          <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
 
           <el-table-column label="Code" prop="code" sortable>
             <template #default="{ row }">
@@ -2097,11 +2107,11 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item  v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item  @click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item  v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -2109,7 +2119,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
               </el-dropdown>
               <div v-else>
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button  type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
+                  <el-button type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip content="View on Map" placement="top">
@@ -2118,11 +2128,11 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                 </el-tooltip>
 
                 <el-tooltip content="Review" placement="top">
-                  <el-button  v-show="showAdminButtons" type="success" size="small" :icon="View"
+                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm width="300"  confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete this settlement?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2149,16 +2159,15 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
 
       </el-tab-pane>
 
-      <el-tab-pane name="Rejected" v-if=showAdminButtons :badge="5" >
+      <el-tab-pane name="Rejected" v-if=showAdminButtons :badge="5">
         <template #label>
           <span class="custom-tabs-label">
-            <el-badge :value="totalRejected" class="item"  :offset="[10, 5]">
+            <el-badge :value="totalRejected" class="item" :offset="[10, 5]">
               <el-button link>Rejected</el-button>
             </el-badge>
           </span>
         </template>
-        <el-table
-:data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100%" border
+        <el-table :data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100%" border
           :row-class-name="tableRowClassName" @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
@@ -2167,38 +2176,37 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
+                <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
                   :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
           <el-table-column label="Id" width="80" prop="id" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-            <span>{{ scope.row.id }}</span>
-            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-          </div>
-        </template>
-      </el-table-column>
-          <el-table-column label="Name" width="200" prop="name" sortable />
-         
-          <el-table-column label="Location" sortable  width="400" >
             <template #default="scope">
-              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name }}</span>
+              <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+                <span>{{ scope.row.id }}</span>
+                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Name" width="200" prop="name" sortable />
+
+          <el-table-column label="Location" sortable width="400">
+            <template #default="scope">
+              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+                }}</span>
             </template>
           </el-table-column>
           <el-table-column label="Population" prop="population" sortable />
           <el-table-column label="Area(HA)" prop="area" sortable />
-          <el-table-column label="Created" prop="createdAt" sortable  :formatter="formatDate"/>
+          <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
 
-           <el-table-column label="Code" prop="code" sortable>
-              <template #default="{ row }">
+          <el-table-column label="Code" prop="code" sortable>
+            <template #default="{ row }">
               <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
                 <span>{{ row.code }}</span>
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button
-v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
+                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
                     plain
                     style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
@@ -2217,32 +2225,26 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
               <div v-else>
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button
-type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip content="Review" placement="top">
-                  <el-button
-v-show="showAdminButtons" type="success" size="small" :icon="View"
+                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm width="300"
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete  this settlement?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2252,8 +2254,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                 </el-tooltip>
 
                 <el-tooltip content="Decommision" placement="top">
-                  <el-popconfirm width="300"
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to decommision this settlement?"
                     @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2269,8 +2270,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
 
 
 
-      <ElPagination
-v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      <ElPagination v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </el-tabs>
@@ -2289,19 +2289,16 @@ v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPa
         <el-col v-show="activeStep === 0" :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
           <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
             <el-form-item label="County" prop="county_id">
-              <el-select
-v-model="ruleForm.county_id" filterable placeholder="Select County"
+              <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
                 :onChange="handleSelectCounty">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
 
             <el-form-item label="Sub County" prop="subcounty_id">
-              <el-select
-v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
+              <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
                 :onChange="handleSelectSubCounty">
-                <el-option
-v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
+                <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
                   :value="item.value" />
               </el-select>
             </el-form-item>
@@ -2510,3 +2507,14 @@ v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
 }
 </style>
 
+
+<style>
+.el-col {
+  border-radius: 4px;
+}
+
+.grid-content {
+  border-radius: 4px;
+  min-height: 36px;
+}
+</style>

@@ -7,7 +7,7 @@ import {  Back} from '@element-plus/icons-vue'
 
 import { ref,computed } from 'vue'
 import {
-  ElPagination, ElInput,ElSelect,ElOption, 
+  ElPagination, ElInput,ElSelect,ElOption, ElCol ,
   ElRow, ElTableV2, ElCard} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -411,57 +411,65 @@ const goBack = () => {
 
 <template>
   <el-card  v-loading="loading">
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
- 
-      <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-          Back
-        </el-button>
-      </div>
+    <el-row   :gutter="10" style=" margin-bottom:10px;">
+          <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
+            <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+              Back
+            </el-button>
+          </el-col>
+
+          <el-col :xs="24" :sm="24" :md="12" :lg="5">
+            <el-select
+              v-model="county_value"
+              placeholder="Filter County"
+              clearable
+              filterable
+              style="width: 100%; margin-right: 5px;"
+            >
+              <el-option
+                v-for="item in countyOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-col>
+
+          <el-col :xs="24" :sm="24" :md="12" :lg="7">
+            <el-select
+              v-model="sett_value"
+              placeholder="Filter Settlement"
+              clearable
+              filterable
+              style="width: 100%; margin-right: 5px;"
+            >
+              <el-option
+                v-for="item in settlementOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-col>
+
+          <el-col :xs="24" :sm="24" :md="12" :lg="8">
+            <el-input
+              clearable
+              v-model="search"
+              placeholder="Search by Name, ID, Phone, County or Settlement"
+              :onInput="filterTableData"
+              style="width: 100%; margin-right: 15px;"
+            />
+          </el-col>
+
+          <el-col :xs="24" :sm="24" :md="12" :lg="2">
+            <DownloadCustom :data="paginatedData" :all="sec_officials" />
+          </el-col>
+        </el-row>
+
 
       
-    <el-select
-      v-model="county_value"
-      placeholder="Filter County"
-      style=" margin-right: 5px;  width:250px"
-     clearable
-     filterable
-    >
-      <el-option
-        v-for="item in countyOptions"
-        :key="item.value"
-        :label="item.label"
-        :value="item.value"
-      />
-    </el-select>
-    <el-select v-model="sett_value" 
-    placeholder="Filter Settlement"
-    clearable
-     filterable
-      style=" margin-right: 5px; width:350px">
-      <el-option
-        v-for="item in settlementOptions"
-        :key="item.value"
-        :label="item.label"
-        :value="item.value"
-      />
-    </el-select> 
-
-      <el-input clearable  v-model="search" placeholder="Search by Name, ID, Phone,County or Settlement" :onInput="filterTableData" style=" margin-right: 15px;" />
-
-      <DownloadCustom    :data="paginatedData"   :all="sec_officials" />
-
-      <!-- Download All Component -->
-    </el-row>
-
-   
-
-
-
-    <div>
     <el-table-v2
-    
-     
       :columns="columnsx"
       :data="paginatedData"
       :width="width"
@@ -474,7 +482,7 @@ const goBack = () => {
         </div>
       </template>
     </el-table-v2>
-  </div>
+ 
 
 
   <div style="margin-top: 20px;">
@@ -487,6 +495,7 @@ const goBack = () => {
   </div>
 
  
+  
   
   </el-card>
  
