@@ -5,7 +5,7 @@ import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow , ElForm,ElFormItem,ElIn
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
-import { uploadGrievanceDocuments,logGrievanceAction,getActionFile ,updateGrievanceStatus} from '@/api/grievance'
+import { uploadGrievanceDocuments,logGrievanceAction,getActionFile ,updateGrievanceStatus,sendAcknowledgement} from '@/api/grievance'
 import { uuid } from 'vue-uuid'
 
 
@@ -15,7 +15,7 @@ import {
 } from '@element-plus/icons-vue'
 
  
-
+ 
 
 
 import {   ref } from 'vue'
@@ -491,6 +491,42 @@ const rules = ({
 });
 
 
+
+ 
+
+const generatePDFform = async (grievance,action) => { 
+ const formData = {};
+ 
+ console.log('grievance',grievance)
+
+
+// Additional properties based on the provided JSON object
+formData.type = "resolution" 
+formData.grievance_id = grievance.id 
+formData.project_phone = grievance.project_phone || 'Not Available';
+formData.settlement = grievance.settlement || null;
+formData.resolution_date =formatDate (action.resolution_date)  || null;
+formData.filer_present = action.filer_present || null;
+formData.field_verification_conducted = action.field_verification_conducted || null;
+formData.agreement_reached = action.agreement_reached || null;
+formData.grc_chairman = action.grc_chairman || 'Not Available';
+formData.complainant = grievance.complainant || null;
+formData.agreement = action.agreement || null;
+formData.issues = action.issues || null;
+formData.field_investigations = action.field_investigations || null;
+formData.point_disagreement = action.point_disagreement || null;
+formData.date = formatDate ( Date.now()) 
+ 
+console.log(formData);
+
+  const res =  await sendAcknowledgement(formData)
+
+ console.log(res)
+
+}
+
+
+
 const dynamicFormRef = ref<FormInstance>()
 
 const submitResolutionForm = async () => { 
@@ -525,15 +561,15 @@ const submitResolutionForm = async () => {
 
     };
 
-  //   notification.grievance_id = sms_obj.id
-  // notification.recipient = sms_obj.phone
-  // notification.message = msg
-  // notification.medium = 'SMS'
-  // notification.type = 'Notification'
-  // notification.code = shortid.generate()
- 
+   
   /// udpate the status
- await updateGrievanceStatus(formData)
+  await updateGrievanceStatus(formData)
+
+  console.log('Grievance.value',Grievance.value)
+  console.log('res.data',res.data)
+
+ await generatePDFform(Grievance.value, res.data)
+
 
      ElMessage({
        message: res.message,
@@ -634,6 +670,8 @@ const downloadFile = async (data) => {
     viewLoading.value = false;
   }
 };
+
+
 
 </script>
 
