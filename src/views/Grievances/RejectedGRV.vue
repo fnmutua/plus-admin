@@ -1578,12 +1578,12 @@ const handleRowDblClick = (row) => {
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; ">
 
 
-        <el-tooltip v-if="isNationalStaff" content="Import Data" placement="top">
+        <el-tooltip v-if="isNationalStaff || isSuperAdmin" content="Import Data" placement="top">
           <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
         </el-tooltip>
 
         <el-tooltip content="Add Grievance" placement="top">
-          <el-button v-if="showAdminButtons" :onClick="AddComponent" type="primary" :icon="Plus" />
+          <el-button   :onClick="AddComponent" type="primary" :icon="Plus" />
         </el-tooltip>
 
         <el-tooltip content="Clear" placement="top">
