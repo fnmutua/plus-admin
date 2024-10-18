@@ -401,7 +401,7 @@ exports.logGrievanceAction = async (req, res) => {
 };
  
  
-exports.getGrievances =async (req, res) => {
+exports.zgetGrievances =async (req, res) => {
   console.log(req.thisUser);
   const user = req.thisUser;
 
@@ -465,10 +465,19 @@ exports.getGrievances =async (req, res) => {
     const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
     const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
 
+    const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
+    let countyId
+    if (countyAdminRole) {
+      countyId = countyAdminRole.user_roles.county_id; // Access the county_id from the role
+      console.log('County Admin Role detected. County ID:', countyId);
+    }
+
+
     // Apply the county filter only if the user does not have a 'national' role but has a 'county_admin' role
     if (!hasNationalRole && hasCountyAdminRole) {
-      findAndCountOptions.where.county_id = userCounty;
-      console.log('Applying county filter:', userCounty);
+
+      findAndCountOptions.where.county_id = countyId;
+      console.log('Applying county filter:', countyId);
     }
   } else {
     console.log('Super Admin detected. Bypassing location-level filtering.');
@@ -525,7 +534,152 @@ exports.getGrievances =async (req, res) => {
     });
 };
  
- 
+exports.getGrievances = async (req, res) => {
+  console.log(req.thisUser);
+  const user = req.thisUser;
+  const currentUserRoles = await user.getRoles();
+
+  const searchString = req.body.searchString;
+  const userCounty = user.county_id;
+  const filters = req.body.filters || []; // Array of filter fields
+  const filterValues = req.body.filterValues || []; // Array of filter values corresponding to each filter field
+  const filterFunctions = req.body.filterFunctions || []; // Array of filter functions (e.g., 'eq', 'ne', 'like', etc.)
+
+  let limit = req.body.limit || 10; // Default limit if not provided
+  let page = req.body.page || 1; // Default page if not provided
+
+  console.log('Current >>>>User Roles, ', currentUserRoles);
+
+  // Initialize findAndCountOptions with common properties
+  const findAndCountOptions = {
+    where: {}, // Initialize an empty where object
+    limit: limit,
+    offset: (page - 1) * limit,
+    order: [['createdAt', 'DESC']], // Sort by most recent (assuming createdAt is the field tracking creation date)
+  };
+
+  var attributes = [];
+  for (let key in db.models.grievance.rawAttributes) {
+    attributes.push(key);
+  }
+
+  // Decrypt fields (name and national_id)
+  let encrypted_name = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), 'maluini'), 'name'];
+  attributes.push(encrypted_name);
+
+  let encrypted_national_id = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), 'maluini'), 'national_id'];
+  attributes.push(encrypted_national_id);
+
+  findAndCountOptions.attributes = attributes;
+
+  // Check if the current user has the 'super_admin' role
+  const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
+  const hasGRMRole = currentUserRoles.some(role => role.name === 'grm');
+
+  if (!hasGRMRole && !hasSuperAdminRole) {
+    // Return an empty response if the user does not have GRM roles or is not a super admin
+    return res.status(200).send({
+      data: [],
+      total: 0,
+      code: '9999',
+      message: 'Unauthorized access to grievances denied',
+    });
+  }
+
+  if (!hasSuperAdminRole) {
+    // Check if the user has a 'national' or 'county_admin' role
+    const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
+    const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
+
+    const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
+    let countyId
+    if (countyAdminRole) {
+      countyId = countyAdminRole.user_roles.county_id; // Access the county_id from the role
+      console.log('County Admin Role detected. County ID:', countyId);
+    }
+
+
+    // Apply county filter if user has a 'county_admin' role and not 'national' role
+    if (!hasNationalRole && hasCountyAdminRole) {
+      findAndCountOptions.where.county_id = countyId;
+      console.log('Applying county filter:', countyId);
+    }
+  } else {
+    console.log('Super Admin detected. Bypassing location-level filtering.');
+  }
+
+  // Add the 'searchString' condition if provided
+  if (searchString) {
+    findAndCountOptions.where.name = {
+      [op.iLike]: `%${searchString}%`, // Case-insensitive partial matching
+    };
+  }
+
+  // Apply additional filters based on `filters`, `filterValues`, and `filterFunctions`
+  filters.forEach((filter, index) => {
+    const value = filterValues[index];
+    const functionType = filterFunctions[index] || 'eq'; // Default to 'eq' if no function provided
+
+    // Map functionType to Sequelize operators
+    const operatorMap = {
+      eq: op.eq,
+      ne: op.ne,
+      like: op.like,
+      iLike: op.iLike,
+      in: op.in,
+      notIn: op.notIn,
+      gt: op.gt,
+      lt: op.lt,
+      gte: op.gte,
+      lte: op.lte
+    };
+
+    const operator = operatorMap[functionType] || op.eq; // Default to 'eq' if unrecognized functionType
+
+    if (Array.isArray(value)) {
+      findAndCountOptions.where[filter] = {
+        [operator]: value,
+      };
+    } else {
+      findAndCountOptions.where[filter] = {
+        [operator]: value,
+      };
+    }
+  });
+
+  // Explicitly remove any county_id filter for super admins
+  if (hasSuperAdminRole) {
+    delete findAndCountOptions.where.county_id;
+  }
+
+  console.log(findAndCountOptions);
+
+  // Handle associated models inclusion
+  const associatedModels = req.body.associated_multiple_models || [];
+  if (associatedModels.length > 0) {
+    findAndCountOptions.include = associatedModels.map(model => ({ model: db.models[model] }));
+  }
+
+  console.log('findAndCountOptions',findAndCountOptions);
+
+  // Execute the query
+  Grievance.findAndCountAll(findAndCountOptions)
+    .then(({ count, rows: grievances }) => {
+      console.log('Total grievances:', count);
+
+      res.status(200).send({
+        data: grievances,
+        total: count,
+        code: '0000',
+        message: 'Grievances retrieved successfully',
+      });
+    })
+    .catch((error) => {
+      console.error('Error fetching Grievances:', error);
+      res.status(500).send({ message: 'Unable to retrieve Grievances. Please try again later.' });
+    });
+};
+
 
 const multer = require('multer');
 const user_roles = require('../models/user_roles');
@@ -651,12 +805,7 @@ exports.uploadGrievanceDocument = (req, res) => {
 
 
 
-
-    // Other form fields (if any) can be accessed using `req.body`
-    //  console.log('other form fields:', req.body);
-
-    // Process the files or respond to the client accordingly
-    // res.json({ message: 'Form submission and file upload successful!' });
+ 
     });
     };
 
@@ -692,9 +841,17 @@ exports.getGrievanceById = async (req, res) => {
         const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
         const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
     
+        const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
+        let countyId
+        if (countyAdminRole) {
+          countyId = countyAdminRole.user_roles.county_id; // Access the county_id from the role
+          console.log('County Admin Role detected. County ID:', countyId);
+        }
+     
+
         if (!hasNationalRole && hasCountyAdminRole) {
-          findOptions.where.county_id = user.county_id;
-          console.log('Applying county filter:', user.county_id);
+          findOptions.where.county_id = countyId;
+          console.log('Applying county filter:',countyId);
         }
       } else {
         console.log('Super Admin detected. Bypassing location-level filtering.');
@@ -952,6 +1109,7 @@ exports.modelImportGrievances = async (req, res) => {
             create_action.action_type = 'Reported'
             //create_action.action_by = 1  // Rememner to change 
             create_action.date_actioned = item.date_reported
+            create_action.current_level = 'settlement'
             create_action.prev_status ='Open'
             create_action.new_status = 'Open'
             create_action.action_level= item.action_level
@@ -963,7 +1121,7 @@ exports.modelImportGrievances = async (req, res) => {
             current_action.action_type = item.status
             //current_action.action_by = 1  // Rememner to change 
             current_action.date_actioned = item.date_actioned
-            current_action.prev_status ='Open'
+            current_action.prev_status ='Sorting'
             current_action.new_status = item.status
             current_action.action = item.action
             current_action.action_level= item.action_level
@@ -1021,6 +1179,7 @@ exports.modelImportGrievances = async (req, res) => {
         const grievanceCode = req.body.code;
         const newStatus = req.body.new_status; // The new status to update
         const action = req.body.action; // The new status to update
+        const current_level = req.body.current_level; // The new status to update
 
         console.log( 'req.body <action', req.body)
     
@@ -1057,10 +1216,10 @@ exports.modelImportGrievances = async (req, res) => {
 
         if(newStatus =='Escalated') {
 
-          if(grievance.current_level==1){
-            grievance.current_level =2 
+          if(grievance.current_level=='settlement'){
+            grievance.current_level ='county' 
           }else {
-            grievance.current_level =3 
+            grievance.current_level ='national'  
           }
         }
     
@@ -1152,9 +1311,20 @@ exports.modelImportGrievances = async (req, res) => {
     
       if (!hasSuperAdminRole) {
         const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
+       
+        const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
+        let countyId
+        if (countyAdminRole) {
+          countyId = countyAdminRole.user_roles.county_id; // Access the county_id from the role
+          console.log('County Admin Role detected. County ID:', countyId);
+        }
+    
+
+
+
         if (hasCountyAdminRole) {
-          findAndCountOptions.where.county_id = userCounty;
-          console.log('Applying county filter:', userCounty);
+          findAndCountOptions.where.county_id = countyId;
+          console.log('Applying county filter:', countyId);
         }
       } else {
         console.log('Super Admin detected. Bypassing location-level filtering.');

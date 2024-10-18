@@ -117,7 +117,6 @@ console.log('roles_filters', roles_filters);
 
 
 
-
 const isMobile = computed(() => appStore.getMobile)
 
 console.log('IsMobile', isMobile)
@@ -208,24 +207,10 @@ const showEditButtons = ref(appStore.getEditButtons)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 
-// Prepare filters array
-
+// Prepare filters array 
 var filters = ['status'];
-var filterValues = [['Resolved', 'Rejected', 'Closed']];
-var filterFunction = ['notIn'];
-
-// const operatorMap = {
-//       eq: op.eq,
-//       ne: op.ne,
-//       like: op.like,
-//       iLike: op.iLike,
-//       in: op.in,
-//       notIn: op.notIn,
-//       gt: op.gt,
-//       lt: op.lt,
-//       gte: op.gte,
-//       lte: op.lte
-//     };
+var filterValues = [['Resolved', 'Closed']];
+var filterFunction = ['in'];
 
 
 
@@ -234,6 +219,7 @@ if (roles_filters.length > 0) {
 }
 
 // Prepare filterValues array
+
 if (roles_filters.length > 0) {
   filterValues.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
 }
@@ -562,7 +548,6 @@ const logAction = async (grievance) => {
   formData.date_actioned = grievance.date_reported
   formData.prev_status = grievance.status
   formData.new_status = grievance.status
-  formData.current_level = 'settlement'
 
 
 
@@ -581,7 +566,7 @@ const submitForm = async () => {
   grmForm.value.date_reported = new Date();
   grmForm.value.status = 'Sorting'
   grmForm.value.model = 'grievance';
-  grmForm.value.current_level = 'settlement';
+  grmForm.value.current_level = '1';
 
 
   const formInstance = dynamicFormRef
@@ -1669,7 +1654,6 @@ const handleRowDblClick = (row) => {
 
 
       <el-table-column label="Code" prop="code" sortable width="150" />
-      <el-table-column label="Level" prop="current_level" sortable width="150" />
       <el-table-column label="Complainant" prop="name" sortable width="250" />
       <el-table-column label="Description" prop="description" sortable width="550" />
       <el-table-column label="Location" sortable width="350">

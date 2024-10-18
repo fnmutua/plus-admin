@@ -75,7 +75,7 @@ module.exports = function (sequelize) {
      
  
       current_level: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING,
         allowNull: false,
        
       }, 

@@ -492,10 +492,17 @@ exports.modelUserByName = async (req, res) => {
       // Apply the county filter if the user has a 'county_admin' role but not a 'national' role
       const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
       const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
+      const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
+      let countyId
+      if (countyAdminRole) {
+        countyId = countyAdminRole.user_roles.county_id; // Access the county_id from the role
+        console.log('County Admin Role detected. County ID:', countyId);
+      }
+
 
       if (!hasNationalRole && hasCountyAdminRole) {
-        findAndCountOptions.where.county_id = userCounty;
-        console.log('Applying county filter:', userCounty);
+        findAndCountOptions.where.county_id = countyId;
+        console.log('Applying county filter:', countyId);
       }
     } else {
       console.log('Super Admin detected. Bypassing location-level filtering.');

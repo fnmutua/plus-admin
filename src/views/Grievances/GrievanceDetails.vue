@@ -1,29 +1,30 @@
 <script setup lang="ts">
-import { onMounted,computed } from 'vue'
-import { ElButton,ElTimeline,ElTimelineItem,ElCol,ElRow , ElForm,ElFormItem,ElInput,ElUpload,ElMessage,
-  ElCard,ElTabs,ElTabPane,ElTable,ElTableColumn,ElTooltip,ElDialog,ElSelect,ElOption, ElIcon,ElCollapse,ElCollapseItem,ElSwitch,ElDatePicker,
+import { onMounted, computed } from 'vue'
+import {
+  ElButton, ElTimeline, ElTimelineItem, ElCol, ElRow, ElForm, ElFormItem, ElInput, ElUpload, ElMessage,
+  ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElIcon, ElCollapse, ElCollapseItem, ElSwitch, ElDatePicker,
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
-import { uploadGrievanceDocuments,logGrievanceAction,getActionFile ,updateGrievanceStatus,sendAcknowledgement} from '@/api/grievance'
+import { uploadGrievanceDocuments, logGrievanceAction, getActionFile, updateGrievanceStatus, sendAcknowledgement } from '@/api/grievance'
 import { uuid } from 'vue-uuid'
 
 
 import { Icon } from '@iconify/vue';
 import {
-  Download,CaretRight,Check,Close,Lock,Notification,Microphone
+  Download, CaretRight, Check, Close, Lock, Notification, Microphone
 } from '@element-plus/icons-vue'
 
- 
- 
 
 
-import {   ref } from 'vue'
+
+
+import { ref } from 'vue'
 
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
 import { useRoute } from 'vue-router'
-import { Back} from '@element-plus/icons-vue'
- 
+import { Back } from '@element-plus/icons-vue'
+
 import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -48,44 +49,44 @@ function getLocationLevels(user) {
 
 const current_user_roles = getLocationLevels(userInfo)
 
-console.log('current_user_roles',current_user_roles)
+console.log('current_user_roles', current_user_roles)
 
 const activeName = ref('details')
 // Resolve, Escalate, Documentation 
- 
+
 const route = useRoute()
 
-const Grievance =ref(
-{
-  'code' :null,
-  'complainant' :null,
-  'telephone' :null,
-  'county' :null,
-  'settlement' :null,
-  'nature' :null,
-  'is_GBV' :null,
-  'description' :null,
-  'status' :null,
-  'plea' :null,
-  'date_reported' :null
-}
+const Grievance = ref(
+  {
+    'code': null,
+    'complainant': null,
+    'telephone': null,
+    'county': null,
+    'settlement': null,
+    'nature': null,
+    'is_GBV': null,
+    'description': null,
+    'status': null,
+    'plea': null,
+    'date_reported': null
+  }
 )
 
 
 
-const GrievanceDocuments =ref( [])
- 
-const GrievanceLogs =ref( [])
-const GrievanceNotifications =ref( [])
- 
+const GrievanceDocuments = ref([])
+
+const GrievanceLogs = ref([])
+const GrievanceNotifications = ref([])
+
 //// ------------------parameters -----------------------////
- 
+
 //const associated_Model = ''
-const associated_multiple_models = [ 'county', 'settlement', 'grievance_resolution_level', 'grievance_document', 'grievance_notification',  {
-      "name": "grievance_log",
-      "nestedAssociations": ["users","grievance_document"]
-    }]
- 
+const associated_multiple_models = ['county', 'settlement', 'grievance_document', 'grievance_notification', {
+  "name": "grievance_log",
+  "nestedAssociations": ["users", "grievance_document"]
+}]
+
 const formattedLabels = {}
 const formatLabel = async (key) => {
   // Convert key to string and replace underscores with spaces
@@ -94,13 +95,13 @@ const formatLabel = async (key) => {
   // Convert formattedKey to proper case
   formattedKey = formattedKey.replace(/\b\w/g, char => char.toUpperCase());
 
-  console.log('formattedKey',formattedKey)
+  console.log('formattedKey', formattedKey)
   return formattedKey;
 };
 
 
 function formatSentence(text) {
-  
+
 
   // Replace underscores with spaces
   let formattedText = String(text).replace(/_/g, ' ');
@@ -116,11 +117,12 @@ function formatSentence(text) {
 }
 
 
-const button_label=ref()
-const button_color=ref()
-const button_icon=ref()
+const button_label = ref()
+const button_color = ref()
+const button_icon = ref()
+const button_disabled = ref(true)
 
-const StatusOptions =ref([
+const StatusOptions = ref([
   {
     value: 'Sorting',
     label: 'Sorting',
@@ -154,205 +156,222 @@ const StatusOptions =ref([
 
 
 
- 
-onMounted( async () => {
-  const id = route.params.id 
-  const formData = {} 
+
+onMounted(async () => {
+  const id = route.params.id
+  const formData = {}
   formData.associated_multiple_models = associated_multiple_models
   formData.id = id
 
-const res  =await getOneGrievance(formData) 
-console.log(res.data)
- // Get the Details of the Grievance
- Grievance.value.id = id 
- Grievance.value.code = res.data.code
- Grievance.value.complainant = res.data.name
- Grievance.value.telephone = res.data.phone
- Grievance.value.county = res.data.county.name
- Grievance.value.settlement = res.data.settlement.name
- Grievance.value.nature = res.data.nature
- Grievance.value.is_GBV = res.data.isgbv
- Grievance.value.description = res.data.description
- Grievance.value.status = res.data.status
- Grievance.value.date_reported = res.data.date_reported
- Grievance.value.plea = res.data.plea
+  const res = await getOneGrievance(formData)
+  console.log(res.data)
+  // Get the Details of the Grievance
+  Grievance.value.id = id
+  Grievance.value.code = res.data.code
+  Grievance.value.complainant = res.data.name
+  Grievance.value.telephone = res.data.phone
+  Grievance.value.county = res.data.county.name
+  Grievance.value.settlement = res.data.settlement.name
+  Grievance.value.nature = res.data.nature
+  Grievance.value.is_GBV = res.data.isgbv
+  Grievance.value.description = res.data.description
+  Grievance.value.status = res.data.status
+  Grievance.value.date_reported = res.data.date_reported
+  Grievance.value.plea = res.data.plea
 
-//'Sorting', 'Investigation', 'Rejected', 'Resolved', 'Escalated','Referred', 'Closed'
- 
-if (Grievance.value.status == 'Sorting') {
-  button_label.value = 'Review and Sort';
-  button_color.value = 'primary';
-  button_icon.value = 'icon-park-solid:sort';
+  console.log('res.data.current_level', res.data.current_level)
+  console.log('current_user_roles', current_user_roles[0])
 
-  StatusOptions.value=[
-  {
-    value: 'Rejected',
-    label: 'Reject Grievance',
-  },
-  {
-    value: 'Escalated',
-    label: 'Escalate Grievance',
-  },
-  {
-      value: 'Resolved',
-      label: 'Resolve Grievance',
-    },
+  if (current_user_roles[0] == res.data.current_level) {
+    console.log('user roles matches grievances')
+    button_disabled.value = false
 
-  {
-    value: 'Referred',
-    label: 'Refer to Court',
-  },
-  
-]
+  } else {
 
 
-} 
-else if (Grievance.value.status == 'Investigation') {
-  button_label.value = 'Review Status';
-  button_color.value = 'warning';
-  button_icon.value = 'icon-park-solid:preview-open';
-  
-  StatusOptions.value=[
-  {
-    value: 'Resolved',
-    label: 'Resolve Grievance',
-  },
-  {
-    value: 'Escalated',
-    label: 'Escalate Grievance',
-  },
-
-  {
-    value: 'Referred',
-    label: 'Refer to Court',
-  },
-  {
-    value: 'Rejected',
-    label: 'Reject Grievance',
-  },
-]
+    button_disabled.value = true
+  }
 
 
-} 
-
-else if (Grievance.value.status == 'Escalated') {
-  button_label.value = 'Review Status';
-  button_color.value = 'warning';
-  button_icon.value = 'icon-park-solid:preview-open';
-
-  StatusOptions.value=[
-    {
-      value: 'Resolved',
-      label: 'Resolve Grievance',
-    },
-    {
-      value: 'Escalated',
-      label: 'Escalate Grievance',
-    },
-
-    {
-      value: 'Referred',
-      label: 'Refer to Court',
-    },
-    {
-      value: 'Rejected',
-      label: 'Reject Grievance',
-    },
-  ]
 
 
-} 
 
+  //'Sorting', 'Investigation', 'Rejected', 'Resolved', 'Escalated','Referred', 'Closed'
 
-else if (Grievance.value.status == 'Referred') {
-  button_label.value = 'Review Status';
-  button_color.value = 'warning';
-  button_icon.value = 'icon-park-solid:preview-open';
+  if (Grievance.value.status == 'Sorting') {
+    button_label.value = 'Review and Sort';
+    button_color.value = 'primary';
+    button_icon.value = 'icon-park-solid:sort';
 
-
-  StatusOptions.value=[
+    StatusOptions.value = [
       {
-      value: 'Closed',
-      label: 'Close Grievance',
-    }
-  ]
+        value: 'Rejected',
+        label: 'Reject Grievance',
+      },
+      {
+        value: 'Escalated',
+        label: 'Escalate Grievance',
+      },
+      {
+        value: 'Resolved',
+        label: 'Resolve Grievance',
+      },
+
+      {
+        value: 'Referred',
+        label: 'Refer to Court',
+      },
+
+    ]
+
+
+  }
+  else if (Grievance.value.status == 'Investigation') {
+    button_label.value = 'Review Status';
+    button_color.value = 'warning';
+    button_icon.value = 'icon-park-solid:preview-open';
+
+    StatusOptions.value = [
+      {
+        value: 'Resolved',
+        label: 'Resolve Grievance',
+      },
+      {
+        value: 'Escalated',
+        label: 'Escalate Grievance',
+      },
+
+      {
+        value: 'Referred',
+        label: 'Refer to Court',
+      },
+      {
+        value: 'Rejected',
+        label: 'Reject Grievance',
+      },
+    ]
+
+
+  }
+
+  else if (Grievance.value.status == 'Escalated') {
+    button_label.value = 'Review Status';
+    button_color.value = 'warning';
+    button_icon.value = 'icon-park-solid:preview-open';
+
+    StatusOptions.value = [
+      {
+        value: 'Resolved',
+        label: 'Resolve Grievance',
+      },
+      {
+        value: 'Escalated',
+        label: 'Escalate Grievance',
+      },
+
+      {
+        value: 'Referred',
+        label: 'Refer to Court',
+      },
+      {
+        value: 'Rejected',
+        label: 'Reject Grievance',
+      },
+    ]
+
+
+  }
+
+
+  else if (Grievance.value.status == 'Referred') {
+    button_label.value = 'Review Status';
+    button_color.value = 'warning';
+    button_icon.value = 'icon-park-solid:preview-open';
+
+
+    StatusOptions.value = [
+      {
+        value: 'Closed',
+        label: 'Close Grievance',
+      }
+    ]
 
 
 
-} 
+  }
 
-else if (Grievance.value.status == 'Closed') {
-  button_label.value = 'Review Status';
-  button_color.value = 'warning';
-  button_icon.value = 'icon-park-solid:preview-open';
-  
-  StatusOptions.value=[
-       {
-          value: 'Referred',
-          label: 'Refer to Court',
-        } 
-     
-  ]
+  else if (Grievance.value.status == 'Closed') {
+    button_label.value = 'Review Status';
+    button_color.value = 'warning';
+    button_icon.value = 'icon-park-solid:preview-open';
+
+    StatusOptions.value = [
+      {
+        value: 'Referred',
+        label: 'Refer to Court',
+      }
+
+    ]
 
 
 
-} 
- 
-else if (Grievance.value.status == 'Resolved' ) {
-  button_label.value = 'Review/Close grievance';
-  button_color.value = 'success';
-  button_icon.value = 'typcn:tick';
+  }
 
-  StatusOptions.value=[
+  else if (Grievance.value.status == 'Resolved') {
+    button_label.value = 'Review/Close grievance';
+    button_color.value = 'success';
+    button_icon.value = 'typcn:tick';
+
+    StatusOptions.value = [
       {
         value: 'Closed',
         label: 'Close Grievance',
       },
       {
-          value: 'Referred',
-          label: 'Refer to Court',
-        } 
-       
+        value: 'Referred',
+        label: 'Refer to Court',
+      }
+
     ]
 
 
-} 
+  }
 
- // current status = rejected
-else {
-  button_label.value = 'Review Status';
-  button_color.value = 'warning';
-  button_icon.value = 'icon-park-solid:preview-open';
+  // current status = rejected
+  else {
+    button_label.value = 'Review Status';
+    button_color.value = 'warning';
+    button_icon.value = 'icon-park-solid:preview-open';
 
-  StatusOptions.value=[
-  {
-    value: 'Sorting',
-    label: 'Sorting',
-  },
-  {
-    value: 'Investigation',
-    label: 'Investigation',
-  },
+    StatusOptions.value = [
+      {
+        value: 'Sorting',
+        label: 'Sorting',
+      },
+      {
+        value: 'Investigation',
+        label: 'Investigation',
+      },
 
-  {
-    value: 'Escalated',
-    label: 'Escalated',
-  },
-  {
-    value: 'Resolved',
-    label: 'Resolved',
-  },
-  
-  {
-    value: 'Referred',
-    label: 'Refer to Court',
-  },
-  {
-    value: 'Closed',
-    label: 'Closed',
-  },
-] 
-}
+      {
+        value: 'Escalated',
+        label: 'Escalated',
+      },
+      {
+        value: 'Resolved',
+        label: 'Resolved',
+      },
+
+      {
+        value: 'Referred',
+        label: 'Refer to Court',
+      },
+      {
+        value: 'Closed',
+        label: 'Closed',
+      },
+    ]
+  }
 
 
 
@@ -368,23 +387,23 @@ else {
 
 
 
- for (const key in  Grievance.value) {
-      formattedLabels[key] = await formatLabel(key);
-    }
+  for (const key in Grievance.value) {
+    formattedLabels[key] = await formatLabel(key);
+  }
 
-console.log('formattedLabels.value',formattedLabels)
- // Get the Greivance Documents 
+  console.log('formattedLabels.value', formattedLabels)
+  // Get the Greivance Documents 
 
- GrievanceDocuments.value=res.data.grievance_documents
- GrievanceLogs.value=res.data.grievance_logs
- GrievanceNotifications.value=res.data.grievance_notifications
+  GrievanceDocuments.value = res.data.grievance_documents
+  GrievanceLogs.value = res.data.grievance_logs
+  GrievanceNotifications.value = res.data.grievance_notifications
 
- console.log( 'Grievance.value', Grievance.value)
- console.log( 'GrievanceDocuments.value', GrievanceDocuments.value)
- console.log( 'GrievanceLogs.value', GrievanceLogs.value)
- console.log( 'GrievanceNotifications.value', GrievanceNotifications.value)
+  console.log('Grievance.value', Grievance.value)
+  console.log('GrievanceDocuments.value', GrievanceDocuments.value)
+  console.log('GrievanceLogs.value', GrievanceLogs.value)
+  console.log('GrievanceNotifications.value', GrievanceNotifications.value)
 
- 
+
 })
 
 
@@ -398,13 +417,13 @@ const grievanceData = computed(() => {
 
 
 const sortedGrievanceLogs = computed(() => {
-      return GrievanceLogs.value.slice().sort((a, b) => new Date(b.date_actioned) - new Date(a.date_actioned));
-    });
+  return GrievanceLogs.value.slice().sort((a, b) => new Date(b.date_actioned) - new Date(a.date_actioned));
+});
 
 
-    const sortedGrievanceNotifications= computed(() => {
-      return GrievanceNotifications.value.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    });
+const sortedGrievanceNotifications = computed(() => {
+  return GrievanceNotifications.value.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+});
 
 const router = useRouter()
 
@@ -421,32 +440,32 @@ const goBack = () => {
 
 
 }
- 
+
 
 const form = ref({
-  grievance_id:  null,
-  action_type:  null,
-  action_by:  null,
-  action:null,
-  date_actioned:  null,
-  prev_status:  null,
-  new_status:  null,
-  fileList:  [],
+  grievance_id: null,
+  action_type: null,
+  action_by: null,
+  action: null,
+  date_actioned: null,
+  prev_status: null,
+  new_status: null,
+  fileList: [],
   // resolution additional apramerts 
-  resolution_date:null,
-  filer_present : true ,
-  field_verification_conducted:false,
-  field_investigations:null,
-  agreement_reached:false, 
-  agreement:null,
-  point_disagreement:null,
-  issues:null,
+  resolution_date: null,
+  filer_present: true,
+  field_verification_conducted: false,
+  field_investigations: null,
+  agreement_reached: false,
+  agreement: null,
+  point_disagreement: null,
+  issues: null,
 });
 
- 
 
 
-const dialogFormVisible =ref(false)
+
+const dialogFormVisible = ref(false)
 const handlePreview = (file) => {
   console.log('Preview:', file);
 };
@@ -465,12 +484,12 @@ const handleExceed = () => {
 
 
 
-const validateFileUploads= (rule: any, value: any, callback: any) => {
+const validateFileUploads = (rule: any, value: any, callback: any) => {
   if (value === '') {
     callback(new Error('Please input the password'))
   } else {
-    if (form.value.fileList.length ==0) {
-      console.log("Error,",form.value)
+    if (form.value.fileList.length == 0) {
+      console.log("Error,", form.value)
       callback(new Error('Please upload at least one document'));
     }
     callback()
@@ -485,43 +504,43 @@ const rules = ({
   field_verification_conducted: [{ required: true, message: 'Status is required', trigger: 'blur' }],
   filer_present: [{ required: true, message: 'This is required', trigger: 'blur' }],
   resolution_date: [{ required: true, message: 'Resolution date is required', trigger: 'blur' }],
- // fileList: [{required: true,  validator: validateFileUploads, trigger: 'change' }],
+  // fileList: [{required: true,  validator: validateFileUploads, trigger: 'change' }],
 
- 
+
 });
 
 
 
- 
-
-const generatePDFform = async (grievance,action) => { 
- const formData = {};
- 
- console.log('grievance',grievance)
 
 
-// Additional properties based on the provided JSON object
-formData.type = "resolution" 
-formData.grievance_id = grievance.id 
-formData.project_phone = grievance.project_phone || 'Not Available';
-formData.settlement = grievance.settlement || null;
-formData.resolution_date =formatDate (action.resolution_date)  || null;
-formData.filer_present = action.filer_present || null;
-formData.field_verification_conducted = action.field_verification_conducted || null;
-formData.agreement_reached = action.agreement_reached || null;
-formData.grc_chairman = action.grc_chairman || 'Not Available';
-formData.complainant = grievance.complainant || null;
-formData.agreement = action.agreement || null;
-formData.issues = action.issues || null;
-formData.field_investigations = action.field_investigations || null;
-formData.point_disagreement = action.point_disagreement || null;
-formData.date = formatDate ( Date.now()) 
- 
-console.log(formData);
+const generatePDFform = async (grievance, action) => {
+  const formData = {};
 
-  const res =  await sendAcknowledgement(formData)
+  console.log('grievance', grievance)
 
- console.log(res)
+
+  // Additional properties based on the provided JSON object
+  formData.type = "resolution"
+  formData.grievance_id = grievance.id
+  formData.project_phone = grievance.project_phone || 'Not Available';
+  formData.settlement = grievance.settlement || null;
+  formData.resolution_date = formatDate(action.resolution_date) || null;
+  formData.filer_present = action.filer_present || null;
+  formData.field_verification_conducted = action.field_verification_conducted || null;
+  formData.agreement_reached = action.agreement_reached || null;
+  formData.grc_chairman = action.grc_chairman || 'Not Available';
+  formData.complainant = grievance.complainant || null;
+  formData.agreement = action.agreement || null;
+  formData.issues = action.issues || null;
+  formData.field_investigations = action.field_investigations || null;
+  formData.point_disagreement = action.point_disagreement || null;
+  formData.date = formatDate(Date.now())
+
+  console.log(formData);
+
+  const res = await sendAcknowledgement(formData)
+
+  console.log(res)
 
 }
 
@@ -529,111 +548,129 @@ console.log(formData);
 
 const dynamicFormRef = ref<FormInstance>()
 
-const submitResolutionForm = async () => { 
- const formInstance = dynamicFormRef
+const submitResolutionForm = async () => {
+  const formInstance = dynamicFormRef
 
- formInstance.value.validate( async (valid: boolean) => {
-   if (valid) {  
-     form.value.grievance_id=Grievance.value.id
-     form.value.action_type=form.value.new_status
-     form.value.action_by=userInfo.id  // remember t change 
-     form.value.date_actioned=new Date();
-     form.value.prev_status=Grievance.value.status
-     form.value.action_level=current_user_roles[0]?current_user_roles[0]:'settlement'
-  
-     // Log the action 
-   
-    const res =  await logGrievanceAction(form.value)
+  formInstance.value.validate(async (valid: boolean) => {
+    if (valid) {
+      form.value.grievance_id = Grievance.value.id
+      form.value.action_type = form.value.new_status
+      form.value.action_by = userInfo.id  // remember t change 
+      form.value.date_actioned = new Date();
+      form.value.prev_status = Grievance.value.status
+      form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
 
-      
-    /// Upload fies
-    await uploadFiles(res.data.id,Grievance.value.id)
+      if (form.value.new_status == 'Escalated') {
+        if (current_user_roles[0] == 'settlement') {
+          form.value.current_level = 'county'
 
+        } else {
+          form.value.current_level = 'national'
+        }
 
-    const formData = {
-      code: Grievance.value.code,
-      new_status: form.value.new_status,
-      recipient: Grievance.value.phone,
-      grievance_id: Grievance.value.id,
-      action: form.value.action,
-      action_by: userInfo.id,
-      action_level:current_user_roles[0]?current_user_roles[0]:'settlement',
+      }
+      else {
+        form.value.current_level = Grievance.value.current_level
+      }
 
-    };
+      console.log("checking issue.............")
+      console.log(form.value.new_status)
+      console.log(form.value.current_level)
+      console.log(Grievance.value.current_level)
+      // Log the action 
 
-   
-  /// udpate the status
-  await updateGrievanceStatus(formData)
-
-  console.log('Grievance.value',Grievance.value)
-  console.log('res.data',res.data)
-
- await generatePDFform(Grievance.value, res.data)
+      const res = await logGrievanceAction(form.value)
 
 
-     ElMessage({
-       message: res.message,
-       type: 'success'
-     })    
+      /// Upload fies
+      await uploadFiles(res.data.id, Grievance.value.id)
 
-     dialogFormVisible.value=false
-   } else {
-     console.log('is Not Valid')
-     ElMessage({
-       message: 'Please provide all required details',
-       type: 'error'
-     })    // felix - show message on success request 
 
-   }
- });
+      const formData = {
+        code: Grievance.value.code,
+        new_status: form.value.new_status,
+        recipient: Grievance.value.phone,
+        grievance_id: Grievance.value.id,
+        action: form.value.action,
+        current_level: form.value.current_level,
+        action_by: userInfo.id,
+        action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
+
+      };
+
+
+      /// udpate the status
+      await updateGrievanceStatus(formData)
+
+      console.log('Grievance.value', Grievance.value)
+      console.log('res.data', res.data)
+
+      await generatePDFform(Grievance.value, res.data)
+
+
+      ElMessage({
+        message: res.message,
+        type: 'success'
+      })
+
+      dialogFormVisible.value = false
+    } else {
+      console.log('is Not Valid')
+      ElMessage({
+        message: 'Please provide all required details',
+        type: 'error'
+      })    // felix - show message on success request 
+
+    }
+  });
 
 
 };
 
 
-const uploadFiles = async (action_id, grievance_id) => { 
+const uploadFiles = async (action_id, grievance_id) => {
   const formData = new FormData();
 
-// Assuming `fileList` is an array of file objects and `grievance_id` is defined
-for (var i = 0; i < form.value.fileList.length; i++) {
-  console.log('------>file', form.value.fileList[i]); 
-  formData.append('files', form.value.fileList[i].raw);
-  formData.append('format', form.value.fileList[i].name.split('.').pop());
-  formData.append('grievance_id', grievance_id);
-  formData.append('action_id', action_id);
-  formData.append('protected_file', true);
-  formData.append('size', (form.value.fileList[i].raw.size / 1024 / 1024).toFixed(2));
-  formData.append('code', uuid.v4());
-}
-
-// Printing out the contents of formData
-for (let [key, value] of formData.entries()) {
-  console.log(`${key}: ${value}`);
-}
-
-const res =  await uploadGrievanceDocuments(formData)
-
-console.log("Docuemnts Uploaded", res)
- 
-
-
-
-}
-const formatDate =   (dateString) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }).format(date);
+  // Assuming `fileList` is an array of file objects and `grievance_id` is defined
+  for (var i = 0; i < form.value.fileList.length; i++) {
+    console.log('------>file', form.value.fileList[i]);
+    formData.append('files', form.value.fileList[i].raw);
+    formData.append('format', form.value.fileList[i].name.split('.').pop());
+    formData.append('grievance_id', grievance_id);
+    formData.append('action_id', action_id);
+    formData.append('protected_file', true);
+    formData.append('size', (form.value.fileList[i].raw.size / 1024 / 1024).toFixed(2));
+    formData.append('code', uuid.v4());
   }
 
+  // Printing out the contents of formData
+  for (let [key, value] of formData.entries()) {
+    console.log(`${key}: ${value}`);
+  }
+
+  const res = await uploadGrievanceDocuments(formData)
+
+  console.log("Docuemnts Uploaded", res)
 
 
-const viewLoading =ref(false)
+
+
+}
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+}
+
+
+
+const viewLoading = ref(false)
 
 const downloadFile = async (data) => {
   console.log(data);
@@ -684,110 +721,91 @@ const downloadFile = async (data) => {
           Back
         </el-button>
 
-        {{Grievance.code}} : {{Grievance.complainant}}
+        {{ Grievance.code }} : {{ Grievance.complainant }}
       </div>
     </template>
 
-    <el-tabs
-    v-model="activeName"
-    type="border-card"
-    class="demo-tabs"
-    
-  >
-    <el-tab-pane label="Grievance Details" name="details">
-      
-      <el-card> 
+    <el-tabs v-model="activeName" type="border-card" class="demo-tabs">
+      <el-tab-pane label="Grievance Details" name="details">
+
+        <el-card>
           <el-table :data="grievanceData" style="width: 100%" size="small">
-            <el-table-column
-              prop="label"
-              label=""
-              width="150"
-            >
+            <el-table-column prop="label" label="" width="150">
               <template #default="{ row }">
                 <span style="font-weight: bold">{{ row.label }}</span>
               </template>
             </el-table-column>
-            <el-table-column
-              prop="value"
-              label=""
-            />
+            <el-table-column prop="value" label="" />
           </el-table>
 
           <template #header>
             <div class="dialog-footer">
-              <el-tooltip content="Close the grievance if all issues have been resolved and complainant satisfied" placement="top">
-                <el-button :type="button_color"  @click="dialogFormVisible = true">  <Icon :icon="button_icon" /> {{ button_label }}</el-button>
+              <el-tooltip content="Close the grievance if all issues have been resolved and complainant satisfied"
+                placement="top">
+                <el-button :disabled="button_disabled" :type="button_color" @click="dialogFormVisible = true">
+                  <Icon :icon="button_icon" /> {{ button_label }}
+                </el-button>
               </el-tooltip>
 
-           
-             
+
+
             </div>
           </template>
         </el-card>
 
 
-    </el-tab-pane>
-    <el-tab-pane label="Supporting Documentation" name="documents">
+      </el-tab-pane>
+      <el-tab-pane label="Supporting Documentation" name="documents">
         <el-card>
-          
 
-            <el-table :data="GrievanceDocuments" style="width: 100%">
 
-              <el-table-column type="index" width="50" />
-               <el-table-column prop="name" label="Name"  />
-              <el-table-column prop="createdAt" label="Uploaded"   />
-         
-              <el-table-column fixed="right" label="" >
-                <template  #default="scope">
-                  <el-button 
-                        type="primary" 
-                        @click="downloadFile(scope.row)" 
-                      >
-                        <Icon icon="fa-solid:download" style="  margin-right: 5px;" />
-                        Download
-                      </el-button>
+          <el-table :data="GrievanceDocuments" style="width: 100%">
 
- 
-                 </template>
-              </el-table-column>
-            </el-table>
+            <el-table-column type="index" width="50" />
+            <el-table-column prop="name" label="Name" />
+            <el-table-column prop="createdAt" label="Uploaded" />
+
+            <el-table-column fixed="right" label="">
+              <template #default="scope">
+                <el-button type="primary" @click="downloadFile(scope.row)">
+                  <Icon icon="fa-solid:download" style="  margin-right: 5px;" />
+                  Download
+                </el-button>
+
+
+              </template>
+            </el-table-column>
+          </el-table>
 
 
 
-          </el-card>
+        </el-card>
 
-    </el-tab-pane>
-    <el-tab-pane label="Action Logs" name="timeline">
-      
-     <el-timeline style="max-width: 100%;">
-      <el-timeline-item 
-        v-for="(log, index) in sortedGrievanceLogs" 
-        :key="index" 
-        placement="top"
-        color="green"
-        :timestamp="formatDate(log.date_actioned)" 
+      </el-tab-pane>
+      <el-tab-pane label="Action Logs" name="timeline">
 
-        timestamp-class="timestamp-class" 
-      >
-    
-        <el-collapse accordion>
-             <el-collapse-item  :title="log.action_type" :name="log.action_type"  :icon="CaretRight">
-              <!-- Scoped slot for custom title -->
-              <template #title>
-                <span  :class="{
-                              'resolved-title': log.action_type === 'Resolved',
-                              'escalated-title': log.action_type === 'Escalated',
-                              'reported-title': log.action_type === 'Reported',
-                              'referred-title': log.action_type === 'Referred',
-                              'closed-title': log.action_type === 'Closed'
-                            } " > 
-                                     
-                                
-                       <el-icon  >
-                        <CaretRight />
-                      </el-icon>
+        <el-timeline style="max-width: 100%;">
+          <el-timeline-item v-for="(log, index) in sortedGrievanceLogs" :key="index" placement="top" color="green"
+            :timestamp="formatDate(log.date_actioned)" timestamp-class="timestamp-class">
 
-                      <!-- <el-icon v-if="log.action_type === 'Resolved'">
+            <el-collapse accordion>
+              <el-collapse-item :title="log.action_type" :name="log.action_type" :icon="CaretRight">
+                <!-- Scoped slot for custom title -->
+                <template #title>
+                  <span :class="{
+          'resolved-title': log.action_type === 'Resolved',
+          'escalated-title': log.action_type === 'Escalated',
+          'reported-title': log.action_type === 'Reported',
+          'referred-title': log.action_type === 'Referred',
+          'closed-title': log.action_type === 'Closed'
+        }">
+
+
+                    <el-icon>
+                      <CaretRight />
+                    </el-icon>
+
+                    <!-- <el-icon v-if="log.action_type === 'Resolved'">
                         <Check />
                       </el-icon>
                       <el-icon v-else-if="log.action_type === 'Escalated'">
@@ -802,251 +820,219 @@ const downloadFile = async (data) => {
                       <el-icon v-else-if="log.action_type === 'Closed'">
                         <Lock />
                       </el-icon>  -->
-            
-                         {{ log.action_type }}
-                </span>
-              </template>
 
-              <el-card
-                class="notification-custom-card"
-                shadow="hover"
-                :class="
-                  log.action_type === 'Resolved' ? 'resolved-background' :
-                  log.action_type === 'Escalated' ? 'escalated-background' :
-                  log.action_type  === 'Reported' ? 'reported-background' :
-                  log.action_type === 'Referred' ? 'referred-background' :
-                  log.action_type === 'Closed' ? 'closed-background' :
-                  'info-background'                   "
+                    {{ log.action_type }}
+                  </span>
+                </template>
 
+                <el-card class="notification-custom-card" shadow="hover" :class="log.action_type === 'Resolved' ? 'resolved-background' :
+          log.action_type === 'Escalated' ? 'escalated-background' :
+            log.action_type === 'Reported' ? 'reported-background' :
+              log.action_type === 'Referred' ? 'referred-background' :
+                log.action_type === 'Closed' ? 'closed-background' :
+                  'info-background'">
+                  <div class="notification-container">
+                    <el-row align="middle" :gutter="20">
+                      <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14" :gutter="10">
+                        <!-- <p class="action-header">{{log.action_type}} </p> -->
+                        <p class="action-body"> Action: {{ log.action ? log.action : 'None' }}</p>
+                        <p class="action-footer">By: {{ log.user ? log.user.name : 'System' }}</p>
+                      </el-col>
 
-              >
-                <div class="notification-container">
-                  <el-row align="middle" :gutter="20">
-                  <el-col  :xs="24" :sm="24" :md="14" :lg="14" :xl="14" :gutter="10">
-                    <!-- <p class="action-header">{{log.action_type}} </p> -->
-                    <p class="action-body"> Action: {{ log.action ? log.action : 'None' }}</p>
-                    <p class="action-footer">By: {{ log.user ? log.user.name : 'System' }}</p>
-            </el-col>
+                      <el-col v-if="log.grievance_documents.length > 0" :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+                        <p class="documents-header">Documentation </p>
 
-            <el-col v-if=" log.grievance_documents.length>0"  :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
-              <p class="documents-header">Documentation </p>
+                        <p v-for="(doc, docIndex) in log.grievance_documents" :key="docIndex">
 
-              <p v-for="(doc, docIndex) in log.grievance_documents" :key="docIndex">
-               
-                <el-button  @click="downloadFile(doc)"   link type="primary" size="small" :icon="Download">{{ doc.name }}</el-button>
+                          <el-button @click="downloadFile(doc)" link type="primary" size="small" :icon="Download">{{
+          doc.name }}</el-button>
 
-            </p>
-          </el-col>
-        </el-row>
-                </div>
-              </el-card>
-            </el-collapse-item>
-          </el-collapse>
+                        </p>
+                      </el-col>
+                    </el-row>
+                  </div>
+                </el-card>
+              </el-collapse-item>
+            </el-collapse>
 
 
-        
-      </el-timeline-item>
 
-      
-  </el-timeline>
+          </el-timeline-item>
 
-    </el-tab-pane>
 
- 
-  <el-tab-pane label="Notifications" name="notifications">
-      
-     <el-timeline style="max-width: 100%;">
-      <el-timeline-item 
-        v-for="(notification, index) in sortedGrievanceNotifications" 
-        :key="index" 
-        placement="top"
-        :timestamp="formatDate(notification.createdAt)" 
-        timestamp-class="timestamp-class" 
-        :color=" notification.status == 'Success' ? 'green' : 'red' " 
-      >
-      <el-collapse>
-             <el-collapse-item :name="notification.id"  :icon="CaretRight" :title="notification.id" >
-              <!-- Scoped slot for custom title -->
-              <template #title>
-                <span
-                  :class="notification.status === 'Success' ? 'success-title' : 'fail-title'"
-                >
-                  <el-icon v-if="notification.status === 'Success'" class="success-icon" style="margin-right: 8px;">
-                    <!-- Use a checkmark icon for success (Element Plus provides many options) -->
-                    <Check />
-                  </el-icon>
+        </el-timeline>
 
-                  <el-icon v-if="notification.status != 'Success'" class="success-icon" style="margin-right: 8px;">
-                    <!-- Use a checkmark icon for success (Element Plus provides many options) -->
-                    <Close />
-                  </el-icon>
+      </el-tab-pane>
 
-                  
-                  {{ notification.message }}
-                </span>
-              </template>
 
-              <el-card
-                class="notification-custom-card"
-                shadow="hover"
-                :class="notification.status === 'Success' ? 'success-background' : 'closed-background'"
-              >
-                <div class="notification-container">
-                  <!-- Message -->
-                  <p class="action-body">Message: {{ notification.message }}</p>
-                  <p class="action-footer">Date: {{ notification.createdAt }}</p>
-                  <p class="action-footer">Delivery Status: {{ notification.status }}</p>
-                  <p class="action-footer">Sent By: {{ notification.user ? notification.user.name : 'System' }}</p>
-                </div>
-              </el-card>
-            </el-collapse-item>
-          </el-collapse>
-    </el-timeline-item>
+      <el-tab-pane label="Notifications" name="notifications">
 
-      
-  </el-timeline>
+        <el-timeline style="max-width: 100%;">
+          <el-timeline-item v-for="(notification, index) in sortedGrievanceNotifications" :key="index" placement="top"
+            :timestamp="formatDate(notification.createdAt)" timestamp-class="timestamp-class"
+            :color="notification.status == 'Success' ? 'green' : 'red'">
+            <el-collapse>
+              <el-collapse-item :name="notification.id" :icon="CaretRight" :title="notification.id">
+                <!-- Scoped slot for custom title -->
+                <template #title>
+                  <span :class="notification.status === 'Success' ? 'success-title' : 'fail-title'">
+                    <el-icon v-if="notification.status === 'Success'" class="success-icon" style="margin-right: 8px;">
+                      <!-- Use a checkmark icon for success (Element Plus provides many options) -->
+                      <Check />
+                    </el-icon>
 
-    </el-tab-pane>
+                    <el-icon v-if="notification.status != 'Success'" class="success-icon" style="margin-right: 8px;">
+                      <!-- Use a checkmark icon for success (Element Plus provides many options) -->
+                      <Close />
+                    </el-icon>
 
- 
-   </el-tabs>
+
+                    {{ notification.message }}
+                  </span>
+                </template>
+
+                <el-card class="notification-custom-card" shadow="hover"
+                  :class="notification.status === 'Success' ? 'success-background' : 'closed-background'">
+                  <div class="notification-container">
+                    <!-- Message -->
+                    <p class="action-body">Message: {{ notification.message }}</p>
+                    <p class="action-footer">Date: {{ notification.createdAt }}</p>
+                    <p class="action-footer">Delivery Status: {{ notification.status }}</p>
+                    <p class="action-footer">Sent By: {{ notification.user ? notification.user.name : 'System' }}</p>
+                  </div>
+                </el-card>
+              </el-collapse-item>
+            </el-collapse>
+          </el-timeline-item>
+
+
+        </el-timeline>
+
+      </el-tab-pane>
+
+
+    </el-tabs>
   </el-card>
 
- 
-  <el-dialog
-    title="Grievance Status Update"
-    v-model="dialogFormVisible"
-    width="60%" 
-    draggable
-  >
-  <el-form :model="form" label-width="auto"  ref="dynamicFormRef" :rules="rules">
 
-    <el-form-item label="Update Grievance Status" label-position="top" prop="new_status">
-      <el-select
-      v-model="form.new_status"
-      placeholder="Select"
-      style="width: 100%"
-    >
-      <el-option
-        v-for="item in StatusOptions"
-        :key="item.value"
-        :label="item.label"
-        :value="item.value"
-      />
-    </el-select>
-   </el-form-item>
+  <el-dialog title="Grievance Status Update" v-model="dialogFormVisible" width="60%" draggable>
+    <el-form :model="form" label-width="auto" ref="dynamicFormRef" :rules="rules">
 
-         
-   <el-row :gutter="2" v-if="form.new_status=='Resolved'">
-    <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
-      <el-form-item label="Was Filer Present? " label-position="top" prop="filer_present">
-       <el-switch v-model="form.filer_present" />
-      </el-form-item>
-    </el-col>
-
-    <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
-      <el-form-item label="Was field verification of complaint conducted?  " label-position="top" prop="field_verification_conducted">
-        <el-switch v-model="form.field_verification_conducted" />
-      </el-form-item>
-     </el-col> 
- 
-     <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
-      <el-form-item label="Date of Resolution" label-position="top" prop="resolution_date">
-       <el-date-picker
-        v-model="form.resolution_date"
-        type="date"
-        placeholder="Select"
-      />
-
-    </el-form-item>
-     </el-col> 
- 
-
-
-  </el-row>
- 
-  <el-form-item v-if="form.new_status=='Resolved'" label="Findings of field investigation" label-position="top" prop="field_investigations">
-      <el-input type="textarea"  :rows="2"  placeholder="Provide details of the resolution  here" v-model="form.field_investigations" />
-    </el-form-item>
-
-
-           
-  <el-row :gutter="2"  v-if="form.new_status=='Resolved'" >
-    <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
-      <el-form-item label="Was agreement reached on the issues?	" label-position="top" prop="agreement_reached">
-        <el-switch v-model="form.agreement_reached" />
-      </el-form-item>
-     </el-col>
-     <el-col :xs="16" :sm="16" :md="16" :lg="16" :xl="16">
-      <el-form-item  v-if="form.agreement_reached"  label="If agreement was reached, detail the agreement below:" label-position="top" prop="agreement">
-        <el-input type="textarea"  :rows="2"  placeholder="Provide details of  here" v-model="form.agreement" />
-      </el-form-item>
-
-      <el-form-item v-if="!form.agreement_reached" label="If agreement was not reached, specify the points of disagreement below" label-position="top" prop="point_disagreement">
-        <el-input type="textarea"  :rows="2"  placeholder="Provide details of  here" v-model="form.point_disagreement" />
+      <el-form-item label="Update Grievance Status" label-position="top" prop="new_status">
+        <el-select v-model="form.new_status" placeholder="Select" style="width: 100%">
+          <el-option v-for="item in StatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
       </el-form-item>
 
 
-     </el-col>
+      <el-row :gutter="2" v-if="form.new_status == 'Resolved'">
+        <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+          <el-form-item label="Was Filer Present? " label-position="top" prop="filer_present">
+            <el-switch v-model="form.filer_present" />
+          </el-form-item>
+        </el-col>
 
-  </el-row>
+        <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+          <el-form-item label="Was field verification of complaint conducted?  " label-position="top"
+            prop="field_verification_conducted">
+            <el-switch v-model="form.field_verification_conducted" />
+          </el-form-item>
+        </el-col>
 
+        <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+          <el-form-item label="Date of Resolution" label-position="top" prop="resolution_date">
+            <el-date-picker v-model="form.resolution_date" type="date" placeholder="Select" />
 
-
-
-    <el-form-item v-if="form.new_status=='Resolved'"  label="Issues" label-position="top" prop="issues">
-      <el-input type="textarea"  :rows="2"  placeholder="Provide details of the resolution  here" v-model="form.issues" />
-    </el-form-item>
-
-
-      
-
-    
-
-
-    <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
-      <el-input type="textarea"  :rows="2"  placeholder="Provide details of the resolution  here" v-model="form.action" />
-    </el-form-item>
-
-
- 
+          </el-form-item>
+        </el-col>
 
 
 
-    <el-form-item label="Upload Documentation" label-position="top" prop="fileList">
-      <el-upload
-        class="upload-demo"
-        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-        multiple
-        :on-preview="handlePreview"
-        :on-remove="handleRemove"
-        :before-remove="beforeRemove"
-        :limit="3"
-        v-model:file-list="form.fileList"
-        :auto-upload="false"
-        :on-exceed="handleExceed"
-      >
- 
-        <el-button  type="primary"  plain>  <Icon icon="basil:file-upload-outline"  width="24"/> Upload Documentation</el-button>
-        <template #tip>
-        <p>E.g Minutes, forms, e.t.c. These should be pdf/jpg/png files with a size less than 10MB.</p>
-        </template>
-      </el-upload>
-    </el-form-item>
+      </el-row>
+
+      <el-form-item v-if="form.new_status == 'Resolved'" label="Findings of field investigation" label-position="top"
+        prop="field_investigations">
+        <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
+          v-model="form.field_investigations" />
+      </el-form-item>
+
+
+
+      <el-row :gutter="2" v-if="form.new_status == 'Resolved'">
+        <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
+          <el-form-item label="Was agreement reached on the issues?	" label-position="top" prop="agreement_reached">
+            <el-switch v-model="form.agreement_reached" />
+          </el-form-item>
+        </el-col>
+        <el-col :xs="16" :sm="16" :md="16" :lg="16" :xl="16">
+          <el-form-item v-if="form.agreement_reached" label="If agreement was reached, detail the agreement below:"
+            label-position="top" prop="agreement">
+            <el-input type="textarea" :rows="2" placeholder="Provide details of  here" v-model="form.agreement" />
+          </el-form-item>
+
+          <el-form-item v-if="!form.agreement_reached"
+            label="If agreement was not reached, specify the points of disagreement below" label-position="top"
+            prop="point_disagreement">
+            <el-input type="textarea" :rows="2" placeholder="Provide details of  here"
+              v-model="form.point_disagreement" />
+          </el-form-item>
+
+
+        </el-col>
+
+      </el-row>
+
+
+
+
+      <el-form-item v-if="form.new_status == 'Resolved'" label="Issues" label-position="top" prop="issues">
+        <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
+          v-model="form.issues" />
+      </el-form-item>
+
+
+
+
+
+
+
+      <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
+        <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
+          v-model="form.action" />
+      </el-form-item>
+
+
+
+
+
+
+      <el-form-item label="Upload Documentation" label-position="top" prop="fileList">
+        <el-upload class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+          :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
+          v-model:file-list="form.fileList" :auto-upload="false" :on-exceed="handleExceed">
+
+          <el-button type="primary" plain>
+            <Icon icon="basil:file-upload-outline" width="24" /> Upload Documentation
+          </el-button>
+          <template #tip>
+            <p>E.g Minutes, forms, e.t.c. These should be pdf/jpg/png files with a size less than 10MB.</p>
+          </template>
+        </el-upload>
+      </el-form-item>
 
     </el-form>
 
-   
-      <div  style="display: flex; justify-content: end; align-items: center; margin-top: 20px;"> 
-          <el-button @click="dialogFormVisible = false">Cancel</el-button>
-          <el-button type="primary" @click="submitResolutionForm"  >Submit</el-button>
-     </div>
+
+    <div style="display: flex; justify-content: end; align-items: center; margin-top: 20px;">
+      <el-button @click="dialogFormVisible = false">Cancel</el-button>
+      <el-button type="primary" @click="submitResolutionForm">Submit</el-button>
+    </div>
   </el-dialog>
 
 
 
 
-  
+
 
 </template>
 <style scoped>
@@ -1068,14 +1054,16 @@ const downloadFile = async (data) => {
 .label-text {
   font-weight: bold;
   color: #333;
-  
-  width: 10%; /* Adjust as needed */
+
+  width: 10%;
+  /* Adjust as needed */
 }
 
 /* Value styling */
 .value {
-  width: 90%; /* Adjust as needed */
- 
+  width: 90%;
+  /* Adjust as needed */
+
 }
 
 /* Ensure spacing between rows */
@@ -1085,8 +1073,8 @@ const downloadFile = async (data) => {
 
 .card-header {
   display: flex;
- 
- 
+
+
   font-weight: bold;
   font-size: 1.2rem;
   color: #333;
@@ -1133,144 +1121,185 @@ const downloadFile = async (data) => {
 
 .action-footer {
   font-size: 0.98rem;
-  margin-top:2px;
+  margin-top: 2px;
   font-weight: 300;
   color: #2e0dc2;
 }
 
 .success-background {
-  background-color: rgba(226, 248, 231, 0.4); /* Light green with 80% opacity */
-  color: #1bd847; /* Dark green text */
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #c3e6cb; /* Border color */
+  background-color: rgba(226, 248, 231, 0.4);
+  /* Light green with 80% opacity */
+  color: #1bd847;
+  /* Dark green text */
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #c3e6cb;
+  /* Border color */
 
 }
 
 .warning-background {
-  background-color: rgba(255, 243, 205, 0.4); /* Light yellow with 80% opacity */
-  color: #856404; /* Dark yellow text */
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #ffeeba; /* Border color */
+  background-color: rgba(255, 243, 205, 0.4);
+  /* Light yellow with 80% opacity */
+  color: #856404;
+  /* Dark yellow text */
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ffeeba;
+  /* Border color */
 }
 
 .closed-background {
-  background-color: rgba(255, 0, 0, 0.14); /* Red with 80% opacity */
-  color: #fa0707; /* Darker text for contrast */
+  background-color: rgba(255, 0, 0, 0.14);
+  /* Red with 80% opacity */
+  color: #fa0707;
+  /* Darker text for contrast */
   padding: 10px;
   border-radius: 5px;
-  border: 1px solid #fb050552; /* Lighter red border */
+  border: 1px solid #fb050552;
+  /* Lighter red border */
 }
 
 .referred-background {
-  background-color: rgba(247, 155, 7, 0.2); /* Pink with 20% opacity */
-  color: rgb(255, 192, 254); /* Same text color */
+  background-color: rgba(247, 155, 7, 0.2);
+  /* Pink with 20% opacity */
+  color: rgb(255, 192, 254);
+  /* Same text color */
   padding: 10px;
   border-radius: 5px;
-  border: 1px solid #d6d6d6; /* Lighter pink border */
+  border: 1px solid #d6d6d6;
+  /* Lighter pink border */
 }
 
-.success-title
-{
-   color: rgb(25, 184, 60)/* Same text color */
+.success-title {
+  color: rgb(25, 184, 60)
+    /* Same text color */
 }
 
-.fail-title
-{
-   color:#f21c26/* Same text color */
-    
+.fail-title {
+  color: #f21c26
+    /* Same text color */
+
 }
 
 .resolved-title {
-  color: #4CAF50; /* Green */
+  color: #4CAF50;
+  /* Green */
 }
 
 .escalated-title {
-  color: #FF9800; /* Orange */
+  color: #FF9800;
+  /* Orange */
 }
 
 .reported-title {
-  color: #e412be; /* Red */
+  color: #e412be;
+  /* Red */
 }
 
 .referred-title {
-  color: #2196F3; /* Blue */
+  color: #2196F3;
+  /* Blue */
 }
 
 .resolved-background {
-    background-color: rgba(220, 240, 220, 0.4); /* Light green with 80% opacity */
-    color: #155724; /* Dark green text */
-    padding: 5px;
-    border-radius: 5px;
-    border: 1px solid #c3e6cb; /* Border color */
+  background-color: rgba(220, 240, 220, 0.4);
+  /* Light green with 80% opacity */
+  color: #155724;
+  /* Dark green text */
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid #c3e6cb;
+  /* Border color */
 }
 
 .escalated-background {
-    background-color: rgba(255, 253, 206, 0.4); /* Light yellow with 80% opacity */
-    color: #856404; /* Dark yellow text */
-    padding: 5px;
-    border-radius: 5px;
-    border: 1px solid #ffeeba; /* Border color */
+  background-color: rgba(255, 253, 206, 0.4);
+  /* Light yellow with 80% opacity */
+  color: #856404;
+  /* Dark yellow text */
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid #ffeeba;
+  /* Border color */
 }
 
 .reported-background {
-    background-color: rgba(237, 209, 242, 0.4); /* Light orange with 80% opacity */
-    color: #7d3c98; /* Dark orange text */
-    padding: 5px;
-    border-radius: 5px;
-    border: 1px solid #e412be; /* Border color */
+  background-color: rgba(237, 209, 242, 0.4);
+  /* Light orange with 80% opacity */
+  color: #7d3c98;
+  /* Dark orange text */
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid #e412be;
+  /* Border color */
 }
 
 .referred-background {
-    background-color: rgba(224, 240, 255, 0.4); /* Light cyan with 80% opacity */
-    color: #0c5460; /* Dark cyan text */
-    padding: 5px;
-    border-radius: 5px;
-    border: 1px solid #bee5eb; /* Border color */
+  background-color: rgba(224, 240, 255, 0.4);
+  /* Light cyan with 80% opacity */
+  color: #0c5460;
+  /* Dark cyan text */
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid #bee5eb;
+  /* Border color */
 }
 
 .closed-background {
-  background-color: rgba(224, 240, 255, 0.4); /* Light cyan with 80% opacity */
-  color: #333535; /* Dark cyan text */
-    padding: 5px;
-    border-radius: 5px;
-    border: 1px dotted #333535; /* Border color */
+  background-color: rgba(224, 240, 255, 0.4);
+  /* Light cyan with 80% opacity */
+  color: #333535;
+  /* Dark cyan text */
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px dotted #333535;
+  /* Border color */
 }
 
 
 
 .info-background {
-  background-color: rgba(204, 229, 255, 0.4); /* Light blue with 80% opacity */
-  color: #004085; /* Dark blue text */
-    padding: 5px;
-    border-radius: 5px;
-    border: 1px solid #b8daff; /* Border color */
+  background-color: rgba(204, 229, 255, 0.4);
+  /* Light blue with 80% opacity */
+  color: #004085;
+  /* Dark blue text */
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid #b8daff;
+  /* Border color */
 }
 
 
 .custom-card {
-    padding: 5px;  /* Reduce padding */
-    margin: 5px 0; /* Adjust margin as needed */
-    min-height: 10px; /* Set a minimum height if needed */
+  padding: 5px;
+  /* Reduce padding */
+  margin: 5px 0;
+  /* Adjust margin as needed */
+  min-height: 10px;
+  /* Set a minimum height if needed */
 }
 
 
 .notification-custom-card {
-    padding: 5px;  /* Reduce padding */
-    margin: 2px 0; /* Adjust margin as needed */
-    min-height: 5px; /* Set a minimum height if needed */
+  padding: 5px;
+  /* Reduce padding */
+  margin: 2px 0;
+  /* Adjust margin as needed */
+  min-height: 5px;
+  /* Set a minimum height if needed */
 }
 
 
 .timestamp-class {
-    font-weight: bold; /* Example: Make it bold */
-    color: #6c757d; /* Example: Set color */
-    font-size: 14px; /* Example: Adjust font size */
-    /* Add any additional styles as needed */
+  font-weight: bold;
+  /* Example: Make it bold */
+  color: #6c757d;
+  /* Example: Set color */
+  font-size: 14px;
+  /* Example: Adjust font size */
+  /* Add any additional styles as needed */
 }
-
-
 </style>
 
 
@@ -1278,14 +1307,17 @@ const downloadFile = async (data) => {
 
 <style scoped>
 .notification-card {
-  border-radius: 12px; /* Rounded corners */
-  padding: 20px; /* Internal padding */
+  border-radius: 12px;
+  /* Rounded corners */
+  padding: 20px;
+  /* Internal padding */
 }
 
 .notification-container {
   display: flex;
   align-items: left;
-  flex-direction: column; /* Ensures each <p> is on its own line */
+  flex-direction: column;
+  /* Ensures each <p> is on its own line */
 
 }
 
@@ -1295,12 +1327,14 @@ const downloadFile = async (data) => {
 }
 
 .success-message {
-  color: #67C23A; /* Success color from Element Plus */
+  color: #67C23A;
+  /* Success color from Element Plus */
   font-weight: 500;
 }
 
 .fail-message {
-  color: #f21c26; /* Success color from Element Plus */
+  color: #f21c26;
+  /* Success color from Element Plus */
   font-weight: 500;
 }
 
@@ -1309,23 +1343,24 @@ const downloadFile = async (data) => {
   font-size: 24px;
   margin-right: 10px;
 }
-
 </style>
- 
+
 
 <style scoped>
 /* Apply styles to the internal collapse item header using ::v-deep */
 ::v-deep .el-collapse-item__header {
-  background-color: #f4f4f5; /* Custom background color */
-  border-radius: 5px; /* Round the corners */
+  background-color: #f4f4f5;
+  /* Custom background color */
+  border-radius: 5px;
+  /* Round the corners */
 
 }
 
 ::v-deep .el-collapse-item__header.is-active {
   border-bottom-color: transparent;
   background-color: #FFFFFF;
-  border-radius: 5px; /* Round the corners */
+  border-radius: 5px;
+  /* Round the corners */
 
 }
 </style>
-
