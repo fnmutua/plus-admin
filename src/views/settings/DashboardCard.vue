@@ -48,6 +48,12 @@ const ModelOptions = [
     value: 'settlement',
     label: 'Settlement'
   },
+
+  {
+    value: 'grievance',
+    label: 'Grievances'
+  },
+
   {
     value: 'households',
     label: 'Household'
@@ -1102,34 +1108,34 @@ const prevStep = () => {
   }
 }
 
-const showTourStep0 =ref(false)
-const showTourStep1 =ref(false)
-const showTourStep2 =ref(false)
-const showTourStep3 =ref(false)
+const showTourStep0 = ref(false)
+const showTourStep1 = ref(false)
+const showTourStep2 = ref(false)
+const showTourStep3 = ref(false)
 
 
 const showTour = () => {
-  if (activeStep.value  == 0) {
-    showTourStep0.value=true
-    } 
-  else if (activeStep.value  == 1) {
-    showTourStep1.value=true
+  if (activeStep.value == 0) {
+    showTourStep0.value = true
   }
-  else if (activeStep.value  == 2) {
-    showTourStep2.value=true
+  else if (activeStep.value == 1) {
+    showTourStep1.value = true
   }
-  else if (activeStep.value  == 3) {
-    showTourStep3.value=true
+  else if (activeStep.value == 2) {
+    showTourStep2.value = true
+  }
+  else if (activeStep.value == 3) {
+    showTourStep3.value = true
   }
 }
-const endTour = () => { 
-  showTourStep0.value=false
-  showTourStep1.value=false
-  showTourStep2.value=false
-  showTourStep3.value=false
+const endTour = () => {
+  showTourStep0.value = false
+  showTourStep1.value = false
+  showTourStep2.value = false
+  showTourStep3.value = false
 
 }
- 
+
 
 </script>
 
@@ -1144,8 +1150,7 @@ const endTour = () => {
       </div>
 
       <!-- Title Search -->
-      <el-select
-v-model="value3" :onChange="handleSelectDashboard" :onClear="handleClear" multiple clearable filterable
+      <el-select v-model="value3" :onChange="handleSelectDashboard" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by Dashboard" style="width: 45%; margin-right: 10px;">
         <el-option v-for="item in DashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -1185,18 +1190,15 @@ v-model="value3" :onChange="handleSelectDashboard" :onClear="handleClear" multip
         </template>
         <template #default="scope">
           <el-tooltip content="Edit" placement="top">
-            <el-button
-size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
+            <el-button size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
               plain />
           </el-tooltip>
           <el-tooltip content="Clone" placement="top">
-            <el-button
-size="small" type="warning" :icon="CopyDocument" @click="CloneCard(scope as TableSlotDefault)"
+            <el-button size="small" type="warning" :icon="CopyDocument" @click="CloneCard(scope as TableSlotDefault)"
               plain />
           </el-tooltip>
           <el-tooltip content="Delete" placement="top">
-            <el-popconfirm
-confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
+            <el-popconfirm confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
               icon-color="#626AEF" title="Are you sure to delete this card?"
               @confirm="DeleteIndicator(scope as TableSlotDefault)">
               <template #reference>
@@ -1209,8 +1211,7 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
     </el-table>
 
 
-    <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pSize"
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pSize"
       :page-sizes="[3, 5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </el-card>
@@ -1261,14 +1262,13 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-mod
       <el-row v-if="activeStep === 2" :gutter="20">
         <el-col :span="12">
 
-          <el-form-item  id="btn6"  label="Category" prop="category">
+          <el-form-item id="btn6" label="Category" prop="category">
             <el-select v-model="ruleForm.category" filterable placeholder="Select" :onChange="handleSelectType">
               <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
-           </el-form-item>
-          <el-form-item id="btn7"  label="Aggregation Field" prop="card_model_field">
-            <el-select
-v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
+          </el-form-item>
+          <el-form-item id="btn7" label="Aggregation Field" prop="card_model_field">
+            <el-select v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
               placeholder="Field to summarize">
               <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
@@ -1276,20 +1276,17 @@ v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable 
         </el-col>
 
         <el-col :span="12">
-          <el-form-item  id="btn8"  label="Entity" prop="card_model">
-            <el-select
-v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
+          <el-form-item id="btn8" label="Entity" prop="card_model">
+            <el-select v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
               :onChange="handleSelectModel" placeholder="Select Entity to summarize">
               <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
-          <el-form-item id="btn9"  label="Aggregation" prop="aggregation">
-            <el-select
-size="default" v-model="ruleForm.aggregation" :onClear="handleClear" style="width: 90%" clearable
+          <el-form-item id="btn9" label="Aggregation" prop="aggregation">
+            <el-select size="default" v-model="ruleForm.aggregation" :onClear="handleClear" style="width: 90%" clearable
               filterable collapse-tags placeholder="Select">
-              <el-option
-v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
+              <el-option v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>
@@ -1298,27 +1295,23 @@ v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
 
       <el-row v-if="activeStep === 3" :gutter="20">
         <el-col :span="24">
-          <el-form-item id="btn10"  label="Computation" prop="computation" class="mt-4">
-            <el-select
-size="default" v-model="ruleForm.computation" :onClear="handleClear" clearable filterable
+          <el-form-item id="btn10" label="Computation" prop="computation" class="mt-4">
+            <el-select size="default" v-model="ruleForm.computation" :onClear="handleClear" clearable filterable
               collapse-tags placeholder="Select">
               <el-option label="Proportion(%)" value="proportion" />
               <el-option label="Absolute" value="absolute" /> </el-select>
           </el-form-item>
           <el-form-item id="btn11" label="Filter" prop="filtered" v-if="ruleForm.card_model" class="mt-4">
-            <el-switch
-v-model="ruleForm.filtered" style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+            <el-switch v-model="ruleForm.filtered" style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
               active-text="Yes" inactive-text="No" />
           </el-form-item>
 
           <div>
-            <el-table
-v-if="ruleForm.filtered" :data="tableData" style="width: 90%; margin-left: 10px;" max-height="250"
+            <el-table v-if="ruleForm.filtered" :data="tableData" style="width: 90%; margin-left: 10px;" max-height="250"
               size="small">
               <el-table-column prop="field" label="Field">
                 <template #default="scope">
-                  <el-select
-size="small" v-model="scope.row.field" placeholder="Select Field"
+                  <el-select size="small" v-model="scope.row.field" placeholder="Select Field"
                     :onChange="handleChangeFilterField">
                     <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
@@ -1328,8 +1321,7 @@ size="small" v-model="scope.row.field" placeholder="Select Field"
               <el-table-column prop="operation" label="Operation">
                 <template #default="scope">
                   <el-select size="small" v-model="scope.row.operation" placeholder="Select Operation">
-                    <el-option
-v-for="item in functionOptions" :key="item.value" :label="item.label"
+                    <el-option v-for="item in functionOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </template>
@@ -1337,8 +1329,7 @@ v-for="item in functionOptions" :key="item.value" :label="item.label"
 
               <el-table-column prop="value" label="Value">
                 <template #default="scope">
-                  <el-select
-size="small" v-model="scope.row.value" placeholder="Select Value" multiple
+                  <el-select size="small" v-model="scope.row.value" placeholder="Select Value" multiple
                     collapse-tags-tooltip collapse-tags :onChange="onAddFilter">
                     <el-option v-for="item in fieldOptions" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
@@ -1374,18 +1365,16 @@ size="small" v-model="scope.row.value" placeholder="Select Value" multiple
       <span class="dialog-footer">
         <el-row :gutter="5">
           <el-col :span="24">
-               <el-tooltip content="Help" placement="top">
-                <el-button color="#626aef"   type="info" @click="showTour"  :icon="InfoFilled" plain />
-              </el-tooltip> 
+            <el-tooltip content="Help" placement="top">
+              <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
+            </el-tooltip>
             <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
 
             <el-button @click="nextStep" v-if="activeStep < 3">Next</el-button>
             <el-button @click="AddDialogVisible = false">Cancel</el-button>
-            <el-button
-v-if="showSubmitBtn && activeStep === 3" type="primary"
+            <el-button v-if="showSubmitBtn && activeStep === 3" type="primary"
               @click="submitForm(ruleFormRef)">Submit</el-button>
-            <el-button
-v-if="showEditSaveButton && activeStep === 3" type="primary"
+            <el-button v-if="showEditSaveButton && activeStep === 3" type="primary"
               @click="editForm(ruleFormRef)">Save</el-button>
           </el-col>
         </el-row>
@@ -1400,11 +1389,9 @@ v-if="showEditSaveButton && activeStep === 3" type="primary"
 
 
   <el-tour v-model="showTourStep0" z-index="100000" :onClose="endTour">
-    <el-tour-step
-target="#btn1" title="Title"
+    <el-tour-step target="#btn1" title="Title"
       description="This is the short name of the dashboards. This is what will appear under the navigation section for dashboards. Use a single short word." />
-    <el-tour-step
-target="#btn2" title="Type"
+    <el-tour-step target="#btn2" title="Type"
       description="The system supports two types of dashboards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Intervention' type draws data exclusively from the M&E indicators" />
     />
     <el-tour-step target="#btn3" title="Description" description="Provide a short description of this card" />
@@ -1412,28 +1399,29 @@ target="#btn2" title="Type"
   </el-tour>
 
   <el-tour v-model="showTourStep1" z-index="100000" :onClose="endTour">
-    <el-tour-step
-target="#btn4" title="Icon"
+    <el-tour-step target="#btn4" title="Icon"
       description="This is the icon to appear on the statistic card. The icons are available from https://icon-sets.iconify.design/?category=General. Copy the icon name and paste here." />
     <el-tour-step target="#btn5" title="Icon Color" description="The  color of the ICon on the statistic card" />
 
   </el-tour>
 
   <el-tour v-model="showTourStep2" z-index="100000" :onClose="endTour">
-    <el-tour-step
-target="#btn6" title="Category"
+    <el-tour-step target="#btn6" title="Category"
       description="The system supports two types of cards 'Status' : draws on the various entities within the system eg settlements, facilities, households e.t.c. The 'Intervention' type draws data exclusively from the M&E indicators" />
-      <el-tour-step target="#btn7" title="Aggregation Field" description="The field to use for summary" />
+    <el-tour-step target="#btn7" title="Aggregation Field" description="The field to use for summary" />
 
-      <el-tour-step target="#btn8" title="Entity" description="The entity(table) to summarize" />
-      <el-tour-step target="#btn9" title="Aggregation Method" description="The computation method to use. Sum only applies to numeric fields" />
+    <el-tour-step target="#btn8" title="Entity" description="The entity(table) to summarize" />
+    <el-tour-step target="#btn9" title="Aggregation Method"
+      description="The computation method to use. Sum only applies to numeric fields" />
 
   </el-tour>
 
   <el-tour v-model="showTourStep3" z-index="100000" :onClose="endTour">
-  
-      <el-tour-step target="#btn10" title="Computation Method" description="Proportion is a percent of the result against the total entitles in the table. Absolute is teh sum/count" />
-      <el-tour-step target="#btn11" title="Filters" description="Switch on if the card features filtering. This can be achieved say, for instance filtering for a specific county, gender etc. You will need to specify the field and its filter values" />
+
+    <el-tour-step target="#btn10" title="Computation Method"
+      description="Proportion is a percent of the result against the total entitles in the table. Absolute is teh sum/count" />
+    <el-tour-step target="#btn11" title="Filters"
+      description="Switch on if the card features filtering. This can be achieved say, for instance filtering for a specific county, gender etc. You will need to specify the field and its filter values" />
 
   </el-tour>
 
