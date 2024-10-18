@@ -446,7 +446,7 @@ exports.zgetGrievances =async (req, res) => {
 
   // Check if the current user has the 'super_admin' role
   const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-  const hasGRMRole = currentUserRoles.some(role => role.name === 'grm');
+  const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
  
   if (!hasGRMRole && !hasSuperAdminRole) {
     // Return an empty response if the user does not have GRM roles or is not a super admin
@@ -574,7 +574,7 @@ exports.getGrievances = async (req, res) => {
 
   // Check if the current user has the 'super_admin' role
   const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-  const hasGRMRole = currentUserRoles.some(role => role.name === 'grm');
+  const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
 
   if (!hasGRMRole && !hasSuperAdminRole) {
     // Return an empty response if the user does not have GRM roles or is not a super admin
@@ -827,7 +827,7 @@ exports.getGrievanceById = async (req, res) => {
     
       // Check if the current user has the 'super_admin' role
       const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-      const hasGRMRole = currentUserRoles.some(role => role.name === 'grm');
+      const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
     
       if (!hasGRMRole && !hasSuperAdminRole) {
         return res.status(200).send({
@@ -1214,17 +1214,17 @@ exports.modelImportGrievances = async (req, res) => {
 
         // -------- Escalated -------- //
 
-        if(newStatus =='Escalated') {
-
-          if(grievance.current_level=='settlement'){
-            grievance.current_level ='county' 
-          }else {
-            grievance.current_level ='national'  
-          }
-        }
+        // if(newStatus =='Escalated') {
+        //   if(grievance.current_level=='settlement'){
+        //     grievance.current_level ='county' 
+        //   }else {
+        //     grievance.current_level ='national'  
+        //   }
+        // }
     
         // Update the grievance status
         grievance.status = newStatus;
+        grievance.current_level = current_level;
         await grievance.save(); // Save the updated grievance
 
         let msg_obj = {}
@@ -1298,7 +1298,7 @@ exports.modelImportGrievances = async (req, res) => {
     
       // Check user roles
       const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-      const hasGRMRole = currentUserRoles.some(role => role.name === 'grm');
+      const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
     
       if (!hasGRMRole && !hasSuperAdminRole) {
         return res.status(200).send({

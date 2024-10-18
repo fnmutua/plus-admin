@@ -566,7 +566,18 @@ const submitForm = async () => {
   grmForm.value.date_reported = new Date();
   grmForm.value.status = 'Sorting'
   grmForm.value.model = 'grievance';
-  grmForm.value.current_level = '1';
+  grmForm.value.current_level = 'settlement';
+
+
+  if (grmForm.value.isgbv) {
+    grmForm.value.current_level = 'national';
+
+  }
+  else {
+    grmForm.value.current_level = 'settlement';
+
+  }
+
 
 
   const formInstance = dynamicFormRef

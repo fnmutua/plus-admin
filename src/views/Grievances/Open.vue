@@ -584,6 +584,18 @@ const submitForm = async () => {
   grmForm.value.current_level = 'settlement';
 
 
+  if (grmForm.value.isgbv) {
+        grmForm.value.current_level = 'national';
+
+      }
+      else {
+        grmForm.value.current_level = 'settlement';
+
+      }
+
+
+
+
   const formInstance = dynamicFormRef
 
   formInstance.value.validate(async (valid: boolean) => {

@@ -306,7 +306,10 @@ isAdminOrCountyAdmin = (req, res, next) => {
           return;
          }  
              
-         
+         if (roles[i].name == "gbv") {
+          next();
+          return;
+         }  
         
        }
        res.status(403).send({

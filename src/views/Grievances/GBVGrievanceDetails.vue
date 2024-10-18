@@ -120,12 +120,12 @@ function formatSentence(text) {
 const button_label = ref()
 const button_color = ref()
 const button_icon = ref()
-const button_disabled = ref(true)
+const button_disabled = ref(false) // rememeber to revert
 
 const StatusOptions = ref([
   {
-    value: 'Sorting',
-    label: 'Sorting',
+    value: 'refer_to_county',
+    label: 'Refer to County',
   },
   {
     value: 'Investigation',
@@ -133,21 +133,14 @@ const StatusOptions = ref([
   },
 
   {
-    value: 'Escalated',
-    label: 'Escalate Grievance',
-  },
-  {
-    value: 'Resolved',
-    label: 'Resolve Grievance',
+    value: 'refer_to_settlement',
+    label: 'Refer to Settlement',
   },
   {
     value: 'Rejected',
     label: 'Reject Grievance',
   },
-  {
-    value: 'Referred',
-    label: 'Refer to Court',
-  },
+
   {
     value: 'Closed',
     label: 'Close Grievance',
@@ -182,16 +175,12 @@ onMounted(async () => {
 
 
 
-  console.log('res.data.current_level', res.data.current_level)
-  console.log('current_user_roles', current_user_roles[0])
 
   if (current_user_roles[0] == res.data.current_level) {
     console.log('user roles matches grievances')
     button_disabled.value = false
 
   } else {
-
-
     button_disabled.value = true
   }
 
@@ -199,94 +188,70 @@ onMounted(async () => {
 
 
 
+
   //'Sorting', 'Investigation', 'Rejected', 'Resolved', 'Escalated','Referred', 'Closed'
 
-  if (Grievance.value.status == 'Sorting') {
+  if (Grievance.value.status == 'sorting') {
     button_label.value = 'Review and Sort';
     button_color.value = 'primary';
     button_icon.value = 'icon-park-solid:sort';
 
     StatusOptions.value = [
       {
-        value: 'Rejected',
-        label: 'Reject Grievance',
-      },
-      {
-        value: 'Escalated',
-        label: 'Escalate Grievance',
-      },
-      {
-        value: 'Resolved',
-        label: 'Resolve Grievance',
+        value: 'refer_to_settlement',
+        label: 'Refer to Settlement',
       },
 
       {
-        value: 'Referred',
-        label: 'Refer to Court',
+        value: 'refer_to_county',
+        label: 'Refer to County',
       },
+    ]
+
+
+  }
+  else if (Grievance.value.status == 'refer_to_settlement') {
+    button_label.value = 'Review Status';
+    button_color.value = 'warning';
+    button_icon.value = 'icon-park-solid:preview-open';
+
+    StatusOptions.value = [
+
+      {
+        value: 'refer_to_action_support',
+        label: 'Refers the Victim for support/action',
+      },
+
+      {
+        value: 'refer_to_county',
+        label: 'Refer to County',
+      },
+
 
     ]
 
 
   }
-  else if (Grievance.value.status == 'Investigation') {
+
+  else if (Grievance.value.status == 'refer_to_action_support') {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
 
     StatusOptions.value = [
       {
-        value: 'Resolved',
-        label: 'Resolve Grievance',
-      },
-      {
-        value: 'Escalated',
-        label: 'Escalate Grievance',
+        value: 'update_feedback',
+        label: 'Update Feedback',
       },
 
-      {
-        value: 'Referred',
-        label: 'Refer to Court',
-      },
-      {
-        value: 'Rejected',
-        label: 'Reject Grievance',
-      },
-    ]
 
-
-  }
-
-  else if (Grievance.value.status == 'Escalated') {
-    button_label.value = 'Review Status';
-    button_color.value = 'warning';
-    button_icon.value = 'icon-park-solid:preview-open';
-
-    StatusOptions.value = [
-      {
-        value: 'Resolved',
-        label: 'Resolve Grievance',
-      },
-      {
-        value: 'Escalated',
-        label: 'Escalate Grievance',
-      },
-
-      {
-        value: 'Referred',
-        label: 'Refer to Court',
-      },
-      {
-        value: 'Rejected',
-        label: 'Reject Grievance',
-      },
     ]
 
 
   }
 
 
-  else if (Grievance.value.status == 'Referred') {
+  else if (Grievance.value.status == 'update_feedback') {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
@@ -312,8 +277,11 @@ onMounted(async () => {
       {
         value: 'Referred',
         label: 'Refer to Court',
-      }
-
+      },
+      {
+        value: 'Rejected',
+        label: 'Reject Grievance',
+      },
     ]
 
 
@@ -348,45 +316,25 @@ onMounted(async () => {
 
     StatusOptions.value = [
       {
-        value: 'Sorting',
-        label: 'Sorting',
-      },
-      {
-        value: 'Investigation',
-        label: 'Investigation',
+        value: 'refer_to_settlement',
+        label: 'Refer to Settlement',
       },
 
       {
-        value: 'Escalated',
-        label: 'Escalated',
+        value: 'refer_to_county',
+        label: 'Refer to County',
       },
       {
-        value: 'Resolved',
-        label: 'Resolved',
+        value: 'Rejected',
+        label: 'Reject Grievance',
       },
 
-      {
-        value: 'Referred',
-        label: 'Refer to Court',
-      },
-      {
-        value: 'Closed',
-        label: 'Closed',
-      },
     ]
+
+
   }
 
 
-
-
-
-
-  // if(res.data.status=='Escalated'){
-  //   action.value='Escalated'
-  // }
-  // else if (res.data.status=='Resolved')  {
-  //   action.value=='Resolve'
-  // }
 
 
 
@@ -563,23 +511,26 @@ const submitResolutionForm = async () => {
       form.value.prev_status = Grievance.value.status
       form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
 
-      if (form.value.new_status == 'Escalated') {
-        if (current_user_roles[0] == 'settlement') {
-          form.value.current_level = 'county'
+      if (form.value.new_status == 'refer_to_settlement' || form.value.new_status == 'refer_to_action_support') {
 
-        } else {
-          form.value.current_level = 'national'
-        }
+        form.value.current_level = 'settlement'
+
 
       }
+      else if (form.value.new_status == 'refer_to_county') {
+        form.value.current_level = 'county'
+      }
+
+
+
       else {
         form.value.current_level = Grievance.value.current_level
       }
 
-      console.log("checking issue.............")
+
       console.log(form.value.new_status)
       console.log(form.value.current_level)
-      console.log(Grievance.value.current_level)
+      // console.log(Grievance.value.current_level)
       // Log the action 
 
       const res = await logGrievanceAction(form.value)
@@ -588,6 +539,8 @@ const submitResolutionForm = async () => {
       /// Upload fies
       await uploadFiles(res.data.id, Grievance.value.id)
 
+
+      console.log("checking  form.value.current_level.............", form.value.current_level)
 
       const formData = {
         code: Grievance.value.code,

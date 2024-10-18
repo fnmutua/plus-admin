@@ -228,7 +228,7 @@ exports.xgetSubordinateRoles = (req, res) => {
 
 exports.getSubordinateRoles = async (req, res) => {
   try {
-    console.log('Getting getSubordinateRoles roles.2.....', req.body.currentUser);
+    console.log('Getting getSubordinateRoles roles.2.....');
 
     const user = req.body.currentUser;
     const currentUserRoles = user.roles || [];
