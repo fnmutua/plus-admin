@@ -7,11 +7,10 @@ import { getUserRoles, getByName } from '@/api/users'
 
 
 import {
-  ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElCheckbox,
+  ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElCheckbox, ElMessage,
   ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElDivider, ElPagination, ElTooltip, ElOption, ElCard, ElCol
 } from 'element-plus'
-import { ElMessage } from 'element-plus'
-import {
+ import {
   Position,
   Edit,
   Back,
@@ -107,7 +106,7 @@ onMounted(async () => {
 
 })
 
- 
+
 
 
 const dialogFormVisible = ref(false)
@@ -120,8 +119,8 @@ let tableDataList_orig = ref<UserType[]>([])
 
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = [ ]
-var filterValues = [ ]
+var filters = []
+var filterValues = []
 var tblData = []
 
 const associated_multiple_models = ['county', 'user_roles']
@@ -262,7 +261,7 @@ const getCountyNames = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    
+
 
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
@@ -274,7 +273,7 @@ const getCountyNames = async () => {
   })
 }
 
- 
+
 
 const getRoles = async () => {
 
@@ -325,7 +324,7 @@ const getSettlementsOptions = async () => {
     //tableDataList.value = response.data
     var ret = response.data
 
-    
+
     // pass result to the makeoptions
 
     settlements.value = ret
@@ -427,7 +426,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
 
-  
+
 
 
   res.data.forEach(function (arrayItem) {
@@ -451,7 +450,7 @@ const searchByName = async (filterString: any) => {
   searchString.value = filterString
 
 
-  
+
   getFilteredBySearchData(searchString.value)
 }
 
@@ -476,7 +475,7 @@ const AddUser = (data: TableSlotDefault) => {
 const EditUser = async (data: TableSlotDefault) => {
   console.log(data)
 
-  tmp_roles.value=[]
+  tmp_roles.value = []
   form.value.id = data.row.id
   form.value.name = data.row.name
   form.value.county_id = data.row.county_id
@@ -484,22 +483,22 @@ const EditUser = async (data: TableSlotDefault) => {
   form.value.phone = data.row.phone
   form.value.avatar = data.row.avatar
   form.value.username = data.row.username
- 
- 
+
+
   data.row.roles.forEach(async function (arrayItem) {
     console.log("tis USers Roles", arrayItem.user_roles)
     await handleChangeLevel((arrayItem.user_roles.location_level))
 
- 
-    if(arrayItem.user_roles.county_id){
-      console.log("Get Settleemntsf ofr thus county",arrayItem.user_roles.county_id )
+
+    if (arrayItem.user_roles.county_id) {
+      console.log("Get Settleemntsf ofr thus county", arrayItem.user_roles.county_id)
       await getCountySettlements(parseInt(arrayItem.user_roles.county_id))
       arrayItem.user_roles.county_id = parseInt(arrayItem.user_roles.county_id, 10);
 
     }
 
 
-    if(arrayItem.user_roles.settlement_id) {
+    if (arrayItem.user_roles.settlement_id) {
       arrayItem.user_roles.settlement_id = parseInt(arrayItem.user_roles.settlement_id, 10);
 
     }
@@ -508,7 +507,7 @@ const EditUser = async (data: TableSlotDefault) => {
 
   console.log('tmp_roles>>>>', tmp_roles.value)
 
- 
+
   console.log(form)
   dialogFormVisible.value = true
 }
@@ -623,9 +622,9 @@ const handleSelectLevel = async (level) => {
   }
 }
 
-const isNationalLevel=ref(false)
-const isCountyLevel=ref(false)
-const isSettlementLevel=ref(false)
+const isNationalLevel = ref(false)
+const isCountyLevel = ref(false)
+const isSettlementLevel = ref(false)
 
 const getCountySettlements = async (county_id) => {
 
@@ -669,38 +668,38 @@ const handleChangeLevel = async (level) => {
 
   console.log(level)
 
-  if(level=='national') {
-    isNationalLevel.value=true
-    isCountyLevel.value=false
-    isSettlementLevel.value=false 
+  if (level == 'national') {
+    isNationalLevel.value = true
+    isCountyLevel.value = false
+    isSettlementLevel.value = false
 
   }
-  else if(level=='county'){
-    isNationalLevel.value=false
-    isCountyLevel.value=true
-    isSettlementLevel.value=false 
+  else if (level == 'county') {
+    isNationalLevel.value = false
+    isCountyLevel.value = true
+    isSettlementLevel.value = false
 
-  } 
+  }
   else {
-    isSettlementLevel.value=true 
-    isCountyLevel.value=true
-    isNationalLevel.value=false
+    isSettlementLevel.value = true
+    isCountyLevel.value = true
+    isNationalLevel.value = false
 
   }
 
- }
+}
 
 const selectedRoles = ref([]);
 
- 
+
 
 
 
 const addRole = () => {
   const this_role = {
-     userid:form.value.id,
-     roleid: null,
-     location_level:null,
+    userid: form.value.id,
+    roleid: null,
+    location_level: null,
     county_id: null,
     settlement_id: null
 
@@ -718,38 +717,75 @@ const removeRole = (index) => {
 }
 
 
-const updateUser = () => {
+const validateForm = () => {
+  let isValid = true; // To track if the form is valid
 
   tmp_roles.value.forEach(role => {
-        if (role.location_level === "national") {
-            // If the role is at the national level, nullify county_id and settlement_id
-            role.county_id = null;
-            role.settlement_id = null;
-        }
-        if (role.location_level === "county") {
-            // If the role is at the national level, nullify county_id and settlement_id
-            role.settlement_id = null;
-        }
-    });
+    if (role.location_level === "national") {
+      // For national level, nullify county_id and settlement_id
+      role.county_id = null;
+      role.settlement_id = null;
+    } else if (role.location_level === "county") {
+      // For county level, settlement_id should be null
+      role.settlement_id = null;
+
+      // Enforce requirement that county_id must be provided
+      if (!role.county_id) {
+        console.error('Error: county_id is required for county-level roles.');
+        isValid = false;
+      }
+    } else if (role.location_level === "settlement") {
+      // Enforce requirement that both county_id and settlement_id must be provided
+      if (!role.county_id) {
+        console.error('Error: county_id is required for settlement-level roles.');
+        isValid = false;
+      }
+      if (!role.settlement_id) {
+        console.error('Error: settlement_id is required for settlement-level roles.');
+        isValid = false;
+      }
+    }
+  });
+
+  return isValid; // Return whether the form is valid or not
+};
+
+
+const updateUser = () => {
+
+
+  // Call the validation function
+  const isValid = validateForm();
+
+  if (isValid) {
+    // Proceed with form submission or any further processing
+    console.log("Form is valid. Proceeding with submission...");
+
+    form.value.roles = tmp_roles.value
+    console.log('form.value', form.value)
+    updateUserApi(form.value).then((response) => {
+      console.log("udapyetd", response)
+    })
+
+    dialogFormVisible.value = false
+
+
+    // Add your form submission logic here
+    // e.g., send data to the server or navigate to the next step
+    // axios.post('/api/submit', formData).then(response => { ... });
+
+  } else {
+    // Display an error message or handle validation failure
+    console.error("Form validation failed. Please check the fields.");
+
+    // Optionally, show an error message to the user
+    // alert("Please fill out the required fields correctly.");
+    ElMessage.error("Please fill out the required fields correctly.")
+  }
 
 
 
-  form.value.roles = tmp_roles.value
-  console.log('form.value',form.value)
 
-
-
-
-
-  updateUserApi(form.value).then((response) => { 
-
-  console.log("udapyetd")
-
-
-
-  })
-
-  dialogFormVisible.value = false
 }
 
 </script>
@@ -769,14 +805,12 @@ const updateUser = () => {
       </div>
 
       <!-- Title Search -->
-      <el-select
-style="  margin-right: 10px;" v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear"
+      <el-select style="  margin-right: 10px;" v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear"
         multiple clearable filterable collapse-tags placeholder="Filter by County">
         <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
-      <el-select
-v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name" />
 
 
@@ -787,18 +821,18 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
         </el-tooltip>
 
 
-   
+
       </div>
 
     </el-row>
 
 
 
-    <el-table :data="tableDataList" style="width: 100% ; margin-top: 30px"   v-loading="loading">
+    <el-table :data="tableDataList" style="width: 100% ; margin-top: 30px" v-loading="loading">
 
-      <el-table-column  prop="id"  label="#" width="50"/>
+      <el-table-column prop="id" label="#" width="50" />
 
-      
+
       <!-- Avatar column -->
       <el-table-column label="Avatar" width="100">
         <template #default="scope">
@@ -824,8 +858,7 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item v-if="showAdminButtons">
-                  <el-switch
-v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+                  <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
                     :icon="Edit" />
 
 
@@ -841,8 +874,7 @@ v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefaul
           <div v-else>
 
             <el-tooltip content="Activate" placement="top">
-              <el-switch
-v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+              <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
                 class="my-switch" />
             </el-tooltip>
             <el-tooltip content="Edit" placement="top">
@@ -860,13 +892,12 @@ v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefaul
 
 
 
-    <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
 
-   
+
     <el-dialog draggable v-model="dialogFormVisible" title="User Details" :width="dialogWidth">
       <el-form :model="form">
         <el-row>
@@ -900,14 +931,16 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
           <el-table-column prop="role" label="Role">
             <template #default="{ row }">
-              <el-select v-model="row.roleid" placeholder="Select Role" size="small" style="width:80%" searchable filterable>
+              <el-select v-model="row.roleid" placeholder="Select Role" size="small" style="width:80%" searchable
+                filterable>
                 <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
           </el-table-column>
           <el-table-column prop="level" label="Level">
             <template #default="{ row }">
-              <el-select v-model="row.location_level" placeholder="Select level" size="small" filterable   @change="handleChangeLevel(row.location_level)" style="width:80%">
+              <el-select v-model="row.location_level" placeholder="Select level" size="small" filterable
+                @change="handleChangeLevel(row.location_level)" style="width:80%">
                 <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
@@ -915,19 +948,18 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
           <el-table-column prop="county_id" label="County">
             <template #default="{ row }">
-              <el-select
-v-model="row.county_id" placeholder="County" clearable :disabled="isNationalLevel" filterable
+              <el-select v-model="row.county_id" placeholder="County" clearable :disabled="isNationalLevel" filterable
                 @change="getCountySettlements(row.county_id)" size="small" style="width:80%">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </template>
           </el-table-column>
 
-          <el-table-column prop="settlement_id" label="Settlement" >
+          <el-table-column prop="settlement_id" label="Settlement">
             <template #default="{ row }">
-              <el-select v-model="row.settlement_id" placeholder="Settlement" size="small"   :disabled="!isSettlementLevel" style="width:80%" filterable clearable>
-                <el-option
-v-for="item in settlementOptions" :key="item.value" :label="item.label"
+              <el-select v-model="row.settlement_id" placeholder="Settlement" size="small"
+                :disabled="!isSettlementLevel" style="width:80%" filterable clearable>
+                <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
                   :value="item.value" />
               </el-select>
             </template>

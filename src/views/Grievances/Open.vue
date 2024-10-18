@@ -52,7 +52,7 @@ console.log("userInfo--->", userInfo)
 
 
 // Check for the "grm" role and get its level, field, and fieldvalue
-const isNationalStaff=ref(false)
+const isNationalStaff = ref(false)
 const grmRole = userInfo.roles.map(role => {
   if (role.name === "grm") {
     let field = null;
@@ -60,16 +60,16 @@ const grmRole = userInfo.roles.map(role => {
 
     // Determine the field and fieldvalue based on the location level
     if (role.user_roles.location_level === "county") {
-      isNationalStaff.value=false
+      isNationalStaff.value = false
       field = "county_id";
       fieldvalue = role.user_roles.county_id;
     } else if (role.user_roles.location_level === "settlement") {
-      isNationalStaff.value=false
+      isNationalStaff.value = false
       field = "settlement_id";
       fieldvalue = role.user_roles.settlement_id;
     } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
       // If the level is national or not defined, return empty roles filter
-      isNationalStaff.value=true
+      isNationalStaff.value = true
       return {
         model: "national",
         field: null,
@@ -1613,12 +1613,12 @@ const handleRowDblClick = (row) => {
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; ">
 
 
-        <el-tooltip v-if="isNationalStaff" content="Import Data" placement="top">
+        <el-tooltip v-if="isNationalStaff || isSuperAdmin" content="Import Data" placement="top">
           <el-button @click="uploadData" type="primary" :icon="UploadFilled" />
         </el-tooltip>
 
         <el-tooltip content="Add Grievance" placement="top">
-          <el-button v-if="showAdminButtons" :onClick="AddComponent" type="primary" :icon="Plus" />
+          <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
         </el-tooltip>
 
         <el-tooltip content="Clear" placement="top">
@@ -1800,15 +1800,15 @@ const handleRowDblClick = (row) => {
           <!-- Step 2: Grievance Details -->
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
             <el-form-item id="btn10" label="County" prop="county_id">
-              <el-select v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
+              <el-select filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
                 style="width:90%">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
 
             <el-form-item id="btn11" label="Settlement" prop="settlement_id">
-              <el-select v-model="grmForm.settlement_id" placeholder="Settlement" @change="handleSelectSettlement"
-                style="width:90%">
+              <el-select filterable v-model="grmForm.settlement_id" placeholder="Settlement"
+                @change="handleSelectSettlement" style="width:90%">
                 <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
                   :value="item.value" />
               </el-select>
@@ -1828,7 +1828,7 @@ const handleRowDblClick = (row) => {
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
 
             <el-form-item id="btn14" label="Nature of Complaint" prop="nature">
-              <el-select v-model="grmForm.nature" placeholder="Select category" style="width:90%">
+              <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
                 <el-option label="Land" value="land" />
                 <el-option label="Labour Related" value="labour" />
                 <el-option label="Infrastructure" value="infrastructure" />
