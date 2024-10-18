@@ -1035,7 +1035,7 @@ exports.uploadGrievanceDocument = (req, res) => {
     }
 
     // Fetch the grievance
-    const grievance = await Grievance.findOne(findOptions);
+    const grievance = await Grievance.findAll(findOptions);
 
     console.log('The Grievance', grievance);
 
