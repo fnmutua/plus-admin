@@ -401,138 +401,7 @@ exports.logGrievanceAction = async (req, res) => {
 };
  
  
-exports.zgetGrievances =async (req, res) => {
-  console.log(req.thisUser);
-  const user = req.thisUser;
 
-  const currentUserRoles = await user.getRoles(); 
-
-  const searchString = req.body.searchString;
-  const userCounty = user.county_id;
-  const filters = req.body.filters || []; // Array of filter fields
-  const filterValues = req.body.filterValues || []; // Array of filter values corresponding to each filter field
-
-  let limit = req.body.limit || 10; // Default limit if not provided
-  let page = req.body.page || 1; // Default page if not provided
-
-  console.log('Current >>>>User Roles, ', currentUserRoles);
-
-  
-  // Initialize findAndCountOptions with common properties
-  const findAndCountOptions = {
-      where: {}, // Initialize an empty where object
-    limit: limit,
-    offset: (page - 1) * limit,
-    order: [['createdAt', 'DESC']], // Sort by most recent (assuming createdAt is the field tracking creation date)
-
-  };
-
-  var attributes = []
-    for( let key in   db.models.grievance.rawAttributes ){
-         attributes.push(key)
-     }
-
-     
-     let encrytped_name= [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'),'maluini'),'name']
-     attributes.push(encrytped_name)
-
-     let encrytped_national_id= [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'),'maluini'),'national_id']
-
-     attributes.push(encrytped_national_id)
-
-    findAndCountOptions.attributes=attributes
-
-
-
-  // Check if the current user has the 'super_admin' role
-  const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-  const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
- 
-  if (!hasGRMRole && !hasSuperAdminRole) {
-    // Return an empty response if the user does not have GRM roles or is not a super admin
-    return res.status(200).send({
-      data: [],
-      total: 0,
-      code: '9999',
-      message: 'Unauthorized access to grievances denied',
-    });
-  }
-
-
-
-  if (!hasSuperAdminRole) {
-    // Check if any of the current user's roles have location_level set to 'national'
-    const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
-    const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
-
-    const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
-    let countyId
-    if (countyAdminRole) {
-      countyId = countyAdminRole.user_roles.county_id; // Access the county_id from the role
-      console.log('County Admin Role detected. County ID:', countyId);
-    }
-
-
-    // Apply the county filter only if the user does not have a 'national' role but has a 'county_admin' role
-    if (!hasNationalRole && hasCountyAdminRole) {
-
-      findAndCountOptions.where.county_id = countyId;
-      console.log('Applying county filter:', countyId);
-    }
-  } else {
-    console.log('Super Admin detected. Bypassing location-level filtering.');
-  }
-
-  // Add the 'searchString' condition if provided
-  if (searchString) {
-    findAndCountOptions.where.name = {
-      [op.iLike]: `%${searchString}%`, // Case-insensitive partial matching
-    };
-  }
-
-  // Apply additional filters based on `filters` and `filterValues`
-  filters.forEach((filter, index) => {
-    const value = filterValues[index];
-    if (Array.isArray(value)) {
-      // If the value is an array, use the Op.in operator to match any of the values
-      findAndCountOptions.where[filter] = {
-        [op.in]: value,
-      };
-    } else {
-      // If the value is a single value, use the Op.eq operator for exact matching
-      findAndCountOptions.where[filter] = value;
-    }
-  });
-
-  // Explicitly remove any county_id filter from the where object
-  if (hasSuperAdminRole) { 
-    delete findAndCountOptions.where.county_id;
-
-  }
-
-  console.log(findAndCountOptions)
-  const associatedModels = req.body.associated_multiple_models || [];
-  if (associatedModels.length > 0) {
-    findAndCountOptions.include = associatedModels.map(model => ({ model: db.models[model] }));
-  }
-
-
-  Grievance.findAndCountAll(findAndCountOptions)
-    .then(({ count, rows: grievances }) => {
-      console.log('Total grievances:', count);
-
-      res.status(200).send({
-        data: grievances,
-        total: count,
-        code: '0000',
-        message: 'Grievances retrieved successfully',
-      });
-    })
-    .catch((error) => {
-      console.error('Error fetching Grievances:', error);
-      res.status(500).send({ message: 'Unable to retrieve Grievances. Please try again later.' });
-    });
-};
  
 exports.getGrievances = async (req, res) => {
   console.log(req.thisUser);
@@ -564,17 +433,46 @@ exports.getGrievances = async (req, res) => {
   }
 
   // Decrypt fields (name and national_id)
-  let encrypted_name = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), 'maluini'), 'name'];
-  attributes.push(encrypted_name);
+  // let encrypted_name = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), 'maluini'), 'name'];
+  // attributes.push(encrypted_name);
 
-  let encrypted_national_id = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), 'maluini'), 'national_id'];
-  attributes.push(encrypted_national_id);
+
+  // let encrypted_national_id = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), 'maluini'), 'national_id'];
+  // attributes.push(encrypted_national_id);
 
   findAndCountOptions.attributes = attributes;
 
   // Check if the current user has the 'super_admin' role
   const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
   const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+
+
+  // Decrypt the name field based on the user role
+  let decryptedName;
+  if (hasSuperAdminRole) {
+    // If the user has the super_admin role, show the actual decrypted name
+    decryptedName = [
+      Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), 'maluini'),
+      'name'
+    ];
+  } else {
+    // If the user does NOT have the super_admin role, redact the name if it's a GBV case
+    decryptedName = [
+      Sequelize.literal(`
+        CASE 
+          WHEN "grievance"."isgbv" = false THEN 
+            PGP_SYM_DECRYPT(CAST("grievance"."name" AS BYTEA), 'maluini')
+          ELSE 
+            '[REDACTED]'
+        END
+      `),
+      'name'
+    ];
+  }
+  attributes.push(decryptedName);
+
+
+
 
   if (!hasGRMRole && !hasSuperAdminRole) {
     // Return an empty response if the user does not have GRM roles or is not a super admin
@@ -682,8 +580,7 @@ exports.getGrievances = async (req, res) => {
 
 
 const multer = require('multer');
-const user_roles = require('../models/user_roles');
-const settlement = require('../models/settlement');
+ 
 
 const uploadDir = '/data/grievances';
 
@@ -812,117 +709,333 @@ exports.uploadGrievanceDocument = (req, res) => {
 
  
     
-exports.getGrievanceById = async (req, res) => {
-      const user = req.thisUser;
-      const grievanceId = req.body.id; // Retrieve grievance ID from the request parameters
+exports.xxgetGrievanceById = async (req, res) => {
+      try {
+        const user = req.thisUser;
+        const grievanceId = req.body.id; // Retrieve grievance ID from the request body
     
-      const currentUserRoles = await user.getRoles();
-    
-      console.log('Current User Roles:', currentUserRoles);
-    
-      // Initialize findOptions with common properties
-      const findOptions = {
-        where: { id: grievanceId }, // Filter by the specific grievance ID
-      };
-    
-      // Check if the current user has the 'super_admin' role
-      const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-      const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
-    
-      if (!hasGRMRole && !hasSuperAdminRole) {
-        return res.status(200).send({
-          data: null,
-          code: '9999',
-          message: 'Unauthorized access to grievance denied',
-        });
-      }
-    
-      if (!hasSuperAdminRole) {
-        const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
-        const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
-    
-        const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
-        let countyId
-        if (countyAdminRole) {
-          countyId = countyAdminRole.user_roles.county_id; // Access the county_id from the role
-          console.log('County Admin Role detected. County ID:', countyId);
+        if (!grievanceId) {
+          return res.status(400).send({
+            data: null,
+            code: '9998',
+            message: 'Grievance ID is required',
+          });
         }
-     
+    
+        const currentUserRoles = await user.getRoles();
+        console.log('Current User Roles:', currentUserRoles);
+    
+        // Initialize findOptions with common properties
+        const findOptions = {
+          where: { id: grievanceId }, // Filter by the specific grievance ID
+        };
+    
+        // Check if the current user has the 'super_admin' role or 'grm/gbv' roles
+        const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
+        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+    
+          // Initialize attributes, including all fields from grievance and sensitive fields with decryption
+          let attributes = Object.keys(db.models.grievance.rawAttributes).filter(attr => attr !== 'password'); // Exclude sensitive fields like password if any
+                  
+        // Decrypt the name field based on the user role
+          let decryptedName;
+          if (hasSuperAdminRole) {
+            // If the user has the super_admin role, show the actual decrypted name
+            decryptedName = [
+              Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), 'maluini'),
+              'name'
+            ];
+          } else {
+            // If the user does NOT have the super_admin role, redact the name if it's a GBV case
+            decryptedName = [
+              Sequelize.literal(`
+                CASE 
+                  WHEN "grievance"."isgbv" = false THEN 
+                    PGP_SYM_DECRYPT(CAST("grievance"."name" AS BYTEA), 'maluini')
+                  ELSE 
+                    '[REDACTED]'
+                END
+              `),
+              'name'
+            ];
+          }
+          attributes.push(decryptedName);
 
-        if (!hasNationalRole && hasCountyAdminRole) {
-          findOptions.where.county_id = countyId;
-          console.log('Applying county filter:',countyId);
+
+
+        if (!hasGRMRole && !hasSuperAdminRole) {
+          return res.status(403).send({
+            data: null,
+            code: '9999',
+            message: 'Unauthorized access to grievance',
+          });
         }
-      } else {
-        console.log('Super Admin detected. Bypassing location-level filtering.');
-      }
     
-      // Apply decryption for sensitive fields (e.g., name, national_id)
-      let attributes = [];
-      for (let key in db.models.grievance.rawAttributes) {
-        attributes.push(key);
-      }
+        // Apply location-based filtering for non-super-admin users
+        if (!hasSuperAdminRole) {
+          const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
+          const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
+          let countyId;
     
-      let decryptedName = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), 'maluini'), 'name'];
-      attributes.push(decryptedName);
+          if (countyAdminRole) {
+            countyId = countyAdminRole.user_roles.county_id; // Access the county_id from the role
+            console.log('County Admin Role detected. County ID:', countyId);
+          }
     
-      let decryptedNationalId = [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), 'maluini'), 'national_id'];
-      attributes.push(decryptedNationalId);
+          if (!hasNationalRole && countyId) {
+            findOptions.where.county_id = countyId; // Apply county filter if not a national role
+            console.log('Applying county filter:', countyId);
+          }
+        } else {
+          console.log('Super Admin detected. Bypassing location-level filtering.');
+        }
     
-      findOptions.attributes = attributes;
+       
+        
     
-      // Include associated models if specified, with one level of nested association
-      const associatedModels = req.body.associated_multiple_models || [];
-      if (associatedModels.length > 0) {
-        findOptions.include = associatedModels.map(model => {
-          if (typeof model === 'string') {
-            // If the model is 'user', limit fields to id, name, and tel
-            if (model === 'users') {
-              return { 
-                model: db.models[model], 
-                attributes: ['id', 'name','username','email', 'phone'] 
+        let decryptedNationalId = [
+          Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), 'maluini'),
+          'national_id'
+        ];
+        attributes.push(decryptedNationalId);
+    
+        findOptions.attributes = attributes;
+    
+        // Include associated models if specified, with one level of nested association
+        const associatedModels = req.body.associated_multiple_models || [];
+        if (associatedModels.length > 0) {
+          findOptions.include = associatedModels.map(model => {
+            if (typeof model === 'string') {
+              // Limit fields for 'users' model
+              if (model === 'users') {
+                return { 
+                  model: db.models[model], 
+                  attributes: ['id', 'name', 'username', 'email', 'phone'] 
+                };
+              }
+              return { model: db.models[model] };
+            } else if (typeof model === 'object' && model.name && model.nestedAssociations) {
+              return {
+                model: db.models[model.name],
+                attributes: model.name === 'users' ? ['id', 'name', 'username', 'email', 'phone'] : undefined,
+                include: model.nestedAssociations.map(nestedModel => ({
+                  model: db.models[nestedModel],
+                  attributes: nestedModel === 'users' ? ['id', 'name', 'username', 'email', 'phone'] : undefined,
+                }))
               };
             }
-            return { model: db.models[model] };
-          } else if (typeof model === 'object' && model.name && model.nestedAssociations) {
-            return {
-              model: db.models[model.name],
-              attributes: model.name === 'users' ? ['id', 'name','username','email', 'phone'] : undefined,
-              include: model.nestedAssociations.map(nestedModel => ({
-                model: db.models[nestedModel],
-                attributes: nestedModel === 'users' ? ['id', 'name','username','email', 'phone'] : undefined,
-              }))
-            };
-          }
+          });
+        }
+    
+        // Fetch the grievance
+        const grievance = await Grievance.findOne(findOptions);
+
+
+        console.log('The Grievance',grievance)
+    
+        if (!grievance) {
+          return res.status(404).send({
+            data: null,
+            code: '0001',
+            message: 'Grievance not found',
+          });
+        }
+    
+        // Send the grievance data
+        res.status(200).send({
+          data: grievance,
+          code: '0000',
+          message: 'Grievance retrieved successfully',
+        });
+        
+      } catch (error) {
+        console.error('Error fetching Grievance:', error);
+        res.status(500).send({ 
+          data: null,
+          message: 'Unable to retrieve Grievance. Please try again later.',
         });
       }
-    
-      Grievance.findOne(findOptions)
-        .then(grievance => {
-          if (!grievance) {
-            return res.status(404).send({
-              data: null,
-              code: '0001',
-              message: 'Grievance not found',
-            });
-          }
-    
-        //  console.log('Grievance retrieved:', grievance);
-    
-          res.status(200).send({
-            data: grievance,
-            code: '0000',
-            message: 'Grievance retrieved successfully',
-          });
-        })
-        .catch(error => {
-          console.error('Error fetching Grievance:', error);
-          res.status(500).send({ message: 'Unable to retrieve Grievance. Please try again later.' });
-        });
     };
     
     
+ exports.getGrievanceById = async (req, res) => {
+      try {
+        const user = req.thisUser;
+        const grievanceId = req.body.id; // Retrieve grievance ID from the request body
+    
+        if (!grievanceId) {
+          return res.status(400).send({
+            data: null,
+            code: '9998',
+            message: 'Grievance ID is required',
+          });
+        }
+    
+        const currentUserRoles = await user.getRoles();
+        console.log('Current User Roles:', currentUserRoles);
+    
+        // Initialize findOptions with common properties
+        const findOptions = {
+          where: { id: grievanceId }, // Filter by the specific grievance ID
+        };
+    
+        // Check if the current user has the 'super_admin' role or 'grm/gbv' roles
+        const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
+        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+    
+        // Initialize attributes, including all fields from grievance and sensitive fields with conditional redaction
+        let attributes = Object.keys(db.models.grievance.rawAttributes).filter(attr => attr !== 'password'); // Exclude sensitive fields like password if any
+    
+        // Redaction logic for both name and phone
+        let redactedFields;
+        if (hasSuperAdminRole) {
+          // Show actual decrypted name and phone for super_admin role
+          redactedFields = [
+            // Decrypt the name field
+            [
+              Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), 'maluini'),
+              'name'
+            ],
+            [
+              Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), 'maluini'),
+              'name'
+            ],
+             
+          ];
+        } else {
+          // Redact name and phone if it's a GBV case for non-super-admin users
+          redactedFields = [
+            // Redact name if the case is GBV
+            [
+              Sequelize.literal(`
+                CASE 
+                  WHEN "grievance"."isgbv" = false THEN 
+                    PGP_SYM_DECRYPT(CAST("grievance"."name" AS BYTEA), 'maluini')
+                  ELSE 
+                    '[REDACTED]'
+                END
+              `),
+              'name'
+            ],
+            [
+              Sequelize.literal(`
+                CASE 
+                  WHEN "grievance"."isgbv" = false THEN 
+                    PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS BYTEA), 'maluini')
+                  ELSE 
+                    '[REDACTED]'
+                END
+              `),
+              'national_id'
+            ],
 
+            // Redact phone if the case is GBV
+            [
+              Sequelize.literal(`
+                CASE 
+                  WHEN "grievance"."isgbv" = false THEN "grievance"."phone"
+                  ELSE '[REDACTED]'
+                END
+              `),
+              'phone'
+            ]
+          ];
+        }
+    
+        // Add redacted fields (name and phone) to attributes
+        attributes.push(...redactedFields);
+    
+        if (!hasGRMRole && !hasSuperAdminRole) {
+          return res.status(403).send({
+            data: null,
+            code: '9999',
+            message: 'Unauthorized access to grievance',
+          });
+        }
+    
+        // Apply location-based filtering for non-super-admin users
+        if (!hasSuperAdminRole) {
+          const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
+          const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
+          let countyId;
+    
+          if (countyAdminRole) {
+            countyId = countyAdminRole.user_roles.county_id; // Access the county_id from the role
+            console.log('County Admin Role detected. County ID:', countyId);
+          }
+    
+          if (!hasNationalRole && countyId) {
+            findOptions.where.county_id = countyId; // Apply county filter if not a national role
+            console.log('Applying county filter:', countyId);
+          }
+        } else {
+          console.log('Super Admin detected. Bypassing location-level filtering.');
+        }
+    
+        // Include the national_id field decrypted
+        // let decryptedNationalId = [
+        //   Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), 'maluini'),
+        //   'national_id'
+        // ];
+        // attributes.push(decryptedNationalId);
+    
+        findOptions.attributes = attributes;
+    
+        // Include associated models if specified, with one level of nested association
+        const associatedModels = req.body.associated_multiple_models || [];
+        if (associatedModels.length > 0) {
+          findOptions.include = associatedModels.map(model => {
+            if (typeof model === 'string') {
+              // Limit fields for 'users' model
+              if (model === 'users') {
+                return { 
+                  model: db.models[model], 
+                  attributes: ['id', 'name', 'username', 'email', 'phone'] 
+                };
+              }
+              return { model: db.models[model] };
+            } else if (typeof model === 'object' && model.name && model.nestedAssociations) {
+              return {
+                model: db.models[model.name],
+                attributes: model.name === 'users' ? ['id', 'name', 'username', 'email', 'phone'] : undefined,
+                include: model.nestedAssociations.map(nestedModel => ({
+                  model: db.models[nestedModel],
+                  attributes: nestedModel === 'users' ? ['id', 'name', 'username', 'email', 'phone'] : undefined,
+                }))
+              };
+            }
+          });
+        }
+    
+        // Fetch the grievance
+        const grievance = await Grievance.findOne(findOptions);
+    
+        console.log('The Grievance', grievance);
+    
+        if (!grievance) {
+          return res.status(404).send({
+            data: null,
+            code: '0001',
+            message: 'Grievance not found',
+          });
+        }
+    
+        // Send the grievance data
+        res.status(200).send({
+          data: grievance,
+          code: '0000',
+          message: 'Grievance retrieved successfully',
+        });
+        
+      } catch (error) {
+        console.error('Error fetching Grievance:', error);
+        res.status(500).send({ 
+          data: null,
+          message: 'Unable to retrieve Grievance. Please try again later.',
+        });
+      }
+ };
+    
  
     
 exports.getGrievanceStatus = async (req, res) => {
