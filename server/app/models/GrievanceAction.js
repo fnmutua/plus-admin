@@ -65,26 +65,26 @@ module.exports = function (sequelize, DataTypes) {
 
       resolution_date: {
         type: DataTypes.DATE,
-        allowNull: false
+        allowNull: true
       },
 
       filer_present: {
         type: DataTypes.BOOLEAN,
-        allowNull: false
+        allowNull: true
       },
 
       field_verification_conducted: {
         type: DataTypes.BOOLEAN,
-        allowNull: false
+        allowNull: true
       },
  
       agreement_reached: {
         type: DataTypes.BOOLEAN,
-        allowNull: false
+        allowNull: true
       },
       agreement: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
       },
      
       field_investigations: {

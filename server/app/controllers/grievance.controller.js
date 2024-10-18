@@ -968,6 +968,7 @@ exports.modelImportGrievances = async (req, res) => {
             current_action.action = item.action
             current_action.action_level= item.action_level
 
+            
             logGrievanceAction (current_action)
 
 
