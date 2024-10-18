@@ -1370,7 +1370,7 @@ exports.verifyCode = async (req, res) => {
         name: user.name,
         email: user.email,
         roles: authorities,
-        phone: user.username,
+        phone: user.phone,
         county_id: user.county_id,
         accessToken: token,
         tokenExpiryDate:expiryDate,
