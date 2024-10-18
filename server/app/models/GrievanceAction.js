@@ -43,6 +43,12 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       },
 
+      current_level: {
+        type: DataTypes.STRING,
+        enum: ['settlement', 'county', 'national' ],
+        allowNull: false
+      },
+
       date_actioned: {
         type: DataTypes.DATE,
         allowNull: false

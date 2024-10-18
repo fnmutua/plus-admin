@@ -1189,39 +1189,37 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         component: () => import('@/views/Grievances/Open.vue'),
        name: 'OpenGrievances',
        meta: {
-         title: 'Open',
-         icon:'oui:security-signal-detected',
+         title: 'Pending',
+         icon:'oui:security-signal',
          role: [  'super_admin', 'grm' ] ,
          locationLevel:['national','county','settlement'],
 
        }
        },
-       {
-        path: 'escalated',
-        component: () => import('@/views/Grievances/Open.vue'),
-       name: 'EscalatedGrievances',
-       meta: {
-         title: 'Escalated',
-         icon:'carbon:ibm-cloud-security-compliance-center-workload-protection',
-         role: [  'super_admin', 'grm' ] ,
-
-         locationLevel:[ 'county' ],
-
- 
-       }
-       },
+        
 
      
        {
         path: 'resolved',
-        component: () => import('@/views/Grievances/Open.vue'),
+        component: () => import('@/views/Grievances/Resolved.vue'),
        name: 'ResolvedGrievances',
        meta: {
          title: 'Resolved',
          icon:'oui:security-signal-resolved',
- 
        }
        },
+
+
+       {
+        path: 'rejectedxz',
+        component: () => import('@/views/Grievances/RejectedGRV.vue'),
+       name: 'RejectedGrievances',
+       meta: {
+         title: 'Rejected',
+         icon:'oui:security-signal-detected',
+       }
+       },
+
        {
         path: ':id',
         component: () => import('@/views/Grievances/GrievanceDetails.vue'),

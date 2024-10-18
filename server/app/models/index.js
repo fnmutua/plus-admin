@@ -1508,13 +1508,13 @@ db.models.grievance_log.hasMany(db.models.grievance_document, {
 })
 
 // grievance  - grievance_resolution_level
-db.models.grievance.belongsTo(db.models.grievance_resolution_level, {
-  foreignKey: 'current_level'
-})
+// db.models.grievance.belongsTo(db.models.grievance_resolution_level, {
+//   foreignKey: 'current_level'
+// })
 
-db.models.grievance_resolution_level.hasMany(db.models.grievance, {
-  foreignKey: 'current_level'
-})
+// db.models.grievance_resolution_level.hasMany(db.models.grievance, {
+//   foreignKey: 'current_level'
+// })
 
 
 

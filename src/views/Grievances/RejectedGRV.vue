@@ -51,6 +51,7 @@ console.log("userInfo--->", userInfo)
 
 
 
+ 
 // Check for the "grm" role and get its level, field, and fieldvalue
 const isNationalStaff=ref(false)
 const grmRole = userInfo.roles.map(role => {
@@ -114,7 +115,6 @@ if (isSuperAdmin) {
 }
 
 console.log('roles_filters', roles_filters);
-
 
 
 
@@ -208,24 +208,10 @@ const showEditButtons = ref(appStore.getEditButtons)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 
-// Prepare filters array
-
+// Prepare filters array 
 var filters = ['status'];
-var filterValues = [['Resolved', 'Rejected', 'Closed']];
-var filterFunction = ['notIn'];
-
-// const operatorMap = {
-//       eq: op.eq,
-//       ne: op.ne,
-//       like: op.like,
-//       iLike: op.iLike,
-//       in: op.in,
-//       notIn: op.notIn,
-//       gt: op.gt,
-//       lt: op.lt,
-//       gte: op.gte,
-//       lte: op.lte
-//     };
+var filterValues = [['Rejected']];
+var filterFunction = ['in'];
 
 
 
@@ -234,6 +220,7 @@ if (roles_filters.length > 0) {
 }
 
 // Prepare filterValues array
+
 if (roles_filters.length > 0) {
   filterValues.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
 }
@@ -350,7 +337,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.filterFunctions = filterFunction
-
   formData.associated_multiple_models = associated_multiple_models
 
   //-------------------------
@@ -562,7 +548,6 @@ const logAction = async (grievance) => {
   formData.date_actioned = grievance.date_reported
   formData.prev_status = grievance.status
   formData.new_status = grievance.status
-  formData.current_level = 'settlement'
 
 
 
@@ -581,7 +566,7 @@ const submitForm = async () => {
   grmForm.value.date_reported = new Date();
   grmForm.value.status = 'Sorting'
   grmForm.value.model = 'grievance';
-  grmForm.value.current_level = 'settlement';
+  grmForm.value.current_level = '1';
 
 
   const formInstance = dynamicFormRef
@@ -1509,27 +1494,7 @@ const handleSelectStatus = async (status: any) => {
 }
 
 const StatusOptions = [
-  {
-    value: 'Sorting',
-    label: 'Sorting',
-  },
-  {
-    value: 'Investigation',
-    label: 'Investigation',
-  },
 
-  {
-    value: 'Escalated',
-    label: 'Escalated',
-  },
-  {
-    value: 'Resolved',
-    label: 'Resolved',
-  },
-  {
-    value: 'Rejected',
-    label: 'Rejected',
-  },
   {
     value: 'Referred',
     label: 'Referred',
@@ -1669,7 +1634,6 @@ const handleRowDblClick = (row) => {
 
 
       <el-table-column label="Code" prop="code" sortable width="150" />
-      <el-table-column label="Level" prop="current_level" sortable width="150" />
       <el-table-column label="Complainant" prop="name" sortable width="250" />
       <el-table-column label="Description" prop="description" sortable width="550" />
       <el-table-column label="Location" sortable width="350">
