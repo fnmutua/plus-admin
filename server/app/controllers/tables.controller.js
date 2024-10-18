@@ -1023,7 +1023,7 @@ exports.modelCreateOneRecord = (req, res) => {
 
 
  
-exports.modelAllGeo = async (req, res) => {
+exports.xmodelAllGeo = async (req, res) => {
   var reg_model = req.body.model
    
   var qry2 =
@@ -1163,6 +1163,147 @@ exports.modelAllGeo = async (req, res) => {
 
 }
  
+exports.modelAllGeo = async (req, res) => {
+  var reg_model = req.body.model
+   
+  var qry2 =
+  "SELECT row_to_json(fc) AS json_build_object FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(ST_ReducePrecision(geom, 0.0001))::json AS geometry, json_strip_nulls(row_to_json(" + reg_model + ")) AS properties FROM " +
+  reg_model + " WHERE geom IS NOT NULL) AS f) AS fc";
+
+   
+  console.log("req.body.cache_key",)
+
+
+
+  if (req.body.cache_key && req.body.cache_key != '') { 
+
+    const cache_key = req.body.cache_key;   
+    const cacheDuration = 3600; // Cache duration in seconds
+
+    
+    // get last time it was modified 
+    const lastRow = await db.models[reg_model].findOne({
+      attributes: ['updatedAt'],
+      order: [['updatedAt', 'DESC']]
+    });
+    
+    const lastModified = lastRow ? lastRow.updatedAt: Date.now()
+    console.log(lastModified,req.body.cache_key)
+     console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+
+
+    try {
+      const cacheResults = await redisClient.get(cache_key);
+     
+
+      if (cacheResults) {
+        console.log("reurning from cachec.....")
+        const result = JSON.parse(cacheResults);
+         if (lastModified && lastModified > result.lastModified) {
+          // If the database was updated after the cached data was generated, update the cache
+          //const response = await db.models[reg_model].findAndCountAll(qry2);
+          const response = await sequelize.query(qry2, {
+            model: db.models[reg_model],
+            mapToModel: false // pass true here if you have any mapped fields
+          })
+
+
+          
+          await redisClient.set(cache_key, JSON.stringify({
+            data: response,
+             lastModified: Date.now() // Update the last modified timestamp
+          }), {
+            EX: cacheDuration,
+            NX: true,
+          });
+
+          res.status(200).send({
+            fromCache: false,
+            cache_key: cache_key,
+            data: response,
+            code: '0000'
+          });
+        } else {
+          // If the cached data is still valid, return it from the cache
+
+          console.log(result.data)
+          res.status(200).send({
+            fromCache: true,
+            cache_key: cache_key,
+            data: result.data,
+            code: '0000'
+          });
+        }
+      } 
+      else {
+
+        // If no cache data exists, generate new data and store it in the cache
+        //const response = await db.models[reg_model].findAndCountAll(qry);
+        const response = await sequelize.query(qry2, {
+          model: db.models[reg_model],
+          mapToModel: false // pass true here if you have any mapped fields
+        })
+
+
+       // console.log('county geo', response.data[0].json_build_object)
+        console.log(response[0])
+
+         //const reducedPrecisionGeoJSON = reducePrecision(response[0], 1);
+       // console.log(JSON.stringify(reducedPrecisionGeoJSON, null, 2));
+
+
+
+        await redisClient.set(cache_key, JSON.stringify({
+          data: response,
+           lastModified: Date.now() // Set the last modified timestamp to current time
+        }), {
+          EX: cacheDuration,
+          NX: true,
+        });
+
+          //  return it from the cache
+          res.status(200).send({
+            fromCache: false,
+            cache_key: cache_key,
+            data: response,
+             code: '0000'
+          });
+    }
+  }
+    catch(error) {
+      res.status(500).send({
+        message: 'Internal server error',
+        code: 'SERVER_ERROR'
+      });
+    }
+
+
+
+
+  } 
+  else {
+
+    console.log("123xxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
+  
+    
+
+     
+  const result_geo = await sequelize.query(qry2, {
+    model: db.models[reg_model],
+    mapToModel: false // pass true here if you have any mapped fields
+  })
+
+  res.status(200).send({
+    data: result_geo,
+    code: '0000'
+  })
+  
+
+  }
+
+}
+
+
 //ST_AsGeoJSON(ST_ReducePrecision(geom, 0.0001))
 
 const { Readable } = require('stream');
@@ -1366,6 +1507,7 @@ exports.modelOneGeo = async (req, res) => {
 }
 
  
+ 
 exports.modelSelectGeo = async (req, res) => {
   console.log('Geoid arrays ----------------------------------->', req.body);
 
@@ -1390,7 +1532,7 @@ exports.modelSelectGeo = async (req, res) => {
                      array_to_json(array_agg(f)) AS features
               FROM (
                 SELECT 'Feature' AS type,
-                ST_AsGeoJSON(ST_ConvexHull(geom))::json AS geometry,
+                       ST_AsGeoJSON(geom, 3)::json AS geometry, -- Use the full geometry with 3 decimal places
                        (
                          SELECT json_strip_nulls(row_to_json(${reg_model}))
                          FROM (SELECT id) t
@@ -1402,13 +1544,14 @@ exports.modelSelectGeo = async (req, res) => {
   } else {
     const filterValues = Array.isArray(columnFilterField) ? columnFilterField : [columnFilterField];
     const filterClause = filterValues.map((value) => `(${value} IN (${arr}))`).join(' OR ');
+
     qry2 = `SELECT row_to_json(fc) AS json_build_object
             FROM (
               SELECT 'FeatureCollection' AS type,
                      array_to_json(array_agg(f)) AS features
               FROM (
                 SELECT 'Feature' AS type,
-                ST_AsGeoJSON(ST_ConvexHull(geom))::json AS geometry,
+                       ST_AsGeoJSON(geom, 3)::json AS geometry, -- Use the full geometry with 3 decimal places
                        (
                          SELECT json_strip_nulls(row_to_json(${reg_model}))
                          FROM (SELECT id) t
@@ -1430,6 +1573,7 @@ exports.modelSelectGeo = async (req, res) => {
     code: '0000'
   });
 };
+
 
  
 exports.modelGetByCode= async (req, res) => {
