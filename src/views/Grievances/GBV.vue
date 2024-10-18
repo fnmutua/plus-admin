@@ -51,26 +51,25 @@ console.log("userInfo--->", userInfo)
 
 
 
- 
 // Check for the "grm" role and get its level, field, and fieldvalue
-const isNationalStaff=ref(false)
+const isNationalStaff = ref(false)
 const grmRole = userInfo.roles.map(role => {
-  if (role.name === "grm") {
+  if (role.name === "gbv") {
     let field = null;
     let fieldvalue = null;
 
     // Determine the field and fieldvalue based on the location level
     if (role.user_roles.location_level === "county") {
-      isNationalStaff.value=false
+      isNationalStaff.value = false
       field = "county_id";
       fieldvalue = role.user_roles.county_id;
     } else if (role.user_roles.location_level === "settlement") {
-      isNationalStaff.value=false
+      isNationalStaff.value = false
       field = "settlement_id";
       fieldvalue = role.user_roles.settlement_id;
     } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
       // If the level is national or not defined, return empty roles filter
-      isNationalStaff.value=true
+      isNationalStaff.value = true
       return {
         model: "national",
         field: null,
@@ -209,8 +208,8 @@ let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 
 // Prepare filters array 
-var filters = ['status'];
-var filterValues = [['Rejected']];
+var filters = ['isgbv' ];
+var filterValues = [[true] ];
 var filterFunction = ['in'];
 
 
@@ -337,6 +336,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filters = selFilters
   formData.filterValues = selfilterValues
   formData.filterFunctions = filterFunction
+
   formData.associated_multiple_models = associated_multiple_models
 
   //-------------------------
@@ -346,7 +346,12 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('After Querry', res)
   tableDataList.value = res.data
 
-  availableFields.value = extractFields(tableDataList.value);
+  if(res.data.data.length>0) {
+
+    availableFields.value = extractFields(tableDataList.value);
+
+
+  }
 
 
 
@@ -566,16 +571,7 @@ const submitForm = async () => {
   grmForm.value.date_reported = new Date();
   grmForm.value.status = 'Sorting'
   grmForm.value.model = 'grievance';
- 
-  if (grmForm.value.isgbv) {
-    grmForm.value.current_level = 'national';
-
-  }
-  else {
-    grmForm.value.current_level = 'settlement';
-
-  }
-
+  grmForm.value.current_level = 'national';
 
 
   const formInstance = dynamicFormRef
@@ -721,7 +717,7 @@ const getGrievanceDetails = (data) => {
   // drawer.value = true
 
   push({
-    name: 'GrievanceDetails',
+    name: 'GBVGrievanceDetails',
     params: { id: data.row.id }
   })
 
@@ -1503,7 +1499,27 @@ const handleSelectStatus = async (status: any) => {
 }
 
 const StatusOptions = [
+  {
+    value: 'Sorting',
+    label: 'Sorting',
+  },
+  {
+    value: 'Investigation',
+    label: 'Investigation',
+  },
 
+  {
+    value: 'Escalated',
+    label: 'Escalated',
+  },
+  {
+    value: 'Resolved',
+    label: 'Resolved',
+  },
+  {
+    value: 'Rejected',
+    label: 'Rejected',
+  },
   {
     value: 'Referred',
     label: 'Referred',
@@ -1546,7 +1562,7 @@ const handleRowDblClick = (row) => {
 
 
   push({
-    name: 'GrievanceDetails',
+    name: 'GBVGrievanceDetails',
     params: { id: row.id }
   })
 
@@ -1592,7 +1608,7 @@ const handleRowDblClick = (row) => {
         </el-tooltip>
 
         <el-tooltip content="Add Grievance" placement="top">
-          <el-button   :onClick="AddComponent" type="primary" :icon="Plus" />
+          <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
         </el-tooltip>
 
         <el-tooltip content="Clear" placement="top">
@@ -1641,6 +1657,7 @@ const handleRowDblClick = (row) => {
         </template>
       </el-table-column>
 
+      <el-table-column label="Level" prop="current_level" sortable width="150" />
 
       <el-table-column label="Code" prop="code" sortable width="150" />
       <el-table-column label="Complainant" prop="name" sortable width="250" />

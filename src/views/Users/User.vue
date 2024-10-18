@@ -10,7 +10,7 @@ import {
   ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElCheckbox, ElMessage,
   ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElDivider, ElPagination, ElTooltip, ElOption, ElCard, ElCol
 } from 'element-plus'
- import {
+import {
   Position,
   Edit,
   Back,
@@ -286,7 +286,7 @@ const getRoles = async () => {
 
   formData.currentUser = currentUser
 
-
+  console.log('currentUser', currentUser)
   //-------------------------
   const res = await getUserRoles(formData)
 
@@ -689,7 +689,6 @@ const handleChangeLevel = async (level) => {
 
 }
 
-const selectedRoles = ref([]);
 
 
 

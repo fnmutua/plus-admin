@@ -1161,7 +1161,6 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           title: 'Imagery',
           hidden: false,
           role: ['admin', 'super_admin', 'monitoring','grm' ,'consultant','staff' ] ,
-
           icon:'mdi:space-station'
 
         }
@@ -1196,9 +1195,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
        }
        },
-        
-
-     
+         
        {
         path: 'resolved',
         component: () => import('@/views/Grievances/Resolved.vue'),
@@ -1206,6 +1203,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        meta: {
          title: 'Resolved',
          icon:'oui:security-signal-resolved',
+         role: [  'super_admin', 'grm' ] ,
+         locationLevel:['national','county','settlement'],
+
        }
        },
 
@@ -1217,8 +1217,14 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        meta: {
          title: 'Rejected',
          icon:'oui:security-signal-detected',
+         role: [  'super_admin', 'grm' ] ,
+         locationLevel:['national','county','settlement'],
+
        }
        },
+
+       
+
 
        {
         path: ':id',
@@ -1228,6 +1234,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           hidden: true,
           title: 'Grievance Details',
           icon:'ion:document-attach',
+          role: [  'super_admin', 'grm' ] ,
+          locationLevel:['national','county','settlement'],
+
           noCache: true
         }
       },
@@ -1239,6 +1248,54 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
     ]
   },
+  {
+    path: '/gbv',
+    component: Layout,
+    redirect: '/gbv/open',
+    name: 'GBV',
+    meta: {
+      title: 'GBV Grievances',
+      icon: 'hugeicons:complaint',
+      role: [ 'super_admin',  'gbv'] ,
+      locationLevel:['national','county','settlement'],
+      alwaysShow: false
+    },
+    children: [ 
+       {
+        path: 'open',
+        component: () => import('@/views/Grievances/GBV.vue'),
+       name: 'GBVGrievances',
+       meta: {
+         title: 'GBV',
+         icon:'svg-spinners:wind-toy',
+         role: [  'super_admin', 'gbv' ] ,
+         locationLevel:['national','county','settlement'],
+       }
+       },
+
+       {
+        path: ':id',
+        component: () => import('@/views/Grievances/GBVGrievanceDetails.vue'),
+        name: 'GBVGrievanceDetails',
+        meta: {
+          hidden: true,
+          title: 'GBV Grievance Details',
+          icon:'ion:document-attach',
+          role: [  'super_admin', 'gbv' ] ,
+          locationLevel:['national','county','settlement'],
+          noCache: true
+        }
+      },
+
+ 
+    
+      
+
+
+
+    ]
+  },
+
   {
     path: '/interventions',
     component: Layout,
@@ -1684,7 +1741,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'My Space',
       icon: 'wpf:usershield',
       alwaysShow: true,
-      role: ['admin', 'super_admin', 'admin', 'staff','grm','monitoring','consultant','support'],
+      role: ['admin', 'super_admin', 'admin', 'staff','grm', 'gbv', 'monitoring','consultant','support'],
       locationLevel:['national','county'],
 
     },
@@ -1698,7 +1755,9 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Profile',
           hidden: false,
-          icon:'pajamas:profile'
+          icon:'pajamas:profile',
+          role: ['admin', 'super_admin', 'admin', 'staff','grm', 'gbv', 'monitoring','consultant','support'],
+
         }
       }, 
 

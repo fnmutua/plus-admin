@@ -453,36 +453,7 @@ const dynamicFormRef = ref<FormInstance>()
 
 const router = useRouter();
 
-const xuploadFiles = async (grievance_id) => {
-  console.log('grievance_id', grievance_id)
 
-
-  const formData = new FormData();
-
-  // Assuming `fileList` is an array of file objects and `grievance_id` is defined
-  for (var i = 0; i < fileList.value.length; i++) {
-    console.log('------>file', fileList.value[i]);
-    formData.append('files', fileList.value[i].raw);
-    formData.append('format', fileList.value[i].name.split('.').pop());
-    formData.append('grievance_id', grievance_id);
-    formData.append('protected_file', true);
-    formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2));
-    formData.append('code', uuid.v4());
-  }
-
-  // Printing out the contents of formData
-  for (let [key, value] of formData.entries()) {
-    console.log(`${key}: ${value}`);
-  }
-
-  const res = await uploadGrievanceDocuments(formData)
-
-  console.log("Docuemnts Uploaded", res)
-
-
-
-
-}
 
 
 const uploadFiles = async (action_id, grievance_id) => {
@@ -540,9 +511,6 @@ const logAction = async (grievance) => {
 
 const submitForm = async () => {
 
-
-
-
   const formInstance = dynamicFormRef
 
   formInstance.value.validate(async (valid: boolean) => {
@@ -554,7 +522,14 @@ const submitForm = async () => {
       grmForm.value.status = 'Sorting'
 
       grmForm.value.model = 'grievance';
-      grmForm.value.current_level = 'settlement';
+
+      if (grmForm.value.isgbv) {
+        grmForm.value.current_level = 'national';
+
+      }
+      else {
+        grmForm.value.current_level = 'settlement';
+      }
 
 
       //1. Submit teh greivance 

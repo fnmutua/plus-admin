@@ -318,11 +318,7 @@ export const usePermissionStore = defineStore('permission', {
     }
   },
   actions: {
-    generateRoutes(
-      type, 
-      locationLevel,
-      
-    ) {
+    generateRoutes(type, locationLevel) {
       return new Promise<void>((resolve) => {
         // Function to recursively filter routes and their children based on 'type' and 'locationLevel'
         const filterRoutes = (routes) => {
@@ -332,44 +328,57 @@ export const usePermissionStore = defineStore('permission', {
             
             const matchesRole = route.meta.role ? route.meta.role.includes(type) : true;
             const matchesLocation = route.meta.locationLevel ? route.meta.locationLevel.includes(locationLevel) : true;
-
-            //console.log("Checking roles >>>------",route.meta.locationLevel,locationLevel)
-
+  
             return matchesRole && matchesLocation;
           });
-
+  
           // Recursively filter the children of each route
           filteredRoutes.forEach((route) => {
             if (route.children) {
               route.children = filterRoutes(route.children);
             }
           });
-
+  
           return filteredRoutes;
         };
-
+  
         // Filter routes based on role and location level
         const filteredRoutes = filterRoutes(adminRoutes);
-
+  
         // Clone the filtered routes to avoid modifying the original routes
-        const routerMap = cloneDeep(filteredRoutes);
-
-        console.log("Filtered routerMap Routes: ",routerMap)
-
-        // Set the filtered routes
-        this.addRouters = routerMap;
+        const newRouterMap = cloneDeep(filteredRoutes);
+  
+        console.log("Newly Filtered Routes: ", newRouterMap);
+  
+        // Check if this.addRouters is empty (first call) or if it contains already added routes
+        if (this.addRouters && this.addRouters.length > 0) {
+          // If addRouters already contains routes, merge the new filtered routes with the existing ones
+          this.addRouters = [...this.addRouters, ...newRouterMap].filter(
+            (value, index, self) => index === self.findIndex((t) => t.path === value.path)
+          );
+        } else {
+          // If no routes have been added yet, initialize addRouters with new filtered routes
+          this.addRouters = newRouterMap;
+        }
+  
+        // Combine constantRouterMap with the updated set of added routes
         this.routers = cloneDeep(constantRouterMap).concat(this.addRouters);
-
+  
+        console.log("Combined RouterMap Routes: ", this.routers);
+  
         resolve();
       });
     },
+  
     setIsAddRouters(state) {
       this.isAddRouters = state;
     },
+  
     setMenuTabRouters(routers) {
       this.menuTabRouters = routers;
     }
   }
+  
 });
 export const usePermissionStoreWithOut = () => {
   return usePermissionStore(store)
