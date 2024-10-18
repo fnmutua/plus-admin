@@ -1489,7 +1489,7 @@ const getCharts = async (section_id) => {
                   var pyOptions = {
                     title: {
                       text: thisChart.title,
-                      subtext: 'National Slum Database, 2023',
+                      subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
                       left: 'center',
                       textStyle: {
                         fontSize: 14,

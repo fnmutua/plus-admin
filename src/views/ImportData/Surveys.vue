@@ -109,7 +109,7 @@ PieChartOption = {
     },
     title: {
         text: '',
-        subtext: 'National Slum Database, 2023',
+        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
         left: 'center',
         textStyle: {
             fontSize: 14
@@ -1751,7 +1751,7 @@ const generateReport = async () => {
 option = {
     title: {
         text: '',
-        subtext: 'National Slum Database, 2023',
+        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
         left: 'center',
         textStyle: {
             fontSize: 14

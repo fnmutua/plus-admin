@@ -24,7 +24,7 @@ const femaleIcon = 'path://m 39.7122,238.0264 c -5.604205,-1.49359 -5.822698,-7.
 export const stacklineOptions: EChartsOption = {
   title: {
     text: 'stacked line',
-    subtext: 'National Slum Database, 2023',
+        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     left: 'left',
     textStyle: {
       fontSize: 14
@@ -166,7 +166,7 @@ export const xsimpleBarChart = {
     },
   },
   subtitle: {
-    text: 'National Slum Database, 2023',
+    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     align: 'left',
  
     style: {
@@ -262,7 +262,7 @@ export const simpleBarChart = {
     },
   },
   subtitle: {
-    text: 'National Slum Database, 2023',
+    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     align: 'left',
  
     style: {
@@ -370,7 +370,7 @@ export const stackedbarOptions = {
     },
   },
   subtitle: {
-    text: 'National Slum Database, 2023',
+    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     align: 'left',
  
     style: {
@@ -449,7 +449,7 @@ export const stackedbarOptionsAbs = {
     },
   },
   subtitle: {
-    text: 'National Slum Database, 2023',
+    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     align: 'left',
  
     style: {
@@ -518,7 +518,7 @@ export const multipleBarChart = {
     },
   },
   subtitle: {
-    text: 'National Slum Database, 2023',
+    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     align: 'left',
     style: {
       fontSize: '12px',
@@ -607,7 +607,7 @@ export const lineOptions = {
   },
 
   subtitle: {
-    text: 'National Slum Database, 2023',
+    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     align: 'left',
     style: {
       fontSize: '12px',
@@ -646,7 +646,7 @@ export const pieOptions = {
     }
   },
   subtitle: {
-    text: 'National Slum Database, 2023',
+    text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     align: 'left',
     style: {
       fontSize: '12px',
@@ -715,7 +715,7 @@ export const barOptions: EChartsOption = {
 export const xmultipleBarChart: EChartsOption = {
   title: {
     text: '',
-    subtext: 'National Slum Database, 2023',
+        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     left: 'center',
     textStyle: {
       fontSize: 14
@@ -865,7 +865,7 @@ export const barOptionsMultiple: EChartsOption = {
 export const  barMaleFemaleOptions: EChartsOption = {
   title: {
     text: '',
-    subtext: 'National Slum Database, 2023',
+        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     left: 'center',
     textStyle: {
       fontSize: 14
@@ -980,7 +980,7 @@ export const  barMaleFemaleOptions: EChartsOption = {
 export const  xstackedbarOptions: EChartsOption = {
   title: {
     text: '',
-    subtext: 'National Slum Database, 2023',
+        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     left: 'center',
     textStyle: {
       fontSize: 14
@@ -1041,7 +1041,7 @@ export const  xstackedbarOptions: EChartsOption = {
 export const  mapChartOptions: EChartsOption = {
   title: {
     text: 'map',
-    subtext: 'National Slum Database, 2023',
+        subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     sublink: 'https://mazingira.ags.co.ke/',
     left: 'left',
     textStyle: {
