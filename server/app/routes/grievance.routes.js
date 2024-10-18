@@ -21,6 +21,7 @@ module.exports = function (app) {
   app.post('/api/v1/grv/status/update',   controller.updateGrievanceStatus)
   app.post('/api/v1/grv/upsert',   controller.modelImportGrievances)
   app.post('/api/v1/grv/keyword',[authJwt.verifyToken, authJwt.isGrmOfficerNational],   controller.getGrievancesByKeyword)
+  app.post('/api/v1/grv/phone',[authJwt.verifyToken],   controller.getGrievanceByUserPhone)
 
   
   
