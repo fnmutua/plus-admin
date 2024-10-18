@@ -2,20 +2,22 @@
 <script setup lang="ts">
 
 
-import { ElButton} from 'element-plus'
-import {  Back} from '@element-plus/icons-vue'
+import { ElButton } from 'element-plus'
+import { Back } from '@element-plus/icons-vue'
 
-import { ref,computed } from 'vue'
+import { ref, computed } from 'vue'
 import {
-  ElPagination, ElInput,ElSelect,ElOption, ElCol ,
-  ElRow, ElTableV2, ElCard} from 'element-plus'
+  ElPagination, ElInput, ElSelect, ElOption, ElCol,
+  ElRow, ElTableV2, ElCard
+} from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import {
-    loginCollector,deleteSubmissions,
-    getSubmissions} from '@/api/collector'
+  loginCollector, deleteSubmissions,
+  getSubmissions
+} from '@/api/collector'
 
-import { watch,onMounted } from 'vue';
+import { watch, onMounted } from 'vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
 import { useRouter } from 'vue-router'
@@ -24,19 +26,19 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
- 
+
 const mobileBreakpoint = 768;
-const defaultPageSize = 10;
+const defaultPageSize = 20;
 const mobilePageSize = 5;
-const pageSize = ref(10);
+const pageSize = ref(20);
 const currentPage = ref(1);
 const width = ref(1080);
- 
+
 // Function to update pageSize based on window width
 const updatePageSize = () => {
 
-  console.log('window.innerWidth',window.innerWidth)
-  width.value=window.innerWidth -400
+  console.log('window.innerWidth', window.innerWidth)
+  width.value = window.innerWidth - 400
   if (window.innerWidth <= mobileBreakpoint) {
     pageSize.value = mobilePageSize;
   } else {
@@ -46,79 +48,79 @@ const updatePageSize = () => {
 
 
 
-onMounted(async () => { 
- 
-  console.log('window.innerWidth',window.innerWidth)
+onMounted(async () => {
 
- window.addEventListener('resize', updatePageSize);
-   updatePageSize(); // Initial check
- 
- 
- })
+  console.log('window.innerWidth', window.innerWidth)
+
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize(); // Initial check
+
+
+})
 
 
 
 console.log("userInfo--->", userInfo)
 
-const projects =ref([])
-const forms =ref([])
-const loading =ref(false)
- 
- 
- 
-
- 
-const loginUserToCollector = async () => { 
-    var formData = {}
-    formData.email = "kisip.mis@gmail.com"
-    formData.password = "Admin@2011"
-
-    loading.value=true
+const projects = ref([])
+const forms = ref([])
+const loading = ref(false)
 
 
-    await loginCollector(formData).then((response) => {
-        // Assuming the token is in the response data
-        const token = response.token;
-        // Save the token to localStorage
-        localStorage.setItem('collectorToken', token);
-        console.log('collectorToken:', response);
-        const all_projects = JSON.parse(response.data);
-        console.log('projects:', projects);
-
-        // loop through each project 
-        all_projects.forEach(function (project) {
-            
-          projects.value.push(project)
-
-            project.formList.forEach(function (form) {
-                
-              forms.value.push(form)
 
 
-            })
 
-        })
+const loginUserToCollector = async () => {
+  var formData = {}
+  formData.email = "kisip.mis@gmail.com"
+  formData.password = "Admin@2011"
+
+  loading.value = true
 
 
-        getSecData()
-         
+  await loginCollector(formData).then((response) => {
+    // Assuming the token is in the response data
+    const token = response.token;
+    // Save the token to localStorage
+    localStorage.setItem('collectorToken', token);
+    console.log('collectorToken:', response);
+    const all_projects = JSON.parse(response.data);
+    console.log('projects:', projects);
+
+    // loop through each project 
+    all_projects.forEach(function (project) {
+
+      projects.value.push(project)
+
+      project.formList.forEach(function (form) {
+
+        forms.value.push(form)
+
+
+      })
+
     })
+
+
+    getSecData()
+
+  })
 
 
 
 }
 
-const sec_officials =ref([])
+const sec_officials = ref([])
 
 
 
-const countyOptions  =ref([])
-const settlementOptions  =ref([])
+const countyOptions = ref([])
+const settlementOptions = ref([])
 const extractData = async (dataArray) => {
 
   // Extract unique counties and settlements
-const uniqueCounties = new Set();
-const uniqueSettlements = new Set();
+  const uniqueCounties = new Set();
+  const uniqueSettlements = new Set();
 
 
   // Clear the sec_officials array
@@ -130,7 +132,7 @@ const uniqueSettlements = new Set();
       existingOfficial.county === newOfficial.county &&
       existingOfficial.settlement === newOfficial.settlement &&
       existingOfficial.returning_officer === newOfficial.returning_officer &&
-      existingOfficial.npct_representative === newOfficial.npct_representative &&     
+      existingOfficial.npct_representative === newOfficial.npct_representative &&
       existingOfficial.date === newOfficial.date &&
       existingOfficial.category === newOfficial.category &&
       existingOfficial.gender === newOfficial.gender &&
@@ -149,12 +151,12 @@ const uniqueSettlements = new Set();
     // Etxract Counties 
 
     if (data.group_location?.county) {
-        uniqueCounties.add(data.group_location.county);
-      }
-      //Extratc Settleemnts 
-      if (data.settlement_name) {
-        uniqueSettlements.add(data.settlement_name);
-      }
+      uniqueCounties.add(data.group_location.county);
+    }
+    //Extratc Settleemnts 
+    if (data.settlement_name) {
+      uniqueSettlements.add(data.settlement_name);
+    }
 
 
     // Ensure group_location and settlement_name exist before using them
@@ -190,14 +192,14 @@ const uniqueSettlements = new Set();
     }
   });
 
-    countyOptions.value = Array.from(uniqueCounties).map(county => ({ label: county, value: county }));
-    settlementOptions.value = Array.from(uniqueSettlements).map(settlement => ({ label: settlement, value: settlement }));
-    console.log(  countyOptions.value )
+  countyOptions.value = Array.from(uniqueCounties).map(county => ({ label: county, value: county }));
+  settlementOptions.value = Array.from(uniqueSettlements).map(settlement => ({ label: settlement, value: settlement }));
+  console.log(countyOptions.value)
 };
 
 
 
-const getSecData = async () => {  
+const getSecData = async () => {
   // Define the formData object with necessary fields
   const formData = {
     project: "1",
@@ -206,7 +208,7 @@ const getSecData = async () => {
   };
 
   // Set loading state
- /// loading.value = true;
+  /// loading.value = true;
 
   try {
     // Await the response from getSubmissions
@@ -218,7 +220,7 @@ const getSecData = async () => {
     await extractData(response.data);
 
     // Log the extracted data
-    console.log(sec_officials.value); 
+    console.log(sec_officials.value);
 
   } catch (error) {
     // Handle errors here
@@ -229,9 +231,9 @@ const getSecData = async () => {
   }
 };
 
- 
 
-const deleteRecord = async (row) => {  
+
+const deleteRecord = async (row) => {
   const formData = {
     project: "1",
     form: "sec_officials",
@@ -243,12 +245,12 @@ const deleteRecord = async (row) => {
     //const response = await deleteSubmissions(formData);
 
     console.log('Delete Submission\s disabled:');
- 
+
 
   } catch (error) {
     // Handle errors here
     console.error('Delete Error:', error);
-  }  
+  }
 
 }
 const totalItems = ref(); // Total number of rows (initially full dataset)
@@ -258,12 +260,12 @@ console.log("projects--->", projects.value)
 console.log("forms--->", forms.value)
 
 loginUserToCollector()
- 
+
 
 totalItems.value = sec_officials.value.length
 
 
-console.log("totalItems.value--->",totalItems.value)
+console.log("totalItems.value--->", totalItems.value)
 
 const formatTitle = (attribute) => {
   // Replace underscores with spaces, capitalize first letter of each word
@@ -298,39 +300,39 @@ const selectedAttributes = [
   'npct_representative',
 ];
 
- 
+
 
 let columnsx = generateColumnsX(selectedAttributes);
 console.log(columnsx);
 
- 
-
-    const handlePageChange = (page) => {
-      currentPage.value = page;
-    };
 
 
-    const handlePageSizeChange = (newSize) => {
-      pageSize.value = newSize;
-      currentPage.value = 1; // Reset to first page when changing page size
-    };
+const handlePageChange = (page) => {
+  currentPage.value = page;
+};
 
-    const search = ref('')
- 
 
-   // Filter data and reset pagination on search input change
-   const filterTableData = () => {
-      if (!search.value) {
-        // If search is cleared, reset the pagination and total to original data
-        currentPage.value = 1;
-        totalItems.value = sec_officials.value.length; // Reset total to initial value
-      }
-    };
+const handlePageSizeChange = (newSize) => {
+  pageSize.value = newSize;
+  currentPage.value = 1; // Reset to first page when changing page size
+};
+
+const search = ref('')
+
+
+// Filter data and reset pagination on search input change
+const filterTableData = () => {
+  if (!search.value) {
+    // If search is cleared, reset the pagination and total to original data
+    currentPage.value = 1;
+    totalItems.value = sec_officials.value.length; // Reset total to initial value
+  }
+};
 
 // Computed property for filtered data based on the search term
 
-const county_value =ref()
-const sett_value =ref()
+const county_value = ref()
+const sett_value = ref()
 const filteredData = computed(() => {
   //const searchTerm = search.value.toLowerCase();
   // if (searchTerm) {
@@ -348,49 +350,49 @@ const filteredData = computed(() => {
 
   // return sec_officials.value; // Return all data if no search term
 
-     const searchTerm = search.value.toLowerCase();
-        const selectedCounty = county_value.value;
-        const selectedSettlement = sett_value.value;
-  
-        return sec_officials.value.filter((data) => {
-          const countyMatch = selectedCounty ? data.county === selectedCounty : true;
-          const settlementMatch = selectedSettlement ? data.settlement === selectedSettlement : true;
-  
-          if (searchTerm) {
-            const nameMatch = data.name?.toLowerCase().includes(searchTerm);
-            const settlementTermMatch = data.settlement?.toLowerCase().includes(searchTerm);
-            const telephoneMatch = data.mobile?.toLowerCase().includes(searchTerm);
-            const idMatch = data.national_id?.toLowerCase().includes(searchTerm);
-            const NPCTMatch = data.npct_representative?.toLowerCase().includes(searchTerm);
-  
-            return countyMatch && settlementMatch && (nameMatch || settlementTermMatch || telephoneMatch || idMatch || NPCTMatch);
-          }
-  
-          return countyMatch && settlementMatch;
-        });
+  const searchTerm = search.value.toLowerCase();
+  const selectedCounty = county_value.value;
+  const selectedSettlement = sett_value.value;
+
+  return sec_officials.value.filter((data) => {
+    const countyMatch = selectedCounty ? data.county === selectedCounty : true;
+    const settlementMatch = selectedSettlement ? data.settlement === selectedSettlement : true;
+
+    if (searchTerm) {
+      const nameMatch = data.name?.toLowerCase().includes(searchTerm);
+      const settlementTermMatch = data.settlement?.toLowerCase().includes(searchTerm);
+      const telephoneMatch = data.mobile?.toLowerCase().includes(searchTerm);
+      const idMatch = data.national_id?.toLowerCase().includes(searchTerm);
+      const NPCTMatch = data.npct_representative?.toLowerCase().includes(searchTerm);
+
+      return countyMatch && settlementMatch && (nameMatch || settlementTermMatch || telephoneMatch || idMatch || NPCTMatch);
+    }
+
+    return countyMatch && settlementMatch;
+  });
 
 });
 
-    
-    
-
-    // Computed property for paginated data based on filtered results
-    const paginatedData = computed(() => {
-      const start = (currentPage.value - 1) * pageSize.value;
-      const end = start + pageSize.value;
-      return filteredData.value.slice(start, end);
-    });
-
-    // Watch the filtered data to update totalItems and reset the pagination
-    watch(filteredData, (newValue) => {
-      totalItems.value = newValue.length; // Update total based on filtered data
-      if (search.value) {
-        currentPage.value = 1; // Reset to the first page if filtering
-      }
-    });
 
 
-    const router = useRouter()
+
+// Computed property for paginated data based on filtered results
+const paginatedData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return filteredData.value.slice(start, end);
+});
+
+// Watch the filtered data to update totalItems and reset the pagination
+watch(filteredData, (newValue) => {
+  totalItems.value = newValue.length; // Update total based on filtered data
+  if (search.value) {
+    currentPage.value = 1; // Reset to the first page if filtering
+  }
+});
+
+
+const router = useRouter()
 
 
 const goBack = () => {
@@ -410,93 +412,62 @@ const goBack = () => {
 </script>
 
 <template>
-  <el-card  v-loading="loading">
-    <el-row   :gutter="10" style=" margin-bottom:10px;">
-          <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
-            <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-              Back
-            </el-button>
-          </el-col>
+  <el-card v-loading="loading">
+    <el-row :gutter="10" style=" margin-bottom:10px;">
+      <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </el-col>
 
-          <el-col :xs="24" :sm="24" :md="12" :lg="5">
-            <el-select
-              v-model="county_value"
-              placeholder="Filter County"
-              clearable
-              filterable
-              style="width: 100%; margin-right: 5px;"
-            >
-              <el-option
-                v-for="item in countyOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-          </el-col>
+      <el-col :xs="24" :sm="24" :md="12" :lg="5">
+        <el-select v-model="county_value" placeholder="Filter County" clearable filterable
+          style="width: 100%; margin-right: 5px;">
+          <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-col>
 
-          <el-col :xs="24" :sm="24" :md="12" :lg="7">
-            <el-select
-              v-model="sett_value"
-              placeholder="Filter Settlement"
-              clearable
-              filterable
-              style="width: 100%; margin-right: 5px;"
-            >
-              <el-option
-                v-for="item in settlementOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-          </el-col>
+      <el-col :xs="24" :sm="24" :md="12" :lg="7">
+        <el-select v-model="sett_value" placeholder="Filter Settlement" clearable filterable
+          style="width: 100%; margin-right: 5px;">
+          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-col>
 
-          <el-col :xs="24" :sm="24" :md="12" :lg="8">
-            <el-input
-              clearable
-              v-model="search"
-              placeholder="Search by Name, ID, Phone, County or Settlement"
-              :onInput="filterTableData"
-              style="width: 100%; margin-right: 15px;"
-            />
-          </el-col>
+      <el-col :xs="24" :sm="24" :md="12" :lg="8">
+        <el-input clearable v-model="search" placeholder="Search by Name, ID, Phone, County or Settlement"
+          :onInput="filterTableData" style="width: 100%; margin-right: 15px;" />
+      </el-col>
 
-          <el-col :xs="24" :sm="24" :md="12" :lg="2">
-            <DownloadCustom :data="paginatedData" :all="sec_officials" />
-          </el-col>
-        </el-row>
+      <el-col :xs="24" :sm="24" :md="12" :lg="2">
+        <DownloadCustom :data="paginatedData" :all="sec_officials" />
+      </el-col>
+    </el-row>
 
 
-      
-    <el-table-v2
-      :columns="columnsx"
-      :data="paginatedData"
-      :width="width"
-      :height="650"
-      fixed
-    >
+
+    <el-table-v2 :columns="columnsx" :data="paginatedData" :width="width" :height="650" fixed>
       <template #empty>
         <div class="flex items-center justify-center h-100%">
           <el-empty />
         </div>
       </template>
     </el-table-v2>
- 
 
 
-  <div style="margin-top: 20px;">
-  <!-- Pagination component -->
- 
-  <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
+
+    <div style="margin-top: 20px;">
+      <!-- Pagination component -->
+
+      <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        v-model:page-size="pageSize" :page-sizes="[5, 10,  20, 50, 100]" :total="totalItems" :background="true"
         @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
-  </div>
+    </div>
 
- 
-  
-  
+
+
+
   </el-card>
- 
+
 </template>
