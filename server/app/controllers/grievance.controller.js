@@ -707,6 +707,120 @@ exports.uploadGrievanceDocument = (req, res) => {
     };
 
 
+exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
+
+      upload.array('files')(req, res, async (err) => {
+        if (err) {
+          console.log(err);
+            return res.status(500).send({
+            message: 'Upload failed.',
+            code: '0000'
+          })
+        } 
+        if (!req.files) {
+          return res.status(500).send({ msg: 'file is not found :batchDocumentsUploadByParentCode' })
+        }
+    
+        var myFiles =req.files
+      
+    
+        console.log('files to upload',myFiles )
+        console.log('Properties Document',req.body )
+     
+        var errors = []
+        var objs =[]
+    
+        for (let i = 0; i < myFiles.length; i++) {
+          // Sin
+      
+            var obj = {} 
+          
+            obj.format = req.body.format[i]
+            obj.size = req.body.size[i]
+            obj.protected_file = req.body.protected_file[i] 
+            obj.name = myFiles[i].originalname
+            obj.location = myFiles[i].path
+            obj.code = shortid.generate()
+            obj.action_id = req.body.action_id[i] ? req.body.action_id[i] : null
+            obj.type = req.body.type[i] ? req.body.type[i] : 'Documentation'
+           
+     
+            try {
+              await db.models[req.body.model]
+                .findAll({
+                  where: {
+                    code: {
+                      [Op.eq]: req.body.pcode
+                    }
+                  }
+                })
+                .then((records) => {
+                  if (records && records.length > 0) {
+                    const recordIds = records.map((record) => record.id);
+                    recordIds.forEach((recordId) => {
+            
+                      obj.grievance_id =recordId
+                    });
+                  } 
+                });
+    
+                objs.push(obj)
+    
+            } catch (error) {
+              // Handle the error here
+              console.error("An error occurred:", error);
+            }
+            
+         
+    
+        //  }
+      
+        }
+    
+        // Send message
+    
+        
+        var reg_model = 'grievance_document'
+        // console.log("insert Objects", objs)
+    
+    
+         try {
+           for (const eobj of objs) {
+              console.log(eobj)
+             await db.models[reg_model].create(eobj)
+               .then(function () {
+                 console.log('-----')
+               });
+           }
+         }  
+         
+    
+             
+         catch (error) {
+           // handle error;
+           console.log(error)
+           errors.push('Failed to upload attachments.')
+    
+         }
+    
+    
+    
+        if (errors.length === 0) {
+          res.status(200).send({
+            message: 'Upload via App Successful',
+            code: '0000'
+          })
+      
+    
+        } else {
+    
+          res.status(500).send({
+            message: 'Upload failed. ' + errors + ' errors',
+            code: '0000'
+          })
+        }
+      })
+    }
  
     
  
