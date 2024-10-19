@@ -778,16 +778,18 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
       
             var obj = {} 
           
-            obj.format = req.body.format[i]
-            obj.size = req.body.size[i]
-            obj.protected_file = req.body.protected_file[i] 
+            obj.format = req.body.format 
+            obj.size = req.body.size 
+            obj.protected_file = req.body.protected_file 
             obj.name = myFiles[i].originalname
-            obj.location = myFiles[i].path
+            obj.location = myFiles[i].path 
             obj.code = shortid.generate()
-            obj.action_id = req.body.action_id[i] ? req.body.action_id[i] : null
-            obj.type = req.body.type[i] ? req.body.type[i] : 'Documentation'
+            obj.action_id = req.body.action_id  ? req.body.action_id  : null
+            obj.type = req.body.type  ? req.body.type  : 'Documentation'
            
-     
+            
+              
+            
             try {
               const record = await db.models.grievance.findOne({
                 where: {
@@ -797,7 +799,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
                 }
               });
             
-              console.log('assocaited grievance', record)
+             // console.log('assocaited grievance', record)
               if (record) {
                 obj.grievance_id = record.id; // Assign the found record's ID
               } 
