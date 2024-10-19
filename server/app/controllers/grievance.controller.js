@@ -797,7 +797,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
                 }
               });
             
-              console('assocaited grievance', record)
+              console.log('assocaited grievance', record)
               if (record) {
                 obj.grievance_id = record.id; // Assign the found record's ID
               } 
