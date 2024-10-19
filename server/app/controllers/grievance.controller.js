@@ -789,7 +789,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
            
      
             try {
-              await db.models[req.body.model]
+              await db.models.grievance
                 .findAll({
                   where: {
                     code: {
