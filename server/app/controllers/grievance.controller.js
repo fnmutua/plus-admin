@@ -789,30 +789,26 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
            
      
             try {
-              await db.models.grievance
-                .findAll({
-                  where: {
-                    code: {
-                      [Op.eq]: req.body.pcode
-                    }
+              const record = await db.models.grievance.findOne({
+                where: {
+                  code: {
+                    [Op.eq]: req.body.pcode
                   }
-                })
-                .then((records) => {
-                  if (records && records.length > 0) {
-                    const recordIds = records.map((record) => record.id);
-                    recordIds.forEach((recordId) => {
+                }
+              });
             
-                      obj.grievance_id =recordId
-                    });
-                  } 
-                });
-    
-                objs.push(obj)
-    
+              console('assocaited grievance', record)
+              if (record) {
+                obj.grievance_id = record.id; // Assign the found record's ID
+              } 
+            
+              objs.push(obj);
+            
             } catch (error) {
               // Handle the error here
               console.error("An error occurred:", error);
             }
+            
             
          
     
