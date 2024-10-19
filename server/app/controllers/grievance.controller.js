@@ -383,8 +383,8 @@ exports.createGrievanceBatchRecords = async (req, res) => {
       // Prepare and encrypt fields
       let obj = grievance;
       obj.name = Sequelize.fn('PGP_SYM_ENCRYPT', grievance.name, 'maluini');
-      //obj.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', grievance.national_id, 'maluini');
-      obj.national_id =   grievance.national_id;
+       obj.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', grievance.national_id, 'maluini');
+      //obj.national_id =   grievance.national_id;
 
       
       obj.code = generatedCode;
