@@ -109,7 +109,13 @@ module.exports = function (sequelize) {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true
+      },
+      pcode: {
+        type: DataTypes.STRING,
+        allowNull: true,
+         
       }
+
     },
     {
       sequelize,
