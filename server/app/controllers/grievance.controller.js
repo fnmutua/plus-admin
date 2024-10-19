@@ -791,7 +791,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
             try {
               const record = await db.models.grievance.findOne({
                 where: {
-                  code: {
+                  pcode: {
                     [Op.eq]: req.body.pcode
                   }
                 }
