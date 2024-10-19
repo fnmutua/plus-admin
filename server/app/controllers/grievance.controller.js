@@ -374,6 +374,46 @@ exports.createGrievanceRecord = async (req, res) => {
 };
 
 
+exports.createGrievanceBatchRecords = async (req, res) => {
+  try {
+    const grievances = req.body.data;
+    const grievancePromises = grievances.map(async (grievance) => {
+      const generatedCode = await generateGRMCode();
+      
+      // Prepare and encrypt fields
+      let obj = grievance;
+      obj.name = Sequelize.fn('PGP_SYM_ENCRYPT', grievance.name, 'maluini');
+      obj.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', grievance.national_id, 'maluini');
+      obj.code = generatedCode;
+
+      // Create grievance record
+      const item = await db.models.grievance.create(obj);
+      
+      // Decrypt fields (optional, if needed)
+      const decryptedName = await db.sequelize.query(
+        `SELECT PGP_SYM_DECRYPT(name::bytea, 'maluini') AS name FROM grievance WHERE id = :id`,
+        { replacements: { id: item.id }, type: Sequelize.QueryTypes.SELECT }
+      );
+      item.name = decryptedName[0].name;
+
+      return item;
+    });
+
+    // Wait for all grievance records to be created
+    const createdItems = await Promise.all(grievancePromises);
+
+    res.status(200).send({
+      data: createdItems,
+      code: '0000',
+      message: 'Grievances reported successfully.'
+    });
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).send({ message: err.message || 'An error occurred' });
+  }
+};
+
+
 exports.logGrievanceAction = async (req, res) => {
   try {
   
