@@ -73,3 +73,12 @@ ALTER SEQUENCE dashboard_card_id_seq RESTART WITH 5;
 UPDATE public.dashboard_card
 SET id = 4
 WHERE id = 34;
+
+
+
+ALTER TABLE grievance 
+ADD pcode VARCHAR(255) NULL;
+
+
+UPDATE grievance  SET pcode = code ;
+ 
