@@ -17,7 +17,7 @@ import {
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu, ElTour, ElTourStep, ElUpload,
-  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElDrawer, ElMessage, ElTabPane
+  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElDrawer, ElMessage, ElTabPane,ElSwitch
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -932,6 +932,10 @@ const grmForm = ref({
   isgbv: false,
   description: '',
   plea: '',
+
+  self_reported:false,
+  reporter_name : userInfo.name,
+  reporter_phone:userInfo.phone,
   witness: '',
   witness_phone: '',
   witness_statement: '',
@@ -983,7 +987,6 @@ const active = ref(0);
 
 
 const next = async () => {
-
   console.log(grmForm.value)
   const formInstance = dynamicFormRef
   formInstance.value.validate((valid: boolean) => {
@@ -994,6 +997,11 @@ const next = async () => {
   });
 
 
+};
+
+
+const xxnext = () => {
+  active.value++;
 };
 
 
@@ -1682,8 +1690,14 @@ const handleRowDblClick = (row) => {
 
       <el-table-column label="Code" prop="code" sortable width="150" />
       <el-table-column label="Level" prop="current_level" sortable width="150" />
-      <el-table-column label="Complainant" prop="name" sortable width="250" />
-      <el-table-column label="Description" prop="description" sortable width="550" />
+      <el-table-column label="Complainant" prop="name" sortable width="150" />
+      <el-table-column label="Reported By" width="150">
+        <template #default="scope">
+          <span v-if="scope.row.self_reported === true">Self</span>
+          <span v-else>{{ scope.row.reporter_name }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Description" prop="description" sortable width="350" />
       <el-table-column label="Location" sortable width="350">
         <template #default="scope">
           <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
@@ -1722,10 +1736,7 @@ const handleRowDblClick = (row) => {
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
 
-  </el-card>
-
-
-
+  </el-card> 
 
   <el-dialog title="Select Fields" v-model="showDownloadDialog" width="60%">
     <el-form>
@@ -1744,12 +1755,7 @@ const handleRowDblClick = (row) => {
       <el-button type="primary" @click="downloadCSV">Download CSV</el-button>
     </div>
   </el-dialog>
-
-
-
-
-
-
+ 
 
 
   <el-dialog v-model="AddDialogVisible" @close="handleCloseDialog" title="File a grievance" width="65%" draggable>
@@ -1766,7 +1772,7 @@ const handleRowDblClick = (row) => {
         <el-row v-if="active === 0" :gutter="10">
           <!-- Step 1: Personal Details -->
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item id="btn1" label="Name" prop="name">
+            <el-form-item id="btn1" label="Name of Complainant" prop="name">
               <el-input v-model="grmForm.name" placeholder="Enter name" style="width:90%" />
             </el-form-item>
 
@@ -1839,7 +1845,7 @@ const handleRowDblClick = (row) => {
           </el-col>
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
 
-            <el-form-item id="btn14" label="Nature of Complaint" prop="nature">
+            <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
               <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
                 <el-option label="Land" value="land" />
                 <el-option label="Labour Related" value="labour" />
@@ -1864,7 +1870,7 @@ const handleRowDblClick = (row) => {
 
         <el-row v-if="active === 2" :gutter="10">
           <!-- Step 3: Review & Submit -->
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+          <el-col :xs="12" :sm="21" :md="12" :lg="12" :xl="12">
             <el-form-item id="btn17" label="Witness Name" prop="witness">
               <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width:90%" />
             </el-form-item>
@@ -1878,7 +1884,33 @@ const handleRowDblClick = (row) => {
                 style="width:90%" />
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+
+
+          <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
+
+            <el-form-item  id="btn17" label="Are you the complainant?" prop="witness">
+                
+              <el-switch disabled
+              v-model="grmForm.self_reported"
+              class="ml-2"
+              inline-prompt
+              style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+              active-text="Yes"
+              inactive-text="No"
+            />
+
+            </el-form-item>
+
+            <el-form-item  v-if="!grmForm.self_reported" id="btn18" label="Your Name" prop="reporter_name">
+              <el-input disabled v-model="grmForm.reporter_name" placeholder="Your Name" style="width:90%" />
+            </el-form-item>
+
+            <el-form-item v-if="!grmForm.self_reported"  id="btn19" label="Your Phone" prop="reporter_phone">
+              <el-input disabled v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
+                style="width:90%" />
+            </el-form-item>
+
+
 
             <el-upload id="btn20" class="upload-demo"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"

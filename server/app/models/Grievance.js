@@ -68,9 +68,6 @@ module.exports = function (sequelize) {
       status: {
         type: DataTypes.STRING,
         allowNull: false,
-        // validate: {
-        //   isIn: [['Sorting', 'Investigation', 'Rejected', 'Resolved', 'Escalated','Referred', 'Closed']]
-        // }
       },
      
  
@@ -90,9 +87,25 @@ module.exports = function (sequelize) {
         allowNull: true
       },
       witness: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+
+      self_reported: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true // Use 'true' as a string if this is meant to be a string.
+      },
+
+      reporter_name: {
         type: DataTypes.STRING,
         allowNull: true
       },
+
+      reporter_phone: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+            
       witness_statement: {
         type: DataTypes.STRING,
         allowNull: true

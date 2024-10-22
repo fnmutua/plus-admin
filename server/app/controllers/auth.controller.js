@@ -681,6 +681,7 @@ exports.signin = async (req, res) => {
         res.status(200).send({
           id: user.id,
           username: user.username,
+          phone: user.phone,
           name: user.name,
           email: user.email,
           roles: authorities,
