@@ -2,9 +2,9 @@
 import { reactive, ref, unref, watch } from 'vue'
 import { Form } from '@/components/Form'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElButton, ElCheckbox, ElLink,  ElDialog, ElForm, ElFormItem, ElInput,FormInstance,ElMessage, ElTooltip,ElCard } from 'element-plus'
+import { ElButton, ElLink,  ElDialog, ElForm, ElFormItem, ElInput,FormInstance,ElMessage, ElTooltip,ElCard } from 'element-plus'
 import { useForm } from '@/hooks/web/useForm'
-import { loginApi, getTestRoleApi, getOtherRoutesApi, getAdminRoleApi, getSuperAdminRoleApi } from '@/api/login'
+import { loginApi } from '@/api/login'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStore } from '@/store/modules/app'
 import { usePermissionStore } from '@/store/modules/permission'
@@ -17,11 +17,6 @@ import { uuid } from 'vue-uuid'
 import { Icon } from '@iconify/vue';
 
 
-import {
-  Guide,
-    InfoFilled,
-  Document
-} from '@element-plus/icons-vue'
 
 const { required } = useValidator()
  
@@ -152,7 +147,7 @@ const signIn = async () => {
       try {
         const res = await loginApi(formData)
         console.log('After Login', res)
-        const selUserDetails = (({ id, name, roles, data, county_id, avatar, photo }) => ({ id, name, roles, data, county_id ,avatar, photo}))(res);
+        const selUserDetails = (({ id, name, roles, data, county_id, avatar, phone, photo }) => ({ id, name, roles, data, county_id ,avatar, phone,  photo}))(res);
         if (selUserDetails) {
           wsCache.set(appStore.getUserInfo, selUserDetails)
           // 是否使用动态路由

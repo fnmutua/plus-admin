@@ -17,7 +17,7 @@ import {
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu, ElTour, ElTourStep, ElUpload,
-  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElDrawer, ElMessage, ElTabPane
+  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElSwitch, ElMessage, ElTabPane
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -914,6 +914,9 @@ const grmForm = ref({
   isgbv: false,
   description: '',
   plea: '',
+  self_reported:false,
+  reporter_name : userInfo.name,
+  reporter_phone:userInfo.phone,
   witness: '',
   witness_phone: '',
   witness_statement: '',
@@ -1643,8 +1646,14 @@ const handleRowDblClick = (row) => {
 
 
       <el-table-column label="Code" prop="code" sortable width="150" />
-      <el-table-column label="Complainant" prop="name" sortable width="250" />
-      <el-table-column label="Description" prop="description" sortable width="550" />
+      <el-table-column label="Complainant" prop="name" sortable width="150" />
+      <el-table-column label="Reported By" width="150">
+        <template #default="scope">
+          <span v-if="scope.row.self_reported === true">Self</span>
+          <span v-else>{{ scope.row.reporter_name }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Description" prop="description" sortable width="450" />
       <el-table-column label="Location" sortable width="350">
         <template #default="scope">
           <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
@@ -1708,183 +1717,205 @@ const handleRowDblClick = (row) => {
 
 
 
-
-
-
-
-
+ 
   <el-dialog v-model="AddDialogVisible" @close="handleCloseDialog" title="File a grievance" width="65%" draggable>
 
-    <el-steps :active="active" finish-status="success">
-      <el-step title="Complainant Details" />
-      <el-step title="Grievance Details" />
-      <el-step title="Review & Submit" />
-    </el-steps>
+<el-steps :active="active" finish-status="success">
+  <el-step title="Complainant Details" />
+  <el-step title="Grievance Details" />
+  <el-step title="Review & Submit" />
+</el-steps>
 
-    <el-form :model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules"
-      ref="dynamicFormRef">
-      <el-card shadow="hover">
-        <el-row v-if="active === 0" :gutter="10">
-          <!-- Step 1: Personal Details -->
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item id="btn1" label="Name" prop="name">
-              <el-input v-model="grmForm.name" placeholder="Enter name" style="width:90%" />
-            </el-form-item>
+<el-form :model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules"
+  ref="dynamicFormRef">
+  <el-card shadow="hover">
+    <el-row v-if="active === 0" :gutter="10">
+      <!-- Step 1: Personal Details -->
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+        <el-form-item id="btn1" label="Name of Complainant" prop="name">
+          <el-input v-model="grmForm.name" placeholder="Enter name" style="width:90%" />
+        </el-form-item>
 
-            <el-form-item id="btn2" label="Gender" prop="gender">
-              <el-select v-model="grmForm.gender" placeholder="Select" style="width:90%">
-                <el-option label="Female" value="female" />
-                <el-option label="Male" value="male" />
-                <el-option label="Unspecified" value="unspecified" />
-              </el-select>
-            </el-form-item>
+        <el-form-item id="btn2" label="Gender" prop="gender">
+          <el-select v-model="grmForm.gender" placeholder="Select" style="width:90%">
+            <el-option label="Female" value="female" />
+            <el-option label="Male" value="male" />
+            <el-option label="Unspecified" value="unspecified" />
+          </el-select>
+        </el-form-item>
 
-            <el-form-item id="btn3" label="Age" prop="age">
-              <el-select v-model="grmForm.age" placeholder="Select" style="width:90%">
-                <el-option v-for="item in ageRanges" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-
-          </el-col>
+        <el-form-item id="btn3" label="Age" prop="age">
+          <el-select v-model="grmForm.age" placeholder="Select" style="width:90%">
+            <el-option v-for="item in ageRanges" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
 
 
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item id="btn4" label="National ID" prop="national_id">
-              <el-input v-model="grmForm.national_id" placeholder="Enter ID number" style="width:90%" />
-            </el-form-item>
-
-            <el-form-item id="btn5" label="Phone" prop="phone">
-              <el-input v-model="grmForm.phone" placeholder="Enter phone number" style="width:90%"
-                :onChange="convertPhoneNumber" />
-            </el-form-item>
-
-            <el-form-item id="btn6" label="Email" prop="email">
-              <el-input v-model="grmForm.email" placeholder="Enter Email" style="width:90%" />
-            </el-form-item>
-          </el-col>
+      </el-col>
 
 
-        </el-row>
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+        <el-form-item id="btn4" label="National ID" prop="national_id">
+          <el-input v-model="grmForm.national_id" placeholder="Enter ID number" style="width:90%" />
+        </el-form-item>
+
+        <el-form-item id="btn5" label="Phone" prop="phone">
+          <el-input v-model="grmForm.phone" placeholder="Enter phone number" style="width:90%"
+            :onChange="convertPhoneNumber" />
+        </el-form-item>
+
+        <el-form-item id="btn6" label="Email" prop="email">
+          <el-input v-model="grmForm.email" placeholder="Enter Email" style="width:90%" />
+        </el-form-item>
+      </el-col>
 
 
-
-        <el-row v-if="active === 1" :gutter="10">
-          <!-- Step 2: Grievance Details -->
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item id="btn10" label="County" prop="county_id">
-              <el-select v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
-                style="width:90%">
-                <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item id="btn11" label="Settlement" prop="settlement_id">
-              <el-select v-model="grmForm.settlement_id" placeholder="Settlement" @change="handleSelectSettlement"
-                style="width:90%">
-                <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
-                  :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item id="btn12" label="Address" prop="address">
-              <el-input v-model="grmForm.address" placeholder="Enter address" style="width:90%" />
-            </el-form-item>
+    </el-row>
 
 
 
-            <el-checkbox id="btn13" v-model="grmForm.isgbv" label="Is this complaint related to Gender-Based Violence?"
-              size="large" style="margin-bottom:5px" />
+    <el-row v-if="active === 1" :gutter="10">
+      <!-- Step 2: Grievance Details -->
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+        <el-form-item id="btn10" label="County" prop="county_id">
+          <el-select filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
+            style="width:90%">
+            <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
 
+        <el-form-item id="btn11" label="Settlement" prop="settlement_id">
+          <el-select filterable v-model="grmForm.settlement_id" placeholder="Settlement"
+            @change="handleSelectSettlement" style="width:90%">
+            <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
+              :value="item.value" />
+          </el-select>
+        </el-form-item>
 
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-
-            <el-form-item id="btn14" label="Nature of Complaint" prop="nature">
-              <el-select v-model="grmForm.nature" placeholder="Select category" style="width:90%">
-                <el-option label="Land" value="land" />
-                <el-option label="Labour Related" value="labour" />
-                <el-option label="Infrastructure" value="infrastructure" />
-                <el-option label="Others" value="others" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item id="btn15" label="Complaint Description" prop="description">
-              <el-input v-model="grmForm.description" type="textarea" rows="2" placeholder="Describe your complaint"
-                style="width:90%" />
-            </el-form-item>
-
-            <el-form-item id="btn16" label="Plea/Request" prop="plea">
-              <el-input v-model="grmForm.plea" type="textarea" rows="2" placeholder="Enter your plea/request"
-                style="width:90%" />
-            </el-form-item>
-          </el-col>
-
-
-        </el-row>
-
-        <el-row v-if="active === 2" :gutter="10">
-          <!-- Step 3: Review & Submit -->
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item id="btn17" label="Witness Name" prop="witness">
-              <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width:90%" />
-            </el-form-item>
-
-            <el-form-item id="btn18" label="Witness Phone" prop="witness_phone">
-              <el-input v-model="grmForm.witness_phone" placeholder="Enter witness phone" style="width:90%" />
-            </el-form-item>
-
-            <el-form-item id="btn19" label="Witness Statement" prop="witness_statement">
-              <el-input v-model="grmForm.witness_statement" type="textarea" placeholder="Enter witness statement"
-                style="width:90%" />
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-
-            <el-upload id="btn20" class="upload-demo"
-              action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
-              :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" v-model:file-list="fileList"
-              :auto-upload="false" :on-exceed="handleExceed">
-              <el-button type="primary">Upload Supporting Documentation</el-button>
-              <template #tip>
-                <div class="el-upload__tip">pdf/jpg/png files with a size less than 500KB.</div>
-              </template>
-            </el-upload>
+        <el-form-item id="btn12" label="Address" prop="address">
+          <el-input v-model="grmForm.address" placeholder="Enter address" style="width:90%" />
+        </el-form-item>
 
 
 
+        <el-checkbox id="btn13" v-model="grmForm.isgbv" label="Is this complaint related to Gender-Based Violence?"
+          size="large" style="margin-bottom:5px" />
 
 
-          </el-col>
+      </el-col>
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
 
-        </el-row>
-      </el-card>
-    </el-form>
+        <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
+          <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
+            <el-option label="Land" value="land" />
+            <el-option label="Labour Related" value="labour" />
+            <el-option label="Infrastructure" value="infrastructure" />
+            <el-option label="Others" value="others" />
+          </el-select>
+        </el-form-item>
 
-    <template #footer>
-      <div class="steps-navigation"
-        style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
-        <div>
-          <el-tooltip content="Help" placement="top">
-            <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
-          </el-tooltip>
+        <el-form-item id="btn15" label="Complaint Description" prop="description">
+          <el-input v-model="grmForm.description" type="textarea" rows="2" placeholder="Describe your complaint"
+            style="width:90%" />
+        </el-form-item>
 
-          <el-button id="btn9" v-if="active > 0" @click="prev" type="primary" :icon="ArrowLeft">Previous </el-button>
-        </div>
-        <div>
-          <el-button id="btn7" v-if="active < 2" type="primary" @click="next">
-            Next <el-icon class="el-icon--right">
-              <ArrowRight />
-            </el-icon>
-          </el-button>
+        <el-form-item id="btn16" label="Plea/Request" prop="plea">
+          <el-input v-model="grmForm.plea" type="textarea" rows="2" placeholder="Enter your plea/request"
+            style="width:90%" />
+        </el-form-item>
+      </el-col>
 
-          <el-button id="btn2" v-if="active === 2" type="primary" @click="submitForm"
-            style="margin-left: 10px;">Submit</el-button>
-          <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button>
-        </div>
-      </div>
-    </template>
-  </el-dialog>
+
+    </el-row>
+
+    <el-row v-if="active === 2" :gutter="10">
+      <!-- Step 3: Review & Submit -->
+      <el-col :xs="12" :sm="21" :md="12" :lg="12" :xl="12">
+        <el-form-item id="btn17" label="Witness Name" prop="witness">
+          <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width:90%" />
+        </el-form-item>
+
+        <el-form-item id="btn18" label="Witness Phone" prop="witness_phone">
+          <el-input v-model="grmForm.witness_phone" placeholder="Enter witness phone" style="width:90%" />
+        </el-form-item>
+
+        <el-form-item id="btn19" label="Witness Statement" prop="witness_statement">
+          <el-input v-model="grmForm.witness_statement" type="textarea" placeholder="Enter witness statement"
+            style="width:90%" />
+        </el-form-item>
+      </el-col>
+
+
+      <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
+
+        <el-form-item  id="btn17" label="Are you the complainant?" prop="witness">
+            
+          <el-switch disabled
+          v-model="grmForm.self_reported"
+          class="ml-2"
+          inline-prompt
+          style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+          active-text="Yes"
+          inactive-text="No"
+        />
+
+        </el-form-item>
+
+        <el-form-item  v-if="!grmForm.self_reported" id="btn18" label="Your Name" prop="reporter_name">
+          <el-input disabled v-model="grmForm.reporter_name" placeholder="Your Name" style="width:90%" />
+        </el-form-item>
+
+        <el-form-item v-if="!grmForm.self_reported"  id="btn19" label="Your Phone" prop="reporter_phone">
+          <el-input disabled v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
+            style="width:90%" />
+        </el-form-item>
+
+
+
+        <el-upload id="btn20" class="upload-demo"
+          action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
+          :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" v-model:file-list="fileList"
+          :auto-upload="false" :on-exceed="handleExceed">
+          <el-button type="primary">Upload Supporting Documentation</el-button>
+          <template #tip>
+            <div class="el-upload__tip">pdf/jpg/png files with a size less than 500KB.</div>
+          </template>
+        </el-upload>
+
+
+
+
+
+      </el-col>
+
+    </el-row>
+  </el-card>
+</el-form>
+
+<template #footer>
+  <div class="steps-navigation"
+    style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+    <div>
+      <el-tooltip content="Help" placement="top">
+        <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
+      </el-tooltip>
+
+      <el-button id="btn9" v-if="active > 0" @click="prev" type="primary" :icon="ArrowLeft">Previous </el-button>
+    </div>
+    <div>
+      <el-button id="btn7" v-if="active < 2" type="primary" @click="next">
+        Next <el-icon class="el-icon--right">
+          <ArrowRight />
+        </el-icon>
+      </el-button>
+
+      <el-button id="btn2" v-if="active === 2" type="primary" @click="submitForm"
+        style="margin-left: 10px;">Submit</el-button>
+      <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button>
+    </div>
+  </div>
+</template>
+</el-dialog>
 
   <el-dialog v-model="uploadDialog" title="Import Document" width="400" @close="uploadDialog = false">
     <span>

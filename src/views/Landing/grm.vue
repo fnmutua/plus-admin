@@ -96,7 +96,7 @@
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
 
-                      <el-form-item id="btn14" label="Nature of Complaint" prop="nature">
+                      <el-form-item  v-if="!grmForm.isgbv"  id="btn14" label="Nature of Complaint" prop="nature">
                         <el-select v-model="grmForm.nature" placeholder="Select category" style="width:90%">
                           <el-option label="Land" value="land" />
                           <el-option label="Labour Related" value="labour" />
@@ -121,7 +121,7 @@
 
                   <el-row v-if="active === 2" :gutter="10">
                     <!-- Step 3: Review & Submit -->
-                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+                    <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn17" label="Witness Name" prop="witness">
                         <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width:90%" />
                       </el-form-item>
@@ -135,7 +135,32 @@
                           placeholder="Enter witness statement" style="width:90%" />
                       </el-form-item>
                     </el-col>
-                    <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+                    <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
+
+                      <el-form-item  id="btn17" label="Are you the complainant?" prop="witness">
+                            
+                      <el-switch  
+                            v-model="grmForm.self_reported"
+                            class="ml-2"
+                            inline-prompt
+                            style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+                            active-text="Yes"
+                            inactive-text="No"
+                          />
+              
+                          </el-form-item>
+              
+                          <el-form-item v-if="!grmForm.self_reported" id="btn18" label="Your Name" prop="reporter_name">
+                            <el-input   v-model="grmForm.reporter_name" placeholder="Your Name" style="width:90%" />
+                          </el-form-item>
+              
+                          <el-form-item v-if="!grmForm.self_reported"  id="btn19" label="Your Phone" prop="reporter_phone">
+                            <el-input   v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
+                              style="width:90%" />
+                          </el-form-item>
+              
+
+
 
                       <el-upload id="btn20" class="upload-demo"
                         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
@@ -236,9 +261,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, computed } from 'vue';
 import {
-  ElMain, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElUpload, ElCheckbox, ElTour, ElTourStep,
+  ElMain, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElUpload, ElCheckbox, ElTour, ElTourStep,ElSwitch,
   ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip
 } from 'element-plus';
 
@@ -248,12 +273,9 @@ import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, getGri
 import {
   ArrowLeft,
   ArrowRight,
-  Delete,
   InfoFilled,
-  Edit,
-  Share,
 } from '@element-plus/icons-vue'
-import type { UploadProps, UploadUserFile } from 'element-plus'
+import type { UploadUserFile } from 'element-plus'
 import { uuid } from 'vue-uuid'
 import { useRouter } from 'vue-router';
 
@@ -278,6 +300,11 @@ const grmForm = ref({
   witness: '',
   witness_phone: '',
   witness_statement: '',
+  self_reported:true,
+  reporter_name : '',
+  reporter_phone:'',
+
+
 });
 
 
@@ -305,6 +332,12 @@ const validationRules = ({
     plea: [{ required: true, message: 'Plea/request is required', trigger: 'blur' }],
   },
 
+
+  step3: {
+    reporter_name: [{ required: true, message: 'Name is required', trigger: 'change' }],
+    reporter_phone: [{ required: true, message: 'Phone is required', trigger: 'change' }],
+ 
+  },
 
 
 });
@@ -427,7 +460,7 @@ const handleSelectSettlement = async (settlementId) => {
 
 
 
-const next = async () => {
+const znext = async () => {
 
   console.log(grmForm.value)
   const formInstance = dynamicFormRef
@@ -441,6 +474,9 @@ const next = async () => {
 
 };
 
+const next = () => {
+  active.value++
+};
 
 const prev = () => {
   active.value--;
