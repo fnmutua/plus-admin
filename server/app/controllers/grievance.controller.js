@@ -74,7 +74,7 @@ async function sendNotificationSMS(sms_obj) {
     apikey: "684f84e9aa485a0e72e6734c6b84d9b4",
     partnerID: "10322",
     shortcode: "AGS",
-    message: sms_obj.grv_code + ": (" + sms_obj.status+ ")" +sms_obj.message,
+    message: sms_obj.grv_code + ":" +sms_obj.message,
     mobile: sms_obj.phone,
   };
 
