@@ -521,9 +521,10 @@ const generatePDFform = async (grievance, action) => {
 
   console.log('grievance', grievance)
 
-
+  if(grievance.status=='Resolved') {
   // Additional properties based on the provided JSON object
   formData.type = "resolution"
+
   formData.grievance_id = grievance.id
   formData.project_phone = grievance.project_phone || 'Not Available';
   formData.settlement = grievance.settlement || null;
@@ -541,9 +542,17 @@ const generatePDFform = async (grievance, action) => {
 
   console.log(formData);
 
-  const res = await sendAcknowledgement(formData)
+ await sendAcknowledgement(formData)
 
-  console.log(res)
+
+
+  }  
+ 
+
+ 
+
+
+ 
 
 }
 
