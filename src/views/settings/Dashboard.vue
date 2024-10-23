@@ -637,7 +637,7 @@ v-model="ruleForm.type" :onClear="handleClear" clearable filterable collapse-tag
 
 
         <el-col :xs="12" :sm="24" :md="12" :lg="12" :xl="12">
-          <el-form-item id="btn4" prop="public" v-if="showSuperAdminButtons">
+          <el-form-item id="btn4" prop="public"  >
             <el-checkbox v-model="ruleForm.public" label="Public" />
           </el-form-item>
         </el-col>
