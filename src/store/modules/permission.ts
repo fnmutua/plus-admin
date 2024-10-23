@@ -19,13 +19,24 @@ function toTitleCase(str) {
   );
 }
 
-const { wsCache } = useCache()
+// const { wsCache } = useCache()
 
-const appStore = useAppStore()
+// const appStore = useAppStore()
 
-const userInfo = wsCache.get(appStore.getUserInfo)
+// const userInfo = wsCache.get(appStore.getUserInfo)
  
   
+import { useAppStoreWithOut } from '@/store/modules/app'
+
+
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+
+
+
  
 
 const programmeComponentOptions = ref([])
@@ -94,6 +105,7 @@ console.log("programmeComponentOptions", programmeComponentOptions.value)
 
 
 }
+
 getProgrameComponents()
 
  
