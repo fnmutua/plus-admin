@@ -219,32 +219,34 @@ const uploadFiles = async () => {
 }
 
 const uploadImageToGeoServer = async (file, store) => {
-       const url = `${form.value.geoserverUrl}/rest/workspaces/${form.value.workspace}/coveragestores/${store}/file.ecw`;
+  const url = `${form.value.geoserverUrl}/rest/workspaces/${form.value.workspace}/coveragestores/${store}/file.ecw`;
 
-       console.log('url',url)
-      const formData = new FormData();
-      formData.append('file', file.raw, file.name);
+  console.log('Upload URL:', url);
 
-      try {
-        const response = await axios.put(url, formData, {
-          headers: {
-            'Content-Type': 'image/ecw',
-          },
-          auth: {
-            username: form.value.username,
-            password: form.value.password,
-          },
-        });
+  const formData = new FormData();
+  formData.append('file', file.raw, file.name);
 
-        if (response.status === 201 || response.status === 202) {
-          console.log(`File ${file.name} uploaded successfully`);
-        } else {
-          console.error(`Failed to upload file ${file.name}: ${response.statusText}`);
-        }
-      } catch (error) {
-        console.error(`Error uploading file ${file.name}: ${error}`);
-      }
+  try {
+    const response = await axios.put(url, formData, {
+      headers: {
+        // Remove manual Content-Type setting
+      },
+      auth: {
+        username: form.value.username,
+        password: form.value.password,
+      },
+    });
+
+    if (response.status === 201 || response.status === 202 || response.status === 200) {
+      console.log(`File ${file.name} uploaded successfully.`);
+    } else {
+      console.error(`Failed to upload file ${file.name}: ${response.status} - ${response.statusText}`);
     }
+  } catch (error) {
+    console.error(`Error uploading file ${file.name}:`, error.response ? error.response.data : error.message);
+  }
+};
+
  
 </script>
 
