@@ -115,9 +115,17 @@ const loadMap = () => {
 } 
  
 onMounted(() => {
+  let server; 
+  const envt = import.meta.env.VITE_APP_DB_HOST // remove the port for production
+ console.log(envt)
+ if(envt =='80') {
+  server='https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities'
+ }else {
+  server= '/imagery/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities'
 
+ }
   
-  axios.get('/imagery/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')  
+  axios.get(server)  
   // Remember to revert to below 
 
      // axios.get('https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
