@@ -108,3 +108,13 @@ redis-cli
 
 
 DROP TABLE grievance_document CASCADE;
+
+
+
+
+docker run -d \
+  --name geoserver \
+  -p 8080:8080 \
+  -v /path/to/your/local/data/dir:/var/lib/geoserver_data \
+  --restart=always \
+  gmalaga/geoserver_ecw30

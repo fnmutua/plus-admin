@@ -1,0 +1,24 @@
+
+
+# Run the |Geoserver tool 
+docker run -d \
+  --name geoserver \
+  -p 8080:8080 \
+  -v /data/data_dir:/opt/geoserver/data_dir	\
+   -v /home/kesmis/geoserver/webapps/geoserver/WEB-INF/web.xml:/usr/local/tomcat/webapps/geoserver/WEB-INF/web.xml \
+  --restart=always \
+  gmalaga/geoserver_ecw30
+
+
+ 
+ 
+
+docker run -d \
+  --name geoserver \
+  -p 8080:8080 \
+  -v /data/data_dir:/opt/geoserver/data_dir	\
+   -v /home/kesmis/geoserver/webapps/geoserver/WEB-INF/web.xml:/opt/config_overrides/web.xml \
+  --restart=always \
+  gmalaga/geoserver_ecw30
+
+

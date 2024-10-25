@@ -131,7 +131,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     //  port : 80,   // Production
       proxy: {
               '/imagery': {
-          target: 'http://159.223.109.100:8080/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities',
+          target: 'https://kesmis.go.ke',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/imagery/, '')
         },
