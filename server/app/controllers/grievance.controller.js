@@ -264,9 +264,10 @@ exports.createGrievanceRecord = async (req, res) => {
             where: {
               roleid: 4,  // GRM
               [op.or]: [
-                { settlement_id: obj.settlement_id.toString() }, // Settlement ID match
+                { settlement_id: obj.settlement_id.toString() },     // Settlement ID match
                 {  county_id: obj.county_id.toString()},              // Super Admin role
-                          
+                {  location_level: 'national'},              // Super Admin role
+
               ]
             }
 
