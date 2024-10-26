@@ -26,7 +26,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
-import { uploadToGeoServer } from '@/api/geoserver'
+import { uploadToGeoServer, deleteLayer } from '@/api/geoserver'
 
 import writeXlsxFile from 'write-excel-file';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
@@ -66,6 +66,7 @@ const lyr = ref()
 const bounds = ref()
 const AddDialogVisible = ref(false)
 const UploadDialogVisible = ref(false)
+const EditDialogVisible = ref(false)
 const DialogTitle = ref('Imagery')
 
 const handleSelectLayer = async (lyr: any) => {
@@ -218,15 +219,62 @@ const handleRowDblClick = (row) => {
 
 }
 
+
 // Reactive form data
 const form = ref({
   geoserverUrl: 'https://kesmis.go.ke/geoserver',
   workspace: 'kisip',
   username: 'admin',
   password: '***REDACTED***',
+  crs: null,
+  name: null,
 
 });
 
+
+const deleteLayerStore = async (layer) => {
+  try {
+    console.log('Delete row:', layer);
+    form.value.storeName = layer;
+
+    // Call the deleteLayer function
+    const res = await deleteLayer(form.value);
+
+    // Check if the deletion was successful (assuming `res` contains a success flag)
+    if (res && res.code === '0000') {
+      console.log('Deletion successful:');
+
+      // Find and remove the item from `tableDataList`
+      tableDataList.value = tableDataList.value.filter(item => item.name !== layer);
+      console.log('Updated tableDataList:', tableDataList.value);
+    } else {
+      console.error('Deletion failed');
+    }
+  } catch (error) {
+    console.error('Error deleting layer:', error);
+  }
+};
+
+
+
+const crsOptions = ref([
+  { value: 'EPSG:21036', label: "Arc 1960 / UTM Zone 36S", description: "UTM projection for parts of Kenya." },
+  { value: 'EPSG:21096', label: "Arc 1960 / UTM Zone 36N", description: "UTM projection for parts of Kenya." },
+  { value: 'EPSG:21037', label: "Arc 1960 / UTM Zone 37S", description: "UTM projection for East Africa, including Kenya." },
+  { value: 'EPSG:21097', label: "Arc 1960 / UTM Zone 37N", description: "UTM projection for East Africa, including Kenya." },
+  { value: 'EPSG:4326', label: "WGS 84", description: "A global geographic coordinate system." },
+  { value: 'EPSG:3857', label: "WGS 84 / Pseudo-Mercator", description: "Web Mercator projection for mapping applications." },
+  { value: 'Invalid', label: "Invalid Projection", description: "Web Mercator projection for mapping applications." }
+
+])
+
+
+const editLayer = async (lyr: any) => {
+  console.log('Layer', lyr)
+  EditDialogVisible.value = true
+  form.value.name = lyr.name
+  form.value.crs = lyr.crs && lyr.crs.length > 0 ? lyr.crs[0] : 'Invalid';
+}
 
 const selectedFiles = ref([false])
 
@@ -340,19 +388,23 @@ const uploadImageToGeoServer = async (file, store) => {
     </el-row>
 
 
-    <el-table :data="tableDataList" :loading="loading" style="width: 100%" @row-click="handleRowDblClick">
+    <el-table :data="tableDataList" :loading="loading" style="width: 100%" @row-dblclick="handleRowDblClick">
 
 
       <el-table-column label="Name" prop="name" sortable />
       <el-table-column label="Title" prop="title" sortable />
       <el-table-column label="CRS" prop="crs" sortable width="150" />
-      <el-table-column fixed="right" label="Actions" width="250">
+      <el-table-column fixed="right" label="Actions" width="350">
         <template #default="scope">
 
           <el-button size="small" type="primary" plain :icon="Position" @click="handleSelectLayer(scope.row.name)">
             View
           </el-button>
-          <el-button size="small" type="danger" plain :icon="Delete" @click="handleSelectLayer(scope.row.name)">
+          <el-button size="small" type="success" plain :icon="Edit" @click="editLayer(scope.row)">
+            Edit
+          </el-button>
+
+          <el-button size="small" type="danger" plain :icon="Delete" @click="deleteLayerStore(scope.row.name)">
             Delete
           </el-button>
         </template>
@@ -370,7 +422,7 @@ const uploadImageToGeoServer = async (file, store) => {
 
 
 
-  <el-dialog v-model="AddDialogVisible" :title="DialogTitle" width="50%" draggable>
+  <el-dialog v-model="AddDialogVisible" :title="DialogTitle" width="75%" draggable>
 
     <div id="mapContainer" class="basemap"></div>
 
@@ -416,6 +468,46 @@ const uploadImageToGeoServer = async (file, store) => {
   </el-dialog>
 
 
+
+  <el-dialog v-model="EditDialogVisible" title="Edit  Imagery Details" width="500">
+    <el-form ref="ruleFormRef" :model="form" label-position="left">
+      <el-form-item label="Name">
+        <el-input disabled v-model="form.geoserverUrl" />
+      </el-form-item>
+
+
+
+      <el-form-item label="Workspace">
+        <el-input disabled v-model="form.workspace" />
+      </el-form-item>
+
+      <el-form-item label="Layer Name">
+        <el-input v-model="form.name" />
+      </el-form-item>
+
+      <el-form-item label="Coordinate System">
+
+
+        <el-select v-model="form.crs" clearable filterable collapse-tags placeholder="Select Coordinate System "
+          style=" margin-right: 5px;">
+          <el-option v-for="item in crsOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+
+
+
+      </el-form-item>
+
+
+    </el-form>
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="EditDialogVisible = false">Cancel</el-button>
+        <el-button type="primary" @click="uploadFiles">
+          Confirm
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 
 </template>
 

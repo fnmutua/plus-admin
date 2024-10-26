@@ -15,3 +15,8 @@ export const uploadToGeoServer = (data: any): Promise<IResponse> => {
 }
 
  
+
+
+export const deleteLayer = (data: any): Promise<IResponse> => {
+  return request.post({ url: prod + '/api/v1/geoserver/delete', data })
+}

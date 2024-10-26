@@ -105,3 +105,88 @@ exports.uploadToGeoserver = (req, res) => {
     }
   });
 };
+
+exports.deleteCoverageStore =async  (req, res) => {
+
+  console.log(req.body )
+//exports.deleteCoverageStore = async (storeName, workspace, uploadDir) => {
+  try {
+    // GeoServer Configuration
+    const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver';
+    const username = 'admin';
+    const password = '***REDACTED***';
+    const {storeName, workspace}  =req.body 
+
+
+
+
+    // Step 1: Fetch and delete all associated layers
+    const layersUrl = `${GEO_SERVER_URL}/rest/layers/${workspace}:${storeName}.json`;
+    const deleteLayerUrl = `${GEO_SERVER_URL}/rest/layers/${workspace}:${storeName}`;
+    const deleteLayerResponse =  await axios.get(layersUrl, {
+      auth: { username, password },
+    });
+
+    //console.log('deleteLayerResponse',deleteLayerResponse)
+
+
+    if (deleteLayerResponse.status === 200 && deleteLayerResponse.data.layer) {
+      const layers = Array.isArray(deleteLayerResponse.data.layer) ? deleteLayerResponse.data.layer : [deleteLayerResponse.data.layer];
+      for (const layer of layers) {
+        // Delete each layer
+        await axios.delete(`${deleteLayerUrl}/${layer.name}`, {
+          auth: { username, password },
+          headers: { 'Content-Type': 'application/json' },
+        });
+        console.log(`Layer ${layer.name} deleted successfully.`);
+      }
+    }
+
+    // Step 2: Delete the coverage store
+    const storeUrl = `${GEO_SERVER_URL}/rest/workspaces/${workspace}/coveragestores/${storeName}?recurse=true`;
+    const deleteStoreResponse = await   axios.delete(storeUrl, {
+      auth: { username, password },
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (deleteStoreResponse.status === 200) {
+      console.log(`Coverage Store ${storeName} deleted successfully.`);
+    } else {
+      throw new Error(`Failed to delete store ${storeName}: ${deleteStoreResponse.status} ${deleteStoreResponse.data}`);
+    }
+
+    // Step 3: Delete uploaded files
+    const filePath = path.join(uploadDir, `${storeName}.ecw`);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`File ${filePath} deleted successfully.`);
+    } else {
+      console.log(`File ${filePath} not found, skipping.`);
+    }
+
+    // return {
+    //   message: `Store ${storeName} and its associated layers and files have been deleted successfully.`,
+    //   code: '0000',
+    // };
+
+    res.status(200).send({
+      message:  `Store ${storeName} and its associated layers and files have been deleted successfully.`,
+      code: '0000',
+    });
+
+
+  } catch (error) {
+    console.error(`Failed to delete store and layers: ${error.message}`);
+
+    res.status(500).send({
+      message: `Failed to delete store and layers: ${error.message}`,
+      code: '0001',
+    });
+
+
+    // return {
+    //   message: `Failed to delete store and layers: ${error.message}`,
+    //   code: '0001',
+    // };
+  }
+};
