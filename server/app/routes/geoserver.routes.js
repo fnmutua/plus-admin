@@ -13,7 +13,7 @@ module.exports = function(app) {
     //app.post('/api/v1/user/all',  [authJwt.verifyToken],controller.modelAllUsers) // retrired 
 
 
-  app.post("/api/v1/geoserver/upload", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.uploadToGeoserver);
+  app.post("/api/v1/geoserver/upload", [authJwt.verifyToken ],controller.uploadToGeoserver);
   
 
 };

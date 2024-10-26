@@ -1,27 +1,53 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
-import { ElSelect } from 'element-plus'
+import { useI18n } from '@/hooks/web/useI18n'
+import { getCountyListApi } from '@/api/counties'
 
-import { ref } from 'vue'
-import { ElOption , ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElUpload} from 'element-plus'
+import { getGrievances } from '@/api/grievance'
+
+import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTag } from 'element-plus'
+import {
+  Plus, Download, Filter, More, ArrowLeft, ArrowRight, Upload, UploadFilled,
+  Edit,
+  Back,
+  InfoFilled, Position,
+  Delete
+} from '@element-plus/icons-vue'
+
+import { ref, onMounted } from 'vue'
+import {
+  ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu, ElTour, ElTourStep, ElUpload,
+  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElDrawer, ElMessage, ElTabPane, ElSwitch
+} from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { onMounted } from 'vue'
+import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
+import { uuid } from 'vue-uuid'
+import type { FormInstance } from 'element-plus'
+import xlsx from "json-as-xlsx"
+import { uploadToGeoServer } from '@/api/geoserver'
 
+import writeXlsxFile from 'write-excel-file';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import type { UploadProps, UploadUserFile } from 'element-plus'
+
+import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
+import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, batchImportGrievances, getByKeyword } from '@/api/grievance'
+import { getModelSpecs } from '@/api/fields'
+import exportFromJSON from 'export-from-json'
+import Papa from 'papaparse';
+import axios from 'axios';
+
+import { XMLParser } from 'fast-xml-parser';
 
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
- 
- 
-import axios from 'axios';
- import { XMLParser } from 'fast-xml-parser';
-
- import {uploadToGeoServer } from '@/api/geoserver'
 
 
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
@@ -30,46 +56,38 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 
-
-
-const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
-const userInfo = wsCache.get(appStore.getUserInfo)
-
-
-console.log("userInfo--->", userInfo)
-
-
- 
- 
-const lyr = ref('')
- 
-
-
-
 const layers = ref([])
 const selOptions = ref([])
+const tableDataList = ref([])
 
 const layerName = ref()
+const lyr = ref()
+
 const bounds = ref()
+const AddDialogVisible = ref(false)
+const UploadDialogVisible = ref(false)
+const DialogTitle = ref('Imagery')
 
-const handleSelectLayer = async (lyr: any) => { 
-  console.log('Layer',lyr)
+const handleSelectLayer = async (lyr: any) => {
+  console.log('Layer', lyr)
   layerName.value = lyr;
+  DialogTitle.value = lyr
+  AddDialogVisible.value = true
+  // console.log(layers)
 
-  console.log(layers)
+  var filteredLayers = tableDataList.value.filter(function (layer) {
+    return layer.name === lyr;
+  });
 
-  var filteredLayers = layers.value.filter(function(layer) {
-      return layer.name === lyr;
-    });
-
-    console.log('filteredLayers',filteredLayers[0].bbox)
+  console.log('filteredLayers', tableDataList.value)
 
 
-bounds.value=filteredLayers[0].bbox
-console.log('filteredLayerss',filteredLayers[0].bbox)
+  bounds.value = filteredLayers[0].bbox
+  // console.log('filteredLayerss', filteredLayers[0].bbox)
 
-    loadMap()
+  //loadMap()
+  setTimeout(loadMap, 100); // delay for the dialog to fully load
+
 }
 
 const loadMap = () => {
@@ -80,132 +98,147 @@ const loadMap = () => {
     zoom: 6,
 
   })
- 
+
   map.addControl(new mapboxgl.NavigationControl());
 
 
-  map.on('load', () => { 
+  map.on('load', () => {
 
     map.resize()
- 
- 
+
+
     var xserver = 'http://159.223.109.100:8080/geoserver/kisip/wms'
     var server = 'https://kesmis.go.ke/geoserver/kisip/wms'
-      
-      var local_server = 'http://localhost:8080/geoserver/kisip/wms'
 
-     map.addLayer({
+    var local_server = 'http://localhost:8080/geoserver/kisip/wms'
+
+    map.addLayer({
       'id': 'geoserver-wms-layer',
       'type': 'raster',
       'source': {
         'type': 'raster',
-        'tiles': [ server+'?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=' + layerName.value ],
-          'tileSize': 256
+        'tiles': [server + '?&bbox={bbox-epsg-3857}&format=image/png&service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&transparent=true&width=256&height=256&layers=' + layerName.value],
+        'tileSize': 256
       },
       'paint': {}
-     });
+    });
 
-       console.log(bounds.value)
-     map.fitBounds([[bounds.value.westBoundLongitude, bounds.value.southBoundLatitude],  [bounds.value.eastBoundLongitude
-, bounds.value.northBoundLatitude]  ]);
+    //  console.log(bounds.value)
+    map.fitBounds([[bounds.value.westBoundLongitude, bounds.value.southBoundLatitude], [bounds.value.eastBoundLongitude
+      , bounds.value.northBoundLatitude]]);
 
 
   })
-  
 
-} 
- 
+
+}
+
+
+
+
+const loading = ref(false)
 onMounted(() => {
-  let server; 
+
+  loading.value = true
+  let server;
   const envt = import.meta.env.VITE_APP_DB_HOST // remove the port for production
- console.log(envt)
- if(envt =='80') {
-  server='https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities'
- }else {
-  server= '/imagery/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities'
+  console.log('Environment >>>', envt)
 
- }
-  
-  axios.get(server)  
-  // Remember to revert to below 
+  if (envt == 'localhost') {
+    server = '/imagery/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities'
 
-     // axios.get('https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
-      // .get('https://kesmis.go.ke/geoserver/kisip/wms?service=wms&version=1.1.1&request=GetCapabilities')
-      .then((response) => {
-        const xml = response.data;
-        console.log(xml)
- 
-       const parser = new XMLParser();
-      const json = parser.parse(xml);
+  } else {
+    server = 'https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities'
 
-  
-
-      const glayers= json.WMS_Capabilities.Capability.Layer.Layer.map(layer => ({
-            name: layer.Name,
-            title: layer.Title,
-            label: layer.Name,
-          value: layer.Name,
-            bbox :layer.EX_GeographicBoundingBox
-
-          }));
-
-          console.log(glayers)
-
-       
-
-        layers.value = glayers;
-
-
-        for (let i = 0; i < glayers.length; i++) {
-          var opt = {}
-          opt.value = glayers[i].name
-          opt.label = glayers[i].name
-          opt.bbox = glayers[i].bbox
-          console.log(glayers[i])
-
-    selOptions.value.push(opt)
   }
 
+  axios.get(server)
+    // Remember to revert to below 
 
- 
-        console.log(selOptions)
-        lyr.value=selOptions.value[0].value
-        handleSelectLayer(selOptions.value[0].value)
-        loadMap()
-          
-       
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+    // axios.get('https://kesmis.go.ke/geoserver/kisip/ows/?SERVICE=WMS&REQUEST=GetCapabilities')
+    // .get('https://kesmis.go.ke/geoserver/kisip/wms?service=wms&version=1.1.1&request=GetCapabilities')
+    .then((response) => {
+      const xml = response.data;
+      console.log(xml)
 
-     
+      const parser = new XMLParser();
+      const json = parser.parse(xml);
+
+      console.log('json', json)
+
+      const glayers = json.WMS_Capabilities.Capability.Layer.Layer.map(layer => ({
+        name: layer.Name,
+        title: layer.Title,
+        label: layer.Name,
+        value: layer.Name,
+        crs: layer.CRS,
+        bbox: layer.EX_GeographicBoundingBox
+
+      }));
+
+      // console.log(glayers)
+
+
+
+      tableDataList.value = glayers;
+      loading.value = false
+
+
+      console.log('tableDataList.value', tableDataList.value)
+      for (let i = 0; i < glayers.length; i++) {
+        var opt = {}
+        opt.value = glayers[i].name
+        opt.label = glayers[i].name
+        opt.bbox = glayers[i].bbox
+        // console.log(glayers[i])
+        selOptions.value.push(opt)
+      }
+
+
+
+      //   console.log(selOptions)
+      lyr.value = selOptions.value[0].value
+      // handleSelectLayer(selOptions.value[0].value)
+      //  loadMap()
+
+
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+
+
 })
 
+const handleRowDblClick = (row) => {
 
-const dialogVisible = ref(false)
+  console.log('Double clicked row:', row);
+  handleSelectLayer(row.name)
+
+
+}
 
 // Reactive form data
 const form = ref({
-        geoserverUrl: 'https://kesmis.go.ke/geoserver',
-        workspace: 'kisip',
-        username: 'admin',
-        password: '***REDACTED***',
+  geoserverUrl: 'https://kesmis.go.ke/geoserver',
+  workspace: 'kisip',
+  username: 'admin',
+  password: '***REDACTED***',
 
 });
 
- 
-const selectedFiles = ref([false])
- 
- 
 
-const handleFiles = (file, fileList) => { 
+const selectedFiles = ref([false])
+
+
+
+const handleFiles = (file, fileList) => {
 
   selectedFiles.value = fileList;
 
-}   
+}
 
- 
+
 const uploadFiles = async () => {
   console.log('Upload files...')
 
@@ -234,8 +267,8 @@ const uploadImageToGeoServer = async (file, store) => {
   console.log('File:', file);
 
   const formData = new FormData();
- // formData.append('file', file.raw, file.name);
-  formData.append('file', file.raw) 
+  // formData.append('file', file.raw, file.name);
+  formData.append('files', file.raw)
 
   try {
     const res = await uploadToGeoServer(formData)
@@ -261,64 +294,117 @@ const uploadImageToGeoServer = async (file, store) => {
   }
 };
 
- 
 </script>
 
 <template>
-  <ContentWrap title="Imagery" >
- 
-    <div style="display: inline-block; width: 50%;  margin-left: 20px">
-      <el-select  placeholder="Select the Image to dispaly" v-model="lyr" clearable  :onChange="handleSelectLayer" >
+  <el-card>
+    <el-row type="flex" justify="start" gutter="10"
+      style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
+
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
+
+
+      <!-- Title Search -->
+      <el-select v-model="value3" :onChange="handleSelectLayer" clearable filterable collapse-tags
+        placeholder="Select Imagery " style=" margin-right: 5px;">
         <el-option v-for="item in selOptions" :key="item.value" :label="item.label" :value="item.value" />
-  </el-select>
-
-  <el-button plain @click="dialogVisible = true">
-    Click to open the Dialog
-  </el-button>
-
-    </div>
-     <div id="mapContainer" class="basemap"></div>
-
-   </ContentWrap>
- 
-
-   <el-dialog
-    v-model="dialogVisible"
-    title="Upload Imager to Geoserver"
-    width="500"
-   >
-   <el-form ref="ruleFormRef" :model="form"   label-position="left"> 
-            <el-form-item label="Name">
-              <el-input  disabled v-model="form.geoserverUrl" />
-            </el-form-item>
-
-            <el-form-item label="Username">
-              <el-input disabled v-model="form.username" />
-            </el-form-item>
-
-            <el-form-item label="Password">
-              <el-input disabled v-model="form.password" type="password" />
-            </el-form-item>
- 
-            <el-form-item label="Workspace">
-              <el-input disabled v-model="form.workspace" />
-            </el-form-item>
-
-            <el-form-item label="Select Files" style="width: 100%;">
-                <el-upload
-                  multiple
-                  drag
-                  :auto-upload="false"
-                  :on-change="handleFiles"
-                  action=""
-                  style="width: 100%;">
-                  <i class="el-icon-upload"></i>
-                  <div class="el-upload__text">Drop ECW files here or click to upload</div>
-                </el-upload>
-              </el-form-item>
+      </el-select>
 
 
-          </el-form>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; ">
+
+        <el-tooltip content="Upload Imagery" placement="top">
+          <el-button @click="UploadDialogVisible = true" type="primary" :icon="Plus" />
+        </el-tooltip>
+
+
+
+
+        <el-tooltip content="Download" placement="top">
+          <el-button @click="selectDownload" type="primary" :icon="Download" />
+        </el-tooltip>
+        <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="model"
+          :associated_models="associated_multiple_models" />
+
+
+
+      </div>
+
+      <!-- Download All Component -->
+    </el-row>
+
+
+    <el-table :data="tableDataList" :loading="loading" style="width: 100%" @row-click="handleRowDblClick">
+
+
+      <el-table-column label="Name" prop="name" sortable />
+      <el-table-column label="Title" prop="title" sortable />
+      <el-table-column label="CRS" prop="crs" sortable width="150" />
+      <el-table-column fixed="right" label="Actions" width="250">
+        <template #default="scope">
+
+          <el-button size="small" type="primary" plain :icon="Position" @click="handleSelectLayer(scope.row.name)">
+            View
+          </el-button>
+          <el-button size="small" type="danger" plain :icon="Delete" @click="handleSelectLayer(scope.row.name)">
+            Delete
+          </el-button>
+        </template>
+
+      </el-table-column>
+    </el-table>
+
+    <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+
+  </el-card>
+
+
+
+
+  <el-dialog v-model="AddDialogVisible" :title="DialogTitle" width="50%" draggable>
+
+    <div id="mapContainer" class="basemap"></div>
+
+
+  </el-dialog>
+
+
+  <el-dialog v-model="UploadDialogVisible" title="Upload Imagery to Geoserver" width="500">
+    <el-form ref="ruleFormRef" :model="form" label-position="left">
+      <el-form-item label="Name">
+        <el-input disabled v-model="form.geoserverUrl" />
+      </el-form-item>
+
+      <el-form-item label="Username">
+        <el-input disabled v-model="form.username" />
+      </el-form-item>
+
+      <el-form-item label="Password">
+        <el-input disabled v-model="form.password" type="password" />
+      </el-form-item>
+
+      <el-form-item label="Workspace">
+        <el-input disabled v-model="form.workspace" />
+      </el-form-item>
+
+      <el-form-item label="Select Files" style="width: 100%;">
+        <el-upload multiple drag :auto-upload="false" :on-change="handleFiles" action="" style="width: 100%;">
+          <i class="el-icon-upload"></i>
+          <div class="el-upload__text">Drop ECW files here or click to upload</div>
+        </el-upload>
+      </el-form-item>
+
+
+    </el-form>
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="dialogVisible = false">Cancel</el-button>
@@ -330,14 +416,106 @@ const uploadImageToGeoServer = async (file, store) => {
   </el-dialog>
 
 
+
 </template>
- <style>
+
+
+
+<style scoped>
+.upload-demo {
+  width: 300px;
+}
+
+.template-link {
+  text-decoration: underline;
+  color: #409EFF;
+  /* Optional: change link color */
+}
+
+
+
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .el-pagination {
+    font-size: 12px;
+    /* Adjust font size for small screens */
+  }
+
+  .el-pagination .el-pagination__sizes {
+    display: none;
+    /* Hide size selector on small screens */
+  }
+
+  .el-pagination .el-pagination__total {
+    display: none;
+    /* Hide total count on small screens */
+  }
+
+
+
+}
+</style>
+
+
+
+<style>
+.el-table .danger-row {
+  --el-table-tr-bg-color: var(--el-color-danger-light-9);
+  --el-table-tr-text-color: var(--el-color-danger);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .success-row {
+  --el-table-tr-text-color: var(--el-color-success);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .warning-row {
+  --el-table-tr-bg-color: var(--el-color-warning-light-9);
+}
+
+.el-table .rejected-row {
+  --el-table-tr-bg-color: var(--el-color-danger-light-9);
+  --el-table-tr-text-color: var(--el-color-danger);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .referred-row {
+  --el-table-tr-bg-color: var(--el-color-warning-light-9);
+  --el-table-tr-text-color: var(--el-color-warning);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .escalated-row {
+  --el-table-tr-bg-color: var(--el-color-secondary);
+  --el-table-tr-text-color: var(--el-color-secondary);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .resolved-row {
+  --el-table-tr-bg-color: var(--el-color-success-light-9);
+  --el-table-tr-text-color: var(--el-color-success);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .closed-row {
+  --el-table-tr-bg-color: var(--el-color-info-light-9);
+  --el-table-tr-text-color: var(--el-color-info);
+  color: var(--el-table-tr-text-color);
+}
+
+.item {
+  margin-top: 10px;
+  margin-right: 40px;
+}
+
+
 .basemap {
   width: 100%;
   height: 65vh;
 }
-.el-select {
-  width: 100%;
-  margin-bottom: 20px;
-}</style>
-
+</style>

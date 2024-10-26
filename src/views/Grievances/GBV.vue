@@ -1529,7 +1529,7 @@ const handleRowDblClick = (row) => {
 
 
       <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by Name, settlement, complaint,phone .." style=" margin-right: 5px;" />
+        placeholder="Search by Name, settlement, complaint,phone .."   style=" margin-right: 5px;"/>
 
       <!-- Title Search -->
       <el-select v-model="value3" :onChange="handleSelectGrievance" :onClear="handleClear" multiple clearable filterable

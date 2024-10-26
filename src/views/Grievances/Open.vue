@@ -1602,8 +1602,7 @@ const handleRowDblClick = (row) => {
 
 <template>
   <el-card>
-    <el-row type="flex" justify="start" gutter="10"
-      style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
+    <el-row type="flex" justify="start" gutter="10"       style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
 
       <div class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
@@ -1613,7 +1612,7 @@ const handleRowDblClick = (row) => {
 
 
       <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by Name, settlement, complaint,phone .." style=" margin-right: 5px;" />
+        placeholder="Search by Name, settlement, complaint,phone .."   style=" margin-right: 5px;" />
 
       <!-- Title Search -->
       <el-select v-model="value3" :onChange="handleSelectGrievance" :onClear="handleClear" multiple clearable filterable
