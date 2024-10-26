@@ -273,7 +273,11 @@ const editLayer = async (lyr: any) => {
   console.log('Layer', lyr)
   EditDialogVisible.value = true
   form.value.name = lyr.name
-  form.value.crs = lyr.crs && lyr.crs.length > 0 ? lyr.crs[0] : 'Invalid';
+  // Check if the CRS exists in the options list, otherwise set it to 'Invalid'
+  const selectedCrs = lyr.crs && lyr.crs.length > 0 ? lyr.crs[0] : 'Invalid';
+  const isValidCrs = crsOptions.value.some(option => option.value === selectedCrs);
+
+  form.value.crs = isValidCrs ? selectedCrs : 'Invalid';
 }
 
 const selectedFiles = ref([false])
