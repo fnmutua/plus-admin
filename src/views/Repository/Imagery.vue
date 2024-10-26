@@ -19,6 +19,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import axios from 'axios';
  import { XMLParser } from 'fast-xml-parser';
 
+ import {uploadToGeoServer } from '@/api/geoserver'
 
 
 
@@ -230,26 +231,31 @@ const uploadImageToGeoServer = async (file, store) => {
   const url = `${form.value.geoserverUrl}/rest/workspaces/${form.value.workspace}/coveragestores/${store}/file.ecw`;
 
   console.log('Upload URL:', url);
+  console.log('File:', file);
 
   const formData = new FormData();
-  formData.append('file', file.raw, file.name);
+ // formData.append('file', file.raw, file.name);
+  formData.append('file', file.raw) 
 
   try {
-    const response = await axios.put(url, formData, {
-      headers: {
-        // Remove manual Content-Type setting
-      },
-      auth: {
-        username: form.value.username,
-        password: form.value.password,
-      },
-    });
+    const res = await uploadToGeoServer(formData)
+    console.log(res)
 
-    if (response.status === 201 || response.status === 202 || response.status === 200) {
-      console.log(`File ${file.name} uploaded successfully.`);
-    } else {
-      console.error(`Failed to upload file ${file.name}: ${response.status} - ${response.statusText}`);
-    }
+    // const response = await axios.put(url, formData, {
+    //   headers: {
+    //     // Remove manual Content-Type setting
+    //   },
+    //   auth: {
+    //     username: form.value.username,
+    //     password: form.value.password,
+    //   },
+    // });
+
+    // if (response.status === 201 || response.status === 202 || response.status === 200) {
+    //   console.log(`File ${file.name} uploaded successfully.`);
+    // } else {
+    //   console.error(`Failed to upload file ${file.name}: ${response.status} - ${response.statusText}`);
+    // }
   } catch (error) {
     console.error(`Error uploading file ${file.name}:`, error.response ? error.response.data : error.message);
   }
