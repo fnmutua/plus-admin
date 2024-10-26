@@ -190,3 +190,100 @@ exports.deleteCoverageStore =async  (req, res) => {
     // };
   }
 };
+
+
+exports.editLayerDetails = async (req, res) => {
+  try {
+    // GeoServer Configuration
+    const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver';
+    const username = 'admin';
+    const password = '***REDACTED***';
+    const { oldLayerName, newLayerName, workspace, newCrs } = req.body;
+
+    // Step 1: Fetch the current layer details
+    const layerDetailsUrl = `${GEO_SERVER_URL}/rest/layers/${workspace}:${oldLayerName}.json`;
+    const layerResponse = await axios.get(layerDetailsUrl, {
+      auth: { username, password },
+      headers: { 'Accept': 'application/json' },
+    });
+
+    console.log(layerResponse)
+
+
+    if (layerResponse.status !== 200 || !layerResponse.data.layer) {
+
+      console.log(layerResponse)
+      return res.status(404).send({
+        message: `Layer ${oldLayerName} not found in workspace ${workspace}.`,
+        code: '0001',
+      });
+    }
+
+    const layerData = layerResponse.data.layer;
+
+    // Step 2: Update the layer details with the new name and CRS
+    // Note: CRS is set in the resource (feature type or coverage), not directly in the layer.
+    const resourceUrl = `${GEO_SERVER_URL}/rest/workspaces/${workspace}/coveragestores/${layerData.defaultStyle.name}/coverages/${oldLayerName}.json`;
+    const resourceResponse = await axios.get(resourceUrl, {
+      auth: { username, password },
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (resourceResponse.status !== 200 || !resourceResponse.data.coverage) {
+      return res.status(404).send({
+        message: `Coverage ${oldLayerName} not found in workspace ${workspace}.`,
+        code: '0001',
+      });
+    }
+
+    // Prepare the updated coverage data
+    const updatedCoverageData = {
+      coverage: {
+        name: newLayerName || oldLayerName, // Keep old name if new name isn't provided
+        srs: newCrs || resourceResponse.data.coverage.srs, // Keep old CRS if new CRS isn't provided
+      },
+    };
+
+    // Step 3: Send the updated coverage data to GeoServer
+    const updateCoverageUrl = `${GEO_SERVER_URL}/rest/workspaces/${workspace}/coveragestores/${layerData.defaultStyle.name}/coverages/${oldLayerName}.json`;
+    const updateCoverageResponse = await axios.put(updateCoverageUrl, updatedCoverageData, {
+      auth: { username, password },
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (updateCoverageResponse.status !== 200 && updateCoverageResponse.status !== 204) {
+      throw new Error(`Failed to update coverage: ${updateCoverageResponse.status}`);
+    }
+
+    // Step 4: If the layer name was changed, update the layer as well
+    if (newLayerName && newLayerName !== oldLayerName) {
+      const updateLayerData = {
+        layer: {
+          name: `${workspace}:${newLayerName}`,
+          defaultStyle: layerData.defaultStyle,
+        },
+      };
+
+      const updateLayerUrl = `${GEO_SERVER_URL}/rest/layers/${workspace}:${oldLayerName}.json`;
+      const updateLayerResponse = await axios.put(updateLayerUrl, updateLayerData, {
+        auth: { username, password },
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (updateLayerResponse.status !== 200 && updateLayerResponse.status !== 204) {
+        throw new Error(`Failed to update layer name: ${updateLayerResponse.status}`);
+      }
+    }
+
+    res.status(200).send({
+      message: `Layer ${oldLayerName} updated successfully.`,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error(`Failed to edit layer details: ${error.message}`);
+    res.status(500).send({
+      message: `Failed to edit layer details: ${error.message}`,
+      code: '0001',
+    });
+  }
+};

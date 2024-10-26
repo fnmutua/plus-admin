@@ -15,6 +15,7 @@ module.exports = function(app) {
 
     app.post("/api/v1/geoserver/upload", [authJwt.verifyToken ],controller.uploadToGeoserver);
     app.post("/api/v1/geoserver/delete", [authJwt.verifyToken ],controller.deleteCoverageStore);
+    app.post("/api/v1/geoserver/edit", [authJwt.verifyToken ],controller.editLayerDetails);
     
-
+    
 };

@@ -26,7 +26,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
-import { uploadToGeoServer, deleteLayer } from '@/api/geoserver'
+import { uploadToGeoServer, deleteLayer,EditLayerDetails } from '@/api/geoserver'
 
 import writeXlsxFile from 'write-excel-file';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
@@ -232,53 +232,9 @@ const form = ref({
 });
 
 
-const deleteLayerStore = async (layer) => {
-  try {
-    console.log('Delete row:', layer);
-    form.value.storeName = layer;
-
-    // Call the deleteLayer function
-    const res = await deleteLayer(form.value);
-
-    // Check if the deletion was successful (assuming `res` contains a success flag)
-    if (res && res.code === '0000') {
-      console.log('Deletion successful:');
-
-      // Find and remove the item from `tableDataList`
-      tableDataList.value = tableDataList.value.filter(item => item.name !== layer);
-      console.log('Updated tableDataList:', tableDataList.value);
-    } else {
-      console.error('Deletion failed');
-    }
-  } catch (error) {
-    console.error('Error deleting layer:', error);
-  }
-};
 
 
 
-const crsOptions = ref([
-  { value: 'EPSG:21036', label: "Arc 1960 / UTM Zone 36S", description: "UTM projection for parts of Kenya." },
-  { value: 'EPSG:21096', label: "Arc 1960 / UTM Zone 36N", description: "UTM projection for parts of Kenya." },
-  { value: 'EPSG:21037', label: "Arc 1960 / UTM Zone 37S", description: "UTM projection for East Africa, including Kenya." },
-  { value: 'EPSG:21097', label: "Arc 1960 / UTM Zone 37N", description: "UTM projection for East Africa, including Kenya." },
-  { value: 'EPSG:4326', label: "WGS 84", description: "A global geographic coordinate system." },
-  { value: 'EPSG:3857', label: "WGS 84 / Pseudo-Mercator", description: "Web Mercator projection for mapping applications." },
-  { value: 'Invalid', label: "Invalid Projection", description: "Web Mercator projection for mapping applications." }
-
-])
-
-
-const editLayer = async (lyr: any) => {
-  console.log('Layer', lyr)
-  EditDialogVisible.value = true
-  form.value.name = lyr.name
-  // Check if the CRS exists in the options list, otherwise set it to 'Invalid'
-  const selectedCrs = lyr.crs && lyr.crs.length > 0 ? lyr.crs[0] : 'Invalid';
-  const isValidCrs = crsOptions.value.some(option => option.value === selectedCrs);
-
-  form.value.crs = isValidCrs ? selectedCrs : 'Invalid';
-}
 
 const selectedFiles = ref([false])
 
@@ -345,6 +301,90 @@ const uploadImageToGeoServer = async (file, store) => {
     console.error(`Error uploading file ${file.name}:`, error.response ? error.response.data : error.message);
   }
 };
+
+
+const deleteLayerStore = async (layer) => {
+  try {
+    console.log('Delete row:', layer);
+    form.value.storeName = layer;
+
+    // Call the deleteLayer function
+    const res = await deleteLayer(form.value);
+
+    // Check if the deletion was successful (assuming `res` contains a success flag)
+    if (res && res.code === '0000') {
+      console.log('Deletion successful:');
+
+      // Find and remove the item from `tableDataList`
+      tableDataList.value = tableDataList.value.filter(item => item.name !== layer);
+      console.log('Updated tableDataList:', tableDataList.value);
+    } else {
+      console.error('Deletion failed');
+    }
+  } catch (error) {
+    console.error('Error deleting layer:', error);
+  }
+};
+
+
+
+const crsOptions = ref([
+  { value: 'EPSG:21036', label: "Arc 1960 / UTM Zone 36S", description: "UTM projection for parts of Kenya." },
+  { value: 'EPSG:21096', label: "Arc 1960 / UTM Zone 36N", description: "UTM projection for parts of Kenya." },
+  { value: 'EPSG:21037', label: "Arc 1960 / UTM Zone 37S", description: "UTM projection for East Africa, including Kenya." },
+  { value: 'EPSG:21097', label: "Arc 1960 / UTM Zone 37N", description: "UTM projection for East Africa, including Kenya." },
+  { value: 'EPSG:4326', label: "WGS 84", description: "A global geographic coordinate system." },
+  { value: 'EPSG:3857', label: "WGS 84 / Pseudo-Mercator", description: "Web Mercator projection for mapping applications." },
+  { value: 'Invalid', label: "Invalid Projection", description: "Web Mercator projection for mapping applications." }
+
+])
+
+const oldLayer=ref()
+const editLayer = async (lyr: any) => {
+  console.log('Layer', lyr)
+  oldLayer.value=lyr
+  EditDialogVisible.value = true
+  form.value.name = lyr.name
+  // Check if the CRS exists in the options list, otherwise set it to 'Invalid'
+  const selectedCrs = lyr.crs && lyr.crs.length > 0 ? lyr.crs[0] : 'Invalid';
+  const isValidCrs = crsOptions.value.some(option => option.value === selectedCrs);
+  form.value.crs = isValidCrs ? selectedCrs : 'Invalid';
+  form.value.name = lyr.name
+
+
+}
+
+
+const saveEdits = async () => {
+  console.log('Upload files...')
+  form.value.oldLayerName =   oldLayer.value
+  form.value.newLayerName =   form.value.name
+  form.value.workspace =   form.value.workspace
+  form.value.newCrs = form.value.crs
+   
+
+  try {
+  
+
+    // Call the deleteLayer function
+    const res = await EditLayerDetails(form.value);
+
+    // Check if the deletion was successful (assuming `res` contains a success flag)
+    if (res && res.code === '0000') {
+      console.log('EditLayerDetails successful:');
+
+      
+    } else {
+      console.error('Edits failed');
+    }
+  } catch (error) {
+    console.error('Error deleting layer:', error);
+  }
+
+
+  
+}
+
 
 </script>
 
@@ -506,7 +546,7 @@ const uploadImageToGeoServer = async (file, store) => {
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="EditDialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="uploadFiles">
+        <el-button type="primary" @click="saveEdits">
           Confirm
         </el-button>
       </div>
