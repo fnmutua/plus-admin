@@ -444,7 +444,7 @@ const getCrsLabel = (value) => {
       <el-table-column label="Name" prop="name" sortable />
       <el-table-column label="Title" prop="title" sortable />
       <!-- CRS Column with value lookup -->
-      <el-table-column label="CRS" prop="crs" sortable width="250">
+      <el-table-column label="CRS" prop="crs" sortable width="350">
         <template #default="scope">
           <!-- Use the method to get the display label -->
           {{ getCrsLabel(scope.row.crs[0]) }}
