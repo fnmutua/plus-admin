@@ -226,7 +226,7 @@ const form = ref({
   workspace: 'kisip',
   username: 'admin',
   password: '***REDACTED***',
-  crs: null,
+  crs: 'EPSG:21037',
   name: null,
 
 });
@@ -246,9 +246,12 @@ const handleFiles = (file, fileList) => {
 
 }
 
+const loadingUploads = ref(false)
 
 const uploadFiles = async () => {
-  console.log('Upload files...')
+
+  loadingUploads.value = true
+  console.log('Upload files...', loadingUploads.value)
 
   // Loop through each selected file and process/upload
   for (const file of selectedFiles.value) {
@@ -258,7 +261,7 @@ const uploadFiles = async () => {
 
       // Upload file to GeoServer
       await uploadImageToGeoServer(file, store);
-
+      loadingUploads.value = false
       // Process and publish the image to GeoServer
       // You would need to handle the rest of the workflow like in the Python script
       console.log(`Successfully uploaded and published ${file.name}`);
@@ -277,26 +280,21 @@ const uploadImageToGeoServer = async (file, store) => {
   const formData = new FormData();
   // formData.append('file', file.raw, file.name);
   formData.append('files', file.raw)
+  formData.append('crs', form.value.crs); // Use a valid CRS instead of 'tests'
+
+  console.log('Form Data:', formData); // For debugging, check the contents of FormData
+
 
   try {
     const res = await uploadToGeoServer(formData)
     console.log(res)
 
-    // const response = await axios.put(url, formData, {
-    //   headers: {
-    //     // Remove manual Content-Type setting
-    //   },
-    //   auth: {
-    //     username: form.value.username,
-    //     password: form.value.password,
-    //   },
-    // });
+    if(res.code =='0000') {
 
-    // if (response.status === 201 || response.status === 202 || response.status === 200) {
-    //   console.log(`File ${file.name} uploaded successfully.`);
-    // } else {
-    //   console.error(`Failed to upload file ${file.name}: ${response.status} - ${response.statusText}`);
-    // }
+      UploadDialogVisible.value=false
+    }
+
+
   } catch (error) {
     console.error(`Error uploading file ${file.name}:`, error.response ? error.response.data : error.message);
   }
@@ -329,12 +327,12 @@ const deleteLayerStore = async (layer) => {
 
 
 const crsOptions = ref([
-  { value: 'EPSG:21036', label: "Arc 1960 / UTM Zone 36S", description: "UTM projection for parts of Kenya." },
-  { value: 'EPSG:21096', label: "Arc 1960 / UTM Zone 36N", description: "UTM projection for parts of Kenya." },
-  { value: 'EPSG:21037', label: "Arc 1960 / UTM Zone 37S", description: "UTM projection for East Africa, including Kenya." },
-  { value: 'EPSG:21097', label: "Arc 1960 / UTM Zone 37N", description: "UTM projection for East Africa, including Kenya." },
-  { value: 'EPSG:4326', label: "WGS 84", description: "A global geographic coordinate system." },
-  { value: 'EPSG:3857', label: "WGS 84 / Pseudo-Mercator", description: "Web Mercator projection for mapping applications." },
+  { value: 'EPSG:21036', label: "Arc 1960 / UTM Zone 36S (EPSG:21036)", description: "UTM projection for parts of Kenya." },
+  { value: 'EPSG:21096', label: "Arc 1960 / UTM Zone 36N (EPSG:21096)", description: "UTM projection for parts of Kenya." },
+  { value: 'EPSG:21037', label: "Arc 1960 / UTM Zone 37S(EPSG:21037)", description: "UTM projection for East Africa, including Kenya." },
+  { value: 'EPSG:21097', label: "Arc 1960 / UTM Zone 37N(EPSG:21097)", description: "UTM projection for East Africa, including Kenya." },
+  { value: 'EPSG:4326', label: "WGS 84(EPSG:4326)", description: "A global geographic coordinate system." },
+  { value: 'EPSG:3857', label: "WGS 84 / Pseudo-Mercator (EPSG:3857)", description: "Web Mercator projection for mapping applications." },
   { value: 'Invalid', label: "Invalid Projection", description: "Web Mercator projection for mapping applications." }
 
 ])
@@ -445,7 +443,7 @@ const getCrsLabel = (value) => {
 
       <el-table-column label="Name" prop="name" sortable />
       <el-table-column label="Title" prop="title" sortable />
-       <!-- CRS Column with value lookup -->
+      <!-- CRS Column with value lookup -->
       <el-table-column label="CRS" prop="crs" sortable width="250">
         <template #default="scope">
           <!-- Use the method to get the display label -->
@@ -490,32 +488,45 @@ const getCrsLabel = (value) => {
 
 
   <el-dialog v-model="UploadDialogVisible" title="Upload Imagery to Geoserver" width="500">
-    <el-form ref="ruleFormRef" :model="form" label-position="left">
-      <el-form-item label="Name">
-        <el-input disabled v-model="form.geoserverUrl" />
-      </el-form-item>
 
-      <el-form-item label="Username">
-        <el-input disabled v-model="form.username" />
-      </el-form-item>
+    <div v-loading="loadingUploads">
+      <el-form ref="ruleFormRef" :model="form" label-position="left">
+        <el-form-item label="Name">
+          <el-input disabled v-model="form.geoserverUrl" />
+        </el-form-item>
 
-      <el-form-item label="Password">
-        <el-input disabled v-model="form.password" type="password" />
-      </el-form-item>
+        <el-form-item label="Username">
+          <el-input disabled v-model="form.username" />
+        </el-form-item>
 
-      <el-form-item label="Workspace">
-        <el-input disabled v-model="form.workspace" />
-      </el-form-item>
+        <el-form-item label="Password">
+          <el-input disabled v-model="form.password" type="password" />
+        </el-form-item>
 
-      <el-form-item label="Select Files" style="width: 100%;">
-        <el-upload multiple drag :auto-upload="false" :on-change="handleFiles" action="" style="width: 100%;">
-          <i class="el-icon-upload"></i>
-          <div class="el-upload__text">Drop ECW files here or click to upload</div>
-        </el-upload>
-      </el-form-item>
+        <el-form-item label="Workspace">
+          <el-input disabled v-model="form.workspace" />
+        </el-form-item>
 
 
-    </el-form>
+
+        <el-form-item label="Coordinate System">
+          <el-select v-model="form.crs" clearable filterable collapse-tags placeholder="Select Coordinate System "
+            style=" margin-right: 5px;">
+            <el-option v-for="item in crsOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+
+        </el-form-item>
+
+        <el-form-item label="Select Files" style="width: 100%;">
+          <el-upload multiple drag :auto-upload="false" :on-change="handleFiles" action="" style="width: 100%;">
+            <i class="el-icon-upload"></i>
+            <div class="el-upload__text">Drop ECW files here or click to upload</div>
+          </el-upload>
+        </el-form-item>
+
+
+      </el-form>
+    </div>
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="dialogVisible = false">Cancel</el-button>
@@ -545,8 +556,6 @@ const getCrsLabel = (value) => {
       </el-form-item>
 
       <el-form-item label="Coordinate System">
-
-
         <el-select v-model="form.crs" clearable filterable collapse-tags placeholder="Select Coordinate System "
           style=" margin-right: 5px;">
           <el-option v-for="item in crsOptions" :key="item.value" :label="item.label" :value="item.value" />

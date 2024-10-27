@@ -18,6 +18,49 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 
+
+async function getResourceUrl(GEO_SERVER_URL,layerName, workspace, username, password) {
+  try {
+    // Step 1: Fetch the current layer details
+    const layerDetailsUrl = `${GEO_SERVER_URL}/rest/layers/${workspace}:${layerName}.json`;
+    const layerResponse = await axios.get(layerDetailsUrl, {
+      auth: { username, password },
+      headers: { 'Accept': 'application/json' },
+    });
+
+    console.log('Layer response:', layerResponse.data);
+
+    if (layerResponse.status !== 200 || !layerResponse.data.layer) {
+      console.error(`Layer ${layerName} not found in workspace ${workspace}.`);
+      throw new Error(`Layer ${layerName} not found.`);
+    }
+
+    const layerData = layerResponse.data.layer;
+
+    // Step 2: Fetch resource details
+    let resourceUrl = layerData.resource.href;
+    resourceUrl = resourceUrl.replace("http://", "https://");
+
+    const resourceResponse = await axios.get(resourceUrl, {
+      auth: { username, password },
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (resourceResponse.status !== 200 || !resourceResponse.data.coverage) {
+      console.error(`Coverage for ${layerName} not found in workspace ${workspace}.`);
+      throw new Error(`Coverage for ${layerName} not found.`);
+    }
+
+    console.log('resourceResponse response:', resourceResponse.config.url);
+
+    return resourceResponse.config.url ; // Return the URL for the coverage resource
+  } catch (error) {
+    console.error('Error fetching resource URL:', error.message);
+    throw error; // Rethrow the error for handling in the caller function
+  }
+}
+
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, '/data/imagery'); // Define the directory where uploaded files will be stored
@@ -34,19 +77,32 @@ const upload = multer({
   },
 });
 
-exports.uploadToGeoserver = (req, res) => {
-  // Use `upload.array('files')` middleware to handle multiple file uploads
+ 
+
+
+exports._uploadToGeoserver = async (req, res) => {
+
+
   upload.array('files')(req, res, async (err) => {
     if (err) {
-      console.error(err);
-      return res.status(500).send({
+      console.log(err);
+        return res.status(500).send({
         message: 'Upload failed.',
-        code: '0000',
-      });
+        code: '0000'
+      })
+    } 
+    if (!req.files) {
+      return res.status(500).send({ msg: 'file is not found : Upload ECW' })
     }
 
-    let myFiles = req.files;
+    var myFiles =req.files
+  
 
+    console.log('files to upload',myFiles )
+    console.log('Properties Document',req.body.crs )
+    const username = 'admin';
+  const password = '***REDACTED***';
+   
     try {
       if (!myFiles || myFiles.length === 0) {
         return res.status(400).json({ error: 'No files were uploaded.' });
@@ -55,10 +111,15 @@ exports.uploadToGeoserver = (req, res) => {
       for (const file of myFiles) {
         const extname = path.extname(file.originalname).toLowerCase();
         
+        console.log('file',file)
         // Check for valid file types (ECW or TIFF)
         if (extname !== '.ecw' && extname !== '.tiff') {
           return res.status(400).json({ error: 'Invalid file type, only ECW and TIFF files are supported' });
         }
+ 
+         // Step 1 Update the layer details
+
+
 
         // GeoServer Configuration
         const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver';
@@ -69,20 +130,29 @@ exports.uploadToGeoserver = (req, res) => {
         // Read the file stream
         const fileStream = fs.createReadStream(file.path);
 
-        // Upload to GeoServer
-        const response = await axios.put(
-          geoserverUrl,
-          fileStream,
-          {
-            headers: {},
-            auth: {
-              username: 'admin',
-              password: '***REDACTED***',
-            },
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-          }
-        );
+           // Upload to GeoServer
+           const response = await axios.put(
+            geoserverUrl,
+            fileStream,
+            {
+              headers: {
+                'Content-Type': 'application/octet-stream',
+              },
+              auth: {
+                username: 'admin',
+                password: '***REDACTED***',
+              },
+              params: {
+                projectionPolicy: "FORCE_DECLARED",
+                recalculate: "latlonbbox",
+                srs: req.body.crs,
+                nativeCRS: req.body.crs,
+                "enabled": false,
+              },
+              maxContentLength: Infinity,
+              maxBodyLength: Infinity,
+            }
+          );
 
         if (response.status !== 201 && response.status !== 200) {
           return res.status(response.status).json({
@@ -90,7 +160,19 @@ exports.uploadToGeoserver = (req, res) => {
             details: response.data,
           });
         }
+  
+
+
+
       }
+
+
+    // Step 2 Update the layer details
+
+ 
+   
+
+
 
       res.status(200).send({
         message: 'Imagery Upload Successful',
@@ -103,8 +185,151 @@ exports.uploadToGeoserver = (req, res) => {
         code: '0000',
       });
     }
-  });
-};
+ 
+    
+ 
+  })
+}
+exports.uploadToGeoserver = async (req, res) => {
+
+
+  upload.array('files')(req, res, async (err) => {
+    if (err) {
+      console.log(err);
+        return res.status(500).send({
+        message: 'Upload failed.',
+        code: '0000'
+      })
+    } 
+    if (!req.files) {
+      return res.status(500).send({ msg: 'file is not found : Upload ECW' })
+    }
+
+    var myFiles =req.files
+  
+
+    console.log('files to upload',myFiles )
+    console.log('Properties Document',req.body.crs )
+    const username = 'admin';
+  const password = '***REDACTED***';
+   
+    try {
+      if (!myFiles || myFiles.length === 0) {
+        return res.status(400).json({ error: 'No files were uploaded.' });
+      }
+
+      for (const file of myFiles) {
+        const extname = path.extname(file.originalname).toLowerCase();
+        
+        console.log('file',file)
+        // Check for valid file types (ECW or TIFF)
+        if (extname !== '.ecw' && extname !== '.tiff') {
+          return res.status(400).json({ error: 'Invalid file type, only ECW and TIFF files are supported' });
+        }
+ 
+         // Step 1 Update the layer details
+
+
+
+        // GeoServer Configuration
+        const GEO_SERVER_URL = 'https://kesmis.go.ke/geoserver';
+        const WORKSPACE = 'kisip';
+        const coverageStoreName = path.parse(file.originalname).name;
+        const geoserverUrl = `${GEO_SERVER_URL}/rest/workspaces/${WORKSPACE}/coveragestores/${coverageStoreName}/file${extname}`;
+
+        // Read the file stream
+        const fileStream = fs.createReadStream(file.path);
+
+           // Upload to GeoServer
+           const response = await axios.put(
+            geoserverUrl,
+            fileStream,
+            {
+              headers: {
+                'Content-Type': 'application/octet-stream',
+              },
+              auth: {
+                username: 'admin',
+                password: '***REDACTED***',
+              },
+              params: {
+                projectionPolicy: "FORCE_DECLARED",
+                recalculate: "latlonbbox",
+                srs: req.body.crs,
+                nativeCRS: req.body.crs,
+                "enabled": false,
+              },
+              maxContentLength: Infinity,
+              maxBodyLength: Infinity,
+            }
+          );
+
+        if (response.status !== 201 && response.status !== 200) {
+          return res.status(response.status).json({
+            error: 'GeoServer upload failed',
+            details: response.data,
+          });
+        }
+
+        
+       const resourceUrl  =  await getResourceUrl(GEO_SERVER_URL, coverageStoreName,WORKSPACE,username,password)
+
+
+      
+
+           // Prepare the updated coverage data
+    const updatedCoverageData = {
+      coverage: {
+         srs: req.body.crs, // Keep old CRS if new CRS isn't provided
+         enabled: true,
+        //projectionPolicy: "FORCE_DECLARED",
+       // recalculate: "latlonbbox"
+      },
+    };
+
+    // Step 3: Update the resource with the new details
+    const updateCoverageResponse = await axios.put(resourceUrl, updatedCoverageData, {
+      auth: { username, password },
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (updateCoverageResponse.status !== 200 && updateCoverageResponse.status !== 204) {
+      return res.status(updateCoverageResponse.status).send({
+        message: `Failed to update coverage metdata: ${updateCoverageResponse.statusText}`,
+        code: '0002',
+      });
+    }
+
+
+
+
+      }
+
+
+    // Step 2 Update the layer details
+
+ 
+   
+
+
+
+      res.status(200).send({
+        message: 'Imagery Upload Successful',
+        code: '0000',
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send({
+        message: 'Upload failed. ' + error.message,
+        code: '0000',
+      });
+    }
+ 
+    
+ 
+  })
+}
+
 
 exports.deleteCoverageStore =async  (req, res) => {
 
@@ -276,3 +501,6 @@ exports.editLayerDetails = async (req, res) => {
     });
   }
 };
+
+
+
