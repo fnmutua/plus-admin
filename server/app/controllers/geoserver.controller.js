@@ -282,7 +282,7 @@ exports.uploadToGeoserver = async (req, res) => {
       coverage: {
          srs: req.body.crs, // Keep old CRS if new CRS isn't provided
          enabled: true,
-        //projectionPolicy: "FORCE_DECLARED",
+         projectionPolicy: "FORCE_DECLARED",
        // recalculate: "latlonbbox"
       },
     };
