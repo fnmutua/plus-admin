@@ -26,7 +26,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
-import { uploadToGeoServer, deleteLayer,EditLayerDetails } from '@/api/geoserver'
+import { uploadToGeoServer, deleteLayer, EditLayerDetails } from '@/api/geoserver'
 
 import writeXlsxFile from 'write-excel-file';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
@@ -339,10 +339,10 @@ const crsOptions = ref([
 
 ])
 
-const oldLayer=ref()
+const oldLayer = ref()
 const editLayer = async (lyr: any) => {
   console.log('Layer', lyr)
-  oldLayer.value=lyr
+  oldLayer.value = lyr
   EditDialogVisible.value = true
   form.value.name = lyr.name
   // Check if the CRS exists in the options list, otherwise set it to 'Invalid'
@@ -357,14 +357,16 @@ const editLayer = async (lyr: any) => {
 
 const saveEdits = async () => {
   console.log('Upload files...')
-  form.value.oldLayerName =   oldLayer.value
-  form.value.newLayerName =   form.value.name
-  form.value.workspace =   form.value.workspace
+  form.value.oldLayerName = oldLayer.value.name
+  form.value.newLayerName = form.value.name
+  form.value.workspace = form.value.workspace
   form.value.newCrs = form.value.crs
-   
+  form.value.layer = oldLayer.value
+
+
 
   try {
-  
+
 
     // Call the deleteLayer function
     const res = await EditLayerDetails(form.value);
@@ -373,7 +375,7 @@ const saveEdits = async () => {
     if (res && res.code === '0000') {
       console.log('EditLayerDetails successful:');
 
-      
+
     } else {
       console.error('Edits failed');
     }
@@ -382,7 +384,13 @@ const saveEdits = async () => {
   }
 
 
-  
+
+}
+
+const getCrsLabel = (value) => {
+
+  const crs = crsOptions.value.find(option => option.value === value);
+  return crs ? crs.label : 'Invalid CRS :' + value;
 }
 
 
@@ -437,7 +445,14 @@ const saveEdits = async () => {
 
       <el-table-column label="Name" prop="name" sortable />
       <el-table-column label="Title" prop="title" sortable />
-      <el-table-column label="CRS" prop="crs" sortable width="150" />
+       <!-- CRS Column with value lookup -->
+      <el-table-column label="CRS" prop="crs" sortable width="250">
+        <template #default="scope">
+          <!-- Use the method to get the display label -->
+          {{ getCrsLabel(scope.row.crs[0]) }}
+        </template>
+      </el-table-column>
+
       <el-table-column fixed="right" label="Actions" width="350">
         <template #default="scope">
 
