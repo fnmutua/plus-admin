@@ -14,7 +14,7 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import {
   ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu, ElTour, ElTourStep, ElUpload,
   ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElDrawer, ElMessage, ElTabPane, ElSwitch
@@ -137,8 +137,39 @@ const loadMap = () => {
 
 
 
+const mobileBreakpoint = 768;
+const defaultPageSize = 10;
+const mobilePageSize = 5;
+const pageSize = ref(10);
+const currentPage = ref(1);
+const width = ref(1080);
+const totalItems = ref(6)
+// Function to update pageSize based on window width
+const updatePageSize = () => {
+
+  console.log('window.innerWidth', window.innerWidth)
+  width.value = window.innerWidth - 400
+  if (window.innerWidth <= mobileBreakpoint) {
+    pageSize.value = mobilePageSize;
+  } else {
+    pageSize.value = defaultPageSize;
+  }
+};
+
+
+
+
 const loading = ref(false)
 onMounted(() => {
+
+
+
+
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize(); // Initial check
+
+
+
 
   loading.value = true
   let server;
@@ -182,6 +213,7 @@ onMounted(() => {
 
 
       tableDataList.value = glayers;
+      totalItems.value = tableDataList.value.length
       loading.value = false
 
 
@@ -289,9 +321,9 @@ const uploadImageToGeoServer = async (file, store) => {
     const res = await uploadToGeoServer(formData)
     console.log(res)
 
-    if(res.code =='0000') {
+    if (res.code == '0000') {
 
-      UploadDialogVisible.value=false
+      UploadDialogVisible.value = false
     }
 
 
@@ -392,6 +424,26 @@ const getCrsLabel = (value) => {
 }
 
 
+const handlePageChange = (page) => {
+  currentPage.value = page;
+};
+
+
+const handlePageSizeChange = (newSize) => {
+  pageSize.value = newSize;
+  currentPage.value = 1; // Reset to first page when changing page size
+};
+
+
+
+// Computed Property for Paginated Data
+const paginatedData = computed(() => {
+  const startIndex = (currentPage.value - 1) * pageSize.value;
+  const endIndex = startIndex + pageSize.value;
+  return tableDataList.value.slice(startIndex, endIndex);
+});
+
+
 </script>
 
 <template>
@@ -438,9 +490,7 @@ const getCrsLabel = (value) => {
     </el-row>
 
 
-    <el-table :data="tableDataList" :loading="loading" style="width: 100%" @row-dblclick="handleRowDblClick">
-
-
+    <el-table :data="paginatedData" :loading="loading" style="width: 100%" @row-dblclick="handleRowDblClick">
       <el-table-column label="Name" prop="name" sortable />
       <el-table-column label="Title" prop="title" sortable />
       <!-- CRS Column with value lookup -->
@@ -469,9 +519,9 @@ const getCrsLabel = (value) => {
       </el-table-column>
     </el-table>
 
-    <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[2, 5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
+      @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
 
   </el-card>
