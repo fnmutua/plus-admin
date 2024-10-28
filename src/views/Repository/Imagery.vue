@@ -329,9 +329,9 @@ const deleteLayerStore = async (layer) => {
 const crsOptions = ref([
   { value: 'EPSG:21036', label: "Arc 1960 / UTM Zone 36S (EPSG:21036)", description: "UTM projection for parts of Kenya." },
   { value: 'EPSG:21096', label: "Arc 1960 / UTM Zone 36N (EPSG:21096)", description: "UTM projection for parts of Kenya." },
-  { value: 'EPSG:21037', label: "Arc 1960 / UTM Zone 37S(EPSG:21037)", description: "UTM projection for East Africa, including Kenya." },
-  { value: 'EPSG:21097', label: "Arc 1960 / UTM Zone 37N(EPSG:21097)", description: "UTM projection for East Africa, including Kenya." },
-  { value: 'EPSG:4326', label: "WGS 84(EPSG:4326)", description: "A global geographic coordinate system." },
+  { value: 'EPSG:21037', label: "Arc 1960 / UTM Zone 37S (EPSG:21037)", description: "UTM projection for East Africa, including Kenya." },
+  { value: 'EPSG:21097', label: "Arc 1960 / UTM Zone 37N (EPSG:21097)", description: "UTM projection for East Africa, including Kenya." },
+  { value: 'EPSG:4326', label: "WGS 84 (EPSG:4326)", description: "A global geographic coordinate system." },
   { value: 'EPSG:3857', label: "WGS 84 / Pseudo-Mercator (EPSG:3857)", description: "Web Mercator projection for mapping applications." },
   { value: 'Invalid', label: "Invalid Projection", description: "Web Mercator projection for mapping applications." }
 
