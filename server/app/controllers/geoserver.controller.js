@@ -51,9 +51,9 @@ async function getResourceUrl(GEO_SERVER_URL,layerName, workspace, username, pas
       throw new Error(`Coverage for ${layerName} not found.`);
     }
 
-    console.log('resourceResponse response:', resourceResponse.config.url);
+    console.log('resourceResponse response:', resourceResponse.data.coverage.srs );
 
-    return resourceResponse.config.url ; // Return the URL for the coverage resource
+    return [ resourceResponse.config.url ,  resourceResponse.data.coverage.srs ]; // Return the URL for the coverage resource
   } catch (error) {
     console.error('Error fetching resource URL:', error.message);
     throw error; // Rethrow the error for handling in the caller function
@@ -272,15 +272,21 @@ exports.uploadToGeoserver = async (req, res) => {
         }
 
         
-       const resourceUrl  =  await getResourceUrl(GEO_SERVER_URL, coverageStoreName,WORKSPACE,username,password)
+        const resource  =  await getResourceUrl(GEO_SERVER_URL, coverageStoreName,WORKSPACE,username,password) 
+ 
+        const resourceUrl  =resource [0]
+        const resource_srs  =resource [1]
+        console.log('resourceUrl',resourceUrl)
+        console.log('resource_srs',resource_srs)
 
-
-      
-
+ 
+        //EPSG:404000
            // Prepare the updated coverage data
     const updatedCoverageData = {
       coverage: {
-         srs: req.body.crs, // Keep old CRS if new CRS isn't provided
+         //srs: req.body.crs, // Keep old CRS if new CRS isn't provided
+         srs: (resource_srs && resource_srs !== 'EPSG:404000') ? resource_srs : req.body.crs,
+
          enabled: true,
          projectionPolicy: "FORCE_DECLARED",
        // recalculate: "latlonbbox"
