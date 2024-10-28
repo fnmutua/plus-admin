@@ -309,28 +309,28 @@ const uploadImageToGeoServer = async (file, store) => {
   console.log('Upload URL:', url);
   console.log('File:', file);
 
+  // Create a sanitized file name by removing or replacing spaces
+  const sanitizedFileName = file.name.replace(/\s+/g, '_'); // Replaces spaces with underscores
+  console.log('Sanitized File Name:', sanitizedFileName);
+
   const formData = new FormData();
-  // formData.append('file', file.raw, file.name);
-  formData.append('files', file.raw)
+  formData.append('files', file.raw, sanitizedFileName); // Use sanitized file name
   formData.append('crs', form.value.crs); // Use a valid CRS instead of 'tests'
 
   console.log('Form Data:', formData); // For debugging, check the contents of FormData
 
-
   try {
-    const res = await uploadToGeoServer(formData)
-    console.log(res)
+    const res = await uploadToGeoServer(formData);
+    console.log(res);
 
     if (res.code == '0000') {
-
-      UploadDialogVisible.value = false
+      UploadDialogVisible.value = false;
     }
-
-
   } catch (error) {
-    console.error(`Error uploading file ${file.name}:`, error.response ? error.response.data : error.message);
+    console.error(`Error uploading file ${sanitizedFileName}:`, error.response ? error.response.data : error.message);
   }
 };
+
 
 
 const deleteLayerStore = async (layer) => {
@@ -359,15 +359,27 @@ const deleteLayerStore = async (layer) => {
 
 
 const crsOptions = ref([
+
+// Arc 1960
   { value: 'EPSG:21036', label: "Arc 1960 / UTM Zone 36S (EPSG:21036)", description: "UTM projection for parts of Kenya." },
   { value: 'EPSG:21096', label: "Arc 1960 / UTM Zone 36N (EPSG:21096)", description: "UTM projection for parts of Kenya." },
   { value: 'EPSG:21037', label: "Arc 1960 / UTM Zone 37S (EPSG:21037)", description: "UTM projection for East Africa, including Kenya." },
   { value: 'EPSG:21097', label: "Arc 1960 / UTM Zone 37N (EPSG:21097)", description: "UTM projection for East Africa, including Kenya." },
+
+//  WGS 84 
+{ value: 'EPSG:32637', label: "WGS 84 / UTM zone 37N (EPSG:32637)", description: "UTM projection for East Africa, including Kenya." },
+{ value: 'EPSG:32636', label: "WGS 84 / UTM zone 36N (EPSG:32636)", description: "UTM projection for East Africa, including Kenya." },
+{ value: 'EPSG:32737', label: "WGS 84 / UTM zone 37S(EPSG:32737)", description: "UTM projection for East Africa, including Kenya." },
+{ value: 'EPSG:32736', label: "WGS 84 / UTM zone 36S  (EPSG:32736)", description: "UTM projection for East Africa, including Kenya." },
+
   { value: 'EPSG:4326', label: "WGS 84 (EPSG:4326)", description: "A global geographic coordinate system." },
   { value: 'EPSG:3857', label: "WGS 84 / Pseudo-Mercator (EPSG:3857)", description: "Web Mercator projection for mapping applications." },
   { value: 'Invalid', label: "Invalid Projection", description: "Web Mercator projection for mapping applications." }
 
 ])
+
+
+ 
 
 const oldLayer = ref()
 const editLayer = async (lyr: any) => {
