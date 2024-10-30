@@ -46,8 +46,8 @@ module.exports = function (sequelize, DataTypes) {
       },
       code: {
         type: DataTypes.STRING,
-        allowNull: false,
-        unique:true
+        allowNull: true,
+        //unique:true
       },
       description: {
         type: DataTypes.STRING,
