@@ -6,6 +6,7 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { getParentIds, BatchImportUpsert } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { getModelSpecs } from '@/api/fields'
+import { toRaw } from 'vue';
 
 import {
   ElButton,
@@ -713,27 +714,7 @@ const loadOptions = (json) => {
   let epsgCode
   let crsProp = json.crs ? json.crs.properties.name : null;
 
-  // //       try {
-  // //           crsProp = json.crs.properties.name;
-  // //       }
-  // //       catch (error) {
-  // //         console.warn('Error extracting EPSG code:', error); // Log warning message
-  // //         ElMessage.warning('The uploaded file lacks Coordinate system definition. Assuming GCS WGS84')
-  // //         epsgCode = 4326
-  // // }
-  // if (crsProp !== null) {
-  //   console.log('crs >>>',crsProp)
-  //   epsgCode = crsProp.match(/EPSG::(\d+)/)[1]?crsProp.match(/EPSG::(\d+)/)[1]: 4326
-  //   if (!epsgCode) {
-  //     epsgCode=4326
-  //           }
-
-  // } else {
-  //   ElMessage.warning('The uploaded file lacks Coordinate system definition. Assuming GCS WGS84')
-  //          epsgCode = 4326
-  //       }
-
-  // Using includes() method
+  
 
   if (crsProp && crsProp.includes('EPSG')) {
     console.log('The string contains the character "EPSG"');
@@ -794,61 +775,55 @@ const loadOptions = (json) => {
 
 
     const geometry = json.features[i].geometry;
-    // Check if the geometry type is "Polygon" or "MultiPolygon"
-    if (geometry && geometry.type === "Polygon") {
-          // If it's a single polygon, project its coordinates
-          geometry.coordinates = geometry.coordinates.map(ring => {
+
+      // Check if the geometry type is "Polygon" or "MultiPolygon"
+      if (geometry && geometry.type === "Polygon") {
+        // If it's a single polygon, project its coordinates
+        geometry.coordinates = geometry.coordinates.map(ring => {
+          return ring.map(coordinate => {
+            return proj4("SOURCE_CRS", "WGS84", coordinate);
+          });
+        });
+
+      } else if (geometry && geometry.type === "MultiPolygon") {
+        // If it's a MultiPolygon, loop through all polygons and project their coordinates
+        geometry.coordinates = geometry.coordinates.map(polygon => {
+          return polygon.map(ring => {
             return ring.map(coordinate => {
               return proj4("SOURCE_CRS", "WGS84", coordinate);
             });
           });
-        }
-
-    else if (geometry && geometry.type === "MultiPolygon") {
-        // If it's a MultiPolygon, loop through all polygons and project their coordinates
-        geometry.coordinates.forEach(polygon => {
-          polygon.forEach((ring, ringIndex) => {
-            geometry.coordinates[ringIndex] = ring.map(coordinate => {
-              return proj4("SOURCE_CRS", "WGS84", coordinate);
-            });
-          });
         });
-      }
 
-    else if (geometry && geometry.type === "LineString") {
-      // If it's a single polygon, project its coordinates
-      geometry.coordinates = geometry.coordinates.map(coordinate => {
-        return proj4("SOURCE_CRS", "WGS84", coordinate);
-      });
-    }
+      } else if (geometry && geometry.type === "LineString") {
+        // If it's a single LineString, project its coordinates
+        geometry.coordinates = geometry.coordinates.map(coordinate => {
+          return proj4("SOURCE_CRS", "WGS84", coordinate);
+        });
 
-    else if (geometry && geometry.type === "MultiLineString") {
+      } else if (geometry && geometry.type === "MultiLineString") {
         // If it's a MultiLineString, project the coordinates of each LineString
         geometry.coordinates = geometry.coordinates.map(lineString => {
           return lineString.map(coordinate => {
             return proj4("SOURCE_CRS", "WGS84", coordinate);
           });
         });
+
+      } else if (geometry && geometry.type === "Point") {
+        // If it's a single point, project its coordinates
+        geometry.coordinates = proj4("SOURCE_CRS", "WGS84", geometry.coordinates);
+
+      } else if (geometry && geometry.type === "MultiPoint") {
+        // If it's a MultiPoint, project the coordinates of each point
+        geometry.coordinates = geometry.coordinates.map(coordinate => {
+          return proj4("SOURCE_CRS", "WGS84", coordinate);
+        });
+
+      } else {
+        // If geometry type is not recognized, continue to the next feature
+        continue;
       }
 
-
-    else if (geometry && geometry.type === "Point") {
-      // If it's a single point, project its coordinates
-      geometry.coordinates = proj4("SOURCE_CRS", "WGS84", geometry.coordinates);
-    }
-
-
-      else if (geometry && geometry.type === "MultiPoint") {
-    // If it's a MultiPoint, project the coordinates of each point
-    geometry.coordinates = geometry.coordinates.map(coordinate => {
-      return proj4("SOURCE_CRS", "WGS84", coordinate);
-    });
-  }
-
-
-    else {
-      continue
-    }
 
     console.log('geometry', geometry)
     var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
@@ -872,84 +847,151 @@ const loadOptions = (json) => {
   //console.log('rows-uploadObj---PCODE--->', uploadObj.value[0].properties.pcode)
 
   let failedCount = 0
-  uploadObj.value.map((upload, i) => {
-    console.log('------------>', i, upload);
-    var thisFeature = upload.properties;
-    thisFeature.geom = upload.geometry;
+  // uploadObj.value.map((upload, i) => {
+  //   console.log('------------>', i, upload);
+  //   var thisFeature = upload.properties;
+  //   thisFeature.geom =  upload.geometry;
 
-    console.log('------matchedObj------>', i, thisFeature);
+  //   console.log('------matchedObj------>', i, thisFeature);
 
-    if (settlement.value) {
-      // Show the matching table if only any match is observed
+  //   if (settlement.value) {
+  //     // Show the matching table if only any match is observed
 
+  //     var filterParent = parentObj.value.filter(function (el) {
+  //       return el['id'] === settlement.value;
+  //     });
+
+  //     console.log('------filterParent------>', filterParent);
+
+  //     if (filterParent.length > 0) {
+  //       // Here we add a prefix to the parent details to avoid confusion
+  //       let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
+  //       let pfeature = Object.keys(filterParent[0]).reduce(
+  //         (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+  //         {}
+  //       );
+
+  //       const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
+  //       matchedObjwithparent.value.push(mergedFeature);
+  //     } else {
+  //       console.log('No match......');
+  //       //ElMessage.error('The selected settlement did not match any records in the database!');
+  //       showErrorMessage('The selected settlement did not match any records in the database!')
+  //       //show.value = false;
+  //       loadingPosting.value = false;
+  //       failedCount = failedCount + 1
+  //       console.log('move away.....');
+  //       return
+  //     }
+  //   }
+
+  //   else {
+  //     if (upload.properties[code.value]) {
+  //       var filterParent = parentObj.value.filter(function (el) {
+  //         return el['code'] === upload.properties[code.value];
+  //       });
+
+  //       console.log('------filterParent------>', filterParent);
+
+  //       if (filterParent.length > 0) {
+  //         // Here we add a prefix to the parent details to avoid confusion
+  //         let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
+  //         let pfeature = Object.keys(filterParent[0]).reduce(
+  //           (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+  //           {}
+  //         );
+
+  //         const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
+  //         matchedObjwithparent.value.push(mergedFeature);
+  //       } else {
+  //         console.log('No match......');
+  //         push({ name: 'Importgeo' });
+  //         //ElMessage.error('The parent Code ' + uploadObj.value[0].properties.pcode + ' (pcode) did not match any records in the database!');
+  //         showErrorMessage('The parent Code ' + thisFeature.pcode + ' (pcode) did not match any records in the database!')
+  //         loadingPosting.value = false;
+  //         //show.value = false;
+  //         console.log('move away.....');
+  //         failedCount = failedCount + 1
+
+  //         return;
+  //       }
+  //     } else {
+  //       console.log('The parent Code is required');
+  //       //ElMessage.error('The parent Code (pcode) is required in the uploaded File!');
+  //       showErrorMessage('The parent Code (pcode) is required in the uploaded File!')
+
+  //       loadingPosting.value = false;
+  //       return;
+  //     }
+  //   }
+  // });
+
+ 
+uploadObj.value.map((upload, i) => {
+  console.log('------------>', i, upload);
+
+  // Convert the geometry to a raw, non-reactive object
+  var thisFeature = upload.properties;
+  thisFeature.geom = toRaw(upload.geometry); // Get the raw geometry
+
+  console.log('------matchedObj------>', i, thisFeature);
+
+  if (settlement.value) {
+    var filterParent = parentObj.value.filter(function (el) {
+      return el['id'] === settlement.value;
+    });
+
+    console.log('------filterParent------>', filterParent);
+
+    if (filterParent.length > 0) {
+      let pre = parentModel.value + '_';
+      let pfeature = Object.keys(filterParent[0]).reduce(
+        (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+        {}
+      );
+
+      const mergedFeature = { ...thisFeature, ...pfeature };
+      matchedObjwithparent.value.push(mergedFeature);
+    } else {
+      console.log('No match......');
+      showErrorMessage('The selected settlement did not match any records in the database!');
+      loadingPosting.value = false;
+      failedCount += 1;
+      return;
+    }
+  } else {
+    if (upload.properties[code.value]) {
       var filterParent = parentObj.value.filter(function (el) {
-        return el['id'] === settlement.value;
+        return el['code'] === upload.properties[code.value];
       });
 
       console.log('------filterParent------>', filterParent);
 
       if (filterParent.length > 0) {
-        // Here we add a prefix to the parent details to avoid confusion
-        let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
+        let pre = parentModel.value + '_';
         let pfeature = Object.keys(filterParent[0]).reduce(
           (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
           {}
         );
 
-        const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
+        const mergedFeature = { ...thisFeature, ...pfeature };
         matchedObjwithparent.value.push(mergedFeature);
       } else {
         console.log('No match......');
-        //ElMessage.error('The selected settlement did not match any records in the database!');
-        showErrorMessage('The selected settlement did not match any records in the database!')
-        //show.value = false;
+        push({ name: 'Importgeo' });
+        showErrorMessage(`The parent Code ${thisFeature.pcode} (pcode) did not match any records in the database!`);
         loadingPosting.value = false;
-        failedCount = failedCount + 1
-        console.log('move away.....');
-        return
-      }
-    }
-
-    else {
-      if (upload.properties[code.value]) {
-        var filterParent = parentObj.value.filter(function (el) {
-          return el['code'] === upload.properties[code.value];
-        });
-
-        console.log('------filterParent------>', filterParent);
-
-        if (filterParent.length > 0) {
-          // Here we add a prefix to the parent details to avoid confusion
-          let pre = parentModel.value + '_'; // A prefix to differentiate parent and child
-          let pfeature = Object.keys(filterParent[0]).reduce(
-            (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-            {}
-          );
-
-          const mergedFeature = { ...thisFeature, ...pfeature }; // Merge the feature with the parent details
-          matchedObjwithparent.value.push(mergedFeature);
-        } else {
-          console.log('No match......');
-          push({ name: 'Importgeo' });
-          //ElMessage.error('The parent Code ' + uploadObj.value[0].properties.pcode + ' (pcode) did not match any records in the database!');
-          showErrorMessage('The parent Code ' + thisFeature.pcode + ' (pcode) did not match any records in the database!')
-          loadingPosting.value = false;
-          //show.value = false;
-          console.log('move away.....');
-          failedCount = failedCount + 1
-
-          return;
-        }
-      } else {
-        console.log('The parent Code is required');
-        //ElMessage.error('The parent Code (pcode) is required in the uploaded File!');
-        showErrorMessage('The parent Code (pcode) is required in the uploaded File!')
-
-        loadingPosting.value = false;
+        failedCount += 1;
         return;
       }
+    } else {
+      console.log('The parent Code is required');
+      showErrorMessage('The parent Code (pcode) is required in the uploaded File!');
+      loadingPosting.value = false;
+      return;
     }
-  });
+  }
+});
 
 
   console.log('Finished Matching -->', matchedObjwithparent.value)
@@ -1110,8 +1152,7 @@ v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlem
       </el-col>
   
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12"> 
-        <el-skeleton  v-if="!showTable" :rows="10" />
-
+   
         <div class="grid-content ep-bg-purple-light" > 
 
           <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 400px; overflow-y: scroll;" border >

@@ -645,7 +645,7 @@ const handleSubmitData = async () => {
         .then((response: { data: any }) => {
             loadingPosting.value = false
             if (response.code === "0000") {
-        // code 0000 is successfule
+      
                     push({
                 path: '/repository/docs',
                 name: 'RepositoryTagged'
@@ -656,7 +656,7 @@ const handleSubmitData = async () => {
                 }
 
         })
-
+        loadingPosting.value = false  
 
 }
 
