@@ -5,33 +5,25 @@ import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
-import { ElButton, ElSelect, MessageParamsWithType } from 'element-plus'
-import { ElMessage, ElOptionGroup } from 'element-plus'
+import { ElButton, ElSelect } from 'element-plus'
+import { ElOptionGroup } from 'element-plus'
 import {
-  Position,
-  TopRight,
-  User,
   Plus,
   Download,
   Filter,
-  MessageBox,
-  Edit,
   InfoFilled,
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed } from 'vue'
+import { ref, computed } from 'vue'
 import {
-  ElPagination, ElTooltip, ElOption, ElDivider, ElDialog, ElForm, ElFormItem, ElInput, FormRules,
+  ElPagination, ElTooltip, ElOption, ElDivider, 
   ElDropdown, ElDropdownItem, ElDropdownMenu, ElPopconfirm
 } from 'element-plus'
 import { useRouter } from 'vue-router'
-import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
-import { uuid } from 'vue-uuid'
-import type { FormInstance } from 'element-plus'
+import { deleteDocument } from '@/api/settlements'
 import { getFile } from '@/api/summary'
 import xlsx from "json-as-xlsx"
 
@@ -46,8 +38,6 @@ console.log("userInfo--->", userInfo)
 
 const userIsAdmin = ref(false)
 
-const documentOwner = ref(false)
-const denyDownload = ref(false)
 
 
 if (userInfo.roles.includes("admin")) {
@@ -75,7 +65,6 @@ const currentPage = ref(1)
 const total = ref(0)
  
 const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
 
 
 
@@ -294,7 +283,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   tblData = [] // reset the table data
   console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
+  res.data.forEach(function () {
     //  console.log(countyOpt)
     // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
 
@@ -310,47 +299,11 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
-const makeOptions = (list) => {
-  console.log('making the options..............', list)
-  componentOptions.value = []
-  list.value.forEach(function (arrayItem: { id: string; type: string }) {
-    var countyOpt = {}
-    countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
-    //  console.log(countyOpt)
-    componentOptions.value.push(countyOpt)
-  })
-}
 
 
 
 const programmeOptions = ref([])
 const getProgrammeOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'programme',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      programmeOptions.value.push(countyOpt)
-    })
-  })
 }
 
 
@@ -358,93 +311,16 @@ const getProgrammeOptions = async () => {
 
 const projectOptions = ref([])
 const getProjectOptions = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'project',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      projectOptions.value.push(opt)
-    })
-  })
 }
 
 
 
 const settlementOptions = ref([])
 const getSettlementOptions = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      settlementOptions.value.push(opt)
-    })
-  })
 }
 
 
 const MEReportsOptions = ref([])
-const getMEOptions = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'indicator_category_report',
-      searchField: 'title',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      MEReportsOptions.value.push(opt)
-    })
-  })
-}
 
 
 
@@ -582,51 +458,6 @@ if (isMobile.value) {
 
 const DocTypes = ref([])
 const getDocumentTypes = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'document_type',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Document Typest:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-
-    const nestedData = ret.reduce((acc, cur) => {
-      const group = cur.group;
-      if (!acc[group]) {
-        acc[group] = [];
-      }
-      acc[group].push(cur);
-      return acc;
-    }, {});
-
-    console.log(nestedData.Map)
-    for (let property in nestedData) {
-      let opts = nestedData[property];
-      var doc = {}
-      doc.label = property
-      doc.options = []
-
-      opts.forEach(function (arrayItem) {
-        let opt = {}
-        opt.value = arrayItem.id
-        opt.label = arrayItem.type
-        doc.options.push(opt)
-
-      })
-      DocTypes.value.push(doc)
-
-    }
-    console.log(DocTypes)
-
-  })
 }
 getDocumentTypes()
 

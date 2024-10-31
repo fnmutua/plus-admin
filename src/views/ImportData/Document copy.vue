@@ -3,15 +3,15 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { uploadFilesBatch } from '@/api/settlements'
+import { getParentIds, BatchImportUpsert, getRoutesList, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
+import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
+import { postBatchHouseholds } from '@/api/households'
 import { getListWithoutGeo } from '@/api/counties'
 import { getFilteredHouseholdsByColumn } from '@/api/households'
 import { uuid } from 'vue-uuid'
-import {
-  searchByKeyWord
-} from '@/api/settlements'
+
 
 import {
     ElButton,
@@ -29,15 +29,23 @@ import {
 import { ElUpload } from 'element-plus'
 import {
     Upload,
+    Refresh,
+    CaretRight,
     RefreshLeft,
     Promotion,
-    CircleCloseFilled} from '@element-plus/icons-vue'
+    CircleCheckFilled,
+    CircleCloseFilled,
+    Tools
+} from '@element-plus/icons-vue'
 
-import { ref } from 'vue'
+import { ref, watch, computed, reactive } from 'vue'
 import { ElDivider } from 'element-plus'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import type { UploadProps, UploadUserFile } from 'element-plus'
+import readXlsxFile from 'read-excel-file'
+import { useVueFuse } from 'vue-fuse'
+import Fuse from 'fuse.js';
 import { useRouter } from 'vue-router'
 
 
@@ -45,22 +53,41 @@ const { push } = useRouter()
 
 
 
+const settlement = ref()
+const settlementOptions = ref([])
+const parentObj = ref([])
+const value_switch = ref(false)
 
 
 //// ------------------parameters -----------------------////
+const model = ref()          // the model 
+const code = ref()  // the parent code as per the imported excel file 
+const parent_key = ref()       // the parent foregin key in the model 
+const parentModel = ref()      // the parent model
 const type = ref()      // the parent model
+const matchedWithParent = ref()      // the parent model
 
 
 ///---------------------xlsx-
+const file = ref()
 
 
 //// ------------------parameters -----------------------////
+const matchOptions = ref([])
+const assocModel = ref()
 const uploadObj = ref([])
+const matchedObj = ref([])
 const theParentModel = ref() // default is settlement for projects
 const theParentModelField = ref()
 
+const matchedObjwithparent = ref([])
+const fieldSet = ref([])
+const show = ref(false)
+const showSwitch = ref(false)
+const showSettleementSelect = ref(false)
 const { t } = useI18n()
 const parentOptions = ref([])
+const parentKeys = ref([])
 const showTable = ref(false)
 
 const showUploadSpace = ref(false)
@@ -140,9 +167,7 @@ const getDocumentTypes = async () => {
 
     })
 }
-
 getDocumentTypes()
-
 
 
 const getparentOptions = async () => {
@@ -152,7 +177,7 @@ const getparentOptions = async () => {
             limit: 1000,
             curUser: 1, // Id for logged in user
             model: theParentModel.value, //model 
-            searchField: search_field.value,
+            searchField: 'name',
             searchKeyword: '',
             sort: 'ASC'
         }
@@ -185,7 +210,7 @@ const getparentOptions = async () => {
 }
 
 
-const getparentHouseholdOptions = async () => {
+const getparentHouseholdOptions = async (selFilters, selfilterValues) => {
     const formData = {}
 
     formData.curUser = 1 // Id for logged in user
@@ -246,23 +271,23 @@ const uploadOptions = [
             }
         ]
     },
-    // {
-    //     label: 'Households',
-    //     options: [
-    //         {
-    //             value: 'households',
-    //             label: 'Households'
-    //         },
-    //         {
-    //             value: 'beneficiary',
-    //             label: 'Beneficiaries'
-    //         },
-    //         {
-    //             value: 'parcel',
-    //             label: 'Parcels'
-    //         },
-    //     ]
-    // },
+    {
+        label: 'Households',
+        options: [
+            {
+                value: 'households',
+                label: 'Households'
+            },
+            {
+                value: 'beneficiary',
+                label: 'Beneficiaries'
+            },
+            {
+                value: 'parcel',
+                label: 'Parcels'
+            },
+        ]
+    },
 
     {
         label: 'Facilities',
@@ -300,16 +325,16 @@ const uploadOptions = [
         ]
     },
 
-    // {
-    //     label: 'Indicators',
-    //     options: [
+    {
+        label: 'Indicators',
+        options: [
 
-    //         {
-    //             value: 'indicator_category_report',
-    //             label: 'M&E Reports'
-    //         },
-    //     ]
-    // },
+            {
+                value: 'indicator_category_report',
+                label: 'M&E Reports'
+            },
+        ]
+    },
     {
         label: 'Contracts',
         options: [
@@ -332,60 +357,7 @@ const uploadOptions = [
     }
 ]
 
-const loading = ref(false)
  
-
-const remoteMethod = async (keyword) => {
-  console.log(keyword)
-  loading.value=true
-  const formData = {}
-  formData.model =  theParentModel.value, //model 
-  //-Search field--------------------------------------------
-  formData.searchField = search_field.value
-  formData.searchKeyword = keyword
-  formData.excludeGeom = false
-  formData.excludeGeomAssoc = true
-  formData.associated_multiple_models = associated_multiple_models.value
-
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = []
-  formData.filterValues = []
-
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
-
-  //-------------------------
-  console.log("formData", formData)
-  const res = await searchByKeyWord(formData)
-
-  console.log("res.data", res.data)
-
-  if (res.data && res.data.length > 0) {
-        parentOptions.value = res.data.map(item => ({
-            value: item.id,
-            settlement_id: item.id ,
-            label: item.name || item.title || null,
-            name: item.name ||item.title || null,
-            county: item.county?.name || null,
-            subcounty: item.subcounty?.name || null,
-            ward: item.ward?.name || null,
-            ward_id: item.ward?.id || null,
-            subcounty_id: item.subcounty?.id || null,
-            county_id: item.county?.id || null,
-            geom: item.geom || null
-        }));
-        }
-
-  loading.value = false
-
-}
-
-
-const associated_multiple_models =ref([])
-const search_field =ref('name')
 const document_field = ref()
 const hide_parent = ref(false)
  
@@ -398,52 +370,38 @@ const handleSelectType = async (type: string) => {
 
     if (type === 'settlement') {
         document_field.value = 'settlement_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
         getparentOptions()
     }
     else if (type === 'households') {
         document_field.value = 'hh_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
-
         getparentHouseholdOptions()
     }
 
     else if (type === 'beneficiary') {
         document_field.value = 'beneficiary_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
-
         getparentOptions()
     }
 
     else if (type === 'project') {
         document_field.value = 'project_id'
-        search_field.value='title'
-        associated_multiple_models.value= []
-
         getparentOptions()
 
     }
 
     else if (type === 'contractor') {
         document_field.value = 'contractor_id'
-        associated_multiple_models.value= [ ]
-
         getparentOptions()
 
     }
 
     else if (type === 'health_facility') {
         document_field.value = 'health_facility_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
-
         getparentOptions()
 
     }
 
     else if (type === 'education_facility') {
         document_field.value = 'education_facility_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
-
         getparentOptions()
 
     }
@@ -452,48 +410,36 @@ const handleSelectType = async (type: string) => {
 
     else if (type === 'road') {
         document_field.value = 'road_id'
-        associated_multiple_models.value= [ ]
-
         getparentOptions()
 
     }
 
     else if (type === 'road_asset') {
         document_field.value = 'road_asset_id'
-        associated_multiple_models.value= [ ]
-
         getparentOptions()
 
     }
 
     else if (type === 'water_point') {
         document_field.value = 'water_point_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
-
         getparentOptions()
 
     }
 
     else if (type === 'sewer') {
         document_field.value = 'sewer_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
-
         getparentOptions()
 
     }
 
     else if (type === 'other_facility') {
         document_field.value = 'other_facility_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
-
         getparentOptions()
 
     }
 
     else if (type === 'indicator_category_report') {
         document_field.value = 'indicator_category_report'
-        associated_multiple_models.value= [ ]
-
         getparentOptions()
 
     }
@@ -501,7 +447,6 @@ const handleSelectType = async (type: string) => {
         //document_field.value = 'indicator_category_report'
         //getparentOptions()
         hide_parent.value=true
-
 
 
     }
@@ -542,6 +487,7 @@ const selectedValues = ref()
 
 
 
+const prevValue = ref()
 
 const handleReset = async () => {
     selectedValues.value = []
@@ -551,7 +497,7 @@ const handleReset = async () => {
     uploadObj.value = []
     theParentModel.value = null
     theParentModelField.value = null
-    showUploadButton.value = true
+    showUploadButton.value = false
     showUploadSpace.value = false
     showTable.value = false
     console.log('resetting.....')
@@ -605,6 +551,7 @@ const handleSubmitData = async () => {
     //     })
 
  const formData = new FormData()
+  let files = []
 
   for (var i = 0; i < fileList.value.length; i++) {
     console.log('------>file', fileList.value[i])
@@ -678,10 +625,8 @@ const beforeUpload: UploadProps['beforeUpload'] = (files) => {
         const isPng = files[i].raw.type === 'image/png'
         const isJPG = files[i].raw.type === 'image/jpeg'
         // additionall 
-        const isCSV = files[i].raw.type ===  'text/csv'
-       // const isJSON = files[i].raw.type === 'application/json'
-        const isJSON = files[i].raw.type === 'application/json' || files[i].raw.type === 'application/vnd.geo+json';
-
+        const isCSV = files[i].raw.type === 'text/csv'
+        const isJSON = files[i].raw.type === 'application/json'
         const isPPT = files[i].raw.type === ' application/vnd.ms-powerpoint'
         const isPPTX = files[i].raw.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
         const isRAR = files[i].raw.type === 'application/vnd.rar'
@@ -696,7 +641,7 @@ const beforeUpload: UploadProps['beforeUpload'] = (files) => {
             && !isCSV && !isJSON && !isPPT && !isPPTX && !isRAR && !isTIF && !isTEXT
         ) {
             //this.$message.error('Upload only Excel files')
-            ElMessage.error(files[i].raw.type + ' file type is not allowed')
+            ElMessage.error(files[i].raw.type + ' is not allowed')
 
         }
         if (!isLt5M) {
@@ -716,7 +661,7 @@ const handleFileUpload = async () => {
 
     console.log(proceed)
     if (fileList.value.length == 0) {
-        ElMessage.error('Select atleast one file!')
+        ElMessage.error('Select atleast one!')
     }
 
 
@@ -762,53 +707,29 @@ const handleFileUpload = async () => {
 
 <template>
     <ContentWrap
-:title="t('Batch Upload Documents')" v-loading ="loadingPosting"
+:title="t('Upload Documents')" v-loading ="loadingPosting"
         element-loading-text="Saving the data.. Please wait.......">
 
-        <el-row :gutter="10" style=" margin-bottom:10px;">
-      <el-col :xs="24" :sm="24" :md="6" :lg="6" class="max-w-200px">
 
-        <el-select
-v-model="type" :onChange="handleSelectType" placeholder="Select Model" style="  margin-right: 10px;"
+        <el-row :gutter="10">
+            <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
+          
+                <div style="display: inline-block;">
+            <el-select
+v-model="type" :onChange="handleSelectType" placeholder="Select Model" style=" margin-right: 20px;"
                 filterable clearable>
                 <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
                     <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
                 </el-option-group>
             </el-select>
 
-            
-      </el-col>
+            <div style="display: inline-block; margin-left: 20px">
+                <el-button :onClick="handleReset" type="primary" :icon="RefreshLeft" />
+            </div>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
-      
-        <el-button :onClick="handleReset" type="primary" :icon="RefreshLeft" />
-
-      </el-col>
- 
-
-      
- 
- 
-
-
-    </el-row>
-
-
-
-
-        <el-row :gutter="10">
-            <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-          
-             
-
-   
-     
-
-      
-
-
-
-         <el-upload
+        </div>
+        <el-divider border-style="dashed" content-position="left">Upload</el-divider>
+        <el-upload
 v-if="showUploadSpace" class="upload-demo" drag :auto-upload="false"
             action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList">
             <div class="el-upload__text"> Drop files here or <em>click to upload</em> </div>
@@ -831,53 +752,22 @@ v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload
             <el-table-column prop="type" label="Type">
                 <template #default="{ row }">
                     <el-select v-model="row.type" placeholder="Select Type" clearable filterable>
-                        
-                        <el-option-group
-                            v-for="group in DocTypes"
-                            :key="group.label"
-                            :label="group.label"
-                            >
-                            <template #label>
-                                <span style="font-weight: bold">{{ group.label }}</span>
-                            </template>
+                        <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
                             <el-option
-                                v-for="item in group.options"
-                                :key="item.value"
-                                :label="item.label"
-                                :value="item.value"  
-                            />
-                            </el-option-group>
-
-
+v-for="item in group.options" :key="item.value" :label="item.label"
+                                :value="item.value" />
+                        </el-option-group>
                     </el-select>
- 
-
                 </template>
             </el-table-column>
 
             <el-table-column v-if="!hide_parent" prop="type" :label="toTitleCase(theParentModel)">
                 <template #default="{ row }">
-                    <!-- <el-select v-model="row[document_field]" placeholder="Select" clearable filterable>
+                    <el-select v-model="row[document_field]" placeholder="Select" clearable filterable>
                         <el-option
 v-for="item in parentOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
-                    </el-select> -->
-
-                    <el-select
-                            id="location-select" v-model="row[document_field]"   filterable remote reserve-keyword :loading="loading"
-                                    placeholder=" Search ..." :remote-method="remoteMethod" style="width: 75%">
-                                    <el-option v-for="item in parentOptions" :key="item.id" :label="item.label" :value="item.value">
-                                    <div style="display: flex; align-items: center;">
-                                        <span style="flex: 1; text-align: left;">{{ item.label }}</span>
-                                        <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
-                                        {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
-                                        </span>
-                                    </div>
-                                    </el-option>
-                                </el-select>
-
-                            
-
+                    </el-select>
                 </template>
             </el-table-column>
             <el-table-column label="Protected">
