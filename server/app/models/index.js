@@ -1601,5 +1601,16 @@ db.models.users.hasMany(db.models.otp, {
 
 
 
+db.models.structure.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id'
+})
+
+db.models.settlement.hasMany(db.models.structure, {
+  foreignKey: 'settlement_id'
+})
+
+
+
+
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

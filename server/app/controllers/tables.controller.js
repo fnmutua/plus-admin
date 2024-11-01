@@ -1599,7 +1599,7 @@ exports.modelSelectParcelGeo = async (req, res) => {
                array_to_json(array_agg(f)) AS features
         FROM (
           SELECT 'Feature' AS type,
-                 ST_AsGeoJSON(geom, 5)::json AS geometry,
+                 ST_AsGeoJSON(geom, 8)::json AS geometry,
                  json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- Include all properties without geometry
           FROM ${reg_model}
           WHERE geom IS NOT NULL
@@ -1616,7 +1616,7 @@ exports.modelSelectParcelGeo = async (req, res) => {
                array_to_json(array_agg(f)) AS features
         FROM (
           SELECT 'Feature' AS type,
-                 ST_AsGeoJSON(geom, 5)::json AS geometry,
+                 ST_AsGeoJSON(geom, 8)::json AS geometry,
                  json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- Include all properties without geometry
           FROM ${reg_model}
           WHERE geom IS NOT NULL

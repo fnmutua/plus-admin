@@ -78,6 +78,7 @@ var _grievance_resolution= require('./GrievanceResolution')
 var _grievance_resolution_level= require('./GrievanceResolutionLevel')
 var _OTP= require('./otp')
 var _grievance_notification= require('./grievance_notification')
+var _structure= require('./structure')
  
 
 
@@ -161,10 +162,11 @@ function initModels(sequelize) {
   var grievance_resolution_level = _grievance_resolution_level(sequelize, DataTypes)
   var otp = _OTP(sequelize, DataTypes)
   var grievance_notification = _grievance_notification(sequelize, DataTypes)
+  var structure = _structure(sequelize, DataTypes)
 
   
   
-
+  
   
   
   return {
@@ -184,7 +186,8 @@ function initModels(sequelize) {
     status,
     stream,
     structure_type,
-    structures,
+    //structures,
+    structure,
     user_roles,
     users,
     households,

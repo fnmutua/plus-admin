@@ -38,7 +38,7 @@ import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
 import JSZip from 'jszip';
 import * as shapefile from 'shapefile';
 
-import projgeojson  from 'proj-geojson';
+import projgeojson from 'proj-geojson';
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -123,6 +123,11 @@ const uploadOptions = [
       {
         value: 'parcel',
         label: 'Parcels'
+      },
+
+      {
+        value: 'structure',
+        label: 'Structures'
       },
       // {
       //   value: 'county',
@@ -404,6 +409,16 @@ const handleSelectType = async (type: any) => {
     code.value = 'pcode'
     console.log('county_id------>', fieldSet.value)
     getParentOptions()
+  }
+
+
+  else if (type === 'structure') {
+    // fieldSet.value = beneficiary_parcels
+    model.value = 'structure'
+    parentModel.value = 'settlement'
+    parent_key.value = 'settlement_id'
+    code.value = 'pcode'
+     getParentOptions()
   }
 
 
@@ -1104,7 +1119,7 @@ const loadOptions = (json) => {
 
 }
 
- 
+
 
 const handleClearField = async (row) => {
   console.log('Cleared.......', row)

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { getOneGeo, getfilteredParcelGeo,getfilteredGeo } from '@/api/settlements'
+import { getOneGeo, getfilteredParcelGeo, getfilteredGeo } from '@/api/settlements'
 import { ref } from 'vue'
 
 import { useRoute } from 'vue-router'
@@ -189,56 +189,43 @@ const getParcels = async () => {
   console.log(formData)
 
   formData.filtredGeoIds = [id]
-  var parcelsPoly = []
-
+ 
   const res = await getfilteredParcelGeo(formData)
 
   var collection = turf.featureCollection(res.data[0].json_build_object.features);
   ParcelGeodata.value = collection
+  showParcelLegend.value = true
+  let lyr = {}
+  lyr['Parcels'] = collection
 
-  // if (collection) {
-  //   // parcelsPoly.push(...features); // Spread operator to add all features at once
-  //   showParcelLegend.value = true;
-  // }
-  // console.log('Parcels Acqured', ParcelGeodata.value);
-
-
-  // ParcelGeodata.value = {
-  //   'type': 'Feature',
-  //   'geometry': {
-  //     'type': 'Polygon',
-  //     // These coordinates outline Maine.
-  //     'coordinates': [
-  //       [
-  //         [-67.13734, 45.13745],
-  //         [-66.96466, 44.8097],
-  //         [-68.03252, 44.3252],
-  //         [-69.06, 43.98],
-  //         [-70.11617, 43.68405],
-  //         [-70.64573, 43.09008],
-  //         [-70.75102, 43.08003],
-  //         [-70.79761, 43.21973],
-  //         [-70.98176, 43.36789],
-  //         [-70.94416, 43.46633],
-  //         [-71.08482, 45.30524],
-  //         [-70.66002, 45.46022],
-  //         [-70.30495, 45.91479],
-  //         [-70.00014, 46.69317],
-  //         [-69.23708, 47.44777],
-  //         [-68.90478, 47.18479],
-  //         [-68.2343, 47.35462],
-  //         [-67.79035, 47.06624],
-  //         [-67.79141, 45.70258],
-  //         [-67.13734, 45.13745]
-  //       ]
-  //     ]
-  //   }
-  // }
-
-  console.log('ParcelGeodata.value', ParcelGeodata.value)
+  //facilityLayers.value.push(lyr)
 
 }
 
+const structureGeo = ref()
+const getStructures = async () => {
+  const id = route.params.id
+  const filterCol = 'settlement_id'
+
+  const formData = {}
+  formData.model = 'structure'
+  formData.columnFilterField = filterCol
+  formData.selectedParents = id
+
+  console.log(formData)
+
+  formData.filtredGeoIds = [id]
+
+
+  const res = await getfilteredParcelGeo(formData)
+
+  var collection = turf.featureCollection(res.data[0].json_build_object.features);
+  structureGeo.value = collection
+
+
+  console.log('structureGeo.value', structureGeo.value)
+
+}
 
 const getAll = async () => {
   console.log('Get all Settleemnts ')
@@ -282,6 +269,8 @@ const getAll = async () => {
 
   }
   await getParcels()
+  await getStructures()
+
   getGeodata(route.params.id, 'health_facility')
   getGeodata(route.params.id, 'education_facility')
   getGeodata(route.params.id, 'road')
@@ -319,6 +308,15 @@ const loadMap = async () => {
       // Use a URL for the value for the `data` property.
       data: turf.featureCollection(facilityGeoPolygons.value),
     });
+
+
+    nmap.value.addSource('Structures', {
+      type: 'geojson',
+      // Use a URL for the value for the `data` property.
+      data: (structureGeo.value),
+
+    });
+
 
     nmap.value.addSource('parcels', {
       type: 'geojson',
@@ -501,6 +499,16 @@ const loadMap = async () => {
 
 
 
+    nmap.value.addLayer({
+      'id': 'Structures',
+      "type": "fill",
+      'source': 'Structures',
+
+    });
+
+
+
+
 
 
 
@@ -509,6 +517,11 @@ const loadMap = async () => {
       //console.log(prop, facilityData.value[prop].features[0].geometry.type);
       facilityLayers.value.push(prop)
       filteredLayers.value.push(prop)
+
+
+      console.log('filteredLayers', filteredLayers.value)
+
+
 
       nmap.value.addSource(prop, {
         type: 'geojson',
@@ -1119,6 +1132,14 @@ const showEditButtons = ref(appStore.getEditButtons)
               </div>
             </div>
 
+
+
+            <div class="legend-item">
+              <div class="legend-color" :style="{ backgroundColor: 'black' }"></div>
+              <div class="legend-label"> Structure</div>
+            </div>
+
+
           </div>
         </el-collapse-item>
 
@@ -1133,9 +1154,13 @@ const showEditButtons = ref(appStore.getEditButtons)
             <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
             <div class="legend-label">{{ item.label }}</div>
           </div>
-          <div> <el-checkbox v-model="parcelLabels" @change="handleSwitchLabels">
+          <div>
+            
+            <el-checkbox v-model="parcelLabels" @change="handleSwitchLabels">
               <span class="legend-label-text">Labels</span>
-            </el-checkbox> </div>
+            </el-checkbox> 
+          
+          </div>
 
         </el-collapse-item>
 
@@ -1248,6 +1273,18 @@ h1 {
   border-style: dashed;
 }
 
+.box-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  padding: 10px;
+  border: 1px white;
+  background-color: black;
+  color: white;
+  /* Text color inside the box */
+  border-radius: 5px;
+  /* Optional: rounded corners */
+}
 
 
 .legend-color {
