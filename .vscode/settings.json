@@ -28,5 +28,6 @@
     "subcounty",
     "vueuse"
   ],
-  "vue.codeActions.enabled": false
+  "vue.codeActions.enabled": false,
+  "editor.formatOnSave": true
 }

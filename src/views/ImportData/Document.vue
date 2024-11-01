@@ -10,7 +10,7 @@ import { getListWithoutGeo } from '@/api/counties'
 import { getFilteredHouseholdsByColumn } from '@/api/households'
 import { uuid } from 'vue-uuid'
 import {
-  searchByKeyWord
+    searchByKeyWord
 } from '@/api/settlements'
 
 import {
@@ -19,7 +19,7 @@ import {
     ElTable,
     ElIcon,
     ElTableColumn,
-     ElSwitch,
+    ElSwitch,
     ElOptionGroup,
     ElRow,
     ElCol,
@@ -31,7 +31,8 @@ import {
     Upload,
     RefreshLeft,
     Promotion,
-    CircleCloseFilled} from '@element-plus/icons-vue'
+    CircleCloseFilled
+} from '@element-plus/icons-vue'
 
 import { ref } from 'vue'
 import { ElDivider } from 'element-plus'
@@ -168,12 +169,12 @@ const getparentOptions = async () => {
             console.log(arrayItem)
 
             if (arrayItem.contract_number) {
-                countyOpt.label = arrayItem.contract_number  
+                countyOpt.label = arrayItem.contract_number
             }
             else if (arrayItem.name) {
                 countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
             }
- 
+
             else {
                 countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
 
@@ -333,42 +334,42 @@ const uploadOptions = [
 ]
 
 const loading = ref(false)
- 
+
 
 const remoteMethod = async (keyword) => {
-  console.log(keyword)
-  loading.value=true
-  const formData = {}
-  formData.model =  theParentModel.value, //model 
-  //-Search field--------------------------------------------
-  formData.searchField = search_field.value
-  formData.searchKeyword = keyword
-  formData.excludeGeom = false
-  formData.excludeGeomAssoc = true
-  formData.associated_multiple_models = associated_multiple_models.value
+    console.log(keyword)
+    loading.value = true
+    const formData = {}
+    formData.model = theParentModel.value, //model 
+        //-Search field--------------------------------------------
+        formData.searchField = search_field.value
+    formData.searchKeyword = keyword
+    formData.excludeGeom = false
+    formData.excludeGeomAssoc = true
+    formData.associated_multiple_models = associated_multiple_models.value
 
-  //--Single Filter -----------------------------------------
+    //--Single Filter -----------------------------------------
 
-  //formData.assocModel = associated_Model
+    //formData.assocModel = associated_Model
 
-  // - multiple filters -------------------------------------
-  formData.filters = []
-  formData.filterValues = []
+    // - multiple filters -------------------------------------
+    formData.filters = []
+    formData.filterValues = []
 
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+    //formData.cache_key = 'SeacrchByKey_' + search_string.value
 
-  //-------------------------
-  console.log("formData", formData)
-  const res = await searchByKeyWord(formData)
+    //-------------------------
+    console.log("formData", formData)
+    const res = await searchByKeyWord(formData)
 
-  console.log("res.data", res.data)
+    console.log("res.data", res.data)
 
-  if (res.data && res.data.length > 0) {
+    if (res.data && res.data.length > 0) {
         parentOptions.value = res.data.map(item => ({
             value: item.id,
-            settlement_id: item.id ,
+            settlement_id: item.id,
             label: item.name || item.title || null,
-            name: item.name ||item.title || null,
+            name: item.name || item.title || null,
             county: item.county?.name || null,
             subcounty: item.subcounty?.name || null,
             ward: item.ward?.name || null,
@@ -377,18 +378,18 @@ const remoteMethod = async (keyword) => {
             county_id: item.county?.id || null,
             geom: item.geom || null
         }));
-        }
+    }
 
-  loading.value = false
+    loading.value = false
 
 }
 
 
-const associated_multiple_models =ref([])
-const search_field =ref('name')
+const associated_multiple_models = ref([])
+const search_field = ref('name')
 const document_field = ref()
 const hide_parent = ref(false)
- 
+
 const handleSelectType = async (type: string) => {
     theParentModel.value = type
     console.log('Selected.....>', type)
@@ -398,27 +399,27 @@ const handleSelectType = async (type: string) => {
 
     if (type === 'settlement') {
         document_field.value = 'settlement_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
+        associated_multiple_models.value = ['county', 'subcounty', 'ward']
         getparentOptions()
     }
     else if (type === 'households') {
         document_field.value = 'hh_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
+        associated_multiple_models.value = ['county', 'subcounty', 'ward']
 
         getparentHouseholdOptions()
     }
 
     else if (type === 'beneficiary') {
         document_field.value = 'beneficiary_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
+        associated_multiple_models.value = ['county', 'subcounty', 'ward']
 
         getparentOptions()
     }
 
     else if (type === 'project') {
         document_field.value = 'project_id'
-        search_field.value='title'
-        associated_multiple_models.value= []
+        search_field.value = 'title'
+        associated_multiple_models.value = []
 
         getparentOptions()
 
@@ -426,7 +427,7 @@ const handleSelectType = async (type: string) => {
 
     else if (type === 'contractor') {
         document_field.value = 'contractor_id'
-        associated_multiple_models.value= [ ]
+        associated_multiple_models.value = []
 
         getparentOptions()
 
@@ -434,7 +435,7 @@ const handleSelectType = async (type: string) => {
 
     else if (type === 'health_facility') {
         document_field.value = 'health_facility_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
+        associated_multiple_models.value = ['county', 'subcounty', 'ward']
 
         getparentOptions()
 
@@ -442,7 +443,7 @@ const handleSelectType = async (type: string) => {
 
     else if (type === 'education_facility') {
         document_field.value = 'education_facility_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
+        associated_multiple_models.value = ['county', 'subcounty', 'ward']
 
         getparentOptions()
 
@@ -452,7 +453,7 @@ const handleSelectType = async (type: string) => {
 
     else if (type === 'road') {
         document_field.value = 'road_id'
-        associated_multiple_models.value= [ ]
+        associated_multiple_models.value = []
 
         getparentOptions()
 
@@ -460,7 +461,7 @@ const handleSelectType = async (type: string) => {
 
     else if (type === 'road_asset') {
         document_field.value = 'road_asset_id'
-        associated_multiple_models.value= [ ]
+        associated_multiple_models.value = []
 
         getparentOptions()
 
@@ -468,7 +469,7 @@ const handleSelectType = async (type: string) => {
 
     else if (type === 'water_point') {
         document_field.value = 'water_point_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
+        associated_multiple_models.value = ['county', 'subcounty', 'ward']
 
         getparentOptions()
 
@@ -476,7 +477,7 @@ const handleSelectType = async (type: string) => {
 
     else if (type === 'sewer') {
         document_field.value = 'sewer_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
+        associated_multiple_models.value = ['county', 'subcounty', 'ward']
 
         getparentOptions()
 
@@ -484,7 +485,7 @@ const handleSelectType = async (type: string) => {
 
     else if (type === 'other_facility') {
         document_field.value = 'other_facility_id'
-        associated_multiple_models.value= ['county', 'subcounty', 'ward']
+        associated_multiple_models.value = ['county', 'subcounty', 'ward']
 
         getparentOptions()
 
@@ -492,7 +493,7 @@ const handleSelectType = async (type: string) => {
 
     else if (type === 'indicator_category_report') {
         document_field.value = 'indicator_category_report'
-        associated_multiple_models.value= [ ]
+        associated_multiple_models.value = []
 
         getparentOptions()
 
@@ -500,7 +501,7 @@ const handleSelectType = async (type: string) => {
     else if (type === 'other_documents') {
         //document_field.value = 'indicator_category_report'
         //getparentOptions()
-        hide_parent.value=true
+        hide_parent.value = true
 
 
 
@@ -562,12 +563,12 @@ const DisablePostSubmit = ref(false)
 const handleSubmitData = async () => {
     console.log(fileList)
     loadingPosting.value = true
- 
+
     // const formData = new FormData()
     // for (var i = 0; i < fileList.value.length; i++) {
     //     console.log('------>file', fileList.value[i])
     //     var column = fileList.value[i].field_id
-        
+
 
     //     console.log('------>Field_ID', fileList.value[i].field_id)
 
@@ -579,11 +580,11 @@ const handleSubmitData = async () => {
     //         formData.append('field_id', fileList.value[i].field_id)
     //         formData.append(column, fileList.value[i][column])
     //     }
-     
+
     //     formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
     //     formData.append('createdBy', userInfo.id)
     //     formData.append('protected', fileList.value[i].protected?fileList.value[i].protected:false)
- 
+
     // }
 
     // formData.append('code', uuid.v4())
@@ -604,59 +605,59 @@ const handleSubmitData = async () => {
 
     //     })
 
- const formData = new FormData()
+    const formData = new FormData()
 
-  for (var i = 0; i < fileList.value.length; i++) {
-    console.log('------>file', fileList.value[i])
-    //var format = fileList.value[i].name.split('.').pop() // get file extension
-    //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
-   // fileTypes.push(format)
-    // formData.append('files', fileList.value[i])
-    // formData.file = fileList.value[i]
-    var column = fileList.value[i].field_id
-    formData.append('model', theParentModel.value)
-    formData.append('createdBy', userInfo.id)
+    for (var i = 0; i < fileList.value.length; i++) {
+        console.log('------>file', fileList.value[i])
+        //var format = fileList.value[i].name.split('.').pop() // get file extension
+        //  formData.append("file",this.multipleFiles[i],this.fileNames[i]+"_"+dateVar+"."+this.fileTypes[i]);
+        // fileTypes.push(format)
+        // formData.append('files', fileList.value[i])
+        // formData.file = fileList.value[i]
+        var column = fileList.value[i].field_id
+        formData.append('model', theParentModel.value)
+        formData.append('createdBy', userInfo.id)
 
-    formData.append('files', fileList.value[i].raw)
-    formData.append('format', fileList.value[i].name.split('.').pop())
-    formData.append('category', fileList.value[i].type)
-   // formData.append('field_id', props.field)
-    if(!hide_parent.value) {
+        formData.append('files', fileList.value[i].raw)
+        formData.append('format', fileList.value[i].name.split('.').pop())
+        formData.append('category', fileList.value[i].type)
+        // formData.append('field_id', props.field)
+        if (!hide_parent.value) {
             formData.append('field_id', fileList.value[i].field_id)
             formData.append(column, fileList.value[i][column])
         }
 
-    formData.append('protected',  fileList.value[i].protected?fileList.value[i].protected:false)
+        formData.append('protected', fileList.value[i].protected ? fileList.value[i].protected : false)
 
-    formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
-    formData.append('code', uuid.v4())
-    //formData.append(props.field, props.data.id)
+        formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2))
+        formData.append('code', uuid.v4())
+        //formData.append(props.field, props.data.id)
 
-   // console.log('formData',props.field)
+        // console.log('formData',props.field)
 
-  }
+    }
 
- // addMoreDocuments.value = false
- console.log('formData',formData)
-//const res = await uploadFilesBatch(formData)
+    // addMoreDocuments.value = false
+    console.log('formData', formData)
+    //const res = await uploadFilesBatch(formData)
 
-     console.log('Befoer submit', formData)
+    console.log('Befoer submit', formData)
     await uploadFilesBatch(formData)
         .then((response: { data: any }) => {
             loadingPosting.value = false
             if (response.code === "0000") {
-      
-                    push({
-                path: '/repository/docs',
-                name: 'RepositoryTagged'
+
+                push({
+                    path: '/repository/docs',
+                    name: 'RepositoryTagged'
                 })
-                }
-                else {
-                    loadingPosting.value = false  
-                }
+            }
+            else {
+                loadingPosting.value = false
+            }
 
         })
-        loadingPosting.value = false  
+    loadingPosting.value = false
 
 }
 
@@ -678,8 +679,8 @@ const beforeUpload: UploadProps['beforeUpload'] = (files) => {
         const isPng = files[i].raw.type === 'image/png'
         const isJPG = files[i].raw.type === 'image/jpeg'
         // additionall 
-        const isCSV = files[i].raw.type ===  'text/csv'
-       // const isJSON = files[i].raw.type === 'application/json'
+        const isCSV = files[i].raw.type === 'text/csv'
+        // const isJSON = files[i].raw.type === 'application/json'
         const isJSON = files[i].raw.type === 'application/json' || files[i].raw.type === 'application/vnd.geo+json';
 
         const isPPT = files[i].raw.type === ' application/vnd.ms-powerpoint'
@@ -720,34 +721,34 @@ const handleFileUpload = async () => {
     }
 
 
-    if (proceed   ) {
+    if (proceed) {
 
 
-        if (!hide_parent.value){
+        if (!hide_parent.value) {
             showTable.value = true
-        fileList.value.map(file => {
-            file['model'] = theParentModel.value // add the model column
-            file[document_field.value] = null // add the column to hold selected parent ID
-            file['field_id'] = document_field.value // add the column to hold selected parent ID
+            fileList.value.map(file => {
+                file['model'] = theParentModel.value // add the model column
+                file[document_field.value] = null // add the column to hold selected parent ID
+                file['field_id'] = document_field.value // add the column to hold selected parent ID
 
-            return file;
-        });
+                return file;
+            });
         }
         else {
             showTable.value = true
             fileList.value.map(file => {
-            file['model'] = theParentModel.value // add the model column
-           // file[document_field.value] = null // add the column to hold selected parent ID
-           // file['field_id'] = document_field.value // add the column to hold selected parent ID
+                file['model'] = theParentModel.value // add the model column
+                // file[document_field.value] = null // add the column to hold selected parent ID
+                // file['field_id'] = document_field.value // add the column to hold selected parent ID
 
-            return file;
-        });
+                return file;
+            });
         }
-       
-        
+
+
 
     }
-     
+
 
 
 
@@ -761,156 +762,145 @@ const handleFileUpload = async () => {
 </script>
 
 <template>
-    <ContentWrap
-:title="t('Batch Upload Documents')" v-loading ="loadingPosting"
+    <ContentWrap :title="t('Batch Upload Documents')" v-loading="loadingPosting"
         element-loading-text="Saving the data.. Please wait.......">
 
         <el-row :gutter="10" style=" margin-bottom:10px;">
-      <el-col :xs="24" :sm="24" :md="6" :lg="6" class="max-w-200px">
+            <el-col :xs="24" :sm="24" :md="6" :lg="6" class="max-w-200px">
 
-        <el-select
-v-model="type" :onChange="handleSelectType" placeholder="Select Model" style="  margin-right: 10px;"
-                filterable clearable>
-                <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
-                    <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
-                </el-option-group>
-            </el-select>
-
-            
-      </el-col>
-
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
-      
-        <el-button :onClick="handleReset" type="primary" :icon="RefreshLeft" />
-
-      </el-col>
- 
-
-      
- 
- 
+                <el-select v-model="type" :onChange="handleSelectType" placeholder="Select Model"
+                    style="  margin-right: 10px;" filterable clearable>
+                    <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
+                        <el-option v-for="item in group.options" :key="item.value" :label="item.label"
+                            :value="item.value" />
+                    </el-option-group>
+                </el-select>
 
 
-    </el-row>
+            </el-col>
+
+            <el-col :xs="24" :sm="24" :md="12" :lg="5">
+
+                <el-button :onClick="handleReset" type="primary" :icon="RefreshLeft" />
+
+            </el-col>
+
+
+
+
+
+
+
+        </el-row>
 
 
 
 
         <el-row :gutter="10">
             <el-col :xs="24" :sm="24" :md="8" :lg="8" :xl="8">
-          
-             
-
-   
-     
-
-      
 
 
 
-         <el-upload
-v-if="showUploadSpace" class="upload-demo" drag :auto-upload="false"
-            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple v-model:file-list="fileList">
-            <div class="el-upload__text"> Drop files here or <em>click to upload</em> </div>
-        </el-upload>
-
-        <el-button
-v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload" type="primary"
-            :disabled="disableDoubeUpload">
-            Upload<el-icon class="el-icon--right">
-                <Upload />
-            </el-icon>
-        </el-button>
-          </el-col>
-        <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16" >
-     
-            <el-skeleton v-if="!showTable"  :rows="10" animated />
-
-            <el-table v-if="showTable" :data="fileList"  class="tblMatch"  border >
-            <el-table-column prop="name" label="Name" />
-            <el-table-column prop="type" label="Type">
-                <template #default="{ row }">
-                    <el-select v-model="row.type" placeholder="Select Type" clearable filterable>
-                        
-                        <el-option-group
-                            v-for="group in DocTypes"
-                            :key="group.label"
-                            :label="group.label"
-                            >
-                            <template #label>
-                                <span style="font-weight: bold">{{ group.label }}</span>
-                            </template>
-                            <el-option
-                                v-for="item in group.options"
-                                :key="item.value"
-                                :label="item.label"
-                                :value="item.value"  
-                            />
-                            </el-option-group>
 
 
-                    </el-select>
- 
 
-                </template>
-            </el-table-column>
 
-            <el-table-column v-if="!hide_parent" prop="type" :label="toTitleCase(theParentModel)">
-                <template #default="{ row }">
-                    <!-- <el-select v-model="row[document_field]" placeholder="Select" clearable filterable>
+
+
+
+                <el-upload v-if="showUploadSpace" class="upload-demo" drag :auto-upload="false"
+                    action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+                    v-model:file-list="fileList">
+                    <div class="el-upload__text"> Drop files here or <em>click to upload</em> </div>
+                </el-upload>
+
+                <el-button v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload"
+                    type="primary" :disabled="disableDoubeUpload">
+                    Upload<el-icon class="el-icon--right">
+                        <Upload />
+                    </el-icon>
+                </el-button>
+            </el-col>
+            <el-col :xs="24" :sm="24" :md="16" :lg="16" :xl="16">
+
+                <el-skeleton v-if="!showTable" :rows="10" animated />
+
+                <el-table v-if="showTable" :data="fileList" class="tblMatch" border>
+                    <el-table-column prop="name" label="Name" />
+                    <el-table-column prop="type" label="Type">
+                        <template #default="{ row }">
+                            <el-select v-model="row.type" placeholder="Select Type" clearable filterable>
+
+                                <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
+                                    <template #label>
+                                        <span style="font-weight: bold">{{ group.label }}</span>
+                                    </template>
+                                    <el-option v-for="item in group.options" :key="item.value" :label="item.label"
+                                        :value="item.value" />
+                                </el-option-group>
+
+
+                            </el-select>
+
+
+                        </template>
+                    </el-table-column>
+
+                    <el-table-column v-if="!hide_parent" prop="type" :label="toTitleCase(theParentModel)">
+                        <template #default="{ row }">
+                            <!-- <el-select v-model="row[document_field]" placeholder="Select" clearable filterable>
                         <el-option
 v-for="item in parentOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
                     </el-select> -->
 
-                    <el-select
-                            id="location-select" v-model="row[document_field]"   filterable remote reserve-keyword :loading="loading"
-                                    placeholder=" Search ..." :remote-method="remoteMethod" style="width: 75%">
-                                    <el-option v-for="item in parentOptions" :key="item.id" :label="item.label" :value="item.value">
+                            <el-select id="location-select" v-model="row[document_field]" filterable remote
+                                reserve-keyword :loading="loading" placeholder=" Search ..."
+                                :remote-method="remoteMethod" style="width: 75%">
+                                <el-option v-for="item in parentOptions" :key="item.id" :label="item.label"
+                                    :value="item.value">
                                     <div style="display: flex; align-items: center;">
                                         <span style="flex: 1; text-align: left;">{{ item.label }}</span>
-                                        <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
-                                        {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                                        <span
+                                            style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
+                                            {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
                                         </span>
                                     </div>
-                                    </el-option>
-                                </el-select>
+                                </el-option>
+                            </el-select>
 
-                            
 
-                </template>
-            </el-table-column>
-            <el-table-column label="Protected">
-            <template #default="{ row }">
-                <el-switch v-model="row.protected"  />
-            </template>
-            </el-table-column>
 
-        </el-table>
-        <!-- <el-button v-if="showTable" class="mb-4 mt-4" style="width: 20%" @click="handleSubmitData" type="success" :disabled="DisablePostSubmit">
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="Protected">
+                        <template #default="{ row }">
+                            <el-switch v-model="row.protected" />
+                        </template>
+                    </el-table-column>
+
+                </el-table>
+                <!-- <el-button v-if="showTable" class="mb-4 mt-4" style="width: 20%" @click="handleSubmitData" type="success" :disabled="DisablePostSubmit">
         Submit
         <el-icon class="el-icon--right">
             <CaretRight />
         </el-icon>
     </el-button> -->
-    <div v-if="showTable" class="flex mt-4" style="justify-content: flex-end;">
-    <el-button type="primary" :icon="Promotion" @click="handleSubmitData" :disabled="DisablePostSubmit">Submit</el-button>
-    <el-button type="danger" :onClick="handleReset" >
-        Cancel<el-icon class="el-icon--right"><CircleCloseFilled /></el-icon>
-    </el-button>
-    </div>
-
-
-    
-        </el-col>
-    
-      </el-row>
-
-
-  
+                <div v-if="showTable" class="flex mt-4" style="justify-content: flex-end;">
+                    <el-button type="primary" :icon="Promotion" @click="handleSubmitData"
+                        :disabled="DisablePostSubmit">Submit</el-button>
+                    <el-button type="danger" :onClick="handleReset">
+                        Cancel<el-icon class="el-icon--right">
+                            <CircleCloseFilled />
+                        </el-icon>
+                    </el-button>
+                </div>
 
 
 
+            </el-col>
+
+        </el-row>
 
 
 
@@ -918,7 +908,13 @@ v-for="item in parentOptions" :key="item.value" :label="item.label"
 
 
 
- 
+
+
+
+
+
+
+
     </ContentWrap>
 </template>
 
@@ -934,18 +930,16 @@ v-for="item in parentOptions" :key="item.value" :label="item.label"
 }
 
 .table-container {
-    height: 400px; /* Adjust the height as needed */
+    height: 400px;
+    /* Adjust the height as needed */
     overflow-y: auto;
-  }
+}
 </style>
 
 
 <style scoped>
 .tblMatch {
-  width: 100%;
-  height: 45vh;
+    width: 100%;
+    height: 45vh;
 }
 </style>
-
-
-  

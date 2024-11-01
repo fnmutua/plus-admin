@@ -59,7 +59,11 @@ module.exports = function (app) {
   app.post('/api/v1/data/one/geo', [authJwt.verifyToken], controller.modelOneGeo)
 
   app.post('/api/v1/data/subset/geo',  [authJwt.verifyToken],controller.modelSelectGeo)
+  app.post('/api/v1/data/subset/geo/parcel',  [authJwt.verifyToken],controller.modelSelectParcelGeo)
 
+
+
+  
   // Gets the  table names
   app.post('/api/v1/data/one', [authJwt.verifyToken], controller.modelOneRecord)
   app.post('/api/v1/data/one/code', [authJwt.verifyToken], controller.modelOneRecordByCode)

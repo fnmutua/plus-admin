@@ -1508,13 +1508,13 @@ exports.modelOneGeo = async (req, res) => {
 
  
  
-exports.modelSelectGeo = async (req, res) => {
-  console.log('Geoid arrays ----------------------------------->', req.body);
 
+exports.modelSelectGeo = async (req, res) => {
   const reg_model = req.body.model;
   const columnFilterField = req.body.columnFilterField;
   let arr;
 
+  // Determine the array of identifiers based on the request body
   if (req.body.selectedParents.length > 0) {
     arr = req.body.selectedParents;
   } else if (req.body.filtredGeoIds.length > 0) {
@@ -1525,49 +1525,113 @@ exports.modelSelectGeo = async (req, res) => {
 
   let qry2;
 
+  // Build the query based on whether identifiers are present
   if (!arr[0] || arr[0].length === 0) {
-    qry2 = `SELECT row_to_json(fc) AS json_build_object
-            FROM (
-              SELECT 'FeatureCollection' AS type,
-                     array_to_json(array_agg(f)) AS features
-              FROM (
-                SELECT 'Feature' AS type,
-                       ST_AsGeoJSON(geom, 3)::json AS geometry, -- Use the full geometry with 3 decimal places
-                       (
-                         SELECT json_strip_nulls(row_to_json(${reg_model}))
-                         FROM (SELECT id) t
-                       ) AS properties
-                FROM ${reg_model}
-                WHERE geom IS NOT NULL
-              ) AS f
-            ) AS fc`;
+    qry2 = `
+      SELECT row_to_json(fc) AS json_build_object
+      FROM (
+        SELECT 'FeatureCollection' AS type,
+               array_to_json(array_agg(f)) AS features
+        FROM (
+          SELECT 'Feature' AS type,
+                 ST_AsGeoJSON(geom, 3)::json AS geometry,
+                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- Include all properties without geometry
+          FROM ${reg_model}
+          WHERE geom IS NOT NULL
+        ) AS f
+      ) AS fc`;
   } else {
     const filterValues = Array.isArray(columnFilterField) ? columnFilterField : [columnFilterField];
     const filterClause = filterValues.map((value) => `(${value} IN (${arr}))`).join(' OR ');
 
-    qry2 = `SELECT row_to_json(fc) AS json_build_object
-            FROM (
-              SELECT 'FeatureCollection' AS type,
-                     array_to_json(array_agg(f)) AS features
-              FROM (
-                SELECT 'Feature' AS type,
-                       ST_AsGeoJSON(geom, 3)::json AS geometry, -- Use the full geometry with 3 decimal places
-                       (
-                         SELECT json_strip_nulls(row_to_json(${reg_model}))
-                         FROM (SELECT id) t
-                       ) AS properties
-                FROM ${reg_model}
-                WHERE geom IS NOT NULL
-                  AND (${filterClause})
-              ) AS f
-            ) AS fc`;
+    qry2 = `
+      SELECT row_to_json(fc) AS json_build_object
+      FROM (
+        SELECT 'FeatureCollection' AS type,
+               array_to_json(array_agg(f)) AS features
+        FROM (
+          SELECT 'Feature' AS type,
+                 ST_AsGeoJSON(geom, 3)::json AS geometry,
+                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- Include all properties without geometry
+          FROM ${reg_model}
+          WHERE geom IS NOT NULL
+            AND (${filterClause})
+        ) AS f
+      ) AS fc`;
   }
 
+  // Execute the query
   const result_geo = await sequelize.query(qry2, {
     model: db.models[reg_model],
     mapToModel: false // pass true here if you have any mapped fields
   });
 
+  // Send the result back in the response
+  res.status(200).send({
+    data: result_geo,
+    code: '0000'
+  });
+};
+
+ 
+exports.modelSelectParcelGeo = async (req, res) => {
+  const reg_model = req.body.model;
+  const columnFilterField = req.body.columnFilterField;
+  let arr;
+
+  // Determine the array of identifiers based on the request body
+  if (req.body.selectedParents.length > 0) {
+    arr = req.body.selectedParents;
+  } else if (req.body.filtredGeoIds.length > 0) {
+    arr = [req.body.filtredGeoIds];
+  } else {
+    arr = [req.body.id];
+  }
+
+  let qry2;
+
+  // Build the query based on whether identifiers are present
+  if (!arr[0] || arr[0].length === 0) {
+    qry2 = `
+      SELECT row_to_json(fc) AS json_build_object
+      FROM (
+        SELECT 'FeatureCollection' AS type,
+               array_to_json(array_agg(f)) AS features
+        FROM (
+          SELECT 'Feature' AS type,
+                 ST_AsGeoJSON(geom, 5)::json AS geometry,
+                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- Include all properties without geometry
+          FROM ${reg_model}
+          WHERE geom IS NOT NULL
+        ) AS f
+      ) AS fc`;
+  } else {
+    const filterValues = Array.isArray(columnFilterField) ? columnFilterField : [columnFilterField];
+    const filterClause = filterValues.map((value) => `(${value} IN (${arr}))`).join(' OR ');
+
+    qry2 = `
+      SELECT row_to_json(fc) AS json_build_object
+      FROM (
+        SELECT 'FeatureCollection' AS type,
+               array_to_json(array_agg(f)) AS features
+        FROM (
+          SELECT 'Feature' AS type,
+                 ST_AsGeoJSON(geom, 5)::json AS geometry,
+                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- Include all properties without geometry
+          FROM ${reg_model}
+          WHERE geom IS NOT NULL
+            AND (${filterClause})
+        ) AS f
+      ) AS fc`;
+  }
+
+  // Execute the query
+  const result_geo = await sequelize.query(qry2, {
+    model: db.models[reg_model],
+    mapToModel: false // pass true here if you have any mapped fields
+  });
+
+  // Send the result back in the response
   res.status(200).send({
     data: result_geo,
     code: '0000'
@@ -1575,7 +1639,7 @@ exports.modelSelectGeo = async (req, res) => {
 };
 
 
- 
+
 exports.modelGetByCode= async (req, res) => {
   console.log('Codes  ----------------------------------->', req.query);
 
