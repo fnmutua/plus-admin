@@ -29,5 +29,5 @@
     "vueuse"
   ],
   "vue.codeActions.enabled": false,
-  "editor.formatOnSave": true
+  "editor.formatOnSave": false
 }

@@ -189,7 +189,7 @@ const getParcels = async () => {
   console.log(formData)
 
   formData.filtredGeoIds = [id]
- 
+
   const res = await getfilteredParcelGeo(formData)
 
   var collection = turf.featureCollection(res.data[0].json_build_object.features);
@@ -292,7 +292,9 @@ const loadMap = async () => {
   nmap.value = new mapboxgl.Map({
     container: "mapContainer",
     style: "mapbox://styles/mapbox/streets-v12",
-    //  style: './style.json',
+    //style: "mapbox://styles/agspatial/clamkcjwx000b14mmgzyx86vv",
+   // style: "mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7",
+    //style: "mapbox://styles/agspatial/cm2zv2in3008n01qt93t4h4ud",
     center: [37.137343, 1.137451], // starting position
     zoom: 6,
   })
@@ -1155,11 +1157,11 @@ const showEditButtons = ref(appStore.getEditButtons)
             <div class="legend-label">{{ item.label }}</div>
           </div>
           <div>
-            
+
             <el-checkbox v-model="parcelLabels" @change="handleSwitchLabels">
               <span class="legend-label-text">Labels</span>
-            </el-checkbox> 
-          
+            </el-checkbox>
+
           </div>
 
         </el-collapse-item>

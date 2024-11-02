@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty, getDuplicates } from '@/api/settlements'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,
@@ -169,6 +169,8 @@ const totalPending = ref(0)
 const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
 const formheader = ref('Edit Settlement')
+const duplicateRecords = ref([])
+const duplicateTotal = ref(0)
 
 
 //let tableDataList = ref<UserType[]>([])
@@ -319,14 +321,21 @@ const clickTab = async (obj) => {
     filterValues.value = [[1, 2], ['Rejected'], ['true']]  // make sure the inner array is array
   }
 
-  console.log('Filters:', filters.value)
-  console.log('Filters Value:', filterValues.value)
+ 
+  if(obj.props.name === "Duplicates") {
+    getPotentialDuplicates()
 
-  if (search_string.value) {
+  }else {
+
+    if (search_string.value) {
     getFilteredBySearchData(obj.props.name, search_string.value)
   } else {
     getNewOrRejectedSettlements(obj.props.name)
   }
+
+  }
+
+ 
 }
 
 
@@ -335,6 +344,8 @@ const getAllSetllementsInitially = async () => {
   // getFilteredData(filters, filterValues)
   await getNewOrRejectedSettlements('list')
   getSettlementCount()  // This gets the approved/new/rejecetd counts
+
+  getPotentialDuplicates()
 
 }
 
@@ -547,6 +558,127 @@ const getNewOrRejectedSettlements = async (tab) => {
 
 
 }
+
+const getPotentialDuplicates = async () => {
+
+  if (selectedCounty.value) {
+    var selectOption = 'county_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
+      filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+    // expunge the filter if the filter values are null
+    if (selectedCounty.value.length === 0) {
+      filters.value.splice(index, 1)
+    }
+
+  }
+
+
+
+  // Filter by subcounty  
+  if (selectedSubCounty.value) {
+    var selectOption = 'subcounty_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
+      filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+    // expunge the filter if the filter values are null
+    if (selectedSubCounty.value.length === 0) {
+      filters.value.splice(index, 1)
+    }
+
+  }
+
+
+  // Filter by ward  
+  if (selectedWard.value) {
+    var selectOption = 'ward_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes(selectedWard.value) && selectedWard.value.length > 0) {
+      filterValues.value.splice(index, 0, selectedWard.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+    // expunge the filter if the filter values are null
+    if (selectedWard.value.length === 0) {
+      filters.value.splice(index, 1)
+    }
+
+  }
+
+
+
+  const formData = {}
+  formData.limit = pageSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = associated_Model
+  formData.fields = ['name', 'county_id']
+  formData.associated_multiple_models = associated_multiple_models
+  // - multiple filters -------------------------------------
+  formData.filters = filters.value
+  formData.filterValues = filterValues.value
+  formData.associated_multiple_models = associated_multiple_models
+  formData.nested_models = nested_models
+  //formData.cache_key = key
+
+  //-------------------------
+  console.log(formData)
+  const res = await getDuplicates(formData)
+  //const res = await getListWithoutGeo(formData)
+  duplicateRecords.value = res.data
+  duplicateTotal.value = res.total
+  total.value = res.total
+  console.log('Duplciate Data..', res)
+
+
+
+}
+
+
+
+
+
+
+
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   for (let key in obj) {
     if (key !== 'geom' && key !== 'id' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'email' && key !== 'phone' && key !== 'isApproved' && key !== 'createdBy' && key !== 'isActive' && key !== 'documents' && key !== 'user') {
@@ -794,8 +926,6 @@ const showPagination = ref(true)
 
 
 const getFilteredBySearchData = async (tab, searchKey) => {
-
-
   if (selectedCounty.value) {
     var selectOption = 'county_id'
     if (!filters.value.includes(selectOption)) {
@@ -882,7 +1012,8 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   } else if (tab === 'New') {
     tableDataListNew.value = res.data
 
-  } else {
+  } 
+  else {
     tableDataListRejected.value = res.data
 
 
@@ -1905,7 +2036,7 @@ function formatDate(row, column, cellValue) {
 
 
 
- 
+
 
 
     <el-tabs @tab-click="clickTab" v-model="activeName" class="custom-tab">
@@ -2269,11 +2400,157 @@ function formatDate(row, column, cellValue) {
       </el-tab-pane>
 
 
+      <el-tab-pane name="Duplicates" v-if=showAdminButtons :badge="5">
+        <template #label>
+          <span class="custom-tabs-label">
+            <el-badge type="warning" :value="duplicateTotal" :offset="[10, 5]">
+              <el-button link>Duplicates</el-button>
+            </el-badge>
+          </span>
+        </template>
+        <el-table :data="duplicateRecords" :show-overflow-tooltip="true" style="width: 100%" border>
+ 
+          <el-table-column type="expand">
+              <template #default="props">
+                <div m="4" style="margin-left:20px">
+               
+                  <h3>Potential Duplicate</h3>
+                  <el-table :data="props.row.duplicates"  border>
+                    <el-table-column label="Name" prop="name" />
+                    <el-table-column label="Population" prop="population" />
+                    <el-table-column label="Area(HA)" prop="area" />
+                    <el-table-column label="Code" prop="code" />
+                    <el-table-column label="Zip" prop="zip" />
+                    <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                      :icon="Edit">Edit</el-dropdown-item>
+                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                      :icon="Position">Map</el-dropdown-item>
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <div v-else>
+                <el-tooltip content="View on Map" placement="top">
+                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+                
+                <el-tooltip content="Delete" placement="top">
+                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to delete  this settlement?"
+                    @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+
+              
+              </div>
+            </template>
+          </el-table-column>
+
+                  </el-table>
+                </div>
+              </template>
+            </el-table-column>
+
+          <el-table-column label="Name" width="200" prop="name" sortable />
+
+          
+          <el-table-column label="Population" prop="population" sortable />
+          <el-table-column label="Area(HA)" prop="area" sortable />
+          <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+
+          <el-table-column label="Code" prop="code" sortable>
+            <template #default="{ row }">
+              <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+                <span>{{ row.code }}</span>
+                <el-tooltip class="item" effect="dark" content="Copy" placement="top">
+                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
+                    plain
+                    style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
+                    @click="copyToClipboard(row.code)" />
+
+                </el-tooltip>
+              </div>
+            </template>
+          </el-table-column>
+
+
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                      :icon="Edit">Edit</el-dropdown-item>
+                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                      :icon="Position">Map</el-dropdown-item>
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <div v-else>
+                <el-tooltip content="View on Map" placement="top">
+                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+                <el-tooltip content="Review" placement="top">
+                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
+                    @click="Review(scope as TableSlotDefault)" circle />
+                </el-tooltip>
+                <el-tooltip content="Delete" placement="top">
+                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to delete  this settlement?"
+                    @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+
+                <el-tooltip content="Decommision" placement="top">
+                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                    icon-color="#626AEF" title="Are you sure to decommision this settlement?"
+                    @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
+                    <template #reference>
+                      <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Briefcase circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+
 
       <ElPagination v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </el-tabs>
+
+
+
+
+
+
+
+
     <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" :width="dialogWidth" draggable>
       <el-steps :active="activeStep" finish-button-center simple style="margin-bottom: 10px;">
         <el-step description="Basic Info" :icon="Loading" />

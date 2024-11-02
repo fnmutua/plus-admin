@@ -19,6 +19,14 @@ export const getSettlementListByCounty = (
   return request.post({ url: prod + '/api/v1/data/column/paginated', data })
 }
 
+export const getDuplicates = (
+  data: SettlementType
+): Promise<IResponse<SettlementType>> => {
+  return request.post({ url: prod + '/api/v1/data/column/duplicate', data })
+}
+
+
+
 
 export const getAllForDownload = (
   data: SettlementType
