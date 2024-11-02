@@ -226,6 +226,7 @@ exports.modelBoard = (req, res) => {
   var fields = []
   var reg_model = req.body.model
   console.log('----->Models:', reg_model)
+  
   // Find the right Model
 
   for (let key in db.models[reg_model].rawAttributes) {
@@ -784,12 +785,27 @@ exports.modelImportData = async (req, res) => {
  
 
 exports.modelImportDataUpsert = async (req, res) => {
+
+  console.log('req.body', req.body);
+
   const reg_model = req.body.model;
-  const data = req.body.data;
+  //const data = req.body.data;
+  let data = req.body.data;
+
+    // Check if data is a JSON string and parse it if so
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch (error) {
+        return res.status(400).json({ message: 'Invalid JSON format for data' });
+      }
+    }
+
+
   const insertedDocuments = [];
   const errors = [];
 
-  console.log('req.body.data', data);
+ 
 
   try {
     if (reg_model === 'project') {
@@ -1535,7 +1551,7 @@ exports.modelSelectGeo = async (req, res) => {
         FROM (
           SELECT 'Feature' AS type,
                  ST_AsGeoJSON(geom, 3)::json AS geometry,
-                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- Include all properties without geometry
+                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties --  Non Parcels
           FROM ${reg_model}
           WHERE geom IS NOT NULL
         ) AS f
@@ -1552,7 +1568,7 @@ exports.modelSelectGeo = async (req, res) => {
         FROM (
           SELECT 'Feature' AS type,
                  ST_AsGeoJSON(geom, 3)::json AS geometry,
-                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- Include all properties without geometry
+                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties --    Non Parcels
           FROM ${reg_model}
           WHERE geom IS NOT NULL
             AND (${filterClause})
@@ -1600,7 +1616,7 @@ exports.modelSelectParcelGeo = async (req, res) => {
         FROM (
           SELECT 'Feature' AS type,
                  ST_AsGeoJSON(geom, 8)::json AS geometry,
-                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- Include all properties without geometry
+                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- For Parcels
           FROM ${reg_model}
           WHERE geom IS NOT NULL
         ) AS f
@@ -1617,7 +1633,7 @@ exports.modelSelectParcelGeo = async (req, res) => {
         FROM (
           SELECT 'Feature' AS type,
                  ST_AsGeoJSON(geom, 8)::json AS geometry,
-                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- Include all properties without geometry
+                 json_strip_nulls(row_to_json(${reg_model}.*)) AS properties -- For Parcels
           FROM ${reg_model}
           WHERE geom IS NOT NULL
             AND (${filterClause})

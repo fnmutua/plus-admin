@@ -7,3 +7,19 @@
   { label: "56-65", value: "56-65" },
   { label: "70", value: "70" },
 ];
+CASE
+    WHEN "landuse" = 'BCR' THEN 0
+    WHEN "landuse" = 'Business cum Residential' THEN 6
+    WHEN "landuse" = 'Business Cum Residential' THEN 6
+    WHEN "landuse" = 'Commercial' THEN 6
+    WHEN "landuse" = 'Educational' THEN 2
+    WHEN "landuse" = 'Industrial' THEN 1
+    WHEN "landuse" = 'Public Purpose' THEN 4
+    WHEN "landuse" = 'Public Utility' THEN 6
+    WHEN "landuse" = 'Recreational' THEN 3
+    WHEN "landuse" = 'Residential' THEN 0
+    WHEN "landuse" = 'Transportation' THEN 7
+    ELSE 0
+END
+
+
