@@ -7,6 +7,7 @@ var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
 const crypto = require('crypto');
 const Activity = db.activity
+const {   fn, col, literal } = require("sequelize");
 
 // for enabling storage of files outside public...
 const path = require('path')
@@ -2667,202 +2668,6 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
   }
 };
 
-exports.findPotentialDuplicates = async (req, res) => {
-  console.log('Req-body for duplicates:', req.body);
-
-  const { model, fields,associated_multiple_models } = req.body; // Destructure model and fields from request body
-
-  // Basic validation
-  if (!model || !fields || fields.length === 0) {
-    return res.status(400).send({
-      message: 'Invalid input data. Model and fields are required.',
-      code: 'INVALID_INPUT'
-    });
-  }
-
-  try {
-    // Build the GROUP BY clause and SELECT statement dynamically based on provided fields
-    const groupByClause = fields.join(', ');
-    const selectClause = `
-      ${groupByClause}, 
-      COUNT(*) AS count, 
-      ARRAY_AGG(id) AS ids  -- Collect IDs of duplicate records
-    `;
-
-    // SQL query to find potential duplicates
-    const duplicatesQuery = `
-      SELECT ${selectClause}
-      FROM public.${model}
-      GROUP BY ${groupByClause}
-      HAVING COUNT(*) > 1;
-    `;
-
-    // Execute the query to find duplicates
-    const duplicates = await db.sequelize.query(duplicatesQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-    // If no duplicates found, return early
-    if (duplicates.length === 0) {
-      return res.status(200).send({
-        data: [],
-        total: 0,
-        code: '0000'
-      });
-    }
-
-    // Prepare an array to hold records of duplicates with the first record nested
-    const structuredDuplicateRecords = [];
-
-     // Prepare the include array based on the provided associated model names
-     const include = associated_multiple_models.map(modelName => {
-      return {
-        model: db.models[modelName], // Reference the Sequelize model
-        required: false // Adjust based on your join requirement
-      };
-    });
-
-
-
-    // Fetch full records for each set of duplicate IDs
-    for (const duplicate of duplicates) {
-      const ids = duplicate.ids; // This is an array of duplicate IDs
-
-      // Fetch the full records for the duplicate IDs
-      const fullRecordsQuery = `
-        SELECT * 
-        FROM public.${model}
-        WHERE id IN (:ids);
-      `;
-
-      // Fetch full objects based on collected IDs
-      const  fullRecords = await db.sequelize.query(fullRecordsQuery, {
-        replacements: { ids: ids },
-        type: db.sequelize.QueryTypes.SELECT
-      });
-
- 
-        
-   
-
-      // Check if we have records and structure them
-      if (fullRecords.length > 0) {
-        const firstRecord = fullRecords[0]; // The first record
-
-        // Assign duplicates directly to the first record
-        firstRecord.duplicates = fullRecords.slice(1); // Annex other duplicate records
-
-        // Push the modified first record with duplicates into the result array
-        structuredDuplicateRecords.push(firstRecord);
-      }
-    }
-
-    // Return the structured response
-    res.status(200).send({
-      data: structuredDuplicateRecords,
-      total: structuredDuplicateRecords.length,
-      code: '0000'
-    });
-  } catch (error) {
-    console.error('Error finding duplicates:', error);
-    res.status(500).send({
-      message: 'Internal server error',
-      code: 'SERVER_ERROR'
-    });
-  }
-};
-
-exports.xfindPotentialDuplicates = async (req, res) => {
-  console.log('Req-body for duplicates:', req.body);
-
-  const { model, fields, associated_multiple_models } = req.body; // Destructure model and fields from request body
-
-  // Basic validation
-  if (!model || !fields || fields.length === 0) {
-    return res.status(400).send({
-      message: 'Invalid input data. Model and fields are required.',
-      code: 'INVALID_INPUT'
-    });
-  }
-
-  try {
-    // Build the GROUP BY clause and SELECT statement dynamically based on provided fields
-    const groupByClause = fields.join(', ');
-    const selectClause = `
-      ${groupByClause}, 
-      COUNT(*) AS count, 
-      ARRAY_AGG(id) AS ids  -- Collect IDs of duplicate records
-    `;
-
-    // SQL query to find potential duplicates
-    const duplicatesQuery = `
-      SELECT ${selectClause}
-      FROM public.${model}
-      GROUP BY ${groupByClause}
-      HAVING COUNT(*) > 1;
-    `;
-
-    // Execute the query to find duplicates
-    const duplicates = await db.sequelize.query(duplicatesQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-    // If no duplicates found, return early
-    if (duplicates.length === 0) {
-      return res.status(200).send({
-        data: [],
-        total: 0,
-        code: '0000'
-      });
-    }
-
-    // Prepare an array to hold records of duplicates with the first record nested
-    const structuredDuplicateRecords = [];
-
-    // Prepare the include array based on the provided associated model names
-    const include = associated_multiple_models.map(modelName => {
-      return {
-        model: db.models[modelName], // Reference the Sequelize model
-        required: false // Adjust based on your join requirement
-      };
-    });
-
-    // Fetch full records for each set of duplicate IDs
-    for (const duplicate of duplicates) {
-      const ids = duplicate.ids; // This is an array of duplicate IDs
-
-      // Fetch full objects based on collected IDs with associated models
-      const fullRecords = await db.models[model].findAll({
-        where: { id: ids },
-        include: include // Include associated models if specified
-      });
-
-      // Check if we have records and structure them
-      if (fullRecords.length > 0) {
-        const firstRecord = fullRecords[0]; // The first record
-        
-        // Create a new object to store the first record and its duplicates
-        const structuredRecord = {
-          ...firstRecord.get(), // Spread the first record's properties
-          duplicates: fullRecords.slice(1) // Annex other duplicate records
-        };
-
-        // Push the structured record into the result array
-        structuredDuplicateRecords.push(structuredRecord);
-      }
-    }
-
-    // Return the structured response
-    res.status(200).send({
-      data: structuredDuplicateRecords,
-      total: structuredDuplicateRecords.length,
-      code: '0000'
-    });
-  } catch (error) {
-    console.error('Error finding duplicates:', error);
-    res.status(500).send({
-      message: 'Internal server error',
-      code: 'SERVER_ERROR'
-    });
-  }
-};
-
 
 
 
@@ -5202,3 +5007,242 @@ exports.getAllListforDownload = async (req, res) => {
   }
 };
 
+
+
+
+exports.xfindPotentialDuplicates = async (req, res) => {
+  console.log('Req-body for duplicates:', req.body);
+
+  const { model, fields,associated_multiple_models } = req.body; // Destructure model and fields from request body
+
+  // Basic validation
+  if (!model || !fields || fields.length === 0) {
+    return res.status(400).send({
+      message: 'Invalid input data. Model and fields are required.',
+      code: 'INVALID_INPUT'
+    });
+  }
+
+  try {
+    // Build the GROUP BY clause and SELECT statement dynamically based on provided fields
+    const groupByClause = fields.join(', ');
+    const selectClause = `
+      ${groupByClause}, 
+      COUNT(*) AS count, 
+      ARRAY_AGG(id) AS ids  -- Collect IDs of duplicate records
+    `;
+
+    // SQL query to find potential duplicates
+    const duplicatesQuery = `
+      SELECT ${selectClause}
+      FROM public.${model}
+      GROUP BY ${groupByClause}
+      HAVING COUNT(*) > 1;
+    `;
+
+    // Execute the query to find duplicates
+    const duplicates = await db.sequelize.query(duplicatesQuery, { type: db.sequelize.QueryTypes.SELECT });
+
+    // If no duplicates found, return early
+    if (duplicates.length === 0) {
+      return res.status(200).send({
+        data: [],
+        total: 0,
+        code: '0000'
+      });
+    }
+
+    // Prepare an array to hold records of duplicates with the first record nested
+    const structuredDuplicateRecords = [];
+
+     // Prepare the include array based on the provided associated model names
+     const include = associated_multiple_models.map(modelName => {
+      return {
+        model: db.models[modelName], // Reference the Sequelize model
+        required: false // Adjust based on your join requirement
+      };
+    });
+
+
+
+    // Fetch full records for each set of duplicate IDs
+    for (const duplicate of duplicates) {
+      const ids = duplicate.ids; // This is an array of duplicate IDs
+
+      // Fetch the full records for the duplicate IDs
+      const fullRecordsQuery = `
+        SELECT * 
+        FROM public.${model}
+        WHERE id IN (:ids);
+      `;
+
+      // Fetch full objects based on collected IDs
+      const  fullRecords = await db.sequelize.query(fullRecordsQuery, {
+        replacements: { ids: ids },
+        type: db.sequelize.QueryTypes.SELECT
+      });
+
+ 
+        
+   
+
+      // Check if we have records and structure them
+      if (fullRecords.length > 0) {
+        const firstRecord = fullRecords[0]; // The first record
+
+        // Assign duplicates directly to the first record
+        firstRecord.duplicates = fullRecords.slice(1); // Annex other duplicate records
+
+        // Push the modified first record with duplicates into the result array
+        structuredDuplicateRecords.push(firstRecord);
+      }
+    }
+
+    // Return the structured response
+    res.status(200).send({
+      data: structuredDuplicateRecords,
+      total: structuredDuplicateRecords.length,
+      code: '0000'
+    });
+  } catch (error) {
+    console.error('Error finding duplicates:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR'
+    });
+  }
+};
+
+ 
+exports.xxfindPotentialDuplicates = async (req, res) => {
+  const { model, fields,associated_multiple_models } = req.body; // Destructure model and fields from request body
+  similarityThreshold = 0.3
+
+  console.log(model,fields)
+
+  const criteria = fields 
+
+  if (!criteria || typeof criteria !== "object" || Object.keys(criteria).length === 0) {
+    throw new Error("Criteria must be an object with at least one field.");
+  }
+
+
+   // Build similarity conditions for each field
+   const similarityConditions = Object.entries(criteria).map(([field, value]) => ({
+    [Op.and]: [
+      literal(`similarity("${field}", '${value}') > ${similarityThreshold}`),
+      { [field]: { [Op.iLike]: `%${value}%` } },
+    ]
+  }));
+
+  console.log(similarityConditions)
+  try {
+    // Find all records that meet any of the similarity conditions
+    const results = await db.models[model].findAll({
+      where: {
+        [Op.or]: similarityConditions
+      }
+    });
+
+    // Group similar results based on the similarity threshold
+    const groupedResults = [];
+    results.forEach(record => {
+      const similarGroup = groupedResults.find(group =>
+        group.some(existingRecord =>
+          Object.keys(criteria).some(field =>
+            fn("similarity", col(field), record[field]) > similarityThreshold
+          )
+        )
+      );
+
+      if (similarGroup) {
+        similarGroup.push(record);
+      } else {
+        groupedResults.push([record]);
+      }
+    });
+
+  //  return groupedResults;
+
+   
+      return res.status(200).send({
+        data: groupedResults,
+        total: 0,
+        code: '0000'
+      });
+  
+
+
+
+  } catch (error) {
+    console.error("Error finding potential duplicates:", error);
+   // throw error;
+
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR'
+    });
+
+  }
+
+
+};
+
+exports.findPotentialDuplicates = async (req, res) => {
+  const { model, fields, associated_multiple_models } = req.body;
+  const similarityThreshold = 0.3;
+
+  if (!model || !fields || !Array.isArray(fields) || fields.length === 0) {
+    return res.status(400).send({
+      message: "Model and an array of fields are required.",
+      code: "INVALID_INPUT"
+    });
+  }
+
+  try {
+    // Fetch all records for the model
+    const allRecords = await db.models[model].findAll({
+      include: associated_multiple_models ? associated_multiple_models : []
+    });
+
+    const groupedResults = [];
+
+    // Compare each record with every other record
+    for (let i = 0; i < allRecords.length; i++) {
+      const record = allRecords[i];
+      let isGrouped = false;
+
+      for (let j = 0; j < groupedResults.length; j++) {
+        const group = groupedResults[j];
+
+        if (group.some(existingRecord =>
+          fields.every(field => {
+            const recordValue = record[field];
+            const existingValue = existingRecord[field];
+            return fn("similarity", literal(`'${recordValue}'`), literal(`'${existingValue}'`)) > similarityThreshold;
+          })
+        )) {
+          group.push(record);
+          isGrouped = true;
+          break;
+        }
+      }
+
+      if (!isGrouped) {
+        groupedResults.push([record]);
+      }
+    }
+
+    return res.status(200).send({
+      data: groupedResults,
+      total: groupedResults.length,
+      code: "0000"
+    });
+  } catch (error) {
+    console.error("Error finding potential duplicates:", error);
+    return res.status(500).send({
+      message: "Internal server error",
+      code: "SERVER_ERROR"
+    });
+  }
+};
