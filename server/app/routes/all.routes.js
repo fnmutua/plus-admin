@@ -32,7 +32,8 @@ module.exports = function (app) {
   // Gets the  data filtereed by column
   app.post('/api/v1/data/column/paginated', [authJwt.verifyToken], controller.modelPaginatedDatafilterByColumn)
   app.post('/api/v1/data/column/paginated/nogeo', [authJwt.verifyToken], controller.modelPaginatedDatafilterByColumnNoGeo)
-  app.post('/api/v1/data/column/duplicate', [authJwt.verifyToken], controller.findPotentialDuplicates)
+  //app.post('/api/v1/data/column/duplicate', [authJwt.verifyToken], controller.findPotentialDuplicates)
+  app.post('/api/v1/data/column/duplicate',  controller.findPotentialDuplicates)
 
   
 

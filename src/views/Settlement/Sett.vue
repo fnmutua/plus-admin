@@ -9,7 +9,7 @@ import {
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox
 } from 'element-plus'
 import { ElMessage, } from 'element-plus'
-import { Position, View, Plus, User, Briefcase, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
+import { Position, View, Plus, User, Briefcase, Delete, Edit, ArrowLeft, Filter, InfoFilled, CopyDocument, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
@@ -18,7 +18,7 @@ import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements
 
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { defineAsyncComponent, onMounted } from 'vue';
+import { defineAsyncComponent, onMounted,nextTick } from 'vue';
 
 import xlsx from "json-as-xlsx"
 import {
@@ -136,6 +136,19 @@ onMounted(async () => {
   updatePageSize(); // Initial check
 
 
+   // get current Tab 
+   const savedTab = localStorage.getItem('activeTab');
+      if (savedTab) {
+        activeName.value = savedTab;
+        let obj ={"props":{
+          "name":savedTab
+        }}
+ 
+        clickTab(obj)
+      }
+
+
+
 })
 
 
@@ -150,6 +163,7 @@ var value5 = ref([])
 var value6 = ref([])
 
 const loadingGetData = ref(false)
+const loadingGetDataMsg = ref('Loading the data.. Please wait.......')
 
 const interVentionTypeOptions = ref([])
 
@@ -297,10 +311,14 @@ const onPageSizeChange = async (size: any) => {
 
 }
 
+
+
 const clickTab = async (obj) => {
 
   page.value = 1
   activeTab.value = obj.props.name
+  localStorage.setItem('activeTab', obj.props.name);
+
 
   console.log("Loading tabs.............", obj.props.label)
   console.log("Loading activeTab.............", activeTab.value)
@@ -324,13 +342,19 @@ const clickTab = async (obj) => {
  
   if(obj.props.name === "Duplicates") {
     getPotentialDuplicates()
+    showPagination.value=false
 
-  }else {
+  }
+  
+  else {
 
     if (search_string.value) {
     getFilteredBySearchData(obj.props.name, search_string.value)
+    showPagination.value=true
   } else {
     getNewOrRejectedSettlements(obj.props.name)
+    showPagination.value=true
+
   }
 
   }
@@ -345,7 +369,7 @@ const getAllSetllementsInitially = async () => {
   await getNewOrRejectedSettlements('list')
   getSettlementCount()  // This gets the approved/new/rejecetd counts
 
-  getPotentialDuplicates()
+  //getPotentialDuplicates()
 
 }
 
@@ -560,6 +584,10 @@ const getNewOrRejectedSettlements = async (tab) => {
 }
 
 const getPotentialDuplicates = async () => {
+  loadingGetData.value=true
+
+ loadingGetDataMsg.value = 'Checking for duplicate data.. Please wait.......'
+
 
   if (selectedCounty.value) {
     var selectOption = 'county_id'
@@ -660,16 +688,23 @@ const getPotentialDuplicates = async () => {
   formData.nested_models = nested_models
   //formData.cache_key = key
 
+  formData.associated_model = "county"
+  formData.foreignKey = "county_id"
+  formData.displayField = "name"
+ 
+ 
+
   //-------------------------
   console.log(formData)
   const res = await getDuplicates(formData)
   //const res = await getListWithoutGeo(formData)
   duplicateRecords.value = res.data
-  duplicateTotal.value = res.total
-  total.value = res.total
+  duplicateTotal.value = res.data.length
+  total.value = res.data.length
   console.log('Duplciate Data..', res)
 
-
+  loadingGetData.value=false
+  loadingGetDataMsg.value = 'Loading the data.. Please wait.......'
 
 }
 
@@ -1950,12 +1985,198 @@ function formatDate(row, column, cellValue) {
 }
 
 
+const duplicateDialogShow =ref(false)
+ 
 
+ 
+const selectedDuplicate = ref(null);
+const map = ref();
+const mapContainer = ref(null);
+
+const xshowDuplicateMap = (duplicate) => {
+  console.log(duplicate.row)
+      selectedDuplicate.value = duplicate.row;
+      console.log(selectedDuplicate.value )
+      duplicateDialogShow.value = true;
+
+      nextTick(() => {
+        if (!map.value) {
+          mapboxgl.accessToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg';
+          map.value = new mapboxgl.Map({
+            container: mapContainer.value,
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [ 37.9062, -0.0236], // Set center based on first point
+            zoom: 12,
+          });
+
+          map.value.on('load', () => {
+            addDuplicatesToMap(duplicate.row.duplicates);
+          });
+        }  
+      });
+ };
+
+
+
+
+
+ const showDuplicateMap = (duplicate) => {
+  console.log(duplicate.row);
+  selectedDuplicate.value = duplicate.row;
+  console.log(selectedDuplicate.value);
+  duplicateDialogShow.value = true;
+
+  nextTick(() => {
+    if (!map.value) {
+      mapboxgl.accessToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg';
+      map.value = new mapboxgl.Map({
+        container: mapContainer.value,
+        style: 'mapbox://styles/mapbox/streets-v11', // Initial style
+        center: [37.9062, -0.0236], // Set center based on the first point
+        zoom: 12,
+      });
+
+      // When the map loads, add the duplicates and the satellite layer
+      map.value.on('load', () => {
+        addDuplicatesToMap(duplicate.row.duplicates);
+
+        // Add the satellite layer
+        map.value.addSource('satellite', {
+          type: 'raster',
+          url: 'mapbox://mapbox.satellite',
+          tileSize: 256
+        });
+
+        map.value.addLayer({
+          id: 'satellite-layer',
+          type: 'raster',
+          source: 'satellite',
+          layout: {
+            visibility: 'none', // Initially hidden, only streets are shown
+          },
+        });
+      });
+    }
+  });
+};
+
+// Toggle between the layers
+const toggleLayer = (layerId) => {
+  const streetsLayerVisibility = map.value.getLayoutProperty('satellite-layer', 'visibility');
+
+  if (streetsLayerVisibility === 'none') {
+    // Show satellite and hide streets
+    map.value.setLayoutProperty('satellite-layer', 'visibility', 'visible');
+    map.value.setStyle('mapbox://styles/mapbox/satellite-streets-v11');
+  } else {
+    // Show streets and hide satellite
+    map.value.setLayoutProperty('satellite-layer', 'visibility', 'none');
+    map.value.setStyle('mapbox://styles/mapbox/streets-v11');
+  }
+};
+
+
+
+
+
+
+
+ const addDuplicatesToMap = (duplicates) => {
+  // Create a bounds object to hold the extents
+  const bounds = new mapboxgl.LngLatBounds();
+
+  duplicates.forEach(duplicate => {
+    if (duplicate.geom) {
+      const geometryType = duplicate.geom.type;
+
+      if (geometryType === 'Point') {
+        // Add a point for Point geometries
+        const marker = new mapboxgl.Marker()
+          .setLngLat(duplicate.geom.coordinates)
+          .addTo(map.value);
+
+        // Add a popup to the marker
+        const popup = new mapboxgl.Popup({ offset: 25 })
+          .setText(duplicate.name + ": ID -" + duplicate.id)
+          .setLngLat(duplicate.geom.coordinates)
+          .addTo(map.value);
+
+        // Extend bounds to include the point
+        bounds.extend(duplicate.geom.coordinates);
+
+      } else if (geometryType === 'Polygon') {
+        // Compute the centroid of the polygon using Turf.js
+        const polygon = turf.polygon(duplicate.geom.coordinates);
+        const centroid = turf.centroid(polygon);
+
+        // Add a marker for the centroid
+        const centroidMarker = new mapboxgl.Marker({ color: 'red' })
+          .setLngLat(centroid.geometry.coordinates)
+          .addTo(map.value);
+
+        // Add a popup to the centroid marker
+        const centroidPopup = new mapboxgl.Popup({ offset: 25 })
+          .setText(duplicate.name + ": ID -" + duplicate.code + " (Centroid)")
+          .setLngLat(centroid.geometry.coordinates)
+          .addTo(map.value);
+
+        // Add a polygon for Polygon geometries
+        map.value.addSource(`duplicate-${duplicate.id}`, {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            geometry: duplicate.geom,
+          },
+        });
+        map.value.addLayer({
+          id: `duplicate-layer-${duplicate.id}`,
+          type: 'fill',
+          source: `duplicate-${duplicate.id}`,
+          layout: {},
+          paint: {
+            'fill-color': '#888888',
+            'fill-opacity': 0.5,
+          },
+        });
+
+        // Get the coordinates of the polygon to extend the bounds
+        if (duplicate.geom.coordinates) {
+          duplicate.geom.coordinates.forEach(ring => {
+            ring.forEach(coord => {
+              bounds.extend(coord);
+            });
+          });
+        }
+
+        // Extend bounds to include the centroid
+        bounds.extend(centroid.geometry.coordinates);
+      }
+    }
+  });
+
+  // Zoom to the bounds after adding all duplicates
+  if (!bounds.isEmpty()) {
+    map.value.fitBounds(bounds, {
+      padding: { top: 50, bottom: 50, left: 50, right: 50 }
+    });
+  }
+};
+
+
+
+
+const resetDialogData = () => { 
+
+  mapContainer.value=null
+  map.value=null
+  selectedDuplicate.value=null
+  duplicateDialogShow.value=false
+}
 
 </script>
 
 <template>
-  <el-card v-loading="loadingGetData" element-loading-text="Loading the data.. Please wait.......">
+  <el-card v-loading="loadingGetData" :element-loading-text="loadingGetDataMsg">
 
 
 
@@ -2033,9 +2254,6 @@ function formatDate(row, column, cellValue) {
 
 
     </el-row>
-
-
-
 
 
 
@@ -2408,55 +2626,63 @@ function formatDate(row, column, cellValue) {
             </el-badge>
           </span>
         </template>
-        <el-table :data="duplicateRecords" :show-overflow-tooltip="true" style="width: 100%" border>
+        <el-table :data="duplicateRecords"    >
  
           <el-table-column type="expand">
               <template #default="props">
-                <div m="4" style="margin-left:20px">
+                <div m="4" style=" margin-left:20px">
                
-                  <h3>Potential Duplicate</h3>
+                  <h3  style="margin-bottom:20px" >Potential Duplicate</h3>
+
+                  <div class="mb-4">
+                    <el-button plain  @click="showDuplicateMap(props as TableSlotDefault)" :icon="Position">Compare Location</el-button>
+
+              
+                  </div>
+
+ 
                   <el-table :data="props.row.duplicates"  border>
-                    <el-table-column label="Name" prop="name" />
+                    <el-table-column label="Name" prop="name" sortable/>
                     <el-table-column label="Population" prop="population" />
                     <el-table-column label="Area(HA)" prop="area" />
                     <el-table-column label="Code" prop="code" />
-                    <el-table-column label="Zip" prop="zip" />
-                    <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-            <template #default="scope">
-              <el-dropdown v-if="isMobile">
-                <span class="el-dropdown-link">
-                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
-                      :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
-                      :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
-                      :icon="Delete" color="red">Delete</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-              <div v-else>
-                <el-tooltip content="View on Map" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
-                
-                <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to delete  this settlement?"
-                    @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
+                    <el-table-column label="Created" prop="createdAt" />
+                     <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+                    <template #default="scope">
+                      <el-dropdown v-if="isMobile">
+                        <span class="el-dropdown-link">
+                          <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                        </span>
+                        <template #dropdown>
+                          <el-dropdown-menu>
+                            <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                              :icon="Edit">Edit</el-dropdown-item>
+                            <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                              :icon="Position">Map</el-dropdown-item>
+                            <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                              :icon="Delete" color="red">Delete</el-dropdown-item>
+                          </el-dropdown-menu>
+                        </template>
+                      </el-dropdown>
+                      <div v-else>
+                        <el-tooltip content="View on Map" placement="top">
+                          <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                            circle />
+                        </el-tooltip>
+                        
+                        <el-tooltip content="Delete" placement="top">
+                          <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                            icon-color="#626AEF" title="Are you sure to delete  this settlement?"
+                            @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
+                            <template #reference>
+                              <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
+                            </template>
+                          </el-popconfirm>
+                        </el-tooltip>
 
-              
-              </div>
-            </template>
+                      
+                      </div>
+                    </template>
           </el-table-column>
 
                   </el-table>
@@ -2464,77 +2690,8 @@ function formatDate(row, column, cellValue) {
               </template>
             </el-table-column>
 
-          <el-table-column label="Name" width="200" prop="name" sortable />
-
-          
-          <el-table-column label="Population" prop="population" sortable />
-          <el-table-column label="Area(HA)" prop="area" sortable />
-          <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
-
-          <el-table-column label="Code" prop="code" sortable>
-            <template #default="{ row }">
-              <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
-                <span>{{ row.code }}</span>
-                <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
-                    plain
-                    style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
-                    @click="copyToClipboard(row.code)" />
-
-                </el-tooltip>
-              </div>
-            </template>
-          </el-table-column>
-
-
-          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-            <template #default="scope">
-              <el-dropdown v-if="isMobile">
-                <span class="el-dropdown-link">
-                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
-                      :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
-                      :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
-                      :icon="Delete" color="red">Delete</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-              <div v-else>
-                <el-tooltip content="View on Map" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
-                <el-tooltip content="Review" placement="top">
-                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
-                    @click="Review(scope as TableSlotDefault)" circle />
-                </el-tooltip>
-                <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to delete  this settlement?"
-                    @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
-
-                <el-tooltip content="Decommision" placement="top">
-                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to decommision this settlement?"
-                    @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Briefcase circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
-              </div>
-            </template>
-          </el-table-column>
+          <el-table-column label="County"  prop="parent" sortable />
+ 
         </el-table>
       </el-tab-pane>
 
@@ -2714,6 +2871,25 @@ function formatDate(row, column, cellValue) {
     </el-dialog>
 
   </el-card>
+
+
+
+
+    <!-- Dialog for displaying the map -->
+    <el-dialog  v-model="duplicateDialogShow"  @close="resetDialogData" title="Potential Duplicate Locations">
+      <div ref="mapContainer" class="map-container"></div>
+      <el-button @click="toggleLayer" style="margin-top: 10px;">
+      Toggle Satellite View
+    </el-button>
+    </el-dialog>
+
+
+
+
+
+
+
+
 </template>
 
 
@@ -2793,5 +2969,11 @@ function formatDate(row, column, cellValue) {
 .grid-content {
   border-radius: 4px;
   min-height: 36px;
+}
+
+
+.map-container {
+  width: 100%;
+  height: 650px; /* Set the height of the map container */
 }
 </style>
