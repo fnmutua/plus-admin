@@ -6409,7 +6409,14 @@ exports.mergeDuplicates = async (req, res) => {
     // Delete the duplicate records
     await Model.destroy({ where: { id: duplicateIds } });
 
-    res.json({ message: "Records merged successfully." });
+    //res.json({ message: "Records merged successfully." });
+
+    res.status(200).send({
+      message: "Records merged successfully.",
+      code: '0000'
+
+  });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
