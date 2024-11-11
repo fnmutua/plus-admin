@@ -76,8 +76,8 @@ WHERE id = 34;
 
 
 
-ALTER TABLE grievance 
-ADD pcode VARCHAR(255) NULL;
+ALTER TABLE settlement 
+ADD duplicate BOOLEAN(255) NULL;
 
 
 UPDATE grievance  SET pcode = code ;
