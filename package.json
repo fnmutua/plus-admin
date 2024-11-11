@@ -83,7 +83,6 @@
     "pinia-plugin-persist": "^1.0.0",
     "pnpm": "^9.10.0",
     "progress": "^2.0.3",
-    "proj-geojson": "^0.2.1",
     "proj4": "^2.9.0",
     "qrcode": "^1.5.4",
     "qs": "^6.11.0",

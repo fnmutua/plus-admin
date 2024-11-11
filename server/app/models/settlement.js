@@ -157,6 +157,13 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
+
+      duplicate: {
+        type: DataTypes.BOOLEAN,
+        allowNull: true,
+        defaultValue:false
+      },   
+  
     
     },
     {

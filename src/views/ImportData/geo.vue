@@ -30,16 +30,11 @@ import {
   Promotion,
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, watch } from 'vue'
+import { ref } from 'vue'
 
-import readXlsxFile from 'read-excel-file'
-import { uuid } from 'vue-uuid'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
-import JSZip from 'jszip';
-import * as shapefile from 'shapefile';
 
-import projgeojson from 'proj-geojson';
-
+ 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import * as turf from '@turf/turf'

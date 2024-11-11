@@ -6382,3 +6382,35 @@ exports.p9findPotentialDuplicates = async (req, res) => {
         code: '0000'
     });
 };
+
+
+
+exports.mergeDuplicates = async (req, res) => {
+  const { primaryId, duplicateIds, model } = req.body;
+  try {
+    const Model = db.models[model];
+
+    // Loop through all associations of the model
+    for (const associationName in Model.associations) {
+      const association = Model.associations[associationName];
+
+      // Check if the association has a foreign key that points to this model
+      if (association.foreignKey) {
+        const associatedModel = association.target;
+
+        // Update the foreign key in the associated model to point to the primary record
+        await associatedModel.update(
+          { [association.foreignKey]: primaryId },
+          { where: { [association.foreignKey]: duplicateIds } }
+        );
+      }
+    }
+
+    // Delete the duplicate records
+    await Model.destroy({ where: { id: duplicateIds } });
+
+    res.json({ message: "Records merged successfully." });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

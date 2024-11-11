@@ -27,6 +27,12 @@ export const getDuplicates = (
 
 
 
+export const mergeDuplicates = (
+  data: SettlementType
+): Promise<IResponse<SettlementType>> => {
+  return request.post({ url: prod + '/api/v1/data/merge', data })
+}
+
 
 export const getAllForDownload = (
   data: SettlementType

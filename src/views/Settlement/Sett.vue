@@ -2,7 +2,7 @@
 import { useI18n } from '@/hooks/web/useI18n'
 
 import { getSettlementListByCounty, getDuplicates } from '@/api/settlements'
-import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
+import { getListWithoutGeo } from '@/api/counties'
 import {
   ElButton, ElSelect, FormInstance, ElTabs, ElTabPane, ElDialog, ElInputNumber,
   ElInput, ElBadge, ElForm, ElDescriptions, ElDescriptionsItem, ElFormItem, ElUpload, ElCard, ElPopconfirm, ElTable, ElCol, ElRow,
@@ -2173,6 +2173,40 @@ const resetDialogData = () => {
   duplicateDialogShow.value=false
 }
 
+
+
+const primaryRecord=ref()
+const selectedRecords=ref([])
+const primaryOptions = ref([]);
+
+
+const handleSelection = (selection) => {
+  console.log('selection....');
+  
+  if (selection.length > 0) {
+    primaryRecord.value = selection[0];
+    selectedRecords.value = selection.map((record) => record.id).filter((id) => id !== primaryRecord.value.id);
+
+    // Create options from selectedRecords for later use
+    primaryOptions.value = selection.map((record) => ({
+      label: record.name || `Record ${record.id}`, // Use a name or a unique identifier
+      value: record.id
+    }));
+  } else {
+    primaryRecord.value = null;
+    selectedRecords.value = [];
+    primaryOptions.value = [];
+  }
+
+  console.log('selectedRecords.value', selectedRecords.value);
+  console.log('primaryOptions', primaryOptions.value);
+};
+
+ 
+
+
+
+
 </script>
 
 <template>
@@ -2634,14 +2668,40 @@ const resetDialogData = () => {
                
                   <h3  style="margin-bottom:20px" >Potential Duplicate</h3>
 
-                  <div class="mb-4">
-                    <el-button plain  @click="showDuplicateMap(props as TableSlotDefault)" :icon="Position">Compare Location</el-button>
+                  <div class="mb-4 d-flex align-items-center">
 
-              
+                 
+                        <el-button plain @click="showDuplicateMap(props as TableSlotDefault)" :icon="Position">
+                        Compare Location
+                      </el-button>
+                      <div  v-if="selectedRecords.length>0">
+                      <p>default</p>
+
+                      <el-select v-model="primaryRecord" placeholder="Select record to merge to" style="width: 290px; margin-left: 10px;">
+                        <el-option
+                          v-for="option in primaryOptions"
+                          :key="option.value"
+                          :label="option.label"
+                          :value="option.value"
+                        /> 
+                      </el-select>
+
+                      <el-button plain @click="mergeRecords" v-if="props.row.duplicates.length > 1" style="margin-left: 10px;">
+                        Merge 
+                      </el-button>
+
+                    </div>
+                   
+                 
+
+
+
+                   
                   </div>
 
- 
-                  <el-table :data="props.row.duplicates"  border>
+               
+                  <el-table :data="props.row.duplicates" @selection-change="handleSelection"  border>
+                    <el-table-column type="selection"  />
                     <el-table-column label="Name" prop="name" sortable/>
                     <el-table-column label="Population" prop="population" />
                     <el-table-column label="Area(HA)" prop="area" />
