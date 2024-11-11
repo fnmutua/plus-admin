@@ -2190,8 +2190,17 @@ const mergeRecords = async () => {
   const res = await mergeDuplicates(formData)
   console.log('res------>',res)
 
+  if(res.code=='0000') {
+     // Find the index of the expanded row object within duplicates and remove it
+        const rowIndex = duplicateRecords.value.indexOf(expandedRow.value);
+        if (rowIndex !== -1) {
+          duplicateRecords.value.splice(rowIndex, 1); // Remove the expanded row from duplicates
+        }
+  }
 
-
+  primaryRecord.value = null;
+    selectedRecords.value = [];
+    primaryOptions.value = [];
 
 }
 const handleSelectPrimary = () => { 
@@ -2223,8 +2232,32 @@ const handleSelection = (selection) => {
   console.log('primaryOptions', primaryOptions.value);
 };
 
+const expandedRow=ref()
+const onExpand = (row, expandedRows) => {
+
+  console.log('rows',row)
+  if (expandedRows.includes(row)) {
+        console.log("Row expanded:", row);
+        expandedRow.value=row
+        // Perform actions like fetching additional data or initializing state
+       } else {
+        console.log("Row collapsed:", row);
+      }
+}
+
  
 
+// Computed property for paginated data
+const paginatedData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return duplicateRecords.value.slice(start, end);
+});
+
+// Handle page change
+function handlePageChange(page) {
+  currentPage.value = page;
+}
 
 
 
@@ -2710,110 +2743,109 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
       </el-tab-pane>
 
 
-      <el-tab-pane name="Duplicates" v-if=showAdminButtons :badge="5">
-        <template #label>
-          <span class="custom-tabs-label">
-            <el-badge type="warning" :value="duplicateTotal" :offset="[10, 5]">
-              <el-button link>Duplicates</el-button>
-            </el-badge>
-          </span>
-        </template>
-        <el-table :data="duplicateRecords"    >
- 
-          <el-table-column type="expand">
-              <template #default="props">
-                <div m="4" style=" margin-left:20px">
-               
- 
-                  <div class="mb-4 d-flex align-items-center">
-                    
-                      <div  v-if="selectedRecords.length>0">
+      <el-tab-pane name="Duplicates" v-if="showAdminButtons" :badge="5">
+            <template #label>
+              <span class="custom-tabs-label">
+                <el-badge type="warning" :value="duplicateTotal" :offset="[10, 5]">
+                  <el-button link>Duplicates</el-button>
+                </el-badge>
+              </span>
+            </template>
+
+            <!-- Table with pagination -->
+            <el-table :data="paginatedData" @expand-change="onExpand">
+              <el-table-column type="expand">
+                <template #default="props">
+                  <div m="4" style="margin-left:20px">
+                    <div class="mb-4 d-flex align-items-center">
+                      <div v-if="selectedRecords.length > 0">
                         <el-button plain @click="showDuplicateMap(props as TableSlotDefault)" :icon="Position">
-                        Compare Location
-                      </el-button>
-                      <el-select v-model="primaryRecord" placeholder="Select record to merge to" :onChange="handleSelectPrimary" style="width: 290px; margin-left: 10px;">
-                        <el-option
-                          v-for="option in primaryOptions"
-                          :key="option.value"
-                          :label="option.label"
-                          :value="option.value"
-                        /> 
-                      </el-select>
-
-                      <el-button plain @click="mergeRecords" v-if="props.row.duplicates.length > 1" style="margin-left: 10px;">
-                          <Icon icon="flowbite:merge-cells-outline" style="margin-left: 4px;" /> Merge 
-                      </el-button>
-
-                    </div>
-                   
-                 
-
-
-
-                   
-                  </div>
-
-               
-                  <el-table :data="props.row.duplicates" @selection-change="handleSelection"  border>
-                    <el-table-column type="selection"  />
-                    <el-table-column label="Id" prop="id" />
-                    <el-table-column label="Name" prop="name" sortable/>
-                    <el-table-column label="Population" prop="population" />
-                    <el-table-column label="Area(HA)" prop="area" />
-                    <el-table-column label="Code" prop="code" />
-                    <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
-                    <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-                    <template #default="scope">
-                      <el-dropdown v-if="isMobile">
-                        <span class="el-dropdown-link">
-                          <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                        </span>
-                        <template #dropdown>
-                          <el-dropdown-menu>
-                            <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
-                              :icon="Edit">Edit</el-dropdown-item>
-                            <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
-                              :icon="Position">Map</el-dropdown-item>
-                            <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
-                              :icon="Delete" color="red">Delete</el-dropdown-item>
-                          </el-dropdown-menu>
-                        </template>
-                      </el-dropdown>
-                      <div v-else>
-                        <el-tooltip content="View on Map" placement="top">
-                          <el-button
-type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
-                            circle />
-                        </el-tooltip>
-                        
-                        <el-tooltip content="Delete" placement="top">
-                          <el-popconfirm
-width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                            icon-color="#626AEF" title="Are you sure to delete  this settlement?"
-                            @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
-                            <template #reference>
-                              <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
-                            </template>
-                          </el-popconfirm>
-                        </el-tooltip>
-
-                      
+                          Compare Location
+                        </el-button>
+                        <el-select v-model="primaryRecord" placeholder="Select record to merge to" :onChange="handleSelectPrimary" style="width: 290px; margin-left: 10px;">
+                          <el-option
+                            v-for="option in primaryOptions"
+                            :key="option.value"
+                            :label="option.label"
+                            :value="option.value"
+                          />
+                        </el-select>
+                        <el-button plain @click="mergeRecords" v-if="props.row.duplicates.length > 1" style="margin-left: 10px;">
+                          <Icon icon="flowbite:merge-cells-outline" style="margin-left: 4px;" /> Merge
+                        </el-button>
                       </div>
-                    </template>
-          </el-table-column>
+                    </div>
 
-                  </el-table>
-                </div>
-              </template>
-            </el-table-column>
+                    <el-table :data="props.row.duplicates" @selection-change="handleSelection" border>
+                      <el-table-column type="selection" />
+                      <el-table-column label="Id" prop="id" />
+                      <el-table-column label="Name" prop="name" sortable />
+                      <el-table-column label="Population" prop="population" />
+                      <el-table-column label="Area(HA)" prop="area" />
+                      <el-table-column label="Code" prop="code" />
+                      <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+                      <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+                        <template #default="scope">
+                          <el-dropdown v-if="isMobile">
+                            <span class="el-dropdown-link">
+                              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                            </span>
+                            <template #dropdown>
+                              <el-dropdown-menu>
+                                <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)" :icon="Edit">Edit</el-dropdown-item>
+                                <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)" :icon="Position">Map</el-dropdown-item>
+                                <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)" :icon="Delete" color="red">Delete</el-dropdown-item>
+                              </el-dropdown-menu>
+                            </template>
+                          </el-dropdown>
+                          <div v-else>
+                            <el-tooltip content="View on Map" placement="top">
+                              <el-button
+                                type="warning"
+                                size="small"
+                                :icon="Position"
+                                @click="viewOnMap(scope as TableSlotDefault)"
+                                circle
+                                :disabled="!scope.row.geom"
+                              />
+                            </el-tooltip>
+                            <el-tooltip content="Delete" placement="top">
+                              <el-popconfirm
+                                width="300"
+                                confirm-button-text="Yes"
+                                cancel-button-text="No"
+                                :icon="InfoFilled"
+                                icon-color="#626AEF"
+                                title="Are you sure to delete this settlement?"
+                                @confirm="DeleteSettlement(scope.row as TableSlotDefault)"
+                              >
+                                <template #reference>
+                                  <el-button v-if="showAdminButtons" type="danger" size="small" :icon="Delete" circle />
+                                </template>
+                              </el-popconfirm>
+                            </el-tooltip>
+                          </div>
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </div>
+                </template>
+              </el-table-column>
 
-          <el-table-column label="County"  prop="parent" sortable />
- 
-        </el-table>
-      </el-tab-pane>
+              <el-table-column label="County" prop="parent" sortable />
+            </el-table>
+
+            <!-- Pagination -->
+            <el-pagination
+            background
+                class="mt-4"
+              layout="prev, pager, next, jumper"
+              :total="duplicateRecords.length"
+              :page-size="pageSize"
+              @current-change="handlePageChange"
+            />
+          </el-tab-pane>
+
 
 
       <ElPagination
