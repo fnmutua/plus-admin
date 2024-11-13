@@ -16,6 +16,9 @@ const User = db.user;
 const redis = require("redis");
 const Progress = require('progress');
 const { v4: uuidv4 } = require('uuid');
+
+const fuzzball = require('fuzzball'); // Make sure to install this with `npm install fuzzball`
+
 var request = require('request');
 
 
@@ -972,17 +975,7 @@ exports.modelCreateOneRecord = (req, res) => {
       // send the ouput to be put send to ODK central
       sendSettDataToODK([item])
      }
-    // if (reg_model === 'project') {
-    //   var activity_list = req.body.activities;
-    //   const list_activities = await db.models.activity.findAll({
-    //     where: {
-    //       id: activity_list,
-    //     },
-    //   });
-
-    //   // await item.addActivities(list_activities)
-    //   await item.setActivities(list_activities);
-    // } 
+    
     
     else if (reg_model === 'dashboard_section_chart') {
       var indicator_list = req.body.indicator_id;
@@ -1036,149 +1029,13 @@ exports.modelCreateOneRecord = (req, res) => {
 }
 
 
+ 
+ 
+
 
 
 
  
-exports.xmodelAllGeo = async (req, res) => {
-  var reg_model = req.body.model
-   
-  var qry2 =
-  "SELECT row_to_json(fc) AS json_build_object FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(ST_ReducePrecision(geom, 0.0001))::json AS geometry, json_strip_nulls(row_to_json(" + reg_model + ")) AS properties FROM " +
-  reg_model + " WHERE geom IS NOT NULL) AS f) AS fc";
-
-   
-  console.log("req.body.cache_key",)
-
-
-
-  if (req.body.cache_key && req.body.cache_key != '') { 
-
-    const cache_key = req.body.cache_key;   
-    const cacheDuration = 3600; // Cache duration in seconds
-
-    
-    // get last time it was modified 
-    const lastRow = await db.models[reg_model].findOne({
-      attributes: ['updatedAt'],
-      order: [['updatedAt', 'DESC']]
-    });
-    
-    const lastModified = lastRow ? lastRow.updatedAt: Date.now()
-    console.log(lastModified,req.body.cache_key)
-     console.log("Caching>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
-
-
-    try {
-      const cacheResults = await redisClient.get(cache_key);
-     
-
-      if (cacheResults) {
-        console.log("reurning from cachec.....")
-        const result = JSON.parse(cacheResults);
-         if (lastModified && lastModified > result.lastModified) {
-          // If the database was updated after the cached data was generated, update the cache
-          //const response = await db.models[reg_model].findAndCountAll(qry2);
-          const response = await sequelize.query(qry2, {
-            model: db.models[reg_model],
-            mapToModel: false // pass true here if you have any mapped fields
-          })
-
-
-          
-          await redisClient.set(cache_key, JSON.stringify({
-            data: response,
-             lastModified: Date.now() // Update the last modified timestamp
-          }), {
-            EX: cacheDuration,
-            NX: true,
-          });
-
-          res.status(200).send({
-            fromCache: false,
-            cache_key: cache_key,
-            data: response,
-            code: '0000'
-          });
-        } else {
-          // If the cached data is still valid, return it from the cache
-
-          console.log(result.data)
-          res.status(200).send({
-            fromCache: true,
-            cache_key: cache_key,
-            data: result.data,
-            code: '0000'
-          });
-        }
-      } 
-      else {
-
-        // If no cache data exists, generate new data and store it in the cache
-        //const response = await db.models[reg_model].findAndCountAll(qry);
-        const response = await sequelize.query(qry2, {
-          model: db.models[reg_model],
-          mapToModel: false // pass true here if you have any mapped fields
-        })
-
-
-       // console.log('county geo', response.data[0].json_build_object)
-        console.log(response[0])
-
-         //const reducedPrecisionGeoJSON = reducePrecision(response[0], 1);
-       // console.log(JSON.stringify(reducedPrecisionGeoJSON, null, 2));
-
-
-
-        await redisClient.set(cache_key, JSON.stringify({
-          data: response,
-           lastModified: Date.now() // Set the last modified timestamp to current time
-        }), {
-          EX: cacheDuration,
-          NX: true,
-        });
-
-          //  return it from the cache
-          res.status(200).send({
-            fromCache: false,
-            cache_key: cache_key,
-            data: response,
-             code: '0000'
-          });
-    }
-  }
-    catch(error) {
-      res.status(500).send({
-        message: 'Internal server error',
-        code: 'SERVER_ERROR'
-      });
-    }
-
-
-
-
-  } 
-  else {
-
-    console.log("123xxxNo Caching>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>....")
-  
-    
-
-     
-  const result_geo = await sequelize.query(qry2, {
-    model: db.models[reg_model],
-    mapToModel: false // pass true here if you have any mapped fields
-  })
-
-  res.status(200).send({
-    data: result_geo,
-    code: '0000'
-  })
-  
-
-  }
-
-}
  
 exports.modelAllGeo = async (req, res) => {
   var reg_model = req.body.model
@@ -5007,272 +4864,7 @@ exports.getAllListforDownload = async (req, res) => {
   }
 };
 
-
-
-
-exports.xfindPotentialDuplicates = async (req, res) => {
-  console.log('Req-body for duplicates:', req.body);
-
-  const { model, fields,associated_multiple_models } = req.body; // Destructure model and fields from request body
-
-  // Basic validation
-  if (!model || !fields || fields.length === 0) {
-    return res.status(400).send({
-      message: 'Invalid input data. Model and fields are required.',
-      code: 'INVALID_INPUT'
-    });
-  }
-
-  try {
-    // Build the GROUP BY clause and SELECT statement dynamically based on provided fields
-    const groupByClause = fields.join(', ');
-    const selectClause = `
-      ${groupByClause}, 
-      COUNT(*) AS count, 
-      ARRAY_AGG(id) AS ids  -- Collect IDs of duplicate records
-    `;
-
-    // SQL query to find potential duplicates
-    const duplicatesQuery = `
-      SELECT ${selectClause}
-      FROM public.${model}
-      GROUP BY ${groupByClause}
-      HAVING COUNT(*) > 1;
-    `;
-
-    // Execute the query to find duplicates
-    const duplicates = await db.sequelize.query(duplicatesQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-    // If no duplicates found, return early
-    if (duplicates.length === 0) {
-      return res.status(200).send({
-        data: [],
-        total: 0,
-        code: '0000'
-      });
-    }
-
-    // Prepare an array to hold records of duplicates with the first record nested
-    const structuredDuplicateRecords = [];
-
-   
-
-
-
-    // Fetch full records for each set of duplicate IDs
-    for (const duplicate of duplicates) {
-      const ids = duplicate.ids; // This is an array of duplicate IDs
-
-      // Fetch the full records for the duplicate IDs
-      const fullRecordsQuery = `
-        SELECT * 
-        FROM public.${model}
-        WHERE id IN (:ids);
-      `;
-
-      // Fetch full objects based on collected IDs
-      const  fullRecords = await db.sequelize.query(fullRecordsQuery, {
-        replacements: { ids: ids },
-        type: db.sequelize.QueryTypes.SELECT
-      });
-
  
-        
-   
-
-      // Check if we have records and structure them
-      if (fullRecords.length > 0) {
-        const firstRecord = fullRecords[0]; // The first record
-
-        // Assign duplicates directly to the first record
-        firstRecord.duplicates = fullRecords.slice(1); // Annex other duplicate records
-
-        // Push the modified first record with duplicates into the result array
-        structuredDuplicateRecords.push(firstRecord);
-      }
-    }
-
-    // Return the structured response
-    res.status(200).send({
-      data: structuredDuplicateRecords,
-      total: structuredDuplicateRecords.length,
-      code: '0000'
-    });
-  } catch (error) {
-    console.error('Error finding duplicates:', error);
-    res.status(500).send({
-      message: 'Internal server error',
-      code: 'SERVER_ERROR'
-    });
-  }
-};
-
-exports.x1findPotentialDuplicates = async (req, res) => {
-  console.log('Req-body for duplicates:', req.body);
-
-  const { model, fields, associated_multiple_models } = req.body;
-
-  // Basic validation
-  if (!model || !fields || fields.length === 0) {
-    return res.status(400).send({
-      message: 'Invalid input data. Model and fields are required.',
-      code: 'INVALID_INPUT'
-    });
-  }
-
-  try {
-    // Build the GROUP BY clause and SELECT statement dynamically based on provided fields
-    const groupByClause = fields.join(', ');
-    const selectClause = `
-      ${groupByClause}, 
-      COUNT(*) AS count, 
-      ARRAY_AGG(id) AS ids  -- Collect IDs of duplicate records
-    `;
-
-    // SQL query to find potential duplicates
-    const duplicatesQuery = `
-      SELECT ${selectClause}
-      FROM public.${model}
-      GROUP BY ${groupByClause}
-      HAVING COUNT(*) > 1;
-    `;
-
-    // Execute the query to find duplicates
-    const duplicates = await db.sequelize.query(duplicatesQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-    // If no duplicates found, return early
-    if (duplicates.length === 0) {
-      return res.status(200).send({
-        data: [],
-        total: 0,
-        code: '0000'
-      });
-    }
-
-    // Prepare an array to hold groups of full duplicate records
-    const groupedDuplicates = [];
-
-    // Fetch full records for each set of duplicate IDs
-    for (const duplicate of duplicates) {
-      const ids = duplicate.ids;
-
-      // Fetch the full records for the duplicate IDs
-      const fullRecordsQuery = `
-        SELECT * 
-        FROM public.${model}
-        WHERE id IN (:ids);
-      `;
-
-      const fullRecords = await db.sequelize.query(fullRecordsQuery, {
-        replacements: { ids: ids },
-        type: db.sequelize.QueryTypes.SELECT
-      });
-
-      // Group all duplicates in a single array for each unique set of values
-      if (fullRecords.length > 0) {
-        groupedDuplicates.push(fullRecords); // Push the entire group of duplicates as an array
-      }
-    }
-
-    // Return the structured response with grouped duplicates
-    res.status(200).send({
-      data: groupedDuplicates,
-      total: groupedDuplicates.length,
-      code: '0000'
-    });
-  } catch (error) {
-    console.error('Error finding duplicates:', error);
-    res.status(500).send({
-      message: 'Internal server error',
-      code: 'SERVER_ERROR'
-    });
-  }
-};
-
-
-exports.p1findPotentialDuplicates = async (req, res) => {
-  console.log('Req-body for duplicates:', req.body);
-
-  const { model, fields, associated_multiple_models } = req.body;
-
-  // Basic validation
-  if (!model || !fields || fields.length === 0) {
-    return res.status(400).send({
-      message: 'Invalid input data. Model and fields are required.',
-      code: 'INVALID_INPUT'
-    });
-  }
-
-  try {
-    // Build the GROUP BY clause and SELECT statement dynamically based on provided fields
-    const groupByClause = fields.join(', ');
-    const selectClause = `
-      ${groupByClause}, 
-      COUNT(*) AS count, 
-      ARRAY_AGG(id) AS ids  -- Collect IDs of duplicate records
-    `;
-
-    // SQL query to find potential duplicates
-    const duplicatesQuery = `
-      SELECT ${selectClause}
-      FROM public.${model}
-      GROUP BY ${groupByClause}
-      HAVING COUNT(*) > 1;
-    `;
-
-    // Execute the query to find duplicates
-    const duplicates = await db.sequelize.query(duplicatesQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-    // If no duplicates found, return early
-    if (duplicates.length === 0) {
-      return res.status(200).send({
-        data: [],
-        total: 0,
-        code: '0000'
-      });
-    }
-
-    // Prepare an array to hold groups of full duplicate records
-    const groupedDuplicates = [];
-
-    // Define include options for associated models, excluding the 'geom' field
-    const includeOptions = associated_multiple_models?.map(modelName => ({
-      model: db.models[modelName],
-      attributes: { exclude: ['geom'] } // Exclude 'geom' field from associated models
-    })) || [];
-
-    // Fetch full records for each set of duplicate IDs with associated models
-    for (const duplicate of duplicates) {
-      const ids = duplicate.ids;
-
-      // Fetch the full records for the duplicate IDs, including associated models
-      const fullRecords = await db.models[model].findAll({
-        where: {
-          id: ids
-        },
-        include: includeOptions // Include associated models with 'geom' excluded
-      });
-
-      // Group all duplicates in a single array for each unique set of values
-      if (fullRecords.length > 0) {
-        groupedDuplicates.push(fullRecords); // Push the entire group of duplicates as an array
-      }
-    }
-
-    // Return the structured response with grouped duplicates
-    res.status(200).send({
-      data: groupedDuplicates,
-      total: groupedDuplicates.length,
-      code: '0000'
-    });
-  } catch (error) {
-    console.error('Error finding duplicates:', error);
-    res.status(500).send({
-      message: 'Internal server error',
-      code: 'SERVER_ERROR'
-    });
-  }
-};
  
 
 
@@ -5700,6 +5292,110 @@ exports.p5findPotentialDuplicates = async (req, res) => {
     });
 };
 
+exports.checkPotentialDuplicates = async (req, res) => {
+  console.log(req.thisUser.id);
+  let token = req.headers["x-access-token"];
+  console.log('checking duplicates......');
+  var reg_model = req.body.model;
+
+  // Create Log Events Object
+  let event = {
+    model: reg_model,
+    remoteAddress: req.connection.remoteAddress,
+    user_id: req.thisUser.id,
+    user_name: req.thisUser.username,
+    action: 'Check Duplicates for ' + reg_model
+  };
+
+  try {
+    console.log('model... ----', req.body.model);
+    console.log('geom... ----', req.body.geom);
+
+    var obj = req.body;
+    obj.createdBy = req.thisUser.id;
+    delete obj.model;
+
+    if (JSON.stringify(req.body.geom) === "{}") {
+      delete obj.geom;
+    }
+
+    console.log('Checking for duplicates with object:', obj);
+
+    const checkFields = req.body.checkFields || []; // Example: ['name', 'county_id']
+    let potentialDuplicates = []; // To store potential duplicate records
+
+    if (Array.isArray(checkFields) && checkFields.length > 0) {
+      // Retrieve all records of the model
+      const existingRecords = await db.models[reg_model].findAll();
+
+      for (const record of existingRecords) {
+        let matchCount = 0;
+
+        for (const field of checkFields) {
+          if (obj[field] !== undefined) {
+            // String fields: fuzzy matching with 80% threshold
+            if (typeof obj[field] === 'string' && typeof record[field] === 'string') {
+              const similarity = fuzzball.ratio(obj[field], record[field]);
+              if (similarity >= 80) {
+                matchCount++;
+                console.log('matchCount', matchCount, obj[field], record[field], similarity);
+              }
+            }
+            // Non-string fields: exact match
+            else if (obj[field] == record[field]) {
+              matchCount++;
+            }
+          }
+        }
+
+        // If all specified fields match criteria, it's a potential duplicate
+        if (matchCount === checkFields.length) {
+          // Strip record to only include the checkFields
+          let filteredRecord = {};
+          checkFields.forEach(field => {
+            filteredRecord[field] = record[field];
+          });
+          potentialDuplicates.push(filteredRecord); // Add to potential duplicates
+        }
+      }
+
+      // If potential duplicates are found, return them
+      if (potentialDuplicates.length > 0) {
+        console.log('Potential duplicates found:', potentialDuplicates);
+        event.status = 'failed';
+        logEvents(event);
+
+        return res.status(400).json({
+          message: `Potential duplicate records for ${reg_model} found.`,
+          checkFields: checkFields, // Only return the checkFields in the response
+          duplicates: potentialDuplicates, // Return the list of potential duplicates with only checkFields
+        });
+      }
+    }
+
+    // If no duplicates, return a success message
+    res.status(200).send({
+      message: 'No duplicates found. Proceed with record creation.',
+      checkFields: checkFields, // Return the checkFields for transparency
+      code: '0000',
+    });
+
+  } catch (error) {
+    console.log('Error checking duplicates:', error);
+    event.status = 'failed';
+    logEvents(event);
+
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({
+        message: `Duplicate records for ${reg_model} not allowed`,
+      });
+    } else {
+      return res.status(500).json({
+        message: 'An unexpected error occurred while checking for duplicates.',
+      });
+    }
+  }
+};
 
  
 exports.p6findPotentialDuplicates = async (req, res) => {

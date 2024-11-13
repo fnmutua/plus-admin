@@ -87,6 +87,7 @@ module.exports = function (app) {
   
   // create one record
   app.post('/api/v1/data/create', [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelCreateOneRecord)
+  app.post('/api/v1/data/create/check', [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.checkPotentialDuplicates)
 
   // create one record
   app.post('/api/v1/data/delete', [authJwt.verifyToken, authJwt.isStaffOrAdmin], controller.modelDeleteOneRecord)

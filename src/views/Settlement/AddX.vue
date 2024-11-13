@@ -200,6 +200,10 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
         :description="step.content"
       />
     </el-tour>
+
+
+
+ 
 </template>
 
 
@@ -207,7 +211,7 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElCard, ElCascader, ElCascaderPanel,ElTooltip,ElTour,ElTourStep, ElDialog, ElMessage, ElUpload, ElSwitch } from 'element-plus'
+import { ElCard,ElPopconfirm, ElCascader, ElCascaderPanel,ElTooltip,ElTour,ElTourStep, ElDialog,  ElUpload, ElSwitch } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { steps, formFields, formData, formRules } from './common/fields.ts'
@@ -222,7 +226,7 @@ import mapboxgl from "mapbox-gl";
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
-import { CreateRecord, DeleteRecord, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments, getfilteredGeo } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments, getfilteredGeo,duplicatePreCheck } from '@/api/settlements'
 
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
@@ -245,12 +249,106 @@ import { countyOptions } from './common';
 
 import { Icon } from '@iconify/vue';
 import { InfoFilled,Back} from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 
 const props1 = {
   checkStrictly: true,
 }
+const xopenMessageBox = (msg, duplicates) => {
+  // Check if duplicates exist and dynamically extract keys
+  const duplicateRecordsMsg = duplicates && duplicates.length > 0
+    ? `The following duplicate records were found:<br><br>` + 
+      // Loop through duplicates and dynamically display all properties
+      duplicates.map(duplicate => {
+        return Object.entries(duplicate)
+          .map(([key, value]) => `⚠️ ${key}: ${value || 'N/A'}`) // Dynamically generate message for each key-value pair
+          .join(); // Add <br> to separate each property
+      }).join('<br><br>') // Separate each record by an extra line using <br><br>
+    : 'No duplicates found.';
 
+  // Combine the initial message with the duplicates message
+  const message = ` ${duplicateRecordsMsg}`;
+
+  // Display the formatted message in a warning box with HTML formatting
+  ElMessageBox.confirm(
+    message, // Combined message with dynamic properties and HTML line breaks
+    'Warning',
+    {
+      confirmButtonText: 'Proceed',
+      cancelButtonText: 'Cancel',
+      type: 'warning',
+      dangerouslyUseHTMLString: true, // Enable HTML rendering in the message box
+    }
+  )
+    .then(() => {
+      ElMessage({
+        type: 'success',
+        message: 'Action completed',
+      });
+    })
+    .catch(() => {
+      ElMessage({
+        type: 'info',
+        message: 'Action canceled',
+      });
+    });
+}
+
+const openMessageBox = (msg, duplicates) => {
+  // Check if duplicates exist and dynamically extract keys
+  const duplicateRecordsMsg = duplicates && duplicates.length > 0
+    ? msg + `<br>` + 
+      // Loop through duplicates and dynamically display all properties in a single line, separated by commas
+      duplicates.map((duplicate, index) => {
+        // Number each duplicate record starting from 1
+        const recordNumber = index + 1;
+        return `${recordNumber}. ` + 
+          Object.entries(duplicate)
+            .map(([key, value]) => `${key}: ${value || 'N/A'}`) // Combine key and value
+            .join(', '); // Join the properties with commas
+      }).join('<br>') // Separate each record with a line break
+    : 'No duplicates found.';
+
+  // Combine the initial message with the duplicates message
+  const message = ` ${duplicateRecordsMsg}`;
+
+  // Display the formatted message in a warning box with HTML formatting
+  ElMessageBox.confirm(
+    message, // Combined message with dynamic properties and HTML line breaks
+    'Warning',
+    {
+      confirmButtonText: 'Proceed to Create',
+      cancelButtonText: 'Cancel',
+      type: 'warning',
+      dangerouslyUseHTMLString: true, // Enable HTML rendering in the message box
+    }
+  )
+    .then(() => {
+      // Proceed nonethess 
+ 
+      CreateRecord(formData)
+                  .then(() => {
+                    // This block will be executed after CreateRecord succeeds
+                    goBack(); // Call goBack after successful record creation
+                  })
+                  .catch((error) => {
+                    // Handle any errors that occur during CreateRecord
+                    console.error("Error creating record:", error);
+                    
+                  });
+
+ 
+    })
+    .catch(() => {
+      console.log("cancelled")
+    });
+};
+
+
+
+
+ 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
@@ -1100,34 +1198,55 @@ const submitForm = async () => {
 
 
       if (newRecord.value) {
-        formData.isApproved = 'Pending'
-        formData.code = shortid.generate()
+            formData.isApproved = 'Pending';
+            formData.code = shortid.generate();
+            formData.checkFields = ["name", "county_id"]; // additional checks for duplicates
 
-        await CreateRecord(formData)
+            // Perform the duplicate check first
+            duplicatePreCheck(formData)
+              .then(response => {
+                console.log('Success:', response);
+                
+                CreateRecord(formData)
+                  .then(() => {
+                    // This block will be executed after CreateRecord succeeds
+                    goBack(); // Call goBack after successful record creation
+                  })
+                  .catch((error) => {
+                    // Handle any errors that occur during CreateRecord
+                    console.error("Error creating record:", error);
+                    
+                  });
 
-        console.log('New form', formData);
+              })
+              .catch(error => {
+                // Check if duplicates were found 
+                  openMessageBox(error.response.data.message,error.response.data.duplicates )
+                  // Prompt user for confirmation 
+                console.error('Error during duplicate check:', error);
+                // Handle duplicate check error (e.g., server issues)
+              });
+          } else {
+            // Calculate area using Turf.js if newRecord is not present
+            const areaSquareMeters = turf.area(formData.geom);
+            const areaHectares = areaSquareMeters / 10000;
+            formData.area = areaHectares.toFixed(4);
 
-      } else {
+            // Proceed to update the record if no new record creation
+            updateOneRecord(formData)
+              .then(updateResponse => {
+                console.log('Record updated successfully:', updateResponse);
+                // Handle the successful update here
+              })
+              .catch(updateError => {
+                console.error('Error during record update:', updateError);
+                // Handle server error or other issues
+              });
+          }
 
 
-          // Calculate the area using Turf.js
-          const areaSquareMeters = turf.area(formData.geom);
 
-          // Convert square meters to hectares
-          const areaHectares = areaSquareMeters / 10000;
-            formData.area = areaHectares.toFixed(4)
-
-
-
-        await updateOneRecord(formData)
-
-        console.log('Edited form', formData);
-
-
-      }
-
-
-      goBack()
+      //goBack()
 
       // push({
       //    name: 'Health'
