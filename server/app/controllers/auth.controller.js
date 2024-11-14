@@ -817,6 +817,8 @@ exports.WardByLocationController = (req, res) => {
       let ward = {
         id: intersectingPolygon.id,
         name: intersectingPolygon.name,
+        subcounty_id: intersectingPolygon.subcounty_id,
+        county_id: intersectingPolygon.county_id,
         code: intersectingPolygon.code,
         bbox: bbox,
       };
