@@ -31,6 +31,7 @@ module.exports = function (app) {
   app.get('/api/auth/county', controller.countyController)
   app.post('/api/auth/county/one', controller.getOneCountyController)
   app.post('/api/auth/county/location', controller.countyByLocationController)
+  app.post('/api/auth/ward/location', controller.WardByLocationController)
 
 
   app.post('/api/auth/county/post', controller.countyPostController)

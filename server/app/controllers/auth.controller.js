@@ -798,6 +798,40 @@ exports.countyByLocationController = (req, res) => {
 
 }
 
+exports.WardByLocationController = (req, res) => {
+  var reg_model = 'ward'
+  var point = req.body.MyLocation
+  console.log(point)
+ 
+  db.models[reg_model].findAll().then((features) => {
+    let intersectingPolygon = null;
+    for (let feature of features) {
+      if (turf.booleanPointInPolygon(point, feature.geom)) {
+        intersectingPolygon = feature;
+        break;
+      }
+    }
+    if (intersectingPolygon) {
+      const bbox = turf.bbox(intersectingPolygon.geom);
+  
+      let ward = {
+        id: intersectingPolygon.id,
+        name: intersectingPolygon.name,
+        code: intersectingPolygon.code,
+        bbox: bbox,
+      };
+  
+      res.status(200).send([ward]);
+    } else {
+      // Route for handling requests when there is no intersecting polygon
+      console.log('No intersecting polygon found');
+      res.status(500).send({ message: 'Unable to determine your ward based on your location' });
+    }
+  });
+  
+    
+
+}
 
 exports.countyPostController = async (req, res) => {
   console.log('getting counties......')
