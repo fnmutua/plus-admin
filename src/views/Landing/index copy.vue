@@ -1,60 +1,23 @@
 <template>
   <BaseLayout>
-  <!--  <div class="hero">
-     <div class="hero-content">
-       <h1>Welcome to KeSMIS</h1>
-       <p>Kenya Slum Management Information System</p>
-     
- 
-       
-         <el-button type="primary" size="large"   @click="navigateTo('get-started')">Get Started</el-button>
-
-      
-        <el-button type="primary" size="large" @click="navigateTo('grm')" plain>File Grievance</el-button>
- 
-
-      
-
-
-     
-
-     </div>
-     <div class="hero-image">
-       <img src="@/assets/svgs/kisip.svg" alt="Hero Image" />
-     </div>
-   </div> -->
-
-   <div class="hero">
+    <div class="hero">
       <div class="hero-content">
-        <h1>Welcome to KeSMIS</h1>
-        <h2>Kenya Slum Management Information System</h2>
+        <h1>Affordable Housing Program</h1>
+        <h2>Project Management System</h2>
 
         <p>
-          This is the national geodatabase for slums and informal settlements across Kenya. It provides a centralized platform for real-time data collection, storage, and visualization, supporting evidence-based decision-making in urban planning, policy formulation, and development initiatives. 
+          The AHP Project Management System is a platform developed for Kenya's
+          Affordable Housing Program. It supports real-time monitoring of all
+          AHP projects in Kenya.
         </p>
 
         <el-button type="primary"  :icon="Lock" size="large" @click="navigateTo('get-started')">
           Login
         </el-button>
 
-       
-
-        <el-button  plain type="tertiary" size="large" :icon="More"      @click="navigateTo('about')">
-          More
+        <el-button  plain type="warning" size="large"  @click="navigateTo('about')">
+          More ...
         </el-button>
-
-        <p class="grievance-message">
-            If you have a grievance against the KISIP project or its actors, you can 
-            <el-button  plain type="warning" size="large" :icon="ChatDotRound"      @click="navigateTo('grm')">
-          File a Grievance 
-        </el-button>
-            send us an email at 
-            <a href="mailto:kisip2info@housingandurban.go.ke" class="grievance-email">kisip2info@housingandurban.go.ke </a>, 
-            or call our helpline at 
-            <a href="tel:+1234567890" class="grievance-phone">0800 000 000 000</a>.
-        </p>
-
-
 
         <el-divider style="margin-top:50px; max-width: 99%; color: var(--el-color-success-light-8 )">
           <el-icon style="color:green " ><star-filled /> </el-icon>
@@ -64,18 +27,18 @@
              
           <el-row>
           <el-col :span="6">
-            <el-statistic title="# Settlements" :value="NumSettlements" />
+            <el-statistic title="# Social Housing Units" :value="social" />
           </el-col>
          
           <el-col :span="6">
-            <el-statistic title="# Average Settlement size (m²)" :value="AvgSize" />
+            <el-statistic title="# Affordable Units" :value="affordable" />
           </el-col>
           <el-col :span="6">
-            <el-statistic title="# Projects" :value="TotalProjs" />
+            <el-statistic title="# Institutional Units" :value="Institutional" />
+
           </el-col>
-          
           <el-col :span="6">
-            <el-statistic title="# Average Household Size" :value="avgHHSize" />
+            <el-statistic title="# Market Stalls" :value="markets" />
 
           </el-col>
 
@@ -96,304 +59,132 @@
         </el-carousel>
       </div>
     </div>
-
- </BaseLayout>
+  </BaseLayout>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { ElButton, ElCarousel, ElCarouselItem, ElImage, ElCol, ElRow, ElStatistic, ElDivider, ElIcon, ElCard    } from "element-plus";
-import BaseLayout from './BaseLayout.vue';
-import { StarFilled,Lock,ChatDotRound,More } from '@element-plus/icons-vue'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { ElButton, ElCarousel, ElCarouselItem, ElImage, ElCol, ElRow, ElStatistic, ElDivider, ElIcon, ElCard } from "element-plus";
+import BaseLayout from "./BaseLayout.vue";
+import { StarFilled,Lock } from '@element-plus/icons-vue'
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
-
 
 const router = useRouter();
 
-
-
 // Function to handle button navigation
 const navigateTo = (page: string) => {
- switch (page) {
-   case 'get-started':
-     router.push('/login'); // Navigate to Get Started page
-     break;
-   case 'grm':
-     router.push('/grm'); // Navigate to File Grievance page
-     break;
-     case 'about':
-     router.push('/about'); // Navigate to File Grievance page
-     break;
-   default:
-     router.push('/'); // Navigate to Home or fallback page
-     break;
- }
+  switch (page) {
+    case "get-started":
+      router.push("/login");
+      break;
+    case "about":
+      router.push("/grm");
+      break;
+    default:
+      router.push("/");
+      break;
+  }
 };
 
-
+// Array of carousel image URLs
 const carouselImages = [
-"/landing/img001.png",
-"/landing/img002.png",
-"/landing/img003.png",
-"/landing/img004.png",
-"/landing/img005.png",
-"/landing/img006.png",
+  "https://bomayangu.go.ke/media/projects/mokowe-affordable-housing-project-lamu/images/thumb/image_2.jpg",
+  "https://bomayangu.go.ke/media/projects/meru-affordable-housing-project-meru-2-meru-county/images/thumb/image_2.jpg",
+  "https://bomayangu.go.ke/media/projects/lurambi-affordable-housing-project-kakamega-county/images/thumb/image_2.jpg",
+  "https://bomayangu.go.ke/media/projects/voi-pool-house-affordable-housing/images/thumb/image_2.jpg",
+  "https://bomayangu.go.ke/media/projects/bungoma-affordable-housing-project/images/thumb/image_2.jpg",
+  "https://bomayangu.go.ke/media/projects/bahati-affordable-housing-project-nakuru-county/images/thumb/image_2.jpg",
+  "https://bomayangu.go.ke/media/projects/blue-valley-affordable-housing-project-nyeri/images/thumb/image_2.jpg",
+  "https://bomayangu.go.ke/media/projects/vihiga-affordable-housing-project/images/thumb/image_2.jpg",
+  "https://bomayangu.go.ke/media/projects/emgwen-affordable-housing-project-nandi-county/floor_plans/floor_plan_1.png"
+
 ];
 
 
-const NumSettlements=ref(0)
-const AvgSize=ref(0)
-const TotalProjs=ref(0)
-const avgHHSize=ref(0)
 
-const getNumberOFSettlements= async ( ) => { 
+const social = ref();
+const affordable = ref();
+const Institutional =ref ();
+const markets = ref();
 
-  const formData = {
+const components=ref([
+    {
+        "label": "Markets",
+        "value": 5,
+        "programme": 2
+    },
+    {
+        "label": "Institutional",
+        "value": 1,
+        "programme": 1
+    },
+    {
+        "label": "Social",
+        "value": 3,
+        "programme": 1
+    },
+    {
+        "label": "Affordable",
+        "value": 4,
+        "programme": 1
+    }
+])
 
-    model: 'settlement',
-    summaryField:"id",
-    summaryFunction:"count",
-    groupFields:[ ],
-    filters : [],
-    filterValues : [],
-    associated_multiple_models: [],
-  }; 
-  try {
-      const response =  await getSummarybyFieldFromMultipleIncludes(formData)
-    console.log('summary  :', response);
-  
+const summaryByComponent=ref([])
+const getCategorySummary= async ( ) => { 
 
-    const summary =response.Total
+    const formData = {
 
+       model: 'project',
+       summaryField:"number_of_units",
+       summaryFunction:"SUM",
+       groupFields:["component_id"],
+       filters : [],
+       filterValues : [],
+       associated_multiple_models: [],
+     };
     
-
-          console.log('summary2  :', summary[0].count);
-      
-          NumSettlements.value=summary[0].count
-          
-
-  } catch (error) {
-    console.error('Error fetching project_activity:', error);
-  }
-
-
-
-};
-
-const avgSizeSettlements= async ( ) => { 
-
-  const formData = {
-
-    model: 'settlement',
-    summaryField:"area",
-    summaryFunction:"AVG",
-    groupFields:[ ],
-    filters : [],
-    filterValues : [],
-    associated_multiple_models: [],
-  }; 
-  try {
-      const response =  await getSummarybyFieldFromMultipleIncludes(formData)
-    console.log('summary  :', response);
-
-
-    const summary =response.Total
-
     
+     try {
+        const response =  await getSummarybyFieldFromMultipleIncludes(formData)
+       console.log('summary  :', response);
+       console.log('components.value  :', components.value);
 
-          let are= summary[0].AVG 
-      
-          AvgSize.value=are.toFixed(0)
-          
+       const summary =response.Total
 
-  } catch (error) {
-    console.error('Error fetching project_activity:', error);
-  } 
-};
+       // Appending title to data array by matching component_id
+       summary.forEach(item => {
+                // Find the matching title from the titles array
+                const matchingTitle = components.value.find(title => title.value == item.component_id);
+                if (matchingTitle) {
+                    // Append title to the item
+                    item.title = matchingTitle.label;
+                }
+            });
 
-const NumOfProjects= async ( ) => { 
+            console.log('summary2  :', summary);
+            summaryByComponent.value = summary
 
-      const formData = {
-
-        model: 'project',
-        summaryField:"id",
-        summaryFunction:"count",
-        groupFields:[ ],
-        filters : [],
-        filterValues : [],
-        associated_multiple_models: [],
-      }; 
-      try {
-          const response =  await getSummarybyFieldFromMultipleIncludes(formData)
-        console.log('summary  :', response);
-
-
-        const summary =response.Total
-
-        
-
-        TotalProjs.value= summary[0].count 
-          
-              
-
-      } catch (error) {
-        console.error('Error fetching project_activity:', error);
-      } 
-};
-
-const AvgHHSize= async ( ) => { 
-
-const formData = {
-
-  model: 'households',
-  summaryField:"hh_size",
-  summaryFunction:"AVG",
-  groupFields:[ ],
-  filters : [],
-  filterValues : [],
-  associated_multiple_models: [],
-}; 
-try {
-    const response =  await getSummarybyFieldFromMultipleIncludes(formData)
-  console.log('summary  :', response);
-
-
-  const summary =response.Total 
+              social.value = Number((summary.find(item => item.component_id ==3)).SUM);
+              affordable.value = Number((summary.find(item => item.component_id ==4)).SUM);
+              Institutional.value = Number((summary.find(item => item.component_id ==1)).SUM);
+              markets.value = Number((summary.find(item => item.component_id ==5)).SUM);
  
-  let hh= parseFloat(summary[0].AVG)
-    console.log(hh)
-    avgHHSize.value=hh.toFixed(0)
-      
-        
+            
+    
+     } catch (error) {
+       console.error('Error fetching project_activity:', error);
+     }
+   
+   
+   
+   };
 
-} catch (error) {
-  console.error('Error fetching project_activity:', error);
-} 
-};
+  // getCategorySummary()
 
 
-
-getNumberOFSettlements()
-avgSizeSettlements()
-NumOfProjects()
-AvgHHSize()
 </script>
-
-<!-- <style scoped>
-.landing-page {
- font-family: 'Helvetica Neue', Arial, sans-serif;
-}
-
-.header-content,
-.footer-content {
- max-width: 1200px;
- margin: 0 auto;
- display: flex;
- justify-content: space-between;
- align-items: center;
- padding: 20px;
-}
-
-.logo img {
- height: 50px;
-}
-
-.hero {
- position: relative;
- display: flex;
- justify-content: center;
- align-items: center;
- flex-direction: column;
- text-align: center;
- padding: 100px 20px;
- height: 80vh;
- overflow: hidden;
-}
-
-.hero::before {
- content: '';
- position: absolute;
- top: 0;
- left: 0;
- right: 0;
- bottom: 0;
- background: linear-gradient(45deg, transparent 49%, #ececec 49% 51%, transparent 51%), 
-             linear-gradient(-45deg, transparent 49%, #ececec 49% 51%, transparent 51%);
- 
- background-color: #ffffff;
- background-image: url('@/assets/imgs/background.png'); /* Correct syntax for background image */
-
- opacity: 0.1;
- z-index: -1; /* Ensure the background is behind the content */
-}
-
-.hero > * {
- position: relative;
- z-index: 1; /* Ensure content is above the background */
-}
-
-
-.xhero {
- display: flex;
- justify-content: center;
- align-items: center;
- flex-direction: column;
- text-align: center;
- padding: 100px 20px;
- background: radial-gradient(circle at center, #e0dff5 15%, transparent 2%) 0 0,
-             repeating-linear-gradient(0deg, transparent 2.5%, #ffffff 7%, #ffffff 9%, transparent 10%) 0 0,
-             linear-gradient(45deg, transparent 49%, #e0dff5 49%, #e0dff5 51%, transparent 51%) 0 0,
-             linear-gradient(-45deg, transparent 49%, #e0dff5 49%, #e0dff5 51%, transparent 51%) 0 0;
- background-size: 6em 6em;
- background-color: #ffffff;
- background-image: url('@/assets/imgs/logo.png'); /* Correct syntax for background image */
- opacity: 1;
- height: 70vh;
-}
-
-.hero-content h1 {
- font-size: 5rem;
- margin-bottom: 1rem;
- font-weight: bold;
-}
-
-.hero-content p {
- font-size: 1.5rem;
- margin-bottom: 2rem;
- color: #696969;
-}
-
-.hero-image img {
- max-width: 70%;
- height: auto;
- margin-top: 30px;
-}
-
-
-/* Media Query for small screens */
-@media (max-width: 768px) {
- .hero {
-   padding: 30px 15px; /* Further reduced padding for small screens */
-   height: auto; /* Adjust height */
- }
-
- .hero-content h1 {
-   font-size: 2rem; /* Smaller font size for small screens */
- }
-
- .hero-content p {
-   font-size: 1rem; /* Smaller font size for small screens */
- }
-
- .hero-image img {
-   max-width: 80%; /* Slightly reduce image size */
-   margin-top: 20px;
- }
-}
-
-</style> -->
-
 
 <style scoped>
 /* Full-page Background Styling */
@@ -521,25 +312,4 @@ body {
 </style>
 
 
-<style scoped>
-.grievance-message {
-  font-size: 1rem;
-  color: #333;
-  line-height: 1.5;
-}
-
-.grievance-link, 
-.grievance-email, 
-.grievance-phone {
-  color: #007bff; /* Link color */
-  text-decoration: underline;
-  font-weight: bold;
-}
-
-.grievance-link:hover, 
-.grievance-email:hover, 
-.grievance-phone:hover {
-  text-decoration: none; /* Remove underline on hover */
-  color: #0056b3; /* Darker color on hover */
-}
-</style>
+ 

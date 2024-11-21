@@ -572,18 +572,26 @@ const submitResolutionForm = async () => {
       form.value.prev_status = Grievance.value.status
       form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
 
+      let msg = ''
+
       if (form.value.new_status == 'Escalated') {
         if (current_user_roles[0] == 'settlement') {
           form.value.current_level = 'county'
+          msg="Your grievance has been escalated to the county"
 
         } else {
           form.value.current_level = 'national'
+          msg="Your grievance has been escalated to the national team"
+
         }
 
       }
       else {
         form.value.current_level = Grievance.value.current_level
+        msg=form.value.action
       }
+
+      
 
       console.log("checking issue.............")
       console.log(form.value.new_status)
@@ -603,7 +611,8 @@ const submitResolutionForm = async () => {
         new_status: form.value.new_status,
         recipient: Grievance.value.phone,
         grievance_id: Grievance.value.id,
-        action: form.value.action,
+        //action: form.value.action,
+        action: msg,
         current_level: form.value.current_level,
         action_by: userInfo.id,
         action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',

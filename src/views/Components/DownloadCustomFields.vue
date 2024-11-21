@@ -16,7 +16,7 @@
       <el-form-item>
         <el-row :gutter="20">
           <!-- Add gutter for spacing between columns -->
-          <el-col v-for="(field, index) in availableFields" :key="index" :span="6">
+          <el-col v-for="(field, index) in availableFields" :key="index" :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
             <el-checkbox :label="field" v-model="selectedFields">
               <el-tooltip v-if="field.length > 20" :content="field" placement="top">
                 <span>{{ field.slice(0, 20) }}...</span>
@@ -33,16 +33,22 @@
     </el-form>
 
     <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="showDownloadDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="downloadCSV">
-          Download Filtered ( {{ filter_len }})<el-icon class="el-icon--right"><Filter /></el-icon>
-        </el-button>
-        <el-button type="primary" @click="downloadAll">
-          Download All ({{ all_len }}) <el-icon class="el-icon--right"><Document /></el-icon>
-        </el-button>
-      </div>
-    </template>
+  <div class="dialog-footer">
+    <div class="footer-buttons">
+      <el-button @click="showDownloadDialog = false" class="footer-button">
+        Cancel
+      </el-button>
+      <el-button type="primary" @click="downloadCSV" class="footer-button">
+        Download Filtered ({{ filter_len }})
+        <el-icon class="el-icon--right"><Filter /></el-icon>
+      </el-button>
+      <el-button type="primary" @click="downloadAll" class="footer-button">
+        Download All ({{ all_len }})
+        <el-icon class="el-icon--right"><Document /></el-icon>
+      </el-button>
+    </div>
+  </div>
+</template>
   </el-dialog>
 </template>
 
@@ -311,3 +317,29 @@ const downloadAll = async () => {
   margin-left: 5px;
 }
 </style>
+
+<style scoped>
+.dialog-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.footer-buttons {
+  display: flex;
+  flex-wrap: wrap; /* Allows buttons to wrap to the next line */
+  gap: 10px; /* Space between buttons */
+}
+
+.footer-button {
+  flex: 1 1 auto; /* Allow buttons to expand or shrink equally */
+}
+
+@media (max-width: 600px) {
+  .footer-buttons {
+    flex-direction: column; /* Stack buttons vertically on small screens */
+    align-items: stretch; /* Make buttons full width */
+  }
+}
+</style>
+
