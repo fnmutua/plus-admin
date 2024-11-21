@@ -1559,7 +1559,7 @@ exports.modelImportGrievances = async (req, res) => {
       }
     };
     
- exports.getGrievancesByKeyword = async (req, res) => {
+ exports.xgetGrievancesByKeyword = async (req, res) => {
       console.log('--------------------------------------------getGrievancesByKeyword',);
       const user = req.thisUser;
     
@@ -1702,7 +1702,157 @@ exports.modelImportGrievances = async (req, res) => {
         });
     };
     
+ exports.getGrievancesByKeyword = async (req, res) => {
+      console.log('--------------------------------------------getGrievancesByKeyword');
+      const user = req.thisUser;
+    
+      const currentUserRoles = await user.getRoles();
+    
+      const searchString = req.body.searchString;
+      const userCounty = user.county_id;
+      const filters = req.body.filters || [];
+      const filterValues = req.body.filterValues || [];
+      const filterFunctions = req.body.filterFunctions || [];
+      let limit = req.body.limit || 10;
+      let page = req.body.page || 1;
+    
+      console.log('Current >>>> User Roles:', currentUserRoles);
+    
+      // Initialize findAndCountOptions with common properties
+      const findAndCountOptions = {
+        where: {
+          isgbv: { [Op.not]: true }, // Exclude grievances where isGBV is true
 
+        },
+        limit: limit,
+        offset: (page - 1) * limit,
+      };
+
+
+
+       filters.forEach((filter, index) => {
+    const value = filterValues[index];
+    const functionType = filterFunctions[index] || 'eq'; // Default to 'eq' if no function provided
+
+    // Map functionType to Sequelize operators
+    const operatorMap = {
+      eq: op.eq,
+      ne: op.ne,
+      like: op.like,
+      iLike: op.iLike,
+      in: op.in,
+      notIn: op.notIn,
+      gt: op.gt,
+      lt: op.lt,
+      gte: op.gte,
+      lte: op.lte
+    };
+
+    const operator = operatorMap[functionType] || op.eq; // Default to 'eq' if unrecognized functionType
+
+    if (Array.isArray(value)) {
+      findAndCountOptions.where[filter] = {
+        [operator]: value,
+      };
+    } else {
+      findAndCountOptions.where[filter] = {
+        [operator]: value,
+      };
+    }
+  });
+
+
+
+    
+      const attributes = Object.keys(db.models.grievance.rawAttributes);
+      attributes.push(
+        [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'), 'name'],
+        [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), '***REDACTED***'), 'national_id']
+      );
+    
+      findAndCountOptions.attributes = attributes;
+    
+      const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
+      const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+    
+      if (!hasGRMRole && !hasSuperAdminRole) {
+        return res.status(200).send({
+          data: [],
+          total: 0,
+          code: '9999',
+          message: 'Unauthorized access to grievances denied',
+        });
+      }
+    
+      if (!hasSuperAdminRole) {
+        const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
+        const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
+        if (hasCountyAdminRole) {
+          const countyId = countyAdminRole?.user_roles?.county_id;
+          if (countyId) {
+            findAndCountOptions.where.county_id = countyId;
+            console.log('Applying county filter:', countyId);
+          }
+        }
+      }
+    
+      if (searchString) {
+        const searchConditions = [
+          Sequelize.where(
+            Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'),
+            { [Op.iLike]: `%${searchString}%` }
+          ),
+          Sequelize.where(
+            Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), '***REDACTED***'),
+            { [Op.iLike]: `%${searchString}%` }
+          ),
+        ];
+    
+        ['code', 'description', 'phone', 'plea', 'nature'].forEach(field => {
+          searchConditions.push({
+            [field]: { [Op.iLike]: `%${searchString}%` },
+          });
+        });
+    
+        findAndCountOptions.where[Op.or] = searchConditions;
+      }
+    
+      filters.forEach((filter, index) => {
+        const value = filterValues[index];
+        if (Array.isArray(value)) {
+          findAndCountOptions.where[filter] = { [Op.in]: value };
+        } else {
+          findAndCountOptions.where[filter] = value;
+        }
+      });
+    
+      if (hasSuperAdminRole) {
+        delete findAndCountOptions.where.county_id;
+      }
+    
+      console.log(findAndCountOptions);
+    
+      const associatedModels = req.body.associated_multiple_models || [];
+      if (associatedModels.length > 0) {
+        findAndCountOptions.include = associatedModels.map(model => ({ model: db.models[model] }));
+      }
+    
+      Grievance.findAndCountAll(findAndCountOptions)
+        .then(({ count, rows: grievances }) => {
+          console.log('Total grievances:', count);
+          res.status(200).send({
+            data: grievances,
+            total: count,
+            code: '0000',
+            message: 'Grievances retrieved successfully',
+          });
+        })
+        .catch(error => {
+          console.error('Error fetching grievances:', error);
+          res.status(500).send({ message: 'Unable to retrieve grievances. Please try again later.' });
+        });
+    };
+    
 
  exports.downloadFile = (req, res) => {
       console.log("Received files:", req.body);

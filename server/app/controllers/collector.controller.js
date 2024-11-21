@@ -861,7 +861,7 @@ exports.modelGetSubmissions = (req, res) => {
 
  
  
-              // Select only the desired fields and map settlements
+        // Select only the desired fields and map settlements
         let filteredData = objs.map(submission => {
           return {
             id: submission.id,
@@ -876,9 +876,7 @@ exports.modelGetSubmissions = (req, res) => {
           };
         });
 
-
-
-    
+   
 
      
           res.status(200).send({

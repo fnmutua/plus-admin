@@ -427,7 +427,18 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               },
              },
             
-            
+             {
+              path: 'grc',
+              component: () => import('@/views/Grievances/GRC.vue'),
+             name: 'GRCView',
+             meta: {
+               title: 'GRC',
+               icon:'fluent:people-checkmark-20-filled',
+               role: ['admin', 'super_admin', 'monitoring' , 'staff' ,'monitoring','grm'] ,
+               locationLevel:['national','county','settlement'],
+      
+             }
+            },
            ]
           
           },
@@ -1267,7 +1278,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
        name: 'GBVGrievances',
        meta: {
          title: 'GBV',
-         icon:'svg-spinners:wind-toy',
+         icon:'ph:gender-intersex-bold',
          role: [  'super_admin', 'gbv' ] ,
          locationLevel:['national','county','settlement'],
        }

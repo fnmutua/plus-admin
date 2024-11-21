@@ -1,7 +1,7 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { getCountyListApi } from '@/api/counties'
+import { getCountyListApi,getListWithoutGeo} from '@/api/counties'
 
 import { getGrievances } from '@/api/grievance'
 
@@ -369,14 +369,43 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
-const getIndicatorOptions = async () => {
-  const res = await getCountyListApi({
+const getIndicatorOptions = async (selFilters, selfilterValues) => {
+  const formData = {}
+   formData.limit = 1000
+  formData.page = 1
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = selFilters
+  formData.filterValues = selfilterValues
+  formData.filterFunctions = filterFunction
+
+  formData.associated_multiple_models = associated_multiple_models
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getGrievances(formData)
+ 
+  makeOptions(res.data)
+  
+}
+
+
+const xgetIndicatorOptions = async () => {
+  const res = await getListWithoutGeo({
     params: {
       //   pageIndex: 1,
       //   limit: 100,
       curUser: 1, // Id for logged in user
       model: 'grievance',
-      searchField: 'name',
+      searchField: 'status',
       searchKeyword: '',
       sort: 'ASC'
     }
@@ -398,7 +427,7 @@ const getIndicatorOptions = async () => {
 const makeOptions = (list) => {
   console.log('making the options..............', list)
   GrvOptions.value = []
-  list.value.forEach(function (arrayItem: { id: string; type: string }) {
+  list.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
     countyOpt.label = arrayItem.code
@@ -1459,6 +1488,10 @@ const tableRowClassName = (data) => {
 
 const getFilteredBySearchData = async (searchKey) => {
   console.log('getFilteredBySearchData')
+
+  console.log('filters', filters);
+console.log('filterValues', filterValues);
+
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -1473,14 +1506,16 @@ const getFilteredBySearchData = async (searchKey) => {
   //formData.assocModel = associated_Model
 
   // - multiple filters -------------------------------------
-  formData.filters = filters.value
-  formData.filterValues = filterValues.value
+  formData.filters = filters
+  formData.filterValues = filterValues
+  formData.filterFunctions = filterFunction
+
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = []
   //formData.cache_key = 'SeacrchByKey_' + search_string.value
 
   //-------------------------
-  console.log(formData)
+  console.log('SeacrchByKey_', formData)
 
   const res = await getByKeyword(formData)
 
@@ -1528,6 +1563,9 @@ const handleSelectStatus = async (status: any) => {
   getFilteredData(filters, filterValues)
 }
 
+
+ 
+
 const StatusOptions = [
   {
     value: 'Sorting',
@@ -1542,22 +1580,13 @@ const StatusOptions = [
     value: 'Escalated',
     label: 'Escalated',
   },
-  {
-    value: 'Resolved',
-    label: 'Resolved',
-  },
-  {
-    value: 'Rejected',
-    label: 'Rejected',
-  },
+ 
+  
   {
     value: 'Referred',
     label: 'Referred',
   },
-  {
-    value: 'Closed',
-    label: 'Closed',
-  },
+   
 ]
 
 
@@ -1598,6 +1627,9 @@ const handleRowDblClick = (row) => {
 
 }
 
+const grv_name =ref()
+const grv_code =ref()
+const grv_status =ref()
 </script>
 
 <template>
@@ -1611,18 +1643,18 @@ const handleRowDblClick = (row) => {
       </div>
 
 
-      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select v-model="grv_name" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name, settlement, complaint,phone .."   style=" margin-right: 5px;" />
 
       <!-- Title Search -->
-      <el-select v-model="value3" :onChange="handleSelectGrievance" :onClear="handleClear" multiple clearable filterable
+      <el-select v-model="grv_code" :onChange="handleSelectGrievance" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter by Code" style=" margin-right: 5px;">
         <el-option v-for="item in GrvOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
 
       <!-- status Search -->
-      <el-select v-model="value3" :onChange="handleSelectStatus" :onClear="handleClear" multiple clearable filterable
+      <el-select v-model="grv_status" :onChange="handleSelectStatus" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Filter By Status" style=" margin-right: 5px;">
         <el-option v-for="item in StatusOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
