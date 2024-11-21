@@ -24,12 +24,12 @@
               :ellipsis="false"
             >
               <el-menu-item index="1">Home</el-menu-item>
-              <el-menu-item index="2">Dashboard</el-menu-item>
               <el-menu-item index="3">Grievances</el-menu-item>
               <el-menu-item index="5">Contact</el-menu-item>
               <el-menu-item index="4">About</el-menu-item>
               <el-menu-item index="6">FAQs</el-menu-item>
-              <el-menu-item index="7">
+              <el-menu-item index="2">Login</el-menu-item>
+               <el-menu-item index="7">
                 <Icon :icon="isDark ? 'carbon:moon' : 'carbon:sun'" inline />
               </el-menu-item>
             </el-menu>

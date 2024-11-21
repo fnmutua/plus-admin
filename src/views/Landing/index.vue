@@ -87,7 +87,7 @@
 
       <!-- Carousel Component -->
       <div class="hero-carousel">
-        <el-carousel :interval="5000" height="70vh" arrow="always"  motion-blur>
+        <el-carousel :interval="5000" height="70vh" arrow="always"  >
           <el-carousel-item v-for="(image, index) in carouselImages" :key="index">
              <el-image   fit="cover"  :src="image" class="carousel-image" />
           </el-carousel-item>
@@ -457,15 +457,18 @@ body {
 /* Carousel Section */
 .hero-carousel {
   flex: 1;
+  border-radius: 10px;
+
+
 }
 
 .carousel-image {
   width: 100%;
   height: auto;
-  object-fit: contain;    /* Keep the image aspect ratio intact */
   object-position: center; /* Center the image */
-  border-radius: 12px;
-  background-color: #666;
+  border-radius: 10px;
+
+  background-color: #66666600;
 }
 .el-col {
   text-align: center;
@@ -545,44 +548,4 @@ body {
   text-decoration: none; /* Remove underline on hover */
   color: #0056b3; /* Darker color on hover */
 }
-
-
-.el-carousel__item h3 {
-  color: #475669;
-  opacity: 0.75;
-  line-height: 300px;
-  margin: 0;
-  text-align: center;
-}
-
-.el-carousel__item:nth-child(2n) {
-  background-color: #99a9bf;
-}
-
-.el-carousel__item:nth-child(2n + 1) {
-  background-color: #d3dce6;
-}
-
-.el-carousel__arrow {
-  background-color: black; /* Black background for the arrows */
-  border-radius: 50%;      /* Make the arrows circular */
-  width: 40px;             /* Adjust the size of the arrow buttons */
-  height: 40px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  opacity: 0.8;            /* Slightly transparent for a sleek look */
-  transition: opacity 0.3s ease;
-}
-
-.el-carousel__arrow:hover {
-  opacity: 1;              /* Fully opaque on hover */
-}
-
-.el-carousel__arrow i {
-  color: white;            /* White arrow icon for contrast */
-  font-size: 16px;         /* Adjust the size of the arrow icon */
-}
-
-
 </style>
