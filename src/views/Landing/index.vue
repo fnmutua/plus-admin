@@ -48,7 +48,7 @@
             <el-button  plain type="warning" size="large" :icon="ChatDotRound"      @click="navigateTo('grm')">
           File a Grievance 
         </el-button>
-            send us an email at 
+            , send us an email at 
             <a href="mailto:kisip2info@housingandurban.go.ke" class="grievance-email">kisip2info@housingandurban.go.ke </a>, 
             or call our helpline at 
             <a href="tel:+1234567890" class="grievance-phone">0800 000 000 000</a>.
@@ -56,27 +56,25 @@
 
 
 
-        <el-divider style="margin-top:50px; max-width: 99%; color: var(--el-color-success-light-8 )">
+        <el-divider style="margin-top:10px; max-width: 99%; color: var(--el-color-success-light-8 )">
           <el-icon style="color:green " ><star-filled /> </el-icon>
         </el-divider>
         
-        <el-card  shadow="hover" style=" margin-top:58px; max-width: 99%; background-color: var(--el-color-success-light-3 )" > 
-             
+        <el-card  shadow="hover" style=" margin-top:20px; max-width: 99%; background-color: var(--el-color-success-light-3 )" > 
           <el-row>
           <el-col :span="6">
             <el-statistic title="# Settlements" :value="NumSettlements" />
           </el-col>
          
           <el-col :span="6">
-            <el-statistic title="# Average Settlement size (m²)" :value="AvgSize" />
+            <el-statistic title="# Avg. Settlement size" :value="AvgSize" />
           </el-col>
           <el-col :span="6">
             <el-statistic title="# Projects" :value="TotalProjs" />
           </el-col>
           
           <el-col :span="6">
-            <el-statistic title="# Average Household Size" :value="avgHHSize" />
-
+            <el-statistic title="# Avg HH Size" :value="avgHHSize" />
           </el-col>
 
         </el-row>
@@ -89,9 +87,9 @@
 
       <!-- Carousel Component -->
       <div class="hero-carousel">
-        <el-carousel :interval="5000" height="70vh" arrow="always">
+        <el-carousel :interval="5000" height="70vh" arrow="always"  motion-blur>
           <el-carousel-item v-for="(image, index) in carouselImages" :key="index">
-             <el-image :src="image" class="carousel-image" />
+             <el-image   fit="cover"  :src="image" class="carousel-image" />
           </el-carousel-item>
         </el-carousel>
       </div>
@@ -139,6 +137,8 @@ const carouselImages = [
 "/landing/img004.png",
 "/landing/img005.png",
 "/landing/img006.png",
+"/landing/img007.png",
+"/landing/img008.png",
 ];
 
 
@@ -461,12 +461,12 @@ body {
 
 .carousel-image {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  object-fit: contain;    /* Keep the image aspect ratio intact */
+  object-position: center; /* Center the image */
   border-radius: 12px;
-  background-color: #666
+  background-color: #666;
 }
-
 .el-col {
   text-align: center;
 }
@@ -503,14 +503,17 @@ body {
   .hero-carousel {
     margin-top: 30px;
     width: 100%;
+    
   }
-
   .carousel-image {
     width: 100%;
-    height: auto;
-    /* Preserve the aspect ratio */
-    border-radius: 12px;
+    height: auto; /* Preserve aspect ratio */
+    object-fit: cover; /* Ensure the image fills the container */
+    border-radius: 12px; /* Apply rounded corners */
+    overflow: hidden; /* Ensure rounded corners are respected */
+    display: block; /* Prevent inline spacing issues */
   }
+
 
   .el-statistic {
     --el-statistic-content-font-size: 12px; /* Reduce content font size */
@@ -542,4 +545,44 @@ body {
   text-decoration: none; /* Remove underline on hover */
   color: #0056b3; /* Darker color on hover */
 }
+
+
+.el-carousel__item h3 {
+  color: #475669;
+  opacity: 0.75;
+  line-height: 300px;
+  margin: 0;
+  text-align: center;
+}
+
+.el-carousel__item:nth-child(2n) {
+  background-color: #99a9bf;
+}
+
+.el-carousel__item:nth-child(2n + 1) {
+  background-color: #d3dce6;
+}
+
+.el-carousel__arrow {
+  background-color: black; /* Black background for the arrows */
+  border-radius: 50%;      /* Make the arrows circular */
+  width: 40px;             /* Adjust the size of the arrow buttons */
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0.8;            /* Slightly transparent for a sleek look */
+  transition: opacity 0.3s ease;
+}
+
+.el-carousel__arrow:hover {
+  opacity: 1;              /* Fully opaque on hover */
+}
+
+.el-carousel__arrow i {
+  color: white;            /* White arrow icon for contrast */
+  font-size: 16px;         /* Adjust the size of the arrow icon */
+}
+
+
 </style>
