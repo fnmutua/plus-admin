@@ -1176,9 +1176,69 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       },
+
+    
+
+
     ]
 
   },
+
+
+  {
+    path: '/media',
+    component: Layout,
+    redirect: '/data/slums',
+    name: 'Media',
+    meta: {
+      title: 'Media',
+      icon: 'ion:radio-button-on-outline',
+      role: [ 'super_admin', 'admin' ] ,
+      locationLevel:['national','county','settlement'],
+      alwaysShow: false
+    },
+    children: [
+      {
+        path: 'video',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Media/Media.vue'),
+        name: 'Video',
+        meta: {
+          title: 'Video',
+          hidden: false,
+ 
+          icon:'tabler:video-filled'
+        }
+      },
+      {
+        path: 'articles',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Media/Article.vue'),
+        name: 'Articles',
+        meta: {
+          title: 'Articles',
+          hidden: false,
+          icon:'lucide:newspaper'
+        }
+      },
+
+      {
+        path: 'addx',
+        component: () => import('@/views/Media/AddX.vue'),
+        name: 'AddArticleX',
+        meta: {
+          hidden: true,
+          props: true,
+          icon:'bi:house-add',
+          title: 'Add Article'
+        }
+      }, 
+
+    ]
+  
+  },
+
+
 
   {
     path: '/grv',

@@ -1611,6 +1611,15 @@ db.models.settlement.hasMany(db.models.structure, {
 
 
 
+db.models.document.belongsTo(db.models.article, {
+  foreignKey: 'article_id',
+})
+
+db.models.article.hasMany(db.models.document, {
+  foreignKey: 'article_id'
+})
+
+ 
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

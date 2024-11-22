@@ -238,6 +238,15 @@ export const uploadFilesBatch = (data: SettlementType): Promise<IResponse<Settle
 };
 
 
+export const uploadCoverPhoto = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+ 
+  return request.post({
+    url: prod + '/api/v1/upload/cover',
+    data    
+  });
+  
+
+};
 
 
 
