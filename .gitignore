@@ -6,4 +6,5 @@ dist
 /dist*
 *-lock.*
 .env
+.env*
 pnpm-debug
