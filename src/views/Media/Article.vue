@@ -560,6 +560,16 @@ const editStory = (data: TableSlotDefault) => {
 }
 
 
+const onclose = () => {
+
+  console.log('On close.......')
+  showSubmitBtn.value = true
+  showEditSaveButton.value = false
+  AddDialogVisible.value = false
+
+
+}
+
 const DeleteStory = async (data: TableSlotDefault) => {
   console.log('----->', data.id)
   let formData = {}
@@ -696,7 +706,7 @@ const deleteAttachment = async (data: TableSlotDefault) => {
 
 
 
-                <el-tooltip content="Delete" placement="top"  >
+                <el-tooltip content="Delete" placement="top">
 
                   <el-button v-if="showAdminButtons" type="danger" size="small" @click="DeleteStory(article)"
                     :icon="Delete" circle />
@@ -724,9 +734,10 @@ const deleteAttachment = async (data: TableSlotDefault) => {
                     {{ attachment.name }}
                   </el-button>
 
-                <el-tooltip content="Delete" placement="top"  >
-                  <el-button v-if="showAdminButtons" type="text" :icon="Delete" @click="deleteAttachment(attachment)" /> 
-              </el-tooltip>
+                  <el-tooltip content="Delete" placement="top">
+                    <el-button v-if="showAdminButtons" type="text" :icon="Delete"
+                      @click="deleteAttachment(attachment)" />
+                  </el-tooltip>
 
 
 
@@ -742,7 +753,7 @@ const deleteAttachment = async (data: TableSlotDefault) => {
     </el-row>
   </el-card>
 
-  <el-dialog v-model="AddDialogVisible" :title="formHeader" width="500">
+  <el-dialog v-model="AddDialogVisible" :title="formHeader" width="500" :before-close="onclose">
     <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-position="top">
       <el-form-item label="Article Title" prop="title">
         <el-input v-model="ruleForm.title" />
@@ -789,9 +800,9 @@ const deleteAttachment = async (data: TableSlotDefault) => {
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <el-button v-if="!showAdminButtons" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-        <el-button v-if="showAdminButtons" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+        <el-button @click="onclose()">Cancel</el-button>
+        <el-button v-if="!showEditSaveButton" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
 
       </div>
     </template>
@@ -962,6 +973,4 @@ const deleteAttachment = async (data: TableSlotDefault) => {
   padding: 6px 12px;
   background: linear-gradient(90deg, rgb(233, 12, 12), rgb(229, 174, 129));
 }
-
-
 </style>
