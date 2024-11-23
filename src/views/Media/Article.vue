@@ -10,7 +10,7 @@ import {
 
 import { ref, reactive, computed, onMounted } from 'vue'
 import {
-  ElButton, ElCol, ElForm, ElFormItem, ElInput, ElLink, ElTooltip, ElDialog, ElMessage, ElUpload, ElPopover, ElSelect,
+  ElButton, ElCol, ElForm, ElFormItem, ElInput, ElLink, ElTooltip, ElDialog, ElMessage, ElUpload, ElPopover, ElSelect, ElPopconfirm,
   ElRow, ElTable, ElTableColumn, ElCard, ElImage,
 } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -22,7 +22,7 @@ import { getFile } from '@/api/summary'
 
 
 import { defineAsyncComponent, } from 'vue';
-import { useAppStore } from '@/store/modules/app'
+import { useAppStore, useAppStoreWithOut } from '@/store/modules/app'
 
 import {
   searchByKeyWord
@@ -32,11 +32,16 @@ import {
 import { uploadFilesBatch, uploadCoverPhoto, getSettlementListByCounty } from '@/api/settlements'
 
 import { uuid } from 'vue-uuid'
-import { CreateRecord, } from '@/api/settlements'
+import { CreateRecord, updateOneRecord, DeleteRecord } from '@/api/settlements'
 
 
 const { wsCache } = useCache()
-const appStore = useAppStore()
+const appStore = useAppStoreWithOut()
+
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
 
 
 
@@ -76,11 +81,6 @@ const rules = reactive<FormRules>({
 })
 
 
-
-
-const userInfo = wsCache.get(appStore.getUserInfo)
-const showAdminButtons = ref(appStore.getAdminButtons)
-const showEditButtons = ref(appStore.getEditButtons)
 
 
 
@@ -357,6 +357,7 @@ const handleCoverPhoto = (file) => {
 
 
 
+
 const submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
@@ -422,6 +423,76 @@ const submitForm = async (formEl: FormInstance | undefined) => {
   })
 }
 
+
+const editForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate((valid, fields) => {
+    if (valid) {
+      ruleForm.model = model
+      ruleForm.model = 'article'
+      updateOneRecord(ruleForm).then(() => {
+
+        // Attach cover photo
+
+        console.log('coverPhoto.value', coverPhoto.value)
+        const CoverformData = new FormData()
+        CoverformData.append('file', coverPhoto.value.raw);
+        CoverformData.append('id', ruleForm.id)
+        CoverformData.append('model', 'article')
+
+        const CoverformDataRes = uploadCoverPhoto(CoverformData)
+
+
+        // uploading the documents 
+
+        const formData = new FormData()
+        for (var i = 0; i < selectedFiles.value.length; i++) {
+          console.log('------>file', selectedFiles.value[i])
+          var column = 'article_id'
+          formData.append('files', selectedFiles.value[i].raw)
+          formData.append('format', selectedFiles.value[i].name.split('.').pop())
+          formData.append('field_id', 'article_id')
+          formData.append('category', 1)
+          formData.append(column, parseInt(ruleForm.id))
+          formData.append('size', (selectedFiles.value[i].raw.size / 1024 / 1024).toFixed(2))
+          formData.append('createdBy', userInfo.id)
+          formData.append('protected', false)
+
+          //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
+        }
+
+
+        formData.append('code', uuid.v4())
+        const docs = uploadFilesBatch(formData)
+
+
+      })
+
+      // dialogFormVisible.value = false
+
+
+
+
+
+
+
+
+
+
+
+      AddDialogVisible.value = false
+
+
+
+
+    } else {
+      console.log('error submit!', fields)
+    }
+  })
+}
+
+
+
 getFilteredData(filters.value, filterValues.value)
 
 const viewLoading = ref(false)
@@ -463,6 +534,72 @@ const downloadFile = async (data) => {
 
 
 
+const formHeader = ref("Add Article")
+const showSubmitBtn = ref(true)
+const showEditSaveButton = ref(false)
+
+const editStory = (data: TableSlotDefault) => {
+
+  showSubmitBtn.value = false
+  showEditSaveButton.value = true
+
+
+  console.log(data)
+  ruleForm.id = data.id
+  ruleForm.title = data.title
+  ruleForm.description = data.description
+  ruleForm.url = data.url
+  ruleForm.code = data.code
+
+
+
+  formHeader.value = 'Edit Story'
+
+
+  AddDialogVisible.value = true
+}
+
+
+const DeleteStory = async (data: TableSlotDefault) => {
+  console.log('----->', data.id)
+  let formData = {}
+  formData.id = data.id
+  formData.model = model
+  await DeleteRecord(formData)
+
+  // remove the deleted object from array list 
+  let index = tableDataList.value.indexOf(data);
+  if (index !== -1) {
+    console.log('Remove index', index)
+
+    tableDataList.value.splice(index, 1);
+    console.log(tableDataList.value)
+
+  }
+
+
+
+
+  getFilteredData(filters, filterValues)
+}
+
+const deleteAttachment = async (data: TableSlotDefault) => {
+  console.log('----->', data.id)
+  let formData = {}
+  formData.id = data.id
+  formData.model = 'document'
+  await DeleteRecord(formData)
+
+  getFilteredData(filters, filterValues)
+}
+
+
+
+
+
+
+
+
 </script>
 
 <template>
@@ -481,8 +618,9 @@ const downloadFile = async (data) => {
           </template>
 </el-input> -->
 
-        <el-select v-model="search_string" multiple clearable filterable remote :remote-method="searchByNewName"  
-          reserve-keyword  no-match-text='' placeholder="Search an article by its title or part of it ..." style=" margin-right: 5px;" />
+        <el-select v-model="search_string" multiple clearable filterable remote :remote-method="searchByNewName"
+          reserve-keyword no-match-text='' placeholder="Search an article by its title or part of it ..."
+          style=" margin-right: 5px;" />
 
 
       </el-col>
@@ -508,7 +646,7 @@ const downloadFile = async (data) => {
         <el-card class="article-card" shadow="hover" style="height: 95%;">
 
           <template #header>
-            <el-popover placement="top-start" width="30%" trigger="hover" :content="article.title">
+            <el-popover placement="bottom" width="30%" trigger="hover" :content="article.title">
               <template #reference>
                 <h2 class="article-title">{{ article.title }}</h2>
               </template>
@@ -544,26 +682,67 @@ const downloadFile = async (data) => {
               {{ article.description }}
             </p>
 
-            <el-link :href="article.url" target="_blank">Read Full Story</el-link>
+            <div class="article-actions-row"
+              style="display: flex; align-items: center; justify-content: space-between; margin-bottom:5px">
+              <el-link :href="article.url" target="_blank">Read Full Story</el-link>
+              <div>
+
+                <el-tooltip content="Edit" placement="top">
+
+
+                  <el-button v-if="showAdminButtons" type="primary" size="small" @click="editStory(article)"
+                    :icon="Edit" circle />
+                </el-tooltip>
+
+
+
+                <el-tooltip content="Delete" placement="top"  >
+
+                  <el-button v-if="showAdminButtons" type="danger" size="small" @click="DeleteStory(article)"
+                    :icon="Delete" circle />
+
+                </el-tooltip>
+
+
+
+
+
+
+              </div>
+
+            </div>
+
+
 
             <!-- Attachments Section -->
             <div v-if="article.documents.length" class="attachments">
               <h4>Attachments:</h4>
               <ul>
-                <li v-for="(attachment, index) in article.documents" :key="index">
+                <li v-for="(attachment, index) in article.documents" :key="index"
+                  style="display: flex; align-items: center; justify-content: space-between;">
                   <el-button type="text" @click="downloadFile(attachment)">
                     {{ attachment.name }}
                   </el-button>
+
+                <el-tooltip content="Delete" placement="top"  >
+                  <el-button v-if="showAdminButtons" type="text" :icon="Delete" @click="deleteAttachment(attachment)" /> 
+              </el-tooltip>
+
+
+
                 </li>
+
               </ul>
             </div>
           </div>
+
+
         </el-card>
       </el-col>
     </el-row>
   </el-card>
 
-  <el-dialog v-model="AddDialogVisible" title="Add Article" width="500">
+  <el-dialog v-model="AddDialogVisible" :title="formHeader" width="500">
     <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-position="top">
       <el-form-item label="Article Title" prop="title">
         <el-input v-model="ruleForm.title" />
@@ -611,7 +790,8 @@ const downloadFile = async (data) => {
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="AddDialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        <el-button v-if="!showAdminButtons" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+        <el-button v-if="showAdminButtons" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
 
       </div>
     </template>
@@ -774,4 +954,14 @@ const downloadFile = async (data) => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+
+
+.el-popper.is-customized {
+  /* Set padding to ensure the height is 32px */
+  padding: 6px 12px;
+  background: linear-gradient(90deg, rgb(233, 12, 12), rgb(229, 174, 129));
+}
+
+
 </style>
