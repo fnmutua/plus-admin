@@ -1490,7 +1490,7 @@ const getFilteredBySearchData = async (searchKey) => {
   console.log('getFilteredBySearchData')
 
   console.log('filters', filters);
-console.log('filterValues', filterValues);
+  console.log('filterValues', filterValues);
 
   const formData = {}
   formData.limit = pageSize.value
