@@ -2,7 +2,7 @@
 
 
 import {
-  Plus, Filter,
+  Plus, Filter, Download,
   Edit, UploadFilled,
   Position, Search,
   Delete
@@ -10,7 +10,7 @@ import {
 
 import { ref, reactive, computed, onMounted } from 'vue'
 import {
-  ElButton, ElCol, ElForm, ElFormItem, ElInput, ElLink, ElTooltip, ElDialog, ElIcon, ElUpload, ElPopover,
+  ElButton, ElCol, ElForm, ElFormItem, ElInput, ElLink, ElTooltip, ElDialog, ElMessage, ElUpload, ElPopover, ElSelect,
   ElRow, ElTable, ElTableColumn, ElCard, ElImage,
 } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -18,6 +18,7 @@ import { useCache } from '@/hooks/web/useCache'
 import type { FormInstance, FormRules } from 'element-plus'
 
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import { getFile } from '@/api/summary'
 
 
 import { defineAsyncComponent, } from 'vue';
@@ -264,6 +265,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 const getFilteredBySearchData = async (searchKey) => {
+
+
+  console.log('search_string.value', search_string.value)
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -303,10 +307,15 @@ const getFilteredBySearchData = async (searchKey) => {
 
 }
 
+const searchByNewName = async (filterString: any) => {
+
+  getFilteredBySearchData(filterString)
+}
 
 
 
-const searchByNewName = async () => {
+
+const xsearchByNewName = async () => {
 
   console.log('searcjhinmg.....')
   if (search_string.value) {
@@ -415,7 +424,42 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
 getFilteredData(filters.value, filterValues.value)
 
+const viewLoading = ref(false)
+const downloadFile = async (data) => {
+  console.log(data);
+  viewLoading.value = true;
+  const formData = {};
+  formData.filename = data.name;
+  formData.doc_id = data.id;
+  formData.responseType = 'blob';
 
+  // Add a flag to track if the download has started
+
+
+  // Attach a 'beforeunload' event listener to the window
+  window.addEventListener('beforeunload', () => {
+    if (viewLoading.value) {
+      console.log('Download has started.');
+      viewLoading.value = false;
+    }
+  });
+
+  try {
+    const response = await getFile(formData);
+    console.log(response);
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', data.name);
+    document.body.appendChild(link);
+    link.click();
+    viewLoading.value = false;
+  } catch (error) {
+    ElMessage.error('Failed');
+    viewLoading.value = false;
+  }
+};
 
 
 
@@ -429,13 +473,18 @@ getFilteredData(filters.value, filterValues.value)
 
     <el-row :gutter="10" style="margin-bottom:10px;">
       <el-col :xs="24" :sm="24" :md="20" :lg="20">
-        <el-input v-model="search_string" clearable :onClear="handleClear"
-          placeholder="Search by name (or part of it).." @change="searchByNewName" class="input-with-select"
+        <!-- <el-input v-model="search_string" clearable :onClear="handleClear"
+          placeholder="Search an article by its title or part of it .." @change="searchByNewName" class="input-with-select"
           style="margin-right: 5px;">
           <template #append>
             <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
           </template>
-        </el-input>
+</el-input> -->
+
+        <el-select v-model="search_string" multiple clearable filterable remote :remote-method="searchByNewName"  
+          reserve-keyword  no-match-text='' placeholder="Search an article by its title or part of it ..." style=" margin-right: 5px;" />
+
+
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
@@ -459,11 +508,11 @@ getFilteredData(filters.value, filterValues.value)
         <el-card class="article-card" shadow="hover" style="height: 95%;">
 
           <template #header>
-           <el-popover placement="top-start"  width="30%" trigger="hover" :content="article.title">
-                <template #reference>
-                  <h2 class="article-title">{{ article.title }}</h2>
-                </template>
-              </el-popover>
+            <el-popover placement="top-start" width="30%" trigger="hover" :content="article.title">
+              <template #reference>
+                <h2 class="article-title">{{ article.title }}</h2>
+              </template>
+            </el-popover>
 
 
 
@@ -502,7 +551,7 @@ getFilteredData(filters.value, filterValues.value)
               <h4>Attachments:</h4>
               <ul>
                 <li v-for="(attachment, index) in article.documents" :key="index">
-                  <el-button type="text" @click="viewAttachment(attachment)">
+                  <el-button type="text" @click="downloadFile(attachment)">
                     {{ attachment.name }}
                   </el-button>
                 </li>
