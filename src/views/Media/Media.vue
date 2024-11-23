@@ -81,8 +81,10 @@ const viewVideo = (videoId) => {
  
 const fetchVideos = async () => {
   const channelId = "UC0hCUWeDllvva19KGJfTz4w"; // Replace with your channel ID
-   const apiKey = "AIzaSyBa0U-6Bybz-***REDACTED***"; // Replace with your API key
-  
+   const apiKey = import.meta.env.VITE_APP_YOUTUBE_API; // Replace with your API key
+   const prod = import.meta.env.VITE_APP_YOUTUBE_API // remove the port for production
+
+   console.log('import.meta.env.VITE_APP_HOST ', import.meta.env.VITE_APP_YOUTUBE_API )
   
   const url = `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${channelId}&part=snippet,id&order=date&maxResults=100`
 
