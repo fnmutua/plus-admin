@@ -2335,7 +2335,9 @@ exports.modelPaginatedData = (req, res) => {
     })
   })
 }
-exports._modelPaginatedDatafilterByColumn = async (req, res) => {
+
+
+exports.XmodelPaginatedDatafilterByColumn = async (req, res) => {
   console.log('Req-body 002', req.body);
 
   var reg_model = req.body.model;
@@ -2525,7 +2527,103 @@ exports._modelPaginatedDatafilterByColumn = async (req, res) => {
   }
 };
 
+
 exports.modelPaginatedDatafilterByColumn = async (req, res) => {
+  console.log('Req-body 002', req.body);
+
+  const reg_model = req.body.model;
+
+  // Base count query
+  let baseCountQuery = {
+    where: {}
+  };
+
+  if (req.body.filters && req.body.filters.length > 0 && req.body.filterValues.length > 0 && req.body.filterValues.length === req.body.filters.length) {
+    let lstQuerries = [];
+    for (let i = 0; i < req.body.filters.length; i++) {
+      const lstValues = req.body.filterValues[i];
+      lstQuerries.push({ [req.body.filters[i]]: lstValues });
+    }
+    baseCountQuery.where = { [Op.and]: lstQuerries };
+  }
+
+  // Count records
+  let count = await db.models[reg_model].count(baseCountQuery);
+  console.log('Base count:', count);
+
+  // Query setup
+  let qry = { include: [], order: [['createdAt', 'DESC']] };
+
+  if (req.body.limit) qry.limit = req.body.limit;
+  if (req.body.page) qry.offset = (req.body.page - 1) * req.body.limit;
+
+  if (baseCountQuery.where) qry.where = baseCountQuery.where;
+
+  const associated_multiple_models = req.body.associated_multiple_models || [];
+  const nested_models = req.body.nested_models || [];
+
+  // Handle includes
+  associated_multiple_models.forEach(model => {
+    qry.include.push({ model: db.models[model] });
+  });
+
+  if (nested_models.length > 0) {
+    const child_model = db.models[nested_models[0]];
+    const grand_child_model = db.models[nested_models[1]];
+    const nestedQuery = req.body.nested_filter ? { [req.body.nested_filter[0]]: req.body.nested_filter[1] } : {};
+
+    qry.include.push({
+      model: child_model,
+      include: [{ model: grand_child_model, where: nestedQuery }]
+    });
+  }
+
+  // Blob attributes to be converted
+  const blobAttributes = ['cover_photo']; // Update to match your blob fields
+
+  try {
+    const response = await db.models[reg_model].findAndCountAll(qry);
+
+    // Transform blob attributes to Base64
+    const transformedData = response.rows.map(record => {
+      const transformedRecord = { ...record.toJSON() };
+
+      blobAttributes.forEach(attr => {
+        if (transformedRecord[attr]) {
+          transformedRecord[attr] = `data:image/jpeg;base64,${Buffer.from(transformedRecord[attr]).toString('base64')}`;
+        }
+      });
+
+      return transformedRecord;
+    });
+
+    const result = {
+      fromCache: false,
+      data: transformedData,
+      total: count,
+      code: '0000',
+    };
+
+    // Cache handling
+    if (req.body.cache_key) {
+      const cache_key = req.body.cache_key;
+      const cacheDuration = 3600; // Cache duration in seconds
+      await redisClient.set(cache_key, JSON.stringify(result), { EX: cacheDuration });
+    }
+
+    res.status(200).send(result);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR'
+    });
+  }
+};
+
+
+
+exports.xxmodelPaginatedDatafilterByColumn = async (req, res) => {
   console.log('Req-body 002', req.body);
 
   const reg_model = req.body.model;
@@ -2608,6 +2706,95 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     });
   }
 };
+
+exports.__modelPaginatedDatafilterByColumn = async (req, res) => {
+  console.log('Req-body 002', req.body);
+
+  const reg_model = req.body.model;
+
+  // Base count query
+  const baseCountQuery = { where: {} };
+
+  if (req.body.filters && req.body.filters.length > 0 && req.body.filterValues.length > 0 && req.body.filterValues.length === req.body.filters.length) {
+    const lstQuerries = req.body.filters.map((filter, i) => ({ [filter]: req.body.filterValues[i] }));
+    baseCountQuery.where = { [Op.and]: lstQuerries };
+  }
+
+  const count = await db.models[reg_model].count(baseCountQuery);
+  console.log('Base count:', count);
+
+  const associated_multiple_models = req.body.associated_multiple_models || [];
+  const nested_models = req.body.nested_models || [];
+  const nestedQuery = req.body.nested_filter ? { [req.body.nested_filter[0]]: req.body.nested_filter[1] } : {};
+
+  const qry = {
+    include: associated_multiple_models.map((model) => ({ model: db.models[model] })),
+    limit: req.body.limit || 10,
+    offset: (req.body.page - 1) * (req.body.limit || 10),
+    where: baseCountQuery.where,
+    order: [['createdAt', 'DESC']],
+  };
+
+  if (nested_models.length > 0) {
+    const child_model = db.models[nested_models[0]];
+    const grand_child_model = db.models[nested_models[1]];
+
+    qry.include.push({
+      model: child_model,
+      include: [
+        {
+          model: grand_child_model,
+          where: nestedQuery,
+        },
+      ],
+    });
+  }
+
+  try {
+    const response = await db.models[reg_model].findAndCountAll(qry);
+
+    // Transform blob attributes to Base64 only if they exist in the data
+    const transformedData = response.rows.map((record) => {
+      const transformedRecord = { ...record.toJSON() };
+
+      Object.keys(transformedRecord).forEach((attr) => {
+        if (blobAttributes.includes(attr) && transformedRecord[attr]) {
+          transformedRecord[attr] = `data:image/jpeg;base64,${Buffer.from(transformedRecord[attr]).toString('base64')}`;
+        }
+      });
+
+      return transformedRecord;
+    });
+
+    const result = {
+      fromCache: false,
+      data: transformedData,
+      total: count,
+      code: '0000',
+    };
+
+    // Cache logic if applicable
+    if (req.body.cache_key) {
+      const cache_key = req.body.cache_key;
+      const cacheDuration = 3600; // Cache duration in seconds
+      await redisClient.set(cache_key, JSON.stringify(result), { EX: cacheDuration });
+    }
+
+    res.status(200).send(result);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
+    });
+  }
+};
+
+
+
+
+
+
 
 
 

@@ -12,8 +12,8 @@ SET filters = ARRAY[jsonb_build_object(
 
 
 
-ALTER TABLE public.dashboard_card
-ADD COLUMN filters JSONB[];
+ALTER TABLE public.document
+ADD COLUMN article_id INTEGER;
 
 UPDATE dashboard_card
 SET filters = ARRAY[jsonb_build_object(
