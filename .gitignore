@@ -1,10 +1,13 @@
+# Ignore all .env files
+.env
+.env.*
+
+# Other files and directories to ignore
 node_modules
 .DS_Store
 dist
- dist-ssr
+dist-ssr
 *.local
 /dist*
 *-lock.*
-.env
-.env*
 pnpm-debug
