@@ -2335,7 +2335,9 @@ exports.modelPaginatedData = (req, res) => {
     })
   })
 }
-exports.modelPaginatedDatafilterByColumn = async (req, res) => {
+
+
+exports.XmodelPaginatedDatafilterByColumn = async (req, res) => {
   console.log('Req-body 002', req.body);
 
   var reg_model = req.body.model;
@@ -2524,6 +2526,274 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
     }
   }
 };
+
+
+exports.modelPaginatedDatafilterByColumn = async (req, res) => {
+  console.log('Req-body 002', req.body);
+
+  const reg_model = req.body.model;
+
+  // Base count query
+  let baseCountQuery = {
+    where: {}
+  };
+
+  if (req.body.filters && req.body.filters.length > 0 && req.body.filterValues.length > 0 && req.body.filterValues.length === req.body.filters.length) {
+    let lstQuerries = [];
+    for (let i = 0; i < req.body.filters.length; i++) {
+      const lstValues = req.body.filterValues[i];
+      lstQuerries.push({ [req.body.filters[i]]: lstValues });
+    }
+    baseCountQuery.where = { [Op.and]: lstQuerries };
+  }
+
+  // Count records
+  let count = await db.models[reg_model].count(baseCountQuery);
+  console.log('Base count:', count);
+
+  // Query setup
+  let qry = { include: [], order: [['createdAt', 'DESC']] };
+
+  if (req.body.limit) qry.limit = req.body.limit;
+  if (req.body.page) qry.offset = (req.body.page - 1) * req.body.limit;
+
+  if (baseCountQuery.where) qry.where = baseCountQuery.where;
+
+  const associated_multiple_models = req.body.associated_multiple_models || [];
+  const nested_models = req.body.nested_models || [];
+
+  // Handle includes
+  associated_multiple_models.forEach(model => {
+    qry.include.push({ model: db.models[model] });
+  });
+
+  if (nested_models.length > 0) {
+    const child_model = db.models[nested_models[0]];
+    const grand_child_model = db.models[nested_models[1]];
+    const nestedQuery = req.body.nested_filter ? { [req.body.nested_filter[0]]: req.body.nested_filter[1] } : {};
+
+    qry.include.push({
+      model: child_model,
+      include: [{ model: grand_child_model, where: nestedQuery }]
+    });
+  }
+
+  // Blob attributes to be converted
+  const blobAttributes = ['cover_photo']; // Update to match your blob fields
+
+  try {
+    const response = await db.models[reg_model].findAndCountAll(qry);
+
+    // Transform blob attributes to Base64
+    const transformedData = response.rows.map(record => {
+      const transformedRecord = { ...record.toJSON() };
+
+      blobAttributes.forEach(attr => {
+        if (transformedRecord[attr]) {
+          transformedRecord[attr] = `data:image/jpeg;base64,${Buffer.from(transformedRecord[attr]).toString('base64')}`;
+        }
+      });
+
+      return transformedRecord;
+    });
+
+    const result = {
+      fromCache: false,
+      data: transformedData,
+      total: count,
+      code: '0000',
+    };
+
+    // Cache handling
+    if (req.body.cache_key) {
+      const cache_key = req.body.cache_key;
+      const cacheDuration = 3600; // Cache duration in seconds
+      await redisClient.set(cache_key, JSON.stringify(result), { EX: cacheDuration });
+    }
+
+    res.status(200).send(result);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR'
+    });
+  }
+};
+
+
+
+exports.xxmodelPaginatedDatafilterByColumn = async (req, res) => {
+  console.log('Req-body 002', req.body);
+
+  const reg_model = req.body.model;
+
+  // Base count query
+  const baseCountQuery = { where: {} };
+
+  if (req.body.filters && req.body.filters.length > 0 && req.body.filterValues.length > 0 && req.body.filterValues.length === req.body.filters.length) {
+    const lstQuerries = req.body.filters.map((filter, i) => ({ [filter]: req.body.filterValues[i] }));
+    baseCountQuery.where = { [Op.and]: lstQuerries };
+  }
+
+  const count = await db.models[reg_model].count(baseCountQuery);
+  console.log('Base count:', count);
+
+  const associated_multiple_models = req.body.associated_multiple_models || [];
+  const nested_models = req.body.nested_models || [];
+  const nestedQuery = req.body.nested_filter ? { [req.body.nested_filter[0]]: req.body.nested_filter[1] } : {};
+  
+  const qry = {
+    include: associated_multiple_models.map((model) => ({ model: db.models[model] })),
+    limit: req.body.limit || 10,
+    offset: (req.body.page - 1) * (req.body.limit || 10),
+    where: baseCountQuery.where,
+    order: [['createdAt', 'DESC']],
+  };
+
+  if (nested_models.length > 0) {
+    const child_model = db.models[nested_models[0]];
+    const grand_child_model = db.models[nested_models[1]];
+
+    qry.include.push({
+      model: child_model,
+      include: [{
+        model: grand_child_model,
+        where: nestedQuery,
+      }],
+    });
+  }
+
+  // List of attributes that might be blobs
+  const blobAttributes = ['cover_photo' ]; // Adjust to match your actual blob fields
+
+  try {
+    const response = await db.models[reg_model].findAndCountAll(qry);
+
+    // Transform blob attributes to Base64
+    const transformedData = response.rows.map((record) => {
+      const transformedRecord = { ...record.toJSON() };
+
+      blobAttributes.forEach((attr) => {
+        if (transformedRecord[attr]) {
+          transformedRecord[attr] = `data:image/jpeg;base64,${Buffer.from(transformedRecord[attr]).toString('base64')}`;
+        }
+      });
+
+      return transformedRecord;
+    });
+
+    const result = {
+      fromCache: false,
+      data: transformedData,
+      total: count,
+      code: '0000',
+    };
+
+    // Cache logic if applicable
+    if (req.body.cache_key) {
+      const cache_key = req.body.cache_key;
+      const cacheDuration = 3600; // Cache duration in seconds
+      await redisClient.set(cache_key, JSON.stringify(result), { EX: cacheDuration });
+    }
+
+    res.status(200).send(result);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
+    });
+  }
+};
+
+exports.__modelPaginatedDatafilterByColumn = async (req, res) => {
+  console.log('Req-body 002', req.body);
+
+  const reg_model = req.body.model;
+
+  // Base count query
+  const baseCountQuery = { where: {} };
+
+  if (req.body.filters && req.body.filters.length > 0 && req.body.filterValues.length > 0 && req.body.filterValues.length === req.body.filters.length) {
+    const lstQuerries = req.body.filters.map((filter, i) => ({ [filter]: req.body.filterValues[i] }));
+    baseCountQuery.where = { [Op.and]: lstQuerries };
+  }
+
+  const count = await db.models[reg_model].count(baseCountQuery);
+  console.log('Base count:', count);
+
+  const associated_multiple_models = req.body.associated_multiple_models || [];
+  const nested_models = req.body.nested_models || [];
+  const nestedQuery = req.body.nested_filter ? { [req.body.nested_filter[0]]: req.body.nested_filter[1] } : {};
+
+  const qry = {
+    include: associated_multiple_models.map((model) => ({ model: db.models[model] })),
+    limit: req.body.limit || 10,
+    offset: (req.body.page - 1) * (req.body.limit || 10),
+    where: baseCountQuery.where,
+    order: [['createdAt', 'DESC']],
+  };
+
+  if (nested_models.length > 0) {
+    const child_model = db.models[nested_models[0]];
+    const grand_child_model = db.models[nested_models[1]];
+
+    qry.include.push({
+      model: child_model,
+      include: [
+        {
+          model: grand_child_model,
+          where: nestedQuery,
+        },
+      ],
+    });
+  }
+
+  try {
+    const response = await db.models[reg_model].findAndCountAll(qry);
+
+    // Transform blob attributes to Base64 only if they exist in the data
+    const transformedData = response.rows.map((record) => {
+      const transformedRecord = { ...record.toJSON() };
+
+      Object.keys(transformedRecord).forEach((attr) => {
+        if (blobAttributes.includes(attr) && transformedRecord[attr]) {
+          transformedRecord[attr] = `data:image/jpeg;base64,${Buffer.from(transformedRecord[attr]).toString('base64')}`;
+        }
+      });
+
+      return transformedRecord;
+    });
+
+    const result = {
+      fromCache: false,
+      data: transformedData,
+      total: count,
+      code: '0000',
+    };
+
+    // Cache logic if applicable
+    if (req.body.cache_key) {
+      const cache_key = req.body.cache_key;
+      const cacheDuration = 3600; // Cache duration in seconds
+      await redisClient.set(cache_key, JSON.stringify(result), { EX: cacheDuration });
+    }
+
+    res.status(200).send(result);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
+    });
+  }
+};
+
+
+
+
+
 
 
 
@@ -2991,7 +3261,7 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
 
  
  
-exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
+exports._modelPaginatedDatafilterBykeyWord = async (req, res) => {
   try {
     console.log('/api/v1/data/paginated/filter --- Keyword', req.body);
 
@@ -3092,6 +3362,129 @@ exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
     });
   }
 };
+
+ 
+exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
+  try {
+    console.log('/api/v1/data/paginated/filter --- Keyword', req.body);
+
+    // Extract request body properties
+    const {
+      model: reg_model,
+      searchField: field,
+      excludeGeom,
+      excludeGeomAssoc,
+      searchKeyword,
+      associated_multiple_models: associatedModels = [],
+      nested_models: nestedModels = [],
+      filters = [],
+      filterValues = [],
+      limit = 20,
+      page = 1,
+    } = req.body;
+
+    // Initialize variables
+    const includeModels = [];
+    const queryCondition = {};
+
+    // Set nested models if available
+    const [childModel, grandChildModel] = nestedModels.map(nested => db.models[nested]);
+
+    // Prepare associated models for inclusion
+    if (associatedModels.length > 0) {
+      associatedModels.forEach(modelName => {
+        const model = db.models[modelName];
+        includeModels.push({
+          model: model,
+          raw: true,
+          nested: true,
+          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+        });
+      });
+
+      // Add nested models to the include list if they are present
+      if (childModel && grandChildModel) {
+        includeModels.push({
+          model: childModel,
+          include: [{
+            model: grandChildModel,
+            raw: true,
+            nested: true,
+            attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+          }],
+          raw: true,
+          nested: true,
+          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined, // Adjust the geometry field name
+        });
+      }
+    }
+
+    // Build query
+    const qry = {
+      include: includeModels,
+      attributes: excludeGeom ? { exclude: ['geom'] } : undefined, // Exclude geometry from the main model
+    };
+
+    // Add multiple filters if provided
+    if (filters.length > 0 && filterValues.length > 0) {
+      filters.forEach((filter, index) => {
+        queryCondition[filter] = filterValues[index];
+      });
+    }
+
+    // Add search condition if searchField and searchKeyword are provided
+    if (field && searchKeyword) {
+      queryCondition[field] = {
+        [Op.iLike]: `%${searchKeyword.toLowerCase()}%`,
+      };
+    }
+
+    // Apply pagination if no searchKeyword is present
+    if (!searchKeyword) {
+      qry.limit = limit;
+      qry.offset = (page - 1) * limit;
+    }
+
+    qry.where = queryCondition;
+
+    console.log('The xQuery----->', qry);
+
+    // Execute the query
+    const list = await db.models[reg_model].findAndCountAll(qry);
+
+    // Process each item to check for BLOB fields (cover_photo)
+    const results = await Promise.all(list.rows.map(async (item) => {
+      if (item.cover_photo) {
+        try {
+          // Convert BLOB field (cover_photo) to Base64 if it exists
+          const coverPhotoBase64 = item.cover_photo.toString('base64');
+          item.cover_photo = `data:image/jpeg;base64,${coverPhotoBase64}`;
+        } catch (err) {
+          console.error('Error converting cover photo to base64:', err);
+          item.cover_photo = null; // Fallback to null if conversion fails
+        }
+      }
+      
+      // Return the item with all other fields intact
+      return item;
+    }));
+
+    // Send the response with the processed data
+    res.status(200).send({
+      data: results,
+      total: list.count,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('Error in modelPaginatedDatafilterBykeyWord:', error);
+    res.status(500).send({
+      error: 'Internal Server Error',
+      code: '9999',
+    });
+  }
+};
+
+
 
 exports.modelLookup = async (req, res) => {
   try {
@@ -3307,95 +3700,7 @@ const upload = multer({
 });
 
 
-exports.xbatchDocumentsUpload = (req, res) => {
-      // The uploaded files can be accessed using `req.files`
-      console.log('files:', req.body);
-  // Use `upload.array('files')` middleware to handle multiple file uploads
-  // 'files' should match the name attribute of the file input(s) in your form
-  upload.array('files')(req, res, async (err) => {
-    if (err) {
-      console.log(err);
-      // Handle multer errors, if any
-     // return res.status(400).json({ error: 'File upload failed.' });
-     return res.status(500).send({
-        message: 'Upload failed.',
-        code: '0000'
-      })
-    }
-
-
-   var reg_model = 'document'
-    let myFiles = req.files
-    let objs = []
-
-    if (!Array.isArray(myFiles)) {
-      myFiles = [myFiles]; // Convert to an array with one element
-    }
  
-    
-    for (let i = 0; i < myFiles.length; i++) {
-      
- 
-       var obj = {}
-     // var column = req.body.field_id[i]
-     // obj[column] = req.body[column][i]
-
-        // Check if 'field_id' exists in 'req.body' before adding 'column' property to 'obj'
-      if (req.body.field_id) {
-        var column = req.body.field_id[i]
-        obj[column] = req.body[column][i];
-      }
-
-      obj.category = req.body.category[i]
-      obj.format = req.body.format[i]
-      obj.size = req.body.size[i]
-      obj.createdBy = req.body.createdBy[i] 
-      obj.protectedFile = req.body.protected[i] 
-      obj.name = myFiles[i].originalname
-      obj.code = crypto.randomUUID()
-      obj.location = myFiles[i].path
-       objs.push(obj)
-      console.log(obj)
-  
-   
-
-
-
-      try {
-         await db.models[reg_model].create(obj)
-        // for (const obj of objs) {
-        //   await db.models[reg_model].create(obj);
-        // }
-
-      }
-            
-      catch (error) {
-        console.log(error)
-
-        
-      res.status(500).send({
-        message: 'Upload failed. ' + error + ' errors',
-        code: '0000'
-      })
-      }
-
-
-    }
-  
-
-    res.status(200).send({
-      message: 'Batch Upload Successful',
-      code: '0000'
-    })
-  
-
-    // Other form fields (if any) can be accessed using `req.body`
-  //  console.log('other form fields:', req.body);
-
-    // Process the files or respond to the client accordingly
-   // res.json({ message: 'Form submission and file upload successful!' });
-  });
-};
 
 
 exports.batchDocumentsUpload = (req, res) => {
@@ -3549,7 +3854,68 @@ res.status(500).send({
 };
 
  
+exports.batchDocumentsUploadCover = (req, res) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      console.log(err);
+      return res.status(500).send({
+        message: 'File upload failed.',
+        code: '0000',
+      });
+    }
 
+    const { model, id } = req.body;
+
+    if (!model || !id) {
+      return res.status(400).send({
+        message: 'Missing required fields: model or id',
+        code: '0001',
+      });
+    }
+
+    try {
+      // Access the uploaded file
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).send({
+          message: 'No file uploaded.',
+          code: '0002',
+        });
+      }
+
+      // Read the file from disk and convert it to a buffer
+      const fileBlob = fs.readFileSync(file.path);
+
+      // Update the record in the database
+      const record = await db.models[model].findByPk(id);
+
+      if (!record) {
+        return res.status(404).send({
+          message: `No record found for model "${model}" with ID ${id}.`,
+          code: '0003',
+        });
+      }
+
+      // Update the specific field to store the blob
+      record.cover_photo = fileBlob; // Assuming the field name is `cover_photo`
+      await record.save();
+
+      console.log(`Updated record for model: ${model}, ID: ${id}`);
+
+      res.status(200).send({
+        message: 'Cover photo uploaded and saved successfully.',
+        code: '0000',
+      });
+    } catch (error) {
+      console.error('Error saving cover photo:', error);
+      res.status(500).send({
+        message: 'An error occurred while uploading the cover photo.',
+        code: '0004',
+      });
+    }
+  });
+};
 
 
 exports.ReportDocumentationUpload = async (req, res) => {
@@ -6116,68 +6482,4 @@ exports.mergeDuplicates = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-};
-
-
-exports.batchDocumentsUploadCover = (req, res) => {
-  upload.single('file')(req, res, async (err) => {
-    if (err) {
-      console.log(err);
-      return res.status(500).send({
-        message: 'File upload failed.',
-        code: '0000',
-      });
-    }
-
-    const { model, id } = req.body;
-
-    if (!model || !id) {
-      return res.status(400).send({
-        message: 'Missing required fields: model or id',
-        code: '0001',
-      });
-    }
-
-    try {
-      // Access the uploaded file
-      const file = req.file;
-
-      if (!file) {
-        return res.status(400).send({
-          message: 'No file uploaded.',
-          code: '0002',
-        });
-      }
-
-      // Read the file from disk and convert it to a buffer
-      const fileBlob = fs.readFileSync(file.path);
-
-      // Update the record in the database
-      const record = await db.models[model].findByPk(id);
-
-      if (!record) {
-        return res.status(404).send({
-          message: `No record found for model "${model}" with ID ${id}.`,
-          code: '0003',
-        });
-      }
-
-      // Update the specific field to store the blob
-      record.cover_photo = fileBlob; // Assuming the field name is `cover_photo`
-      await record.save();
-
-      console.log(`Updated record for model: ${model}, ID: ${id}`);
-
-      res.status(200).send({
-        message: 'Cover photo uploaded and saved successfully.',
-        code: '0000',
-      });
-    } catch (error) {
-      console.error('Error saving cover photo:', error);
-      res.status(500).send({
-        message: 'An error occurred while uploading the cover photo.',
-        code: '0004',
-      });
-    }
-  });
 };

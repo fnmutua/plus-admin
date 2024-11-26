@@ -81,4 +81,21 @@ ADD duplicate BOOLEAN(255) NULL;
 
 
 UPDATE grievance  SET pcode = code ;
- 
+  
+
+
+ SELECT 
+    c.id AS county_id,
+    c.name AS county_name,
+    sc.id AS subcounty_id,
+    sc.name AS subcounty_name,
+    w.id AS ward_id,
+    w.name AS ward_name
+FROM 
+    county c
+JOIN 
+    subcounty sc ON sc.county_id = c.id
+JOIN 
+    ward  w ON w.subcounty_id = sc.id
+ORDER BY 
+    c.name, sc.name, w.name;
