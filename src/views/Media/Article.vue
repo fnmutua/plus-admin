@@ -2,34 +2,32 @@
 
 
 import {
-  Plus, Filter, Download,
-  Edit, UploadFilled,
-  Position, Search, InfoFilled,
+  Plus, Filter,
+  Edit, ArrowLeft, ArrowRight,
+  InfoFilled,
   Delete
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed, onMounted } from 'vue'
 import {
-  ElButton, ElCol, ElForm, ElFormItem, ElInput, ElLink, ElTooltip, ElDialog, ElMessage, ElUpload, ElPopover, ElPopconfirm,
-  ElRow, ElTable, ElTableColumn, ElCard, ElImage, ElStep, ElSteps, ElTour, ElOption,
+  ElButton, ElCol, ElForm, ElFormItem, ElInput, ElLink, ElTooltip, ElDialog, ElMessage, ElUpload, ElPopover,
+  ElRow, ElCard, ElImage, ElStep, ElSteps, ElOption, ElTour, ElTourStep, ElIcon,
 } from 'element-plus'
-import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
-import type { FormInstance, FormRules } from 'element-plus'
+import type { FormInstance } from 'element-plus'
 
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import { getFile } from '@/api/summary'
 
 
-import { defineAsyncComponent, } from 'vue';
-import { useAppStore, useAppStoreWithOut } from '@/store/modules/app'
+import { useAppStoreWithOut } from '@/store/modules/app'
 
 import {
   searchByKeyWord
 } from '@/api/settlements'
 
 
-import { uploadFilesBatch, uploadCoverPhoto, getSettlementListByCounty } from '@/api/settlements'
+import { uploadFilesBatch, getSettlementListByCounty } from '@/api/settlements'
 
 import { uuid } from 'vue-uuid'
 import { CreateRecord, updateOneRecord, DeleteRecord } from '@/api/settlements'
@@ -79,7 +77,6 @@ const currentRow = ref()
 
 /// Uplaod docuemnts from a central component 
 const mfield = 'article_id'
-const ChildComponent = defineAsyncComponent(() => import('@/views/Components/UploadComponent.vue'));
 const dynamicComponent = ref();
 const componentProps = ref({
   message: 'Hello from parent',
@@ -96,11 +93,9 @@ const componentProps = ref({
 
 
 // component for docuemnts 
-const rowData = ref()
 
 
 
-const selOptions = ref([])
 const tableDataList = ref([])
 
 
@@ -111,8 +106,6 @@ const tableDataList = ref([])
 const mobileBreakpoint = 768;
 const defaultPageSize = 10;
 const mobilePageSize = 5;
-const currentPage = ref(1);
-const width = ref(1080);
 const totalItems = ref(0)
 const total = ref(0)
 
@@ -145,50 +138,39 @@ onMounted(() => {
 
 })
 
-const handleRowDblClick = (row) => {
-
-  console.log('Double clicked row:', row);
-
-
-}
 
 
 
 
 
 
-const selectedFiles = ref([false])
-
+const selectedFiles = ref([])
 
 
 const handleFiles = (file, fileList) => {
+  // Ensure selectedFiles is initialized as an empty array if it is undefined
+  if (!selectedFiles.value) {
+    selectedFiles.value = [];
+  }
 
-  selectedFiles.value = fileList;
+  // Push the new file to the selectedFiles array
+  selectedFiles.value.push(file);
 
+  // Optionally, you can log or handle the fileList if needed
+  console.log('fileList', fileList);
 }
+
 
 
 const page = ref(1)
 
 
-const handlePageChange = (page) => {
-  currentPage.value = page;
-};
 
 
-const handlePageSizeChange = (newSize) => {
-  pageSize.value = newSize;
-  currentPage.value = 1; // Reset to first page when changing page size
-};
 
 
 
 // Computed Property for Paginated Data
-const paginatedData = computed(() => {
-  const startIndex = (currentPage.value - 1) * pageSize.value;
-  const endIndex = startIndex + pageSize.value;
-  return tableDataList.value.slice(startIndex, endIndex);
-});
 
 const search_string = ref()
 
@@ -245,9 +227,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
-  tableDataList.value .forEach(async (article) => {
-        await fetchCoverPhoto(article); // Fetch the cover photo asynchronously for each article
-      });
+  tableDataList.value.forEach(async (article) => {
+    await fetchCoverPhoto(article); // Fetch the cover photo asynchronously for each article
+  });
 
 
 
@@ -324,6 +306,7 @@ const associated_multiple_models = ['document']
 
 const coverPhoto = ref(null); // Store selected cover photo
 const coverPhotoList = ref([]); // File list for cover photo upload
+const fileList = ref([]); // File list for cover photo upload
 
 const handleCoverPhoto = (file) => {
   coverPhoto.value = file;
@@ -345,10 +328,6 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       ruleForm.model = 'article'
       ruleForm.code = uuid.v4()
       ruleForm.userId = userInfo.id
-
-
-
-
       //Progress towards target (%realized) [(B-A)/(C- A)]
 
       const article = await CreateRecord(ruleForm)   // first save the form on DB
@@ -375,7 +354,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         CoverformData.append('files', coverPhotoList.value[i].raw)
         CoverformData.append('format', coverPhotoList.value[i].name.split('.').pop())
         CoverformData.append('field_id', 'article_id')
-        CoverformData.append('category', 53)
+        CoverformData.append('category', 52)
         CoverformData.append(column, parseInt(article.data.id))
         CoverformData.append('size', (coverPhotoList.value[i].raw.size / 1024 / 1024).toFixed(2))
         CoverformData.append('createdBy', userInfo.id)
@@ -406,7 +385,6 @@ const submitForm = async (formEl: FormInstance | undefined) => {
       }
 
       formData.append('code', uuid.v4())
-      const docs = await uploadFilesBatch(formData)
 
 
 
@@ -430,52 +408,87 @@ const editForm = async (formEl: FormInstance | undefined) => {
     if (valid) {
       ruleForm.model = model
       ruleForm.model = 'article'
-      updateOneRecord(ruleForm).then(() => {
-
-        // Attach cover photo
-
-        console.log('coverPhoto.value', coverPhoto.value)
-        const CoverformData = new FormData()
-        CoverformData.append('file', coverPhoto.value.raw);
-        CoverformData.append('id', ruleForm.id)
-        CoverformData.append('model', 'article')
-
-        const CoverformDataRes = uploadCoverPhoto(CoverformData)
-
-
-        // uploading the documents 
-
-        const formData = new FormData()
-        for (var i = 0; i < selectedFiles.value.length; i++) {
-          console.log('------>file', selectedFiles.value[i])
-          var column = 'article_id'
-          formData.append('files', selectedFiles.value[i].raw)
-          formData.append('format', selectedFiles.value[i].name.split('.').pop())
-          formData.append('field_id', 'article_id')
-          formData.append('category', 1)
-          formData.append(column, parseInt(ruleForm.id))
-          formData.append('size', (selectedFiles.value[i].raw.size / 1024 / 1024).toFixed(2))
-          formData.append('createdBy', userInfo.id)
-          formData.append('protected', false)
-
-          //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
-        }
-
-
-        formData.append('code', uuid.v4())
-        const docs = uploadFilesBatch(formData)
-
-
-      })
+      updateOneRecord(ruleForm)
 
       // dialogFormVisible.value = false
 
 
+      // Uploading Cover Photo
+      const CoverformData = new FormData();
+
+      // Check if `coverPhotoList.value` contains files
+      if (coverPhotoList.value && coverPhotoList.value.length > 0) {
+        for (let i = 0; i < coverPhotoList.value.length; i++) {
+          const file = coverPhotoList.value[i];
+
+          // Ensure the file is valid before appending to FormData
+          if (file && file.raw) {
+            console.log('------> coverPhotoList', file);
+
+            const column = 'article_id';
+            CoverformData.append('files', file.raw);
+            CoverformData.append('format', file.name.split('.').pop());
+            CoverformData.append('field_id', 'article_id');
+            CoverformData.append('category', 52);
+            CoverformData.append(column, parseInt(ruleForm.id));
+            CoverformData.append('size', (file.raw.size / 1024 / 1024).toFixed(2)); // Size in MB
+            CoverformData.append('createdBy', userInfo.id);
+            CoverformData.append('protected', false);
+          }
+        }
+      } else {
+        console.log('No cover photo to upload.');
+      }
+
+
+      CoverformData.append('code', uuid.v4())
+      const coverPhotRes = uploadFilesBatch(CoverformData)
+      console.log(coverPhotRes, coverPhotRes)
 
 
 
+      // Attach cover photo
 
 
+      // uploading the documents 
+      console.log('------> other file', selectedFiles.value);
+
+      const formData = new FormData();
+
+      // Check if `selectedFiles.value` contains files
+      if (selectedFiles.value && selectedFiles.value.length > 0) {
+        for (let i = 0; i < selectedFiles.value.length; i++) {
+          const file = selectedFiles.value[i];
+
+          // Ensure the file has the `raw` property
+          if (file && file.raw) {
+            console.log('------> processing file', file);
+
+            const column = 'article_id';
+            formData.append('files', file.raw);
+            formData.append('format', file.name.split('.').pop());
+            formData.append('field_id', 'article_id');
+            formData.append('category', 1);
+            formData.append(column, parseInt(ruleForm.id)); // Assuming `ruleForm.id` exists
+            formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2)); // Size in MB
+            formData.append('createdBy', userInfo.id);
+            formData.append('protected', false);
+          }
+        }
+      } else {
+        console.log('No files selected.');
+      }
+
+      // Append a unique identifier for the batch
+      formData.append('code', uuid.v4());
+
+      // Call the file upload function and handle the response
+      try {
+        const otherPhotRes = uploadFilesBatch(formData); // Ensure `uploadFilesBatch` is async if needed
+        console.log('otherPhotRes', otherPhotRes);
+      } catch (error) {
+        console.error('Upload failed', error);
+      }
 
 
 
@@ -547,10 +560,15 @@ const editStory = (data: TableSlotDefault) => {
   console.log(data)
   ruleForm.id = data.id
   ruleForm.title = data.title
+  ruleForm.type = data.type
   ruleForm.description = data.description
   ruleForm.url = data.url
   ruleForm.code = data.code
+  ruleForm.cover_photo = !!data.documents.find(doc => doc.category === 52 && (doc.cover_photo = true));
 
+
+  coverPhotoList.value = data.documents.filter(doc => doc.category === 52);
+  fileList.value = data.documents.filter(doc => doc.category !== 52);
 
 
   formHeader.value = 'Edit Story'
@@ -570,38 +588,31 @@ const onclose = () => {
 
 }
 
-const DeleteStory = async (data: TableSlotDefault) => {
-  console.log('----->', data.id)
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-  await DeleteRecord(formData)
-
-  // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data);
-  if (index !== -1) {
-    console.log('Remove index', index)
-
-    tableDataList.value.splice(index, 1);
-    console.log(tableDataList.value)
-
-  }
-
-
-
-
-  getFilteredData(filters, filterValues)
-}
 
 const deleteAttachment = async (data: TableSlotDefault) => {
-  console.log('----->', data.id)
-  let formData = {}
-  formData.id = data.id
-  formData.model = 'document'
-  await DeleteRecord(formData)
+  console.log('----->', data.id);
 
-  getFilteredData(filters, filterValues)
-}
+  // Prepare form data for deletion
+  let formData = {
+    id: data.id,
+    model: 'document'
+  };
+
+  try {
+    // Call the DeleteRecord function to delete the record
+    await DeleteRecord(formData);
+
+    // Filter out the deleted document from coverPhotoList
+    coverPhotoList.value = coverPhotoList.value.filter(doc => doc.id !== data.id);
+    fileList.value = fileList.value.filter(doc => doc.id !== data.id);
+
+    // Optionally, re-filter or fetch data
+    getFilteredData(filters, filterValues);
+  } catch (error) {
+    console.error('Error deleting attachment:', error);
+  }
+};
+
 
 
 
@@ -613,22 +624,6 @@ const handleCloseDialog = () => {
 
 const active = ref(0);
 
-const rules = reactive<FormRules>({
-  title: [
-    { required: true, message: 'Required', trigger: 'blur' },
-  ],
-
-  description: [
-    { required: true, message: 'Required', trigger: 'blur' },
-  ],
-
-  url: [
-    { required: true, message: 'Required', trigger: 'blur' },
-  ],
-  cover_photo: [
-    { required: true, message: 'Please upload a cover photo', trigger: 'blur' },
-  ],
-})
 
 
 const validationRules = ({
@@ -686,10 +681,10 @@ const fetchCoverPhoto = async (article) => {
 
 
 async function getCover(article) {
-  const cover_photo = article.documents.find((doc) => doc.category === 53);
+  const cover_photo = article.documents.find((doc) => doc.category === 52);
 
   if (!cover_photo) {
-    console.error("Cover photo not found in category 53");
+    console.error("Cover photo not found in category 52");
     return null;
   }
 
@@ -722,6 +717,97 @@ function blobToBase64(blob) {
   });
 }
 
+
+const isTourVisible = ref(false)
+
+
+
+const tourSteps = ref([
+  {
+    step: 0,
+    target: '#btn1',
+    title: 'Article Title',
+    content: 'Provide the title of the article. This is a required field.',
+    visible: true,
+  },
+  {
+    step: 0,
+    target: '#btn2',
+    title: 'Type',
+    content: 'Select the type of media from the dropdown options: TV, Article, Blog, or Newspaper.',
+    visible: true,
+  },
+  {
+    step: 0,
+    target: '#btn3',
+    title: 'Link',
+    content: 'Enter the URL link to the media article or publication.',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn4',
+    title: 'Description',
+    content: 'Provide a detailed description of the grievance or media content.',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn5',
+    title: 'Upload Cover Photo',
+    content: 'Upload a cover photo for the media. Accepted formats include image files.',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn6',
+    title: 'Other Documents',
+    content: 'Upload any additional files, such as newspaper cuttings or related documents. Accepted formats include PDFs and images.',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn9',
+    title: 'Previous',
+    content: 'Click to navigate back to the previous step.',
+    visible: true,
+  },
+  {
+    step: 1,
+    target: '#btn7',
+    title: 'Next',
+    content: 'Click to proceed to the next step.',
+    visible: true,
+  },
+
+  {
+    step: 1,
+    target: '#btn10',
+    title: 'Submit',
+    content: 'Submit the form to finalize the  submission.',
+    visible: true,
+  },
+
+  {
+    step: 1,
+    target: '#btn10',
+    title: 'Save',
+    content: 'Submit the form to save the  submission.',
+    visible: true,
+  },
+]);
+
+
+
+const showTour = () => {
+  isTourVisible.value = true
+}
+const filteredTourSteps = computed(() => {
+
+  const fil = tourSteps.value.filter(step => step.step == active.value && step.visible == true);
+  console.log('filteredTourSteps', fil)
+  return fil
+});
 
 
 
@@ -808,19 +894,19 @@ function blobToBase64(blob) {
             <div v-if="article.documents.length" class="attachments">
               <h4>Attachments:</h4>
               <ul>
-                <li v-for="(attachment, index) in article.documents" :key="index"
+                <li v-for="(attachment, index) in article.documents.filter(doc => doc.category !== 52)" :key="index"
                   style="display: flex; align-items: center; justify-content: space-between;">
                   <el-button type="text" @click="downloadFile(attachment)">
                     {{ attachment.name }}
                   </el-button>
 
                   <el-tooltip content="Delete" placement="top">
-                    <el-button v-if="showAdminButtons" type="text" :icon="Delete"
-                      @click="deleteAttachment(attachment)" />
+                    <el-button v-if="showAdminButtons" type="text" :icon="Delete" @click="deleteAttachment(attachment)" />
                   </el-tooltip>
                 </li>
               </ul>
             </div>
+
           </div>
         </el-card>
       </el-col>
@@ -830,7 +916,7 @@ function blobToBase64(blob) {
 
 
 
-  <el-dialog v-model="AddDialogVisible" @close="handleCloseDialog" title="File a grievance" width="55%" draggable>
+  <el-dialog v-model="AddDialogVisible" @close="handleCloseDialog" title="Add Article" width="55%" draggable>
 
     <el-steps :active="active" finish-status="success">
       <el-step title="Details" />
@@ -844,7 +930,7 @@ function blobToBase64(blob) {
           <!-- Step 1: Personal Details -->
           <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
 
-            <el-form-item label="Article Title" prop="title">
+            <el-form-item id="btn1" label="Article Title" prop="title">
               <el-input type="textarea" v-model="ruleForm.title" />
             </el-form-item>
 
@@ -858,7 +944,7 @@ function blobToBase64(blob) {
               </el-select>
             </el-form-item>
 
-            <el-form-item label="Link" prop="url">
+            <el-form-item id="btn3" label="Link" prop="url">
               <el-input v-model="ruleForm.url" />
             </el-form-item>
 
@@ -876,7 +962,7 @@ function blobToBase64(blob) {
         <el-row v-if="active === 1" :gutter="10">
           <!-- Step 2: Grievance Details -->
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item label="Description" prop="description">
+            <el-form-item id="btn4" label="Description" prop="description">
               <el-input type="textarea" v-model="ruleForm.description" rows='5' />
             </el-form-item>
 
@@ -888,9 +974,9 @@ function blobToBase64(blob) {
 
 
 
-            <el-form-item label="Upload Cover Photo" prop="cover_photo">
+            <el-form-item id="btn5" label="Upload Cover Photo" prop="cover_photo">
               <el-upload v-model:file-list="coverPhotoList" class="upload-demo" action="" :auto-upload="false"
-                :limit="1" accept="image/*" :on-change="handleCoverPhoto">
+                :limit="1" accept="image/*" :on-change="handleCoverPhoto" :on-remove="deleteAttachment">
                 <el-button type="primary">Upload Cover Photo</el-button>
               </el-upload>
             </el-form-item>
@@ -899,10 +985,10 @@ function blobToBase64(blob) {
 
 
 
-            <el-form-item label="Select/Drop newspaper cuttings and other files here or click to upload"
+            <el-form-item id="btn6" label="Select/Drop newspaper cuttings and other files here or click to upload"
               style="width: 100%;">
               <el-upload v-model:file-list="fileList" class="upload-demo" action="" :auto-upload="false"
-                :on-change="handleFiles">
+                :on-change="handleFiles" :on-remove="deleteAttachment">
                 <el-button type="primary">Other Documents</el-button>
 
               </el-upload>
@@ -933,25 +1019,30 @@ function blobToBase64(blob) {
           <el-button @click="onclose()">Cancel</el-button>
 
 
-          <el-button id="btn7" v-if="active < 2" type="primary" @click="next">
+          <el-button id="btn7" v-if="active < 1" type="primary" @click="next">
             Next <el-icon class="el-icon--right">
               <ArrowRight />
             </el-icon>
           </el-button>
 
-          <!-- <el-button id="btn2" v-if="active === 1" type="primary" @click="submitForm"
-            style="margin-left: 10px;">Submit</el-button>
-          <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button> -->
 
 
-          <el-button v-if="!showEditSaveButton" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+          <el-button id="btn10" v-if="!showEditSaveButton" type="primary"
+            @click="submitForm(ruleFormRef)">Submit</el-button>
+          <el-button id="btn11" v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
 
 
         </div>
       </div>
     </template>
   </el-dialog>
+
+
+  <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
+    <el-tour-step v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
+      :description="step.content" />
+  </el-tour>
+
 
 </template>
 
