@@ -9,7 +9,7 @@ module.exports = function(sequelize, DataTypes) {
     },
 
     title: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: false
     },
 
@@ -17,6 +17,11 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.TEXT,
       allowNull: false
     },
+
+    type: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },  
 
     url: {
       type: DataTypes.STRING,
@@ -28,10 +33,10 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
 
-    cover_photo: {
-      type: DataTypes.BLOB, // Updated to BLOB
-      allowNull: true
-    },
+    // cover_photo: {
+    //   type: DataTypes.BLOB, // Updated to BLOB
+    //   allowNull: true
+    // },
 
     createdBy: {
       type: DataTypes.INTEGER,

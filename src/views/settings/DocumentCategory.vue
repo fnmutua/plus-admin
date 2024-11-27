@@ -386,24 +386,44 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 <template>
   <ContentWrap :title="t('Document Categories')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+ 
+   
+        
+          <div style="display: flex; justify-content: flex-end; align-items: center; gap: 20px;">
+            <!-- Download Button -->
+            <el-button
+              :onClick="handleDownload"
+              type="primary"
+              :icon="Download"
+            />
 
-     
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-    </div>
-    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+            <!-- DownloadAll Component -->
+            <DownloadAll
+              v-if="showEditButtons"
+              :model="model"
+              :associated_models="associated_multiple_models"
+            />
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Indicator" placement="top">
-        <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
+            <!-- Clear Button -->
+            <el-button
+              :onClick="handleClear"
+              type="primary"
+              :icon="Filter"
+            />
 
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
+            <!-- Add Indicator Button with Tooltip -->
+            <el-tooltip content="Add Indicator" placement="top">
+              <el-button
+                :onClick="AddIndicator"
+                type="primary"
+                :icon="Plus"
+              />
+            </el-tooltip>
+          </div>
+        
+
+
+
 
     <Table
 :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
@@ -424,6 +444,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
         </el-tooltip>
 
       </template>
+
+
     </Table>
     <ElPagination
 layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"

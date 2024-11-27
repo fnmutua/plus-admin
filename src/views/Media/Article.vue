@@ -4,14 +4,14 @@
 import {
   Plus, Filter, Download,
   Edit, UploadFilled,
-  Position, Search,
+  Position, Search, InfoFilled,
   Delete
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed, onMounted } from 'vue'
 import {
-  ElButton, ElCol, ElForm, ElFormItem, ElInput, ElLink, ElTooltip, ElDialog, ElMessage, ElUpload, ElPopover, ElSelect, ElPopconfirm,
-  ElRow, ElTable, ElTableColumn, ElCard, ElImage,
+  ElButton, ElCol, ElForm, ElFormItem, ElInput, ElLink, ElTooltip, ElDialog, ElMessage, ElUpload, ElPopover, ElPopconfirm,
+  ElRow, ElTable, ElTableColumn, ElCard, ElImage, ElStep, ElSteps, ElTour, ElOption,
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useCache } from '@/hooks/web/useCache'
@@ -33,6 +33,7 @@ import { uploadFilesBatch, uploadCoverPhoto, getSettlementListByCounty } from '@
 
 import { uuid } from 'vue-uuid'
 import { CreateRecord, updateOneRecord, DeleteRecord } from '@/api/settlements'
+import { ElSelect } from 'element-plus';
 
 
 const { wsCache } = useCache()
@@ -51,6 +52,7 @@ const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   model: 'article',
   title: null,
+  type: null,
   description: null,
   url: null,
   code: null,
@@ -63,22 +65,6 @@ const ruleForm = reactive({
 
 
 
-const rules = reactive<FormRules>({
-  title: [
-    { required: true, message: 'Required', trigger: 'blur' },
-  ],
-
-  description: [
-    { required: true, message: 'Required', trigger: 'blur' },
-  ],
-
-  url: [
-    { required: true, message: 'Required', trigger: 'blur' },
-  ],
-  cover_photo: [
-    { required: true, message: 'Please upload a cover photo', trigger: 'blur' },
-  ],
-})
 
 
 
@@ -257,6 +243,16 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   tableDataList.value = res.data
   loading.value = false
 
+
+
+  tableDataList.value .forEach(async (article) => {
+        await fetchCoverPhoto(article); // Fetch the cover photo asynchronously for each article
+      });
+
+
+
+
+
   //tableDataList.value = res.data
   totalItems.value = res.total
 
@@ -315,22 +311,6 @@ const searchByNewName = async (filterString: any) => {
 
 
 
-const xsearchByNewName = async () => {
-
-  console.log('searcjhinmg.....')
-  if (search_string.value) {
-
-    searchLoading.value = true
-    getFilteredBySearchData(search_string.value)
-
-  } else if (search_string.value == '' || !search_string.value) {
-    searchLoading.value = false
-    getFilteredData(filters.value, filterValues.value)
-
-  }
-
-}
-
 const AddDialogVisible = ref(false)
 
 const AddArticle = () => {
@@ -376,19 +356,40 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
       // Attach cover photo
 
-      console.log('coverPhoto.value', coverPhoto.value)
+      // console.log('coverPhoto.value', coverPhoto.value)
+      // const CoverformData = new FormData()
+      // CoverformData.append('file', coverPhoto.value.raw);
+      // CoverformData.append('id', article.data.id)
+      // CoverformData.append('model', 'article')
+
+      // const CoverformDataRes = await uploadCoverPhoto(CoverformData)
+
+
+
+
+      // uploading Cover Photo 
       const CoverformData = new FormData()
-      CoverformData.append('file', coverPhoto.value.raw);
-      CoverformData.append('id', article.data.id)
-      CoverformData.append('model', 'article')
+      for (var i = 0; i < coverPhotoList.value.length; i++) {
+        console.log('------>file', coverPhotoList.value[i])
+        var column = 'article_id'
+        CoverformData.append('files', coverPhotoList.value[i].raw)
+        CoverformData.append('format', coverPhotoList.value[i].name.split('.').pop())
+        CoverformData.append('field_id', 'article_id')
+        CoverformData.append('category', 53)
+        CoverformData.append(column, parseInt(article.data.id))
+        CoverformData.append('size', (coverPhotoList.value[i].raw.size / 1024 / 1024).toFixed(2))
+        CoverformData.append('createdBy', userInfo.id)
+        CoverformData.append('protected', false)
 
-      const CoverformDataRes = await uploadCoverPhoto(CoverformData)
+      }
+
+      CoverformData.append('code', uuid.v4())
+      const coverPhotRes = await uploadFilesBatch(CoverformData)
+      console.log(coverPhotRes, coverPhotRes)
 
 
 
-
-      // uploading the documents 
-
+      // uploading Other  the documents 
       const formData = new FormData()
       for (var i = 0; i < selectedFiles.value.length; i++) {
         console.log('------>file', selectedFiles.value[i])
@@ -402,12 +403,11 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         formData.append('createdBy', userInfo.id)
         formData.append('protected', false)
 
-        //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
       }
-
 
       formData.append('code', uuid.v4())
       const docs = await uploadFilesBatch(formData)
+
 
 
 
@@ -605,7 +605,122 @@ const deleteAttachment = async (data: TableSlotDefault) => {
 
 
 
+const handleCloseDialog = () => {
+  AddDialogVisible.value = false
+}
 
+
+
+const active = ref(0);
+
+const rules = reactive<FormRules>({
+  title: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+
+  description: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+
+  url: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+  cover_photo: [
+    { required: true, message: 'Please upload a cover photo', trigger: 'blur' },
+  ],
+})
+
+
+const validationRules = ({
+  // Validation rules for each step
+  step1: {
+    title: [{ required: true, message: 'Name is required', trigger: 'blur' }],
+    type: [{ required: true, message: 'Type is required', trigger: 'change' }],
+
+
+  },
+
+  step2: {
+    description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
+    cover_photo: [{ required: true, message: 'Cover Photo is required', trigger: 'change' }],
+
+  },
+
+
+
+});
+
+
+
+const currentStepRules = computed(() => {
+  const stepRulesKey = `step${active.value + 1}`;
+  console.log('stepRulesKey', stepRulesKey)
+  return validationRules[stepRulesKey];
+});
+
+
+const next = async () => {
+
+
+  const formInstance = ruleFormRef
+  formInstance.value.validate((valid: boolean) => {
+    if (valid) {
+      console.log(formInstance)
+      active.value++;
+    }
+  });
+
+
+};
+
+
+const prev = () => {
+  active.value--;
+};
+
+const fetchCoverPhoto = async (article) => {
+  const coverSrc = await getCover(article); // Assuming getCover returns the Base64 image
+  article.coverSrc = coverSrc; // Assign the fetched cover photo to the article object
+};
+
+
+
+async function getCover(article) {
+  const cover_photo = article.documents.find((doc) => doc.category === 53);
+
+  if (!cover_photo) {
+    console.error("Cover photo not found in category 53");
+    return null;
+  }
+
+  const formData = {
+    filename: cover_photo.name,
+    doc_id: cover_photo.id,
+    responseType: "blob",
+  };
+
+  try {
+    const response = await getFile(formData); // Replace with your API call logic
+
+    // Convert Blob to Base64
+    const base64 = await blobToBase64(response.data);
+    return base64; // Return the Base64 string to use as src
+  } catch (error) {
+    console.error("Failed to fetch the file:", error);
+    ElMessage.error("Failed to fetch the cover photo.");
+    return null;
+  }
+}
+
+// Convert Blob to Base64 string
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob); // Read the blob as a Data URL (Base64)
+  });
+}
 
 
 
@@ -620,14 +735,6 @@ const deleteAttachment = async (data: TableSlotDefault) => {
 
     <el-row :gutter="10" style="margin-bottom:10px;">
       <el-col :xs="24" :sm="24" :md="20" :lg="20">
-        <!-- <el-input v-model="search_string" clearable :onClear="handleClear"
-          placeholder="Search an article by its title or part of it .." @change="searchByNewName" class="input-with-select"
-          style="margin-right: 5px;">
-          <template #append>
-            <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
-          </template>
-</el-input> -->
-
         <el-select v-model="search_string" multiple clearable filterable remote :remote-method="searchByNewName"
           reserve-keyword no-match-text='' placeholder="Search an article by its title or part of it ..."
           style=" margin-right: 5px;" />
@@ -654,27 +761,17 @@ const deleteAttachment = async (data: TableSlotDefault) => {
     <el-row :gutter="20" justify="left">
       <el-col :span="8" xs="24" sm="12" md="8" v-for="article in tableDataList" :key="article.id">
         <el-card class="article-card" shadow="hover" style="height: 95%;">
-
           <template #header>
             <el-popover placement="bottom" width="30%" trigger="hover" :content="article.title">
               <template #reference>
                 <h2 class="article-title">{{ article.title }}</h2>
               </template>
             </el-popover>
-
-
-
           </template>
 
-
-
           <div class="article-content" style="height: 100%;">
-            <!-- Title -->
-
-
             <!-- Cover Photo -->
-            <el-image v-if="article.cover_photo" :src="article.cover_photo" fit="cover"
-              style="width: 100%; height: 150px;">
+            <el-image v-if="article.coverSrc" :src="article.coverSrc" fit="cover" style="width: 100%; height: 150px;">
               <template #placeholder>
                 <div class="image-placeholder">Loading...</div>
               </template>
@@ -685,44 +782,27 @@ const deleteAttachment = async (data: TableSlotDefault) => {
 
             <el-image v-else :src="'/placeholder.jpg'" fit="cover" style="width: 100%; height: 150px;" />
 
-
             <!-- Summary (Truncate if too long) -->
             <p class="article-summary"
               style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
               {{ article.description }}
             </p>
 
+            <!-- Actions -->
             <div class="article-actions-row"
               style="display: flex; align-items: center; justify-content: space-between; margin-bottom:5px">
               <el-link :href="article.url" target="_blank">Read Full Story</el-link>
               <div>
-
                 <el-tooltip content="Edit" placement="top">
-
-
                   <el-button v-if="showAdminButtons" type="primary" size="small" @click="editStory(article)"
                     :icon="Edit" circle />
                 </el-tooltip>
-
-
-
                 <el-tooltip content="Delete" placement="top">
-
-                  <el-button v-if="showAdminButtons" type="danger" size="small" @click="DeleteStory(article)"
+                  <el-button v-if="showAdminButtons" type="danger" size="small" @click="deleteStory(article)"
                     :icon="Delete" circle />
-
                 </el-tooltip>
-
-
-
-
-
-
               </div>
-
             </div>
-
-
 
             <!-- Attachments Section -->
             <div v-if="article.documents.length" class="attachments">
@@ -738,77 +818,140 @@ const deleteAttachment = async (data: TableSlotDefault) => {
                     <el-button v-if="showAdminButtons" type="text" :icon="Delete"
                       @click="deleteAttachment(attachment)" />
                   </el-tooltip>
-
-
-
                 </li>
-
               </ul>
             </div>
           </div>
-
-
         </el-card>
       </el-col>
     </el-row>
+
   </el-card>
 
-  <el-dialog v-model="AddDialogVisible" :title="formHeader" width="500" :before-close="onclose">
-    <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-position="top">
-      <el-form-item label="Article Title" prop="title">
-        <el-input v-model="ruleForm.title" />
-      </el-form-item>
+
+
+  <el-dialog v-model="AddDialogVisible" @close="handleCloseDialog" title="File a grievance" width="55%" draggable>
+
+    <el-steps :active="active" finish-status="success">
+      <el-step title="Details" />
+      <el-step title="Media" />
+    </el-steps>
+
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="currentStepRules" class="demo-form-inline"
+      label-position="top">
+      <el-card shadow="hover">
+        <el-row v-if="active === 0" :gutter="10">
+          <!-- Step 1: Personal Details -->
+          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+
+            <el-form-item label="Article Title" prop="title">
+              <el-input type="textarea" v-model="ruleForm.title" />
+            </el-form-item>
+
+
+            <el-form-item id="btn2" label="Type" prop="type">
+              <el-select v-model="ruleForm.type" placeholder="Select" style="width:90%">
+                <el-option label="TV" value="TV" />
+                <el-option label="Article" value="Article" />
+                <el-option label="Blog" value="Blog" />
+                <el-option label="Newspaper" value="Newspaper" />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item label="Link" prop="url">
+              <el-input v-model="ruleForm.url" />
+            </el-form-item>
 
 
 
-      <el-form-item label="Description" prop="description">
-        <el-input type="textarea" v-model="ruleForm.description" />
-      </el-form-item>
-
-
-      <el-form-item label="Link" prop="url">
-        <el-input v-model="ruleForm.url" />
-      </el-form-item>
-
-      <el-form-item label="Upload Cover Photo" prop="cover_photo">
-
-
-
-        <el-upload v-model:file-list="coverPhotoList" class="upload-demo" action="" :auto-upload="false"
-          :on-change="handleCoverPhoto">
-          <el-button type="primary">Cover Photo</el-button>
-
-        </el-upload>
-
-
-      </el-form-item>
-
-
-      <el-form-item label="Select/Drop newspaper cuttings and other files here or click to upload" style="width: 100%;">
-        <el-upload v-model:file-list="fileList" class="upload-demo" action="" :auto-upload="false"
-          :on-change="handleFiles">
-          <el-button type="primary">Other Documents</el-button>
-
-        </el-upload>
-
-
-      </el-form-item>
+          </el-col>
 
 
 
 
+        </el-row>
+
+
+
+        <el-row v-if="active === 1" :gutter="10">
+          <!-- Step 2: Grievance Details -->
+          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-form-item label="Description" prop="description">
+              <el-input type="textarea" v-model="ruleForm.description" rows='5' />
+            </el-form-item>
+
+
+
+
+          </el-col>
+          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+
+
+
+            <el-form-item label="Upload Cover Photo" prop="cover_photo">
+              <el-upload v-model:file-list="coverPhotoList" class="upload-demo" action="" :auto-upload="false"
+                :limit="1" accept="image/*" :on-change="handleCoverPhoto">
+                <el-button type="primary">Upload Cover Photo</el-button>
+              </el-upload>
+            </el-form-item>
+
+
+
+
+
+            <el-form-item label="Select/Drop newspaper cuttings and other files here or click to upload"
+              style="width: 100%;">
+              <el-upload v-model:file-list="fileList" class="upload-demo" action="" :auto-upload="false"
+                :on-change="handleFiles">
+                <el-button type="primary">Other Documents</el-button>
+
+              </el-upload>
+
+
+            </el-form-item>
+          </el-col>
+
+
+        </el-row>
+
+
+      </el-card>
     </el-form>
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="onclose()">Cancel</el-button>
-        <el-button v-if="!showEditSaveButton" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-        <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
 
+    <template #footer>
+      <div class="steps-navigation"
+        style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+        <div>
+          <el-tooltip content="Help" placement="top">
+            <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
+          </el-tooltip>
+
+          <el-button id="btn9" v-if="active > 0" @click="prev" type="primary" :icon="ArrowLeft">Previous </el-button>
+        </div>
+        <div>
+
+          <el-button @click="onclose()">Cancel</el-button>
+
+
+          <el-button id="btn7" v-if="active < 2" type="primary" @click="next">
+            Next <el-icon class="el-icon--right">
+              <ArrowRight />
+            </el-icon>
+          </el-button>
+
+          <!-- <el-button id="btn2" v-if="active === 1" type="primary" @click="submitForm"
+            style="margin-left: 10px;">Submit</el-button>
+          <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button> -->
+
+
+          <el-button v-if="!showEditSaveButton" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+          <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+
+
+        </div>
       </div>
     </template>
   </el-dialog>
-
-
 
 </template>
 

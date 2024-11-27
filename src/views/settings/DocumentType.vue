@@ -87,9 +87,9 @@ const showEditButtons =  ref(appStore.getEditButtons)
 
 const columns: TableColumn[] = [
   {
-    field: 'index',
-    label: t('userDemo.index'),
-    type: 'index'
+    field: 'id',
+    label: t('Id'),
+ 
   },
 
   {
@@ -464,31 +464,61 @@ const groupOptions = [
 
 <template>
   <ContentWrap :title="t('Document Types')" :message="t('Use the filters to subset')">
-    <el-divider border-style="dashed" content-position="left">Filters</el-divider>
+ 
+        
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <!-- Select Section -->
+          <div style="flex: 1; display: flex; align-items: center;">
+            <el-select
+              v-model="value3"
+              :onChange="handleSelectIndicator"
+              :onClear="handleClear"
+              multiple
+              clearable
+              filterable
+              collapse-tags
+              placeholder="Filter by Document Category"
+              style="width: 95%;"
+            >
+              <el-option
+                v-for="item in DocCategories"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </div>
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-select
-v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Category">
-        <el-option v-for="item in DocCategories" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-    </div>
-    <DownloadAll  v-if="showEditButtons"   :model="model" :associated_models="associated_multiple_models"/>
+          <!-- Buttons Section -->
+          <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <el-button
+              :onClick="handleDownload"
+              type="primary"
+              :icon="Download"
+            />
+            <DownloadAll
+              v-if="showEditButtons"
+              :model="model"
+              :associated_models="associated_multiple_models"
+            />
+            <el-button
+              :onClick="handleClear"
+              type="primary"
+              :icon="Filter"
+            />
+            <el-tooltip content="Add Indicator" placement="top">
+              <el-button
+                :onClick="AddIndicator"
+                type="primary"
+                :icon="Plus"
+              />
+            </el-tooltip>
+          </div>
+        </div>
+      
 
-    <div style="display: inline-block; margin-left: 20px">
-      <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-    </div>
-    <div style="display: inline-block; margin-left: 20px">
-      <el-tooltip content="Add Indicator" placement="top">
-        <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
-      </el-tooltip>
-    </div>
 
-    <el-divider border-style="dashed" content-position="left">Results</el-divider>
-
+ 
     <Table
 :columns="columns" :data="tableDataList" :loading="loading" :selection="true" :pageSize="pageSize"
       :currentPage="currentPage">
