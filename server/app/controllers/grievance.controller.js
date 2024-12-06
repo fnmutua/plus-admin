@@ -71,9 +71,9 @@ async function sendNotificationSMS(sms_obj) {
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
   
   const requestData = {
-    apikey: "684f84e9aa485a0e72e6734c6b84d9b4",
-    partnerID: "10322",
-    shortcode: "AGS",
+    apikey: "***REDACTED***",
+     partnerID: '12108',
+    shortcode: "KISIP",
     message: sms_obj.grv_code + ":" +sms_obj.message,
     mobile: sms_obj.phone,
   };
@@ -138,9 +138,9 @@ async function sendSMS(sms_obj,serverUrl) {
 
 
   const requestData = {
-    apikey: "684f84e9aa485a0e72e6734c6b84d9b4",
-    partnerID: "10322",
-    shortcode: "AGS",
+    apikey: "***REDACTED***",
+ partnerID: '12108',
+    shortcode: "KISIP",
     message: msg,
     mobile: sms_obj.phone,
   };
@@ -447,7 +447,7 @@ exports.logGrievanceAction = async (req, res) => {
  
 
  
-exports.xgetGrievances = async (req, res) => {
+exports.getGrievances = async (req, res) => {
   console.log(req.thisUser);
   const user = req.thisUser;
   const currentUserRoles = await user.getRoles();
@@ -622,7 +622,7 @@ exports.xgetGrievances = async (req, res) => {
     });
 };
 
-exports.getGrievances = async (req, res) => {
+exports.xgetGrievances = async (req, res) => {
   console.log(req.thisUser);
   const user = req.thisUser;
   const currentUserRoles = await user.getRoles();

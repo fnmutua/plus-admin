@@ -59,9 +59,9 @@ for (const phone of admins_phones) {
   // Check if phone number exists and is valid (not null or undefined)
   if (phone) {
     const requestData = {
-      apikey: "684f84e9aa485a0e72e6734c6b84d9b4", // Replace with your actual API key
-      partnerID: "10322", // Replace with your actual partner ID
-      shortcode: "AGS",
+      apikey: "***REDACTED***", // Replace with your actual API key
+   partnerID: '12108', // Replace with your actual partner ID
+      shortcode: "KISIP",
       message: adminMessage,
       mobile: formatPhoneNumber(phone), // Send the message to the admin's phone number
     };
@@ -1185,9 +1185,9 @@ exports.signupViaApp = async (req, res) => {
     // Send OTP via external service (Leopard)
     const url = "https://quicksms.advantasms.com/api/services/sendotp/";
     const requestData = {
-      apikey: 'your-api-key',
-      partnerID: '10322',
-      shortcode: 'AGS',
+      apikey: '***REDACTED***',
+      partnerID: '12108',
+      shortcode: 'KISIP',
       message: 'Your registration code is: ' + otpCode + '.',
       mobile: req.body.phone,
     };
@@ -1311,9 +1311,9 @@ exports.signinViaApp = async (req, res) => {
       // Send OTP via Leopard (not implemented in this code snippet)
        const url = "https://quicksms.advantasms.com/api/services/sendotp/";
        const requestData = {
-          apikey: '684f84e9aa485a0e72e6734c6b84d9b4',
-          partnerID: '10322',
-          shortcode: 'AGS',
+          apikey: '***REDACTED***',
+          partnerID: '12108',
+          shortcode: 'KISIP',
           message: 'Your KeSMIS Login code is: ' + otpCode + '.',
           //message: 'Your UAFSD Login code is: ' + otpCode + '. \n gyQbWWWRcc5',
           mobile:   user_phone 
