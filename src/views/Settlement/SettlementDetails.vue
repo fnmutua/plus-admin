@@ -915,6 +915,22 @@ const tableRowClassName = (data) => {
 }
 
 
+const projectStatus = (data) => {
+
+  if (data.row.status == 'Suspended') {
+    return 'danger-row'
+  }
+  if (data.row.status == 'Planned') {
+    return 'warning-row'
+  }
+
+  if (data.row.status == 'Complete') {
+    return 'success-row'
+  }
+
+  return ''
+}
+
 
 const AddReport = () => {
 
@@ -1095,7 +1111,7 @@ const getProjectLocations = async (settlement_id) => {
 
       <el-tab-pane label="Projects" name="Projects">
         <el-card>
-          <el-table :data="projects" border>
+          <el-table :data="projects" border :row-class-name="projectStatus">
             <el-table-column type="index" width="50" />
             <el-table-column label="Code" prop="project_code" width="350" sortable />
 
@@ -1388,6 +1404,14 @@ const getProjectLocations = async (settlement_id) => {
 .el-table .success-row {
   --el-table-tr-bg-color: var(--el-color-success-light-9);
   --el-table-tr-text-color: var(--el-color-success);
+  color: var(--el-table-tr-text-color);
+}
+
+
+
+.el-table .warning-row {
+  --el-table-tr-bg-color: var(--el-color-warning-light-9);
+  --el-table-tr-text-color: var(--el-color-warning);
   color: var(--el-table-tr-text-color);
 }
 
