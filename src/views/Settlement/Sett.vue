@@ -2369,8 +2369,8 @@ const handleRowDblClick = (row) => {
           </span>
         </template>
 
-        <el-table :data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true" style="width: 100%"
-          border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+        <el-table :data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true"
+          style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
 
 
           <el-table-column type="expand">
