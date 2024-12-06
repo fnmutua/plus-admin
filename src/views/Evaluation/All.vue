@@ -1194,8 +1194,6 @@ function toggleComponent(row) {
   setTimeout(() => {
     dynamicComponent.value = ChildComponent; // Load the component
   }, 100); // 0.1 seconds
-
-
 }
 
 
