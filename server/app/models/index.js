@@ -55,6 +55,13 @@ db.models.roles.hasMany(db.models.user_roles, {
 })
  
 
+
+
+
+
+
+
+
 // A county can have many users, while a user can only have one county.W
 //db.user.belongsTo(db.models.county);
 

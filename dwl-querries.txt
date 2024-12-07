@@ -106,9 +106,8 @@ ORDER BY
 
 // 
 
-ALTER TABLE grievance
-ADD COLUMN current_status_date  TIMESTAMP DEFAULT NOW(), 
-ADD COLUMN status_expiry_date  TIMESTAMP DEFAULT NOW() ;
+ALTER TABLE grievance  ADD COLUMN current_status_date  TIMESTAMP DEFAULT NOW(); 
+ALTER TABLE grievance  ADD COLUMN status_expiry_date  TIMESTAMP DEFAULT NOW() ;
  
 
 
