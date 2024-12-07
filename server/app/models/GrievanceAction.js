@@ -24,8 +24,6 @@ module.exports = function (sequelize, DataTypes) {
         enum: ['Reported', 'Updated', 'Resolved', 'Escalated', 'Document Requested','Document Uploaded','Referred','Rejected'],
         allowNull: false
       },
-
-
  
       action_by: {
         type: DataTypes.INTEGER,
@@ -65,6 +63,8 @@ module.exports = function (sequelize, DataTypes) {
         enum: ['Open', 'Investigation', 'Review', 'Resolved', 'Escalated', 'Closed'],
         allowNull: false
       },
+
+  
 
         // resolution additional apramerts 
 

@@ -26,10 +26,7 @@
 
           <p class="grievance-message">
             If you have a grievance against the KISIP project or its actors, you can
-            <el-button plain type="warning" size="large" :icon="ChatDotRound" @click="navigateTo('grm')">
-              File a Grievance
-            </el-button>
-            , send us an email at
+            <el-button plain link   class="grievance-email" @click="navigateTo('grm')"> file a grievance  </el-button>, send us an email at
             <a href="mailto:kisip2info@housingandurban.go.ke" class="grievance-email">kisip2info@housingandurban.go.ke
             </a>,
             or call our helpline at

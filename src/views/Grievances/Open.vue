@@ -776,31 +776,7 @@ const getGrievanceDetails = (data) => {
   console.log(data)
 }
 
-const ActionOptions = [
-  {
-    value: 'Resolved',
-    label: 'Mark as Resolved',
-  },
-  {
-    value: 'Escalated',
-    label: 'Escalate to next Level',
-  },
-
-
-  {
-    value: 'Document Requested',
-    label: 'Ask for Documentation from complainant',
-  },
-]
-const formAction = ref({
-  grievance_id: null,
-  action_type: null,
-  action_by: null,
-  date_actioned: null,
-  prev_status: null,
-  new_status: null,
-});
-
+ 
 const showDownloadDialog = ref(false);
 
 const selectedFields = ref([]);
@@ -1471,6 +1447,12 @@ const tableRowClassName = (data) => {
   if (data.row.status == 'Rejected') {
     return 'rejected-row'
   }
+
+  if (data.row.status == 'Investigations') {
+    return 'escalated-row'
+  }
+
+
 
   if (data.row.status == 'Escalated') {
     return 'escalated-row'

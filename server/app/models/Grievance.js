@@ -65,12 +65,24 @@ module.exports = function (sequelize) {
         type: DataTypes.BOOLEAN, // Assuming this is a string; use BOOLEAN if it's a true/false field
         allowNull: true
       },
+
       status: {
         type: DataTypes.STRING,
         allowNull: false,
       },
-     
+            
+      current_status_date: {
+        type: DataTypes.DATE,
+        allowNull: false
+      },
+   
  
+      status_expiry_date: {
+        type: DataTypes.DATE,
+        allowNull: false
+      },
+   
+
       current_level: {
         type: DataTypes.STRING,
         allowNull: false,

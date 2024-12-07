@@ -212,6 +212,12 @@ onMounted(async () => {
         label: 'Reject Grievance',
       },
       {
+        value: 'Investigation',
+        label: 'Investigating Grievance',
+      },
+
+
+      {
         value: 'Escalated',
         label: 'Escalate Grievance',
       },
@@ -267,6 +273,11 @@ onMounted(async () => {
         value: 'Resolved',
         label: 'Resolve Grievance',
       },
+      {
+        value: 'Investigation',
+        label: 'Investigating Grievance',
+      },
+
       {
         value: 'Escalated',
         label: 'Escalate Grievance',
@@ -353,7 +364,7 @@ onMounted(async () => {
       },
       {
         value: 'Investigation',
-        label: 'Investigation',
+        label: 'Investigating Grievance',
       },
 
       {
@@ -521,41 +532,55 @@ const generatePDFform = async (grievance, action) => {
 
   console.log('grievance', grievance)
 
-  if(grievance.status=='Resolved') {
-  // Additional properties based on the provided JSON object
-  formData.type = "resolution"
+  if (grievance.status == 'Resolved') {
+    // Additional properties based on the provided JSON object
+    formData.type = "resolution"
 
-  formData.grievance_id = grievance.id
-  formData.project_phone = grievance.project_phone || 'Not Available';
-  formData.settlement = grievance.settlement || null;
-  formData.resolution_date = formatDate(action.resolution_date) || null;
-  formData.filer_present = action.filer_present || null;
-  formData.field_verification_conducted = action.field_verification_conducted || null;
-  formData.agreement_reached = action.agreement_reached || null;
-  formData.grc_chairman = action.grc_chairman || 'Not Available';
-  formData.complainant = grievance.complainant || null;
-  formData.agreement = action.agreement || null;
-  formData.issues = action.issues || null;
-  formData.field_investigations = action.field_investigations || null;
-  formData.point_disagreement = action.point_disagreement || null;
-  formData.date = formatDate(Date.now())
+    formData.grievance_id = grievance.id
+    formData.project_phone = grievance.project_phone || 'Not Available';
+    formData.settlement = grievance.settlement || null;
+    formData.resolution_date = formatDate(action.resolution_date) || null;
+    formData.filer_present = action.filer_present || null;
+    formData.field_verification_conducted = action.field_verification_conducted || null;
+    formData.agreement_reached = action.agreement_reached || null;
+    formData.grc_chairman = action.grc_chairman || 'Not Available';
+    formData.complainant = grievance.complainant || null;
+    formData.agreement = action.agreement || null;
+    formData.issues = action.issues || null;
+    formData.field_investigations = action.field_investigations || null;
+    formData.point_disagreement = action.point_disagreement || null;
+    formData.date = formatDate(Date.now())
 
-  console.log(formData);
+    console.log(formData);
 
- await sendAcknowledgement(formData)
-
-
-
-  }  
- 
-
- 
+    await sendAcknowledgement(formData)
 
 
- 
+
+  }
+
+
+
+
+
+
 
 }
 
+
+function getStageDuration(stageName) {
+  // Define the mapping of stages to their durations
+  const stageDurations = {
+    "Sorting": 7,
+    "Investigation": 14,
+    "Escalated": 14,
+    "Resolved": 21,
+    "Closed": 42
+  };
+
+  // Return the duration or a default value if the stage is not found
+  return stageDurations[stageName] || 0; // Default to 0 if the stage is invalid
+}
 
 
 const dynamicFormRef = ref<FormInstance>()
@@ -577,21 +602,21 @@ const submitResolutionForm = async () => {
       if (form.value.new_status == 'Escalated') {
         if (current_user_roles[0] == 'settlement') {
           form.value.current_level = 'county'
-          msg="Your grievance has been escalated to the county"
+          msg = "Your grievance has been escalated to the county"
 
         } else {
           form.value.current_level = 'national'
-          msg="Your grievance has been escalated to the national team"
+          msg = "Your grievance has been escalated to the national team"
 
         }
 
       }
       else {
         form.value.current_level = Grievance.value.current_level
-        msg=form.value.action
+        msg = form.value.action
       }
 
-      
+
 
       console.log("checking issue.............")
       console.log(form.value.new_status)
@@ -614,6 +639,8 @@ const submitResolutionForm = async () => {
         //action: form.value.action,
         action: msg,
         current_level: form.value.current_level,
+        current_status_date: new Date(),
+        status_expiry_date: new Date() + getStageDuration(form.value.new_status),
         action_by: userInfo.id,
         action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
 

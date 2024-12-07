@@ -99,3 +99,58 @@ JOIN
     ward  w ON w.subcounty_id = sc.id
 ORDER BY 
     c.name, sc.name, w.name;
+
+
+
+
+
+// 
+
+ALTER TABLE grievance
+ADD COLUMN current_status_date  TIMESTAMP DEFAULT NOW(), 
+ADD COLUMN status_expiry_date  TIMESTAMP DEFAULT NOW() ;
+ 
+
+
+
+UPDATE grievance 
+SET current_status_date =   NOW() ;   
+
+
+UPDATE grievance 
+SET status_expiry_date = "current_status_date" + INTERVAL '7 days'
+WHERE status = 'Sorting';
+
+
+UPDATE grievance 
+SET status_expiry_date = "current_status_date" + INTERVAL '14 days'
+WHERE status = 'Investigation';
+
+
+UPDATE grievance 
+SET status_expiry_date = "current_status_date" + INTERVAL '21 days'
+WHERE status = 'Resolution';
+
+
+
+UPDATE grievance 
+SET status_expiry_date = "current_status_date" + INTERVAL '14 days'
+WHERE status = 'Escalated';
+
+
+UPDATE grievance 
+SET status_expiry_date = "current_status_date" + INTERVAL '42 days'
+WHERE status = 'Closed';
+
+
+
+
+
+
+
+
+Stage	Duration
+Sorting	7 days 
+Investigations/Escalate	14 days 
+Resolution	21 days
+Close	42 days
