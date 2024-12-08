@@ -13,7 +13,9 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   },
   define: {
     timestamps: false
-  }
+  },
+  logging: false, // Felix - Disable logging
+
 })
 const db = {}
 db.Sequelize = Sequelize

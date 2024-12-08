@@ -1926,6 +1926,8 @@ exports.modelImportGrievances = async (req, res) => {
     ////=============================================================================================================================================
 
  function getDaysToExpiry(expiryDate) {
+
+     console.log('expiryDate >>>',expiryDate)
       const now = new Date(); // Current date and time
       const expiry = new Date(expiryDate); // Convert expiryDate string to a Date object
     
@@ -1976,7 +1978,8 @@ exports.modelImportGrievances = async (req, res) => {
         const userRole = await UserRoles.findAll({
           where: {
             location_level: grievanceLevel,   // Grievance level
-            location_id: locationId           // Location ID
+            location_id: locationId,           // Location ID
+            roleid: 4           // GRM=4
           },
           include: [
             {
@@ -2018,19 +2021,43 @@ exports.modelImportGrievances = async (req, res) => {
       // Asynchronous function to send emails
       async function sendEmail(emails, message) {
         try {
+          // Validate email recipients
+
+
+           // Email validation regex
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            // Filter out invalid email addresses
+            const validEmails = emails.filter(email => email && typeof email === 'string' && emailRegex.test(email));
+
+
+           // Filter out invalid email addresses
+         //   const validEmails = emails.filter(email => email && typeof email === 'string');
+
+            // Validate email recipients
+            if (validEmails.length === 0) {
+              console.log("No valid email recipients provided. Skipping email.");
+              return; // Exit the function if no valid email addresses remain
+            }
+
+          if (!emails || emails.length === 0) {
+            console.log("No email recipients provided. Skipping email.");
+            return; // Exit the function if the email list is empty
+          }
+      
           // Log the inputs
           console.log("Sending emails to:", emails);
           console.log("Message content:", message);
-
+      
           // Prepare the email options
           const mailOptions = {
-            from: ' kisip.mis@gmail.com', // Sender address
+            from: 'kisip.mis@gmail.com', // Sender address
             to: emails.join(","), // Comma-separated list of recipients
             subject: message.subject || "Notification", // Email subject
             text: message.text || "", // Plain text content
             html: message.html || "", // HTML content (optional)
           };
-
+      
           // Send the email
           const info = await transporter.sendMail(mailOptions);
           console.log("Email sent successfully:", info.messageId);
@@ -2038,186 +2065,175 @@ exports.modelImportGrievances = async (req, res) => {
           console.error("Error sending email:", error);
         }
       }
-
+      
 
 
     // Function to check grievances and send notifications
     async function checkGrievances() {
       try {
-        // Query grievances with expired status_expiry_date
-        // Query grievances where status_expiry_date is not null
-        const grievances = await Grievance.findAll({
+        // Query grievances with non-null status_expiry_date
+        const grievances = await Grievance.findAndCountAll({
           where: {
-            status_expiry_date: { [Op.ne]: null }, // Exclude null expiry dates
+            status_expiry_date: { [Op.ne]: null },
           },
         });
-
-            // Loop through grievances and send notifications
-        for (const grievance of grievances) {
-          const { id,code, current_status_date,current_level, settlement_id, county_id,  status_expiry_date } = grievance;
-          let user 
-
-
-          // Get the responsible Officcers
-          let officer_emails = []
-          let officer_phones = []
-          let officer_names = []
-
-          const settlement = await getSettlementDetails(settlement_id)
-
-        // console.log('settlement',settlement)
-
-          if (current_level =='settlement') {
-            user = await  findUserByGrievanceLevelAndLocation(current_level,settlement_id.toString())
-              } 
-          else if (current_level =='county')
-          {
-            user =  await findUserByGrievanceLevelAndLocation(current_level,county_id.toString())
-      
-            } 
-
-            if (user.length >0){    // Extract emails into an array
-
-              console.log(user)
-              officer_emails  = user.map(role => role.user.email);
-              officer_phones= user.map(role => role.user.phone);
-              officer_names = user.map(role => role.user.name);
     
-            console.log('Officers', officer_emails,officer_phones,officer_names);   
-              
-            }
-      
-
-
-          // Get the Superuo Officcers
-          let superior_emails = []
-          let superior_phones = []
-          let superior_names = []
-
-          if (current_level =='settlement') {
-            user = await  findUserByGrievanceLevelAndLocation('county',county_id.toString())
-              } 
-          else if (current_level =='county')
-          {
-            user =  await findUserByGrievanceLevelAndLocation('national',undefined)
-      
-            } 
-
-            if (user.length >0){    // Extract emails into an array
-              superior_emails  = user.map(role => role.user.email);
-              superior_phones= user.map(role => role.user.phone);
-              superior_names =  user.map(role => role.user.name);
-
-                console.log('Superiors', superior_emails,superior_phones,superior_names);   
-                        
-            }
-      
-
-
-
-
-
-
-
-
-          // Example usage
-          const expiryDate = status_expiry_date ; // Example expiry date
-          const daysToExpiry = getDaysToExpiry(expiryDate);
-
-          if (daysToExpiry > 0) {
-            console.log(`Grievance will expire in ${daysToExpiry} days.`);
-            console.log('settlement',settlement)
-            console.log('settlement',settlement.name)
-
-            const msg ={} 
-
-            msg.subject='Grievance Processing Time Alert'
-            msg.html = `
-            <p>This is a system-generated notification to inform you that the grievance assigned to your desk (Ref: <strong>${code}</strong>, located in <strong>${settlement.name}</strong>, <strong>${settlement.county.name} County</strong>) is nearing the allowed processing time limit.</p>
-            <p>Kindly take the necessary steps to address this matter promptly.</p>
-            <p>Best regards,<br>System Administrator</p>
-            `;
-          
-            if(officer_emails.length>0) {
-              sendEmail(officer_emails,msg)
-            } 
- 
-            
-          } else if (daysToExpiry === 0) {
-            console.log("Grievance expires today.");
-          } 
-          else if (daysToExpiry === 1) {
-            const message_grc = `Alert: Grievance Ref: ${code} is nearing the expiry of allowed duration. Please review it immediately.`;
-         
-        }
-          
-          
-          else {
-  
-
-
-            const msg ={} 
-
-            msg.subject=' Urgent: Grievance Escalation for Immediate Action'
-            msg.html = `
-            <p>This is a system-generated notification to inform you that the grievance assigned to your desk (Ref: <strong>${code}</strong>, located in <strong>${settlement.name}</strong>, <strong>${settlement.county.name} County</strong>) is nearing the allowed processing time limit.</p>
-            <p>Kindly take the necessary steps to address this matter promptly.</p>
-            <p>Best regards,<br>System Administrator</p>
-            `;
-
-            if(officer_emails.length>0) {
-              sendEmail(officer_emails,msg)
-            } 
+        // Loop through grievances and process notifications
+        for (const grievance of grievances.rows) {
+              const {
+                id,
+                code,
+                current_status_date,
+                current_level,
+                settlement_id,
+                county_id,
+                status_expiry_date,
+              } = grievance;
         
-            const escalate_msg ={} 
-            escalate_msg.subject=' Urgent: Grievance Escalation for Immediate Action'
-            escalate_msg.html = `
-            <p>This is a system-generated notification to inform you that the grievance assigned to <strong>${officer_names}</strong> (Ref: <strong>${code}</strong>, located in <strong>${settlement.name}</strong>, <strong>${settlement.county.name} County</strong>) has exceeded the allowed processing time.</p>
-            <p>As this grievance has overstayed at the assigned desk, your immediate attention and action are required to address this matter promptly.</p>
-            <p>Best regards,<br>System Administrator</p>
-          `;
+              // Calculate days to expiry
+              const expiryDate = status_expiry_date;
+              const daysToExpiry = getDaysToExpiry(expiryDate);
+        
+              console.log(
+                'Processing grievance:',
+                `ID: ${id}, Days to Expiry: ${daysToExpiry}, Settlement ID: ${settlement_id}`
+              );
+        
+              // Get grievance settlement details
+              const settlement = await getSettlementDetails(settlement_id);
+        
+              // Check if grievance has expired
+              if (daysToExpiry < 0) {
+                console.log(
+                  'Expired grievance:',
+                  `ID: ${grievance.id}, Days to Expiry: ${daysToExpiry}, Settlement: ${settlement.id}, Name: ${settlement.name} , Level: ${current_level}`
+                );
+              }
+          
+          
+              // Fetch officers based on grievance level and location
+              let user;
+              if (current_level === 'settlement') {
+                user = await findUserByGrievanceLevelAndLocation(
+                  current_level,
+                  settlement_id.toString()
+                );
+              } else if (current_level === 'county') {
+                user = await findUserByGrievanceLevelAndLocation(
+                  current_level,
+                  county_id.toString()
+                );
+              } 
+
+ 
+               // Process officer details if users are found
+              let officer_emails = [];
+              let officer_phones = [];
+              let officer_names = [];
+
+              if (user?.length > 0) {
+                officer_emails = user.map((role) => role.user.email);
+                officer_phones = user.map((role) => role.user.phone);
+                officer_names = user.map((role) => role.user.name);
+
+                console.log('Officers:', officer_emails, officer_phones, officer_names);
+              }
 
 
-          if(superior_emails.length>0) {
-            sendEmail(superior_emails,escalate_msg)
-          } 
+
+              // Fetch superior officers based on grievance level
+              let superior_emails = [];
+              let superior_phones = [];
+              let superior_names = [];
+
+              if (current_level === 'settlement') {
+                user = await findUserByGrievanceLevelAndLocation(
+                  'county',
+                  county_id.toString()
+                );
+              } else if (current_level === 'county') {
+                user = await findUserByGrievanceLevelAndLocation('national', null);
+              }
+
+              if (user?.length > 0) {
+                superior_emails = user.map((role) => role.user.email);
+                superior_phones = user.map((role) => role.user.phone);
+                superior_names = user.map((role) => role.user.name);
+
+                console.log(
+                  'Superiors:',
+                  superior_emails,
+                  superior_phones,
+                  superior_names
+                );
+              }
 
 
-          //   const message_escalated = `Urgent: Grievance Ref: ${code} has exceeded the allowed duration for resolution. Immediate attention and action are required to address this issue.`;
 
-          //  // sendEmail(officer_emails,message_grc)
+                  // Notify officers based on the days to expiry
+                  if (daysToExpiry > 0 && daysToExpiry < 8) {
+                    console.log(`Grievance will expire in ${daysToExpiry} days.`);
 
-            console.log(`Grievance expired ${Math.abs(daysToExpiry)} days ago.`);
+                    const msg = {
+                      subject: 'Grievance Processing Time Alert',
+                      html: `
+                        <p>This is a system-generated notification to inform you that the grievance assigned to your desk (Ref: <strong>${code}</strong>, in <strong>${settlement.name}</strong>, <strong>${settlement.county.name} County</strong>) is nearing the allowed processing time limit (${daysToExpiry} days remaining).</p>
+                        <p>Kindly take the necessary steps to address this matter promptly.</p>
+                        <p>Best regards,<br>System Administrator</p>
+                      `,
+                    };
+
+                    console.log('Grievance Processing Time Alert',officer_emails)
+                    if (officer_emails.length > 0) {
+                      sendEmail(officer_emails, msg);
+                    }
+                  } else if (daysToExpiry === 0) {
+                    console.log('Grievance expires today.');
+                  } else if (daysToExpiry === 1) {
+                    const message_grc = `Alert: Grievance Ref: ${code} is nearing the expiry of allowed duration. Please review it immediately.`;
+                    console.log(message_grc);
+                  } else if (daysToExpiry < 0) {
+                    console.log(`Grievance expired ${Math.abs(daysToExpiry)} days ago.`);
+
+                    const msg = {
+                      subject: 'Urgent: Grievance Escalation for Immediate Action',
+                      html: `
+                        <p>This is a system-generated notification to inform you that the grievance assigned to your desk (Ref: <strong>${code}</strong>, in <strong>${settlement.name}</strong>, <strong>${settlement.county.name} County</strong>) has exceeded the allowed processing time limit.</p>
+                        <p>Kindly take the necessary steps to address this matter promptly.</p>
+                        <p>Best regards,<br>System Administrator</p>
+                      `,
+                    };
+
+                    if (officer_emails.length > 0) {
+                    sendEmail(officer_emails, msg);
+                    }
+
+                    const escalate_msg = {
+                      subject: 'Urgent: Grievance Escalation for Immediate Action',
+                      html: `
+                        <p>This is a system-generated notification to inform you that the grievance assigned to <strong>${officer_names}</strong> (Ref: <strong>${code}</strong>, located in <strong>${settlement.name}</strong>, <strong>${settlement.county.name} County</strong>) has exceeded the allowed processing time.</p>
+                        <p>As this grievance has overstayed at the assigned desk, your immediate attention and action are required to address this matter promptly.</p>
+                        <p>Best regards,<br>System Administrator</p>
+                      `,
+                    };
+
+                    if (superior_emails.length > 0) {
+                       sendEmail(superior_emails, escalate_msg);
+                    }
+                  }
+
+
+
+        
+               
+            }
+        
+            console.log('All notifications processed successfully.');
+          } catch (error) {
+            console.error('Error checking grievances:', error.message);
           }
-
-
-
-
-
-
-
-
-          // // Send SMS
-          // if (assigned_officer_phone) {
-          //   await sendSMS(assigned_officer_phone, message);
-          // }
-
-          // // Send Email
-          // if (assigned_officer_email) {
-          //   await sendEmail(
-          //     assigned_officer_email,
-          //     'Grievance Expiry Alert',
-          //     `The grievance with ID ${id} expired on ${status_expiry_date}. Immediate action is required.`
-          //   );
-          // }
         }
-
-        console.log('All notifications processed successfully.');
-      } catch (error) {
-        console.error('Error checking grievances:', error.message);
-      }
-    }
-
+        
 
 
 
@@ -2230,14 +2246,20 @@ exports.modelImportGrievances = async (req, res) => {
 
 
     // Schedule the function to run every day at 8:00 AM
-    cron.schedule('0 8 * * *', () => {
-      console.log('Running grievance check...');
+    // cron.schedule('0 8 * * *', () => {
+    //   console.log('Running grievance check...');
+    //   checkGrievances();
+    // });
+
+    // Schedule the function to run every  10 sec
+    // cron.schedule('*/10 * * * * *', () => {
+    //   console.log('Running grievance check... - Ever Min');
+    //   checkGrievances();
+    // });
+
+    // Schedule the function to run every  4 hours sec
+
+    cron.schedule('0 */4 * * *', () => {
+      console.log('Running grievance check... - Every 4 Hours');
       checkGrievances();
     });
-
-    // Schedule the function to run every  1min
-    cron.schedule('*/10 * * * * *', () => {
-      console.log('Running grievance check... - Ever Min');
-      checkGrievances();
-    });
-
