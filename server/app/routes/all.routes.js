@@ -160,6 +160,7 @@ module.exports = function (app) {
 
   app.post('/api/v1/documents/raw',  [authJwt.verifyToken, authJwt.isStaffOrAdmin], controller.getRawDocuments)
   app.post('/api/v1/documents/raw/delete', [authJwt.verifyToken, authJwt.isStaffOrAdmin],  controller.DeleteRawDocuments)
+  app.post('/api/v1/edit/revert', [authJwt.verifyToken, authJwt.isStaffOrAdmin],  controller.revertEdits)
 
 
   

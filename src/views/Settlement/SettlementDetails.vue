@@ -16,7 +16,7 @@ import {
   getSettlementListByCounty,
   getfilteredGeo
 } from '@/api/settlements'
-import { Back, Upload, Search, View, More } from '@element-plus/icons-vue'
+import { Back, Upload, Search, View, More, RefreshLeft } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
 
@@ -47,7 +47,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { useCache } from '@/hooks/web/useCache'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { uuid } from 'vue-uuid'
-import { CreateRecord, DeleteRecord } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, revertHistory } from '@/api/settlements'
 const { push } = useRouter()
 
 
@@ -283,7 +283,7 @@ function flattenObject(obj, parentKey = '', separator = '.') {
 }
 
 
-
+const editHistory = ref([])
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -320,11 +320,17 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   profile.description = res.data[0].description
   settGeom.value = res.data[0].geom
 
+  //
 
   //settlementDocuments.value = flattenObject(res.data.documents)
 
   // Assuming your array is res.data[0].documents
   const nestedArray = res.data[0].documents;
+
+  // Edit History 
+
+  //editHistory.value = res.data[0].settlement_histories
+
 
   // Flatten each object in the array
   settlementDocuments.value = nestedArray.map(doc => flattenObject(doc));
@@ -361,13 +367,13 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   utilities.prop_elec = res.data[0].settlement_statuses[latestReportIndex].prop_elec + '%'
 }
 
-onMounted(() => {
+onMounted(async () => {
 
 
   getFilteredData(filters, filterValues)
-  getIndicatorCategoryReports(route.params.id)
-
-  getProjectLocations(route.params.id)
+  await getIndicatorCategoryReports(route.params.id)
+  await getSettlmentHistory(route.params.id)
+  await getProjectLocations(route.params.id)
   console.log(settlement)
 })
 
@@ -901,6 +907,90 @@ const getIndicatorCategoryReports = async (projectId) => {
 }
 
 
+function getDifferences(before, after, parentKey = '') {
+  const differences = [];
+
+  for (const key in before) {
+    const currentKey = parentKey ? `${parentKey}.${key}` : key;
+
+    if (typeof before[key] === 'object' && before[key] !== null) {
+      if (Array.isArray(before[key])) {
+        // Compare arrays deeply
+        if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+          differences.push({
+            field: currentKey,
+            before: before[key].join(', '),
+            after: (after[key] || []).join(', '),
+          });
+        }
+      } else {
+        // Recursively compare nested objects
+        differences.push(...getDifferences(before[key], after[key] || {}, currentKey));
+      }
+    } else {
+      // Compare primitive values
+      if (before[key] !== after[key]) {
+        differences.push({
+          field: currentKey,
+          before: before[key] || '',
+          after: after[key] || '',
+        });
+      }
+    }
+  }
+
+  return differences;
+}
+
+
+
+
+
+const getSettlmentHistory = async (sett_id) => {
+
+  const model = 'settlement_history'
+  const associated_multiple_models = ['users']
+
+  const formData = {}
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.excludeGeom = false
+  formData.associated_multiple_models = ['users']
+
+  //--Single Filter -----------------------------------------
+
+
+  // - multiple filters -------------------------------------
+  formData.filters = ['settlement_id']
+  formData.filterValues = [[sett_id]]
+
+  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+  //-------------------------
+  console.log("formData", formData)
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+
+  console.log('History collected........', res.data)
+  const rawHistory = res.data;
+
+  // Process the differences for nested properties
+  editHistory.value = rawHistory.map((record) => {
+    const changes = record.changes;
+    const differences = getDifferences(changes.before, changes.after);
+    return {
+      ...record,
+      differences,
+    };
+  });
+
+
+
+}
+
+
+
 
 const tableRowClassName = (data) => {
 
@@ -974,6 +1064,7 @@ const Review = (data: TableSlotDefault) => {
 
 
 
+
 const projects = ref([])
 
 const getProjectLocations = async (settlement_id) => {
@@ -1001,7 +1092,19 @@ const getProjectLocations = async (settlement_id) => {
 
 };
 
+const RevertEdits = async (data: TableSlotDefault) => {
+  console.log('Reverts.....', data.row)
 
+  const formData = {
+    model: 'settlement',
+    history_id: data.row.id,
+  };
+
+  const res = await revertHistory(formData);
+  console.log('Reverts success.....', res.data)
+
+
+};
 
 </script>
 
@@ -1029,16 +1132,19 @@ const getProjectLocations = async (settlement_id) => {
     <el-tabs v-model="activeName" class="demo-tabs" type="border-card" @tab-click="clickTab">
       <el-tab-pane label="Profile" name="profile">
 
-        <Descriptions :title="t('Profile')" :message="t('Settlement Profile')" :data="profile"
+        <Descriptions
+:title="t('Profile')" :message="t('Settlement Profile')" :data="profile"
           :schema="schemaProfile" />
 
 
-        <Descriptions :title="t('Housing')" :message="t('Settlement Housing')" :data="housing"
+        <Descriptions
+:title="t('Housing')" :message="t('Settlement Housing')" :data="housing"
           :schema="schemaHousing" />
 
 
 
-        <Descriptions :title="t('Utilities')" :message="t('Access to Utilities')" :data="utilities"
+        <Descriptions
+:title="t('Utilities')" :message="t('Access to Utilities')" :data="utilities"
           :schema="schemaUtilities" />
 
 
@@ -1056,10 +1162,12 @@ const getProjectLocations = async (settlement_id) => {
 
         <div>
           <!-- Filter Input -->
-          <el-input v-model="searchQuery" type="text" placeholder="Search documents..." style="width: 100%"
+          <el-input
+v-model="searchQuery" type="text" placeholder="Search documents..." style="width: 100%"
             :prefix-icon="Search" clearable />
 
-          <div v-for="(docs, type) in filteredGroupedDocuments" :key="type"
+          <div
+v-for="(docs, type) in filteredGroupedDocuments" :key="type"
             :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
             <!-- Collapsible Header -->
             <div
@@ -1127,7 +1235,8 @@ const getProjectLocations = async (settlement_id) => {
               <template #default="scope">
 
                 <el-tooltip content="More Details" placement="top">
-                  <el-button type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefault)"
+                  <el-button
+type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefault)"
                     plain />
                 </el-tooltip>
 
@@ -1202,10 +1311,48 @@ const getProjectLocations = async (settlement_id) => {
       </el-tab-pane>
 
 
+      <el-tab-pane label="History" name="History">
 
+
+        <el-table :data="editHistory" border ref="tableEditRef">
+
+          <el-table-column label="Date Edited" prop="created_at" sortable>
+            <template #default="scope">
+              {{ formatDate(scope.row.created_at) }}
+            </template>
+          </el-table-column>
+
+          <el-table-column label="Edited By" prop="user.name" sortable />
+
+
+          <el-table-column label="Differences">
+            <template #default="{ row }">
+              <el-table :data="row.differences" style="margin: 10px 0;">
+                <el-table-column prop="field" label="Field" />
+                <el-table-column prop="before" label="Before" />
+                <el-table-column prop="after" label="After" />
+              </el-table>
+            </template>
+          </el-table-column>
+
+          <el-table-column fixed="right" label="Actions" width="100">
+            <template #default="scope">
+
+
+              <el-tooltip content="Revert " placement="top">
+                <el-button type="warning" :icon="RefreshLeft" @click="RevertEdits(scope as TableSlotDefault)" />
+              </el-tooltip>
+
+
+            </template>
+          </el-table-column>
+
+        </el-table>
+      </el-tab-pane>
 
       <el-tab-pane label="Settings" name="Settings">
-        <el-popconfirm width="300" title="Are you sure to delete this project?"
+        <el-popconfirm
+width="300" title="Are you sure to delete this project?"
           @confirm="DeleteProject(projectFullData.id)">
           <template #reference>
             <el-button style="color: red; border-color: red; margin-left: 5px; margin-bottom: 5px;" plain>

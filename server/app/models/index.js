@@ -1628,7 +1628,25 @@ db.models.article.hasMany(db.models.document, {
   foreignKey: 'article_id'
 })
 
- 
+db.models.settlement_history.belongsTo(db.models.settlement, {
+  foreignKey: 'settlement_id',
+})
+
+db.models.settlement.hasMany(db.models.settlement_history, {
+  foreignKey: 'settlement_id'
+})
+
+
+db.models.settlement_history.belongsTo(db.models.users, {
+  foreignKey: 'changed_by',
+})
+
+db.models.users.hasMany(db.models.settlement_history, {
+  foreignKey: 'changed_by'
+})
+
+
+
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

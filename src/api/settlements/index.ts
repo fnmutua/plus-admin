@@ -300,3 +300,8 @@ export const deleteRawFiles = (data: SettlementType): Promise<IResponse<Settleme
   // console.log('....', data)
   return request.post({ url: prod + '/api/v1/documents/raw/delete', data })
 }
+
+export const revertHistory = (data: SettlementType): Promise<IResponse<SettlementType>> => {
+  // console.log('....', data)
+  return request.post({ url: prod + '/api/v1/edit/revert', data })
+}

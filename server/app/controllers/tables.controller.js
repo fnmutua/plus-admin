@@ -1671,18 +1671,20 @@ exports.modelEditOneRecord = (req, res) => {
         });
       }
      
+      if (reg_model === 'settlement' ) { 
+        updateHistory(result.id,req.body,req.thisUser.id)
+        updateSettlementDataInODK(result)
+
+
+      }
+
 
       console.log("Edit", result);
       if (result) {
         result.set(req.body);
         await result.save(); // Wait for the record to be saved
 
-        if (reg_model === 'settlement') { 
-
-          // update ODK settelment 
-          updateSettlementDataInODK(result)
-  
-        }
+       
 
         edit_event.status='Successful'
         logEvents(edit_event)
@@ -6183,4 +6185,57 @@ exports.batchDocumentsUploadCover = (req, res) => {
 };
 
  
+
+async function updateHistory(settlementId, updatedData, userId) {
+  const settlement = await db.models.settlement.findByPk(settlementId);
+  if (!settlement) {
+    throw new Error('Settlement not found');
+  }
+
+  const originalData = settlement.toJSON();
+
+  // Save changes in history
+  await db.models.settlement_history.create({
+    settlement_id: settlementId,
+    changed_by: userId,
+    changes: {
+      before: originalData,
+      after: updatedData
+    }
+  });
+
+  // Update the settlement record
+  return await settlement.update(updatedData);
+}
+
+
+
+exports.revertEdits = async (req, res) => {
+  const {history_id } = req.body;
+  try {
+    const history = await db.models.settlement_history.findByPk(history_id);
+    if (!history) {
+      throw new Error('History record not found');
+    }
+  
+    const { settlement_id, changes } = history;
+
+     // Revert to previous state
+  const settlement = await db.models.settlement.findByPk(settlement_id);
+  if (!settlement) {
+    throw new Error('Settlement not found');
+  }
+   
+    await settlement.update(changes.before);
  
+
+    res.status(200).send({
+      message: "Changes reverted successfully.",
+      code: '0000'
+
+  });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
