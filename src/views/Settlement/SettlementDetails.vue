@@ -55,7 +55,6 @@ const { push } = useRouter()
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
-const userInfo = wsCache.get(appStore.getUserInfo)
 
 
 const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
@@ -220,15 +219,6 @@ const schemaUtilities = reactive<DescriptionsSchema[]>([
   }
 ])
 
-const form = reactive({
-  name: '',
-  county: '',
-  population: '',
-  area_ha: '',
-  description: '',
-  type: '',
-  subcounty: ''
-})
 
 const page = ref(1)
 const pSize = ref(5)
@@ -470,16 +460,6 @@ function toggleComponent() {
 
 
 
-const draw = new MapboxDraw({
-  displayControlsDefault: false,
-  controls: {
-    point: true,
-    line_string: false,
-    polygon: true,
-    trash: true
-  },
-
-})
 
 
 
@@ -743,7 +723,7 @@ const loadMap = () => {
 
   function addInfo(map) {
     class LayerButton {
-      onAdd(map) {
+      onAdd() {
         const div = document.createElement("div");
         div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
         div.innerHTML = icon.value;
@@ -784,8 +764,6 @@ const clickTab = (tab) => {
 
 const { getPrefixCls } = useDesign()
 const prefixCls = getPrefixCls('descriptions')
-const show = ref(true)
-const collapse = ref(true)
 
 
 const collapsedSections = ref({}); // Track collapse state for each type
@@ -870,7 +848,6 @@ function formatDate(dateString) {
   // Extract time components and convert to 12-hour format
   let hours = dateObj.getUTCHours()+3;
   const minutes = String(dateObj.getUTCMinutes()).padStart(2, '0');
-  const seconds = String(dateObj.getUTCSeconds()).padStart(2, '0');
   const ampm = hours >= 12 ? 'PM' : 'AM';
   hours = hours % 12 || 12; // Convert to 12-hour format (0 becomes 12)
 
@@ -961,7 +938,6 @@ function getDifferences(before, after, parentKey = '') {
 const getSettlmentHistory = async (sett_id) => {
 
   const model = 'settlement_history'
-  const associated_multiple_models = ['users']
 
   const formData = {}
   formData.model = model
@@ -1197,7 +1173,7 @@ const editSettlement = () => {
             <div
               :class="[`${prefixCls}-header`, 'h-50px flex justify-between items-center mb-10px border-bottom-1 border-solid border-[var(--tags-view-border-color)] px-10px cursor-pointer dark:border-[var(--el-border-color)]']"
               @click="toggleCollapse(type)">
-              <div :class="[`${prefixCls}-header__title`, 'relative font-18px font-bold ml-10px']">
+              <div :class="[`${prefixCls}-header__title`, 'relative font-12px font-bold ml-10px']">
                 <div class="flex items-center">
                   {{ makePlural(type) }} ({{ docs.length }})
                 </div>
@@ -1343,9 +1319,9 @@ const editSettlement = () => {
           <el-table-column label="" type="expand" >
             <template #default="{ row }">
               <el-table :data="row.differences" style="margin: 10px 0;" border >
-                <el-table-column prop="field" label="Field" />
-                <el-table-column prop="before" label="Before"  class-name="italic-red"/>
-                <el-table-column prop="after" label="After"  class-name="italic-green" />
+                <el-table-column prop="field" label="Field"  />
+                <el-table-column prop="before" label="Before"  class-name="italic-red" show-overflow-tooltip />
+                <el-table-column prop="after" label="After"  class-name="italic-green" show-overflow-tooltip  />
               </el-table>
             </template>
           </el-table-column>
