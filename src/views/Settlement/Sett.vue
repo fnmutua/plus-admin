@@ -11,7 +11,7 @@ import {
 import { ElMessage, } from 'element-plus'
 import { Position, View, Plus, User, Briefcase, Delete, Edit, ArrowLeft, Filter, InfoFilled, CopyDocument, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onActivated } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
@@ -57,6 +57,8 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+
+import { onBeforeRouteEnter } from 'vue-router';
 
 
 
@@ -153,6 +155,21 @@ onMounted(async () => {
 
 })
 
+// onActivated(async () => {
+//   // get current Tab 
+//   const savedTab = localStorage.getItem('activeTab');
+//   if (savedTab) {
+//     activeName.value = savedTab;
+//     let obj = {
+//       "props": {
+//         "name": savedTab
+//       }
+//     }
+
+//     clickTab(obj)
+//   }
+
+// })
 
 
 

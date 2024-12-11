@@ -2,89 +2,75 @@
   <div>
     <el-card class="box-card">
       <div class="max-w-200px">
-          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-            Back
-          </el-button>
-        </div>
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
 
-        
+
       <el-steps :active="currentStep" finish-status="success" align-center class="small-steps">
-        <el-step
-v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
+        <el-step v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
           @click="handleStepClick(index)" />
       </el-steps>
       <el-divider />
 
-      <el-form 
-:model="formData" :rules="currentStepRules" label-width="200px" :label-position="labelPosition"
+      <el-form :model="formData" :rules="currentStepRules" label-width="200px" :label-position="labelPosition"
         ref="dynamicFormRef">
         <el-row :gutter="16">
-          <el-col
-v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="8"
+          <el-col v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="8"
             :xl="8">
-            <el-form-item :id="field.id"  :label="field.label" :prop="field.name">
+            <el-form-item :id="field.id" :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
               <el-input v-else-if="field.type === 'textarea'" type="textarea" v-model="formData[field.name]" />
-              <el-input-number
-:min="field.min" v-else-if="field.type === 'number'" v-model="formData[field.name]"
+              <el-input-number :min="field.min" v-else-if="field.type === 'number'" v-model="formData[field.name]"
                 @change="getFieldChangeHandler(field.name)" />
               <el-date-picker v-else-if="field.type === 'date'" type="date" v-model="formData[field.name]" />
               <!-- Add more conditions for other field types as needed -->
-              <el-select
-v-else-if="field.type === 'select' && field.multiselect === 'false'   && !field.adminUnit  "
+              <el-select v-else-if="field.type === 'select' && field.multiselect === 'false' && !field.adminUnit"
                 v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Select"
                 @change="getFieldChangeHandler(field.name)">
-                <el-option
-v-for="option in field.options" :key="option.value" :label="option.label"
+                <el-option v-for="option in field.options" :key="option.value" :label="option.label"
                   :value="option.value" />
-              </el-select> 
+              </el-select>
 
-              <el-select
-v-else-if="field.type === 'select' && field.multiselect === 'true'"
+              <el-select v-else-if="field.type === 'select' && field.multiselect === 'true'"
                 v-model="formData[field.name]" :filterable="true" multiple collapse-tags placeholder="Select"
                 @change="getFieldChangeHandler(field.name)">
-                <el-option
-v-for="option in field.options" :key="option.value" :label="option.label"
+                <el-option v-for="option in field.options" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
 
 
 
-              <el-select
-v-else-if="field.type === 'select'  && field.adminUnit && field.name==='county_id' "
-                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="County"
+              <el-select v-else-if="field.type === 'select' && field.adminUnit && field.name === 'county_id'"
+                v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="County"
                 @change="getFieldChangeHandler(field.name)">
-                <el-option
-v-for="option in countyOptions" :key="option.value" :label="option.label"
+                <el-option v-for="option in countyOptions" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
- 
-              <el-select
-                v-else-if="field.type === 'select' && field.adminUnit && field.name==='subcounty_id'"
-                                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="Subcounty"
-                                @change="getFieldChangeHandler(field.name)">
-                                <el-option
-                v-for="option in subcountyOptionsFiltered" :key="option.value" :label="option.label"
-                                  :value="option.value" />
-              </el-select>
- 
 
-              <el-select
-                v-else-if="field.type === 'select'   && field.adminUnit && field.name==='ward_id' "
-                                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="Ward"
-                                @change="getFieldChangeHandler(field.name)">
-                                <el-option
-                v-for="option in wardOptionsFiltered" :key="option.value" :label="option.label"  :value="option.value" />
+              <el-select v-else-if="field.type === 'select' && field.adminUnit && field.name === 'subcounty_id'"
+                v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Subcounty"
+                @change="getFieldChangeHandler(field.name)">
+                <el-option v-for="option in subcountyOptionsFiltered" :key="option.value" :label="option.label"
+                  :value="option.value" />
               </el-select>
 
-              <el-select
-                v-else-if="field.type === 'select'   && field.adminUnit && field.name==='settlement_id' "
-                                v-model="formData[field.name]" :filterable="true"   collapse-tags placeholder="Settlement"
-                                @change="getFieldChangeHandler(field.name)">
-                                <el-option
-                v-for="option in settOptionsFiltered" :key="option.value" :label="option.label" :value="option.value" />
+
+              <el-select v-else-if="field.type === 'select' && field.adminUnit && field.name === 'ward_id'"
+                v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Ward"
+                @change="getFieldChangeHandler(field.name)">
+                <el-option v-for="option in wardOptionsFiltered" :key="option.value" :label="option.label"
+                  :value="option.value" />
               </el-select>
- 
+
+              <el-select v-else-if="field.type === 'select' && field.adminUnit && field.name === 'settlement_id'"
+                v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Settlement"
+                @change="getFieldChangeHandler(field.name)">
+                <el-option v-for="option in settOptionsFiltered" :key="option.value" :label="option.label"
+                  :value="option.value" />
+              </el-select>
+
 
               <!-- <el-upload
 v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList"
@@ -95,7 +81,7 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
                   }}</el-button>
                   <span class="upload-filename" v-if="fileList.length > 0">{{ fileList[0].name }}</span>
                 </template>
-              </el-upload> -->
+</el-upload> -->
 
 
             </el-form-item>
@@ -103,11 +89,12 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
         </el-row>
       </el-form>
 
-      <div class="button-container" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <div class="button-container"
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <div>
           <el-tooltip content="Help" placement="top">
-                <el-button color="#626aef"   type="info" @click="showTour"  :icon="InfoFilled" plain />
-              </el-tooltip> 
+            <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
+          </el-tooltip>
 
           <el-button type="primary" @click="prevStep" v-if="currentStep > 0">
             Previous
@@ -119,10 +106,11 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
             Submit
           </el-button>
         </div>
-        <h3 v-if="currentStep == totalSteps - 1 && showMessage" style="color: rgb(228, 30, 30); font-style: italic;">{{ wardMessage }}</h3>
+        <h3 v-if="currentStep == totalSteps - 1 && showMessage" style="color: rgb(228, 30, 30); font-style: italic;">{{
+          wardMessage }}</h3>
       </div>
 
-       <!-- <pre>{{ wardMessage}}</pre>  -->
+      <!-- <pre>{{ wardMessage}}</pre>  -->
       <div v-if="currentStep == totalSteps - 1" id="mapContainer" class="basemap"></div>
       <div v-if="currentStep == totalSteps - 1" id='coordinates' class='coordinates'></div>
     </el-card>
@@ -133,7 +121,8 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
         </el-select>
 
         <el-select v-model="subcounty_id" class="m-2" @change="onSelectSubcounty" placeholder="Select" size="large">
-          <el-option v-for="item in subcountyOptionsFiltered" :key="item.value" :label="item.label" :value="item.value" />
+          <el-option v-for="item in subcountyOptionsFiltered" :key="item.value" :label="item.label"
+            :value="item.value" />
         </el-select>
 
         <el-select v-model="ward_id" class="m-2" placeholder="Select" @change="onSelectWard" size="large">
@@ -161,20 +150,11 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
     </el-dialog>
 
 
-      <el-dialog
-      v-model="showUploadDialog"
-      title="Upload a Zipped Shapefile/Geojson/KML/KMZ"
-      width="30%" 
-    >
+    <el-dialog v-model="showUploadDialog" title="Upload a Zipped Shapefile/Geojson/KML/KMZ" width="30%">
 
-    <el-upload
-        v-model:file-list="fileList"
-        class="upload-demo"
-        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-        :auto-upload="false"
-        :show-file-list="false"
-        :on-change="handleUploadGeo"
-      >
+      <el-upload v-model:file-list="fileList" class="upload-demo"
+        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false"
+        :show-file-list="false" :on-change="handleUploadGeo">
         <template #trigger>
           <el-button type="primary">
             <i class="el-icon-upload"></i> <!-- Prepend upload icon here -->
@@ -186,24 +166,19 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
         </template>
       </el-upload>
 
-   
+
     </el-dialog>
 
   </div>
-  
+
   <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
-      <el-tour-step
-        v-for="(step, index) in filteredTourSteps"
-        :key="index"
-        :target="step.target"
-        :title="step.title"
-        :description="step.content"
-      />
-    </el-tour>
+    <el-tour-step v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
+      :description="step.content" />
+  </el-tour>
 
 
 
- 
+
 </template>
 
 
@@ -211,7 +186,7 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { ElCard,ElPopconfirm, ElCascader, ElCascaderPanel,ElTooltip,ElTour,ElTourStep, ElDialog,  ElUpload, ElSwitch } from 'element-plus'
+import { ElCard, ElPopconfirm, ElCascader, ElCascaderPanel, ElTooltip, ElTour, ElTourStep, ElDialog, ElUpload, ElSwitch } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 import { steps, formFields, formData, formRules } from './common/fields.ts'
@@ -226,7 +201,7 @@ import mapboxgl from "mapbox-gl";
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import { MapboxLayerSwitcherControl, MapboxLayerDefinition } from "mapbox-layer-switcher";
-import { CreateRecord, DeleteRecord, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments, getfilteredGeo,duplicatePreCheck } from '@/api/settlements'
+import { CreateRecord, DeleteRecord, updateOneRecord, getOneGeo, getOneSettlement, uploadDocuments, getfilteredGeo, duplicatePreCheck } from '@/api/settlements'
 
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
@@ -248,7 +223,7 @@ import proj4 from 'proj4';
 import { countyOptions } from './common';
 
 import { Icon } from '@iconify/vue';
-import { InfoFilled,Back} from '@element-plus/icons-vue'
+import { InfoFilled, Back } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 
@@ -258,13 +233,13 @@ const props1 = {
 const xopenMessageBox = (msg, duplicates) => {
   // Check if duplicates exist and dynamically extract keys
   const duplicateRecordsMsg = duplicates && duplicates.length > 0
-    ? `The following duplicate records were found:<br><br>` + 
-      // Loop through duplicates and dynamically display all properties
-      duplicates.map(duplicate => {
-        return Object.entries(duplicate)
-          .map(([key, value]) => `⚠️ ${key}: ${value || 'N/A'}`) // Dynamically generate message for each key-value pair
-          .join(); // Add <br> to separate each property
-      }).join('<br><br>') // Separate each record by an extra line using <br><br>
+    ? `The following duplicate records were found:<br><br>` +
+    // Loop through duplicates and dynamically display all properties
+    duplicates.map(duplicate => {
+      return Object.entries(duplicate)
+        .map(([key, value]) => `⚠️ ${key}: ${value || 'N/A'}`) // Dynamically generate message for each key-value pair
+        .join(); // Add <br> to separate each property
+    }).join('<br><br>') // Separate each record by an extra line using <br><br>
     : 'No duplicates found.';
 
   // Combine the initial message with the duplicates message
@@ -298,16 +273,16 @@ const xopenMessageBox = (msg, duplicates) => {
 const openMessageBox = (msg, duplicates) => {
   // Check if duplicates exist and dynamically extract keys
   const duplicateRecordsMsg = duplicates && duplicates.length > 0
-    ? msg + `<br>` + 
-      // Loop through duplicates and dynamically display all properties in a single line, separated by commas
-      duplicates.map((duplicate, index) => {
-        // Number each duplicate record starting from 1
-        const recordNumber = index + 1;
-        return `${recordNumber}. ` + 
-          Object.entries(duplicate)
-            .map(([key, value]) => `${key}: ${value || 'N/A'}`) // Combine key and value
-            .join(', '); // Join the properties with commas
-      }).join('<br>') // Separate each record with a line break
+    ? msg + `<br>` +
+    // Loop through duplicates and dynamically display all properties in a single line, separated by commas
+    duplicates.map((duplicate, index) => {
+      // Number each duplicate record starting from 1
+      const recordNumber = index + 1;
+      return `${recordNumber}. ` +
+        Object.entries(duplicate)
+          .map(([key, value]) => `${key}: ${value || 'N/A'}`) // Combine key and value
+          .join(', '); // Join the properties with commas
+    }).join('<br>') // Separate each record with a line break
     : 'No duplicates found.';
 
   // Combine the initial message with the duplicates message
@@ -326,19 +301,19 @@ const openMessageBox = (msg, duplicates) => {
   )
     .then(() => {
       // Proceed nonethess 
- 
-      CreateRecord(formData)
-                  .then(() => {
-                    // This block will be executed after CreateRecord succeeds
-                    goBack(); // Call goBack after successful record creation
-                  })
-                  .catch((error) => {
-                    // Handle any errors that occur during CreateRecord
-                    console.error("Error creating record:", error);
-                    
-                  });
 
- 
+      CreateRecord(formData)
+        .then(() => {
+          // This block will be executed after CreateRecord succeeds
+          goBack(); // Call goBack after successful record creation
+        })
+        .catch((error) => {
+          // Handle any errors that occur during CreateRecord
+          console.error("Error creating record:", error);
+
+        });
+
+
     })
     .catch(() => {
       console.log("cancelled")
@@ -348,7 +323,7 @@ const openMessageBox = (msg, duplicates) => {
 
 
 
- 
+
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
@@ -361,7 +336,7 @@ mapboxgl.accessToken = MapBoxToken;
 
 const isMobile = computed(() => appStore.getMobile)
 
-const showUploadDialog=ref(false)
+const showUploadDialog = ref(false)
 const route = useRoute()
 //const { push } = useRouter()
 const router = useRouter();
@@ -410,41 +385,41 @@ const onSelectSubcounty = (subcounty_id) => {
   formData.ward_id = null
   formData.settlement_id = null
 
- wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == subcounty_id);
- handleChangeLocation([formData.county_id.value,subcounty_id ])
+  wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == subcounty_id);
+  handleChangeLocation([formData.county_id.value, subcounty_id])
 
 };
- 
-const centroid =ref(37,1)
+
+const centroid = ref(37, 1)
 
 const calculateArea = (geom) => {
-   // Calculate the area using Turf.js
-   const areaSquareMeters = turf.area(geom);
+  // Calculate the area using Turf.js
+  const areaSquareMeters = turf.area(geom);
 
-// Convert square meters to hectares
-const areaHectares = areaSquareMeters / 10000;
-area_ha.value= areaHectares.toFixed(4)
- 
-var centre = turf.centroid(geom);
+  // Convert square meters to hectares
+  const areaHectares = areaSquareMeters / 10000;
+  area_ha.value = areaHectares.toFixed(4)
+
+  var centre = turf.centroid(geom);
   centroid.value = centre.geometry.coordinates
 
- };
+};
 
 
 const onSelectWard = (ward_id) => {
 
   formData.settlement_id = null
   settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == ward_id);
-  handleChangeLocation([ formData.county_id.value,formData.subcounty_id.value,ward_id ])
+  handleChangeLocation([formData.county_id.value, formData.subcounty_id.value, ward_id])
 
 };
 
 const onSelectSettlement = (sett_id) => {
   formData.settlement_id = sett_id
-  handleChangeLocation([ formData.county_id.value,formData.subcounty_id.value,formData.ward_id.value, sett_id ])
+  handleChangeLocation([formData.county_id.value, formData.subcounty_id.value, formData.ward_id.value, sett_id])
 
- // const selectedSettlement = settOptionsFiltered.value.filter((obj) => obj.value === sett_id);
- // selectAdmin.value = selectAdmin.value + ' | ' + selectedSettlement[0].label
+  // const selectedSettlement = settOptionsFiltered.value.filter((obj) => obj.value === sett_id);
+  // selectAdmin.value = selectAdmin.value + ' | ' + selectedSettlement[0].label
 };
 
 const setLocationOnMobile = () => {
@@ -498,18 +473,18 @@ onMounted(async () => {
         // Handle the successful response here
         console.log(res.data)
         var curData = res.data
-         curData.geom = curData.geom
+        curData.geom = curData.geom
 
         console.log('curData', curData)
         geomScope.value = curData.geom
 
-   
-      subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
-      wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id ==curData.subcounty_id);
+
+        subcountyOptionsFiltered.value = subcountyOptions.value.filter((obj) => obj.county_id == curData.county_id);
+        wardOptionsFiltered.value = wardOptions.value.filter((obj) => obj.subcounty_id == curData.subcounty_id);
         settOptionsFiltered.value = settlementOptionsV2.value.filter((obj) => obj.ward_id == curData.ward_id);
 
-        ward_id=curData.ward_id
-      
+        ward_id = curData.ward_id
+
 
 
 
@@ -530,20 +505,20 @@ onMounted(async () => {
       });
 
 
-      if (!geomScope.value) {
-          // if the settlement does not have geomtery, allocated the ward geom to the settlement 
+    if (!geomScope.value) {
+      // if the settlement does not have geomtery, allocated the ward geom to the settlement 
 
-          const wform = {}
-          wform.model = 'ward'
-          wform.id = ward_id
+      const wform = {}
+      wform.model = 'ward'
+      wform.id = ward_id
 
-            geomScope.value= await getWard(wform)
+      geomScope.value = await getWard(wform)
 
-           console.log("wardGeom - geomScope.value",geomScope.value)
+      console.log("wardGeom - geomScope.value", geomScope.value)
 
-           showMessage.value=true
+      showMessage.value = true
 
-        }
+    }
 
   } else {
 
@@ -559,11 +534,11 @@ onMounted(async () => {
 const getWard = async (wform) => {
   console.log(wform)
 
-  let ward =   await getOneSettlement(wform)
-          console.log("ward", ward)
+  let ward = await getOneSettlement(wform)
+  console.log("ward", ward)
 
   return ward.data.geom
-   
+
 };
 
 const showDialog = ref(false)
@@ -691,11 +666,11 @@ const readJson = (event) => {
     map.value.getSource("scope").setData(geomScope.value);
     bounds.value = turf.bbox((geomScope.value))
     console.log("From geojson", geomScope.value)
- 
+
     calculateArea(geom)
     //map.value.fitBounds(bounds.value, { padding: 20, maxZoom: 18 })
 
-     loadMap()
+    loadMap()
 
   }
 
@@ -727,7 +702,7 @@ const readShp = async (file) => {
         let geomX = {
           type: geojson[0].geometry.type,
           coordinates: geojson[0].geometry.coordinates,
- 
+
         }
 
 
@@ -772,7 +747,7 @@ const handleUploadGeo = async (uploadFile) => {
     reader.onload = readJson
     reader.readAsText(rfile)
   }
-  else if (fileType === 'zip' ||fileType === 'kml' ||fileType === 'kmz'  ) {
+  else if (fileType === 'zip' || fileType === 'kml' || fileType === 'kmz') {
     readShp(rfile)
 
     // reader.readAsArrayBuffer(rfile)
@@ -781,7 +756,7 @@ const handleUploadGeo = async (uploadFile) => {
 
 
   }
-showUploadDialog.value=false
+  showUploadDialog.value = false
 
 }
 
@@ -828,15 +803,15 @@ const nextStep = async () => {
     await new Promise(resolve => setTimeout(resolve, 100));  //delay for 2 seconds the call loadmap
 
     loadMap()
-   // toggleDrawToolbox('digitize')
+    // toggleDrawToolbox('digitize')
 
   }
 };
 
- 
-const loadMap = async () => { 
 
-map.value = new mapboxgl.Map({
+const loadMap = async () => {
+
+  map.value = new mapboxgl.Map({
     container: 'mapContainer',
     style: 'mapbox://styles/mapbox/streets-v12',
     center: [37.137343, 1.137451],
@@ -861,277 +836,277 @@ map.value = new mapboxgl.Map({
     console.log(formData)
     calculateArea(feature.geometry)
 
-    console.log('centroid.value', centroid.value )
+    console.log('centroid.value', centroid.value)
 
     map.value.getSource('labels').setData({
-    type: 'FeatureCollection',
-    features: [
-      {
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates:  centroid.value , // Update with the actual coordinates
-        },
-        properties: {
-          title: area_ha.value  + " Ha.", // Update with the desired label text (area)
-        },
-      },
-    ],
-  });
-
-  }
-
-// listen for the draw.create event
-map.value.on('draw.create', function (e) {
-  // check if the new feature is a marker
- // if (e.features[0].geometry.type === 'Polygon') {
-    // trigger your function here
-    updateRuleform(e.features[0]);
-
-//  }
-});
-
-
-  // listen for the draw.se event
-  map.value.on('draw.update', function (e) {
-  // check if the new feature is a marker
-  //if (e.features[0].geometry.type === 'Polygon') {
-    // trigger your function here
-    updateRuleform(e.features[0]);
-
- // }
-});
-
-// Listen for the draw.delete event
-map.value.on('draw.delete', function(event) {
-  // Get the IDs of the deleted features
-  var deletedFeatureIds = event.features.map(function(feature) {
-    return feature.id;
-  });
-
-  // Remove the corresponding layers from the map
-  deletedFeatureIds.forEach(function(id) {
-    map.value.removeLayer(id);
-  });
-
-
-  map.value.getSource('labels').setData({
-    type: 'FeatureCollection',
-    features: [
-      {
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates:  centroid.value , // Update with the actual coordinates
-        },
-        properties: {
-          title: '', // Update with the desired label text (area)
-        },
-      },
-    ],
-  });
-
-
-
-
-});
-
-map.value.on('mousemove', function (e) {
-  document.getElementById('coordinates').innerHTML =
-    'Lon: ' + e.lngLat.lng.toFixed(5) + ' Lat: ' + e.lngLat.lat.toFixed(5);
-});
-
-
-map.value.on('load', function () {
-  // code to execute after the map has finished loading
-  console.log("Map has loaded......")
-  //map.value.addControl(draw, 'top-left');
-
-
-   
-  map.value.addLayer({
-    id: 'Satellite',
-    source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
-    type: "raster"
-  });
-
-  map.value.addLayer({
-    id: 'Streets',
-    source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
-    type: "raster"
-  }, 'Satellite');
-
-
-  
-  map.value.addSource('scope', {
-    type: 'geojson',
-    //data: projectPoly.value
-    data: geomScope.value,
-  });
-
-
-
-
-  map.value.addLayer({
-  id: 'labels',
-  type: 'symbol',
-  source: {
-    type: 'geojson',
-    data: {
       type: 'FeatureCollection',
       features: [
         {
           type: 'Feature',
           geometry: {
             type: 'Point',
-            coordinates:  centroid.value, // Replace with initial coordinates
+            coordinates: centroid.value, // Update with the actual coordinates
           },
           properties: {
-            title: area_ha.value + " Ha.", // Initialize with an empty string
+            title: area_ha.value + " Ha.", // Update with the desired label text (area)
           },
         },
       ],
-    },
-  },
-  layout: {
-    'text-field': ['get', 'title'],
-    'text-size': 16,
-    'text-anchor': 'top',
-  },
-  paint: {
-    'text-color': '#FF0000', // Red text color
-    'text-halo-color': '#FFFFFF', // White halo color
-    'text-halo-width': 2, // Adjust the halo width as needed    
-  },
+    });
 
-  
-});
-
-
-
-
-
-
-
-
-
-
-
-  
-  // Edit only if not a new record 
-  if (!newRecord.value) {
-    toggleDrawToolbox('digitize')
-    const geojson = JSON.parse(JSON.stringify(geomScope.value));
-  var feature = turf.feature(geojson);
-  var collection = turf.featureCollection([feature])
-  draw.set(collection);
-  // Check if the new feature is a polygon
- // if (collection.features[0].type === 'Polygon') {
-    // Trigger your function here
-    updateRuleform(collection.features[0]);
- //}
   }
-  
 
-  if (newRecord.value) {
-    toggleDrawToolbox('digitize')
-    // Load this outline only if its a new settlement 
+  // listen for the draw.create event
+  map.value.on('draw.create', function (e) {
+    // check if the new feature is a marker
+    // if (e.features[0].geometry.type === 'Polygon') {
+    // trigger your function here
+    updateRuleform(e.features[0]);
+
+    //  }
+  });
+
+
+  // listen for the draw.se event
+  map.value.on('draw.update', function (e) {
+    // check if the new feature is a marker
+    //if (e.features[0].geometry.type === 'Polygon') {
+    // trigger your function here
+    updateRuleform(e.features[0]);
+
+    // }
+  });
+
+  // Listen for the draw.delete event
+  map.value.on('draw.delete', function (event) {
+    // Get the IDs of the deleted features
+    var deletedFeatureIds = event.features.map(function (feature) {
+      return feature.id;
+    });
+
+    // Remove the corresponding layers from the map
+    deletedFeatureIds.forEach(function (id) {
+      map.value.removeLayer(id);
+    });
+
+
+    map.value.getSource('labels').setData({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: centroid.value, // Update with the actual coordinates
+          },
+          properties: {
+            title: '', // Update with the desired label text (area)
+          },
+        },
+      ],
+    });
+
+
+
+
+  });
+
+  map.value.on('mousemove', function (e) {
+    document.getElementById('coordinates').innerHTML =
+      'Lon: ' + e.lngLat.lng.toFixed(5) + ' Lat: ' + e.lngLat.lat.toFixed(5);
+  });
+
+
+  map.value.on('load', function () {
+    // code to execute after the map has finished loading
+    console.log("Map has loaded......")
+    //map.value.addControl(draw, 'top-left');
+
+
+
     map.value.addLayer({
-    'id': 'geomScope',
-    'type': 'line',
-    'source': 'scope',
-    'layout': {},
-    'paint': {
-      'line-color': '#000',
-      'line-width': 3
+      id: 'Satellite',
+      source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+      type: "raster"
+    });
+
+    map.value.addLayer({
+      id: 'Streets',
+      source: { "type": "raster", "url": "mapbox://mapbox.streets", "tileSize": 256 },
+      type: "raster"
+    }, 'Satellite');
+
+
+
+    map.value.addSource('scope', {
+      type: 'geojson',
+      //data: projectPoly.value
+      data: geomScope.value,
+    });
+
+
+
+
+    map.value.addLayer({
+      id: 'labels',
+      type: 'symbol',
+      source: {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [
+            {
+              type: 'Feature',
+              geometry: {
+                type: 'Point',
+                coordinates: centroid.value, // Replace with initial coordinates
+              },
+              properties: {
+                title: area_ha.value + " Ha.", // Initialize with an empty string
+              },
+            },
+          ],
+        },
+      },
+      layout: {
+        'text-field': ['get', 'title'],
+        'text-size': 16,
+        'text-anchor': 'top',
+      },
+      paint: {
+        'text-color': '#FF0000', // Red text color
+        'text-halo-color': '#FFFFFF', // White halo color
+        'text-halo-width': 2, // Adjust the halo width as needed    
+      },
+
+
+    });
+
+
+
+
+
+
+
+
+
+
+
+
+    // Edit only if not a new record 
+    if (!newRecord.value) {
+      toggleDrawToolbox('digitize')
+      const geojson = JSON.parse(JSON.stringify(geomScope.value));
+      var feature = turf.feature(geojson);
+      var collection = turf.featureCollection([feature])
+      draw.set(collection);
+      // Check if the new feature is a polygon
+      // if (collection.features[0].type === 'Polygon') {
+      // Trigger your function here
+      updateRuleform(collection.features[0]);
+      //}
     }
-  });  
-    
-  }
 
-  map.value.addLayer({
-  'id': 'draw-layer',
-  'type': 'fill',
-  'source': {
-    'type': 'geojson',
-    'data': {
-      'type': 'FeatureCollection',
-      'features': []
+
+    if (newRecord.value) {
+      toggleDrawToolbox('digitize')
+      // Load this outline only if its a new settlement 
+      map.value.addLayer({
+        'id': 'geomScope',
+        'type': 'line',
+        'source': 'scope',
+        'layout': {},
+        'paint': {
+          'line-color': '#000',
+          'line-width': 3
+        }
+      });
+
     }
-  },
-  'paint': {
-    'fill-color': 'red',
-    'fill-opacity': 0.5
-  },
-  'layout': {}
-});
 
-  // switch it off until the user selects to
-  map.value.setLayoutProperty('Satellite', 'visibility', 'none')
+    map.value.addLayer({
+      'id': 'draw-layer',
+      'type': 'fill',
+      'source': {
+        'type': 'geojson',
+        'data': {
+          'type': 'FeatureCollection',
+          'features': []
+        }
+      },
+      'paint': {
+        'fill-color': 'red',
+        'fill-opacity': 0.5
+      },
+      'layout': {}
+    });
 
-
-  const layers: MapboxLayerDefinition[] = [
-
-    {
-      id: "Satellite",
-      title: "Satellite",
-      visibility: 'none',
-      type: 'base'
-    },
-
-    {
-      id: "Streets",
-      title: "Streets",
-      visibility: 'none',
-      type: 'base'
-    },
-
-  ];
-  map.value.addControl(new MapboxLayerSwitcherControl(layers));
+    // switch it off until the user selects to
+    map.value.setLayoutProperty('Satellite', 'visibility', 'none')
 
 
+    const layers: MapboxLayerDefinition[] = [
 
- 
+      {
+        id: "Satellite",
+        title: "Satellite",
+        visibility: 'none',
+        type: 'base'
+      },
 
-  var bounds = turf.bbox((geomScope.value));
-  map.value.fitBounds(bounds, {padding: 20,duration:1000 });
+      {
+        id: "Streets",
+        title: "Streets",
+        visibility: 'none',
+        type: 'base'
+      },
+
+    ];
+    map.value.addControl(new MapboxLayerSwitcherControl(layers));
 
 
 
-});
- 
 
- 
+
+    var bounds = turf.bbox((geomScope.value));
+    map.value.fitBounds(bounds, { padding: 20, duration: 1000 });
+
+
+
+  });
+
+
+
 
   //map.value.addControl(ctrlLine, "top-left");
 
- 
 
-function addHomeButton(map) {
-  class HomeButton {
-    onAdd(map) {
-      const div = document.createElement("div");
-      div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
-      div.id="upload";
-      div.innerHTML = `<button>
+
+  function addHomeButton(map) {
+    class HomeButton {
+      onAdd(map) {
+        const div = document.createElement("div");
+        div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+        div.id = "upload";
+        div.innerHTML = `<button>
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M17 9.00195C19.175 9.01406 20.3529 9.11051 21.1213 9.8789C22 10.7576 22 12.1718 22 15.0002V16.0002C22 18.8286 22 20.2429 21.1213 21.1215C20.2426 22.0002 18.8284 22.0002 16 22.0002H8C5.17157 22.0002 3.75736 22.0002 2.87868 21.1215C2 20.2429 2 18.8286 2 16.0002L2 15.0002C2 12.1718 2 10.7576 2.87868 9.87889C3.64706 9.11051 4.82497 9.01406 7 9.00195" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round"></path> <path d="M12 15L12 2M12 2L15 5.5M12 2L9 5.5" stroke="#1C274C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>
 		
-  </button>`;      div.addEventListener("contextmenu", (e) => e.preventDefault());
-      div.addEventListener("click", () => showUploadDialog.value=true);
+  </button>`; div.addEventListener("contextmenu", (e) => e.preventDefault());
+        div.addEventListener("click", () => showUploadDialog.value = true);
 
-      return div;
+        return div;
+      }
     }
+    const homeButton = new HomeButton();
+    map.addControl(homeButton, "top-left");
   }
-  const homeButton = new HomeButton();
-  map.addControl(homeButton, "top-left");
+  addHomeButton(map.value)
+
+
 }
-addHomeButton(map.value)
 
 
-} 
 
-
- 
 
 const draw = new MapboxDraw({
   displayControlsDefault: false,
@@ -1179,74 +1154,82 @@ const submitForm = async () => {
       // Perform form submission logic
 
       formData.model = model
-      formData.createdBy = userInfo.id
       formData.component_id = component_id.value
 
-      
-          // Calculate the area using Turf.js
-          const areaSquareMeters = turf.area(geomScope.value);
 
-          // Convert square meters to hectares
-          const areaHectares = areaSquareMeters / 10000;
-            formData.area = areaHectares.toFixed(4)
+      // // Calculate the area using Turf.js
+      // const areaSquareMeters = turf.area(geomScope.value);
 
-           console.log('formData.value', formData.value)
+      // // Convert square meters to hectares
+      // const areaHectares = areaSquareMeters / 10000;
+      // formData.area = areaHectares.toFixed(4)
+
+      // console.log('formData.value', formData.value)
 
 
-    
+
       //formData.geom =geomScope.value
+
+      if (newRecord.value || formData.geom.type == 'Polygon') {
+        // Calculate area using Turf.js if newRecord is not present
+        const areaSquareMeters = turf.area(formData.geom);
+        const areaHectares = areaSquareMeters / 10000;
+        formData.area = areaHectares.toFixed(4);
+      }
+
+
+
 
 
       if (newRecord.value) {
-            formData.isApproved = 'Pending';
-            formData.code = shortid.generate();
-            formData.checkFields = ["name", "county_id"]; // additional checks for duplicates
+        formData.isApproved = 'Pending';
+        formData.createdBy = userInfo.id
 
-            // Perform the duplicate check first
-            duplicatePreCheck(formData)
-              .then(response => {
-                console.log('Success:', response);
-                
-                CreateRecord(formData)
-                  .then(() => {
-                    // This block will be executed after CreateRecord succeeds
-                    goBack(); // Call goBack after successful record creation
-                  })
-                  .catch((error) => {
-                    // Handle any errors that occur during CreateRecord
-                    console.error("Error creating record:", error);
-                    
-                  });
+        formData.code = shortid.generate();
+        formData.checkFields = ["name", "county_id"]; // additional checks for duplicates
 
+        // Perform the duplicate check first
+        duplicatePreCheck(formData)
+          .then(response => {
+            console.log('Success:', response);
+
+            CreateRecord(formData)
+              .then(() => {
+                // This block will be executed after CreateRecord succeeds
+                goBack(); // Call goBack after successful record creation
               })
-              .catch(error => {
-                // Check if duplicates were found 
-                  openMessageBox(error.response.data.message,error.response.data.duplicates )
-                  // Prompt user for confirmation 
-                console.error('Error during duplicate check:', error);
-                // Handle duplicate check error (e.g., server issues)
+              .catch((error) => {
+                // Handle any errors that occur during CreateRecord
+                console.error("Error creating record:", error);
+
               });
-          } else {
-            // Calculate area using Turf.js if newRecord is not present
-            const areaSquareMeters = turf.area(formData.geom);
-            const areaHectares = areaSquareMeters / 10000;
-            formData.area = areaHectares.toFixed(4);
 
-            // Proceed to update the record if no new record creation
-            updateOneRecord(formData)
-              .then(updateResponse => {
-                console.log('Record updated successfully:', updateResponse);
-                // Handle the successful update here
-              })
-              .catch(updateError => {
-                console.error('Error during record update:', updateError);
-                // Handle server error or other issues
-              });
-          }
+          })
+          .catch(error => {
+            // Check if duplicates were found 
+            openMessageBox(error.response.data.message, error.response.data.duplicates)
+            // Prompt user for confirmation 
+            console.error('Error during duplicate check:', error);
+            // Handle duplicate check error (e.g., server issues)
+          });
+      } else {
 
 
+        // Proceed to update the record if no new record creation
+        updateOneRecord(formData)
+          .then(updateResponse => {
+            console.log('Record updated successfully:', updateResponse);
+            // Handle the successful update here
+          })
+          .catch(updateError => {
+            console.error('Error during record update:', updateError);
+            // Handle server error or other issues
+          });
+      }
 
-      //goBack()
+
+
+      goBack()
 
       // push({
       //    name: 'Health'
@@ -1267,7 +1250,7 @@ const handleChangeLocationOption = async (value: any) => {
 
 const handleChangeLocation = async (value: any) => {
   console.log('Location field changed:', value);
-  
+
 
   if (value.length == 1) {
     var model = 'county'
@@ -1339,30 +1322,30 @@ const getFieldChangeHandler = (fieldName: string) => {
 
 
 // Addd message if project Geometry is not found 
-const   wardMessage = "This settlement does not have location geometry defined. The ward geometry is shown instead. Edit to reflect the actual settlement location"
+const wardMessage = "This settlement does not have location geometry defined. The ward geometry is shown instead. Edit to reflect the actual settlement location"
 
-const showMessage =ref(false)
+const showMessage = ref(false)
 
 
 
-const isTourVisible =ref(false)
+const isTourVisible = ref(false)
 const showTour = () => {
 
-isTourVisible.value=true
+  isTourVisible.value = true
 
- 
+
 }
 
 const filteredTourSteps = computed(() => {
 
-const fil = tourSteps.value.filter(step => step.step == currentStep.value && step.visible==true);
-console.log('filteredTourSteps', fil)
-return fil
+  const fil = tourSteps.value.filter(step => step.step == currentStep.value && step.visible == true);
+  console.log('filteredTourSteps', fil)
+  return fil
 });
 
 
-const endTour = () => { 
- 
+const endTour = () => {
+
 }
 
 
@@ -1550,7 +1533,7 @@ const tourSteps = ref([
     content: 'Upload geojson/shapefile. Current supports .shp (zipped), .json and .geojson ',
     visible: true
   }
-  
+
 
 
 ]);
@@ -1558,14 +1541,14 @@ const tourSteps = ref([
 
 // Watch dependencies and log changes (or trigger additional actions)
 watch(
-    [currentStep,tourSteps],
-    (newValues, oldValues) => {
-      console.log("Dependencies changed:", newValues);
-      console.log("Filtered steps:", filteredTourSteps.value);
-      // Any other side effects or actions can be performed here
-    },
-    { immediate: true }
-  );
+  [currentStep, tourSteps],
+  (newValues, oldValues) => {
+    console.log("Dependencies changed:", newValues);
+    console.log("Filtered steps:", filteredTourSteps.value);
+    // Any other side effects or actions can be performed here
+  },
+  { immediate: true }
+);
 
 
 </script>
@@ -1634,11 +1617,15 @@ watch(
 
 .coordinates {
   display: block;
-  position: absolute; /* Use absolute positioning to position it within the container */
+  position: absolute;
+  /* Use absolute positioning to position it within the container */
   width: 10%;
-  bottom: 15; /* Set to 0 to align it at the bottom */
-  left: 50%; /* Set to 50% to horizontally center it */
-  transform: translateX(-50%); /* Use transform to horizontally center it */
+  bottom: 15;
+  /* Set to 0 to align it at the bottom */
+  left: 50%;
+  /* Set to 50% to horizontally center it */
+  transform: translateX(-50%);
+  /* Use transform to horizontally center it */
   background-color: rgba(10, 10, 10, 0.85);
   color: #fbfbfb;
   text-align: center;
@@ -1684,6 +1671,4 @@ watch(
 .my-image-button {
   background: url("data:image/png;base64 etc...");
 }
-
-
 </style>
