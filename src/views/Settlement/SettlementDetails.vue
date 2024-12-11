@@ -16,7 +16,7 @@ import {
   getSettlementListByCounty,
   getfilteredGeo
 } from '@/api/settlements'
-import { Back, Upload, Search, View, More, RefreshLeft } from '@element-plus/icons-vue'
+import { Back, Upload, Search, View, Edit, More, RefreshLeft } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { getFile } from '@/api/summary'
 
@@ -861,11 +861,23 @@ function isPlural(word) {
 
 function formatDate(dateString) {
   const dateObj = new Date(dateString);
+
+  // Extract date components
   const year = dateObj.getUTCFullYear();
   const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
   const day = String(dateObj.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+
+  // Extract time components and convert to 12-hour format
+  let hours = dateObj.getUTCHours()+3;
+  const minutes = String(dateObj.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(dateObj.getUTCSeconds()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12; // Convert to 12-hour format (0 becomes 12)
+
+  // Combine date and time
+  return `${year}-${month}-${day} ${hours}:${minutes}  ${ampm}`;
 }
+
 
 
 const indicatorReports = ref([])
@@ -1106,6 +1118,18 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 };
 
+
+const editSettlement = () => {
+
+  push({
+    name: 'AddSettlementX',
+    query: { id: route.params.id }
+
+  });
+
+
+}
+
 </script>
 
 <template>
@@ -1119,32 +1143,34 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
     <!-- Header Section -->
     <template #header>
-      <div class="card-header">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-          Back
+      <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+            Back
+          </el-button>
+          {{ profile.name }} Settlement, {{ profile.subcounty }} Subcounty, {{ profile.county }} County
+        </div>
+        <el-button type="success" :icon="Edit" @click="editSettlement">
+          Edit
         </el-button>
-
-        {{ profile.name }} Settlement, {{ profile.subcounty }} Subcounty, {{ profile.county }} County
       </div>
     </template>
+
 
 
     <el-tabs v-model="activeName" class="demo-tabs" type="border-card" @tab-click="clickTab">
       <el-tab-pane label="Profile" name="profile">
 
-        <Descriptions
-:title="t('Profile')" :message="t('Settlement Profile')" :data="profile"
+        <Descriptions :title="t('Profile')" :message="t('Settlement Profile')" :data="profile"
           :schema="schemaProfile" />
 
 
-        <Descriptions
-:title="t('Housing')" :message="t('Settlement Housing')" :data="housing"
+        <Descriptions :title="t('Housing')" :message="t('Settlement Housing')" :data="housing"
           :schema="schemaHousing" />
 
 
 
-        <Descriptions
-:title="t('Utilities')" :message="t('Access to Utilities')" :data="utilities"
+        <Descriptions :title="t('Utilities')" :message="t('Access to Utilities')" :data="utilities"
           :schema="schemaUtilities" />
 
 
@@ -1162,12 +1188,10 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
         <div>
           <!-- Filter Input -->
-          <el-input
-v-model="searchQuery" type="text" placeholder="Search documents..." style="width: 100%"
+          <el-input v-model="searchQuery" type="text" placeholder="Search documents..." style="width: 100%"
             :prefix-icon="Search" clearable />
 
-          <div
-v-for="(docs, type) in filteredGroupedDocuments" :key="type"
+          <div v-for="(docs, type) in filteredGroupedDocuments" :key="type"
             :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
             <!-- Collapsible Header -->
             <div
@@ -1235,8 +1259,7 @@ v-for="(docs, type) in filteredGroupedDocuments" :key="type"
               <template #default="scope">
 
                 <el-tooltip content="More Details" placement="top">
-                  <el-button
-type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefault)"
+                  <el-button type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefault)"
                     plain />
                 </el-tooltip>
 
@@ -1287,7 +1310,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
             </el-table-column>
 
             <el-table-column label="Amount" prop="amount" sortable />
-            <el-table-column label="Amount (cumulutative)" prop="cumAmount" sortable />
+            <el-table-column label="Amount (cumulative)" prop="cumAmount" sortable />
             <el-table-column label="Status" prop="status" sortable>
               <template #default="scope">
                 <div v-if="scope.row.status === 'Rejected'">
@@ -1316,6 +1339,17 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
 
         <el-table :data="editHistory" border ref="tableEditRef">
 
+
+          <el-table-column label="" type="expand">
+            <template #default="{ row }">
+              <el-table :data="row.differences" style="margin: 10px 0;" border >
+                <el-table-column prop="field" label="Field" />
+                <el-table-column prop="before" label="Before"  class-name="italic-red"/>
+                <el-table-column prop="after" label="After"  class-name="italic-green" />
+              </el-table>
+            </template>
+          </el-table-column>
+
           <el-table-column label="Date Edited" prop="created_at" sortable>
             <template #default="scope">
               {{ formatDate(scope.row.created_at) }}
@@ -1325,15 +1359,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
           <el-table-column label="Edited By" prop="user.name" sortable />
 
 
-          <el-table-column label="Differences">
-            <template #default="{ row }">
-              <el-table :data="row.differences" style="margin: 10px 0;">
-                <el-table-column prop="field" label="Field" />
-                <el-table-column prop="before" label="Before" />
-                <el-table-column prop="after" label="After" />
-              </el-table>
-            </template>
-          </el-table-column>
+
 
           <el-table-column fixed="right" label="Actions" width="100">
             <template #default="scope">
@@ -1351,8 +1377,7 @@ type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefaul
       </el-tab-pane>
 
       <el-tab-pane label="Settings" name="Settings">
-        <el-popconfirm
-width="300" title="Are you sure to delete this project?"
+        <el-popconfirm width="300" title="Are you sure to delete this project?"
           @confirm="DeleteProject(projectFullData.id)">
           <template #reference>
             <el-button style="color: red; border-color: red; margin-left: 5px; margin-bottom: 5px;" plain>
@@ -1565,5 +1590,25 @@ width="300" title="Are you sure to delete this project?"
 .item {
   margin-top: 10px;
   margin-right: 40px;
+}
+
+
+.custom-table .el-table__cell {
+  color: rgb(243, 112, 112);
+  /* Light gray text color */
+  font-style: italic;
+  font-size: small;
+  /* Italicized text */
+}
+
+
+.italic-green {
+  color: rgb(48, 77, 6);
+  font-style: italic; /* Italicized text */
+}
+
+.italic-red {
+  color: rgb(243, 11, 11); /* Light gray text color */
+  font-style: italic; /* Italicized text */
 }
 </style>
