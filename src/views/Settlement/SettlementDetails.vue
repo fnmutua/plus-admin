@@ -1337,10 +1337,10 @@ const editSettlement = () => {
       <el-tab-pane label="History" name="History">
 
 
-        <el-table :data="editHistory" border ref="tableEditRef">
+        <el-table :data="editHistory" border ref="tableEditRef" >
 
 
-          <el-table-column label="" type="expand">
+          <el-table-column label="" type="expand" >
             <template #default="{ row }">
               <el-table :data="row.differences" style="margin: 10px 0;" border >
                 <el-table-column prop="field" label="Field" />
@@ -1350,13 +1350,13 @@ const editSettlement = () => {
             </template>
           </el-table-column>
 
-          <el-table-column label="Date Edited" prop="created_at" sortable>
+          <el-table-column label="Date Edited" prop="created_at" sortable class-name="td-bold">
             <template #default="scope">
               {{ formatDate(scope.row.created_at) }}
             </template>
           </el-table-column>
 
-          <el-table-column label="Edited By" prop="user.name" sortable />
+          <el-table-column label="Edited By" prop="user.name" sortable  class-name="td-bold"/>
 
 
 
@@ -1610,5 +1610,9 @@ const editSettlement = () => {
 .italic-red {
   color: rgb(243, 11, 11); /* Light gray text color */
   font-style: italic; /* Italicized text */
+}
+
+.td-bold {
+   font-weight: bold; /* Italicized text */
 }
 </style>
