@@ -59,6 +59,7 @@ import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 import { onBeforeRouteEnter } from 'vue-router';
+import TableActions from '@/views/Components/TableActions.vue';
 
 
 
@@ -129,7 +130,7 @@ const updatePageSize = () => {
 
 console.log('window.innerHeight1', window.innerHeight)
 
-
+const activeName = ref('list')
 
 onMounted(async () => {
 
@@ -884,30 +885,30 @@ const settlement_raw = ref({})
 
 
 const Review = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
+  console.log('On Click.....', data.id)
   ShowReviewDialog.value = true
 
   // make the descriptions dataset 
-  settlement_raw.value.name = data.row.name
-  settlement_raw.value.area = data.row.area
-  settlement_raw.value.population = data.row.population
-  settlement_raw.value.description = data.row.description
-  settlement_raw.value.user = data.row.user.name + ' | ' + data.row.user.email
-  settlement_raw.value.date = data.row.createdAt
+  settlement_raw.value.name = data.name
+  settlement_raw.value.area = data.area
+  settlement_raw.value.population = data.population
+  settlement_raw.value.description = data.description
+  settlement_raw.value.user = data.user.name + ' | ' + data.user.email
+  settlement_raw.value.date = data.createdAt
 
   //
-  ruleForm.id = data.row.id
-  ruleForm.name = data.row.name
-  ruleForm.county_id = data.row.county_id
-  ruleForm.subcounty_id = data.row.subcounty_id
-  ruleForm.ward_id = data.row.ward_id
-  ruleForm.settlement_type = data.row.settlement_type
-  ruleForm.population = data.row.population
-  ruleForm.area = data.row.area
-  ruleForm.description = data.row.description
-  ruleForm.code = data.row.code
-  ruleForm.geom = data.row.geom
-  fileUploadList.value = data.row.documents
+  ruleForm.id = data.id
+  ruleForm.name = data.name
+  ruleForm.county_id = data.county_id
+  ruleForm.subcounty_id = data.subcounty_id
+  ruleForm.ward_id = data.ward_id
+  ruleForm.settlement_type = data.settlement_type
+  ruleForm.population = data.population
+  ruleForm.area = data.area
+  ruleForm.description = data.description
+  ruleForm.code = data.code
+  ruleForm.geom = data.geom
+  fileUploadList.value = data.documents
 
 
   formHeader.value = "Review Settlement"
@@ -972,6 +973,27 @@ const viewOnMap = (data: TableSlotDefault) => {
   }
 }
 
+
+
+
+const handleViewOnMap = (data) => {
+  console.log('On map.....', data)
+  if (data.geom) {
+    push({
+      path: '/settlement/map/:id',
+      name: 'SettlementMap',
+      params: { id: data.id }
+    })
+  } else {
+    // var msg = 'This Settlement does not have the boundary defined in the database!'
+    // open(msg)
+    ElMessage({
+      message: 'This Settlement does not have the boundary defined in the database!',
+      type: 'warning',
+    })
+    //    ElMessage("No Shapes")
+  }
+}
 
 
 
@@ -1380,7 +1402,7 @@ const handleClose = () => {
 
 
 
-const activeName = ref('list')
+
 const AddSettlement = () => {
   push({
     name: 'AddSettlementX'
@@ -1435,6 +1457,52 @@ const editSettlement = (data: TableSlotDefault) => {
   //AddDialogVisible.value = true
 }
 
+const handleEdit = (data) => {
+
+  console.log(data)
+
+  push({
+    name: 'AddSettlementX',
+    query: { id: data.id }
+
+  });
+
+
+  showEditSaveButton.value = true
+
+  console.log(data)
+  ruleForm.id = data.row.id
+  ruleForm.name = data.row.name
+  ruleForm.county_id = data.row.county_id
+  ruleForm.settlement_type = data.row.settlement_type
+  ruleForm.population = data.row.population
+  ruleForm.area = data.row.area
+  ruleForm.description = data.row.description
+  ruleForm.code = data.row.code
+  ruleForm.dist_town = data.row.dist_town
+  ruleForm.dist_trunk = data.row.dist_trunk
+  ruleForm.parcel_no = data.row.parcel_no
+  ruleForm.parcel_owner = data.row.parcel_owner
+  ruleForm.rim_no = data.row.rim_no
+  ruleForm.isApproved = data.row.isApproved
+  ruleForm.subcounty_id = data.row.subcounty_id
+  ruleForm.ward_id = data.row.ward_id
+  ruleForm.isApproved = data.row.isApproved
+  ruleForm.geom = data.row.geom
+  fileUploadList.value = data.row.documents
+
+  //  poulate the selected fields 
+  selectedCounty.value = data.row.county_id
+  selectedSubCounty.value = data.row.subcounty_id
+  selectedWard.value = data.row.ward_id
+  getSubCountyNames()
+  //filterByCounty(selectedCounty.value)
+  getWardNames()
+
+
+
+  //AddDialogVisible.value = true
+}
 
 
 const DeleteSettlement = (data: TableSlotDefault) => {
@@ -1470,6 +1538,39 @@ const DeleteSettlement = (data: TableSlotDefault) => {
 
 }
 
+
+const handleDelete = (data: TableSlotDefault) => {
+  console.log('----->', data)
+  let formData = {}
+  formData.id = data.id
+  formData.model = model
+
+  DeleteRecord(formData).then(response => {
+    console.log(response)
+    // remove the deleted object from array list 
+    let index = tableDataList.value.indexOf(data);
+    if (index !== -1) {
+      tableDataList.value.splice(index, 1);
+    }
+
+  })
+    .catch(error => {
+      console.log(error)
+
+    });
+
+  console.log(tableDataList.value)
+
+  // Delete docuemnts only if there's any docuemnt to delete 
+  if (data.documents.length > 0) {
+    formData.filesToDelete = data.documents
+
+    deleteDocument(formData)
+
+  }
+
+
+}
 
 
 
@@ -2317,7 +2418,8 @@ const handleRowDblClick = (row) => {
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="5">
-        <el-select size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
+        <el-select
+size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
           filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
           <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -2325,14 +2427,16 @@ const handleRowDblClick = (row) => {
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select :disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
+        <el-select
+:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
           clearable filterable collapse-tags placeholder="By Subcounty" style=" margin-right: 5px;">
           <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select :disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
+        <el-select
+:disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
           clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
           <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -2340,7 +2444,8 @@ const handleRowDblClick = (row) => {
 
       <el-col :xs="24" :sm="24" :md="12" :lg="5">
 
-        <el-input v-model="search_string" clearable :onClear="handleClear"
+        <el-input
+v-model="search_string" clearable :onClear="handleClear"
           placeholder="Search by name (or part of it).." @change="searchByNewName" class="input-with-select"
           style=" margin-right: 5px;">
           <template #append>
@@ -2363,7 +2468,8 @@ const handleRowDblClick = (row) => {
             <el-button :onClick="handleClear" type="primary" :icon="Filter" />
           </el-tooltip>
 
-          <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="model"
+          <DownloadCustom
+v-if="showEditButtons" :data="tableDataList" :model="model"
             :associated_models="associated_multiple_models" />
         </div>
 
@@ -2386,7 +2492,8 @@ const handleRowDblClick = (row) => {
           </span>
         </template>
 
-        <el-table :data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true"
+        <el-table
+:data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true"
           style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
 
 
@@ -2394,7 +2501,8 @@ const handleRowDblClick = (row) => {
             <template #default="props">
 
               <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+                <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
                   @openDialog="toggleComponent(props.row)" />
               </div>
 
@@ -2433,7 +2541,8 @@ const handleRowDblClick = (row) => {
               <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
                 <span>{{ row.code }}</span>
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
+                  <el-button
+v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
                     plain
                     style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
@@ -2443,7 +2552,17 @@ const handleRowDblClick = (row) => {
             </template>
           </el-table-column>
 
-          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+          <el-table-column label="Actions" width="250">
+            <template #default="{ row }">
+              <!-- Example 1: Only Edit and Delete buttons -->
+              <TableActions :item="row" :buttons="['edit','viewOnMap','delete']" @viewOnMap="handleViewOnMap"  @edit="handleEdit" @review="Review" @delete="handleDelete"   />
+
+            </template>
+          </el-table-column>
+
+
+
+          <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
               <el-dropdown v-if="isMobile">
                 <span class="el-dropdown-link">
@@ -2498,7 +2617,7 @@ const handleRowDblClick = (row) => {
               </div>
             </template>
 
-          </el-table-column>
+          </el-table-column> -->
 
         </el-table>
 
@@ -2514,7 +2633,8 @@ const handleRowDblClick = (row) => {
           </span>
         </template>
 
-        <el-table :data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100%" border
+        <el-table
+:data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100%" border
           :row-class-name="tableRowClassName" @expand-change="handleExpand">
 
 
@@ -2522,7 +2642,8 @@ const handleRowDblClick = (row) => {
           <el-table-column type="expand">
             <template #default="props">
 
-              <div> <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+              <div> <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
                   @openDialog="toggleComponent(props.row)" />
               </div>
 
@@ -2558,7 +2679,8 @@ const handleRowDblClick = (row) => {
               <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
                 <span>{{ row.code }}</span>
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
+                  <el-button
+v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
                     plain
                     style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
@@ -2567,7 +2689,7 @@ const handleRowDblClick = (row) => {
               </div>
             </template>
           </el-table-column> >
-          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+          <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
               <el-dropdown v-if="isMobile">
                 <span class="el-dropdown-link">
@@ -2575,11 +2697,14 @@ const handleRowDblClick = (row) => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item
+@click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
 
                   </el-dropdown-menu>
@@ -2587,20 +2712,24 @@ const handleRowDblClick = (row) => {
               </el-dropdown>
               <div v-else>
                 <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button
+type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
 
                 <el-tooltip content="Review" placement="top">
-                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
+                  <el-button
+v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm
+width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete this settlement?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2609,7 +2738,8 @@ const handleRowDblClick = (row) => {
                   </el-popconfirm>
                 </el-tooltip>
                 <el-tooltip v-if="showAdminButtons" content="Decommision" placement="top">
-                  <el-popconfirm width="350" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm
+width="350" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to decommision this settlement?"
                     @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2620,7 +2750,16 @@ const handleRowDblClick = (row) => {
               </div>
             </template>
 
+          </el-table-column> -->
+
+          <el-table-column label="Actions" width="300">
+            <template #default="{ row }">
+              <!-- Example 1: Only Edit and Delete buttons -->
+              <TableActions :item="row" :buttons="['edit','viewOnMap', 'review' ]" @edit="handleEdit" @review="Review" @delete="handleDelete" @viewOnMap="handleViewOnMap"    />
+
+            </template>
           </el-table-column>
+
 
         </el-table>
 
@@ -2635,7 +2774,8 @@ const handleRowDblClick = (row) => {
             </el-badge>
           </span>
         </template>
-        <el-table :data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100%" border
+        <el-table
+:data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100%" border
           :row-class-name="tableRowClassName" @expand-change="handleExpand">
           <el-table-column type="expand">
             <template #default="props">
@@ -2644,7 +2784,8 @@ const handleRowDblClick = (row) => {
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
+                <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
                   :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
@@ -2674,7 +2815,8 @@ const handleRowDblClick = (row) => {
               <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
                 <span>{{ row.code }}</span>
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
+                  <el-button
+v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
                     plain
                     style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
@@ -2685,7 +2827,7 @@ const handleRowDblClick = (row) => {
           </el-table-column>
 
 
-          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+          <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
             <template #default="scope">
               <el-dropdown v-if="isMobile">
                 <span class="el-dropdown-link">
@@ -2693,26 +2835,32 @@ const handleRowDblClick = (row) => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                       :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                    <el-dropdown-item
+@click="viewOnMap(scope as TableSlotDefault)"
                       :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
               <div v-else>
                 <el-tooltip content="View on Map" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
+                  <el-button
+type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
                     circle />
                 </el-tooltip>
                 <el-tooltip content="Review" placement="top">
-                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
+                  <el-button
+v-show="showAdminButtons" type="success" size="small" :icon="View"
                     @click="Review(scope as TableSlotDefault)" circle />
                 </el-tooltip>
                 <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm
+width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to delete  this settlement?"
                     @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2722,7 +2870,8 @@ const handleRowDblClick = (row) => {
                 </el-tooltip>
 
                 <el-tooltip content="Decommision" placement="top">
-                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                  <el-popconfirm
+width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                     icon-color="#626AEF" title="Are you sure to decommision this settlement?"
                     @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
                     <template #reference>
@@ -2732,7 +2881,16 @@ const handleRowDblClick = (row) => {
                 </el-tooltip>
               </div>
             </template>
+          </el-table-column> -->
+
+          <el-table-column label="Actions" width="300">
+            <template #default="{ row }">
+              <!-- Example 1: Only Edit and Delete buttons -->
+              <TableActions :item="row" :buttons="['viewOnMap', 'review','delete']" @edit="handleEdit" @review="Review" @delete="handleDelete"  @viewOnMap="handleViewOnMap"  />
+
+            </template>
           </el-table-column>
+
         </el-table>
       </el-tab-pane>
 
@@ -2756,12 +2914,15 @@ const handleRowDblClick = (row) => {
                     <el-button plain @click="showDuplicateMap(props as TableSlotDefault)" :icon="Position">
                       Compare Location
                     </el-button>
-                    <el-select v-model="primaryRecord" placeholder="Select record to merge to"
+                    <el-select
+v-model="primaryRecord" placeholder="Select record to merge to"
                       :onChange="handleSelectPrimary" style="width: 290px; margin-left: 10px;">
-                      <el-option v-for="option in primaryOptions" :key="option.value" :label="option.label"
+                      <el-option
+v-for="option in primaryOptions" :key="option.value" :label="option.label"
                         :value="option.value" />
                     </el-select>
-                    <el-button plain @click="mergeRecords" v-if="props.row.duplicates.length > 1"
+                    <el-button
+plain @click="mergeRecords" v-if="props.row.duplicates.length > 1"
                       style="margin-left: 10px;">
                       <Icon icon="flowbite:merge-cells-outline" style="margin-left: 4px;" /> Merge
                     </el-button>
@@ -2784,11 +2945,14 @@ const handleRowDblClick = (row) => {
                         </span>
                         <template #dropdown>
                           <el-dropdown-menu>
-                            <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
+                            <el-dropdown-item
+v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
                               :icon="Edit">Edit</el-dropdown-item>
-                            <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
+                            <el-dropdown-item
+@click="viewOnMap(scope as TableSlotDefault)"
                               :icon="Position">Map</el-dropdown-item>
-                            <el-dropdown-item v-if="showAdminButtons"
+                            <el-dropdown-item
+v-if="showAdminButtons"
                               @click="DeleteSettlement(scope.row as TableSlotDefault)" :icon="Delete"
                               color="red">Delete</el-dropdown-item>
                           </el-dropdown-menu>
@@ -2796,11 +2960,13 @@ const handleRowDblClick = (row) => {
                       </el-dropdown>
                       <div v-else>
                         <el-tooltip content="View on Map" placement="top">
-                          <el-button type="warning" size="small" :icon="Position"
+                          <el-button
+type="warning" size="small" :icon="Position"
                             @click="viewOnMap(scope as TableSlotDefault)" circle :disabled="!scope.row.geom" />
                         </el-tooltip>
                         <el-tooltip content="Delete" placement="top">
-                          <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No"
+                          <el-popconfirm
+width="300" confirm-button-text="Yes" cancel-button-text="No"
                             :icon="InfoFilled" icon-color="#626AEF" title="Are you sure to delete this settlement?"
                             @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
                             <template #reference>
@@ -2820,13 +2986,15 @@ const handleRowDblClick = (row) => {
         </el-table>
 
         <!-- Pagination -->
-        <el-pagination background class="mt-4" layout="prev, pager, next, jumper" :total="duplicateRecords.length"
+        <el-pagination
+background class="mt-4" layout="prev, pager, next, jumper" :total="duplicateRecords.length"
           :page-size="pageSize" @current-change="handlePageChange" />
       </el-tab-pane>
 
 
 
-      <ElPagination v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      <ElPagination
+v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </el-tabs>
@@ -2853,16 +3021,19 @@ const handleRowDblClick = (row) => {
         <el-col v-show="activeStep === 0" :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
           <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
             <el-form-item label="County" prop="county_id">
-              <el-select v-model="ruleForm.county_id" filterable placeholder="Select County"
+              <el-select
+v-model="ruleForm.county_id" filterable placeholder="Select County"
                 :onChange="handleSelectCounty">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
 
             <el-form-item label="Sub County" prop="subcounty_id">
-              <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
+              <el-select
+v-model="ruleForm.subcounty_id" filterable placeholder="Select Subcounty"
                 :onChange="handleSelectSubCounty">
-                <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
+                <el-option
+v-for="item in subcountiesOptions" :key="item.value" :label="item.label"
                   :value="item.value" />
               </el-select>
             </el-form-item>

@@ -1,72 +1,166 @@
 <template>
-    <el-dropdown v-if="isMobile">
+  <div>
+    <!-- For medium and large screens -->
+    <div class="actions-buttons" v-if="!isSmallScreen">
+
+
+      <el-tooltip content="Edit" placement="top">
+        <el-button v-if="buttons.includes('edit')" type="success" size="small" :icon="Edit" @click="onEdit(item)"
+          plain />
+      </el-tooltip>
+
+      <el-tooltip content="View on Map" placement="top">
+        <el-button v-if="buttons.includes('viewOnMap')" type="warning" size="small" :icon="Position"
+          @click="onViewOnMap(item)" plain />
+      </el-tooltip>
+
+      <el-tooltip content="Review" placement="top">
+        <el-button v-if="buttons.includes('review')" type="primary" size="small" :icon="View" @click="onReview(item)"
+          plain />
+      </el-tooltip>
+
+
+      <el-tooltip content="Delete" placement="top">
+        <template #default>
+          <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+            icon-color="#626AEF" title="Are you sure to delete this record?" @confirm="onDelete(item)">
+            <template #reference>
+              <el-button v-if="buttons.includes('delete')" type="danger" size="small" :icon="Delete" plain />
+            </template>
+          </el-popconfirm>
+        </template>
+      </el-tooltip>
+
+
+
+    </div>
+
+    <!-- For small screens -->
+
+    <el-dropdown trigger="click" v-else>
       <span class="el-dropdown-link">
-        <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+        Actions <el-icon class="el-icon--right">
+          <ArrowDown />
+        </el-icon>
       </span>
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item
-            v-if="showEditButtons" @click="handleEdit"
-            :icon="Edit">Edit</el-dropdown-item>
-          <el-dropdown-item
-            v-if="showAdminButtons" @click="handleDelete"
-            :icon="Delete" color="red">Delete</el-dropdown-item>
+          <el-dropdown-item v-if="buttons.includes('edit')" @click="onEdit(item)">
+            <el-icon>
+              <Edit />
+            </el-icon>
+
+          </el-dropdown-item>
+          <el-dropdown-item v-if="buttons.includes('viewOnMap')" @click="onViewOnMap(item)">
+            <el-icon>
+              <Position />
+            </el-icon>
+          </el-dropdown-item>
+
+          <el-dropdown-item v-if="buttons.includes('review')" @click="onReview(item)">
+            <el-icon>
+              <View />
+            </el-icon>
+          </el-dropdown-item>
+
+          <el-dropdown-item v-if="buttons.includes('delete')" @click="onDelete(item)">
+            <el-icon>
+              <Delete />
+            </el-icon>
+          </el-dropdown-item>
+
         </el-dropdown-menu>
       </template>
     </el-dropdown>
-    <div v-else>
-      <el-tooltip content="Edit" placement="top">
-        <el-button
-           type="success" size="small" :icon="Edit"
-          @click="handleEdit" :disabled="row.status == 'Approved'" circle />
-      </el-tooltip>
-      <el-tooltip content="Delete" placement="top">
-        <el-popconfirm
-          confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-          title="Are you sure to delete this report?" @confirm="handleDelete">
-          <template #reference>
-            <el-button v-if="showAdminButtons" type="danger" size="small" :icon="Delete" circle />
-          </template>
-        </el-popconfirm>
-      </el-tooltip>
-    </div>
-  </template>
-  
-  <script setup>
-  import { ref } from 'vue';
-  import { ElMessageBox,ElButton,ElTooltip,ElPopconfirm,ElDropdown,ElDropdownItem,ElDropdownMenu } from 'element-plus';
-  
-  import {
-  Plus,
-  Edit,
-  Download,
-  Filter,
-  Delete,
-  UploadFilled,
-  Back,
-  InfoFilled
-} from '@element-plus/icons-vue'
+
+  </div>
+</template>
+
+<script lang="ts" setup>
+import { ref, onMounted, watch, defineProps, onUnmounted } from 'vue';
+import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElTooltip, ElPopconfirm } from 'element-plus';
+import { ArrowDown, Edit, Position, Delete, InfoFilled, View } from '@element-plus/icons-vue';
+
+const props = defineProps({
+  item: Object,
+  buttons: Array,
+
+});
+
+const emit = defineEmits(["edit", "viewOnMap", "review", "delete",]);
 
 
 
-  // Props
-  const props = defineProps({
-    row: Object,             // The current row data
-    isMobile: Boolean,       // Whether the current device is mobile
-    showEditButtons: Boolean, // Control visibility of the edit button
-    showAdminButtons: Boolean // Control visibility of the delete button
-  });
-  
-  // Emit events
-  const emit = defineEmits(['editRecord', 'deleteRecord']);
-  
-  // Methods for handling actions
-  const handleEdit = () => {
-    emit('editRecord', props.row);
-  };
-  
-  const handleDelete = () => {
-    emit('deleteRecord', props.row);
-  };
-  </script>
-  
+console.log('Table Actions:::::', props)
+
+
+
+
+watch(
+  () => ({
+    item: props.item,
+    buttons: props.buttons,
+
+  }),
+  (newProps) => {
+    const { item, buttons } = newProps;
+
+
+
+
+  },
+  { immediate: true }
+);
+
+const onEdit = (item) => {
+  emit("edit", item);
+};
+
+const onViewOnMap = (item) => {
+  emit("viewOnMap", item);
+};
+
+const onDelete = (item) => {
+  emit("delete", item);
+};
+
+
+const onReview = (item) => {
+  emit("review", item);
+};
+
+
+
+const isSmallScreen = ref(false);
+
+
+const handleResize = () => {
+  isSmallScreen.value = window.innerWidth <= 768; // Small screen breakpoint
+};
+
+onMounted(() => {
+  handleResize();
+  window.addEventListener("resize", handleResize);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", handleResize);
+});
+
+</script>
+
+<style scoped>
+.actions-buttons {
+  display: flex;
+  gap: 8px;
+}
+</style>
+
+<style scoped>
+.example-showcase .el-dropdown-link {
+  cursor: pointer;
+  color: var(--el-color-primary);
+  display: flex;
+  align-items: center;
+}
+</style>
