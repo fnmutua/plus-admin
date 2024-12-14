@@ -30,6 +30,19 @@ export const getCountyStaff = (data: UserType): Promise<IResponse<UserType>> => 
 }
 
 
+export const getGRMStaff = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/user/grm', data })
+}
+
+
+export const getAdminStaff = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/user/admin', data })
+}
+
+
+
 
 export const activateUserApi = (data: UserType, params): Promise<IResponse<UserType>> => {
   console.log('To Activate user....', data)

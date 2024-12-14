@@ -407,6 +407,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
               name: 'sec_grc',
               meta: {
                 title: 'SEC/GRC',
+                hidden: true,
                 icon:'fluent:people-team-16-filled',
                 role: ['admin', 'super_admin', 'monitoring' , 'staff' ,'monitoring','grm'] ,
                 locationLevel:['national','county' ],
@@ -1424,22 +1425,50 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
     },
     children: [
-      
-
-
+       
       {
         path: 'all',
        // component: 'views/Users/User',
         component: () => import('@/views/Users/User.vue'),
         name: 'staff',
         meta: {
-          title: 'Staff',
+          title: 'All',
           hidden: false,
-          icon: 'fa6-solid:users-rectangle',
+          icon: 'teenyicons:users-outline',
+           role: ['admin', 'super_admin'   ] 
+ 
+        }
+      },
+      {
+        path: 'admin',
+       // component: 'views/Users/User',
+        component: () => import('@/views/Users/AdminUsers.vue'),
+        name: 'AdminStaff',
+        meta: {
+          title: 'Admin',
+          hidden: false,
+          icon: 'mdi:shield-user',
+           role: [ 'super_admin'   ] 
+
+        }
+      },
+      
+
+      {
+        path: 'grm',
+       // component: 'views/Users/User',
+        component: () => import('@/views/Users/GrmUsers.vue'),
+        name: 'GRM_Staff',
+        meta: {
+          title: 'GRM',
+          hidden: false,
+          icon: 'flowbite:user-headset-solid',
            role: ['admin', 'super_admin'   ] 
 
         }
       },
+    
+
       {
         path: 'new',
        // component: 'views/Users/User',
@@ -1455,46 +1484,31 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       },
-      {
-        path: 'grc',
-        component: () => import('@/views/Grievances/GRC.vue'),
-       name: 'GRC',
-       meta: {
-         title: 'GRC',
-         icon:'fluent:people-checkmark-20-filled',
-         role: ['admin', 'super_admin', 'monitoring' , 'staff' ,'monitoring','grm'] ,
-         locationLevel:['national','county','settlement'],
+      // {
+      //   path: 'grc',
+      //   component: () => import('@/views/Grievances/GRC.vue'),
+      //  name: 'GRC',
+      //  meta: {
+      //    title: 'GRC',
+      //    icon:'fluent:people-checkmark-20-filled',
+      //    role: ['admin', 'super_admin', 'monitoring' , 'staff' ,'monitoring','grm'] ,
+      //    locationLevel:['national','county','settlement'],
 
-       }
-      },
-      {
-        path: 'profile',
-      //  component: 'views/Users/County',
-        component: () => import('@/views/Users/Profile.vue'),
-        name: 'userProfile',
-        meta: {
-          title: 'Profile',
-          hidden: false,
-          icon:'pajamas:profile'
-        }
-      }, 
+      //  }
+      // },
+      // {
+      //   path: 'profile',
+      //   component: () => import('@/views/Users/Profile.vue'),
+      //   name: 'userProfile',
+      //   meta: {
+      //     title: 'Profile',
+      //     hidden: false,
+      //     icon:'pajamas:profile'
+      //   }
+      // }, 
 
    
 
-      {
-        path: 'feedback',
-      //  component: 'views/Users/County',
-        component: () => import('@/views/Users/Feedback.vue'),
-        name: 'Feedback',
-        meta: {
-          title: 'Feedback',
-          hidden: false,
-          icon: 'fluent:person-feedback-48-filled',
-         role: ['admin', 'super_admin'  ] ,
-     locationLevel:['national'],
-
-        }
-      }, 
     ]
   },
  
@@ -1785,6 +1799,22 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       },
+      
+      {
+        path: 'feedback',
+      //  component: 'views/Users/County',
+        component: () => import('@/views/Users/Feedback.vue'),
+        name: 'Feedback',
+        meta: {
+          title: 'Feedback',
+          hidden: false,
+          icon: 'fluent:person-feedback-48-filled',
+         role: ['admin', 'super_admin'  ] ,
+     locationLevel:['national'],
+
+        }
+      }, 
+
       {
         path: 'logs',
       //  component: 'views/Users/County',
