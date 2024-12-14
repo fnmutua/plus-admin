@@ -21,10 +21,10 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive,onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElTooltip, ElCol, ElOption, ElDivider, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu,
-  ElFormItem, ElRow, ElInput, FormRules, ElPopconfirm, ElTooltipContentProps, ElTable, ElTableColumn,ElCard,
+  ElFormItem, ElRow, ElInput, FormRules, ElPopconfirm, ElTooltipContentProps, ElTable, ElTableColumn, ElCard,
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
@@ -34,11 +34,33 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
+import TableActions from '@/views/Components/TableActions.vue';
 
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
+
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
+
+
+
+
+
+const action_buttons = ref([])
+if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'delete']
+} else if (showEditButtons.value) {
+
+  action_buttons.value = ['edit']
+}
+else {
+  action_buttons.value = []
+
+}
+
+
 
 
 console.log("userInfo--->", userInfo)
@@ -72,13 +94,13 @@ const ActivityOptions = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
- 
+
 const selCounties = []
 const loading = ref(true)
- const currentPage = ref(1)
+const currentPage = ref(1)
 const total = ref(0)
 const downloadLoading = ref(false)
- 
+
 
 
 const mobileBreakpoint = 768;
@@ -95,20 +117,16 @@ const updatePageSize = () => {
   }
 };
 
-onMounted(async () => { 
- 
- 
- window.addEventListener('resize', updatePageSize);
-   updatePageSize(); // Initial check
- 
- 
- })
+onMounted(async () => {
 
 
-const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize(); // Initial check
 
- 
+
+})
+
+
 
 
 let tableDataList = ref<UserType[]>([])
@@ -133,7 +151,7 @@ const showEditSaveButton = ref(false)
 
 
 
- 
+
 const handleClear = async () => {
   console.log('cleared....')
 
@@ -304,9 +322,9 @@ const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
   showEditSaveButton.value = true
   console.log(data)
-  ruleForm.id = data.row.id
-  ruleForm.title = data.row.title
-  ruleForm.shortTitle = data.row.shortTitle
+  ruleForm.id = data.id
+  ruleForm.title = data.title
+  ruleForm.shortTitle = data.shortTitle
 
 
 
@@ -343,7 +361,7 @@ const DeleteIndicator = async (data: TableSlotDefault) => {
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
-  shortTitle:''
+  shortTitle: ''
 })
 const handleClose = () => {
 
@@ -392,7 +410,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 }
 
 
- 
+
 
 
 const editForm = async (formEl: FormInstance | undefined) => {
@@ -406,7 +424,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
         .then((updatedRecord) => {
           // Assuming you get the updated record back from the API
           if (updatedRecord) {
-            console.log('updatedRecord',updatedRecord)
+            console.log('updatedRecord', updatedRecord)
             // Find the index of the original record in the table data list
             const index = tableDataList.value.findIndex((item) => item.id === updatedRecord.data.id);
 
@@ -414,8 +432,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
               // Replace the original record with the updated one
               tableDataList.value[index] = updatedRecord.data;
             }
-         
-            AddDialogVisible.value=false
+
+            AddDialogVisible.value = false
             handleClose()
           }
         })
@@ -509,50 +527,46 @@ const goBack = () => {
 </script>
 
 <template>
-  <el-card >
- 
+  <el-card>
+
 
 
     <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
-        <div class="max-w-200px">
-          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-            Back
-          </el-button>
-        </div>
+      <div class="max-w-200px">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+      </div>
 
-        <!-- Title Search -->
-        <el-select
-v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Search Activity"  style=" margin-right: 5px;">
+      <!-- Title Search -->
+      <el-select v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multiple clearable filterable
+        collapse-tags placeholder="Search Activity" style=" margin-right: 5px;">
         <el-option v-for="item in ActivityOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select> 
-
-
-         
-
-        <!-- Action Buttons -->
-        <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; margin-bottom: 10px;">
-
-          <el-tooltip content="Add Activity" placement="top">
-            <el-button  v-if="showAdminButtons"  :onClick="AddComponent" type="primary" :icon="Plus" />
-          </el-tooltip>
-
-          <el-tooltip content="Clear" placement="top">
-            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-          </el-tooltip>
-
-          <el-tooltip content="Download" placement="top">
-            <el-button @click="DownloadXlsx" type="primary" :icon="Download" />
-          </el-tooltip>
-        </div>
-
-        <!-- Download All Component -->
-        <DownloadAll v-if="showAdminButtons" :model="model" :associated_models="associated_multiple_models" />
-        </el-row>
+      </el-select>
 
 
 
+
+      <!-- Action Buttons -->
+      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px; margin-bottom: 10px;">
+
+        <el-tooltip content="Add Activity" placement="top">
+          <el-button v-if="showAdminButtons" :onClick="AddComponent" type="primary" :icon="Plus" />
+        </el-tooltip>
+
+        <el-tooltip content="Clear" placement="top">
+          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+        </el-tooltip>
+
+        <el-tooltip content="Download" placement="top">
+          <el-button @click="DownloadXlsx" type="primary" :icon="Download" />
+        </el-tooltip>
+      </div>
+
+      <!-- Download All Component -->
+      <DownloadAll v-if="showAdminButtons" :model="model" :associated_models="associated_multiple_models" />
+    </el-row>
 
 
 
@@ -561,15 +575,18 @@ v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multipl
 
 
 
- 
 
- 
+
+
+
+
+
     <el-table :data="tableDataList" :loading="loading" border>
       <el-table-column label="Id" prop="id" width="50px" sortable />
       <el-table-column label="Short Title" prop="shortTitle" sortable />
       <el-table-column label="Title" prop="title" sortable />
       <el-table-column label="Code" prop="code" sortable />
-      <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+      <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
             <span class="el-dropdown-link">
@@ -585,54 +602,55 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                   :icon="Delete" color="red">Delete</el-dropdown-item>
               </el-dropdown-menu>
             </template>
-          </el-dropdown>
+</el-dropdown>
 
 
-          <div v-else>
+<div v-else>
 
-            <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
-              <el-button
-type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
-                circle />
-            </el-tooltip>
+  <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
+    <el-button type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)" circle />
+  </el-tooltip>
 
-
-
-
-            <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-              <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                title="Are you sure to delete this record?" width="300"
-                @confirm="DeleteIndicator(scope.row as TableSlotDefault)">
-                <template #reference>
+  <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
+    <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
+      title="Are you sure to delete this record?" width="300" @confirm="DeleteIndicator(scope.row as TableSlotDefault)">
+      <template #reference>
                   <el-button type="danger" size="small" :icon=Delete circle />
                 </template>
-              </el-popconfirm>
-            </el-tooltip>
+    </el-popconfirm>
+  </el-tooltip>
 
-          </div>
+</div>
+</template>
+
+</el-table-column> -->
+
+
+      <el-table-column label="Actions" width="250">
+        <template #default="{ row }">
+          <TableActions :item="row" :buttons="action_buttons" @edit="editIndicator" @delete="DeleteIndicator" />
         </template>
-
       </el-table-column>
+
+
     </el-table>
 
-    <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
-      :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
-      @current-change="onPageChange" class="mt-4" />
-  </el-card >
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+  </el-card>
 
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth" draggable>
     <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules">
       <!-- <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
       <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" /> -->
       <el-form-item label="Title">
-       <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
+        <el-input v-model="ruleForm.title" :style="{ width: '100%' }" />
       </el-form-item>
 
-<el-form-item label="Short Title">
-  <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" />
-</el-form-item>
+      <el-form-item label="Short Title">
+        <el-input v-model="ruleForm.shortTitle" :style="{ width: '100%' }" />
+      </el-form-item>
 
 
 

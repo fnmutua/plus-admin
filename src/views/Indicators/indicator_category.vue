@@ -31,10 +31,33 @@ import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 import type { ButtonInstance } from 'element-plus'
 import { v5 } from 'uuid'
+import TableActions from '@/views/Components/TableActions.vue';
+
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
+
+
+
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
+
+
+const action_buttons = ref([])
+if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'delete']
+} else if (showEditButtons.value) {
+
+  action_buttons.value = ['edit']
+}
+else {
+  action_buttons.value = []
+
+}
+
+
+
 
 
 console.log("userInfo--->", userInfo) 
@@ -110,10 +133,6 @@ onMounted(async () => {
 
 
 
-
-
-const showAdminButtons = ref(appStore.getAdminButtons)
-const showEditButtons = ref(appStore.getEditButtons)
 
 
 const AddDialogVisible = ref(false)
@@ -645,27 +664,27 @@ const editIndicator = async (data: TableSlotDefault) => {
   editingMode.value = true
 
   console.log(data)
-  ruleForm.id = data.row.id
-  ruleForm.indicator_name = data.row.indicator.indicator_name
-  ruleForm.indicator_level = data.row.indicator_level
+  ruleForm.id = data.id
+  ruleForm.indicator_name = data.indicator.indicator_name
+  ruleForm.indicator_level = data.indicator_level
 
   
 
-  handleSwitchChange(data.row.indicator_level)
+  handleSwitchChange(data.indicator_level)
   changeActivity()
 
-  ruleForm.indicator_id = data.row.indicator_id
-  ruleForm.category_id = data.row.category_id
-  ruleForm.frequency = data.row.frequency
-  ruleForm.category_title = data.row.category_title
-  ruleForm.activity_id = data.row.activity_id
-  ruleForm.project_id = data.row.project_id
-  ruleForm.target = data.row.target
-  ruleForm.baseline = data.row.baseline
-  ruleForm.project_location_id = data.row.project_location_id
+  ruleForm.indicator_id = data.indicator_id
+  ruleForm.category_id = data.category_id
+  ruleForm.frequency = data.frequency
+  ruleForm.category_title = data.category_title
+  ruleForm.activity_id = data.activity_id
+  ruleForm.project_id = data.project_id
+  ruleForm.target = data.target
+  ruleForm.baseline = data.baseline
+  ruleForm.project_location_id = data.project_location_id
 
   formHeader.value = 'Edit Indicator'
- // changeProject(data.row.project_id)
+ // changeProject(data.project_id)
 
   console.log(frequencyOptions.value)
 
@@ -675,15 +694,15 @@ const editIndicator = async (data: TableSlotDefault) => {
 
 
 const DeleteIndicator = (data: TableSlotDefault) => {
-  console.log('----->', data.row)
+  console.log('----->', data)
   let formData = {}
-  formData.id = data.row.id
+  formData.id = data.id
   formData.model = 'indicator_category'
   DeleteRecord(formData)
   console.log(tableDataList.value)
 
   // remove the deleted object from array list 
-  let index = tableDataList.value.indexOf(data.row);
+  let index = tableDataList.value.indexOf(data);
   if (index !== -1) {
     tableDataList.value.splice(index, 1);
   }
@@ -1191,7 +1210,7 @@ v-model="value3" :onChange="handleSelectCategory" :onClear="handleClear" multipl
       <!-- <el-table-column label="Baseline" prop="baseline" sortable /> -->
 
 
-
+<!-- 
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -1232,7 +1251,15 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
           </div>
         </template>
 
+      </el-table-column> -->
+
+
+      <el-table-column label="Actions" width="250">
+        <template #default="{ row }">
+          <TableActions :item="row" :buttons="action_buttons" @edit="editIndicator" @delete="DeleteIndicator" />
+        </template>
       </el-table-column>
+
     </el-table>
 
     <ElPagination

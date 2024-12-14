@@ -76,6 +76,21 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
+const action_buttons = ref([])
+if(showAdminButtons.value) {
+  action_buttons.value = ['edit','viewOnMap','delete']
+} else if (showEditButtons.value){
+
+  action_buttons.value = ['edit','viewOnMap' ]
+}
+else {
+  action_buttons.value = [ 'viewOnMap' ]
+
+}
+
+console.log('action_buttons',action_buttons.value)
+
+
 
 console.log('userInfo', userInfo)
 
@@ -140,17 +155,17 @@ onMounted(async () => {
 
 
   // get current Tab 
-  const savedTab = localStorage.getItem('activeTab');
-  if (savedTab) {
-    activeName.value = savedTab;
-    let obj = {
-      "props": {
-        "name": savedTab
-      }
-    }
+  // const savedTab = localStorage.getItem('activeTab');
+  // if (savedTab) {
+  //   activeName.value = savedTab;
+  //   let obj = {
+  //     "props": {
+  //       "name": savedTab
+  //     }
+  //   }
 
-    clickTab(obj)
-  }
+  //   clickTab(obj)
+  // }
 
 
 
@@ -2555,7 +2570,7 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
           <el-table-column label="Actions" width="250">
             <template #default="{ row }">
               <!-- Example 1: Only Edit and Delete buttons -->
-              <TableActions :item="row" :buttons="['edit','viewOnMap','delete']" @viewOnMap="handleViewOnMap"  @edit="handleEdit" @review="Review" @delete="handleDelete"   />
+              <TableActions :item="row" :buttons="action_buttons" @viewOnMap="handleViewOnMap"  @edit="handleEdit" @review="Review" @delete="handleDelete"   />
 
             </template>
           </el-table-column>
@@ -2755,7 +2770,7 @@ width="350" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
           <el-table-column label="Actions" width="300">
             <template #default="{ row }">
               <!-- Example 1: Only Edit and Delete buttons -->
-              <TableActions :item="row" :buttons="['edit','viewOnMap', 'review' ]" @edit="handleEdit" @review="Review" @delete="handleDelete" @viewOnMap="handleViewOnMap"    />
+              <TableActions :item="row" :buttons="action_buttons"  @edit="handleEdit" @review="Review" @delete="handleDelete" @viewOnMap="handleViewOnMap"    />
 
             </template>
           </el-table-column>
@@ -2886,7 +2901,7 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
           <el-table-column label="Actions" width="300">
             <template #default="{ row }">
               <!-- Example 1: Only Edit and Delete buttons -->
-              <TableActions :item="row" :buttons="['viewOnMap', 'review','delete']" @edit="handleEdit" @review="Review" @delete="handleDelete"  @viewOnMap="handleViewOnMap"  />
+              <TableActions :item="row" :buttons="action_buttons"  @edit="handleEdit" @review="Review" @delete="handleDelete"  @viewOnMap="handleViewOnMap"  />
 
             </template>
           </el-table-column>

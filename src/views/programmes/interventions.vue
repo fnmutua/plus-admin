@@ -9,9 +9,9 @@ import { ElMessage } from 'element-plus'
 import { Position, Plus, Download, Delete, Edit, InfoFilled, UploadFilled, Back } from '@element-plus/icons-vue'
 
 import { ref, reactive, } from 'vue'
-import { ElPagination, ElTooltip, ElOption ,} from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { DeleteRecord, updateOneRecord, deleteDocument, BatchImportUpsert, getfilteredGeo,DeleteRecordByCriteria } from '@/api/settlements'
+import { DeleteRecord, updateOneRecord, deleteDocument, BatchImportUpsert, getfilteredGeo, DeleteRecordByCriteria } from '@/api/settlements'
 
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -31,7 +31,8 @@ import {
   implementationOptions
 } from './common/index.ts'
 
- 
+
+import TableActions from '@/views/Components/TableActions.vue';
 
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
@@ -76,6 +77,24 @@ const tabDisabled = ref(true)
 
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
+
+
+
+const action_buttons = ref([])
+if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'delete']
+} else if (showEditButtons.value) {
+
+  action_buttons.value = ['edit']
+}
+else {
+  action_buttons.value = []
+
+}
+
+console.log('action_buttons', action_buttons.value)
+
+
 
 
 const router = useRouter()
@@ -130,7 +149,7 @@ var value4 = ref([])
 var value5 = ref([])
 var value40 = ref([])
 
- 
+
 const component_id = ref()
 const page_title = ref()
 const bounds = ref([])
@@ -194,7 +213,7 @@ const facilityGeoPolygons = ref([])
 const projectScopeGeo = ref([])
 const geoLoaded = ref(false)
 
- 
+
 
 const handleClear = async () => {
   console.log('cleared....')
@@ -258,7 +277,7 @@ const onPageSizeChange = async (size: any) => {
 
 
 
- 
+
 
 
 const getAllProjects = async () => {
@@ -839,7 +858,7 @@ const getInterventionComponents = async () => {
 getAllProjects()
 getInterventionComponents()
 getBeneficiaries(filtersBen, filterValuesBen)  // First time
- 
+
 
 
 //*****************************Create**************************** */
@@ -889,8 +908,8 @@ const editProject = async (data: TableSlotDefault) => {
   push({
     path: '/interventions/add/:domain',
     name: 'AddInterventionProjectsV2',
-    query: { id: data.row.id },
-    params: { id: data.row.id, domain: component_id.value }
+    query: { id: data.id },
+    params: { id: data.id, domain: component_id.value }
   })
 
 
@@ -1006,7 +1025,7 @@ const DeleteProjectActivity = (data: TableSlotDefault) => {
   formData.criteria = data.project_activity
   formData.model = 'project_activity'
 
- console.log(formData)
+  console.log(formData)
 
   DeleteRecordByCriteria(formData)
 
@@ -1174,16 +1193,16 @@ if (isMobile.value) {
 
 }
 
- 
+
 const getDocumentTypes = async () => {
 }
 
 
 //id","name","county_id","settlement_type","geom","area","population","code","description"
 const activityOptions = ref([])
- 
+
 getDocumentTypes()
- 
+
 
 
 const readJson = (event) => {
@@ -1469,15 +1488,15 @@ const DocumentComponentProps = ref({
 
 });
 
-const locations_loading =ref(false)
+const locations_loading = ref(false)
 const project_locations = ref([])
 
 const getProjectLocations = async (project_id) => {
   console.log('project_id', project_id);
 
-  locations_loading.value=true
-  project_locations.value=[]   // Emoty current locations first
-  
+  locations_loading.value = true
+  project_locations.value = []   // Emoty current locations first
+
 
   // Get the project settlement ids
   const formData = {
@@ -1526,7 +1545,7 @@ const getProjectLocations = async (project_id) => {
     };
   });
 
-  locations_loading.value=false
+  locations_loading.value = false
   console.log('project_locations', project_locations);
 };
 
@@ -1539,16 +1558,16 @@ const project_activities = ref(null);
 
 async function handleExpand(row) {
 
-  console.log("On Expand : Project ID", row.id )
+  console.log("On Expand : Project ID", row.id)
   // get the locations 
   // locations_loading.value=true
   // project_locations.value=[]   // Emoty current locations first
-  
+
 
   getProjectLocations(row.id)
   project_id.value = row.id
 
-  project_activities.value=row.activities
+  project_activities.value = row.activities
 
   // toggle collapes
   if (expandedRow.value) {
@@ -1646,13 +1665,13 @@ const fileList = ref([])
 
 const sett_options = ref([])
 const extra_locations = ref()
- 
- 
+
+
 
 
 const remoteMethod = async (keyword) => {
   console.log(keyword)
-  loading.value=true
+  loading.value = true
   const formData = {}
   formData.model = 'settlement'
   //-Search field--------------------------------------------
@@ -1698,7 +1717,7 @@ const remoteMethod = async (keyword) => {
 
 }
 
- 
+
 const getActivities = async (keyword) => {
   console.log(keyword, project_id.value)
   const formData = {}
@@ -1710,7 +1729,7 @@ const getActivities = async (keyword) => {
   formData.associated_multiple_models = []
 
   //--Single Filter -----------------------------------------
- 
+
 
   // - multiple filters -------------------------------------
   formData.filters = []
@@ -1729,8 +1748,8 @@ const getActivities = async (keyword) => {
       value: item.id,
       label: item.title,
       code: item.code,
-      project_id:project_id.value
-      
+      project_id: project_id.value
+
     }));
 
   }
@@ -1783,43 +1802,43 @@ const AddLocation = async () => {
 
 const AddActivity = async () => {
 
-//console.log('deleted_locations',deleted_locations)
-var form = {}
-form.model = 'project_activity'
+  //console.log('deleted_locations',deleted_locations)
+  var form = {}
+  form.model = 'project_activity'
 
-console.log('project_id', project_id.value)
-console.log('locations', extra_activities.value)
+  console.log('project_id', project_id.value)
+  console.log('locations', extra_activities.value)
 
-// fist check if theres any proehct with this id exists then delete all
+  // fist check if theres any proehct with this id exists then delete all
 
-const activity_objects = [];
+  const activity_objects = [];
 
-for (let i = 0; i < extra_activities.value.length; i++) {
-  console.log(extra_activities.value[i])
-  let obj = {}
-  obj.project_id = extra_activities.value[i].project_id
-  obj.activity_id = extra_activities.value[i].value
-  obj.title = extra_activities.value[i].label
- 
- 
-  activity_objects.push(obj)
-  console.log('obj', obj)
-}
+  for (let i = 0; i < extra_activities.value.length; i++) {
+    console.log(extra_activities.value[i])
+    let obj = {}
+    obj.project_id = extra_activities.value[i].project_id
+    obj.activity_id = extra_activities.value[i].value
+    obj.title = extra_activities.value[i].label
 
-form.data = activity_objects
-console.log('formData', form)
 
- const loc_res = await BatchImportUpsert(form)
- console.log('loc_res', loc_res)
- 
- project_activities.value.push(...activity_objects);
+    activity_objects.push(obj)
+    console.log('obj', obj)
+  }
 
- console.log('project_activities', project_activities.value)
-// 
-//getProjectLocations(project_id.value)
-// Empty the locations and 
-//extra_locations.value = []
-//sett_options.value = []
+  form.data = activity_objects
+  console.log('formData', form)
+
+  const loc_res = await BatchImportUpsert(form)
+  console.log('loc_res', loc_res)
+
+  project_activities.value.push(...activity_objects);
+
+  console.log('project_activities', project_activities.value)
+  // 
+  //getProjectLocations(project_id.value)
+  // Empty the locations and 
+  //extra_locations.value = []
+  //sett_options.value = []
 }
 
 
@@ -1830,7 +1849,7 @@ const extra_activities = ref([])
 
 const handleCloseAdd = () => {
   ShowLocationAddDialog.value = false
-  ShowActivityAddDialog.value=false
+  ShowActivityAddDialog.value = false
 }
 
 
@@ -1865,7 +1884,7 @@ const project_activities_filtered = computed(() => {
   return project_activities.value.filter(data => {
     // Ensure all fields are checked and filtered
     const matchesTitle = data.title.toLowerCase().includes(searchValue);
-    return !searchValue || matchesTitle ;
+    return !searchValue || matchesTitle;
   });
 });
 
@@ -1978,7 +1997,7 @@ const ImportProjects = async () => {
   const results = await BatchImportUpsert(form)
 
   console.log('BatchImportUpsert', results.insertedDocuments)
- 
+
 
 }
 
@@ -2002,12 +2021,10 @@ const ImportProjects = async () => {
       </div>
 
       <!-- Title Search -->
-      <el-select
-v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Title" style="width: 150px; margin-right: 10px;" />
- 
-      <el-select
-size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear" multiple clearable
+
+      <el-select size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear" multiple clearable
         filterable collapse-tags placeholder="By Programme" style="width: 150px; margin-right: 10px;">
         <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -2023,7 +2040,7 @@ size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear
         <el-tooltip content="Add Project" placement="top">
           <el-button @click="AddProject" type="primary" :icon="Plus" />
         </el-tooltip>
-      
+
         <el-tooltip content="Download" placement="top">
           <el-button @click="DownloadXlsx" type="primary" :icon="Download" />
         </el-tooltip>
@@ -2034,136 +2051,130 @@ size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear
     </el-row>
 
 
-    <el-table
-ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
-          :row-class-name="tableRowClassName" flexible @expand-change="handleExpand">
+    <el-table ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
+      :row-class-name="tableRowClassName" flexible @expand-change="handleExpand">
 
-          
-          <el-table-column label="ID" width="80" prop="id" sortable>
-                <template #default="scope">
-                  <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-                  <span>{{ scope.row.id }}</span>
-                  <Icon icon="material-symbols:attachment"  style="margin-left: 4px;"  />
-                </div>
+
+      <el-table-column label="ID" width="80" prop="id" sortable>
+        <template #default="scope">
+          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+            <span>{{ scope.row.id }}</span>
+            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+          </div>
+        </template>
+      </el-table-column>
+
+
+      <el-table-column type="expand">
+        <template #default="props">
+          <div m="4">
+            <el-tabs tab-position="top" class="demo-tabs">
+              <el-tab-pane>
+                <template #label>
+                  <el-badge style="margin-left: 10px;" :value="project_locations_filtered.length" type="warning"
+                    class="item" :offset="[10, 5]">
+                    Locations
+                  </el-badge>
                 </template>
-              </el-table-column>
 
-          
-          <el-table-column type="expand">
-             <template #default="props">
-              <div m="4">
-                <el-tabs tab-position="top" class="demo-tabs">
-                  <el-tab-pane >
-                    <template #label>
-                        <el-badge  style="margin-left: 10px;" :value="project_locations_filtered.length" type="warning" class="item" :offset="[10, 5]"> 
-                          Locations
-                        </el-badge>
-                      </template>
-  
-                    <el-table :data="project_locations_filtered" height="250"  v-loading="locations_loading"  stripe>
-                      <el-table-column type="index" />
-                      <el-table-column prop="county" label="County" />
-                      <el-table-column prop="subcounty" label="Subcounty" />
-                      <el-table-column prop="settlementName" label="Settlement" />
-                      <el-table-column width="50">
-                        <template #header>
-                          <el-tooltip content="Add Location" placement="top">
-                            <el-button size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
-                              circle />
-                          </el-tooltip>
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="Operations">
-                        <template #header>
-                          <el-input v-model="searchKey" size="small" placeholder="Filter" />
-                        </template>
-                        <template #default="scope">
-                          <el-tooltip content="View on Map" placement="top">
-                            <el-button type="secondary" size="small" :icon="Position"
-                              @click="flyTo(scope as TableSlotDefault)" circle />
-                          </el-tooltip>
-                          <el-tooltip content="Delete" placement="top">
-                            <el-popconfirm
-confirm-button-text="Yes" width="340" cancel-button-text="No"
-                              :icon="InfoFilled" icon-color="#626AEF"
-                              title="Are you sure to delete this project location?"
-                              @confirm="DeleteProjectLocation(scope.row as TableSlotDefault)">
-                              <template #reference>
-                                <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
-                              </template>
-                            </el-popconfirm>
-                          </el-tooltip>
-                        </template>
-                      </el-table-column>
-                    </el-table>
+                <el-table :data="project_locations_filtered" height="250" v-loading="locations_loading" stripe>
+                  <el-table-column type="index" />
+                  <el-table-column prop="county" label="County" />
+                  <el-table-column prop="subcounty" label="Subcounty" />
+                  <el-table-column prop="settlementName" label="Settlement" />
+                  <el-table-column width="50">
+                    <template #header>
+                      <el-tooltip content="Add Location" placement="top">
+                        <el-button size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
+                          circle />
+                      </el-tooltip>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="Operations">
+                    <template #header>
+                      <el-input v-model="searchKey" size="small" placeholder="Filter" />
+                    </template>
+                    <template #default="scope">
+                      <el-tooltip content="View on Map" placement="top">
+                        <el-button type="secondary" size="small" :icon="Position"
+                          @click="flyTo(scope as TableSlotDefault)" circle />
+                      </el-tooltip>
+                      <el-tooltip content="Delete" placement="top">
+                        <el-popconfirm confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
+                          icon-color="#626AEF" title="Are you sure to delete this project location?"
+                          @confirm="DeleteProjectLocation(scope.row as TableSlotDefault)">
+                          <template #reference>
+                            <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
+                          </template>
+                        </el-popconfirm>
+                      </el-tooltip>
+                    </template>
+                  </el-table-column>
+                </el-table>
 
-                  </el-tab-pane>
-                  <el-tab-pane label="Activities">
-                    <el-table :data="project_activities_filtered" height="250" stripe>
-                      <el-table-column type="index" />
-                      <el-table-column prop="title" label="Activity" />
- 
-                      <el-table-column width="50">
-                        <template #header>
-                          <el-tooltip content="Add Activity" placement="top">
-                            <el-button
-size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
-                              circle />
-                          </el-tooltip>
-                        </template>
-                      </el-table-column>
-                      <el-table-column label="Operations">
-                        <template #header>
-                          <el-input v-model="searchKeyActivity" size="small" placeholder="Filter" />
-                        </template>
-                        <template #default="scope">
-                <el-tooltip content="Delete" placement="top">
-                            <el-popconfirm
-              confirm-button-text="Yes" width="340" cancel-button-text="No"
-                              :icon="InfoFilled" icon-color="#626AEF"
-                              title="Are you sure to delete this project activity?"
-                              @confirm="DeleteProjectActivity(scope.row as TableSlotDefault)">
-                              <template #reference>
-                                <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
-                              </template>
-                            </el-popconfirm>
-                          </el-tooltip>
-                        </template>
-                      </el-table-column>
-                    </el-table>
-                  </el-tab-pane>
-                  <el-tab-pane >
+              </el-tab-pane>
+              <el-tab-pane label="Activities">
+                <el-table :data="project_activities_filtered" height="250" stripe>
+                  <el-table-column type="index" />
+                  <el-table-column prop="title" label="Activity" />
 
-                    <template #label>
-                        <el-badge :value="props.row.documents.length" class="item" :offset="[10, 5]"> 
-                          Documents
-                        </el-badge>
-                      </template>
-                    <div>
-                
-                
-             <div>
-              <list-documents
-:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                @openDialog="toggleComponent(props.row)" />
-            </div>
-                    </div>
-               
-                  </el-tab-pane>
-                </el-tabs>
+                  <el-table-column width="50">
+                    <template #header>
+                      <el-tooltip content="Add Activity" placement="top">
+                        <el-button size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
+                          circle />
+                      </el-tooltip>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="Operations">
+                    <template #header>
+                      <el-input v-model="searchKeyActivity" size="small" placeholder="Filter" />
+                    </template>
+                    <template #default="scope">
+                      <el-tooltip content="Delete" placement="top">
+                        <el-popconfirm confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
+                          icon-color="#626AEF" title="Are you sure to delete this project activity?"
+                          @confirm="DeleteProjectActivity(scope.row as TableSlotDefault)">
+                          <template #reference>
+                            <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete plain />
+                          </template>
+                        </el-popconfirm>
+                      </el-tooltip>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </el-tab-pane>
+              <el-tab-pane>
 
-              
+                <template #label>
+                  <el-badge :value="props.row.documents.length" class="item" :offset="[10, 5]">
+                    Documents
+                  </el-badge>
+                </template>
+                <div>
 
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="Project Title" prop="title" width="650" resizable sortable />
- 
-          <el-table-column label="Programme" prop="programme.acronym" width="130" sortable />
-          <el-table-column label="Status" prop="status" sortable />
-          <el-table-column label="Start" prop="start_date" :formatter="formatStartDate" sortable />
-          <el-table-column label="End" prop="end_date" :formatter="formatEndDate" sortable />
-          <el-table-column fixed="right" label="Operations" :width="actionColumnWidth">
+
+                  <div>
+                    <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+                      @openDialog="toggleComponent(props.row)" />
+                  </div>
+                </div>
+
+              </el-tab-pane>
+            </el-tabs>
+
+
+
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="Project Title" prop="title" width="650" resizable sortable />
+
+      <el-table-column label="Programme" prop="programme.acronym" width="130" sortable />
+      <el-table-column label="Status" prop="status" sortable />
+      <el-table-column label="Start" prop="start_date" :formatter="formatStartDate" sortable />
+      <el-table-column label="End" prop="end_date" :formatter="formatEndDate" sortable />
+      <!-- <el-table-column fixed="right" label="Operations" :width="actionColumnWidth">
             <template #header>
               <span v-if="isMobile">Actions</span>
               <el-input v-else v-model="search" placeholder="Filter" :onInput="filterTableData" />
@@ -2206,19 +2217,24 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
                 </el-tooltip>
               </div>
             </template>
-          </el-table-column>
-        </el-table>
-        <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-          v-model:page-size="pageSize" :page-sizes="[3, 5, 10, 20, 50, 100]" :total="total" :background="true"
-          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-  
-     
+          </el-table-column> -->
+
+      <el-table-column label="Actions" width="250">
+        <template #default="{ row }">
+           <TableActions :item="row" :buttons="action_buttons" @edit="editProject" @delete="DeleteProject" />
+        </template>
+      </el-table-column>
+
+    </el-table>
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      v-model:page-size="pageSize" :page-sizes="[3, 5, 10, 20, 50, 100]" :total="total" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+
+
 
     <el-dialog v-model="showUploadDialog" title="Upload a Zipped Shapefile/Geojson/KML/KMZ" width="30%" draggable>
 
-      <el-upload
-v-model:file-list="fileList" class="upload-demo" drag
+      <el-upload v-model:file-list="fileList" class="upload-demo" drag
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false"
         :show-file-list="false" :on-change="handleUploadGeo">
         <template #trigger>
@@ -2244,9 +2260,8 @@ v-model:file-list="fileList" class="upload-demo" drag
 
 
     <el-dialog v-model="ShowLocationAddDialog" title="Add Project Location" width="500" :before-close="handleCloseAdd">
-      <el-select
-id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword :loading="loading"
-        placeholder=" Search Settlements" :remote-method="remoteMethod" style="width: 85%">
+      <el-select id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
+        :loading="loading" placeholder=" Search Settlements" :remote-method="remoteMethod" style="width: 85%">
         <el-option v-for="item in sett_options" :key="item.id" :label="item.label" :value="item">
           <div style="display: flex; align-items: center;">
             <span style="flex: 1; text-align: left;">{{ item.label }}</span>
@@ -2268,14 +2283,13 @@ id="location-select" v-model="extra_locations" multiple filterable remote reserv
 
 
     <el-dialog v-model="ShowActivityAddDialog" title="Add Project Activity" width="500" :before-close="handleCloseAdd">
-      <el-select
-id="location-select" v-model="extra_activities" multiple filterable remote reserve-keyword
+      <el-select id="location-select" v-model="extra_activities" multiple filterable remote reserve-keyword
         placeholder=" Search Activities" :remote-method="getActivities" style="width: 85%">
         <el-option v-for="item in activityOptions" :key="item.id" :label="item.label" :value="item">
           <div style="display: flex; align-items: center;">
             <span style="flex: 1; text-align: left;">{{ item.label }}</span>
             <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
-              {{ item.code }} 
+              {{ item.code }}
             </span>
           </div>
         </el-option>
@@ -2301,8 +2315,7 @@ id="location-select" v-model="extra_activities" multiple filterable remote reser
     </span>
 
 
-    <el-upload
-class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
+    <el-upload class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15">
       <div class="el-upload__text">
         Drop file here or <em>click to upload</em>

@@ -35,7 +35,8 @@ import { useAppStore } from '@/store/modules/app'
 
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
- 
+import TableActions from '@/views/Components/TableActions.vue';
+
 
 
 
@@ -50,6 +51,19 @@ const showEditButtons =  ref(appStore.getEditButtons)
 
 // // Hide buttons if not admin 
   
+
+
+const action_buttons = ref([])
+if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'delete','preview','download' ]
+} else if (showEditButtons.value) {
+
+  action_buttons.value = ['edit', 'preview','download' ]
+}
+else {
+  action_buttons.value = [ 'preview','download' ]
+
+}
 
 
 
@@ -548,16 +562,16 @@ const handleInputChange = async (keyword) => {
 const downloadFile = async (data) => {
   downloading.value = true
   console.log(data)
-  console.log(data.row.name)
+  console.log(data.name)
  
 
   const formData = {}
 
   let fname 
-  const filename = data.row.name;
+  const filename = data.name;
       // Check if the filename has an extension
       if (!/\.\w+$/.test(filename)) {
-         fname=filename + '.'+data.row.format
+         fname=filename + '.'+data.format
       } else {
         fname = filename
 
@@ -575,11 +589,11 @@ const downloadFile = async (data) => {
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      //link.setAttribute('download', data.row.name + data.row.format )
-      const filename = data.row.name;
+      //link.setAttribute('download', data.name + data.format )
+      const filename = data.name;
       // Check if the filename has an extension
       if (!/\.\w+$/.test(filename)) {
-        link.setAttribute('download', `${filename}.${data.row.format}`);
+        link.setAttribute('download', `${filename}.${data.format}`);
         console.log("file name has no extension")
       } else {
         link.setAttribute('download', filename);
@@ -651,11 +665,11 @@ const viewDocument = async (data) => {
 
 
 const removeDocument = (data) => {
-  console.log('----->', data.row)
+  console.log('----->', data)
   let formData = {}
-  formData.id = data.row.id
+  formData.id = data.id
   formData.model = 'document'
-  formData.filesToDelete = [data.row.name]
+  formData.filesToDelete = [data.name]
   deleteDocument(formData)
 
 
@@ -688,25 +702,25 @@ const dialogVisible = ref(false)
 
 
 const editDocument = (data) => {
-  console.log('Edit', data.row)
+  console.log('Edit', data)
 
-  // Copy all properties from data.row to documentForm
-  for (const key in data.row) {
-    if (Object.prototype.hasOwnProperty.call(data.row, key)) {
+  // Copy all properties from data to documentForm
+  for (const key in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
       if (key === "name") {
         // If the property name is "name" and contains a dot, strip the text after the dot
-        const propertyName = data.row[key].split('.')[0];
+        const propertyName = data[key].split('.')[0];
         console.log(propertyName)
-        documentForm['name'] = data.row[key].split('.')[0];
+        documentForm['name'] = data[key].split('.')[0];
       } else {
-        documentForm[key] = data.row[key];
+        documentForm[key] = data[key];
       }
     }
   }
 
 
   console.log('documentForm', documentForm)
-  documentName.value = "Editing: " + data.row.name
+  documentName.value = "Editing: " + data.name
 
   // get doument types 
   // documentForm.id=data.row.id
@@ -1107,24 +1121,29 @@ v-model="searchTerm" placeholder="Search documents by name/settlement/county/for
               <el-table-column prop="date" label="Date" :formatter="formatEndDate" />
                <el-table-column prop="user.name" label="User" />
               <el-table-column prop="size" label="Size(Mb)" />
-              <el-table-column label="Action">
+              <!-- <el-table-column label="Action">
                 <template #default="scope">
-                  <!-- <el-button   @click="downloadFile(scope)" type="primary" icon="el-icon-download">Download</el-button> -->
-                  <el-button  size="small"  v-if="scope.row.deletable" type="success" @click="editDocument(scope)" :icon="Edit" circle />
+                   <el-button  size="small"  v-if="scope.row.deletable" type="success" @click="editDocument(scope)" :icon="Edit" circle />
                   <el-button type="warning" size="small" @click="downloadFile(scope)" :icon="Download" circle />
 
                   <el-button type="primary" size="small"  @click="viewDocument(scope.row)"  :icon="TopRight" circle />
 
-                  <el-button
-size="small" 
-v-if="scope.row.deletable" type="danger" @click="removeDocument(scope)" :icon="Delete"
-                    circle />
-
-
-
-
+                  <el-button  size="small" v-if="scope.row.deletable" type="danger" @click="removeDocument(scope)" :icon="Delete"
+                    circle /> 
                 </template>
-              </el-table-column>
+              </el-table-column> -->
+
+
+
+              
+        <el-table-column label="Actions" width="250">
+          <template #default="{ row }">
+            <TableActions :item="row" :buttons="action_buttons" @edit="editDocument" @delete="removeDocument"   @preview="viewDocument"  @download="downloadFile" />
+          </template>
+        </el-table-column>
+
+
+
             </el-table>
 
 

@@ -19,6 +19,16 @@
           plain />
       </el-tooltip>
 
+      <el-tooltip content="Download" placement="top">
+        <el-button v-if="buttons.includes('download')" type="tertiary" size="small" :icon="Download"
+          @click="onDownload(item)" plain />
+      </el-tooltip>
+
+      <el-tooltip content="Preview" placement="top">
+        <el-button v-if="buttons.includes('preview')" type="warning" size="small" :icon="TopRight"
+          @click="onPreview(item)" plain />
+      </el-tooltip>
+
 
       <el-tooltip content="Delete" placement="top">
         <template #default>
@@ -63,11 +73,28 @@
             </el-icon>
           </el-dropdown-item>
 
+          <el-dropdown-item v-if="buttons.includes('preview')" @click="onPreview(item)">
+            <el-icon>
+              <TopRight />
+            </el-icon>
+          </el-dropdown-item>
+
+
           <el-dropdown-item v-if="buttons.includes('delete')" @click="onDelete(item)">
             <el-icon>
               <Delete />
             </el-icon>
           </el-dropdown-item>
+
+
+
+          <el-dropdown-item v-if="buttons.includes('download')" @click="onDownload(item)">
+            <el-icon>
+              <Delete />
+            </el-icon>
+          </el-dropdown-item>
+
+
 
         </el-dropdown-menu>
       </template>
@@ -79,7 +106,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, watch, defineProps, onUnmounted } from 'vue';
 import { ElButton, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem, ElTooltip, ElPopconfirm } from 'element-plus';
-import { ArrowDown, Edit, Position, Delete, InfoFilled, View } from '@element-plus/icons-vue';
+import { ArrowDown, Edit, TopRight, Position, Delete, InfoFilled, View, Download } from '@element-plus/icons-vue';
 
 const props = defineProps({
   item: Object,
@@ -87,7 +114,7 @@ const props = defineProps({
 
 });
 
-const emit = defineEmits(["edit", "viewOnMap", "review", "delete",]);
+const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "download",]);
 
 
 
@@ -104,10 +131,6 @@ watch(
   }),
   (newProps) => {
     const { item, buttons } = newProps;
-
-
-
-
   },
   { immediate: true }
 );
@@ -128,6 +151,16 @@ const onDelete = (item) => {
 const onReview = (item) => {
   emit("review", item);
 };
+
+const onPreview = (item) => {
+  emit("preview", item);
+};
+
+
+const onDownload = (item) => {
+  emit("download", item);
+};
+
 
 
 

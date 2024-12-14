@@ -30,11 +30,30 @@ import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue';
+import TableActions from '@/views/Components/TableActions.vue';
 
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
+
+
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
+
+
+const action_buttons = ref([])
+if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'delete']
+} else if (showEditButtons.value) {
+
+  action_buttons.value = ['edit']
+}
+else {
+  action_buttons.value = []
+
+}
+
 
 
 console.log("userInfo--->", userInfo)
@@ -104,10 +123,7 @@ onMounted(async () => {
 
 
 
-const showAdminButtons = ref(appStore.getAdminButtons)
-const showEditButtons = ref(appStore.getEditButtons)
-
-
+ 
 
 console.log("Show Buttons -->", showAdminButtons)
 
@@ -308,13 +324,13 @@ const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
   showEditSaveButton.value = true
   console.log(data)
-  ruleForm.id = data.row.id
-  ruleForm.name = data.row.name
-  ruleForm.type = data.row.type
-  ruleForm.format = data.row.format
-  ruleForm.level = data.row.level
-  ruleForm.unit = data.row.unit
-  ruleForm.activity_id = data.row.activity_id
+  ruleForm.id = data.id
+  ruleForm.name = data.name
+  ruleForm.type = data.type
+  ruleForm.format = data.format
+  ruleForm.level = data.level
+  ruleForm.unit = data.unit
+  ruleForm.activity_id = data.activity_id
   formHeader.value = 'Edit Indicator'
 
 
@@ -641,7 +657,7 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
       <el-table-column label="Title" prop="name" sortable />
       <el-table-column label="Activity" prop="activity.title" sortable />
       <el-table-column label="Type" prop="type" sortable />
-      <el-table-column fixed="right" label="Actions" :width="actionColumnWidth" sortable>
+      <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth" sortable>
         <template #default="scope">
           <el-dropdown v-if="isMobile">
             <span class="el-dropdown-link">
@@ -681,7 +697,14 @@ confirm-button-text="Yes" cancel-button-text="No"  :icon="InfoFilled" icon-color
           </div>
         </template>
 
+      </el-table-column> -->
+    
+      <el-table-column label="Actions" width="250">
+        <template #default="{ row }">
+          <TableActions :item="row" :buttons="action_buttons" @edit="editIndicator" @delete="DeleteIndicator" />
+        </template>
       </el-table-column>
+    
     </el-table>
 
 

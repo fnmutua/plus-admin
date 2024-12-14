@@ -15,9 +15,9 @@ import {
   InfoFilled
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed,onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import {
-  ElPagination, ElInputNumber, ElTable,ElTour,ElTourStep,
+  ElPagination, ElInputNumber, ElTable, ElTour, ElTourStep,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
   ElTooltip, ElOption, ElDialog, ElForm, ElFormItem, ElUpload, ElInput, FormRules, ElPopconfirm, ElCol, ElRow
 } from 'element-plus'
@@ -38,8 +38,8 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import TableActions from '@/views/Components/TableActions.vue';
- 
-  
+
+
 const appStore = useAppStoreWithOut();
 
 
@@ -53,23 +53,33 @@ const value2 = ref([])
 var value3 = ref([])
 
 
- 
+
 const page = ref(1)
-  
+
 const currentPage = ref(1)
 const total = ref(0)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
 const adminButtons = computed(() => appStore.getAdminButtons);
-  
-
- 
- 
 
 
-console.log("Compare adminButtons :",adminButtons.value)
- 
+const action_buttons = ref([])
+if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'delete']
+} else if (showEditButtons.value) {
+
+  action_buttons.value = ['edit']
+}
+else {
+  action_buttons.value = []
+
+}
+
+
+
+console.log("Compare adminButtons :", adminButtons.value)
+
 
 
 const mobileBreakpoint = 768;
@@ -86,12 +96,12 @@ const updatePageSize = () => {
   }
 };
 
-onMounted(async () => { 
+onMounted(async () => {
 
- window.addEventListener('resize', updatePageSize);
-   updatePageSize(); // Initial check
- 
- })
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize(); // Initial check
+
+})
 
 
 
@@ -128,7 +138,7 @@ const ruleForm = reactive({
   target_male_ben: null,
   target_female_ben: null,
   code: null,
-  comments:null
+  comments: null
 })
 
 const rules = reactive<FormRules>({
@@ -159,7 +169,7 @@ const rules = reactive<FormRules>({
 
 
 const AddDialogVisible = ref(false)
- 
+
 const formHeader = ref('Add Beneficiary Report')
 const showSubmitBtn = ref(false)
 const showProcessBtn = ref(true)
@@ -209,7 +219,7 @@ const handleClear = async () => {
   getInterventionsAll()
 }
 
-const  handleSelectProject = async (project_id: any) => {
+const handleSelectProject = async (project_id: any) => {
   var selectOption = 'project_id'
   if (!filters.includes(selectOption)) {
     filters.push(selectOption)
@@ -232,8 +242,8 @@ const  handleSelectProject = async (project_id: any) => {
     filters.splice(index, 1)
   }
 
- 
- 
+
+
 
   getFilteredData(filters, filterValues)
 }
@@ -449,7 +459,7 @@ const editReport = async (data: TableSlotDefault) => {
   ruleForm.ward_id = data.ward_id
   ruleForm.project_location_id = data.project_location_id
 
-  
+
 
   ruleForm.project_id = data.project_id
   ruleForm.actual_female_ben = data.actual_female_ben
@@ -463,7 +473,7 @@ const editReport = async (data: TableSlotDefault) => {
   fileUploadList.value = data.documents
 
 
- 
+
   AddDialogVisible.value = true
 }
 
@@ -513,7 +523,7 @@ const handleClose = () => {
 
   formHeader.value = 'Add Beneficiary Report'
   AddDialogVisible.value = false
-  activeStep.value=0
+  activeStep.value = 0
 
 }
 
@@ -780,25 +790,25 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
 
 const batchData = ref([])
- 
 
 
 
 
- 
+
+
 
 /// Import multiple reports - ----------------
 // ----------------------------------------------
 //const parentModels = ['county']
 const parentModels = ['county', 'settlement', 'indicator_category']
 const parentCodes = ['countyCode', 'settlementCode', 'indicator_categoryCode']
- 
+
 
 
 const uploadedData = ref([])
 
 const parentData = ref([]);
- 
+
 
 const fileList = ref<UploadUserFile[]>([])
 
@@ -938,7 +948,7 @@ const readXLSX = async (event) => {
   showProcessBtn.value = false
 }
 
- 
+
 
 getModeldefinition(model)
 
@@ -967,9 +977,9 @@ const tableRowClassName = (data) => {
   return ''
 }
 
- 
 
- 
+
+
 const getDocumentTypes = async () => {
 }
 getDocumentTypes()
@@ -992,7 +1002,7 @@ if (isMobile.value) {
 
 }
 
- 
+
 
 
 /// Uplaod docuemnts from a central component 
@@ -1052,7 +1062,7 @@ function handleExpand(row) {
 
 
 
- 
+
 
 
 const router = useRouter()
@@ -1068,9 +1078,9 @@ const goBack = () => {
   }
 }
 
- 
 
-const activeStep = ref(0) 
+
+const activeStep = ref(0)
 const nextStep = async () => {
   //console.log(ruleFormRef.value)
   await ruleFormRef.value?.validate((valid) => {
@@ -1089,112 +1099,112 @@ const prevStep = () => {
 
 
 
-const isTourVisible =ref(false)
+const isTourVisible = ref(false)
 const showTour = () => {
 
-isTourVisible.value=true
+  isTourVisible.value = true
 
- 
+
 }
 
 const filteredTourSteps = computed(() => {
 
-const fil = tourSteps.value.filter(step => step.step == activeStep.value && step.visible==true);
-console.log('filteredTourSteps', fil)
-return fil
+  const fil = tourSteps.value.filter(step => step.step == activeStep.value && step.visible == true);
+  console.log('filteredTourSteps', fil)
+  return fil
 });
 
 
-const endTour = () => { 
- 
+const endTour = () => {
+
 }
 
 
 const tourSteps = ref([
-// Steps for activeStep 0
-{
-  step: 0,
-  target: '#btn1',
-  title: 'Select Project',
-  content: 'Choose a project from the list to proceed.',
-  visible:true
-},
-{
-  step: 0,
-  target: '#btn2',
-  title: 'Select Location',
-  content: 'Pick a location where this project is(was) implemented.',
-  visible:true
+  // Steps for activeStep 0
+  {
+    step: 0,
+    target: '#btn1',
+    title: 'Select Project',
+    content: 'Choose a project from the list to proceed.',
+    visible: true
+  },
+  {
+    step: 0,
+    target: '#btn2',
+    title: 'Select Location',
+    content: 'Pick a location where this project is(was) implemented.',
+    visible: true
 
-},
- 
-// Steps for activeStep 1
-{
-  step: 1,
-  target: '#btn3',
-  title: 'Target Beneficiaries (Female)',
-  content: 'Specify the targeted number of female beneficiaries.',
-  visible:true
+  },
 
-},
-  
- 
-{
-  step: 1,
-  target: '#btn4',
-  title: 'Target Beneficiaries (Male)',
-  content: 'Specify the targeted number of male beneficiaries.',
-  visible:true
-},
+  // Steps for activeStep 1
+  {
+    step: 1,
+    target: '#btn3',
+    title: 'Target Beneficiaries (Female)',
+    content: 'Specify the targeted number of female beneficiaries.',
+    visible: true
+
+  },
 
 
-{
-  step: 1,
-  target: '#btn5',
-  title: 'Actual Beneficiaries (Female)',
-  content: 'Specify the actual number of female beneficiaries.',
-  visible:true
-},
-{
-  step: 1,
-  target: '#btn6',
-  title: 'Actual Beneficiaries (Male)',
-  content: 'Specify the actual number of male beneficiaries.',
-  visible:true
-},
+  {
+    step: 1,
+    target: '#btn4',
+    title: 'Target Beneficiaries (Male)',
+    content: 'Specify the targeted number of male beneficiaries.',
+    visible: true
+  },
 
 
-// Steps for activeStep 2
+  {
+    step: 1,
+    target: '#btn5',
+    title: 'Actual Beneficiaries (Female)',
+    content: 'Specify the actual number of female beneficiaries.',
+    visible: true
+  },
+  {
+    step: 1,
+    target: '#btn6',
+    title: 'Actual Beneficiaries (Male)',
+    content: 'Specify the actual number of male beneficiaries.',
+    visible: true
+  },
 
-{
-  step: 2,
-  target: '#btn7',
-  title: 'Comments',
-  content: 'Add comments/notes or observations for this submission.',
-  visible:true
-},
 
-{
-  step: 2,
-  target: '#btn8',
-  title: 'Documentation',
-  content: 'Upload supporting documentation.',
-  visible:true
-},
+  // Steps for activeStep 2
+
+  {
+    step: 2,
+    target: '#btn7',
+    title: 'Comments',
+    content: 'Add comments/notes or observations for this submission.',
+    visible: true
+  },
+
+  {
+    step: 2,
+    target: '#btn8',
+    title: 'Documentation',
+    content: 'Upload supporting documentation.',
+    visible: true
+  },
 
 
 ]);
 
 // Watch dependencies and log changes (or trigger additional actions)
 watch(
-    [activeStep,tourSteps],
-    (newValues, oldValues) => {
-      console.log("Dependencies changed:", newValues);
-      console.log("Filtered steps:", filteredTourSteps.value);
-      // Any other side effects or actions can be performed here
-    },
-    { immediate: true }
-  );
+  [activeStep, tourSteps],
+  (newValues, oldValues) => {
+    console.log("Dependencies changed:", newValues);
+    console.log("Filtered steps:", filteredTourSteps.value);
+    // Any other side effects or actions can be performed here
+  },
+  { immediate: true }
+);
 
 
 
@@ -1216,10 +1226,8 @@ watch(
       </div>
 
       <!-- Title Search -->
-      <el-select
-v-model="value2" :onChange=" handleSelectProject" :onClear="handleClear" multiple clearable collapse-tags
-
-        filterable   placeholder="Filter by Project" style="width: 80%; margin-right: 10px;">
+      <el-select v-model="value2" :onChange="handleSelectProject" :onClear="handleClear" multiple clearable
+        collapse-tags filterable placeholder="Filter by Project" style="width: 80%; margin-right: 10px;">
         <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
@@ -1243,16 +1251,14 @@ v-model="value2" :onChange=" handleSelectProject" :onClear="handleClear" multipl
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
-    <el-table
-:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
       @expand-change="handleExpand">
 
       <el-table-column type="expand">
         <template #default="props">
 
           <div>
-            <list-documents
-:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+            <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
               @openDialog="toggleComponent(props.row)" />
           </div>
 
@@ -1275,7 +1281,7 @@ v-model="value2" :onChange=" handleSelectProject" :onClear="handleClear" multipl
 
       <el-table-column label="Female Beneficiaries" prop="actual_female_ben" sortable />
       <el-table-column label="Male Beneficiaries" prop="actual_male_ben" sortable />
-
+      <!-- 
       <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
@@ -1310,29 +1316,22 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
             </el-tooltip>
           </div>
         </template>
+      </el-table-column> -->
+
+      <el-table-column label="Actions" width="250">
+        <template #default="{ row }">
+          <TableActions :item="row" :buttons="action_buttons" @edit="editReport" @delete="DeleteReport" />
+        </template>
       </el-table-column>
-
-      <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-      <template #default="scope">
-        <TableActions
-          :row="scope.row"
-          :isMobile="isMobile"
-          :showEditButtons="true"
-          :showAdminButtons="true"
-
-        />
-      </template>
-    </el-table-column> -->
 
     </el-table>
 
 
-    <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
- 
+
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth">
     <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
       <el-step title="Project Details" />
@@ -1344,14 +1343,12 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       <el-row v-if="activeStep == 0" :gutter="20">
         <el-col :span="24">
           <el-form-item id="btn1" label="Project" prop="project_id">
-            <el-select-v2
-filterable v-model="ruleForm.project_id" @change="changeProject" style="width: 100%"
+            <el-select-v2 filterable v-model="ruleForm.project_id" @change="changeProject" style="width: 100%"
               :options="projectOptions" placeholder="Select Project" />
           </el-form-item>
 
           <el-form-item id="btn2" label="Location" prop="project_location_id">
-            <el-select
-ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
+            <el-select ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
               @change="changeLocation" style="width: 100%;">
               <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
                 <div style="display: flex; align-items: center;">
@@ -1395,8 +1392,7 @@ ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Se
             <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
           </el-form-item>
 
-          <el-upload
-id="btn8" v-model:file-list="fileUploadList" class="upload-demo"
+          <el-upload id="btn8" v-model:file-list="fileUploadList" class="upload-demo"
             action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
             :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
             :on-exceed="handleExceed">
@@ -1413,18 +1409,16 @@ id="btn8" v-model:file-list="fileUploadList" class="upload-demo"
         <el-row :gutter="5">
           <el-col :span="24">
             <el-tooltip content="Help" placement="top">
-                <el-button color="#626aef"   type="info" @click="showTour"  :icon="InfoFilled" plain />
-              </el-tooltip> 
-            
+              <el-button color="#626aef" type="info" @click="showTour" :icon="InfoFilled" plain />
+            </el-tooltip>
+
             <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
 
             <el-button @click="nextStep" v-if="activeStep < 2">Next</el-button>
             <el-button @click="AddDialogVisible = false">Cancel</el-button>
-            <el-button
-v-if="showSubmitBtn && activeStep === 2" type="primary"
+            <el-button v-if="showSubmitBtn && activeStep === 2" type="primary"
               @click="submitForm(ruleFormRef)">Submit</el-button>
-            <el-button
-v-if="showEditSaveButton && activeStep === 2" type="primary"
+            <el-button v-if="showEditSaveButton && activeStep === 2" type="primary"
               @click="editForm(ruleFormRef)">Save</el-button>
           </el-col>
         </el-row>
@@ -1434,18 +1428,13 @@ v-if="showEditSaveButton && activeStep === 2" type="primary"
 
   </el-dialog>
 
- 
+
 
 
   <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
-      <el-tour-step
-        v-for="(step, index) in filteredTourSteps"
-        :key="index"
-        :target="step.target"
-        :title="step.title"
-        :description="step.content"
-      />
-    </el-tour>
+    <el-tour-step v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
+      :description="step.content" />
+  </el-tour>
 
 
 </template>

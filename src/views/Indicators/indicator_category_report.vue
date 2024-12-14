@@ -40,6 +40,7 @@ import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
+import TableActions from '@/views/Components/TableActions.vue';
 
 
 //import downloadForOfflineRounded from '@iconify-icons/material-symbols/download-for-offline-rounded';
@@ -67,6 +68,17 @@ const showEditButtons = ref(appStore.getEditButtons)
 console.log("showAdminButtons--->", showAdminButtons.value)
 console.log("userInfo--->", userInfo)
 
+const action_buttons = ref([])
+if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'delete', 'viewOnMap']
+} else if (showEditButtons.value) {
+
+  action_buttons.value = [ 'edit', 'viewOnMap']
+}
+else {
+  action_buttons.value = ['viewOnMap']
+
+}
 
 
 
@@ -1983,7 +1995,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
       </el-table-column>
 
 
-      <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+      <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
             <span class="el-dropdown-link">
@@ -2023,6 +2035,15 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"  width="300
             </el-tooltip>
 
           </div>
+        </template>
+      </el-table-column> -->
+
+      
+      <el-table-column label="Actions" width="250">
+        <template #default="{ row }">
+           <TableActions :item="row" :buttons="action_buttons" @viewOnMap="showMap"   @edit="editReport" @delete="DeleteReport"   />
+
+
         </template>
       </el-table-column>
 

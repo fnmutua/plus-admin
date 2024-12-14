@@ -3,7 +3,7 @@
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect,FormInstance, ElCard, ElLink } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, FormInstance, ElCard, ElLink } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -11,11 +11,11 @@ import {
   Download,
   Filter,
   Delete,
-  View,Position,CircleCloseFilled,
+  View, Position, CircleCloseFilled,
   InfoFilled
 } from '@element-plus/icons-vue'
 
-import { ref, reactive,onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElInputNumber, ElTable, ElDescriptions, ElDescriptionsItem,
   ElTableColumn, ElDropdown, ElDropdownItem, ElDropdownMenu,
@@ -34,17 +34,18 @@ import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
 import { getFile } from '@/api/summary'
 import xlsx from "json-as-xlsx"
-import {   getOneGeo  } from '@/api/settlements'
+import { getOneGeo } from '@/api/settlements'
 
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 
- 
+
 import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
+import TableActions from '@/views/Components/TableActions.vue';
 
 
 const MapBoxToken =
@@ -58,9 +59,23 @@ const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 
-console.log("userInfo--->", userInfo)
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
+console.log('showAdminButtons', showAdminButtons.value)
+console.log('showEditButtons', showEditButtons.value)
 
 
+const action_buttons = ref([])
+if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'delete', 'review', 'viewOnMap']
+} else if (showEditButtons.value) {
+
+  action_buttons.value = [ 'review', 'viewOnMap']
+}
+else {
+  action_buttons.value = ['viewOnMap']
+
+}
 
 
 
@@ -75,9 +90,9 @@ var value3 = ref([])
 const categories = ref([])
 const filteredIndicators = ref([])
 const page = ref(1)
- 
+
 const selCounties = []
- const currentPage = ref(1)
+const currentPage = ref(1)
 const total = ref(0)
 
 
@@ -97,12 +112,12 @@ const updatePageSize = () => {
   }
 };
 
-onMounted(async () => { 
+onMounted(async () => {
 
- window.addEventListener('resize', updatePageSize);
-   updatePageSize(); // Initial check
- 
- })
+  window.addEventListener('resize', updatePageSize);
+  updatePageSize(); // Initial check
+
+})
 
 
 
@@ -123,10 +138,7 @@ if (isMobile.value) {
 
 
 
-const showAdminButtons = ref(appStore.getAdminButtons)
-const showEditButtons = ref(appStore.getEditButtons)
-console.log('showAdminButtons', showAdminButtons.value)
-console.log('showEditButtons', showEditButtons.value)
+
 
 
 const AddDialogVisible = ref(false)
@@ -175,7 +187,7 @@ const handleClear = async () => {
   console.log('cleared....')
 
   // clear all the fileters -------
- 
+
   value1.value = null
   value2.value = null
   value3.value = null
@@ -279,10 +291,10 @@ const getModeldefinition = async (selModel) => {
 
 }
 
-const loading=ref(false)
+const loading = ref(false)
 const getFilteredData = async (selFilters, selfilterValues) => {
 
-  loading.value=true
+  loading.value = true
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -307,8 +319,8 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   console.log('Reports collected........', res)
   tableDataList.value = res.data
-  loading.value=false
- // tableDataList.value = res.data.filter(item => item.indicator_category.indicator.type === 'output');
+  loading.value = false
+  // tableDataList.value = res.data.filter(item => item.indicator_category.indicator.type === 'output');
 
   total.value = res.total
 
@@ -406,7 +418,7 @@ const getProjects = async () => {
 
 
     arrayItem.activities.forEach(function (activity: any) {
-     // console.log('activity--->', activity)
+      // console.log('activity--->', activity)
 
       var act = {}
       console.log(activity)
@@ -1083,61 +1095,61 @@ function handleExpand(row) {
 
 const report = ref({})
 
- 
+
 
 const editIndicator = (data: TableSlotDefault) => {
   showSubmitBtn.value = false
 
   showEditSaveButton.value = true
-  console.log(data.row.county.name  )
-  console.log( data.row.subcounty.name)
-  console.log( data.row.ward.name)
-  console.log( data.row.user.name)
-  ruleForm.id = data.row.id
-  ruleForm.county_id = data.row.county_id
-  ruleForm.subcounty_id = data.row.subcounty_id
-  ruleForm.ward_id = data.row.ward_id
-  ruleForm.settlement_id = data.row.settlement_id
-  ruleForm.project_id = data.row.project_id
-  ruleForm.activity_id = data.row.activity_id
+  console.log(data.county.name)
+  console.log(data.subcounty.name)
+  console.log(data.ward.name)
+  console.log(data.user.name)
+  ruleForm.id = data.id
+  ruleForm.county_id = data.county_id
+  ruleForm.subcounty_id = data.subcounty_id
+  ruleForm.ward_id = data.ward_id
+  ruleForm.settlement_id = data.settlement_id
+  ruleForm.project_id = data.project_id
+  ruleForm.activity_id = data.activity_id
 
 
-  ruleForm.date = data.row.date
-  ruleForm.amount = data.row.amount
-  ruleForm.indicator_category_id = data.row.indicator_category_id
-  ruleForm.programme_implementation_id = data.row.programme_implementation_id
+  ruleForm.date = data.date
+  ruleForm.amount = data.amount
+  ruleForm.indicator_category_id = data.indicator_category_id
+  ruleForm.programme_implementation_id = data.programme_implementation_id
 
 
-  ruleForm.ward_id = data.row.ward_id
-  ruleForm.code = data.row.code
-  ruleForm.progress = data.row.progress
-  ruleForm.project_status = data.row.project_status
-  ruleForm.disbursement = data.row.disbursement
-  ruleForm.comments = data.row.comments
-  ruleForm.cumProgress = data.row.cumProgress
-  ruleForm.prevAmount = data.row.prevAmount
-  ruleForm.cumAmount = data.row.cumAmount
+  ruleForm.ward_id = data.ward_id
+  ruleForm.code = data.code
+  ruleForm.progress = data.progress
+  ruleForm.project_status = data.project_status
+  ruleForm.disbursement = data.disbursement
+  ruleForm.comments = data.comments
+  ruleForm.cumProgress = data.cumProgress
+  ruleForm.prevAmount = data.prevAmount
+  ruleForm.cumAmount = data.cumAmount
 
 
 
   formHeader.value = 'Edit Report'
-  fileUploadList.value = data.row.documents
+  fileUploadList.value = data.documents
 
 
 
   formHeader.value = 'Review Report'
 
   // make the descriptions dataset 
-  report.value.county = data.row.county ? data.row.county.name : ''
-  report.value.indicator = data.row.indicator_category.indicator_name
-  report.value.status = data.row.status
-  report.value.date = formatDate(data.row.date )
-  report.value.amount = data.row.amount
-  report.value.user = data.row.user.name
-  report.value.phone = data.row.user.phone
-  report.value.project = data.row.project.title
-  report.value.location =  data.row.settlement ? data.row.settlement.name : ''
-  //report.value.document =  data.row.documents[0] ? data.row.documents[0].name : ''
+  report.value.county = data.county ? data.county.name : ''
+  report.value.indicator = data.indicator_category.indicator_name
+  report.value.status = data.status
+  report.value.date = formatDate(data.date)
+  report.value.amount = data.amount
+  report.value.user = data.user.name
+  report.value.phone = data.user.phone
+  report.value.project = data.project.title
+  report.value.location = data.settlement ? data.settlement.name : ''
+  //report.value.document =  data.documents[0] ? data.documents[0].name : ''
 
 
 
@@ -1145,9 +1157,9 @@ const editIndicator = (data: TableSlotDefault) => {
 
   ReviewDialog.value = true
 
-  report.value.documents = Array.isArray(data.row.documents) && data.row.documents.length
-  ? data.row.documents.map(doc => doc) // Pushes the entire document object
-  : [];
+  report.value.documents = Array.isArray(data.documents) && data.documents.length
+    ? data.documents.map(doc => doc) // Pushes the entire document object
+    : [];
 
 
 }
@@ -1232,7 +1244,7 @@ const showMap = async (row) => {
   const res = await getOneGeo(formData)
   const loc_geom = res.data[0].json_build_object
   var centroid = turf.centroid(loc_geom);
-  console.log('centroid',centroid)
+  console.log('centroid', centroid)
   reportGeom.value = centroid
 
 
@@ -1241,34 +1253,34 @@ const showMap = async (row) => {
   const projLocFormData = {}
   projLocFormData.model = 'project_location'
   projLocFormData.id = row.project_location_id
- 
+
   const prj_res = await getOneGeo(projLocFormData)
   const proj_geom = prj_res.data[0].json_build_object
   var proj_centroid = turf.centroid(proj_geom);
-  console.log('centroid',proj_centroid)
+  console.log('centroid', proj_centroid)
   projectGeom.value = proj_centroid
 
 
-  console.log('  projectGeom.value',  projectGeom.value)
-  console.log('  projectGeom.value',  projectGeom.value)
+  console.log('  projectGeom.value', projectGeom.value)
+  console.log('  projectGeom.value', projectGeom.value)
 
 
   dialogMap.value = true
 
-//   projectGeom.value = reportDetails.value.project.geom
+  //   projectGeom.value = reportDetails.value.project.geom
 
 
- 
-   var options = { units: 'kilometers' };
 
-   var distance = turf.distance(proj_centroid,centroid, options);
+  var options = { units: 'kilometers' };
+
+  var distance = turf.distance(proj_centroid, centroid, options);
   console.log('distance , ', distance)
 
-   if (distance < 1) {
-      projectLocationColor.value = 'green'
-   }
+  if (distance < 1) {
+    projectLocationColor.value = 'green'
+  }
 
-    locationStatus.value = 'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
+  locationStatus.value = 'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
   setTimeout(loadMap, 100); // delay for the dialog to fully load
   //loadMap()
 }
@@ -1369,8 +1381,8 @@ const loadMap = () => {
 
 
 
-  //     Add Project Location layer
-     nmap.addLayer({
+    //     Add Project Location layer
+    nmap.addLayer({
       id: 'project-layer',
       type: 'circle',
       source: {
@@ -1385,63 +1397,63 @@ const loadMap = () => {
     });
 
 
-     // Add marker to the map
+    // Add marker to the map
     // Create a new marker and set its position
-      const proj_marker = new mapboxgl.Marker()
-          .setLngLat(projectGeom.value.geometry.coordinates) // Set the marker position using the GeoJSON coordinates
-          .addTo(nmap); // Add the marker to the map
+    const proj_marker = new mapboxgl.Marker()
+      .setLngLat(projectGeom.value.geometry.coordinates) // Set the marker position using the GeoJSON coordinates
+      .addTo(nmap); // Add the marker to the map
 
-      // Create a new popup
-      const project_popup = new mapboxgl.Popup({ offset: 25 }) // Optionally add an offset
-          .setHTML('<h3>Project Location</h3><p>Coordinates: ' + projectGeom.value.geometry.coordinates[1] + ', ' + projectGeom.value.geometry.coordinates[0] + '</p>'); // Set the HTML content of the popup
+    // Create a new popup
+    const project_popup = new mapboxgl.Popup({ offset: 25 }) // Optionally add an offset
+      .setHTML('<h3>Project Location</h3><p>Coordinates: ' + projectGeom.value.geometry.coordinates[1] + ', ' + projectGeom.value.geometry.coordinates[0] + '</p>'); // Set the HTML content of the popup
 
-      // Attach the popup to the marker
-      proj_marker.setPopup(project_popup).togglePopup(); // Automatically open the popup when the marker is added to the map
-
-
-
-      const lineString = {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {
-                "type": "LineString",
-                "coordinates": [
-                projectGeom.value.geometry.coordinates, // First point coordinates
-                reportGeom.value.geometry.coordinates  // Second point coordinates
-                ]
-            }
-        };
-
-        nmap.addLayer({
-            id: 'distance-layer',
-            type: 'line', // Change to 'line' to display the outline
-            source: {
-              type: 'geojson',
-              data: lineString
-            },
-            'paint': {
-                'line-color': 'red',
-                'line-width': 1,
-                'line-dasharray': [10, 10],
-
-                 
-            },
-            layout: {
-                'line-cap': 'round',
-                'line-join': 'round'
-            }
-          });
+    // Attach the popup to the marker
+    proj_marker.setPopup(project_popup).togglePopup(); // Automatically open the popup when the marker is added to the map
 
 
-         const bounds = turf.bbox((lineString))
-            console.log("From geo",bounds)
-          nmap.fitBounds(bounds, { padding: 100 })
+
+    const lineString = {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          projectGeom.value.geometry.coordinates, // First point coordinates
+          reportGeom.value.geometry.coordinates  // Second point coordinates
+        ]
+      }
+    };
+
+    nmap.addLayer({
+      id: 'distance-layer',
+      type: 'line', // Change to 'line' to display the outline
+      source: {
+        type: 'geojson',
+        data: lineString
+      },
+      'paint': {
+        'line-color': 'red',
+        'line-width': 1,
+        'line-dasharray': [10, 10],
 
 
-    
+      },
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round'
+      }
+    });
 
 
-  console.log(nmap)
+    const bounds = turf.bbox((lineString))
+    console.log("From geo", bounds)
+    nmap.fitBounds(bounds, { padding: 100 })
+
+
+
+
+
+    console.log(nmap)
 
     nmap.addControl(new MapboxLayerSwitcherControl(layers));
 
@@ -1493,7 +1505,7 @@ const loadMap = () => {
   });
 };
 
-const viewLoading =ref(false)
+const viewLoading = ref(false)
 const downloadFile = async (data) => {
   console.log(data);
   viewLoading.value = true;
@@ -1550,8 +1562,7 @@ const downloadFile = async (data) => {
       </div>
 
       <!-- Title Search -->
-      <el-select
-v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+      <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Filter by Project/Indicator" style="width: 450px; margin-right: 10px;">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -1567,25 +1578,23 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
       <!-- Download All Component -->
       <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
       <div v-if="dynamicComponent">
-      <upload-component :is="dynamicComponent" v-bind="componentProps" />
-    </div>
+        <upload-component :is="dynamicComponent" v-bind="componentProps" />
+      </div>
 
     </el-row>
 
 
 
- 
 
 
-    <el-table
-:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
-      @expand-change="handleExpand"  v-loading="loading">
+
+    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+      @expand-change="handleExpand" v-loading="loading">
       <el-table-column type="expand">
         <template #default="props">
 
           <div>
-            <list-documents
-:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+            <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
               @openDialog="toggleComponent(props.row)" />
           </div>
 
@@ -1602,9 +1611,9 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
       </el-table-column>
 
 
-      
+
       <el-table-column label="Indicator" width="400" prop="indicator_category.indicator.name" sortable />
-      <el-table-column label="Settlement" width="350"  prop="settlement.name" sortable />
+      <el-table-column label="Settlement" width="350" prop="settlement.name" sortable />
 
       <el-table-column label="Date" prop="date" sortable>
         <template #default="scope">
@@ -1617,7 +1626,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
       <el-table-column label="Category" prop="indicator_category.category_title" sortable />
       <el-table-column label="Amount" prop="amount" sortable />
       <el-table-column label="Status" prop="status" sortable />
-      <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+      <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">
           <el-dropdown v-if="isMobile">
             <span class="el-dropdown-link">
@@ -1662,13 +1671,22 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
           </div>
         </template>
+      </el-table-column> -->
+
+
+      <el-table-column label="Actions" width="250">
+        <template #default="{ row }">
+           <TableActions :item="row" :buttons="action_buttons" @viewOnMap="showMap"   @review="editIndicator" @delete="DeleteReport"   />
+
+
+        </template>
       </el-table-column>
+
 
     </el-table>
 
 
-    <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
@@ -1681,30 +1699,25 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
 
           <el-form-item label="Project">
-            <el-select
-filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width: 100%"
+            <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width: 100%"
               placeholder="Select Project">
               <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
           <el-form-item label="Activity">
-            <el-select
-filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
+            <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
               placeholder="Select Activity">
-              <el-option
-v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
+              <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>
 
 
           <el-form-item label="Indicator">
-            <el-select
-filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
+            <el-select filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
               style="width: 100%" placeholder="Select Indicator">
-              <el-option
-v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
+              <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>
@@ -1747,11 +1760,9 @@ v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
     </template>
   </el-dialog>
 
-  <el-dialog
-v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
+  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
     draggable>
-    <el-upload
-class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="5" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>
@@ -1792,18 +1803,19 @@ class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d
       <el-descriptions-item label="Date"> {{ report.date }} </el-descriptions-item>
       <el-descriptions-item label="Submitted By"> {{ report.user }} </el-descriptions-item>
       <el-descriptions-item label="Telephone"> {{ report.phone }} </el-descriptions-item>
- 
-      
+
+
       <el-descriptions-item label="Documentation" v-if="report.documents && report.documents.length">
-          <div v-for="(doc, index) in report.documents" :key="index">
-            <el-button  @click="downloadFile(doc)"   link type="primary" size="small" :icon="Download">{{ doc.name }}</el-button>
-          </div>
-        </el-descriptions-item>
+        <div v-for="(doc, index) in report.documents" :key="index">
+          <el-button @click="downloadFile(doc)" link type="primary" size="small" :icon="Download">{{ doc.name
+            }}</el-button>
+        </div>
+      </el-descriptions-item>
 
 
     </el-descriptions>
-  
-    
+
+
 
 
 
