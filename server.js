@@ -8,7 +8,7 @@ const fs = require('fs');
 
 
 var corsOptions = {
-  origin: ['http://localhost','http://localhost:4000',    'http://localhost:3000','http://localhost:8100','http://localhost:8080', '*',
+  origin: ['http://localhost','http://localhost:4000', 'capacitor://localhost',   'http://localhost:3000','http://localhost:8100','http://localhost:8080', '*',
      'https://collector.kesmis.go.ke','https://kesmis.go.ke:8080', 'http://kesmis.go.ke:8080']
 };
 
