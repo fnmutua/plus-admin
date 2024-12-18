@@ -96,7 +96,7 @@
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
 
-                      <el-form-item  v-if="!grmForm.isgbv"  id="btn14" label="Nature of Complaint" prop="nature">
+                      <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
                         <el-select v-model="grmForm.nature" placeholder="Select category" style="width:90%">
                           <el-option label="Land" value="land" />
                           <el-option label="Labour Related" value="labour" />
@@ -137,28 +137,23 @@
                     </el-col>
                     <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
 
-                      <el-form-item  id="btn17" label="Are you the complainant?" prop="witness">
-                            
-                      <el-switch  
-                            v-model="grmForm.self_reported"
-                            class="ml-2"
-                            inline-prompt
-                            style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
-                            active-text="Yes"
-                            inactive-text="No"
-                          />
-              
-                          </el-form-item>
-              
-                          <el-form-item v-if="!grmForm.self_reported" id="btn18" label="Your Name" prop="reporter_name">
-                            <el-input   v-model="grmForm.reporter_name" placeholder="Your Name" style="width:90%" />
-                          </el-form-item>
-              
-                          <el-form-item v-if="!grmForm.self_reported"  id="btn19" label="Your Phone" prop="reporter_phone">
-                            <el-input   v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
-                              style="width:90%" />
-                          </el-form-item>
-              
+                      <el-form-item id="btn17" label="Are you the complainant?" prop="witness">
+
+                        <el-switch v-model="grmForm.self_reported" class="ml-2" inline-prompt
+                          style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes"
+                          inactive-text="No" />
+
+                      </el-form-item>
+
+                      <el-form-item v-if="!grmForm.self_reported" id="btn18" label="Your Name" prop="reporter_name">
+                        <el-input v-model="grmForm.reporter_name" placeholder="Your Name" style="width:90%" />
+                      </el-form-item>
+
+                      <el-form-item v-if="!grmForm.self_reported" id="btn19" label="Your Phone" prop="reporter_phone">
+                        <el-input v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
+                          style="width:90%" />
+                      </el-form-item>
+
 
 
 
@@ -263,7 +258,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import {
-  ElMain, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElUpload, ElCheckbox, ElTour, ElTourStep,ElSwitch,
+  ElMain, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
   ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip
 } from 'element-plus';
 
@@ -300,9 +295,9 @@ const grmForm = ref({
   witness: '',
   witness_phone: '',
   witness_statement: '',
-  self_reported:true,
-  reporter_name : '',
-  reporter_phone:'',
+  self_reported: true,
+  reporter_name: '',
+  reporter_phone: '',
 
 
 });
@@ -336,7 +331,7 @@ const validationRules = ({
   step3: {
     reporter_name: [{ required: true, message: 'Name is required', trigger: 'change' }],
     reporter_phone: [{ required: true, message: 'Phone is required', trigger: 'change' }],
- 
+
   },
 
 
@@ -545,6 +540,20 @@ const logAction = async (grievance) => {
 
 }
 
+function getStageDuration(stageName) {
+  // Define the mapping of stages to their durations
+  const stageDurations = {
+    "Sorting": 7,
+    "Investigation": 14,
+    "Escalated": 14,
+    "Resolved": 21,
+    "Closed": 42
+  };
+
+  // Return the duration or a default value if the stage is not found
+  return stageDurations[stageName] || 0; // Default to 0 if the stage is invalid
+}
+
 const submitForm = async () => {
 
   const formInstance = dynamicFormRef
@@ -558,6 +567,12 @@ const submitForm = async () => {
       grmForm.value.status = 'Sorting'
 
       grmForm.value.model = 'grievance';
+
+      grmForm.value.current_status_date=new Date();
+      grmForm.value.status_expiry_date= new Date() + getStageDuration(grmForm.value.new_status);
+
+
+
 
       if (grmForm.value.isgbv) {
         grmForm.value.current_level = 'national';
