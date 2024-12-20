@@ -1143,7 +1143,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Documents',
           hidden: false,
-          role: ['admin', 'super_admin', 'monitoring', 'grm' , 'staff', 'consultant' ] ,
+          role: ['admin', 'super_admin', 'monitoring', 'staff'  ] ,
 
           icon:'bi:clipboard2-data-fill'
         }

@@ -38,15 +38,98 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import TableActions from '@/views/Components/TableActions.vue';
 
 
-
-
-
-
 const { wsCache } = useCache()
 const appStore = useAppStore()
 const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons =  ref(appStore.getAdminButtons)
 const showEditButtons =  ref(appStore.getEditButtons)
+
+
+
+const filters = ref([])
+const filterValues = ref([])
+
+
+
+/// ------------------------------Get User Roles - ----------------------
+
+const processedRoles = userInfo.roles.map(role => {
+  // Default values for the role processing
+  let field = null;
+  let fieldvalue = null;
+
+  // Check the location level and assign values accordingly
+  if (role.user_roles.location_level === "county") {
+    field = "county_id";
+    fieldvalue = role.user_roles.county_id;
+  } else if (role.user_roles.location_level === "settlement") {
+    field = "settlement_id";
+    fieldvalue = role.user_roles.settlement_id;
+  } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
+    return {
+      role: role.name,        // Role type (e.g., grm, consultant, staff)
+      model: "national",
+      field: null,
+      fieldvalue: null
+    };
+  } else {
+    // Fallback case for other location levels
+    field = "location_id";
+    fieldvalue = role.user_roles.location_id;
+  }
+
+  return {
+    role: role.name,           // Role type (e.g., grm, consultant, staff)
+    model: role.user_roles.location_level,  // The level (county/settlement)
+    field: field,              // Field name (county_id/settlement_id/location_id)
+    fieldvalue: fieldvalue     // Actual value of the ID
+  };
+}).filter(role => role !== null);
+
+
+console.log('processedRole >>>s', processedRoles)
+
+const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin");
+
+// Determine roles_filters generically
+let roles_filters = [];
+
+if (isSuperAdmin) {
+  // If the user is a super_admin, no filters are applied
+  roles_filters = [];
+} else {
+  // Process filters for all roles with location levels
+  const applicableRoles = processedRoles.filter(role => role.model !== "national");
+
+  roles_filters = applicableRoles.map(role => ({
+    role: role.role,       // Include the role name for context
+    field: role.field,     // Field name (county_id/settlement_id/location_id)
+    value: role.fieldvalue // Field value
+  }));
+}
+
+console.log('roles_filters >>>>>>', roles_filters)
+
+
+
+// Push Role FIlters ---- ////
+const pushRoleFilters = () => {
+  if (roles_filters.length > 0) {
+    filters.value.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
+  }
+
+  // Prepare filterValues array
+  if (roles_filters.length > 0) {
+    filterValues.value.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
+  }
+
+  console.log('With Role filters', filters.value);
+  console.log('With Role  filterValues', filterValues.value);
+
+}
+
+
+pushRoleFilters()
 
 
 // // Hide buttons if not admin 
@@ -114,8 +197,7 @@ const { t } = useI18n()
 
 
 const totalDocs = ref()
-const filters = ref([])
-const filterValues = ref([])
+
 const searchTerm = ref('')
 const currentlyFiltered = ref(false)
 const downloading = ref(false)
