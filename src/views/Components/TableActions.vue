@@ -118,7 +118,7 @@ const emit = defineEmits(["edit", "viewOnMap", "review", "preview", "delete", "d
 
 
 
-console.log('Table Actions:::::', props)
+//console.log('Table Actions:::::', props)
 
 
 

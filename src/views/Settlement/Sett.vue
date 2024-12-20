@@ -9,9 +9,9 @@ import {
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox
 } from 'element-plus'
 import { ElMessage, } from 'element-plus'
-import { Position, View, Plus, User, Briefcase, Delete, Edit, ArrowLeft, Filter, InfoFilled, CopyDocument, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
+import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
 
-import { ref, reactive, computed, onActivated } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
@@ -58,7 +58,6 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
-import { onBeforeRouteEnter } from 'vue-router';
 import TableActions from '@/views/Components/TableActions.vue';
 
 
@@ -67,6 +66,13 @@ import TableActions from '@/views/Components/TableActions.vue';
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
+
+
+//// ------------------parameters -----------------------////
+
+
+const filters = ref(['settlement_type', 'isApproved', 'isActive'])
+const filterValues = ref([[1, 2], ['Approved'], ['true']]) // make sure the inner array is array
 
 
 
@@ -105,13 +111,12 @@ const processedRoles = userInfo.roles.map(role => {
 
   // Check the location level and assign values accordingly
   if (role.user_roles.location_level === "county") {
-     field = "county_id";
+    field = "county_id";
     fieldvalue = role.user_roles.county_id;
   } else if (role.user_roles.location_level === "settlement") {
-     field = "settlement_id";
+    field = "settlement_id";
     fieldvalue = role.user_roles.settlement_id;
   } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
-    isNationalStaff.value = true;
     return {
       role: role.name,        // Role type (e.g., grm, consultant, staff)
       model: "national",
@@ -137,7 +142,6 @@ console.log('processedRole >>>s', processedRoles)
 
 const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin");
 
-
 // Determine roles_filters generically
 let roles_filters = [];
 
@@ -155,13 +159,25 @@ if (isSuperAdmin) {
   }));
 }
 
-console.log(roles_filters,roles_filters)
+console.log('roles_filters >>>>>>', roles_filters)
 
 
 
+// Push Role FIlters ---- ////
+const pushRoleFilters = () => {
+  if (roles_filters.length > 0) {
+    filters.value.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
+  }
 
+  // Prepare filterValues array
+  if (roles_filters.length > 0) {
+    filterValues.value.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
+  }
 
+  console.log('With Role filters', filters.value);
+  console.log('With Role  filterValues', filterValues.value);
 
+}
 
 
 //*****************************Create**************************** */
@@ -169,6 +185,7 @@ console.log(roles_filters,roles_filters)
 ///----------------------------------------------------------------------------------
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
+
   name: '',
   county_id: '',
   subcounty_id: '',
@@ -297,11 +314,6 @@ const tableDataList = ref([])
 let tableDataListNew = ref<UserType[]>([])
 let tableDataListRejected = ref<UserType[]>([])
 
-//// ------------------parameters -----------------------////
-
-
-const filters = ref(['settlement_type', 'isApproved', 'isActive'])
-const filterValues = ref([[1, 2], ['Approved'], ['true']]) // make sure the inner array is array
 
 
 
@@ -618,6 +630,9 @@ const getNewOrRejectedSettlements = async (tab) => {
   }
 
 
+    pushRoleFilters()
+
+
 
   const formData = {}
   formData.limit = pageSize.value
@@ -772,6 +787,7 @@ const getPotentialDuplicates = async () => {
   }
 
 
+  pushRoleFilters()
 
   const formData = {}
   formData.limit = pageSize.value
@@ -909,6 +925,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   loadingGetData.value = true
 
   console.log("loadingGetData", loadingGetData.value)
+
+  pushRoleFilters()
+
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -1136,6 +1155,8 @@ const getFilteredBySearchData = async (tab, searchKey) => {
 
   }
 
+  pushRoleFilters()
+
 
   const formData = {}
   formData.limit = pageSize.value
@@ -1217,6 +1238,8 @@ const searchByNewName = async () => {
 
 const countiesOptions = ref([])
 
+
+ 
 
 const getCountyNames = async () => {
   const res = await getListWithoutGeo({
