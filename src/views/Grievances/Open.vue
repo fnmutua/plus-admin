@@ -1,13 +1,13 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { getCountyListApi,getListWithoutGeo} from '@/api/counties'
+import { getListWithoutGeo} from '@/api/counties'
 
 import { getGrievances } from '@/api/grievance'
 
 import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTag } from 'element-plus'
 import {
-  Plus, Download, Filter, More, ArrowLeft, ArrowRight, Upload, UploadFilled,
+  Plus, Download, Filter, ArrowLeft, ArrowRight, UploadFilled,
   Edit,
   Back,
   InfoFilled, Position,
@@ -17,19 +17,19 @@ import {
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu, ElTour, ElTourStep, ElUpload,
-  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElDrawer, ElMessage, ElTabPane,ElSwitch
+  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElSwitch
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
+import { DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
 
 import writeXlsxFile from 'write-excel-file';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
-import type { UploadProps, UploadUserFile } from 'element-plus'
+import type { UploadUserFile } from 'element-plus'
 
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
 import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, batchImportGrievances, getByKeyword } from '@/api/grievance'
@@ -51,7 +51,7 @@ console.log("userInfo--->", userInfo)
 
 
 
-// Check for the "grm" role and get its level, field, and fieldvalue
+// Check for the "grm" role and get its level, field, and field value
 const isNationalStaff = ref(false)
 const grmRole = userInfo.roles.map(role => {
   if (role.name === "grm") {
@@ -112,6 +112,7 @@ if (isSuperAdmin) {
     value: value_filter
   });
 }
+
 
 console.log('roles_filters', roles_filters);
 

@@ -77,22 +77,92 @@ const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
 const action_buttons = ref([])
-if(showAdminButtons.value) {
-  action_buttons.value = ['edit','viewOnMap','delete']
-} else if (showEditButtons.value){
+if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'viewOnMap', 'delete']
+} else if (showEditButtons.value) {
 
-  action_buttons.value = ['edit','viewOnMap' ]
+  action_buttons.value = ['edit', 'viewOnMap']
 }
 else {
-  action_buttons.value = [ 'viewOnMap' ]
+  action_buttons.value = ['viewOnMap']
 
 }
 
-console.log('action_buttons',action_buttons.value)
+console.log('action_buttons', action_buttons.value)
 
 
 
 console.log('userInfo', userInfo)
+
+
+
+/// ------------------------------Get User Roles - ----------------------
+
+const processedRoles = userInfo.roles.map(role => {
+  // Default values for the role processing
+  let field = null;
+  let fieldvalue = null;
+
+  // Check the location level and assign values accordingly
+  if (role.user_roles.location_level === "county") {
+     field = "county_id";
+    fieldvalue = role.user_roles.county_id;
+  } else if (role.user_roles.location_level === "settlement") {
+     field = "settlement_id";
+    fieldvalue = role.user_roles.settlement_id;
+  } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
+    isNationalStaff.value = true;
+    return {
+      role: role.name,        // Role type (e.g., grm, consultant, staff)
+      model: "national",
+      field: null,
+      fieldvalue: null
+    };
+  } else {
+    // Fallback case for other location levels
+    field = "location_id";
+    fieldvalue = role.user_roles.location_id;
+  }
+
+  return {
+    role: role.name,           // Role type (e.g., grm, consultant, staff)
+    model: role.user_roles.location_level,  // The level (county/settlement)
+    field: field,              // Field name (county_id/settlement_id/location_id)
+    fieldvalue: fieldvalue     // Actual value of the ID
+  };
+}).filter(role => role !== null);
+
+
+console.log('processedRole >>>s', processedRoles)
+
+const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin");
+
+
+// Determine roles_filters generically
+let roles_filters = [];
+
+if (isSuperAdmin) {
+  // If the user is a super_admin, no filters are applied
+  roles_filters = [];
+} else {
+  // Process filters for all roles with location levels
+  const applicableRoles = processedRoles.filter(role => role.model !== "national");
+
+  roles_filters = applicableRoles.map(role => ({
+    role: role.role,       // Include the role name for context
+    field: role.field,     // Field name (county_id/settlement_id/location_id)
+    value: role.fieldvalue // Field value
+  }));
+}
+
+console.log(roles_filters,roles_filters)
+
+
+
+
+
+
+
 
 //*****************************Create**************************** */
 
@@ -2570,7 +2640,9 @@ v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocum
           <el-table-column label="Actions" width="250">
             <template #default="{ row }">
               <!-- Example 1: Only Edit and Delete buttons -->
-              <TableActions :item="row" :buttons="action_buttons" @viewOnMap="handleViewOnMap"  @edit="handleEdit" @review="Review" @delete="handleDelete"   />
+              <TableActions
+:item="row" :buttons="action_buttons" @viewOnMap="handleViewOnMap" @edit="handleEdit"
+                @review="Review" @delete="handleDelete" />
 
             </template>
           </el-table-column>
@@ -2770,7 +2842,9 @@ width="350" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
           <el-table-column label="Actions" width="300">
             <template #default="{ row }">
               <!-- Example 1: Only Edit and Delete buttons -->
-              <TableActions :item="row" :buttons="action_buttons"  @edit="handleEdit" @review="Review" @delete="handleDelete" @viewOnMap="handleViewOnMap"    />
+              <TableActions
+:item="row" :buttons="action_buttons" @edit="handleEdit" @review="Review"
+                @delete="handleDelete" @viewOnMap="handleViewOnMap" />
 
             </template>
           </el-table-column>
@@ -2901,7 +2975,9 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
           <el-table-column label="Actions" width="300">
             <template #default="{ row }">
               <!-- Example 1: Only Edit and Delete buttons -->
-              <TableActions :item="row" :buttons="action_buttons"  @edit="handleEdit" @review="Review" @delete="handleDelete"  @viewOnMap="handleViewOnMap"  />
+              <TableActions
+:item="row" :buttons="action_buttons" @edit="handleEdit" @review="Review"
+                @delete="handleDelete" @viewOnMap="handleViewOnMap" />
 
             </template>
           </el-table-column>

@@ -1172,7 +1172,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Imagery',
           hidden: false,
-          role: ['admin', 'super_admin', 'monitoring','grm' ,'consultant','staff' ] ,
+          role: ['admin', 'super_admin', 'monitoring','grm','staff' ] ,
           icon:'mdi:space-station'
 
         }
@@ -1377,7 +1377,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
       title: 'Interventions',
       icon: 'mdi:office-building-marker-outline',
       hidden: true,
-      role: ['admin', 'super_admin', 'monitoring' ,'consultant','staff' ,'monitoring'] ,
+      role: ['admin', 'super_admin', 'monitoring','staff' ,'monitoring'] ,
       locationLevel:['national'],
 
     },
