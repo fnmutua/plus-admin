@@ -41,17 +41,17 @@ module.exports = function(sequelize, DataTypes) {
     sequelize,
     tableName: 'user_roles',
     schema: 'public',
-    indexes: [
-      {
-        name: "user_roles_pkey",
-        unique: true,
-        fields: [
-          { name: "roleid" },
-          { name: "userid" },
-          { name: "location_level" },
-          { name: "location_id" },
-        ]
-      },
-    ]
+    // indexes: [
+    //   // {
+    //   //   name: "user_roles_pkey",
+    //   //   unique: true,
+    //   //   fields: [
+    //   //     { name: "roleid" },
+    //   //     { name: "userid" },
+    //   //     { name: "location_level" },
+    //   //     { name: "location_id" },
+    //   //   ]
+    //   // },
+    // ]
   });
 };
