@@ -691,7 +691,7 @@ exports.modelUserByName = async (req, res) => {
     console.log('Subordinate Roles for this user:', uniqueSubordinates);
 
     // Initialize findAndCountOptions with common properties
-    const findAndCountOptions = {
+    const xfindAndCountOptions = {
       include: {
         model: Role,
         through: {
@@ -708,6 +708,31 @@ exports.modelUserByName = async (req, res) => {
       order: [['id', 'DESC']] // Add this line to sort by ID in descending order
 
     };
+
+    const findAndCountOptions = {
+      include: [
+        {
+          model: db.models.user_roles,
+          // as: 'roles', // Alias as defined in your User model associations
+          // through: {
+          //   model: db.models.user_roles,
+          //   as: 'user_roles', // Alias for the user_roles join table
+          //   attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'], // Select specific fields from user_roles
+          // },
+          required: true,
+          where: {
+            roleid: uniqueSubordinates,
+         //   roleid: 1 // ADMIN
+          }
+        }
+      ],
+      where: {},
+      limit,
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']] // Add this line to sort by ID in descending order
+
+    };
+
 
     // Check if the current user has the 'super_admin' role
     const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
@@ -757,7 +782,7 @@ exports.modelUserByName = async (req, res) => {
     }
 
     // Fetch users and count
-    const { count, rows: usersWithSubordinates } = await User.findAndCountAll(findAndCountOptions);
+    const { count, rows: usersWithSubordinates } = await Users.findAndCountAll(findAndCountOptions);
 
     console.log('Total Users with Subordinate Roles in userCounty:', count);
 
