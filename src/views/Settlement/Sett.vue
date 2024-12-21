@@ -73,13 +73,6 @@ mapboxgl.accessToken = MapBoxToken;
 
 const filters = ref(['settlement_type', 'isApproved', 'isActive'])
 const filterValues = ref([[1, 2], ['Approved'], ['true']]) // make sure the inner array is array
-const associated_Model = ''
-const associated_multiple_models = ['county', 'subcounty', 'ward', 'users']
-const nested_models = ['document', 'document_type'] // The mother, then followed by the child
-
-const model = 'settlement'
-//// ------------------parameters -----------------------////
-const fileUploadList = ref<UploadUserFile[]>([])
 
 
 
@@ -110,19 +103,20 @@ console.log('userInfo', userInfo)
 
 
 /// ------------------------------Get User Roles - ----------------------
+
 const processedRoles = userInfo.roles.map(role => {
-  const user_role = role.user_roles; // Extract user_roles object
+  // Default values for the role processing
   let field = null;
   let fieldvalue = null;
 
   // Check the location level and assign values accordingly
-  if (user_role.location_level === "county") {
+  if (role.user_roles.location_level === "county") {
     field = "county_id";
-    fieldvalue = user_role.county_id;
-  } else if (user_role.location_level === "settlement") {
+    fieldvalue = role.user_roles.county_id;
+  } else if (role.user_roles.location_level === "settlement") {
     field = "settlement_id";
-    fieldvalue = user_role.settlement_id;
-  } else if (user_role.location_level === "national" || user_role.location_level === null) {
+    fieldvalue = role.user_roles.settlement_id;
+  } else if (role.user_roles.location_level === "national" || role.user_roles.location_level === null) {
     return {
       role: role.name,        // Role type (e.g., grm, consultant, staff)
       model: "national",
@@ -132,12 +126,12 @@ const processedRoles = userInfo.roles.map(role => {
   } else {
     // Fallback case for other location levels
     field = "location_id";
-    fieldvalue = user_role.location_id;
+    fieldvalue = role.user_roles.location_id;
   }
 
   return {
     role: role.name,           // Role type (e.g., grm, consultant, staff)
-    level: user_role.location_level,  // The level (county/settlement)
+    model: role.user_roles.location_level,  // The level (county/settlement)
     field: field,              // Field name (county_id/settlement_id/location_id)
     fieldvalue: fieldvalue     // Actual value of the ID
   };
@@ -158,13 +152,12 @@ if (isSuperAdmin) {
   // Process filters for all roles with location levels
   const applicableRoles = processedRoles.filter(role => role.model !== "national");
 
-  console.log('applicableRoles', applicableRoles)
   roles_filters = applicableRoles.map(role => ({
     role: role.role,       // Include the role name for context
-    field: role.level == "settlement" ? "id" : role.field, // Adjust field based on level and model
+    //field: role.field,     // Field name (county_id/settlement_id/location_id)
+    field: role.field === 'settlement_id' ? 'id' : role.field,  // Ternary operation to adjust 'settlement_id'
     value: role.fieldvalue // Field value
   }));
-
 }
 
 console.log('roles_filters >>>>>>', roles_filters)
@@ -172,11 +165,9 @@ console.log('roles_filters >>>>>>', roles_filters)
 
 
 // Push Role FIlters ---- ////
-const pushRoleFilters = () => {
+const xpushRoleFilters = () => {
   if (roles_filters.length > 0) {
-    filters.value.push(roles_filters[0].field);
-
-    // Add the field to filters if roles_filters is not empty
+    filters.value.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
   }
 
   // Prepare filterValues array
@@ -188,6 +179,38 @@ const pushRoleFilters = () => {
   console.log('With Role  filterValues', filterValues.value);
 
 }
+
+const pushRoleFilters = () => {
+  if (roles_filters.length > 0) {
+    // Create an object to collect fields with multiple values
+    const filterMap = {};
+
+    // Iterate through all role filters and group by field
+    roles_filters.forEach(roleFilter => {
+      const { field, value } = roleFilter;
+
+      // If field already exists in the map, push the new value
+      if (filterMap[field]) {
+        // Ensure the value is unique and added only once
+        if (!filterMap[field].includes(value)) {
+          filterMap[field].push(value);
+        }
+      } else {
+        // Otherwise, initialize the field with its value
+        filterMap[field] = [value];
+      }
+    });
+
+    // Now add the field-value pairs to filters and filterValues arrays
+    Object.keys(filterMap).forEach(field => {
+      filters.value.push(field);
+      filterValues.value.push(filterMap[field]);
+    });
+  }
+
+  console.log('With Role filters', filters.value);
+  console.log('With Role filterValues', filterValues.value);
+};
 
 
 //*****************************Create**************************** */
@@ -330,6 +353,13 @@ let tableDataListRejected = ref<UserType[]>([])
 
 var tblData = []
 
+const associated_Model = ''
+const associated_multiple_models = ['county', 'subcounty', 'ward', 'users']
+const nested_models = ['document', 'document_type'] // The mother, then followed by the child
+
+const model = 'settlement'
+//// ------------------parameters -----------------------////
+const fileUploadList = ref<UploadUserFile[]>([])
 
 
 

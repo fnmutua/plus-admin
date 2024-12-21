@@ -39,7 +39,6 @@ db.user.belongsToMany(db.role, {
  
 
 
-
 db.models.user_roles.belongsTo(db.models.users, {
   foreignKey: 'userid'
 })

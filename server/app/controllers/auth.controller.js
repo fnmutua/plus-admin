@@ -229,9 +229,6 @@ exports.signup = (req, res) => {
  
  
 
- 
- 
-
 exports.xupdateUser = (req, res) => {
   console.log('Update user....');
   console.log('Request:----->', req.body.id);
@@ -345,7 +342,7 @@ exports.xupdateUser = (req, res) => {
 };
 
 
-exports.updateUser = (req, res) => {
+exports._updateUser = (req, res) => {
   console.log('Update user....');
   console.log('Request:----->', req.body.id);
 
@@ -367,6 +364,8 @@ exports.updateUser = (req, res) => {
             // Step 3: Identify roles to delete (those in existingRoles but not in newRoles)
             const rolesToDelete = existingRoles.filter(role => !newRoleIds.includes(role.roleid));
 
+            console.log('rolesToDelete',rolesToDelete)
+
             // Step 4: Delete roles that are not in the updated roles list
             const deleteRolePromises = rolesToDelete.map(role => 
               db.models.user_roles.destroy({ where: { roleid: role.roleid, userid: user.id } })
@@ -384,29 +383,24 @@ exports.updateUser = (req, res) => {
                 ? role.settlement_id || null
                 : null;
 
-              try {
-                await db.models.user_roles.create(
-                  {
-                    roleid: role.roleid,
-                    userid: user.id,
-                    location_level: role.location_level,
-                    location_id: location_id,
-                    county_id: role.county_id || null,
-                    settlement_id: role.settlement_id || null,
-                  },
-                  {
-                    where: {
-                      roleid: role.roleid,
-                      userid: user.id,
-                      location_level: role.location_level,
-                      location_id: location_id,
-                    }
-                  }
-                );
-              } catch (err) {
-                console.error('Error creating/updating role:', role, err);
-                throw err;
-              }
+                try {
+
+                let obj_role = {
+                  roleid: role.roleid,
+                  userid: user.id,
+                  location_level: role.location_level,
+                  location_id: location_id,
+                  county_id: role.county_id || null,
+                  settlement_id: role.settlement_id || null,
+                }
+                console.log('obj_role >>>>',obj_role)
+                  const res = await db.models.user_roles.create(obj_role);
+                 // console.log(res)
+                } catch (err) {
+                  console.error('Error creating/updating role:', role, err);
+                }
+                
+                
             });
 
             // Execute all delete and upsert operations
@@ -460,6 +454,227 @@ exports.updateUser = (req, res) => {
     });
   });
 };
+
+exports.XupdateUser = (req, res) => {
+  console.log('Update user....');
+  console.log('Request:----->', req.body.id);
+
+  // Find the user by ID and update their information
+  User.findOne({ where: { id: req.body.id } }).then((user) => {
+    if (user) {
+      user.set(req.body);
+      user.save().then(() => {
+        console.log('Roles Length:', req.body.roles);
+
+        if (req.body.roles && req.body.roles.length > 0) {
+          // Step 1: Get current roles of the user from the database
+          db.models.user_roles.findAll({ where: { userid: user.id } }).then(existingRoles => {
+            const existingRoleIds = existingRoles.map(role => role.id);
+
+            // Step 2: Extract role IDs from the incoming request
+            const newRoleIds = req.body.roles.map(role => role.id);
+
+            // Step 3: Identify roles to delete (those in existingRoles but not in newRoles)
+            const rolesToDelete = existingRoleIds.filter(role => !newRoleIds.includes(role.id));
+
+            console.log('rolesToDelete', rolesToDelete);
+
+            // Step 4: Delete roles that are not in the updated roles list
+            const deleteRolePromises = rolesToDelete.map(role => 
+              db.models.user_roles.destroy({ where: { id: role} })
+            );
+
+            // Step 5: Insert new or updated roles one by one
+            const insertRoles = async () => {
+              for (const role of req.body.roles) {
+                try {
+                  if (!role.roleid || !role.location_level) {
+                    throw new Error('Role object is missing required properties');
+                  }
+
+                  const location_id = role.location_level === 'county'
+                    ? role.county_id || null
+                    : role.location_level === 'settlement'
+                    ? role.settlement_id || null
+                    : null;
+
+                  const obj_role = {
+                    roleid: role.roleid,
+                    userid: user.id,
+                    location_level: role.location_level,
+                    location_id: location_id,
+                    county_id: role.county_id || null,
+                    settlement_id: role.settlement_id || null,
+                  };
+
+                  console.log('Inserting role:', obj_role);
+                  await db.models.user_roles.upsert(obj_role);
+                } catch (err) {
+                  console.error('Error creating/updating role:', role, err);
+                }
+              }
+            };
+
+            // Execute all delete operations first, then insert new roles
+            Promise.all(deleteRolePromises)
+              .then(() => insertRoles())
+              .then(() => {
+                var token = jwt.sign({ id: user.id }, config.secret, {
+                  expiresIn: 86400 // 24 hours
+                });
+
+                res.send({
+                  message: 'User and roles updated successfully!',
+                  code: "0000",
+                  data: token,
+                  user: user
+                });
+              })
+              .catch(err => {
+                console.log(err);
+                res.status(500).send({
+                  message: 'Error updating user roles',
+                  error: err
+                });
+              });
+          }).catch(err => {
+            res.status(500).send({
+              message: 'Error retrieving existing user roles',
+              error: err
+            });
+          });
+        } else {
+          res.status(400).send({
+            data: user,
+            message: 'A user requires at least one role on this system'
+          });
+        }
+      }).catch(err => {
+        res.status(500).send({
+          message: 'Error saving user information',
+          error: err
+        });
+      });
+    } else {
+      res.status(404).send({
+        message: 'User not found'
+      });
+    }
+  }).catch(err => {
+    res.status(500).send({
+      message: 'Error finding user',
+      error: err
+    });
+  });
+};
+
+exports.updateUser = (req, res) => {
+  console.log('Update user....');
+  console.log('Request:----->', req.body.id);
+
+  // Find the user by ID and update their information
+  User.findOne({ where: { id: req.body.id } })
+    .then((user) => {
+      if (user) {
+        user.set(req.body);
+        user.save()
+          .then(() => {
+            console.log('Roles Length:', req.body.roles);
+
+            if (req.body.roles && req.body.roles.length > 0) {
+              // Step 1: Delete all current roles for the user
+              db.models.user_roles.destroy({ where: { userid: user.id } })
+                .then(() => {
+                  console.log('Existing roles deleted.');
+
+                  // Step 2: Insert new roles
+                  const insertRoles = async () => {
+                    for (const role of req.body.roles) {
+                      try {
+                        if (!role.roleid || !role.location_level) {
+                          throw new Error('Role object is missing required properties');
+                        }
+
+                        const location_id =
+                          role.location_level === 'county'
+                            ? role.county_id || null
+                            : role.location_level === 'settlement'
+                            ? role.settlement_id || null
+                            : null;
+
+                        const obj_role = {
+                          roleid: role.roleid,
+                          userid: user.id,
+                          location_level: role.location_level,
+                          location_id: location_id,
+                          county_id: role.county_id || null,
+                          settlement_id: role.settlement_id || null,
+                        };
+
+                        console.log('Inserting role:', obj_role);
+                        await db.models.user_roles.create(obj_role);
+                      } catch (err) {
+                        console.error('Error creating role:', role, err);
+                      }
+                    }
+                  };
+
+                  insertRoles()
+                    .then(() => {
+                      var token = jwt.sign({ id: user.id }, config.secret, {
+                        expiresIn: 86400, // 24 hours
+                      });
+
+                      res.send({
+                        message: 'User and roles updated successfully!',
+                        code: '0000',
+                        data: token,
+                        user: user,
+                      });
+                    })
+                    .catch((err) => {
+                      console.log(err);
+                      res.status(500).send({
+                        message: 'Error inserting user roles',
+                        error: err,
+                      });
+                    });
+                })
+                .catch((err) => {
+                  console.log(err);
+                  res.status(500).send({
+                    message: 'Error deleting existing user roles',
+                    error: err,
+                  });
+                });
+            } else {
+              res.status(400).send({
+                data: user,
+                message: 'A user requires at least one role on this system',
+              });
+            }
+          })
+          .catch((err) => {
+            res.status(500).send({
+              message: 'Error saving user information',
+              error: err,
+            });
+          });
+      } else {
+        res.status(404).send({
+          message: 'User not found',
+        });
+      }
+    })
+    .catch((err) => {
+      res.status(500).send({
+        message: 'Error finding user',
+        error: err,
+      });
+    });
+};
+
+
 
 const multer = require('multer');
 

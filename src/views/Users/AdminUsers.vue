@@ -484,25 +484,44 @@ const EditUser = async (data: TableSlotDefault) => {
   form.value.username = data.row.username
 
 
-  data.row.roles.forEach(async function (arrayItem) {
-    console.log("tis USers Roles", arrayItem.user_roles)
-    await handleChangeLevel((arrayItem.user_roles.location_level))
+  // data.row.roles.forEach(async function (arrayItem) {
+  //   console.log("tis USers Roles", arrayItem.user_roles)
+  //   await handleChangeLevel((arrayItem.user_roles.location_level))
 
 
-    if (arrayItem.user_roles.county_id) {
-      console.log("Get Settleemntsf ofr thus county", arrayItem.user_roles.county_id)
-      await getCountySettlements(parseInt(arrayItem.user_roles.county_id))
-      arrayItem.user_roles.county_id = parseInt(arrayItem.user_roles.county_id, 10);
+  //   if (arrayItem.user_roles.county_id) {
+  //     console.log("Get Settleemntsf ofr thus county", arrayItem.user_roles.county_id)
+  //     await getCountySettlements(parseInt(arrayItem.user_roles.county_id))
+  //     arrayItem.user_roles.county_id = parseInt(arrayItem.user_roles.county_id, 10);
 
+  //   }
+
+
+  //   if (arrayItem.user_roles.settlement_id) {
+  //     arrayItem.user_roles.settlement_id = parseInt(arrayItem.user_roles.settlement_id, 10);
+
+  //   }
+  //   tmp_roles.value.push(arrayItem.user_roles)
+  // })
+
+  
+  data.row.user_roles.forEach(async function (userRole) {
+    console.log("User's Role", userRole);
+
+    await handleChangeLevel(userRole.location_level);
+
+    if (userRole.county_id) {
+      console.log("Get Settlements for this county", userRole.county_id);
+      await getCountySettlements(parseInt(userRole.county_id, 10));
+      userRole.county_id = parseInt(userRole.county_id, 10);
     }
 
-
-    if (arrayItem.user_roles.settlement_id) {
-      arrayItem.user_roles.settlement_id = parseInt(arrayItem.user_roles.settlement_id, 10);
-
+    if (userRole.settlement_id) {
+      userRole.settlement_id = parseInt(userRole.settlement_id, 10);
     }
-    tmp_roles.value.push(arrayItem.user_roles)
-  })
+
+    tmp_roles.value.push(userRole);
+});
 
   console.log('tmp_roles>>>>', tmp_roles.value)
 

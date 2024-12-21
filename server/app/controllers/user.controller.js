@@ -1,6 +1,7 @@
 const db = require('../models')
 const config = require('../config/db.config.js')
 const User = db.user
+const Users = db.models.users
 const Role = db.role
 
 const Sequelize = require('sequelize')
@@ -365,17 +366,17 @@ exports.modelCountyUsers = async (req, res) => {
     const findAndCountOptions = {
       include: [
         {
-          model: Role,
-          as: 'roles', // Alias as defined in your User model associations
-          through: {
-            model: db.models.user_roles,
-            as: 'user_roles', // Alias for the user_roles join table
-            attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'], // Select specific fields from user_roles
-          },
+          model: db.models.user_roles,
+          // as: 'roles', // Alias as defined in your User model associations
+          // through: {
+          //   model: db.models.user_roles,
+          //   as: 'user_roles', // Alias for the user_roles join table
+          //   attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'], // Select specific fields from user_roles
+          // },
           required: true,
           where: {
-            id: uniqueSubordinates,
-            name: { [Op.ne]: 'super_admin' } // Exclude super_admin roles from the results
+            roleid: uniqueSubordinates,
+            roleid: { [Op.ne]: 0 } // Exclude super_admin roles from the results
           }
         }
       ],
@@ -408,10 +409,10 @@ exports.modelCountyUsers = async (req, res) => {
       }));
     }
 
-    console.log('Final Query Options:', findAndCountOptions);
+    console.log('Final Query Options:', JSON.stringify(findAndCountOptions, null, 2));
 
     // Query users and include their roles with user_roles details
-    const { count, rows: usersWithSubordinates } = await User.findAndCountAll(findAndCountOptions);
+    const { count, rows: usersWithSubordinates } = await Users.findAndCountAll(findAndCountOptions);
 
 
     
@@ -430,7 +431,7 @@ exports.modelCountyUsers = async (req, res) => {
       data: usersWithPhotos,
       total: count,
       code: '0000',
-      message: 'Users retrieved successfully',
+      message: 'All Users retrieved successfully',
     });
   } catch (error) {
     console.error('Error:', error);
@@ -456,20 +457,44 @@ exports.modelGRMUsers = async (req, res) => {
     ];
 
     // Define query options specific to GRM users
+    // const findAndCountOptions = {
+    //   include: [
+    //     {
+    //       model: Role,
+    //       as: 'roles', // Alias as defined in your User model associations
+    //       through: {
+    //         model: db.models.user_roles,
+    //         as: 'user_roles', // Alias for the user_roles join table
+    //         attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'],
+    //       },
+    //       required: true,
+    //       where: {
+    //         id: uniqueSubordinates,
+    //         name: 'grm' // Only include roles with the name 'grm'
+    //       }
+    //     }
+    //   ],
+    //   where: {},
+    //   limit,
+    //   offset: (page - 1) * limit,
+    //   order: [['id', 'DESC']] // Add this line to sort by ID in descending order
+    // };
+
+
     const findAndCountOptions = {
       include: [
         {
-          model: Role,
-          as: 'roles', // Alias as defined in your User model associations
-          through: {
-            model: db.models.user_roles,
-            as: 'user_roles', // Alias for the user_roles join table
-            attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'],
-          },
+          model: db.models.user_roles,
+          // as: 'roles', // Alias as defined in your User model associations
+          // through: {
+          //   model: db.models.user_roles,
+          //   as: 'user_roles', // Alias for the user_roles join table
+          //   attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'], // Select specific fields from user_roles
+          // },
           required: true,
           where: {
-            id: uniqueSubordinates,
-            name: 'grm' // Only include roles with the name 'grm'
+            roleid: uniqueSubordinates,
+            roleid: 4 // GRM
           }
         }
       ],
@@ -477,7 +502,9 @@ exports.modelGRMUsers = async (req, res) => {
       limit,
       offset: (page - 1) * limit,
       order: [['id', 'DESC']] // Add this line to sort by ID in descending order
+
     };
+
 
     // Normalize and cast filter values based on the column type
     const normalizeAndCastFilter = (filter, value) => {
@@ -504,7 +531,7 @@ exports.modelGRMUsers = async (req, res) => {
     console.log('Final Query Options for GRM Users:', findAndCountOptions);
 
     // Query users and include their roles with user_roles details
-    const { count, rows: grmUsers } = await User.findAndCountAll(findAndCountOptions);
+    const { count, rows: grmUsers } = await Users.findAndCountAll(findAndCountOptions);
 
     // Convert photo binary data to base64 URL
     const usersWithPhotos = grmUsers.map(user => {
@@ -545,7 +572,7 @@ exports.modelAdminUsers = async (req, res) => {
     ];
 
     // Define query options specific to GRM users
-    const findAndCountOptions = {
+    const xfindAndCountOptions = {
       include: [
         {
           model: Role,
@@ -566,6 +593,30 @@ exports.modelAdminUsers = async (req, res) => {
       limit,
       offset: (page - 1) * limit,
       order: [['id', 'DESC']] // Add this line to sort by ID in descending order
+    };
+
+    const findAndCountOptions = {
+      include: [
+        {
+          model: db.models.user_roles,
+          // as: 'roles', // Alias as defined in your User model associations
+          // through: {
+          //   model: db.models.user_roles,
+          //   as: 'user_roles', // Alias for the user_roles join table
+          //   attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'], // Select specific fields from user_roles
+          // },
+          required: true,
+          where: {
+            roleid: uniqueSubordinates,
+            roleid: 1 // ADMIN
+          }
+        }
+      ],
+      where: {},
+      limit,
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']] // Add this line to sort by ID in descending order
+
     };
 
     // Normalize and cast filter values based on the column type
@@ -593,7 +644,7 @@ exports.modelAdminUsers = async (req, res) => {
     console.log('Final Query Options for GRM Users:', findAndCountOptions);
 
     // Query users and include their roles with user_roles details
-    const { count, rows: grmUsers } = await User.findAndCountAll(findAndCountOptions);
+    const { count, rows: grmUsers } = await Users.findAndCountAll(findAndCountOptions);
 
     // Convert photo binary data to base64 URL
     const usersWithPhotos = grmUsers.map(user => {

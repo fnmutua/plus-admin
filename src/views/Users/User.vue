@@ -7,25 +7,22 @@ import { getUserRoles, getByName } from '@/api/users'
 
 
 import {
-  ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElCheckbox, ElMessage,
-  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElDivider, ElPagination, ElTooltip, ElOption, ElCard, ElCol
+  ElButton, ElSwitch, ElSelect, ElDialog, ElDropdown, ElDropdownItem, ElMessage,
+  ElFormItem, ElForm, ElInput, ElTable, ElTableColumn, ElAvatar, ElRow, ElPagination, ElTooltip, ElOption, ElCard, ElCol
 } from 'element-plus'
 import {
   Position,
   Edit,
   Back,
-  Plus,
-  Download,
-  Filter
+  Plus
 } from '@element-plus/icons-vue'
 
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import xlsx from "json-as-xlsx"
-import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 interface Params {
   pageIndex?: number
@@ -417,7 +414,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
   //-------------------------
-  console.log('gettign getCountyStaff users --->', formData)
+  console.log('Getting users --->', formData)
   const res = await getCountyStaff(formData)
 
   console.log('After getting all users', res)
@@ -484,26 +481,44 @@ const EditUser = async (data: TableSlotDefault) => {
   form.value.avatar = data.row.avatar
   form.value.username = data.row.username
 
+  data.row.user_roles.forEach(async function (userRole) {
+    console.log("User's Role", userRole);
 
-  data.row.roles.forEach(async function (arrayItem) {
-    console.log("tis USers Roles", arrayItem.user_roles)
-    await handleChangeLevel((arrayItem.user_roles.location_level))
+    await handleChangeLevel(userRole.location_level);
 
-
-    if (arrayItem.user_roles.county_id) {
-      console.log("Get Settleemntsf ofr thus county", arrayItem.user_roles.county_id)
-      await getCountySettlements(parseInt(arrayItem.user_roles.county_id))
-      arrayItem.user_roles.county_id = parseInt(arrayItem.user_roles.county_id, 10);
-
+    if (userRole.county_id) {
+      console.log("Get Settlements for this county", userRole.county_id);
+      await getCountySettlements(parseInt(userRole.county_id, 10));
+      userRole.county_id = parseInt(userRole.county_id, 10);
     }
 
-
-    if (arrayItem.user_roles.settlement_id) {
-      arrayItem.user_roles.settlement_id = parseInt(arrayItem.user_roles.settlement_id, 10);
-
+    if (userRole.settlement_id) {
+      userRole.settlement_id = parseInt(userRole.settlement_id, 10);
     }
-    tmp_roles.value.push(arrayItem.user_roles)
-  })
+
+    tmp_roles.value.push(userRole);
+});
+
+
+  // data.row.roles.forEach(async function (arrayItem) {
+  //   console.log("tis USers Roles", arrayItem.user_roles)
+  //   await handleChangeLevel((arrayItem.user_roles.location_level))
+
+
+  //   if (arrayItem.user_roles.county_id) {
+  //     console.log("Get Settleemntsf ofr thus county", arrayItem.user_roles.county_id)
+  //     await getCountySettlements(parseInt(arrayItem.user_roles.county_id))
+  //     arrayItem.user_roles.county_id = parseInt(arrayItem.user_roles.county_id, 10);
+
+  //   }
+
+
+  //   if (arrayItem.user_roles.settlement_id) {
+  //     arrayItem.user_roles.settlement_id = parseInt(arrayItem.user_roles.settlement_id, 10);
+
+  //   }
+  //   tmp_roles.value.push(arrayItem.user_roles)
+  // })
 
   console.log('tmp_roles>>>>', tmp_roles.value)
 
