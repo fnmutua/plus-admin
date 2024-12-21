@@ -3,6 +3,8 @@ const config = require('../config/db.config.js')
 const User = db.user
 const Users = db.models.users
 const Role = db.role
+const OTP = db.models.otp
+const axios = require('axios');
 
 const Sequelize = require('sequelize')
  const op = Sequelize.Op
@@ -812,9 +814,237 @@ exports.modelUserByName = async (req, res) => {
 };
 
 
+exports.checkUser = async (req, res) => {
+  const { username, phone } = req.body;
+
+  // Validate input
+  if (!username || !phone) {
+    return res.status(400).json({ message: "Username and phone number are required." });
+  }
+
+  try {
+    // Query the database to find the user
+    const user = await User.findOne({
+      where: {
+        username,
+        phone,
+      },
+    });
+
+    if (user) {
+
+       // Generate a 4-digit OTP
+    const otpCode = Math.floor(1000 + Math.random() * 9000);
+
+    // Save the OTP to the database
+    const otp = await OTP.create({
+      user_id: user.id,
+      otp: otpCode,
+      status: 'Valid',
+    });
+
+    console.log("OTP saved:", otp);
+
+    // Send OTP via external service (Leopard)
+    const url = "https://quicksms.advantasms.com/api/services/sendotp/";
+    const requestData = {
+      apikey: '***REDACTED***',
+      partnerID: '12108',
+      shortcode: 'KISIP',
+      message: 'Your verification code is: ' + otpCode + '.',
+      mobile: req.body.phone,
+    };
+
+     axios.post(url, requestData)
+          .then(response => {
+            console.log('Response:', response.data);
+          })
+          .catch(error => {
+            console.error('Error:', error);
+          });
 
 
+      // If user is found
+      res.status(200).send({
+        message: "User found.",
+        user: {
+          id: user.id,
+          username: user.username,
+          phone: user.phone,
+        },
+        code: '0000',
+       });
 
+      
+    } else {
+      // If no user is found
+      return res.status(404).json({ message: "User account not found." });
+    }
+  } catch (error) {
+    console.error("Error checking user:", error);
+    return res.status(500).json({ message: "An error occurred while checking the user." });
+  }
+};
+
+ 
+
+exports._deleteUserCascade = async (req, res) => {
+  try {
+    const { user_id, otp } = req.body;
+
+    console.log( 'user_id, otp', user_id, otp)
+
+    // Validate input
+    if (!user_id || !otp) {
+      return res.status(400).send({
+        message: "OTP code required.",
+      });
+    }
+
+    // Verify OTP (assuming you store OTPs in a database or cache)
+    const storedOTP = await db.models.otp.findOne({
+      where: {
+        otp:otp,
+        status: 'Valid', // Ensure the OTP's status is 'valid'
+      },
+    });
+    
+
+    if (!storedOTP ) {
+      return res.status(401).send({
+        message: "Invalid or expired OTP.",
+      });
+    }
+
+    // Find the user by ID
+    const user = await db.models.users.findByPk(user_id);
+
+    if (!user) {
+      return res.status(404).send({
+        message: "User not found.",
+      });
+    }
+
+    // Delete the user (Cascade happens automatically if the DB is set up correctly)
+    await user.destroy();
+
+    // Optionally, delete the OTP record after successful deletion
+    await storedOTP.destroy();
+
+    res.status(200).send({
+      message: "User account and associated records deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    res.status(500).send({
+      message: "An error occurred while deleting the user.",
+      error: error.message,
+    });
+  }
+};
+
+
+exports.deleteUserCascade = async (req, res) => {
+  try {
+    const { user_id, otp } = req.body;
+
+    console.log('user_id, otp', user_id, otp);
+
+    // Validate input
+    if (!user_id || !otp) {
+      return res.status(400).send({
+        message: "User ID and OTP code are required.",
+      });
+    }
+
+    // Verify OTP
+    const storedOTP = await db.models.otp.findOne({
+      where: {
+        otp: otp,
+        status: 'Valid',
+      },
+    });
+
+    if (!storedOTP) {
+      return res.status(401).send({
+        message: "Invalid or expired OTP.",
+      });
+    }
+
+    // Find the user by ID
+    const user = await db.models.users.findByPk(user_id);
+
+    if (!user) {
+      return res.status(404).send({
+        message: "User not found.",
+      });
+    }
+
+    // Get all associations for the user model
+    const associations = db.models.users.associations;
+
+    // Delete all associated records iteratively
+    for (const assocName in associations) {
+      const association = associations[assocName];
+
+      if (association.target) {
+        // Get related model
+        const relatedModel = association.target;
+
+        // Handle different association types
+        switch (association.associationType) {
+          case 'HasMany':
+          case 'HasOne':
+            await relatedModel.destroy({
+              where: { [association.foreignKey]: user_id },
+            });
+            break;
+          case 'BelongsToMany':
+            // Handle junction table deletion for many-to-many relationships
+            const throughTable = association.throughModel || association.through;
+            await throughTable.destroy({
+              where: { [association.foreignKey]: user_id },
+            });
+            break;
+          case 'BelongsTo':
+            // Update foreign key to NULL in the related table
+            await relatedModel.update(
+              { [association.foreignKey]: null },
+              { where: { [association.foreignKey]: user_id } }
+            );
+            break;
+          default:
+            console.log(`Unhandled association type: ${association.associationType}`);
+        }
+      }
+    }
+
+    // Delete the user
+    await user.destroy();
+
+    // Optionally, delete the OTP record after successful deletion
+    await storedOTP.destroy();
+
+    // res.status(200).send({
+    //   message: "User account and associated records deleted successfully.",
+    // });
+
+    res.status(200).send({
+      message: "User account and associated records deleted successfully.",
+      data:user,
+      code: '0000',
+     });
+
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    res.status(500).send({
+      message: "An error occurred while deleting the user.",
+      error: error.message,
+    });
+  }
+};
+
+ 
 
 exports.rolesController = (req, res) => {
  

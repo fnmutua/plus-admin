@@ -139,6 +139,18 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
   },
 
   {
+    path: '/delete',
+    component: () => import('@/views/Reset/DeleteAccount.vue'),
+    name: 'DeleteAccount',
+    meta: {
+      hidden: true,
+      title: t('Delete Account'),
+      noTagsView: true
+    }
+  },
+
+
+  {
     path: '/reset/:token(.*)*',
     component: () => import('@/views/Reset/Reset.vue'),
     name: 'Reset',
