@@ -2915,7 +2915,7 @@ width="350" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
+                <el-button style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
                   :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>

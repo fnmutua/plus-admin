@@ -5,8 +5,8 @@ import {
   ElDropdownItem, ElPopconfirm, ElTooltip, ElInput
 } from 'element-plus';
 import {
-  Position, View, Plus, User, TopRight, Briefcase, Download, Delete, Edit,  
-  Filter, InfoFilled, CopyDocument, Search, Setting, Loading,UploadFilled
+  Position, View, Plus, User, TopRight, Briefcase, Download, Delete, Edit,
+  Filter, InfoFilled, CopyDocument, Search, Setting, Loading, UploadFilled
 } from '@element-plus/icons-vue'
 import { getCountyListApi, getListWithoutGeo } from '@/api/counties'
 import { ElMessage, ElPagination } from 'element-plus'
@@ -22,7 +22,7 @@ import { useCache } from '@/hooks/web/useCache'
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
-const showAdminButtons =  ref(appStore.getAdminButtons)
+const showAdminButtons = ref(appStore.getAdminButtons)
 
 
 const props = defineProps({
@@ -42,7 +42,7 @@ const searchQuery = ref('');
 
 const filterDocuments = () => {
   const query = searchQuery.value.toLowerCase();
-  tableDocumentsFiltered.value = tableDocuments.value.filter(document => 
+  tableDocumentsFiltered.value = tableDocuments.value.filter(document =>
     document.name.toLowerCase().includes(query)
   );
 };
@@ -118,7 +118,7 @@ if (userInfo.roles.includes("public")) {
 
 const downloadStarted = ref(false)
 
- 
+
 
 
 const downloadFile = async (data) => {
@@ -160,7 +160,7 @@ const downloadFile = async (data) => {
 
 
 const docFormats = []
- 
+
 
 const viewLoading = ref(false)
 
@@ -237,77 +237,63 @@ const addDocument = () => {
 };
 </script>
 
- 
+
 
 <template>
 
-  <div  >
+  <div>
 
     <div class="search-add-container">
-      <el-input 
-        v-model="searchQuery" 
-        placeholder="Search documents..." 
-        clearable
-        style="margin-left: 10px ; width:90%"
-       
-        @input="onSearch"
-      />
-   
+      <el-input v-model="searchQuery" placeholder="Search documents..." clearable style="margin-left: 10px ; width:75%"
+        @input="onSearch" />
 
-      <el-tooltip v-if="showAdminButtons" content="Import Documents" placement="top">
-        <el-button  
-        type="primary" 
-         :icon="UploadFilled"
-        @click="addDocument"
-      >Import</el-button>
-    </el-tooltip>
+
+      <el-tooltip v-if="showAdminButtons" content="Import Documents" placement="top" >
+        <el-button   type="primary" :icon="UploadFilled" @click="addDocument">Import</el-button>
+      </el-tooltip>
 
 
     </div>
 
 
-    <ul v-infinite-scroll="tableDocumentsFiltered"   v-loading="viewLoading" :infinite-scroll-disabled="disabled"   class="infinite-list" style="overflow: auto">
+    <ul v-infinite-scroll="tableDocumentsFiltered" v-loading="viewLoading" :infinite-scroll-disabled="disabled"
+      class="infinite-list" style="  width:80%; overflow: auto">
       <li v-for="(document, index) in tableDocumentsFiltered" :key="document.id" class="list-item">
         <span class="document-name">{{ index + 1 }}. {{ document.name }}</span>
 
-      <div class="button-container">
-        <el-button size="small" type="primary" @click="viewDocument(document)" :icon="TopRight" plain />
-        <el-button  size="small" v-loading="downloadStarted" type="success" @click="downloadFile(document)" :icon="Download" plain />
-        <el-popconfirm
-          confirm-button-text="Yes"
-          cancel-button-text="No"
-          :icon="InfoFilled"
-          width="290px"
-          icon-color="#626AEF"
-          title="Are you sure to delete this document?"
-          @confirm="removeDocument(document)"
-          v-if="showAdminButtons" 
-        >
-          <template #reference>
-            <el-button size="small" type="danger" v-if="userIsAdmin || documentOwner" :icon="Delete" plain />
-          </template>
-        </el-popconfirm>
-      </div>
-    </li>
-  </ul>
+        <div class="button-container">
+          <el-button size="small" type="primary" @click="viewDocument(document)" :icon="TopRight" plain />
+          <el-button size="small" v-loading="downloadStarted" type="success" @click="downloadFile(document)"
+            :icon="Download" plain />
+          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="290px"
+            icon-color="#626AEF" title="Are you sure to delete this document?" @confirm="removeDocument(document)"
+            v-if="showAdminButtons">
+            <template #reference>
+              <el-button size="small" type="danger" v-if="userIsAdmin || documentOwner" :icon="Delete" plain />
+            </template>
+          </el-popconfirm>
+        </div>
+      </li>
+    </ul>
     <p v-if="loading">Loading...</p>
     <p v-if="noMore">No more</p>
   </div>
- 
 
- 
+
+
 </template>
 
 
 <style>
 .infinite-list {
-  height: 150px;
+  height: 250px;
   padding: 0;
   margin: 0;
   width: 90%;
 
   list-style: none;
 }
+
 .infinite-list .infinite-list-item {
   display: flex;
   align-items: center;
@@ -317,7 +303,8 @@ const addDocument = () => {
   margin: 10px;
   color: var(--el-color-primary);
 }
-.infinite-list .infinite-list-item + .list-item {
+
+.infinite-list .infinite-list-item+.list-item {
   margin-top: 10px;
 }
 </style>
@@ -347,19 +334,25 @@ const addDocument = () => {
 
 .document-name {
   flex-grow: 1;
-  max-width: 90%; /* Takes up 70% of the space */
+  max-width: 90%;
+  /* Takes up 70% of the space */
   margin-right: 10px;
   color: rgb(71, 111, 186);
-  word-wrap: break-word; /* Ensures text wraps */
-  white-space: normal; /* Allows text to wrap */
-  font-size: 0.9em; /* Makes the text smaller */
-  font-style: italic; /* Makes the text italic */
+  word-wrap: break-word;
+  /* Ensures text wraps */
+  white-space: normal;
+  /* Allows text to wrap */
+  font-size: 0.9em;
+  /* Makes the text smaller */
+  font-style: italic;
+  /* Makes the text italic */
 }
+
 .search-add-container {
   display: flex;
   justify-content: space-between;
   margin-bottom: 10px;
-  width:90%
+  width: 80%
 }
 
 .el-button {
@@ -369,15 +362,16 @@ const addDocument = () => {
 .list-item {
   display: flex;
   align-items: center;
-  justify-content: space-between; /* Adjusts space between content and buttons */
+  justify-content: space-between;
+  /* Adjusts space between content and buttons */
   padding: 8px;
   border-bottom: 1px solid #ebeef5;
 }
+
 .list {
   height: 300px;
   padding: 0;
   margin: 0;
   list-style: none;
 }
-
 </style>
