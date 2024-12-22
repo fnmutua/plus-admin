@@ -7,7 +7,7 @@ import { useDesign } from '@/hooks/web/useDesign'
 import { ref, reactive } from 'vue'
 import {
   ElButton, ElDialog,
-  ElInput, ElForm, ElFormItem, ElPopconfirm,
+  ElInput, ElForm, ElFormItem, ElPopconfirm, ElText, ElScrollbar
 } from 'element-plus'
 
 import type { ComponentSize, FormInstance, FormRules } from 'element-plus'
@@ -90,11 +90,15 @@ const onLogin = async () => {
 
   console.log('login')
   router.push('/login');
-
-
-
 }
 
+
+const results =[
+{ title: "Permanent Data Removal", text: "All your personal details, saved preferences,mapped and submitted data,  activity history associated with the account will be erased from our systems. This data cannot be recovered once deletion is complete." },
+        { title: "Access Termination", text: "You will lose access to all features and services provided by the account, including  access via the Slum Mapper app." },
+        { title: "Irreversibility", text: "The deletion process is irreversible. If you decide to the system again in the future, you will need to create a new account and start fresh." },
+ 
+]
 
 
 </script>
@@ -131,7 +135,22 @@ const onLogin = async () => {
           <div>
             <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('Delete Account') }}</h2>
 
-            <el-form :model="ruleForm" label-width="auto" style="width: 100% ; margin-top:50px " :rules="rules" ref="ruleFormRef">
+            <el-text class="w-500px " >
+              Deleting your account is a permanent action that removes your personal data, account information, and
+              access to our services. Once the account is deleted, the following will happen:
+            </el-text>
+
+            <el-scrollbar style="margin-top: 10px;" height="auto">
+              <div v-for="(item, index) in results" :key="index" class="scrollbar-demo-item">
+                <ElText>
+                  {{ index + 1 }}. <b>{{ item.title }}</b> {{ item.text }}
+                </ElText>
+              </div>
+            </el-scrollbar>
+
+
+            <el-form :model="ruleForm" label-width="auto" style="width: 100% ; margin-top:50px " :rules="rules"
+              ref="ruleFormRef">
               <el-form-item label="Username" prop="username" label-position="top">
                 <el-input style="width: 100%" v-model="ruleForm.username" />
               </el-form-item>
@@ -149,7 +168,7 @@ const onLogin = async () => {
                   @confirm="onSubmit(ruleFormRef)">
 
                   <template #reference>
-                    <el-button style="width: 100%" type="danger" >Submit</el-button>
+                    <el-button style="width: 100%" type="danger">Submit</el-button>
                   </template>
                 </el-popconfirm>
 
@@ -164,7 +183,7 @@ const onLogin = async () => {
               </el-form-item>
 
 
-              </el-form>
+            </el-form>
 
           </div>
 
@@ -216,5 +235,11 @@ const onLogin = async () => {
       content: '';
     }
   }
+}
+</style>
+
+<style>
+.scrollbar-demo-item {
+  margin-bottom: 10px; /* Adjust spacing between items */
 }
 </style>
