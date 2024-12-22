@@ -29,7 +29,7 @@
     <el-tab-pane label="Children's Privacy">Our App does not address anyone under the age of 13 ("Children"). We do not knowingly collect personally  identifiable information from Children. If you are a parent or guardian and you are aware that your Child has provided us with Personal Information, please contact us. If we become aware that we have collected  Personal Information from a Child without verification of parental consent, we will take steps to remove that information from our servers.</el-tab-pane>
  
  
-    <el-tab-pane label="Right to Erasure"> <p>The user reserves the right to have their data deleted from the system at any given time. Should a user desire so, write us an email requesting for data deletion through  <a  href="mailto:info@ags.co.ke">info@ags.co.ke</a></p>
+    <el-tab-pane label="Right to Erasure"> <p>The user reserves the right to erasure from the system at any given time through  <a  href="https://kesmis.go.ke/#/delete">https://kesmis.go.ke/#/delete</a></p>
 </el-tab-pane>
  
     <el-tab-pane label="Changes to This Privacy Policy"><p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page. You are advised to review this Privacy Policy periodically for any changes.</p></el-tab-pane>

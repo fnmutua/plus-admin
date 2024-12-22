@@ -155,7 +155,7 @@ exports.signup = (req, res) => {
                   include: [
                     {
                       model: Role,
-                      where: { id: 0 }  // here get the Super Admin Roles only 
+                      where: { name: 'support' }  // here get the Support  Roles only 
                     }
                   ]
                 }).then(admins => {

@@ -21,8 +21,8 @@ module.exports = function(app) {
   
   app.post("/api/v1/user/keyword", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelPaginatedUsersfilterBykeyWord);
   app.post("/api/v1/user/name", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.modelUserByName);
-  app.post("/api/v1/user/check", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.checkUser);
-  app.post("/api/v1/user/delete", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.deleteUserCascade);
+  app.post("/api/v1/user/check",  controller.checkUser);
+  app.post("/api/v1/user/delete", controller.deleteUserCascade);
 
 
 

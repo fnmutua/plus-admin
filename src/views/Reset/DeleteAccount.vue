@@ -7,13 +7,17 @@ import { useDesign } from '@/hooks/web/useDesign'
 import { ref, reactive } from 'vue'
 import {
   ElButton, ElDialog,
-  ElInput, ElForm, ElFormItem
+  ElInput, ElForm, ElFormItem, ElPopconfirm,
 } from 'element-plus'
 
 import type { ComponentSize, FormInstance, FormRules } from 'element-plus'
 import { checkUser, deleteAccount } from '@/api/users'
+import {
+  Position, View, Plus, User, TopRight, Briefcase, Download, Delete, Edit,
+  Filter, InfoFilled, CopyDocument, Search, Setting, Loading, UploadFilled
+} from '@element-plus/icons-vue'
 
-
+import { useRouter } from 'vue-router';
 
 const { getPrefixCls } = useDesign()
 
@@ -80,6 +84,19 @@ const onDeleteAccount = async () => {
 
 }
 
+const router = useRouter();
+
+const onLogin = async () => {
+
+  console.log('login')
+  router.push('/login');
+
+
+
+}
+
+
+
 </script>
 
 <template>
@@ -114,8 +131,7 @@ const onDeleteAccount = async () => {
           <div>
             <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('Delete Account') }}</h2>
 
-            <el-form :model="ruleForm" label-width="auto" style="width: 100% ; margin-top:50px " :rules="rules"
-              ref="ruleFormRef">
+            <el-form :model="ruleForm" label-width="auto" style="width: 100% ; margin-top:50px " :rules="rules" ref="ruleFormRef">
               <el-form-item label="Username" prop="username" label-position="top">
                 <el-input style="width: 100%" v-model="ruleForm.username" />
               </el-form-item>
@@ -126,12 +142,29 @@ const onDeleteAccount = async () => {
 
 
               <el-form-item>
-                <el-button style="width: 100%" type="primary" @click="onSubmit(ruleFormRef)">Submit</el-button>
+                <!-- <el-button style="width: 100%" type="primary" @click="onSubmit(ruleFormRef)">Submit</el-button> -->
+
+                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="350px"
+                  icon-color="red" title="Are you sure you want to delete your account? This action cannot be undone."
+                  @confirm="onSubmit(ruleFormRef)">
+
+                  <template #reference>
+                    <el-button style="width: 100%" type="danger" >Submit</el-button>
+                  </template>
+                </el-popconfirm>
+
+
               </el-form-item>
 
 
+              <el-form-item>
+                <el-button style="width: 100%" type="primary" @click="onLogin()">Login</el-button>
 
-            </el-form>
+
+              </el-form-item>
+
+
+              </el-form>
 
           </div>
 
@@ -149,9 +182,16 @@ const onDeleteAccount = async () => {
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="dialogVisible = false">Cancel</el-button>
+
         <el-button type="primary" @click="onDeleteAccount">
           Confirm
         </el-button>
+
+
+
+
+
+
       </div>
     </template>
   </el-dialog>

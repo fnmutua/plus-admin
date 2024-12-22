@@ -113,7 +113,16 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     }
   },
 
-
+  {
+    path: '/delete',
+    component: () => import('@/views/Reset/DeleteAccount.vue'),
+    name: 'DeleteAccount',
+    meta: {
+      hidden: true,
+      title: t('Delete Account'),
+      noTagsView: true
+    }
+  },
  
 
   {
@@ -138,16 +147,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     }
   },
 
-  {
-    path: '/delete',
-    component: () => import('@/views/Reset/DeleteAccount.vue'),
-    name: 'DeleteAccount',
-    meta: {
-      hidden: true,
-      title: t('Delete Account'),
-      noTagsView: true
-    }
-  },
+
 
 
   {
@@ -1894,7 +1894,7 @@ const router = createRouter({
 
 export const resetRouter = (): void => {
   const resetWhiteNameList = ['Redirect', 'Login', 'NoFind', 'Root', 'Reset', 'Logoff', 
-    'Privacy', 'Contact','Landing','FAQs','About','GRM']
+    'Privacy', 'Contact','Landing','FAQs','About','GRM','DeleteAccount']
   router.getRoutes().forEach((route) => {
     const { name } = route
     if (name && !resetWhiteNameList.includes(name as string)) {
