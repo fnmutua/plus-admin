@@ -9,7 +9,7 @@ import {
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox
 } from 'element-plus'
 import { ElMessage, } from 'element-plus'
-import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument,Clock, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
+import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
@@ -2623,7 +2623,6 @@ const handleRowDblClick = (row) => {
         <el-table :data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true"
           style="width: 100%" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
 
-
           <el-table-column type="expand">
             <template #default="props">
 
@@ -2635,8 +2634,6 @@ const handleRowDblClick = (row) => {
             </template>
           </el-table-column>
 
-
-
           <el-table-column label="Id" width="80" prop="id" sortable>
             <template #default="scope">
               <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
@@ -2646,11 +2643,27 @@ const handleRowDblClick = (row) => {
             </template>
           </el-table-column>
 
-          
+
+          <el-table-column label="Name" prop="name" sortable>
+            <template #default="{ row }">
+              <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+                <span>{{ row.name }}</span>
+
+                <el-tooltip class="item" effect="dark" content="History" placement="top">
+                  <el-button type="primary" v-show="isCopyIconVisible(row)" size="small" :icon="Clock" circle
+                    style="position: absolute; top: 55%; right: 0; transform: translateY(-50%); margin-left: 5px;"
+                    @click="handleRowDblClick(row)" />
+
+                </el-tooltip>
+
+              </div>
+
+
+            </template>
+          </el-table-column>
 
 
 
-          <el-table-column label="Name" width="200" prop="name" sortable />
 
           <el-table-column label="Location" sortable width="400">
             <template #default="scope">
@@ -2676,13 +2689,7 @@ const handleRowDblClick = (row) => {
                     @click="copyToClipboard(row.code)" />
 
                 </el-tooltip>
-                <el-tooltip class="item" effect="light" content="History" placement="top">
-                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle
-                    plain
-                    style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-left: 5px;"
-                    @click="handleRowDblClick(row)" />
-
-                </el-tooltip>
+               
 
               </div>
 
@@ -2830,14 +2837,13 @@ const handleRowDblClick = (row) => {
               <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
                 <span>{{ row.code }}</span>
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle
-                    plain
+                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle plain
                     style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
 
                 </el-tooltip>
 
-                
+
               </div>
             </template>
           </el-table-column>
