@@ -9,7 +9,7 @@ import {
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox
 } from 'element-plus'
 import { ElMessage, } from 'element-plus'
-import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
+import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument,Clock, Search, Setting, Back, Loading } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
@@ -46,18 +46,10 @@ import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { UserType } from '@/api/register/types'
 
-
-
 import proj4 from 'proj4';
-
-
-
 import UploadComponent from '@/views/Components/UploadComponent.vue';
-
-
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
-
 import TableActions from '@/views/Components/TableActions.vue';
 
 
@@ -2654,6 +2646,9 @@ const handleRowDblClick = (row) => {
             </template>
           </el-table-column>
 
+          
+
+
 
           <el-table-column label="Name" width="200" prop="name" sortable />
 
@@ -2677,11 +2672,21 @@ const handleRowDblClick = (row) => {
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
                   <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
                     plain
-                    style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
+                    style="position: absolute; left: 50%;  top: 50%;  transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
 
                 </el-tooltip>
+                <el-tooltip class="item" effect="light" content="History" placement="top">
+                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle
+                    plain
+                    style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-left: 5px;"
+                    @click="handleRowDblClick(row)" />
+
+                </el-tooltip>
+
               </div>
+
+
             </template>
           </el-table-column>
 
@@ -2693,65 +2698,6 @@ const handleRowDblClick = (row) => {
 
             </template>
           </el-table-column>
-
-
-
-          <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-            <template #default="scope">
-              <el-dropdown v-if="isMobile">
-                <span class="el-dropdown-link">
-                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
-                      :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item @click="viewOnMap(scope as TableSlotDefault)"
-                      :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
-                      :icon="Delete" color="red">Delete</el-dropdown-item>
-
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-
-
-              <div v-else>
-                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
-                <el-tooltip content="View on Map" placement="top">
-                  <el-button type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
-
-                <el-tooltip content="View Households" placement="top">
-                  <el-button v-show="showAdminButtons" type="success" size="small" :icon="User"
-                    @click="viewHHs(scope as TableSlotDefault)" circle />
-                </el-tooltip>
-                <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to delete  this settlement?"
-                    @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button type="danger" size="small" :icon=Delete circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
-                <el-tooltip v-if="showAdminButtons" content="Decommision" placement="top">
-                  <el-popconfirm width="350" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to decommision this settlement?"
-                    @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button type="danger" size="small" :icon=Briefcase circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
-              </div>
-            </template>
-
-          </el-table-column> -->
 
         </el-table>
 
@@ -2819,69 +2765,8 @@ const handleRowDblClick = (row) => {
                 </el-tooltip>
               </div>
             </template>
-          </el-table-column> >
-          <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-            <template #default="scope">
-              <el-dropdown v-if="isMobile">
-                <span class="el-dropdown-link">
-                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
-                      :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
-                      :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
-                      :icon="Delete" color="red">Delete</el-dropdown-item>
+          </el-table-column>
 
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-              <div v-else>
-                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button
-type="success" size="small" :icon="Edit" @click="editSettlement(scope as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
-                <el-tooltip content="View on Map" placement="top">
-                  <el-button
-type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
-
-                <el-tooltip content="Review" placement="top">
-                  <el-button
-v-show="showAdminButtons" type="success" size="small" :icon="View"
-                    @click="Review(scope as TableSlotDefault)" circle />
-                </el-tooltip>
-                <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                  <el-popconfirm
-width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to delete this settlement?"
-                    @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button type="danger" size="small" :icon=Delete circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
-                <el-tooltip v-if="showAdminButtons" content="Decommision" placement="top">
-                  <el-popconfirm
-width="350" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to decommision this settlement?"
-                    @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button type="danger" size="small" :icon=Briefcase circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
-              </div>
-            </template>
-
-          </el-table-column> -->
 
           <el-table-column label="Actions" width="300">
             <template #default="{ row }">
@@ -2915,8 +2800,8 @@ width="350" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                 <div>
                   <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
                 </div>
-                <el-button style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
-                  :icon="Plus" circle @click="toggleComponent(props.row)" />
+                <el-button style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons"
+                  type="success" :icon="Plus" circle @click="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -2945,72 +2830,19 @@ width="350" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
               <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
                 <span>{{ row.code }}</span>
                 <el-tooltip class="item" effect="dark" content="Copy" placement="top">
-                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="CopyDocument" circle
+                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle
                     plain
                     style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
                     @click="copyToClipboard(row.code)" />
 
                 </el-tooltip>
+
+                
               </div>
             </template>
           </el-table-column>
 
 
-          <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-            <template #default="scope">
-              <el-dropdown v-if="isMobile">
-                <span class="el-dropdown-link">
-                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="editSettlement(scope as TableSlotDefault)"
-                      :icon="Edit">Edit</el-dropdown-item>
-                    <el-dropdown-item
-@click="viewOnMap(scope as TableSlotDefault)"
-                      :icon="Position">Map</el-dropdown-item>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteSettlement(scope.row as TableSlotDefault)"
-                      :icon="Delete" color="red">Delete</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-              <div v-else>
-                <el-tooltip content="View on Map" placement="top">
-                  <el-button
-type="warning" size="small" :icon="Position" @click="viewOnMap(scope as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
-                <el-tooltip content="Review" placement="top">
-                  <el-button
-v-show="showAdminButtons" type="success" size="small" :icon="View"
-                    @click="Review(scope as TableSlotDefault)" circle />
-                </el-tooltip>
-                <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm
-width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to delete  this settlement?"
-                    @confirm="DeleteSettlement(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
-
-                <el-tooltip content="Decommision" placement="top">
-                  <el-popconfirm
-width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to decommision this settlement?"
-                    @confirm="decommisionSettlement(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Briefcase circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
-              </div>
-            </template>
-          </el-table-column> -->
 
           <el-table-column label="Actions" width="300">
             <template #default="{ row }">
@@ -3394,5 +3226,12 @@ width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
   width: 100%;
   height: 650px;
   /* Set the height of the map container */
+}
+</style>
+
+<style scoped>
+.item {
+  margin-top: 10px;
+  margin-right: 40px;
 }
 </style>

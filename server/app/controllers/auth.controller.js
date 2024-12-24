@@ -583,70 +583,142 @@ exports.updateUser = (req, res) => {
 
             if (req.body.roles && req.body.roles.length > 0) {
               // Step 1: Delete all current roles for the user
-              db.models.user_roles.destroy({ where: { userid: user.id } })
-                .then(() => {
-                  console.log('Existing roles deleted.');
+              // db.models.user_roles.destroy({ where: { userid: user.id } })
+              //   .then(() => {
+              //     console.log('Existing roles deleted.');
 
-                  // Step 2: Insert new roles
-                  const insertRoles = async () => {
-                    for (const role of req.body.roles) {
-                      try {
-                        if (!role.roleid || !role.location_level) {
-                          throw new Error('Role object is missing required properties');
-                        }
+              //     // Step 2: Insert new roles
+              //     const insertRoles = async () => {
+              //       for (const role of req.body.roles) {
+              //         try {
+              //           if (!role.roleid || !role.location_level) {
+              //             throw new Error('Role object is missing required properties');
+              //           }
 
-                        const location_id =
-                          role.location_level === 'county'
-                            ? role.county_id || null
-                            : role.location_level === 'settlement'
-                            ? role.settlement_id || null
-                            : null;
+              //           const location_id =
+              //             role.location_level === 'county'
+              //               ? role.county_id || null
+              //               : role.location_level === 'settlement'
+              //               ? role.settlement_id || null
+              //               : null;
 
-                        const obj_role = {
-                          roleid: role.roleid,
-                          userid: user.id,
-                          location_level: role.location_level,
-                          location_id: location_id,
-                          county_id: role.county_id || null,
-                          settlement_id: role.settlement_id || null,
-                        };
+              //           const obj_role = {
+              //             roleid: role.roleid,
+              //             userid: user.id,
+              //             location_level: role.location_level,
+              //             location_id: location_id,
+              //             county_id: role.county_id || null,
+              //             settlement_id: role.settlement_id || null,
+              //           };
 
-                        console.log('Inserting role:', obj_role);
-                        await db.models.user_roles.create(obj_role);
-                      } catch (err) {
-                        console.error('Error creating role:', role, err);
-                      }
-                    }
-                  };
+              //           console.log('Inserting role:', obj_role);
+              //           await db.models.user_roles.create(obj_role);
+              //         } catch (err) {
+              //           console.error('Error creating role:', role, err);
+              //         }
+              //       }
+              //     };
 
-                  insertRoles()
+              //     insertRoles()
+              //       .then(() => {
+              //         var token = jwt.sign({ id: user.id }, config.secret, {
+              //           expiresIn: 86400, // 24 hours
+              //         });
+
+              //         res.send({
+              //           message: 'User and roles updated successfully!',
+              //           code: '0000',
+              //           data: token,
+              //           user: user,
+              //         });
+              //       })
+              //       .catch((err) => {
+              //         console.log(err);
+              //         res.status(500).send({
+              //           message: 'Error inserting user roles',
+              //           error: err,
+              //         });
+              //       });
+              //   })
+              //   .catch((err) => {
+              //     console.log(err);
+              //     res.status(500).send({
+              //       message: 'Error deleting existing user roles',
+              //       error: err,
+              //     });
+              //   });
+              // Step 1: Delete all current roles for the user except those with roleid == 0
+                  db.models.user_roles.destroy({ 
+                    where: { 
+                      userid: user.id,
+                      roleid: { [Op.ne]: 0 }, // Exclude roles with roleid == 0
+                    } 
+                  })
                     .then(() => {
-                      var token = jwt.sign({ id: user.id }, config.secret, {
-                        expiresIn: 86400, // 24 hours
-                      });
+                      console.log('Existing roles deleted, excluding roleid == 0.');
 
-                      res.send({
-                        message: 'User and roles updated successfully!',
-                        code: '0000',
-                        data: token,
-                        user: user,
-                      });
+                      // Step 2: Insert new roles (this part remains the same)
+                      const insertRoles = async () => {
+                        for (const role of req.body.roles) {
+                          try {
+                            if (!role.roleid || !role.location_level) {
+                              throw new Error('Role object is missing required properties');
+                            }
+
+                            const location_id =
+                              role.location_level === 'county'
+                                ? role.county_id || null
+                                : role.location_level === 'settlement'
+                                ? role.settlement_id || null
+                                : null;
+
+                            const obj_role = {
+                              roleid: role.roleid,
+                              userid: user.id,
+                              location_level: role.location_level,
+                              location_id: location_id,
+                              county_id: role.county_id || null,
+                              settlement_id: role.settlement_id || null,
+                            };
+
+                            console.log('Inserting role:', obj_role);
+                            await db.models.user_roles.create(obj_role);
+                          } catch (err) {
+                            console.error('Error creating role:', role, err);
+                          }
+                        }
+                      };
+
+                      insertRoles()
+                        .then(() => {
+                          var token = jwt.sign({ id: user.id }, config.secret, {
+                            expiresIn: 86400, // 24 hours
+                          });
+
+                          res.send({
+                            message: 'User and roles updated successfully!',
+                            code: '0000',
+                            data: token,
+                            user: user,
+                          });
+                        })
+                        .catch((err) => {
+                          console.log(err);
+                          res.status(500).send({
+                            message: 'Error inserting user roles',
+                            error: err,
+                          });
+                        });
                     })
                     .catch((err) => {
                       console.log(err);
                       res.status(500).send({
-                        message: 'Error inserting user roles',
+                        message: 'Error deleting existing user roles',
                         error: err,
                       });
                     });
-                })
-                .catch((err) => {
-                  console.log(err);
-                  res.status(500).send({
-                    message: 'Error deleting existing user roles',
-                    error: err,
-                  });
-                });
+
+
             } else {
               res.status(400).send({
                 data: user,

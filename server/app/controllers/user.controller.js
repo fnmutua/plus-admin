@@ -573,29 +573,7 @@ exports.modelAdminUsers = async (req, res) => {
       )
     ];
 
-    // Define query options specific to GRM users
-    const xfindAndCountOptions = {
-      include: [
-        {
-          model: Role,
-          as: 'roles', // Alias as defined in your User model associations
-          through: {
-            model: db.models.user_roles,
-            as: 'user_roles', // Alias for the user_roles join table
-            attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'],
-          },
-          required: true,
-          where: {
-            id: uniqueSubordinates,
-            name: 'admin' // Only include roles with the name 'grm'
-          }
-        }
-      ],
-      where: {},
-      limit,
-      offset: (page - 1) * limit,
-      order: [['id', 'DESC']] // Add this line to sort by ID in descending order
-    };
+ 
 
     const findAndCountOptions = {
       include: [
@@ -614,7 +592,9 @@ exports.modelAdminUsers = async (req, res) => {
           }
         }
       ],
-      where: {},
+      where: {
+        id: { [Op.ne]: currentUser.id } // Exclude current user
+      },
       limit,
       offset: (page - 1) * limit,
       order: [['id', 'DESC']] // Add this line to sort by ID in descending order
@@ -670,20 +650,22 @@ exports.modelAdminUsers = async (req, res) => {
   }
 };
  
+
 exports.modelUserByName = async (req, res) => {
   try {
-    console.log(req.body.currentUser);
+    console.log('---------------------------------');
+    console.log(req.body.searchString);
     const user = req.body.currentUser;
     const currentUserRoles = user.roles;
     const searchString = req.body.searchString;
-    const userCounty = user.county_id;
+   // const userCounty = user.county_id;
     const filters = req.body.filters || []; // Array of filter fields
     const filterValues = req.body.filterValues || []; // Array of filter values corresponding to each filter field
 
     let limit = req.body.limit || 10; // Default limit if not provided
     let page = req.body.page || 1; // Default page if not provided
 
-    console.log('Current User Roles:', currentUserRoles);
+  //  console.log('Current User Roles:', currentUserRoles);
 
     // Extract unique subordinates from the user's roles
     const uniqueSubordinates = [
@@ -691,41 +673,20 @@ exports.modelUserByName = async (req, res) => {
     ];
 
     console.log('Subordinate Roles for this user:', uniqueSubordinates);
-
-    // Initialize findAndCountOptions with common properties
-    const xfindAndCountOptions = {
-      include: {
-        model: Role,
-        through: {
-          model: db.models.user_roles,
-          as: 'user_roles'
-        },
-        where: {
-          id: uniqueSubordinates
-        }
-      },
-      where: {},
-      limit,
-      offset: (page - 1) * limit,
-      order: [['id', 'DESC']] // Add this line to sort by ID in descending order
-
-    };
+ 
 
     const findAndCountOptions = {
       include: [
         {
           model: db.models.user_roles,
-          // as: 'roles', // Alias as defined in your User model associations
-          // through: {
-          //   model: db.models.user_roles,
-          //   as: 'user_roles', // Alias for the user_roles join table
-          //   attributes: ['roleid', 'location_level', 'location_id', 'county_id', 'settlement_id'], // Select specific fields from user_roles
-          // },
+         
           required: true,
           where: {
             roleid: uniqueSubordinates,
          //   roleid: 1 // ADMIN
-          }
+         userid: { [Op.ne]: req.body.currentUser.id }, // Exclude current user
+         roleid: { [Op.ne]: 0 } // Exclude SuperAdmins
+        }
         }
       ],
       where: {},
@@ -801,6 +762,114 @@ exports.modelUserByName = async (req, res) => {
 
 
 
+    res.status(200).send({
+      data: usersWithPhotos,
+      total: count,
+      code: '0000',
+      message: 'Users retrieved successfully'
+    });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).send({ message: 'Unable to retrieve users. Please try again later.' });
+  }
+};
+
+exports.modelUserByName = async (req, res) => {
+  try {
+    console.log('---------------------------------');
+    console.log(req.body.searchString);
+    const user = req.body.currentUser;
+    const currentUserRoles = user.roles;
+    const searchString = req.body.searchString;
+    const filters = req.body.filters || []; // Array of filter fields
+    const filterValues = req.body.filterValues || []; // Array of filter values corresponding to each filter field
+
+    let limit = req.body.limit || 10; // Default limit if not provided
+    let page = req.body.page || 1; // Default page if not provided
+
+    const excludedRoleIds = req.body.excludedRoleIds || []; // Array of role IDs to exclude
+
+    const uniqueSubordinates = [
+      ...new Set(currentUserRoles.flatMap(role => role.subordinates || []))
+    ];
+
+    console.log('Subordinate Roles for this user:', uniqueSubordinates);
+
+    const findAndCountOptions = {
+      include: [
+        {
+          model: db.models.user_roles,
+          required: true,
+          where: {
+            roleid: {
+              [Op.in]: uniqueSubordinates,
+             },
+          }
+        }
+      ],
+      where: {
+        id: { [Op.ne]: req.body.currentUser.id } // Exclude current user
+      },
+      limit,
+      offset: (page - 1) * limit,
+      order: [['id', 'DESC']] // Sort by ID in descending order
+    };
+
+    // Check if the current user has the 'super_admin' role
+    const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
+
+    if (!hasSuperAdminRole) {
+      const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
+      const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
+      const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
+
+      if (!hasNationalRole && hasCountyAdminRole) {
+        findAndCountOptions.where.county_id = countyAdminRole.user_roles.county_id;
+        console.log('Applying county filter:', countyAdminRole.user_roles.county_id);
+      }
+    } else {
+      console.log('Super Admin detected. Bypassing location-level filtering.');
+    }
+
+    if (searchString) {
+      findAndCountOptions.where.name = {
+        [Op.iLike]: `%${searchString}%`
+      };
+    }
+
+    filters.forEach((filter, index) => {
+      const value = filterValues[index];
+      if (Array.isArray(value)) {
+        findAndCountOptions.where[filter] = {
+          [Op.in]: value
+        };
+      } else {
+        findAndCountOptions.where[filter] = value;
+      }
+    });
+
+    if (hasSuperAdminRole) {
+      delete findAndCountOptions.where.county_id;
+    }
+
+    const { count, rows: usersWithSubordinates } = await Users.findAndCountAll(findAndCountOptions);
+
+    console.log('Total Users with Subordinate Roles:', count);
+ 
+
+    const usersWithPhotos = usersWithSubordinates
+        .filter(user => user.user_roles.every(role => role.roleid !== 0)) // Exclude users if any role has roleid === 0
+        .map(user => {
+          if (user.photo) {
+            user.photo = 'data:image/png;base64,' + user.photo.toString('base64');
+          } else {
+            user.photo = ''; // Assign empty string if no photo
+          }
+          return user;
+        });
+
+  console.log(JSON.stringify(usersWithPhotos[0], null, 2)); // Beautified JSON string
+  
     res.status(200).send({
       data: usersWithPhotos,
       total: count,
