@@ -1,10 +1,8 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
-import { ContentWrap } from '@/components/ContentWrap'
-import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
-import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
-import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocuments, getfilteredGeo } from '@/api/settlements'
+
+import { getSettlementListByCounty } from '@/api/settlements'
+import {  DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 
 import { getCountyListApi } from '@/api/counties'
 import {
@@ -113,9 +111,30 @@ const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
 
+const action_buttons = ref([]);
+
+if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'viewOnMap', 'delete'];
+} else if (showEditButtons.value) {
+  action_buttons.value = ['edit', 'viewOnMap'];
+} else {
+  action_buttons.value = ['viewOnMap'];
+}
 
 
-const map = ref()
+
+console.log('action_buttons', action_buttons.value);
+
+
+
+
+
+
+
+console.log("userInfo--->", userInfo)
+console.log("showAdminButtons--->", showAdminButtons.value)
+
+ 
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
@@ -165,40 +184,11 @@ const options = ref([
   },
 ])
 
+ 
 
 
 
 
-
-
-
-
-
-
-
-const action_buttons = ref([])
-if (showAdminButtons.value) {
-  action_buttons.value = ['edit', 'viewOnMap', 'delete']
-} else if (showEditButtons.value) {
-
-  action_buttons.value = ['edit', 'viewOnMap']
-}
-else {
-  action_buttons.value = ['viewOnMap']
-
-}
-
-console.log('action_buttons', action_buttons.value)
-
-
-
-
-
-
-
-
-console.log("userInfo--->", userInfo)
-console.log("showAdminButtons--->", showAdminButtons.value)
 
 // Map 
 const polygons = ref([]) as Ref<[number, number][][]>
@@ -211,9 +201,9 @@ const markerProperties = ref([])
 const markers = ref()
 
 const { push } = useRouter()
- 
- 
- 
+
+
+
 const countiesOptions = ref([])
 const settlementOptions = ref([])
 const settlements = ref([])
@@ -239,7 +229,7 @@ const filterValues = ref([['Approved']])  // make sure the inner array is array
 
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['settlement', 'users', 'county']
+const associated_multiple_models = ['settlement', 'users', 'county', 'subcounty', 'ward']
 
 const model = 'health_facility'
 const model_parent_key = 'settlement_id'
@@ -299,14 +289,14 @@ const handleSelectCounty = async (county_id: any) => {
 
 const handleClear = async () => {
   console.log('cleared....', filters.value, filterValues.value)
- 
+
   value4.value = null
   value5.value = null
   value6.value = null
 
   pSize.value = 5
   currentPage.value = 1
-    // Retain only the first element in filters and filterValues
+  // Retain only the first element in filters and filterValues
   filters.value = filters.value.slice(0, 1);
   filterValues.value = filterValues.value.slice(0, 1);
   getFilteredData(filters.value, filterValues.value)
@@ -343,6 +333,17 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
+
+const removeReviewButton = () => {
+  const reviewIndex = action_buttons.value.indexOf('review');
+  if (reviewIndex !== -1) {
+    action_buttons.value.splice(reviewIndex, 1);
+  }
+  console.log('action_buttons after removing review:', action_buttons.value);
+};
+
+
+
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pSize.value
@@ -373,15 +374,21 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   if (activeSegment.value == 'Approved') {
     tableDataList.value = res.data
     total.value = res.total
+    removeReviewButton()
 
   } else if (activeSegment.value == 'New' && showAdminButtons.value) {
     tableDataListNew.value = res.data
     totalNew.value = res.total
 
+    if (!action_buttons.value.includes('review')) {
+      action_buttons.value.push('review');
+    }
+
   }
   else if (activeSegment.value == 'Rejected' && showAdminButtons.value) {
     tableDataListRejected.value = res.data
     totalRejected.value = res.total
+    removeReviewButton()
 
   }
 
@@ -591,21 +598,21 @@ const loadMap = (mapCenter) => {
         'circle-stroke-width': 2,
         'circle-color': [
           'case',
-          ['==', ['get', 'facility_type'], 'dispensary'],
+          ['==', ['get', 'level'], 'dispensary'],
           '#a6cee3',
-          ['==', ['get', 'facility_type'], 'clinic'],
+          ['==', ['get', 'level'], 'clinic'],
           '#1f78b4',
-          ['==', ['get', 'facility_type'], 'health_center'],
+          ['==', ['get', 'level'], 'health_center'],
           '#b2df8a',
-          ['==', ['get', 'facility_type'], 'hospital'],
+          ['==', ['get', 'level'], 'hospital'],
           '#33a02c',
-          ['==', ['get', 'facility_type'], 'dispensary'],
+          ['==', ['get', 'level'], 'dispensary'],
           '#fb9a99',
-          ['==', ['get', 'facility_type'], 'laboratory'],
+          ['==', ['get', 'level'], 'laboratory'],
           '#e31a1c',
-          ['==', ['get', 'facility_type'], 'maternity'],
+          ['==', ['get', 'level'], 'maternity'],
           '#fdbf6f',
-          ['==', ['get', 'facility_type'], 'chemist'],
+          ['==', ['get', 'level'], 'chemist'],
           '#ff7f00', 'gray'],
         'circle-stroke-color': 'white'
       }
@@ -835,19 +842,20 @@ const viewProfile = (data: TableSlotDefault) => {
 const activeTab = ref('list')
 
 const flyTo = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.geom.coordinates)
-  activeTab.value = 'map'
-  activeSegment.value = 'Map'
+  if (!data.geom || !data.geom.coordinates || data.geom.coordinates.length < 2) {
+    console.error('Error: Geometry is missing or incomplete.');
+    ElMessage.error('Error: Geometry is missing or incomplete.')
+    return;
+  }
 
-
+  console.log('On Click.....', data.geom.coordinates);
+  activeTab.value = 'map';
+  activeSegment.value = 'Map';
 
   setTimeout(() => {
-    loadMap([data.geom.coordinates[0], data.geom.coordinates[1], data.name])
+    loadMap([data.geom.coordinates[0], data.geom.coordinates[1], data.name]);
   }, 100); // Adjust delay time as needed
-
-
-
-}
+};
 
 
 
@@ -1129,30 +1137,30 @@ const health_facility_raw = ref({})
 
 
 const Review = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
+  console.log('On Click.....', data.id)
   ShowReviewDialog.value = true
 
   // make the descriptions dataset 
-  health_facility_raw.value.name = data.row.name
-  health_facility_raw.value.reg_status = data.row.reg_status
-  health_facility_raw.value.ownership_type = data.row.ownership_type
-  health_facility_raw.value.owner = data.row.owner
-  health_facility_raw.value.user = data.row.user.name + ' | ' + data.row.user.email
-  health_facility_raw.value.date = data.row.createdAt
+  health_facility_raw.value.name = data.name
+  health_facility_raw.value.reg_status = data.reg_status
+  health_facility_raw.value.ownership_type = data.ownership_type
+  health_facility_raw.value.owner = data.owner
+  health_facility_raw.value.user = data.user.name + ' | ' + data.user.email
+  health_facility_raw.value.date = data.createdAt
 
   //
 
-  ruleForm.id = data.row.id
-  ruleForm.name = data.row.name
-  ruleForm.county_id = data.row.county_id
-  ruleForm.settlement_id = data.row.settlement_id
-  ruleForm.subcounty_id = data.row.subcounty_id
-  ruleForm.facility_type = data.row.facility_type
-  ruleForm.reg_status = data.row.reg_status
-  ruleForm.level = data.row.level
-  ruleForm.ownership_type = data.row.ownership_type
-  ruleForm.number_beds = data.row.number_beds
-  ruleForm.geom = data.row.geom
+  ruleForm.id = data.id
+  ruleForm.name = data.name
+  ruleForm.county_id = data.county_id
+  ruleForm.settlement_id = data.settlement_id
+  ruleForm.subcounty_id = data.subcounty_id
+  ruleForm.facility_type = data.facility_type
+  ruleForm.reg_status = data.reg_status
+  ruleForm.level = data.level
+  ruleForm.ownership_type = data.ownership_type
+  ruleForm.number_beds = data.number_beds
+  ruleForm.geom = data.geom
 
 
   formHeader.value = "Review"
@@ -1724,12 +1732,18 @@ const AddFacility = (data: TableSlotDefault) => {
           </template>
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable />
-        <el-table-column label="Settlement" prop="settlement.name" sortable />
-        <el-table-column label="County" prop="county.name" sortable />
+        <el-table-column label="Location" sortable>
+          <template #default="scope">
+            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+              }} County</span>
+          </template>
+        </el-table-column>
+
+
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
             <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions :item="row" :buttons="action_buttons" @viewOnMap="flyTo" @edit="editFacility" @review="Review"
+            <TableActions :item="row" :buttons="action_buttons" @viewOnMap="flyTo" @edit="editFacility"
               @delete="DeleteFacility" />
 
           </template>
@@ -1759,9 +1773,12 @@ const AddFacility = (data: TableSlotDefault) => {
           </template>
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable />
-        <el-table-column label="Settlement" prop="settlement.name" sortable />
-        <el-table-column label="County" prop="county.name" sortable />
-
+        <el-table-column label="Location" sortable>
+          <template #default="scope">
+            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+              }} County</span>
+          </template>
+        </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
@@ -1796,14 +1813,17 @@ const AddFacility = (data: TableSlotDefault) => {
           </template>
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable />
-        <el-table-column label="Settlement" prop="settlement.name" sortable />
-        <el-table-column label="County" prop="county.name" sortable />
-
+        <el-table-column label="Location" sortable>
+          <template #default="scope">
+            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+              }} County</span>
+          </template>
+        </el-table-column>
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
             <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions :item="row" :buttons="action_buttons" @viewOnMap="flyTo" @edit="editFacility" @review="Review"
+            <TableActions :item="row" :buttons="action_buttons" @viewOnMap="flyTo" @edit="editFacility"
               @delete="DeleteFacility" />
 
           </template>
@@ -1823,18 +1843,18 @@ const AddFacility = (data: TableSlotDefault) => {
     <div v-if="activeSegment === 'Map'">
       <div id="mapContainer" class="basemap" style="width: 100%; margin-top: 10px;"></div>
       <div id="floating-div">
-        <el-card class="box-card" />
-
-        <el-collapse v-model="collapse">
-          <el-collapse-item title="LEGEND">
-            <div class="legend">
-              <div v-for="item in legendItems" :key="item.label" class="legend-item">
-                <div class="circle-color" :style="{ backgroundColor: item.color }"></div>
-                <div class="legend-label">{{ item.label }}</div>
+        <el-card>
+          <el-collapse>
+            <el-collapse-item title="LEGEND">
+              <div class="legend">
+                <div v-for="item in legendItems" :key="item.label" class="legend-item">
+                  <div class="circle-color" :style="{ backgroundColor: item.color }"></div>
+                  <div class="legend-label">{{ item.label }}</div>
+                </div>
               </div>
-            </div>
-          </el-collapse-item>
-        </el-collapse>
+            </el-collapse-item>
+          </el-collapse>
+        </el-card>
       </div>
 
     </div>
