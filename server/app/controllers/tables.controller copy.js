@@ -3447,7 +3447,7 @@ exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
 
     qry.where = queryCondition;
 
-    console.log('The xQuery----->', qry);
+    console.log('The xQuery--1--->', qry);
 
     // Execute the query
     const list = await db.models[reg_model].findAndCountAll(qry);

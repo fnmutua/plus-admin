@@ -8,13 +8,19 @@ import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument, uploadDocu
 
 import { getCountyListApi } from '@/api/counties'
 import {
-  ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem,
+  ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
   ElOptionGroup, ElOption, FormInstance
 } from 'element-plus'
 import { ElMessage, ElCollapse, ElCollapseItem, ElInput, ElBadge, ElSegmented } from 'element-plus'
 import { computed, onMounted } from 'vue'
 import xlsx from "json-as-xlsx"
 import { getFile } from '@/api/summary'
+import {
+  searchByKeyWord
+} from '@/api/settlements'
+import { getListWithoutGeo } from '@/api/counties'
+
+
 
 import {
   Position,
@@ -26,7 +32,7 @@ import {
   View,
   Download,
   Filter,
-  InfoFilled,
+  InfoFilled, Back, Search,
   MessageBox
 } from '@element-plus/icons-vue'
 
@@ -48,8 +54,6 @@ import {
 
 import { useRouter, useRoute } from 'vue-router'
 import exportFromJSON from 'export-from-json'
-import { useAppStoreWithOut } from '@/store/modules/app'
-import { useCache } from '@/hooks/web/useCache'
 
 
 
@@ -87,12 +91,31 @@ import { countyOptions, subcountyOptions, settlementOptionsV2, LevelOptions, own
 import UploadComponent from '@/views/Components/UploadComponent.vue';
 import { defineAsyncComponent } from 'vue';
 
-import ActionsColumn from '@/views/Components/ActionsColumn.vue'
+import TableActions from '@/views/Components/TableActions.vue';
 
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadAll from '@/views/Components/DownloadAll.vue';
+import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 
 
+import { useAppStore } from '@/store/modules/app'
+import { useAppStoreWithOut } from '@/store/modules/app'
+import { useCache } from '@/hooks/web/useCache'
+
+
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+
+const showAdminButtons = ref(appStore.getAdminButtons)
+const showEditButtons = ref(appStore.getEditButtons)
+
+
+
+
+const map = ref()
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
@@ -107,17 +130,18 @@ const tableDataListNew = ref([])
 const tableDataListRejected = ref([])
 const totalRejected = ref(0)
 const totalNew = ref(0)
+const total = ref(0)
 
 
 
 const activeSegment = ref('Approved')
 
-const options = [
+const options = ref([
   {
     label: 'Approved',
     value: 'Approved',
     icon: CircleCheck,
-    count: totalNew
+    count: total,
   },
   {
     label: 'New',
@@ -136,10 +160,10 @@ const options = [
     label: 'Map',
     value: 'Map',
     icon: Position,
-    count: totalNew,
+    count: total,
 
   },
-]
+])
 
 
 
@@ -151,10 +175,22 @@ const options = [
 
 
 
-const { wsCache } = useCache()
-const appStore = useAppStoreWithOut()
-const userInfo = wsCache.get(appStore.getUserInfo)
-const map = ref()
+
+const action_buttons = ref([])
+if (showAdminButtons.value) {
+  action_buttons.value = ['edit', 'viewOnMap', 'delete']
+} else if (showEditButtons.value) {
+
+  action_buttons.value = ['edit', 'viewOnMap']
+}
+else {
+  action_buttons.value = ['viewOnMap']
+
+}
+
+console.log('action_buttons', action_buttons.value)
+
+
 
 
 
@@ -162,6 +198,7 @@ const map = ref()
 
 
 console.log("userInfo--->", userInfo)
+console.log("showAdminButtons--->", showAdminButtons.value)
 
 // Map 
 const polygons = ref([]) as Ref<[number, number][][]>
@@ -174,9 +211,9 @@ const markerProperties = ref([])
 const markers = ref()
 
 const { push } = useRouter()
-const value1 = ref([])
-const value2 = ref([])
-var value3 = ref([])
+ 
+ 
+ 
 const countiesOptions = ref([])
 const settlementOptions = ref([])
 const settlements = ref([])
@@ -187,11 +224,7 @@ const selCounties = []
 const loading = ref(true)
 const pageSize = ref(6)
 const currentPage = ref(1)
-const total = ref(0)
 const downloadLoading = ref(false)
-
-const showAdminButtons = ref(appStore.getAdminButtons)
-const showEditButtons = ref(appStore.getEditButtons)
 
 
 const tableDataList = ref([])
@@ -200,13 +233,13 @@ const tableDataList = ref([])
 // var filters = []
 // var filterValues = []
 
-var filters = ['isApproved']
-var filterValues = [['Approved']]  // make sure the inner array is array
+const filters = ref(['isApproved'])
+const filterValues = ref([['Approved']])  // make sure the inner array is array
 
 
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = ['settlement', 'users']
+const associated_multiple_models = ['settlement', 'users', 'county']
 
 const model = 'health_facility'
 const model_parent_key = 'settlement_id'
@@ -258,109 +291,42 @@ const handleSelectCounty = async (county_id: any) => {
 }
 
 
-function toTitleCase(str) {
-  return str.replace(/\w\S*/g, function (txt) {
-    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
-  })
-}
 
 
 
 
-const { t } = useI18n()
 
 
 const handleClear = async () => {
-  console.log('cleared....')
+  console.log('cleared....', filters.value, filterValues.value)
+ 
+  value4.value = null
+  value5.value = null
+  value6.value = null
 
-  // clear all the fileters -------
-  filterValues = []
-  filters = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
   pSize.value = 5
   currentPage.value = 1
-  tblData = []
-  //----run the get data--------
-  getInterventionsAll()
+    // Retain only the first element in filters and filterValues
+  filters.value = filters.value.slice(0, 1);
+  filterValues.value = filterValues.value.slice(0, 1);
+  getFilteredData(filters.value, filterValues.value)
 }
 
-const handleSelectParent = async (parent_id: any) => {
-  var selectOption = model_parent_key
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('county : index--->', index)
 
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(parent_id) && parent_id.length > 0) {
-    filterValues.splice(index, 0, parent_id) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (parent_id.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-  // here we filter the list of settlements based on the selected county
-  filteredSettlements.value = settlements.value.filter(
-    (settlement) => settlement.parent_id == parent_id
-  )
-  console.log('filyterested settlements------>', filteredSettlements)
-  makeSettlementOptions(filteredSettlements)
-
-  getFilteredData(filters, filterValues)
-}
-
-const handleSelectByName = async (name: any) => {
-  var selectOption = 'id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('settlement : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(name) && name.length > 0) {
-    filterValues.splice(index, 0, name) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (name.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
-}
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected   ', selCounties)
   page.value = selPage
-  getFilteredData(filters, filterValues)
+  getFilteredData(filters.value, filterValues.value)
 }
 
 const onPageSizeChange = async (size: any) => {
   pSize.value = size
-  getFilteredData(filters, filterValues)
+  getFilteredData(filters.value, filterValues.value)
 }
 
 const getInterventionsAll = async () => {
-  getFilteredData(filters, filterValues)
+  getFilteredData(filters.value, filterValues.value)
 }
 
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
@@ -395,64 +361,27 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   formData.filterValues = selfilterValues
   formData.associated_multiple_models = associated_multiple_models
 
-  //------------------- ------
-  //console.log(formData)
 
-  // filter only the new ones
-  // var filters = ['isApproved']
-  // var filterValues = ['Appproved']  // make sure the inner array is array
 
   const res = await getSettlementListByCounty(formData)
 
   console.log('After Querry', res)
-  tableDataList.value = res.data
-  total.value = res.total
-
-  tblData = [] // reset the table data
-  console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
-    var dd = flattenJSON(arrayItem)
-    tblData.push(dd)
-  })
-
-  console.log('TBL-4f', tblData)
-
-  if (showAdminButtons.value) {
-    // filter only the new ones
-    var filters = ['isApproved']
-    var filterValues = [['Pending']]  // make sure the inner array is array
-    formData.filters = filters
-    formData.filterValues = filterValues
-    const newSettlements = await getSettlementListByCounty(formData)
-    console.log('NeWHCF', newSettlements)
-    tableDataListNew.value = newSettlements.data
-    totalNew.value = newSettlements.total
-    //
-
-    var filters = ['isApproved']
-    var filterValues = [['Rejected']]  // make sure the inner array is array
-    formData.filters = filters
-    formData.filterValues = filterValues
-    const Rejected = await getSettlementListByCounty(formData)
-    console.log('Rejecetd HCF', Rejected)
-    tableDataListRejected.value = Rejected.data
-    totalRejected.value = Rejected.total
+  //tableDataList.value = res.data
 
 
+  console.log('activeSegment.value', activeSegment.value)
+  if (activeSegment.value == 'Approved') {
+    tableDataList.value = res.data
+    total.value = res.total
 
-    let filteredIds = []
-    res.data.forEach(function (arrayItem) {
-      console.log(arrayItem)
-      filteredIds.push(arrayItem.id)
+  } else if (activeSegment.value == 'New' && showAdminButtons.value) {
+    tableDataListNew.value = res.data
+    totalNew.value = res.total
 
-      var dd = destructure(arrayItem)
-      delete dd['0']
-      delete dd['1']
-
-      tblData.value.push(dd)
-    })
+  }
+  else if (activeSegment.value == 'Rejected' && showAdminButtons.value) {
+    tableDataListRejected.value = res.data
+    totalRejected.value = res.total
 
   }
 
@@ -460,6 +389,38 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 }
+
+
+const getCountyNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'county',
+      searchField: '',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received countiess:', response)
+    var ret = response.data
+
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var countyOpt = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.name
+      //  console.log(countyOpt)
+      countiesOptions.value.push(countyOpt)
+    })
+  })
+}
+
+
+getCountyNames()
+
 
 const getParentNames = async () => {
   const res = await getCountyListApi({
@@ -474,7 +435,6 @@ const getParentNames = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Received response:', response)
-    //tableDataList.value = response.data
     var ret = response.data
 
     loading.value = false
@@ -502,7 +462,6 @@ const getModelOptions = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Received response:', response)
-    //tableDataList.value = response.data
     var ret = response.data
 
     loading.value = false
@@ -581,7 +540,9 @@ const getGeo = async () => {
 }
 
 
-getParentNames()
+//getParentNames()
+getCountyNames()
+
 getModelOptions()
 getInterventionsAll()
 getGeo()
@@ -776,7 +737,7 @@ const loadMap = (mapCenter) => {
 
 
 
-const onMap = async () => {
+const onSegmentClick = async () => {
   console.log(activeSegment.value);
   if (activeSegment.value === "Map") {
     // Wait for the DOM to update
@@ -787,10 +748,80 @@ const onMap = async () => {
       loadMap([]);
     }, 100); // Adjust delay time as needed
   }
+
+  if (activeSegment.value === "Approved") {
+
+    var selectOption = 'isApproved'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues.value[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes('Approved')) {
+      filterValues.value.splice(index, 0, 'Approved') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+  }
+
+
+  if (activeSegment.value === "New") {
+
+    var selectOption = 'isApproved'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues.value[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes('Pending')) {
+      filterValues.value.splice(index, 0, 'Pending') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+  }
+
+
+  if (activeSegment.value === "Rejected") {
+
+    var selectOption = 'isApproved'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues.value[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes('Rejected')) {
+      filterValues.value.splice(index, 0, 'Rejected') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+  }
+
+  console.log('filterValues---filters.value->', filterValues.value, filters.value)
+
+  getFilteredData(filters.value, filterValues.value)
+
 };
 
 
-console.log('Options---->', countiesOptions)
+
 const viewProfile = (data: TableSlotDefault) => {
   console.log('On Click.....', data.id)
 
@@ -806,7 +837,15 @@ const activeTab = ref('list')
 const flyTo = (data: TableSlotDefault) => {
   console.log('On Click.....', data.geom.coordinates)
   activeTab.value = 'map'
-  loadMap([data.geom.coordinates[0], data.geom.coordinates[1], data.name])
+  activeSegment.value = 'Map'
+
+
+
+  setTimeout(() => {
+    loadMap([data.geom.coordinates[0], data.geom.coordinates[1], data.name])
+  }, 100); // Adjust delay time as needed
+
+
 
 }
 
@@ -814,11 +853,7 @@ const flyTo = (data: TableSlotDefault) => {
 
 
 
-const AddFacility = (data: TableSlotDefault) => {
-  push({
-    name: 'AddhealthX'
-  })
-}
+
 
 const isMobile = computed(() => appStore.getMobile)
 
@@ -838,95 +873,8 @@ if (isMobile.value) {
 
 
 
-const DownloadXlsx = async () => {
-  console.log(tableDataList.value)
-
-  // change here !
-  let fields = [
-    { label: "S/No", value: "index" }, // Top level data
-    { label: "Name", value: "name" }, // Top level data
-    { label: "Level", value: "level" }, // Custom format
-    { label: "Type", value: "type" }, // Custom format
-    { label: "Status", value: "reg_status" }, // Custom format
-    { label: "Settlement", value: "settlement" }, // Run functions
-    { label: "Owner", value: "owner" }, // Run functions
-    { label: "Number of Beds", value: "number_beds" }, // Run functions
 
 
-  ]
-
-
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
-    let thisRecord = {}
-    tableDataList.value[i]
-    thisRecord.index = i + 1
-    thisRecord.name = tableDataList.value[i].name
-    thisRecord.settlement = tableDataList.value[i].settlement ? tableDataList.value[i].settlement.name : ''
-    thisRecord.owner = tableDataList.value[i].owner
-    thisRecord.number_beds = tableDataList.value[i].number_beds
-    thisRecord.reg_status = tableDataList.value[i].reg_status
-    thisRecord.owner = tableDataList.value[i].owner
-    thisRecord.type = tableDataList.value[i].ownership_type
-    thisRecord.level = tableDataList.value[i].level
-
-
-
-
-
-    dataHolder.push(thisRecord)
-  }
-  dataObj.content = dataHolder
-
-
-
-
-  let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
-}
-
-
-const documentCategory = ref()
-
-
-const downloadFile = async (data) => {
-
-  console.log(data.name)
-
-  const formData = {}
-  formData.filename = data.name
-  formData.responseType = 'blob'
-  await getFile(formData)
-    .then(response => {
-      console.log(response)
-
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', data.name)
-      document.body.appendChild(link)
-      link.click()
-
-    })
-    .catch(error => {
-      console.error('Error downloading file:', error);
-    });
-
-}
 
 const removeDocument = (data: TableSlotDefault) => {
   console.log('----->', data)
@@ -965,7 +913,6 @@ const getDocumentTypes = async () => {
     }
   }).then((response: { data: any }) => {
     console.log('Document Typest:', response)
-    //tableDataList.value = response.data
     var ret = response.data
 
 
@@ -1049,7 +996,7 @@ const legendItems = [
 ]
 
 
-const DeleteProject = (data: TableSlotDefault) => {
+const DeleteFacility = (data: TableSlotDefault) => {
   console.log('----->', data)
   let index = tableDataList.value.indexOf(data);
 
@@ -1066,7 +1013,6 @@ const DeleteProject = (data: TableSlotDefault) => {
 
   DeleteRecord(formData)
 
-  console.log(tableDataList.value)
 
 
   // Delete docuemnts only if there's any docuemnt to delete 
@@ -1148,6 +1094,9 @@ const editFacility = (data: TableSlotDefault) => {
 }
 
 
+
+
+
 const handleClose = () => {
   console.log("Closing the dialoig")
   showAddSaveButton.value = true
@@ -1220,7 +1169,7 @@ const approve = async () => {
   console.log(ruleForm)
   await updateOneRecord(ruleForm).then(() => { })
   ShowReviewDialog.value = false
-  getFilteredData(filters, filterValues)
+  getFilteredData(filters.value, filterValues.value)
 }
 
 
@@ -1242,7 +1191,7 @@ const confirmReject = async () => {
   RejectDialog.value = false
   ShowReviewDialog.value = false
 
-  getFilteredData(filters, filterValues)
+  getFilteredData(filters.value, filterValues.value)
 
 }
 
@@ -1302,51 +1251,455 @@ function handleExpand(row) {
 }
 
 
+const router = useRouter()
+
+const value4 = ref()
+const value5 = ref()
+const value6 = ref()
+const search_string = ref()
+
+const enableSubcounty = ref(false)
+const selectedCounty = ref()
+const selectedSubCounty = ref()
+
+const selectedWard = ref()
+const enableward = ref(false)
+
+const subcountiesOptions = ref([])
+
+
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+
+}
+
+const getFilteredBySearchData = async (searchKey) => {
+
+  if (selectedCounty.value) {
+    var selectOption = 'county_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
+      filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+    // expunge the filter if the filter values are null
+    if (selectedCounty.value.length === 0) {
+      filters.value.splice(index, 1)
+    }
+
+  }
+
+  // Filter by subcounty  
+  if (selectedSubCounty.value) {
+    var selectOption = 'subcounty_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
+      filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+    // expunge the filter if the filter values are null
+    if (selectedSubCounty.value.length === 0) {
+      filters.value.splice(index, 1)
+    }
+
+  }
+
+
+
+  searchLoading.value = true
+  const formData = {}
+  formData.limit = pageSize.value
+  formData.page = page.value
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = searchKey
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = filters.value
+  formData.filterValues = filterValues.value
+  formData.associated_multiple_models = associated_multiple_models
+  formData.nested_models = []
+  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+  //-------------------------
+
+
+  const res = await searchByKeyWord(formData)
+  searchLoading.value = false
+
+  console.log('activeSegment.value', activeSegment.value)
+  if (activeSegment.value == 'Approved') {
+    tableDataList.value = res.data
+
+  } else if (activeSegment.value == 'New') {
+    tableDataListNew.value = res.data
+
+  }
+  else {
+    tableDataListRejected.value = res.data
+
+  }
+
+
+
+
+  loading.value = false
+
+
+}
+
+
+
+
+const getSubCountyNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'subcounty',
+      searchField: 'county_id',
+      searchKeyword: selectedCounty.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received subcounties response:', response)
+    var ret = response.data
+    subcountiesOptions.value = []
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var subcountyOpt = {}
+      subcountyOpt.value = arrayItem.id
+      subcountyOpt.county_id = arrayItem.county_id
+      subcountyOpt.label = arrayItem.name
+      //  console.log(countyOpt)
+      subcountiesOptions.value.push(subcountyOpt)
+    })
+  })
+}
+
+const wardOptions = ref([])
+
+const getWardNames = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'ward',
+      searchField: 'subcounty_id',
+      searchKeyword: selectedSubCounty.value,
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received wards response:', response)
+    var ret = response.data
+    wardOptions.value = []
+    loading.value = false
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var opt = {}
+      opt.value = arrayItem.id
+      opt.subcounty_id = arrayItem.subcounty_id
+      opt.label = arrayItem.name
+      //  console.log(countyOpt)
+      wardOptions.value.push(opt)
+    })
+  })
+}
+
+
+
+const filterByCounty = async (county_id: any) => {
+
+  if (county_id) {
+    enableSubcounty.value = true   // allow selection of subcounty 
+    selectedCounty.value = county_id
+    getSubCountyNames()
+  }
+
+  value5.value = null; // Clear the subcounty properly
+  value6.value = null; // Clear the ward properly
+
+
+  if (search_string.value) {
+    getFilteredBySearchData(search_string.value)
+  }
+
+  else {
+
+
+
+    var selectOption = 'county_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues.value[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes(selectedCounty.value) && selectedCounty.value.length > 0) {
+      filterValues.value.splice(index, 0, selectedCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+    // expunge the filter if the filter values are null
+    if (selectedCounty.value.length === 0) {
+      filters.value.splice(index, 1)
+    }
+
+
+    console.log('----x----', filters.value, filterValues.value)
+
+
+    getFilteredData(filters.value, filterValues.value)
+
+  }
+
+
+}
+
+
+const filterBySubCounty = async (subcounty_id: any) => {
+
+  if (subcounty_id) {
+    enableSubcounty.value = true   // allow selection of subcounty 
+    selectedSubCounty.value = subcounty_id
+    getWardNames()
+  }
+
+  // value6.value = null   // clear the ward sr 
+
+  if (search_string.value) {
+    getFilteredBySearchData(search_string.value)
+  }
+
+  else {
+    var selectOption = 'subcounty_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues.value[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes(selectedSubCounty.value) && selectedSubCounty.value.length > 0) {
+      filterValues.value.splice(index, 0, selectedSubCounty.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+    // expunge the filter if the filter values are null
+    if (selectedSubCounty.value.length === 0) {
+      filters.value.splice(index, 1)
+    }
+
+    getFilteredData(filters.value, filterValues.value)
+
+  }
+
+
+}
+
+const filterByWard = async (ward_id: any) => {
+
+  if (ward_id) {
+    selectedWard.value = ward_id
+
+  }
+
+
+
+  if (search_string.value) {
+    getFilteredBySearchData(search_string.value)
+  }
+
+  else {
+    var selectOption = 'ward_id'
+    if (!filters.value.includes(selectOption)) {
+      filters.value.push(selectOption)
+    }
+    var index = filters.value.indexOf(selectOption) // 1
+
+    // clear previously selected
+    if (filterValues.value[index]) {
+      // filterValues[index].length = 0
+      filterValues.value.splice(index, 1)
+    }
+
+    if (!filterValues.value.includes(selectedWard.value) && selectedWard.value.length > 0) {
+      filterValues.value.splice(index, 0, selectedWard.value) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+    }
+
+    // expunge the filter if the filter values are null
+    if (selectedWard.value.length === 0) {
+      filters.value.splice(index, 1)
+    }
+
+    getFilteredData(filters.value, filterValues.value)
+
+  }
+
+
+}
+
+
+const searchLoading = ref(false)
+const searchByNewName = async () => {
+
+  console.log('filterString', search_string.value)
+  //value3.value = filterString
+  //search_string.value = filterString
+
+
+  if (search_string.value) {
+
+
+    getFilteredBySearchData(search_string.value)
+
+  }
+
+}
+
+
+
+const AddFacility = (data: TableSlotDefault) => {
+  push({
+    name: 'AddhealthX'
+  })
+}
+
 
 </script>
 
 <template>
-  <ContentWrap :title="toTitleCase(model.replace('_', ' '))"
-    :message="t('Use the filters on the list of view the Map ')">
+
+
+  <el-card>
+
     <div v-if="dynamicComponent">
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
-    <!-- <div style="display: inline-block; margin-bottom: 15px">
-      <div style="display: inline-block;  ">
-        <el-select v-model="value2" :onChange="handleSelectParent" :onClear="handleClear" multiple clearable filterable
-          collapse-tags placeholder="Filter by Settlement">
+
+    <el-row :gutter="10" style=" margin-bottom:10px;">
+      <el-col :xs="24" :sm="24" :md="2" :lg="2" class="max-w-200px">
+
+        <div class="max-w-200px">
+          <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+            Back
+          </el-button>
+        </div>
+      </el-col>
+
+      <el-col :xs="24" :sm="24" :md="12" :lg="5">
+        <el-select size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
+          filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
           <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
-      </div>
-      <div style="display: inline-block; margin-left: 20px">
-        <el-select v-model="value3" :onChange="handleSelectByName" :onClear="handleClear" multiple clearable filterable
-          collapse-tags placeholder="Filter by  Name">
-          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
+
+      </el-col>
+
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+        <el-select :disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
+          clearable filterable collapse-tags placeholder="By Subcounty" style=" margin-right: 5px;"
+          :empty-values="[null, undefined]">
+          <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
-      </div>
-      <div style="display: inline-block; margin-left: 20px">
-        <el-button :onClick="DownloadXlsx" type="primary" :icon="Download" />
-      </div>
-      <DownloadAll v-if="showAdminButtons" :model="model" :associated_models="associated_multiple_models" />
+      </el-col>
 
-      <div style="display: inline-block; margin-left: 20px">
-        <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-      </div>
-      <div v-if="showAdminButtons" style="display: inline-block; margin-left: 20px">
-        <el-tooltip content="Add Facility" placement="top">
-          <el-button :onClick="AddFacility" type="primary" :icon="Plus" />
-        </el-tooltip>
-      </div>
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+        <el-select :disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
+          clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
+          <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-col>
 
-    </div> -->
+      <el-col :xs="24" :sm="24" :md="12" :lg="5">
+
+        <el-input v-model="search_string" clearable :onClear="handleClear"
+          placeholder="Search by name (or part of it).." @change="searchByNewName" class="input-with-select"
+          style=" margin-right: 5px;">
+          <template #append>
+            <el-button v-loading="searchLoading" :icon="Search" :onClick="searchByNewName" />
+          </template>
+        </el-input>
+      </el-col>
+
+
+
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+
+        <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+
+          <el-tooltip content="Add Facility" placement="top">
+            <el-button v-if="showAdminButtons" :onClick="AddFacility" type="primary" :icon="Plus" />
+          </el-tooltip>
+
+          <el-tooltip content="Clear" placement="top">
+            <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+          </el-tooltip>
+
+          <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="model"
+            :associated_models="associated_multiple_models" />
+        </div>
+
+
+      </el-col>
+
+
+
+    </el-row>
+
+
+
 
     <div class="custom-style">
 
-      <el-segmented v-model="activeSegment" :options="options" block :onChange="onMap">
+      <el-segmented v-model="activeSegment" :options="options" block :onChange="onSegmentClick">
         <template #default="{ item }">
           <div class="flex flex-col items-center gap-2 p-2">
-            <el-icon size="20">
+            <el-icon size="18">
               <component :is="item.icon" />
             </el-icon>
             <div>{{ item.label }} ({{ item.count }}) </div>
@@ -1357,8 +1710,7 @@ function handleExpand(row) {
     </div>
 
     <div v-if="activeSegment === 'Approved'">
-
-      <el-table :data="tableDataList" style="width: 100%" border @expand-change="handleExpand">
+      <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
             <div m="4">
@@ -1373,70 +1725,14 @@ function handleExpand(row) {
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable />
         <el-table-column label="Settlement" prop="settlement.name" sortable />
+        <el-table-column label="County" prop="county.name" sortable />
+        <el-table-column label="Actions" width="250">
+          <template #default="{ row }">
+            <!-- Example 1: Only Edit and Delete buttons -->
+            <TableActions :item="row" :buttons="action_buttons" @viewOnMap="flyTo" @edit="editFacility" @review="Review"
+              @delete="DeleteFacility" />
 
-        <!-- <ActionsColumn  Edit="AddhealthX"  :model="model"  @delete-confirmed="handleDeleteConfirmation"    :actionColumnWidth="actionColumnWidth" :showEditButtons="showEditButtons" :showAdminButtons="showAdminButtons" /> -->
-        <!-- <ActionsColumn
-              Edit="AddhealthX"
-              :model="model"
-              :currentRoute="currentRoute"  
-              @delete-confirmed="handleDeleteConfirmation"
-              :actionColumnWidth="actionColumnWidth"
-              :showEditButtons="showEditButtons"
-              :showAdminButtons="showAdminButtons"
-            /> -->
-
-
-        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-          <template #default="scope">
-            <el-dropdown v-if="isMobile">
-              <span class="el-dropdown-link">
-                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item @click="viewProfile(scope as TableSlotDefault)"
-                    :icon="Position">View</el-dropdown-item>
-
-
-                  <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
-                    :icon="Delete" color="red">Delete</el-dropdown-item>
-
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-
-
-            <div v-else>
-
-              <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                <el-button type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
-                  circle />
-              </el-tooltip>
-
-              <el-tooltip content="View Profile" placement="top">
-                <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
-                  circle />
-              </el-tooltip>
-
-              <el-tooltip content="View Profile" placement="top">
-                <el-button type="primary" size="small" :icon="TopRight"
-                  @click="viewProfile(scope.row as TableSlotDefault)" circle />
-              </el-tooltip>
-
-
-              <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                  title="Are you sure to delete this facility?" width="150"
-                  @confirm="DeleteProject(scope.row as TableSlotDefault)">
-                  <template #reference>
-                    <el-button type="danger" size="small" :icon=Delete circle />
-                  </template>
-                </el-popconfirm>
-              </el-tooltip>
-
-            </div>
           </template>
-
         </el-table-column>
 
       </el-table>
@@ -1464,45 +1760,16 @@ function handleExpand(row) {
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable />
         <el-table-column label="Settlement" prop="settlement.name" sortable />
-        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-          <template #default="scope">
-            <el-dropdown v-if="isMobile">
-              <span class="el-dropdown-link">
-                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item @click="viewProfile(scope as TableSlotDefault)"
-                    :icon="Position">View</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-
-            <div v-else>
-              <el-tooltip v-if="showEditButtons" content="Edit" placement="top">
-                <el-button type="success" size="small" :icon="Edit" @click="editFacility(scope.row as TableSlotDefault)"
-                  circle />
-              </el-tooltip>
-
-              <el-tooltip content="View Profile" placement="top">
-                <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
-                  circle />
-              </el-tooltip>
-
-              <el-tooltip content="View Profile" placement="top">
-                <el-button type="primary" size="small" :icon="TopRight"
-                  @click="viewProfile(scope.row as TableSlotDefault)" circle />
-              </el-tooltip>
-
-              <el-tooltip content="Review" placement="top">
-                <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
-                  @click="Review(scope as TableSlotDefault)" circle />
-              </el-tooltip>
+        <el-table-column label="County" prop="county.name" sortable />
 
 
-            </div>
+        <el-table-column label="Actions" width="250">
+          <template #default="{ row }">
+            <!-- Example 1: Only Edit and Delete buttons -->
+            <TableActions :item="row" :buttons="action_buttons" @viewOnMap="flyTo" @edit="editFacility" @review="Review"
+              @delete="DeleteFacility" />
+
           </template>
-
         </el-table-column>
 
       </el-table>
@@ -1530,65 +1797,20 @@ function handleExpand(row) {
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable />
         <el-table-column label="Settlement" prop="settlement.name" sortable />
+        <el-table-column label="County" prop="county.name" sortable />
 
 
-        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-          <template #default="scope">
-            <el-dropdown v-if="isMobile">
-              <span class="el-dropdown-link">
-                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item @click="viewProfile(scope as TableSlotDefault)"
-                    :icon="Position">View</el-dropdown-item>
+        <el-table-column label="Actions" width="250">
+          <template #default="{ row }">
+            <!-- Example 1: Only Edit and Delete buttons -->
+            <TableActions :item="row" :buttons="action_buttons" @viewOnMap="flyTo" @edit="editFacility" @review="Review"
+              @delete="DeleteFacility" />
 
-                  <el-tooltip content="Review" placement="top">
-                    <el-button v-show="showAdminButtons" type="success" size="small" :icon="View"
-                      @click="Review(scope as TableSlotDefault)" circle />
-                  </el-tooltip>
-                  <el-dropdown-item v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
-                    :icon="Delete" color="red">Delete</el-dropdown-item>
-
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-
-
-            <div v-else>
-
-
-
-              <el-tooltip content="View Profile" placement="top">
-                <el-button type="warning" size="small" :icon="Position" @click="flyTo(scope.row as TableSlotDefault)"
-                  circle />
-              </el-tooltip>
-
-
-
-              <el-tooltip content="View Profile" placement="top">
-                <el-button type="primary" size="small" :icon="TopRight"
-                  @click="viewProfile(scope.row as TableSlotDefault)" circle />
-              </el-tooltip>
-
-
-              <el-tooltip v-if="showAdminButtons" content="Delete" placement="top">
-                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-                  title="Are you sure to delete this facility?" width="150"
-                  @confirm="DeleteProject(scope.row as TableSlotDefault)">
-                  <template #reference>
-                    <el-button type="danger" size="small" :icon=Delete circle />
-                  </template>
-                </el-popconfirm>
-              </el-tooltip>
-
-            </div>
           </template>
-
         </el-table-column>
 
-        <!-- <ActionsColumn   :actionColumnWidth="actionColumnWidth" :showEditButtons="showEditButtons" :showAdminButtons="showAdminButtons" /> -->
-        <ActionsColumn />
+
+
       </el-table>
 
       <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
@@ -1598,10 +1820,8 @@ function handleExpand(row) {
     </div>
 
 
-
-
     <div v-if="activeSegment === 'Map'">
-      <div id="mapContainer" class="basemap"></div>
+      <div id="mapContainer" class="basemap" style="width: 100%; margin-top: 10px;"></div>
       <div id="floating-div">
         <el-card class="box-card" />
 
@@ -1618,181 +1838,125 @@ function handleExpand(row) {
       </div>
 
     </div>
-    <!-- <el-tabs v-model="activeTab" @tab-click="onMap" type="border-card">
-      <el-tab-pane name="new" v-if=showEditButtons>
-        <template #label>
-          <span class="custom-tabs-label">
-            <el-badge type="success" :value="totalNew" class="item">
-              <el-button link>New</el-button>
-            </el-badge>
-          </span>
-        </template>
-      </el-tab-pane>
-      <el-tab-pane name="rejected" v-if=showAdminButtons :badge="5">
-        <template #label>
-          <span class="custom-tabs-label">
-            <el-badge :value="totalRejected" class="item">
-              <el-button link>Rejected</el-button>
-            </el-badge>
-          </span>
-        </template>
-      </el-tab-pane>
-      <el-tab-pane label="Map" name="map">
-        <el-card class="box-card" />
-        <div id="mapContainer" class="basemap"></div>
-        <div id="floating-div">
-          <el-collapse v-model="collapse">
-            <el-collapse-item title="LEGEND">
-              <div class="legend">
-                <div v-for="item in legendItems" :key="item.label" class="legend-item">
-                  <div class="circle-color" :style="{ backgroundColor: item.color }"></div>
-                  <div class="legend-label">{{ item.label }}</div>
-                </div>
-              </div>
-            </el-collapse-item>
-          </el-collapse>
-        </div>
-      </el-tab-pane>
-    </el-tabs> -->
+
+  </el-card>
+
+
+  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
+    <el-row :gutter="10">
+
+      <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+        <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-position="left">
+          <el-form-item label="Name" prop="name">
+            <el-input v-model="ruleForm.name" placeholder="Please input" />
+          </el-form-item>
+
+          <el-form-item label="Level" prop="level">
+            <el-select v-model="ruleForm.level" filterable placeholder="Level">
+              <el-option v-for="item in LevelOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="Type" prop="facility_type">
+            <el-select v-model="ruleForm.facility_type" filterable placeholder="Type">
+              <el-option v-for="item in HCFTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="Ownership" prop="ownership">
+            <el-select v-model="ruleForm.ownership_type" filterable placeholder="Ownership">
+              <el-option v-for="item in ownsershipOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="County" prop="county_id">
+            <el-select v-model="ruleForm.county_id" filterable placeholder="County" :onChange="handleSelectCounty">
+              <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item v-if="showSubcountyOpts" label="Subcounty" prop="subcounty_id">
+            <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select subcounty">
+              <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+                :value="item.value" />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="Settlement" prop="settlement_id">
+            <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
+              <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+                :value="item.value" />
+            </el-select>
+          </el-form-item>
+
+
+        </el-form>
+      </el-col>
+
+    </el-row>
+
+    <template #footer>
+      <span class="dialog-footer space-between">
+        <el-row :gutter="10">
+
+          <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+
+            <el-button @click="AddDialogVisible = false">Cancel</el-button>
+            <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+
+
+          </el-col>
+
+
+        </el-row>
+      </span>
+    </template>
+
+
+  </el-dialog>
 
 
 
+  <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
+    <el-descriptions title="" direction="vertical" :column="2" size="small" border>
+      <el-descriptions-item label="Name">{{ health_facility_raw.name }}</el-descriptions-item>
+      <el-descriptions-item label="Status" :span="2">{{ health_facility_raw.reg_status }}</el-descriptions-item>
+      <el-descriptions-item label="Type">{{ health_facility_raw.ownership_type }}</el-descriptions-item>
+      <el-descriptions-item label="owner"> {{ health_facility_raw.owner }} </el-descriptions-item>
+      <el-descriptions-item label="Submitted By"> {{ health_facility_raw.user }} </el-descriptions-item>
+      <el-descriptions-item label="Date"> {{ health_facility_raw.date }} </el-descriptions-item>
+
+    </el-descriptions>
+    <template #footer>
+      <span v-if="showAdminButtons" class="dialog-footer">
+        <el-button type="success" @click="approve">Approve</el-button>
+        <el-button type="danger" @click="reject">Reject</el-button>
+      </span>
+    </template>
+  </el-dialog>
+  <el-dialog v-model="RejectDialog" title="Reason for rejection" width="20%">
+    <el-input v-model="rejectReason" placeholder="" />
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="RejectDialog = false">Cancel</el-button>
+        <el-button type="primary" @click="confirmReject">
+          Confirm
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 
 
-
-
-
-
-    <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formheader" width="400px" draggable>
-      <el-row :gutter="10">
-
-        <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-          <el-form ref="ruleFormRef" :rules="rules" :model="ruleForm" label-position="left">
-            <el-form-item label="Name" prop="name">
-              <el-input v-model="ruleForm.name" placeholder="Please input" />
-            </el-form-item>
-
-            <el-form-item label="Level" prop="level">
-              <el-select v-model="ruleForm.level" filterable placeholder="Level">
-                <el-option v-for="item in LevelOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item label="Type" prop="facility_type">
-              <el-select v-model="ruleForm.facility_type" filterable placeholder="Type">
-                <el-option v-for="item in HCFTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item label="Ownership" prop="ownership">
-              <el-select v-model="ruleForm.ownership_type" filterable placeholder="Ownership">
-                <el-option v-for="item in ownsershipOptions" :key="item.value" :label="item.label"
-                  :value="item.value" />
-              </el-select>
-            </el-form-item>
-            <el-form-item label="County" prop="county_id">
-              <el-select v-model="ruleForm.county_id" filterable placeholder="County" :onChange="handleSelectCounty">
-                <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item v-if="showSubcountyOpts" label="Subcounty" prop="subcounty_id">
-              <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select subcounty">
-                <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
-                  :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item label="Settlement" prop="settlement_id">
-              <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-                <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
-                  :value="item.value" />
-              </el-select>
-            </el-form-item>
-
-
-          </el-form>
-        </el-col>
-
-      </el-row>
-
-      <template #footer>
-        <span class="dialog-footer space-between">
-          <el-row :gutter="10">
-
-            <el-col :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
-
-              <el-button @click="AddDialogVisible = false">Cancel</el-button>
-              <el-button v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
-
-
-            </el-col>
-
-
-          </el-row>
-        </span>
-      </template>
-
-
-    </el-dialog>
-
-
-
-    <el-dialog v-model="ShowReviewDialog" @close="handleClose" :title="formHeader" :width="reviewWindowWidth" draggable>
-      <el-descriptions title="" direction="vertical" :column="2" size="small" border>
-        <el-descriptions-item label="Name">{{ health_facility_raw.name }}</el-descriptions-item>
-        <el-descriptions-item label="Status" :span="2">{{ health_facility_raw.reg_status }}</el-descriptions-item>
-        <el-descriptions-item label="Type">{{ health_facility_raw.ownership_type }}</el-descriptions-item>
-        <el-descriptions-item label="owner"> {{ health_facility_raw.owner }} </el-descriptions-item>
-        <el-descriptions-item label="Submitted By"> {{ health_facility_raw.user }} </el-descriptions-item>
-        <el-descriptions-item label="Date"> {{ health_facility_raw.date }} </el-descriptions-item>
-
-
-
-
-
-      </el-descriptions>
-      <template #footer>
-        <span v-if="showAdminButtons" class="dialog-footer">
-          <el-button type="success" @click="approve">Approve</el-button>
-          <el-button type="danger" @click="reject">Reject</el-button>
-        </span>
-      </template>
-    </el-dialog>
-    <el-dialog v-model="RejectDialog" title="Reason for rejection" width="20%">
-      <el-input v-model="rejectReason" placeholder="" />
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="RejectDialog = false">Cancel</el-button>
-          <el-button type="primary" @click="confirmReject">
-            Confirm
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-  </ContentWrap>
 </template>
 
 <style scoped>
 .basemap {
   width: 100%;
-  height: 75vh;
+  height: 65vh;
   /* Set the height to 75% of the viewport height */
 }
 </style>
 
 
-
-
-
-<style scoped>
-.basemap {
-  width: 100%;
-  height: 75vh;
-  /* Set the height to 75% of the viewport height */
-}
-</style>
 
 <style>
 .el-table .warning-row {
@@ -1891,7 +2055,37 @@ function handleExpand(row) {
 
 <style scoped>
 .custom-style .el-segmented {
-
   --el-border-radius-base: 5px;
+}
+
+.segment-label {
+  white-space: nowrap;
+  /* Prevent text from wrapping */
+  overflow: hidden;
+  /* Hide overflowing text */
+  text-overflow: ellipsis;
+  /* Add ellipsis for truncated text */
+}
+
+@media (max-width: 600px) {
+  .custom-style .el-segmented {
+    font-size: 10px;
+    /* Adjust font size on mobile */
+    padding: 5px;
+    /* Adjust padding for smaller screens */
+  }
+
+  .segment-label {
+    font-size: 12px;
+    /* Smaller font size for labels */
+    text-align: center;
+    /* Center align text */
+    padding: 0 5px;
+    /* Add some padding for spacing */
+    white-space: normal;
+    /* Allow wrapping on smaller screens */
+    overflow: visible;
+    /* Allow the text to flow properly */
+  }
 }
 </style>

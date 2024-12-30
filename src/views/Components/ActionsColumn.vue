@@ -67,7 +67,7 @@ const editFacility = (data) => {
   
 push({
  name: props.Edit,
-   query: { id: data.id }
+ query: { id: data.id }
  
 });
  

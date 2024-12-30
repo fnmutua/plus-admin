@@ -54,7 +54,7 @@ router.beforeEach(async (to, from, next) => {
           appStore.setEditButtons(true);
 
         }
-        else if (role.name=='grm' ||role.name=='consultant' ){
+        else if (role.name=='grm' || role.name=='consultant' ){
           appStore.setEditButtons(true);
           appStore.setAdminButtons(false);
 
