@@ -2205,8 +2205,33 @@ exports.modelImportGrievances = async (req, res) => {
                     };
 
                     if (officer_emails.length > 0) {
-                    sendEmail(officer_emails, msg);
+                    sendEmail(officer_emails, msg); 
+
                     }
+
+
+                    if (officer_phones.length > 0) {
+                      // Loop through the officer_phones array
+                      officer_phones.forEach(phone => {
+
+                        let msg_obj = {}
+                        msg_obj.message = `This is a system-generated notification to inform you that the grievance assigned to your desk (Ref:${code}, in ${settlement.name}, ${settlement.county.name} County) has exceeded the allowed processing time limit. Kindly take the necessary steps to address this matter promptly.Best regards. System Administrator`;
+                        msg_obj.type = 'Reminder'
+                        msg_obj.phone = phone
+                        msg_obj.grv_code = grievance.code
+                        msg_obj.status = grievance.status
+                        msg_obj.grievance_id = grievance.id
+                       // msg_obj.sender_id = req.body.action_by
+                        msg_obj.status = grievance.status
+                
+                        console.log('Grievance ---->',msg_obj)
+                          // Send SMS to each phone number - Remember to Switch on Later
+                          //  sendNotificationSMS(msg_obj);
+                      });
+                  }
+                  
+                  
+                 
 
                     const escalate_msg = {
                       subject: 'Urgent: Grievance Escalation for Immediate Action',
@@ -2220,6 +2245,32 @@ exports.modelImportGrievances = async (req, res) => {
                     if (superior_emails.length > 0) {
                        sendEmail(superior_emails, escalate_msg);
                     }
+
+
+                    
+                    if (superior_phones.length > 0) {
+                      // Loop through the superior_phones array
+                      superior_phones.forEach(phone => {
+
+                        let msg_obj = {}
+                        msg_obj.message = `This is a system-generated notification to inform you that the grievance assigned to ${officer_names} (Ref: ${code}, located in ${settlement.name},${settlement.county.name} county) has exceeded the allowed processing time. As this grievance has overstayed at the assigned desk, your immediate attention and action are required to address this matter promptly.Best regards,System Administrator`;
+                        msg_obj.type = 'Escalation'
+                        msg_obj.phone = phone
+                        msg_obj.grv_code = grievance.code
+                        msg_obj.status = grievance.status
+                        msg_obj.grievance_id = grievance.id
+                       // msg_obj.sender_id = req.body.action_by
+                        msg_obj.status = grievance.status
+                
+                        console.log('Grievance ---->',msg_obj)
+                          // Send SMS to each phone number - Remember to Switch on Later
+                          //  sendNotificationSMS(msg_obj);
+                      });
+                  }
+                  
+
+
+
                   }
 
 
@@ -2251,16 +2302,48 @@ exports.modelImportGrievances = async (req, res) => {
     //   checkGrievances();
     // });
 
-    // Schedule the function to run every  10 sec
-    // cron.schedule('*/10 * * * * *', () => {
-    //   console.log('Running grievance check... - Ever Min');
-    //   checkGrievances();
-    // });
-
+    // Schedule the function to run every  30 mins
+  //   cron.schedule('*/1 * * * *', () => {
+  //     console.log('Running grievance check... - Every 30 minutes');
+  //     checkGrievances();
+  // });
+  
     
     // Schedule the function to run every  4 hours sec
 
-    cron.schedule('0 */4 * * *', () => {
-      console.log('Running grievance check... - Every 4 Hours');
-      checkGrievances();
-    });
+    // cron.schedule('0 */4 * * *', () => {
+    //   console.log('Running grievance check... - Every 4 Hours');
+    //   checkGrievances();
+    // });
+
+        
+      // Function to schedule the job
+      const scheduleWeeklyJob = () => {
+        // Generate a random day of the week (0 = Sunday, 6 = Saturday)
+        const randomDay = Math.floor(Math.random() * 7);
+
+        // Define the cron schedule for 9:00 AM on the random day
+        const schedule = `0 9 * * ${randomDay}`;
+        console.log(`Scheduling job for 9:00 AM on day ${randomDay} (0=Sunday, 6=Saturday)`);
+
+        // Schedule the job
+        cron.schedule(schedule, () => {
+          console.log(`Running grievance check... - 9:00 AM on day ${randomDay}`);
+          checkGrievances();
+
+          // Reschedule for the next week after the job runs
+          rescheduleJob();
+        });
+      };
+
+      // Function to reschedule the job
+      const rescheduleJob = () => {
+        // Cancel all scheduled tasks
+        cron.getTasks().forEach(task => task.destroy());
+
+        // Schedule a new job
+        scheduleWeeklyJob();
+      };
+
+      // Initial scheduling
+      scheduleWeeklyJob();
