@@ -1063,38 +1063,6 @@ const showEditSaveButton = ref(false)
 const showAddSaveButton = ref(true)
 
 const AddDialogVisible = ref(false)
-const editFacility = (data: TableSlotDefault) => {
-
-
-  push({
-    name: 'AddhealthX',
-    query: { id: data.id }
-
-  });
-
-  // handleSelectCounty(data.county_id)
-
-  // showEditSaveButton.value = true
-
-  // console.log(data)
-
-  // currentRow.value = data.id
-
-  // ruleForm.id = data.id
-  // ruleForm.name = data.name
-  // ruleForm.county_id = data.county_id
-  // ruleForm.settlement_id = data.settlement_id
-  // ruleForm.subcounty_id = data.subcounty_id
-  // ruleForm.facility_type = data.facility_type
-  // ruleForm.reg_status = data.reg_status
-  // ruleForm.level = data.level
-  // ruleForm.ownership_type = data.ownership_type
-  // ruleForm.number_beds = data.number_beds
-  // ruleForm.geom = data.geom
-
-  // morefileList.value = data.documents
-  // AddDialogVisible.value = true
-}
 
 
 
@@ -1610,6 +1578,17 @@ const AddFacility = () => {
   push({
     name: 'AddEducationX'
   })
+}
+
+
+const editFacility = (data: TableSlotDefault) => {
+  push({
+    name: 'AddEducationX',
+    query: { id: data.id }
+
+  });
+
+  
 }
 
 

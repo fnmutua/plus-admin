@@ -561,11 +561,11 @@ db.models.subcounty.hasMany(db.models.sewer, {
 })
 
 
-db.models.water_point.belongsTo(db.models.sewer, {
+db.models.sewer.belongsTo(db.models.ward, {
   foreignKey: 'ward_id'
 })
 
-db.models.sewer.hasMany(db.models.water_point, {
+db.models.ward.hasMany(db.models.sewer, {
   foreignKey: 'ward_id'
 })
 
@@ -599,11 +599,11 @@ db.models.subcounty.hasMany(db.models.piped_water, {
 
  
 
-db.models.water_point.belongsTo(db.models.piped_water, {
+db.models.piped_water.belongsTo(db.models.ward, {
   foreignKey: 'ward_id'
 })
 
-db.models.piped_water.hasMany(db.models.water_point, {
+db.models.ward.hasMany(db.models.piped_water, {
   foreignKey: 'ward_id'
 })
 
@@ -668,11 +668,11 @@ db.models.subcounty.hasMany(db.models.other_facility, {
 })
 
 
-db.models.water_point.belongsTo(db.models.other_facility, {
+db.models.other_facility.belongsTo(db.models.ward, {
   foreignKey: 'ward_id'
 })
 
-db.models.other_facility.hasMany(db.models.water_point, {
+db.models.ward.hasMany(db.models.other_facility, {
   foreignKey: 'ward_id'
 })
 
