@@ -18,6 +18,7 @@ import {
 } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 
+import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
 
 import {
@@ -161,18 +162,21 @@ const options = ref([
     value: 'Approved',
     icon: CircleCheck,
     count: total,
+    disabled: false,
   },
   {
     label: 'New',
     value: 'New',
     icon: Message,
     count: totalNew,
+    disabled: !showAdminButtons.value
   },
   {
     label: 'Rejected',
     value: 'Rejected',
     icon: CircleClose,
-    count: totalRejected
+    count: totalRejected,
+    disabled: !showAdminButtons.value
   },
 
   {
@@ -180,6 +184,7 @@ const options = ref([
     value: 'Map',
     icon: Position,
     count: total,
+    disabled: false,
 
   },
 ])
@@ -283,6 +288,27 @@ const handleSelectCounty = async (county_id: any) => {
 
 
 
+const statuses = ref([])
+const getSummaryStatus = async () => {
+  const formData = {}
+  formData.model = 'road'
+  formData.summaryFunction = 'count'
+  formData.summaryField = 'isApproved'
+  formData.groupFields = ['isApproved']
+  const response = await getSummarybyFieldFromMultipleIncludes(formData);
+  statuses.value = response.Total.reduce((acc, item) => {
+    acc[item.isApproved] = parseInt(item.count, 10); // Convert count to a number
+    return acc;
+  }, {});
+  console.log('Data xcounty', statuses.value)
+
+  totalRejected.value = statuses.value.Rejected !== undefined ? statuses.value.Rejected : 0;
+  totalNew.value = statuses.value.Pending !== undefined ? statuses.value.Pending : 0;
+  total.value = statuses.value.Approved !== undefined ? statuses.value.Approved : 0;
+
+
+}
+getSummaryStatus()
 
 
 
@@ -1738,9 +1764,9 @@ const editFacility = (data: TableSlotDefault) => {
           </template>
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable />
-          <el-table-column label="Surface" prop="surfaceType" sortable />
-          <el-table-column label="Road Class" prop="rdClass" sortable />
-          <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+        <el-table-column label="Surface" prop="surfaceType" sortable />
+        <el-table-column label="Road Class" prop="rdClass" sortable />
+        <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
             <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
@@ -1782,9 +1808,9 @@ const editFacility = (data: TableSlotDefault) => {
           </template>
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable />
-          <el-table-column label="Surface" prop="surfaceType" sortable />
-          <el-table-column label="Road Class" prop="rdClass" sortable />
-          <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+        <el-table-column label="Surface" prop="surfaceType" sortable />
+        <el-table-column label="Road Class" prop="rdClass" sortable />
+        <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
             <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
@@ -1825,9 +1851,9 @@ const editFacility = (data: TableSlotDefault) => {
           </template>
         </el-table-column>
         <el-table-column label="Name" prop="name" sortable />
-          <el-table-column label="Surface" prop="surfaceType" sortable />
-          <el-table-column label="Road Class" prop="rdClass" sortable />
-          <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+        <el-table-column label="Surface" prop="surfaceType" sortable />
+        <el-table-column label="Road Class" prop="rdClass" sortable />
+        <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
         <el-table-column label="Location" sortable>
           <template #default="scope">
             <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name

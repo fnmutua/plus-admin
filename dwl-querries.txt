@@ -156,6 +156,7 @@ WHERE status = 'Closed';
 
 ALTER TABLE grievance_notification ALTER COLUMN message TYPE TEXT;
 
+TRUNCATE TABLE road CASCADE;
 
 
 

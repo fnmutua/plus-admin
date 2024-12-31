@@ -2,7 +2,7 @@
 <script setup lang="ts">
 
 import { getSettlementListByCounty } from '@/api/settlements'
-import {  DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
+import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 
 import { getCountyListApi } from '@/api/counties'
 import {
@@ -18,6 +18,7 @@ import {
 } from '@/api/settlements'
 import { getListWithoutGeo } from '@/api/counties'
 
+import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
 
 import {
@@ -134,7 +135,7 @@ console.log('action_buttons', action_buttons.value);
 console.log("userInfo--->", userInfo)
 console.log("showAdminButtons--->", showAdminButtons.value)
 
- 
+
 
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
@@ -161,18 +162,21 @@ const options = ref([
     value: 'Approved',
     icon: CircleCheck,
     count: total,
+    disabled:false,
   },
   {
     label: 'New',
     value: 'New',
     icon: Message,
     count: totalNew,
+    disabled: !showAdminButtons.value
   },
   {
     label: 'Rejected',
     value: 'Rejected',
     icon: CircleClose,
-    count: totalRejected
+    count: totalRejected,
+    disabled: !showAdminButtons.value
   },
 
   {
@@ -180,11 +184,11 @@ const options = ref([
     value: 'Map',
     icon: Position,
     count: total,
+    disabled:false,
 
   },
 ])
 
- 
 
 
 
@@ -280,6 +284,29 @@ const handleSelectCounty = async (county_id: any) => {
   // Get the select subcoites GEO
 }
 
+
+
+const statuses = ref([])
+const getSummaryStatus = async () => {
+  const formData = {}
+  formData.model = 'health_facility'
+  formData.summaryFunction = 'count'
+  formData.summaryField = 'isApproved'
+  formData.groupFields = ['isApproved']
+  const response = await getSummarybyFieldFromMultipleIncludes(formData);
+  statuses.value = response.Total.reduce((acc, item) => {
+    acc[item.isApproved] = parseInt(item.count, 10); // Convert count to a number
+    return acc;
+  }, {});
+  console.log('Data xcounty', statuses.value)
+
+  totalRejected.value = statuses.value.Rejected !== undefined ? statuses.value.Rejected : 0;
+  totalNew.value = statuses.value.Pending !== undefined ? statuses.value.Pending : 0;
+  total.value = statuses.value.Approved !== undefined ? statuses.value.Approved : 0;
+
+
+}
+getSummaryStatus()
 
 
 
