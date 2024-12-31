@@ -26,7 +26,8 @@
 
           <p class="grievance-message">
             If you have a grievance against the KISIP project or its actors, you can
-            <el-button plain link   class="grievance-email" @click="navigateTo('grm')"> file a grievance  </el-button>, send us an email at
+            <el-button plain link class="grievance-email" @click="navigateTo('grm')"> file a grievance </el-button>,
+            send us an email at
             <a href="mailto:kisip2info@housingandurban.go.ke" class="grievance-email">kisip2info@housingandurban.go.ke
             </a>,
             or call our helpline at
@@ -69,7 +70,14 @@
         <div class="hero-carousel">
           <el-carousel :interval="5000" height="70vh" arrow="always">
             <el-carousel-item v-for="(image, index) in carouselImages" :key="index">
-              <el-image lazy fit="cover" :src="image" class="carousel-image" />
+              <!-- <el-image lazy fit="cover" :src="image" class="carousel-image" /> -->
+              <el-image fit="cover" :src="image" class="carousel-image">
+                <template #placeholder>
+                  <div class="image-slot">Loading<span class="dot">...</span></div>
+                </template>
+              </el-image>
+
+
             </el-carousel-item>
           </el-carousel>
         </div>
