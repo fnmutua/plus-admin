@@ -75,6 +75,7 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
+const thisHistory =ref()
 
 console.log('userInfo.roles',userInfo.roles)
 console.log('isSuperAdmin',isSuperAdmin.value)
@@ -141,11 +142,26 @@ console.log('processedRole >>>s', processedRoles)
  
 // Determine roles_filters generically
 let roles_filters = [];
+let userType ;
 
 if (isSuperAdmin.value) {
   // If the user is a super_admin, no filters are applied
   roles_filters = [];
-} else {
+  userType = "superadmin";
+  showAdminButtons.value=true
+} 
+  else if (processedRoles.some(role => role.role === "admin")) {
+  userType = "admin";
+  showAdminButtons.value=true
+
+} else if (processedRoles.some(role => role.role === "staff")) {
+  userType = "staff";
+  showAdminButtons.value=true
+
+}
+
+
+else {
   // Process filters for all roles with location levels
   const applicableRoles = processedRoles.filter(role => role.model !== "national");
 
@@ -155,9 +171,12 @@ if (isSuperAdmin.value) {
     field: role.field === 'settlement_id' ? 'id' : role.field,  // Ternary operation to adjust 'settlement_id'
     value: role.fieldvalue // Field value
   }));
+
+  showAdminButtons.value=false
 }
 
 console.log('roles_filters >>>>>>', roles_filters)
+console.log('showAdminButtons.value >>>>>>', showAdminButtons.value)
 
 
 
@@ -303,7 +322,7 @@ onMounted(async () => {
 //       }
 //     }
 
-//     clickTab(obj)
+ 
 //   }
 
 // })
@@ -569,9 +588,7 @@ const selectedWard = ref()
 const getNewOrRejectedSettlements = async (tab) => {
 
   loadingGetData.value = true
-
-
-
+ 
 
   if (tab === 'New') {
     filters.value = ['isApproved', 'isActive']
@@ -1018,7 +1035,7 @@ const settlement_raw = ref({})
 
 
 const Review = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.id)
+  console.log('Review .....', data.id)
   ShowReviewDialog.value = true
 
   // make the descriptions dataset 
@@ -1045,6 +1062,46 @@ const Review = (data: TableSlotDefault) => {
 
 
   formHeader.value = "Review Settlement"
+
+}
+
+
+const DeleteReview = async (data: TableSlotDefault) => {
+  console.log('Review .....', data  )
+  ShowReviewDialog.value = true
+ 
+  // Get user who deleted 
+ await getThisHistory(data.history_id)
+
+  console.log('thisHistory',thisHistory.value)
+
+  // make the descriptions dataset 
+  settlement_raw.value.name = data.name
+  settlement_raw.value.area = data.area
+  settlement_raw.value.population = data.population
+  settlement_raw.value.description = data.description
+  settlement_raw.value.date = data.createdAt
+
+
+  settlement_raw.value.user = thisHistory.value[0].user.name  
+  settlement_raw.value.delete_date = thisHistory.value[0].createdAt
+
+  //
+  ruleForm.id = data.id
+  ruleForm.name = data.name
+  ruleForm.county_id = data.county_id
+  ruleForm.subcounty_id = data.subcounty_id
+  ruleForm.ward_id = data.ward_id
+  ruleForm.settlement_type = data.settlement_type
+  ruleForm.population = data.population
+  ruleForm.area = data.area
+  ruleForm.description = data.description
+  ruleForm.code = data.code
+  ruleForm.geom = data.geom
+  fileUploadList.value = data.documents
+
+
+  formHeader.value = "Review Deleted Settlement"
 
 }
 
@@ -2552,7 +2609,9 @@ const options = ref([
     value: 'Duplicates',
     icon: Warning,
     count: duplicateTotal,
-    hidden: false,
+    hidden: false,    
+    hidden: !showAdminButtons.value
+
 
   },
   {
@@ -2573,10 +2632,43 @@ const filteredSegments = computed(() => {
 });
 
 
+const getThisHistory = async (sett_id) => {
+  try {
+    const model = 'settlement_history';
+
+    const formData = {
+      model, 
+      searchField: 'name', 
+      excludeGeom: false,
+      associated_multiple_models: ['users'],
+      filters: [ 'id'],
+      filterValues: [ [sett_id]]
+    };
+
+    console.log("formData", formData);
+
+    // Fetch the history data
+    const res = await getSettlementListByCounty(formData);
+
+    // Check if the response is valid and contains data
+    if (res && res.data) {
+      console.log('History collected........', res.data);
+     
+      thisHistory.value = res.data
+    } else {
+      console.warn("No data found in response.");
+      thisHistory.value = []; // Return an empty array if no data is found
+    }
+  } catch (error) {
+    console.error("Error fetching history:", error.message);
+    throw new Error("Failed to fetch history. Please try again later."); // Rethrow the error for higher-level handling
+  }
+};
+
 
 
 const onSegmentClick = async () => {
-  console.log(activeSegment.value);
+  
 
 
   if (activeSegment.value === "Approved") {
@@ -2645,14 +2737,26 @@ const onSegmentClick = async () => {
   }
 
 
-  else if (activeSegment.value === "Duplicates") {
+
+  if (activeSegment.value != "Duplicates" && activeSegment.value != "Deleted" )  {
+
+    console.log(activeSegment.value);
+
+  console.log('filterValues---filters.value->', filterValues.value, filters.value)
+  showPagination.value = true
+  //getFilteredData(filters.value, filterValues.value)
+  await getNewOrRejectedSettlements(activeSegment.value)
+}
+
+
+    if (activeSegment.value === "Duplicates") {
     getPotentialDuplicates()
     showPagination.value = false
 
   } 
     
    
-  else  if (activeSegment.value === "Deleted") {
+     if (activeSegment.value === "Deleted") {
     
     console.log("Deleted settlements.....")
      showPagination.value = false
@@ -2661,20 +2765,14 @@ const onSegmentClick = async () => {
 
   }
   
-  else {
 
-    console.log('filterValues---filters.value->', filterValues.value, filters.value)
-    showPagination.value = true
-    //getFilteredData(filters.value, filterValues.value)
-    getNewOrRejectedSettlements(activeSegment.value)
-  }
 
 };
 
 
 
 const getSettlmentHistory = async (sett_id) => {
-
+  deletedSettlements.value=[] // EMpty the  deletedSettlements.value first
 const model = 'settlement_history'
 
 const formData = {}
@@ -2721,6 +2819,8 @@ console.log(' tableDataList. ', tableDataList.value)
 
 
 }
+
+
 
 
 
@@ -3081,7 +3181,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
         <el-table-column fixed="right" label="Operations" min-width="120">
           <template  #default="{ row }">
             <el-tooltip content="Review" placement="top">
-              <el-button type="primary" size="small" :icon="View" @click="View(row)"
+              <el-button type="primary" size="small" :icon="View" @click="DeleteReview(row)"
                 plain />
             </el-tooltip> 
             <el-tooltip content="Restore" placement="top">
@@ -3329,9 +3429,14 @@ const RevertEdits = async (data: TableSlotDefault) => {
         <el-descriptions-item label="Description"> {{ settlement_raw.description }} </el-descriptions-item>
         <el-descriptions-item label="Submitted By"> {{ settlement_raw.user }} </el-descriptions-item>
         <el-descriptions-item label="Date"> {{ settlement_raw.date }} </el-descriptions-item>
+
+        <el-descriptions-item   v-if="activeSegment === 'Deleted'"  label="Deleted By"> {{ settlement_raw.user }} </el-descriptions-item>
+        <el-descriptions-item   v-if="activeSegment === 'Deleted'"  label="Date Deleted"> {{ settlement_raw.delete_date }} </el-descriptions-item>
+ 
+
       </el-descriptions>
       <template #footer>
-        <span v-if="showAdminButtons" class="dialog-footer">
+        <span v-if="showAdminButtons &&  activeSegment != 'Deleted'" class="dialog-footer">
           <el-button type="success" @click="approve">Approve</el-button>
           <el-button type="danger" @click="reject">Reject</el-button>
         </span>

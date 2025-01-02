@@ -24,7 +24,7 @@ SET filters = ARRAY[jsonb_build_object(
 
 
 
-DROP TABLE logs CASCADE;
+DROP TABLE settlement_history CASCADE;
 DROP TABLE grievance CASCADE;
 
 
