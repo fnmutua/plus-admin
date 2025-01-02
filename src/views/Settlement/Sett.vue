@@ -9,12 +9,12 @@ import {
   ElTableColumn, UploadUserFile, ElDropdown, ElDropdownMenu, ElDropdownItem, ElStep, ElSteps, ElCheckbox, ElIcon,
 } from 'element-plus'
 import { ElMessage, ElSegmented } from 'element-plus'
-import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning } from '@element-plus/icons-vue'
+import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning,View,RefreshLeft } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
+import { DeleteRecord, updateOneRecord,revertHistory, deleteDocument } from '@/api/settlements'
 
 import { useAppStore } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -51,6 +51,7 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import TableActions from '@/views/Components/TableActions.vue';
+import { getUniqueFieldValues } from '@/api/households';
 
 
 
@@ -73,6 +74,10 @@ const appStore = useAppStore()
 const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
+const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
+
+console.log('userInfo.roles',userInfo.roles)
+console.log('isSuperAdmin',isSuperAdmin.value)
 
 const action_buttons = computed(() => {
   let buttons = [];
@@ -133,12 +138,11 @@ const processedRoles = userInfo.roles.map(role => {
 
 console.log('processedRole >>>s', processedRoles)
 
-const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin");
-
+ 
 // Determine roles_filters generically
 let roles_filters = [];
 
-if (isSuperAdmin) {
+if (isSuperAdmin.value) {
   // If the user is a super_admin, no filters are applied
   roles_filters = [];
 } else {
@@ -337,7 +341,8 @@ const showAddSaveButton = ref(true)
 const formheader = ref('Edit Settlement')
 const duplicateRecords = ref([])
 const duplicateTotal = ref(0)
-
+const deletedSettlements=ref([])
+const deletedSettlementsCount=ref(0)
 
 //let tableDataList = ref<UserType[]>([])
 const tableDataList = ref([])
@@ -405,7 +410,6 @@ const addMoreDocuments = ref(false)
 const onPageChange = async (selPage: any) => {
   page.value = selPage
 
- 
   if (activeSegment.value == 'Approved') {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
     filterValues.value = [[1, 2], ['Approved'], ['true']]  // make sure the inner array is array
@@ -446,7 +450,7 @@ const onPageSizeChange = async (size: any) => {
     filters.value = ['settlement_type', 'isApproved', 'isActive']
     filterValues.value = [[1, 2], ['Rejected'], ['true']]  // make sure the inner array is array
   }
-
+  
 
   if (search_string.value) {
     getFilteredBySearchData(activeSegment.value, search_string.value)
@@ -461,7 +465,6 @@ const onPageSizeChange = async (size: any) => {
 
 
 const clickTab = async (obj) => {
-
   page.value = 1
   activeSegment.value = obj.props.name
   localStorage.setItem('activeSegment', obj.props.name);
@@ -492,6 +495,9 @@ const clickTab = async (obj) => {
     showPagination.value = false
 
   }
+
+ 
+
 
   else {
 
@@ -2525,31 +2531,37 @@ const options = ref([
     value: 'Approved',
     icon: CircleCheck,
     count: totalApproved,
-    disabled: false,
+    hidden: false,
   },
   {
     label: 'New',
     value: 'New',
     icon: Message,
     count: totalPending,
-    disabled: !showAdminButtons.value
+    hidden: !showAdminButtons.value
   },
   {
     label: 'Rejected',
     value: 'Rejected',
     icon: CircleClose,
     count: totalRejected,
-    disabled: !showAdminButtons.value
+    hidden: !showAdminButtons.value
   },
   {
     label: 'Duplicates',
     value: 'Duplicates',
     icon: Warning,
-    count: 0,
-    disabled: false,
+    count: duplicateTotal,
+    hidden: false,
 
   },
-
+  {
+    label: 'Deleted',
+    value: 'Deleted',
+    icon: Delete,
+    count: deletedSettlementsCount,
+    hidden: !isSuperAdmin.value
+  },
 ])
 
 
@@ -2557,7 +2569,7 @@ const options = ref([
 
 
 const filteredSegments = computed(() => {
-  return options.value.filter(option => !option.disabled);
+  return options.value.filter(option => !option.hidden);
 });
 
 
@@ -2589,7 +2601,7 @@ const onSegmentClick = async () => {
   }
 
 
-  if (activeSegment.value === "New") {
+  else if (activeSegment.value === "New") {
 
     var selectOption = 'isApproved'
     if (!filters.value.includes(selectOption)) {
@@ -2611,7 +2623,7 @@ const onSegmentClick = async () => {
   }
 
 
-  if (activeSegment.value === "Rejected") {
+  else if (activeSegment.value === "Rejected") {
 
     var selectOption = 'isApproved'
     if (!filters.value.includes(selectOption)) {
@@ -2633,17 +2645,96 @@ const onSegmentClick = async () => {
   }
 
 
-  if (activeSegment.value === "Duplicates") {
+  else if (activeSegment.value === "Duplicates") {
     getPotentialDuplicates()
     showPagination.value = false
 
-  } else {
+  } 
+    
+   
+  else  if (activeSegment.value === "Deleted") {
+    
+    console.log("Deleted settlements.....")
+     showPagination.value = false
+
+   await getSettlmentHistory()
+
+  }
+  
+  else {
 
     console.log('filterValues---filters.value->', filterValues.value, filters.value)
     showPagination.value = true
     //getFilteredData(filters.value, filterValues.value)
     getNewOrRejectedSettlements(activeSegment.value)
   }
+
+};
+
+
+
+const getSettlmentHistory = async (sett_id) => {
+
+const model = 'settlement_history'
+
+const formData = {}
+formData.model = model
+//-Search field--------------------------------------------
+formData.searchField = 'name'
+formData.excludeGeom = false
+formData.associated_multiple_models = ['users']
+
+//--Single Filter -----------------------------------------
+
+
+// - multiple filters -------------------------------------
+formData.filters = ['change_type','status' ]
+formData.filterValues = [['Delete'],['Open']]
+
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+//-------------------------
+console.log("formData", formData)
+//console.log(formData)
+const res = await getSettlementListByCounty(formData)
+
+console.log('History collected........', res.data)
+ // Initialize deleted settlements
+ 
+// Process each element in the response
+res.data.forEach((item) => {
+  const beforeObject = item.changes?.before; // Extract the "before" object if it exists
+  if (beforeObject) {
+    // Add the history_id to the beforeObject
+    beforeObject.history_id = item.id;
+    
+    // Push the updated beforeObject to deletedSettlements
+    deletedSettlements.value.push(beforeObject);
+  }
+});
+
+ 
+deletedSettlementsCount.value = deletedSettlements.value.length;
+
+console.log(' deletedSettlementsCount.value . ', deletedSettlementsCount.value )
+console.log(' tableDataList. ', tableDataList.value)
+
+
+}
+
+
+
+const RevertEdits = async (data: TableSlotDefault) => {
+  console.log('Reverts.....', data)
+
+  const formData = {
+    model: 'settlement',
+    history_id: data.history_id,
+  };
+
+ const res = await revertHistory(formData);
+ console.log('Reverts success.....', res.data)
+
 
 };
 
@@ -2830,7 +2921,9 @@ const onSegmentClick = async () => {
 
       </el-table>
 
-
+      <ElPagination   layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalApproved" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
     </div>
 
@@ -2893,7 +2986,9 @@ const onSegmentClick = async () => {
         </el-table-column>
 
       </el-table>
-
+      <ElPagination   layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalPending" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </div>
 
     <div v-if="activeSegment === 'Rejected'">
@@ -2957,15 +3052,53 @@ const onSegmentClick = async () => {
       </el-table>
 
 
+      <ElPagination  layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalRejected" :background="true"
+      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    </div>
+
+
+    <div v-if="activeSegment === 'Deleted'">
+      <el-table :data="deletedSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
+        <el-table-column type="index" width="50" />
+        <el-table-column label="Name" width="200" prop="name" sortable />     
+        <el-table-column label="Population" prop="population" sortable />
+        <el-table-column label="Area(HA)" prop="area" sortable />
+        <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+        <el-table-column label="Code" prop="code" sortable>
+          <template #default="{ row }">
+            <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+              <span>{{ row.code }}</span>
+              <el-tooltip class="item" effect="dark" content="Copy" placement="top">
+                <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle plain
+                  style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
+                  @click="copyToClipboard(row.code)" />
+              </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column fixed="right" label="Operations" min-width="120">
+          <template  #default="{ row }">
+            <el-tooltip content="Review" placement="top">
+              <el-button type="primary" size="small" :icon="View" @click="View(row)"
+                plain />
+            </el-tooltip> 
+            <el-tooltip content="Restore" placement="top">
+            <el-button type="warning"  size="small" :icon="RefreshLeft" @click="RevertEdits(row)" />
+          </el-tooltip> 
+          </template>
+    </el-table-column>
+
+      </el-table>
+
+     
 
     </div>
 
 
 
-
-    <ElPagination v-if="showPagination" layout="sizes, prev, pager, next, total" v-model:currentPage="page"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+ 
 
 
 

@@ -11,7 +11,7 @@ module.exports = function (sequelize, DataTypes) {
         },
         settlement_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
+          allowNull: true
         },
         changed_by: {
           type: DataTypes.INTEGER,
@@ -20,6 +20,15 @@ module.exports = function (sequelize, DataTypes) {
         changes: {
           type: DataTypes.JSONB,
           allowNull: false
+        },
+        
+        change_type: {
+          type: DataTypes.STRING,
+          defaultValue: 'Edit'
+        },
+        status: {
+          type: DataTypes.STRING,
+          defaultValue: 'Open'
         },
         created_at: {
           type: DataTypes.DATE,

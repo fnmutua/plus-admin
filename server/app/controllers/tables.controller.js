@@ -1672,10 +1672,9 @@ exports.modelEditOneRecord = (req, res) => {
       }
      
       if (reg_model === 'settlement' ) { 
-        updateHistory(result.id,req.body,req.thisUser.id)
+
+        updateHistory(result.id,req.body,req.thisUser.id,'Edit')
         updateSettlementDataInODK(result)
-
-
       }
 
 
@@ -1806,6 +1805,13 @@ exports.modelDeleteOneRecord = async (req, res) => {
       const associationName = associations[i];
       const association = model.associations[associationName];
 
+       // Ignore settlement_history associations
+      if (associationName === 'settlement_histories') {
+ 
+        continue;
+      }
+
+
       
       let dependentRowsCount = 0;
       const associationType = association.associationType;
@@ -1819,7 +1825,7 @@ exports.modelDeleteOneRecord = async (req, res) => {
           }
         });
     
-        console.log('dependentRowsCount', dependentRowsCount);
+        console.log('dependentRowsCount', dependentRowsCount,associationName);
       } else {
         dependentRowsCount = 0;
       }
@@ -1840,6 +1846,8 @@ exports.modelDeleteOneRecord = async (req, res) => {
     logEvents(del_event)
   
     if (modelName == 'settlement') { 
+      updateHistory(record.id, record, req.thisUser.id, 'Delete');
+
       deleteSettlementDataFromODK(record)
 
     }
@@ -2049,15 +2057,25 @@ exports.modelDeleteRecords = async (req, res) => {
       where: whereCondition
     });
 
+   
+
     // Perform any additional actions based on the model type
-    if (modelName === 'settlement') {
-      // Fetch the deleted records to pass to the deleteSettlementDataFromODK function
-      const deletedRecords = await model.findAll({
-        where: whereCondition
-      });
-      
-      deletedRecords.forEach(record => deleteSettlementDataFromODK(record));
-    }
+      if (modelName === 'settlement') {
+        // Fetch the deleted records to pass to the deleteSettlementDataFromODK function
+        const deletedRecords = await model.findAll({
+          where: whereCondition,
+        });
+
+        deletedRecords.forEach((record) => {
+          // Delete the settlement data from ODK
+          deleteSettlementDataFromODK(record);
+
+          // Update history for each record
+          updateHistory(record.id, req.body, req.thisUser.id, 'Delete');
+        });
+      }
+
+
 
     del_event.status='Successful'
     logEvents(del_event)
@@ -3276,6 +3294,7 @@ exports.getFieldQUnique = async (req, res) => {
 
 
 const multer = require('multer');
+const settlement_history = require('../models/settlement_history')
 
 const uploadDir = '/data/uploads';
 
@@ -4358,7 +4377,7 @@ async function sendSettDataToODK(settArray) {
 // Function to send a POST request with the array of JSON objects
 async function deleteSettlementDataFromODK(settToDelete) {
 
-  console.log("here to delete the settlement from ODK")
+  console.log("here to delete the settlement from ODK",)
   // Construct the request body as a JSON object
   const requestBody = {
     email: 'kisip.mis@gmail.com',
@@ -4393,17 +4412,18 @@ async function deleteSettlementDataFromODK(settToDelete) {
       }, function (error, response, body) {
         
         if (!error && response.statusCode === 200) {
-          console.log(body)
+         // console.log(body)
           let entities = JSON.parse(body);
 
-          console.log(entities)
+        //  console.log(entities)
 
           const targetCode =settToDelete.code; // The code you want to filter by
 
  
           const filteredEntity = entities.value.filter(item => item.code === targetCode);
-          console.log("filteredEntity",filteredEntity,settToDelete.code )
+         // console.log("filteredEntity",filteredEntity,settToDelete.code )
 
+          
           // Now we have the entity - Delete it from dataasets
          //   /projects/16/datasets/people/entities/54a405a0-53ce-4748-9788-d23a30cc3afa
           // delete only if such an entiry is found 
@@ -4420,7 +4440,7 @@ async function deleteSettlementDataFromODK(settToDelete) {
             },
               function (error, response, body) { 
                 console.log('Delete Successful')
-                console.log(response)
+              //  console.log(response)
               }
             )
           }
@@ -6186,7 +6206,7 @@ exports.batchDocumentsUploadCover = (req, res) => {
 
  
 
-async function updateHistory(settlementId, updatedData, userId) {
+async function xupdateHistory(settlementId, updatedData, userId,change_type) {
   const settlement = await db.models.settlement.findByPk(settlementId);
   if (!settlement) {
     throw new Error('Settlement not found');
@@ -6198,6 +6218,7 @@ async function updateHistory(settlementId, updatedData, userId) {
   await db.models.settlement_history.create({
     settlement_id: settlementId,
     changed_by: userId,
+    change_type: change_type,
     changes: {
       before: originalData,
       after: updatedData
@@ -6208,9 +6229,39 @@ async function updateHistory(settlementId, updatedData, userId) {
   return await settlement.update(updatedData);
 }
 
+async function updateHistory(settlementId, updatedData, userId, change_type) {
+  let originalData;
+
+  if (change_type === 'Delete') {
+    // Use updatedData as both "before" and "after" since the settlement won't be found
+    originalData = updatedData;
+  } else {
+    const settlement = await db.models.settlement.findByPk(settlementId);
+    if (!settlement) {
+      throw new Error('Settlement not found');
+    }
+    originalData = settlement.toJSON();
+  }
+
+  // Save changes in history
+  await db.models.settlement_history.create({
+    settlement_id:  change_type === 'Delete' ? null : settlementId,
+    changed_by: userId,
+    change_type: change_type,
+    changes: {
+      before: originalData,
+      after: change_type === 'Delete' ? originalData : updatedData,
+    },
+  });
+
+  // Update the settlement record if not a delete operation
+  if (change_type !== 'Delete') {
+    return await db.models.settlement.update(updatedData, { where: { id: settlementId } });
+  }
+}
 
 
-exports.revertEdits = async (req, res) => {
+exports.xrevertEdits = async (req, res) => {
   const {history_id } = req.body;
   try {
     const history = await db.models.settlement_history.findByPk(history_id);
@@ -6237,5 +6288,58 @@ exports.revertEdits = async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.revertEdits = async (req, res) => {
+  const { history_id } = req.body;
+
+  try {
+    // Find the history record by primary key
+    const history = await db.models.settlement_history.findByPk(history_id);
+    if (!history) {
+      throw new Error('History record not found');
+    }
+
+    const { settlement_id, changes } = history;
+
+    // Check if the settlement exists
+    let settlement = await db.models.settlement.findByPk(settlement_id);
+    if (!settlement) {
+      // If the settlement was deleted, recreate it using the "before" data
+      settlement = await db.models.settlement.create({
+        id: settlement_id, // Preserve the original settlement ID if necessary
+        ...changes.before, // Use the "before" data from the history
+      });
+
+      await history.update({ status: 'Reverted' }); // Update history status
+      console.log('history.update')
+
+      
+      return res.status(200).send({
+        message: 'Deleted settlement restored successfully.',
+        code: '0000',
+      });
+    }
+
+    // If the settlement exists, update it to its previous state
+    await settlement.update(changes.before);
+    console.log('settlement.update')
+ 
+    await history.update({ status: 'Reverted' }); // Update history status
+    console.log('history.update')
+
+    res.status(200).send({
+      message: 'Changes reverted successfully.',
+      code: '0000',
+    });
+  } catch (error) {
+    // console.log(error)
+   // res.status(500).json({ error: error.message });
+    res.status(500).send({
+      message: 'An error occurred while reverting edits.' +  error.message ,
+      code: '0004',
+    });
+
   }
 };

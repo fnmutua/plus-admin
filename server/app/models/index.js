@@ -1629,6 +1629,8 @@ db.models.article.hasMany(db.models.document, {
 
 db.models.settlement_history.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id',
+  onDelete: 'SET NULL', // Ensures the foreign key is set to NULL when the parent is deleted
+
 })
 
 db.models.settlement.hasMany(db.models.settlement_history, {
@@ -1638,6 +1640,8 @@ db.models.settlement.hasMany(db.models.settlement_history, {
 
 db.models.settlement_history.belongsTo(db.models.users, {
   foreignKey: 'changed_by',
+  onDelete: 'SET NULL', // Ensures the foreign key is set to NULL when the parent is deleted
+
 })
 
 db.models.users.hasMany(db.models.settlement_history, {
