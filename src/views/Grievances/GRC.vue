@@ -192,6 +192,7 @@ const extractData = async (dataArray) => {
       npct_representative: data.grp_certification?.npct_representative || "N/A",
       date: data.date || "N/A",
       settlement_code: data.pcode || "N/A",
+      submitter: data.meta.submitterName || "N/A",
       submissionID: data.meta_instanceID
     };
 
@@ -398,7 +399,7 @@ const selectedAttributes = [
   'mobile',
   'grc_position',
   'category',
-  'npct_representative',
+  'submitter',
 ];
 
 
@@ -462,7 +463,7 @@ const filteredData = computed(() => {
       const telephoneMatch = data.mobile?.toLowerCase().includes(searchTerm);
       const idMatch = data.national_id?.toLowerCase().includes(searchTerm);
       const postTMatch = data.grc_position?.toLowerCase().includes(searchTerm);
-      const NPCTMatch = data.npct_representative?.toLowerCase().includes(searchTerm);
+      const NPCTMatch = data.submitter?.toLowerCase().includes(searchTerm);
 
       return countyMatch && settlementMatch && (nameMatch || settlementTermMatch || telephoneMatch || idMatch || NPCTMatch || postTMatch);
     }

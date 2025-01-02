@@ -167,6 +167,7 @@ const extractData = async (dataArray) => {
       npct_representative: data.grp_certification?.npct_representative || "N/A",
       date: data.date || "N/A",
       settlement: data.settlement_name || "N/A",
+      submitter: data.meta.submitterName || "N/A",
     };
 
     // Check if sec_officials array exists in each data object
@@ -297,7 +298,7 @@ const selectedAttributes = [
   'national_id',
   'mobile',
   'category',
-  'npct_representative',
+  'submitter',
 ];
 
 
@@ -363,7 +364,7 @@ const filteredData = computed(() => {
       const settlementTermMatch = data.settlement?.toLowerCase().includes(searchTerm);
       const telephoneMatch = data.mobile?.toLowerCase().includes(searchTerm);
       const idMatch = data.national_id?.toLowerCase().includes(searchTerm);
-      const NPCTMatch = data.npct_representative?.toLowerCase().includes(searchTerm);
+      const NPCTMatch = data.submitter?.toLowerCase().includes(searchTerm);
 
       return countyMatch && settlementMatch && (nameMatch || settlementTermMatch || telephoneMatch || idMatch || NPCTMatch);
     }

@@ -847,6 +847,7 @@ exports.modelGetSubmissions = (req, res) => {
       });
 
 
+          //console.log('SEC data....',objs)
           // Retrieve entities
           let entities = await getEntities(token, project);
          // console.log(entities)
@@ -872,6 +873,7 @@ exports.modelGetSubmissions = (req, res) => {
             sec_officials: submission.sec_officials,
             grc_officials: submission.grc_officials,
             meta_instanceID: submission.meta?.instanceID,
+            meta : submission.__system,
             settlement_name: entitiesMap.get(submission.group_location.pcode) || 'Unknown', // Append settlement name
           };
         });
