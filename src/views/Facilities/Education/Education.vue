@@ -1621,6 +1621,11 @@ const editFacility = (data: TableSlotDefault) => {
 }
 
 
+const filteredSegments = computed(() => {
+  return options.value.filter(option => !option.disabled);
+});
+
+
 
 </script>
 
@@ -1708,7 +1713,7 @@ const editFacility = (data: TableSlotDefault) => {
 
     <div class="custom-style">
 
-      <el-segmented v-model="activeSegment" :options="options" block :onChange="onSegmentClick">
+      <el-segmented v-model="activeSegment" :options="filteredSegments" block :onChange="onSegmentClick">
         <template #default="{ item }">
           <div class="flex flex-col items-center gap-2 p-2">
             <el-icon size="18">
