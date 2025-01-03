@@ -4927,392 +4927,16 @@ function calculateSimilarity(str1, str2) {
   return maxLength === 0 ? 1 : 1 - (distance / maxLength);
 }
 
-exports.p2findPotentialDuplicates = async (req, res) => {
-  console.log('Req-body for duplicates:', req.body);
+ 
 
-  const { model, fields } = req.body;
-  const similarityThreshold = 0.9;
-
-  // Input validation
-  if (!model || !fields || fields.length === 0) {
-    return res.status(400).send({
-      message: 'Invalid input data. Model and fields are required.',
-      code: 'INVALID_INPUT'
-    });
-  }
-
-  // Check if the model exists in the database
-  if (!db.models[model]) {
-    return res.status(400).send({
-      message: 'Specified model does not exist.',
-      code: 'MODEL_NOT_FOUND'
-    });
-  }
-
-  // Prepare the SQL query
-  const selectFields = fields.join(', ');
-  const baseQuery = `SELECT ${selectFields}, id FROM public.${model}`;
-
-  // Execute the query to get records
-  const records = await db.sequelize.query(baseQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-  // Group potential duplicates
-  const groupedDuplicates = records.reduce((acc, recordA) => {
-    // Check for similar records
-    const similarRecords = records.filter(recordB => 
-      recordA.id !== recordB.id && 
-      fields.reduce((similaritySum, field) => 
-        similaritySum + calculateSimilarity(recordA[field], recordB[field]), 0) / fields.length >= similarityThreshold
-    );
-
-    // Only add if there are similar records
-    if (similarRecords.length > 0) {
-      // Create a group with recordA and its similarRecords
-      acc.push([recordA, ...similarRecords]);
-    }
-
-    return acc;
-  }, []);
-
-  // Filter out groups with only one record
-  const validGroups = groupedDuplicates.filter(group => group.length > 1);
-
-  // Send response with grouped duplicates
-  res.status(200).send({
-    data: validGroups,
-    total: validGroups.length,
-    code: '0000'
-  });
-};
-
-
-exports.p3findPotentialDuplicates = async (req, res) => {
-  console.log('Req-body for duplicates:', req.body);
-
-  const { model, fields, associated_model } = req.body; // single associated model
-  const similarityThreshold = 0.9;
-
-  // Input validation
-  if (!model || !fields || fields.length === 0) {
-      return res.status(400).send({
-          message: 'Invalid input data. Model and fields are required.',
-          code: 'INVALID_INPUT'
-      });
-  }
-
-  // Check if the model exists in the database
-  if (!db.models[model]) {
-      return res.status(400).send({
-          message: 'Specified model does not exist.',
-          code: 'MODEL_NOT_FOUND'
-      });
-  }
-
-  // Prepare the SQL query
-  const selectFields = [...fields, 'id'].join(', ');
-  const baseQuery = `SELECT ${selectFields} FROM public.${model}`;
-
-  // Execute the query to get records
-  const records = await db.sequelize.query(baseQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-  // Group potential duplicates
-  const groupedDuplicates = records.reduce((acc, recordA) => {
-      const similarRecords = records.filter(recordB => 
-          recordA.id !== recordB.id && 
-          fields.reduce((similaritySum, field) => 
-              similaritySum + calculateSimilarity(recordA[field], recordB[field]), 0) / fields.length >= similarityThreshold
-      );
-
-      if (similarRecords.length > 0) {
-          acc.push([recordA, ...similarRecords]);
-      }
-
-      return acc;
-  }, []);
-
-  const validGroups = groupedDuplicates.filter(group => group.length > 1);
-
-  // If there is an associated model, fetch its data
-  if (associated_model) {
-      const associatedPromises = validGroups.map(async group => {
-          const firstRecord = group[0];
-
-          if (!db.models[associated_model]) {
-              throw new Error(`Associated model ${associated_model} does not exist.`);
-          }
-
-          // Fetch associated model data
-          const associatedData = await db.models[associated_model].findOne({
-              where: {
-                  id: firstRecord.county_id // Adjust this based on the correct field
-              }
-          });
-
-          // Destructure to exclude 'geom' attribute
-          const { geom, ...associatedAttributes } = associatedData.get({ plain: true });
-
-          // Construct the response for this group
-          return {
-              ...associatedAttributes, // Spread all associated attributes except 'geom'
-              duplicates: group
-          };
-      });
-
-      const duplicatesWithAssociatedData = await Promise.all(associatedPromises);
-      
-      return res.status(200).send({
-          data: duplicatesWithAssociatedData,
-          total: duplicatesWithAssociatedData.length,
-          code: '0000'
-      });
-  }
-
-  res.status(200).send({
-      data: validGroups,
-      total: validGroups.length,
-      code: '0000'
-  });
-};
-
+ 
 
 
  
  
-exports.p4findPotentialDuplicates = async (req, res) => {
-    console.log('Req-body for duplicates:', req.body);
-
-    const { model, fields, associated_model } = req.body; // single associated model
-    const similarityThreshold = 0.9;
-
-    // Input validation
-    if (!model || !fields || fields.length === 0) {
-        return res.status(400).send({
-            message: 'Invalid input data. Model and fields are required.',
-            code: 'INVALID_INPUT'
-        });
-    }
-
-    // Check if the model exists in the database
-    if (!db.models[model]) {
-        return res.status(400).send({
-            message: 'Specified model does not exist.',
-            code: 'MODEL_NOT_FOUND'
-        });
-    }
-
-    // Prepare the SQL query
-    const selectFields = [...fields, 'id'].join(', ');
-    const baseQuery = `SELECT ${selectFields} FROM public.${model}`;
-
-    // Execute the query to get records
-    const records = await db.sequelize.query(baseQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-    // Group potential duplicates
-    const groupedDuplicates = records.reduce((acc, recordA) => {
-        const similarRecords = records.filter(recordB => 
-            recordA.id !== recordB.id && 
-            fields.reduce((similaritySum, field) => 
-                similaritySum + calculateSimilarity(recordA[field], recordB[field]), 0) / fields.length >= similarityThreshold
-        );
-
-        if (similarRecords.length > 0) {
-            acc.push([recordA, ...similarRecords]);
-        }
-
-        return acc;
-    }, []);
-
-    const validGroups = groupedDuplicates.filter(group => group.length > 1);
-
-    // If there is an associated model, fetch its data
-    if (associated_model) {
-        const associatedPromises = validGroups.map(async group => {
-            const firstRecord = group[0];
-            const uniqueCode = uuidv4(); // Generate unique code for the group
-
-            if (!db.models[associated_model]) {
-                throw new Error(`Associated model ${associated_model} does not exist.`);
-            }
-
-            // Fetch associated model data
-            const associatedData = await db.models[associated_model].findOne({
-                where: {
-                    id: firstRecord.county_id // Adjust this based on the correct field
-                }
-            });
-
-            // Destructure to exclude 'geom' attribute
-            const { geom, ...associatedAttributes } = associatedData.get({ plain: true });
-
-            // Construct the response for this group with unique code for each duplicate
-            const duplicatesWithCodes = group.map(duplicate => ({
-                uniqueCode: uniqueCode, // Assign the same unique code to all duplicates in this group
-                name: duplicate.name,
-                county_id: duplicate.county_id,
-                id: duplicate.id
-            }));
-
-            return {
-                ...associatedAttributes, // Spread all associated attributes except 'geom'
-                duplicates: duplicatesWithCodes
-            };
-        });
-
-        const duplicatesWithAssociatedData = await Promise.all(associatedPromises);
-        
-        return res.status(200).send({
-            data: duplicatesWithAssociatedData,
-            total: duplicatesWithAssociatedData.length,
-            code: '0000'
-        });
-    }
-
-    // For groups without associated model data
-    const responseData = validGroups.map(group => {
-        const uniqueCode = uuidv4(); // Generate unique code for the group
-
-        return {
-            duplicates: group.map(duplicate => ({
-                uniqueCode: uniqueCode, // Assign the same unique code to all duplicates in this group
-                name: duplicate.name,
-                county_id: duplicate.county_id,
-                id: duplicate.id
-            }))
-        };
-    });
-
-    res.status(200).send({
-        data: responseData,
-        total: responseData.length,
-        code: '0000'
-    });
-};
 
 
  
-exports.p5findPotentialDuplicates = async (req, res) => {
-    console.log('Req-body for duplicates:', req.body);
-
-    const { model, fields, associated_model } = req.body; // single associated model
-    const similarityThreshold = 0.9;
-
-    // Input validation
-    if (!model || !fields || fields.length === 0) {
-        return res.status(400).send({
-            message: 'Invalid input data. Model and fields are required.',
-            code: 'INVALID_INPUT'
-        });
-    }
-
-    // Check if the model exists in the database
-    if (!db.models[model]) {
-        return res.status(400).send({
-            message: 'Specified model does not exist.',
-            code: 'MODEL_NOT_FOUND'
-        });
-    }
-
-    // Prepare the SQL query
-    const selectFields = [...fields, 'id', 'county_id'].join(', '); // Include county_id for grouping
-    const baseQuery = `SELECT ${selectFields} FROM public.${model}`;
-
-    // Execute the query to get records
-    const records = await db.sequelize.query(baseQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-    // Group potential duplicates
-    const groupedDuplicates = records.reduce((acc, recordA) => {
-        const similarRecords = records.filter(recordB => 
-            recordA.id !== recordB.id && 
-            fields.reduce((similaritySum, field) => 
-                similaritySum + calculateSimilarity(recordA[field], recordB[field]), 0) / fields.length >= similarityThreshold
-        );
-
-        if (similarRecords.length > 0) {
-            acc.push([recordA, ...similarRecords]);
-        }
-
-        return acc;
-    }, []);
-
-    const validGroups = groupedDuplicates.filter(group => group.length > 1);
-
-    // If there is an associated model, fetch its data
-    if (associated_model) {
-        const associatedPromises = validGroups.map(async group => {
-            const firstRecord = group[0];
-            const uniqueCode = uuidv4(); // Generate unique code for the group
-
-            if (!db.models[associated_model]) {
-                throw new Error(`Associated model ${associated_model} does not exist.`);
-            }
-
-            // Fetch associated model data
-            const associatedData = await db.models[associated_model].findOne({
-                where: {
-                    id: firstRecord.county_id // Adjust this based on the correct field
-                }
-            });
-
-            // Destructure to exclude 'geom' attribute
-            const { geom, ...associatedAttributes } = associatedData.get({ plain: true });
-
-            // Construct the response for this group with unique code for each duplicate
-            const duplicatesWithCodes = group.map(duplicate => ({
-                uniqueCode: uniqueCode, // Assign the same unique code to all duplicates in this group
-                name: duplicate.name,
-                county_id: duplicate.county_id,
-                id: duplicate.id
-            }));
-
-            return {
-                countyName: associatedAttributes.name, // Assuming name is the field you want to group by
-                 duplicates: duplicatesWithCodes
-            };
-        });
-
-        const duplicatesWithAssociatedData = await Promise.all(associatedPromises);
-        
-        // Group duplicates by county name
-        const groupedByCounty = duplicatesWithAssociatedData.reduce((acc, current) => {
-            const countyName = current.countyName;
-            if (!acc[countyName]) {
-                acc[countyName] = {
-                    countyName,
-                    uniqueCode: current.uniqueCode,
-                    duplicates: []
-                };
-            }
-            acc[countyName].duplicates.push(...current.duplicates);
-            return acc;
-        }, {});
-
-        return res.status(200).send({
-            data: Object.values(groupedByCounty), // Convert object to array for response
-            total: Object.values(groupedByCounty).length,
-            code: '0000'
-        });
-    }
-
-    // For groups without associated model data
-    const responseData = validGroups.map(group => {
-        const uniqueCode = uuidv4(); // Generate unique code for the group
-
-        return {
-            duplicates: group.map(duplicate => ({
-                uniqueCode: uniqueCode, // Assign the same unique code to all duplicates in this group
-                name: duplicate.name,
-                county_id: duplicate.county_id,
-                id: duplicate.id
-            }))
-        };
-    });
-
-    res.status(200).send({
-        data: responseData,
-        total: responseData.length,
-        code: '0000'
-    });
-};
 
 exports.checkPotentialDuplicates = async (req, res) => {
   console.log(req.thisUser.id);
@@ -5420,156 +5044,12 @@ exports.checkPotentialDuplicates = async (req, res) => {
 };
 
  
-exports.p6findPotentialDuplicates = async (req, res) => {
-    console.log('Req-body for duplicates:', req.body);
+ 
 
-    const { model, fields, associated_model, foreignKey, displayField } = req.body; // single associated model
-    const similarityThreshold = 0.9;
-
-    // Input validation
-    if (!model || !fields || fields.length === 0) {
-        return res.status(400).send({
-            message: 'Invalid input data. Model and fields are required.',
-            code: 'INVALID_INPUT'
-        });
-    }
-
-    // Check if the model exists in the database
-    if (!db.models[model]) {
-        return res.status(400).send({
-            message: 'Specified model does not exist.',
-            code: 'MODEL_NOT_FOUND'
-        });
-    }
-
-
-    try {
-        // Prepare the SQL query
-    const selectFields = [...fields, 'id', foreignKey].join(', '); // Include foreign key for grouping
-    const baseQuery = `SELECT ${selectFields} FROM public.${model}`;
-
-    // Execute the query to get records
-    const records = await db.sequelize.query(baseQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-    // Group potential duplicates
-    const groupedDuplicates = records.reduce((acc, recordA) => {
-        const similarRecords = records.filter(recordB => 
-            recordA.id !== recordB.id && 
-            fields.reduce((similaritySum, field) => 
-                similaritySum + calculateSimilarity(recordA[field], recordB[field]), 0) / fields.length >= similarityThreshold
-        );
-
-        if (similarRecords.length > 0) {
-            acc.push([recordA, ...similarRecords]);
-        }
-
-        return acc;
-    }, []);
-
-    const validGroups = groupedDuplicates.filter(group => group.length > 1);
-
-    // If there is an associated model, fetch its data
-    if (associated_model) {
-        const associatedPromises = validGroups.map(async group => {
-            const firstRecord = group[0];
-            const uniqueCode = uuidv4(); // Generate unique code for the group
-
-            if (!db.models[associated_model]) {
-                throw new Error(`Associated model ${associated_model} does not exist.`);
-            }
-
-            // Fetch associated model data using the foreign key
-            const associatedData = await db.models[associated_model].findOne({
-                where: {
-                    id: firstRecord[foreignKey] // Adjust to use the dynamic foreign key
-                }
-            });
-
-            // Check if associated data is found
-            if (!associatedData) {
-                throw new Error(`No associated data found for ID: ${firstRecord[foreignKey]}`);
-            }
-
-            // Destructure to exclude 'geom' attribute if it exists
-            const { geom, ...associatedAttributes } = associatedData.get({ plain: true });
-
-            // Construct the response for this group with unique code for each duplicate
-            const duplicatesWithCodes = group.map(duplicate => ({
-                uniqueCode: uniqueCode, // Assign the same unique code to all duplicates in this group
-                name: duplicate.name,
-                [foreignKey]: duplicate[foreignKey],
-                id: duplicate.id
-            }));
-
-            return {
-                [displayField]: associatedAttributes[displayField], // Dynamically use the display field
-                duplicates: duplicatesWithCodes
-            };
-        });
-
-        const duplicatesWithAssociatedData = await Promise.all(associatedPromises);
-        
-        // Group duplicates by associated field name
-        const groupedByAssociatedField = duplicatesWithAssociatedData.reduce((acc, current) => {
-            const associatedFieldValue = current[displayField];
-            if (!acc[associatedFieldValue]) {
-                acc[associatedFieldValue] = {
-                    [displayField]: associatedFieldValue,
-                    //uniqueCode: uuidv4(), // Generate unique code for this group
-                    duplicates: []
-                };
-            }
-            acc[associatedFieldValue].duplicates.push(...current.duplicates);
-            return acc;
-        }, {});
-
-        return res.status(200).send({
-            data: Object.values(groupedByAssociatedField), // Convert object to array for response
-            total: Object.values(groupedByAssociatedField).length,
-            code: '0000'
-        });
-    }
-
-    
-
-        // For groups without associated model data
-        const responseData = validGroups.map(group => {
-          const uniqueCode = uuidv4(); // Generate unique code for the group
-  
-          return {
-              duplicates: group.map(duplicate => {
-                  const uniqueDuplicate = { uniqueCode }; // Create an object to hold the unique code
-                  fields.forEach(field => {
-                      uniqueDuplicate[field] = duplicate[field]; // Dynamically assign all fields
-                  });
-                  uniqueDuplicate.id = duplicate.id; // Always include the id
-                  return uniqueDuplicate;
-              })
-          };
-      });
-  
-
-    res.status(200).send({
-        data: responseData,
-        total: responseData.length,
-        code: '0000'
-    });
-     
-    } catch (err) {
-      console.error('Error Gettign Duplicates:', err);
-      res.status(500).send('Error Getting Duplicates.');
-    }
-
-
-
-
-  
-};
-
-exports.p7findPotentialDuplicates = async (req, res) => {
+exports.xfindPotentialDuplicates = async (req, res) => {
   console.log('Req-body for duplicates:', req.body);
 
-  const { model, fields, associated_model, foreignKey, displayField } = req.body; // single associated model
+  const { model, fields, associated_model, foreignKey, displayField } = req.body; // Include associated model parameters
   const similarityThreshold = 0.9;
 
   // Input validation
@@ -5588,181 +5068,39 @@ exports.p7findPotentialDuplicates = async (req, res) => {
       });
   }
 
-  try {
-      // Prepare the SQL query
-      const selectFields = [...fields, 'id', foreignKey].join(', '); // Include foreign key for grouping
-      const baseQuery = `SELECT ${selectFields} FROM public.${model}`;
+  // Prepare the SQL query
+  const selectFields = fields.join(', ');
+  const baseQuery = `SELECT  * FROM public.${model}`;
 
-      // Execute the query to get records
-      const records = await db.sequelize.query(baseQuery, { type: db.sequelize.QueryTypes.SELECT });
+  // Execute the query to get records
+  const records = await db.sequelize.query(baseQuery, { type: db.sequelize.QueryTypes.SELECT });
 
-      // Group potential duplicates
-      const groupedDuplicates = records.reduce((acc, recordA) => {
-          const similarRecords = records.filter(recordB => 
-              recordA.id !== recordB.id && 
-              fields.reduce((similaritySum, field) => 
-                  similaritySum + calculateSimilarity(recordA[field], recordB[field]), 0) / fields.length >= similarityThreshold
-          );
+  // Group potential duplicates
+  const groupedDuplicates = records.reduce((acc, recordA) => {
+      // Check for similar records
+      const similarRecords = records.filter(recordB => 
+          recordA.id !== recordB.id && 
+          fields.reduce((similaritySum, field) => 
+              similaritySum + calculateSimilarity(recordA[field], recordB[field]), 0) / fields.length >= similarityThreshold
+      );
 
-          if (similarRecords.length > 0) {
-              acc.push([recordA, ...similarRecords]);
-          }
-
-          return acc;
-      }, []);
-
-      const validGroups = groupedDuplicates.filter(group => group.length > 1);
-
-      // If there is an associated model, fetch its data
-      if (associated_model) {
-          const associatedPromises = validGroups.map(async group => {
-              const firstRecord = group[0];
-              const uniqueCode = uuidv4(); // Generate unique code for the group
-
-              if (!db.models[associated_model]) {
-                  throw new Error(`Associated model ${associated_model} does not exist.`);
-              }
-
-              // Fetch associated model data using the foreign key
-              const associatedData = await db.models[associated_model].findOne({
-                  where: {
-                      id: firstRecord[foreignKey] // Adjust to use the dynamic foreign key
-                  }
-              });
-
-              // Check if associated data is found
-              if (!associatedData) {
-                  throw new Error(`No associated data found for ID: ${firstRecord[foreignKey]}`);
-              }
-
-              // Destructure to exclude 'geom' attribute if it exists
-              const { geom, ...associatedAttributes } = associatedData.get({ plain: true });
-
-              // Construct the response for this group with unique code for each duplicate
-              const duplicatesWithCodes = group.map(duplicate => ({
-                  uniqueCode: uniqueCode, // Assign the same unique code to all duplicates in this group
-                  ...fields.reduce((acc, field) => {
-                      acc[field] = duplicate[field]; // Dynamically assign all fields
-                      return acc;
-                  }, {}),
-                  id: duplicate.id
-              }));
-
-              return {
-                  [displayField]: associatedAttributes[displayField], // Dynamically use the display field
-                  duplicates: duplicatesWithCodes
-              };
-          });
-
-          const duplicatesWithAssociatedData = await Promise.all(associatedPromises);
-          
-          // Group duplicates by associated field name
-          const groupedByAssociatedField = duplicatesWithAssociatedData.reduce((acc, current) => {
-              const associatedFieldValue = current[displayField];
-              if (!acc[associatedFieldValue]) {
-                  acc[associatedFieldValue] = {
-                      [displayField]: associatedFieldValue,
-                      duplicates: []
-                  };
-              }
-              acc[associatedFieldValue].duplicates.push(...current.duplicates);
-              return acc;
-          }, {});
-
-          // Calculate total duplicates
-          const totalDuplicates = Object.values(groupedByAssociatedField)
-              .reduce((sum, group) => sum + group.duplicates.length, 0);
-
-          return res.status(200).send({
-              data: Object.values(groupedByAssociatedField), // Convert object to array for response
-              total: totalDuplicates, // Total number of duplicates
-              code: '0000'
-          });
+      // Only add if there are similar records
+      if (similarRecords.length > 0) {
+          // Create a group with recordA and its similarRecords
+          acc.push([recordA, ...similarRecords]);
       }
 
-      // For groups without associated model data
-      const responseData = validGroups.map(group => {
-          const uniqueCode = uuidv4(); // Generate unique code for the group
+      return acc;
+  }, []);
 
-          return {
-              duplicates: group.map(duplicate => {
-                  const uniqueDuplicate = { uniqueCode }; // Create an object to hold the unique code
-                  fields.forEach(field => {
-                      uniqueDuplicate[field] = duplicate[field]; // Dynamically assign all fields
-                  });
-                  uniqueDuplicate.id = duplicate.id; // Always include the id
-                  return uniqueDuplicate;
-              })
-          };
-      });
+  // Filter out groups with only one record
+  const validGroups = groupedDuplicates.filter(group => group.length > 1);
 
-      // Calculate total duplicates
-      const totalDuplicates = responseData.reduce((sum, group) => sum + group.duplicates.length, 0);
-
-      res.status(200).send({
-          data: responseData,
-          total: totalDuplicates, // Total number of duplicates
-          code: '0000'
-      });
-       
-  } catch (err) {
-      console.error('Error Getting Duplicates:', err);
-      res.status(500).send('Error Getting Duplicates.');
-  }
-};
-
-exports.p8findPotentialDuplicates = async (req, res) => {
-  console.log('Req-body for duplicates:', req.body);
-
-  const { model, fields, associated_model, foreignKey, displayField } = req.body; // single associated model
-  const similarityThreshold = 0.9;
-
-  // Input validation
-  if (!model || !fields || fields.length === 0) {
-      return res.status(400).send({
-          message: 'Invalid input data. Model and fields are required.',
-          code: 'INVALID_INPUT'
-      });
-  }
-
-  // Check if the model exists in the database
-  if (!db.models[model]) {
-      return res.status(400).send({
-          message: 'Specified model does not exist.',
-          code: 'MODEL_NOT_FOUND'
-      });
-  }
-
-  try {
-      // Prepare the SQL query
-      // Fetch all columns from the specified model
-      const baseQuery = `SELECT * FROM public.${model}`;
-
-      // Execute the query to get records
-      const records = await db.sequelize.query(baseQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-      // Group potential duplicates
-      const groupedDuplicates = records.reduce((acc, recordA) => {
-          const similarRecords = records.filter(recordB =>
-              recordA.id !== recordB.id &&
-              fields.reduce((similaritySum, field) =>
-                  similaritySum + calculateSimilarity(recordA[field], recordB[field]), 0) / fields.length >= similarityThreshold
-          );
-
-          if (similarRecords.length > 0) {
-              acc.push([recordA, ...similarRecords]);
-          }
-
-          return acc;
-      }, []);
-
-      const validGroups = groupedDuplicates.filter(group => group.length > 1);
-
-      // If there is an associated model, fetch its data
-      if (associated_model) {
+  // If there is an associated model, fetch its data
+  if (associated_model) {
+      try {
           const associatedPromises = validGroups.map(async group => {
-              const firstRecord = group[0];
-              const uniqueCode = uuidv4(); // Generate unique code for the group
+              const firstRecord = group[0]; // Take the first record to get associated data
 
               if (!db.models[associated_model]) {
                   throw new Error(`Associated model ${associated_model} does not exist.`);
@@ -5780,207 +5118,56 @@ exports.p8findPotentialDuplicates = async (req, res) => {
                   throw new Error(`No associated data found for ID: ${firstRecord[foreignKey]}`);
               }
 
-              // Destructure to exclude 'geom' attribute if it exists
-              const { geom, ...associatedAttributes } = associatedData.get({ plain: true });
-
-              // Construct the response for this group with unique code for each duplicate
-              const duplicatesWithCodes = group.map(duplicate => {
-                  // Spread all properties of the duplicate record and add the unique code
-                  return {
-                      uniqueCode: uniqueCode,
-                      ...duplicate // Include all properties of the duplicate record
-                  };
-              });
-
-              return {
-                  [displayField]: associatedAttributes[displayField], // Dynamically use the display field
-                  duplicates: duplicatesWithCodes
-              };
-          });
-
-          const duplicatesWithAssociatedData = await Promise.all(associatedPromises);
-
-          // Group duplicates by associated field name
-          const groupedByAssociatedField = duplicatesWithAssociatedData.reduce((acc, current) => {
-              const associatedFieldValue = current[displayField];
-              if (!acc[associatedFieldValue]) {
-                  acc[associatedFieldValue] = {
-                      [displayField]: associatedFieldValue,
-                      duplicates: []
-                  };
-              }
-              acc[associatedFieldValue].duplicates.push(...current.duplicates);
-              return acc;
-          }, {});
-
-          // Calculate total duplicates
-          const totalDuplicates = Object.values(groupedByAssociatedField)
-              .reduce((sum, group) => sum + group.duplicates.length, 0);
-
-          return res.status(200).send({
-              data: Object.values(groupedByAssociatedField), // Convert object to array for response
-              total: totalDuplicates, // Total number of duplicates
-              code: '0000'
-          });
-      }
-
-      // For groups without associated model data
-      const responseData = validGroups.map(group => {
-          const uniqueCode = uuidv4(); // Generate unique code for the group
-
-          return {
-              duplicates: group.map(duplicate => {
-                  // Include all properties of the duplicate record and add the unique code
-                  return {
-                      uniqueCode: uniqueCode,
-                      ...duplicate // Spread all properties of the duplicate record
-                  };
-              })
-          };
-      });
-
-      // Calculate total duplicates
-      const totalDuplicates = responseData.reduce((sum, group) => sum + group.duplicates.length, 0);
-
-      res.status(200).send({
-          data: responseData,
-          total: totalDuplicates, // Total number of duplicates
-          code: '0000'
-      });
-
-  } catch (err) {
-      console.error('Error Getting Duplicates:', err);
-      res.status(500).send('Error Getting Duplicates.');
-  }
-};
-
-exports.p9findPotentialDuplicates = async (req, res) => {
-  console.log('Req-body for duplicates:', req.body);
-
-  const { model, fields, associated_model, foreignKey, displayField } = req.body; // single associated model
-  const similarityThreshold = 0.9;
-
-  // Input validation
-  if (!model || !fields || fields.length === 0) {
-      return res.status(400).send({
-          message: 'Invalid input data. Model and fields are required.',
-          code: 'INVALID_INPUT'
-      });
-  }
-
-  // Check if the model exists in the database
-  if (!db.models[model]) {
-      return res.status(400).send({
-          message: 'Specified model does not exist.',
-          code: 'MODEL_NOT_FOUND'
-      });
-  }
-
-  try {
-      // Prepare the SQL query
-      // Fetch all columns from the specified model
-      const baseQuery = `SELECT * FROM public.${model}`;
-
-      // Execute the query to get records
-      const records = await db.sequelize.query(baseQuery, { type: db.sequelize.QueryTypes.SELECT });
-
-      // Group potential duplicates
-      const groupedDuplicates = records.reduce((acc, recordA) => {
-          const similarRecords = records.filter(recordB =>
-              recordA.id !== recordB.id &&
-              fields.reduce((similaritySum, field) =>
-                  similaritySum + calculateSimilarity(recordA[field], recordB[field]), 0) / fields.length >= similarityThreshold
-          );
-
-          if (similarRecords.length > 0) {
-              acc.push([recordA, ...similarRecords]);
-          }
-
-          return acc;
-      }, []);
-
-      const validGroups = groupedDuplicates.filter(group => group.length > 1);
-
-      // If there is an associated model, fetch its data
-      if (associated_model) {
-          const associatedPromises = validGroups.map(async group => {
-              const firstRecord = group[0];
-
-              if (!db.models[associated_model]) {
-                  throw new Error(`Associated model ${associated_model} does not exist.`);
-              }
-
-              // Fetch associated model data using the foreign key
-              const associatedData = await db.models[associated_model].findOne({
-                  where: {
-                      id: firstRecord[foreignKey] // Adjust to use the dynamic foreign key
-                  }
-              });
-
-              // Check if associated data is found
-              if (!associatedData) {
-                  throw new Error(`No associated data found for ID: ${firstRecord[foreignKey]}`);
-              }
-
-              // Destructure to exclude 'geom' attribute if it exists
-              const { geom, ...associatedAttributes } = associatedData.get({ plain: true });
+              // Get the display field value from the associated data
+              const displayValue = associatedData[displayField];
 
               // Construct the response for this group
               return {
-                  [displayField]: associatedAttributes[displayField], // Dynamically use the display field
-                  duplicates: Array.from(new Set(group.map(duplicate => duplicate.id))) // Ensure unique records by ID
-                      .map(uniqueId => group.find(duplicate => duplicate.id === uniqueId))
+                  parent: displayValue, // Include the display field value from the associated model
+                  duplicates: group.map(duplicate => {
+                      // Return all attributes of the duplicate records
+                      return {
+                          ...duplicate // Include all properties of the duplicate record
+                      };
+                  })
               };
           });
 
           const duplicatesWithAssociatedData = await Promise.all(associatedPromises);
 
-          // Group duplicates by associated field name
-          const groupedByAssociatedField = duplicatesWithAssociatedData.reduce((acc, current) => {
-              const associatedFieldValue = current[displayField];
-              if (!acc[associatedFieldValue]) {
-                  acc[associatedFieldValue] = {
-                      [displayField]: associatedFieldValue,
-                      duplicates: []
-                  };
-              }
-              acc[associatedFieldValue].duplicates.push(...current.duplicates);
-              return acc;
-          }, {});
-
           // Calculate total duplicates
-          const totalDuplicates = Object.values(groupedByAssociatedField)
-              .reduce((sum, group) => sum + group.duplicates.length, 0);
+          const totalDuplicates = duplicatesWithAssociatedData.reduce((sum, group) => sum + group.duplicates.length, 0);
 
+          // Send response with grouped duplicates and associated display field value
           return res.status(200).send({
-              data: Object.values(groupedByAssociatedField), // Convert object to array for response
-              total: totalDuplicates, // Total number of duplicates
+              data: duplicatesWithAssociatedData,
+              total: totalDuplicates,
               code: '0000'
           });
+
+      } catch (err) {
+          console.error('Error fetching associated data:', err);
+          return res.status(500).send('Error fetching associated data.');
       }
-
-      // For groups without associated model data
-      const responseData = validGroups.map(group => {
-          return {
-              duplicates: Array.from(new Set(group.map(duplicate => duplicate.id))) // Ensure unique records by ID
-                  .map(uniqueId => group.find(duplicate => duplicate.id === uniqueId))
-          };
-      });
-
-      // Calculate total duplicates
-      const totalDuplicates = responseData.reduce((sum, group) => sum + group.duplicates.length, 0);
-
-      res.status(200).send({
-          data: responseData,
-          total: totalDuplicates, // Total number of duplicates
-          code: '0000'
-      });
-
-  } catch (err) {
-      console.error('Error Getting Duplicates:', err);
-      res.status(500).send('Error Getting Duplicates.');
   }
+
+  // Send response with grouped duplicates if no associated model is provided
+  const responseData = validGroups.map(group => ({
+      duplicates: group.map(duplicate => ({
+          ...duplicate // Include all properties of the duplicate record
+      }))
+  }));
+
+  res.status(200).send({
+      data: responseData,
+      total: validGroups.length,
+      code: '0000'
+  });
 };
+ 
+
+ 
+ 
 
  exports.findPotentialDuplicates = async (req, res) => {
     console.log('Req-body for duplicates:', req.body);
@@ -6010,7 +5197,8 @@ exports.p9findPotentialDuplicates = async (req, res) => {
 
     // Execute the query to get records
     const records = await db.sequelize.query(baseQuery, { type: db.sequelize.QueryTypes.SELECT });
-
+   
+    
     // Group potential duplicates
     const groupedDuplicates = records.reduce((acc, recordA) => {
         // Check for similar records
