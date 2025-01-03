@@ -573,9 +573,9 @@ const getSettlementCount = async () => {
   console.log(approved)
   console.log(rejected)
 
-  totalPending.value = pending.length > 0 ? parseInt(pending[0].count) : 0
-  totalApproved.value = approved.length > 0 ? parseInt(approved[0].count) : 0
-  totalRejected.value = rejected.length > 0 ? parseInt(rejected[0].count) : 0
+  // totalPending.value = pending.length > 0 ? parseInt(pending[0].count) : 0
+  // totalApproved.value = approved.length > 0 ? parseInt(approved[0].count) : 0
+  // totalRejected.value = rejected.length > 0 ? parseInt(rejected[0].count) : 0
 
   console.log('New:', totalPending.value)
   console.log('Approved:', totalApproved.value)
@@ -717,15 +717,15 @@ const getNewOrRejectedSettlements = async (tab) => {
   if (tab == 'New') {
     tableDataListNew.value = res.data
     console.log('New', res.data)
-
+    totalPending.value = res.total
 
   } else if (tab == 'Rejected') {
     tableDataListRejected.value = res.data
-
+    totalRejected.value = res.total
   }
   else {
     tableDataList.value = res.data
-
+    totalApproved.value = res.total
 
     console.log('>>>> ---', tableDataList.value)
 
