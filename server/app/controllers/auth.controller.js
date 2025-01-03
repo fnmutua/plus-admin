@@ -1706,8 +1706,8 @@ exports.signupGRC = async (req, res) => {
       partnerID: '12108',
       shortcode: 'KISIP',
       //message: 'Your registration code is: ' + otpCode + '.',
-      message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
-
+     // message: 'An account has been set up for you to manage Grievances from your settlement. Please download the Slum Mapper app from the Play Store(Android or IOS) and log in using the given OTP: ' + otpCode + '.',
+      message: `Hi ${name}, an account has been set up for you to manage grievances from your settlement. Please download the Slum Mapper app from the Play Store - https://play.google.com/store/apps/details?id=co.ke.ags.slum.mapper  and log in using your phone number. A version for IOS is  available for Iphone users.`,
       mobile: req.body.phone,
     };
 
