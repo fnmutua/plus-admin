@@ -1254,58 +1254,72 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
 
   {
-    path: '/grv',
+    path: '/grm',
     component: Layout,
     redirect: '/grv/open',
     name: 'Grievances',
     meta: {
-      title: 'Grievances',
+      title: 'GRM',
       icon: 'hugeicons:complaint',
-      role: [ 'super_admin', 'grm' ] ,
+      role: [ 'super_admin', 'grm','gbv' ] ,
       locationLevel:['national','county','settlement'],
       alwaysShow: false
     },
     children: [
 
        {
-        path: 'open',
+        path: 'grv',
         component: () => import('@/views/Grievances/Open.vue'),
        name: 'OpenGrievances',
        meta: {
-         title: 'Pending',
+         title: 'Grievances',
          icon:'oui:security-signal',
          role: [  'super_admin', 'grm' ] ,
          locationLevel:['national','county','settlement'],
 
        }
        },
+
+       {
+        path: 'gbv',
+        component: () => import('@/views/Grievances/GBV.vue'),
+       name: 'xGBVGrievances',
+       meta: {
+         title: 'GBV',
+         icon:'ph:gender-intersex-bold',
+         role: [  'super_admin', 'gbv' ] ,
+         locationLevel:['national','county','settlement'],
+       }
+       },
+
+
          
-       {
-        path: 'resolved',
-        component: () => import('@/views/Grievances/Resolved.vue'),
-       name: 'ResolvedGrievances',
-       meta: {
-         title: 'Resolved',
-         icon:'oui:security-signal-resolved',
-         role: [  'super_admin', 'grm' ] ,
-         locationLevel:['national','county','settlement'],
+      //  {
+      //   path: 'resolved',
+      //   component: () => import('@/views/Grievances/Resolved.vue'),
+      //  name: 'ResolvedGrievances',
+      //  meta: {
+      //    title: 'Resolved',
+      //    icon:'oui:security-signal-resolved',
+      //    role: [  'super_admin', 'grm' ] ,
+      //    locationLevel:['national','county','settlement'],
 
-       }
-       },
+      //  }
+      //  },
 
 
-       {
-        path: 'rejectedxz',
-        component: () => import('@/views/Grievances/RejectedGRV.vue'),
-       name: 'RejectedGrievances',
-       meta: {
-         title: 'Rejected',
-         icon:'oui:security-signal-detected',
-         role: [  'super_admin', 'grm' ] ,
-         locationLevel:['national','county','settlement'],
+      //  {
+      //   path: 'rejectedxz',
+      //   component: () => import('@/views/Grievances/RejectedGRV.vue'),
+      //  name: 'RejectedGrievances',
+      //  meta: {
+      //    title: 'Rejected',
+      //    icon:'oui:security-signal-detected',
+      //    role: [  'super_admin', 'grm' ] ,
+      //    locationLevel:['national','county','settlement'],
 
-       }
-       },
+      //  }
+      //  },
 
        
 
