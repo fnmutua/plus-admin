@@ -1339,39 +1339,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         }
       },
   
-    
-      
-
-
-
-    ]
-  },
-  {
-    path: '/gbv',
-    component: Layout,
-    redirect: '/gbv/open',
-    name: 'GBV',
-    meta: {
-      title: 'GBV Grievances',
-      icon: 'hugeicons:complaint',
-      role: [ 'super_admin',  'gbv'] ,
-      locationLevel:['national','county','settlement'],
-      alwaysShow: false
-    },
-    children: [ 
-       {
-        path: 'open',
-        component: () => import('@/views/Grievances/GBV.vue'),
-       name: 'GBVGrievances',
-       meta: {
-         title: 'GBV',
-         icon:'ph:gender-intersex-bold',
-         role: [  'super_admin', 'gbv' ] ,
-         locationLevel:['national','county','settlement'],
-       }
-       },
-
-       {
+      {
         path: ':id',
         component: () => import('@/views/Grievances/GBVGrievanceDetails.vue'),
         name: 'GBVGrievanceDetails',
@@ -1384,15 +1352,53 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           noCache: true
         }
       },
-
- 
-    
       
 
 
 
     ]
   },
+  // {
+  //   path: '/gbv',
+  //   component: Layout,
+  //   redirect: '/gbv/open',
+  //   name: 'GBV',
+  //   meta: {
+  //     title: 'GBV Grievances',
+  //     icon: 'hugeicons:complaint',
+  //     role: [ 'super_admin',  'gbv'] ,
+  //     locationLevel:['national','county','settlement'],
+  //     alwaysShow: false
+  //   },
+  //   children: [ 
+  //     //  {
+  //     //   path: 'open',
+  //     //   component: () => import('@/views/Grievances/GBV.vue'),
+  //     //  name: 'GBVGrievances',
+  //     //  meta: {
+  //     //    title: 'GBV',
+  //     //    icon:'ph:gender-intersex-bold',
+  //     //    role: [  'super_admin', 'gbv' ] ,
+  //     //    locationLevel:['national','county','settlement'],
+  //     //  }
+  //     //  },
+
+  //      {
+  //       path: ':id',
+  //       component: () => import('@/views/Grievances/GBVGrievanceDetails.vue'),
+  //       name: 'GBVGrievanceDetails',
+  //       meta: {
+  //         hidden: true,
+  //         title: 'GBV Grievance Details',
+  //         icon:'ion:document-attach',
+  //         role: [  'super_admin', 'gbv' ] ,
+  //         locationLevel:['national','county','settlement'],
+  //         noCache: true
+  //       }
+  //     },
+
+  //   ]
+  // },
 
   {
     path: '/interventions',

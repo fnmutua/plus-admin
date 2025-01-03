@@ -1,35 +1,38 @@
 <!-- eslint-disable prettier/prettier -->
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
-import { getCountyListApi } from '@/api/counties'
+import { getListWithoutGeo} from '@/api/counties'
 
 import { getGrievances } from '@/api/grievance'
 
 import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTag } from 'element-plus'
 import {
-  Plus, Download, Filter, More, ArrowLeft, ArrowRight, Upload, UploadFilled,
+  Plus, Download, Filter, ArrowLeft, ArrowRight, UploadFilled,
   Edit,
-  Back,
-  InfoFilled, Position,
+  Back,Postcard,TopRight,Lock,Guide,
+  InfoFilled, Position,CircleCheck, Message, CircleClose, Warning,
   Delete
 } from '@element-plus/icons-vue'
+import {   ElSegmented } from 'element-plus'
+
+
 
 import { ref, reactive, onMounted, computed } from 'vue'
 import {
   ElPagination, ElTooltip, ElOption, ElDialog, ElForm, ElDropdown, ElDropdownItem, ElDropdownMenu, ElTour, ElTourStep, ElUpload,
-  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElDrawer, ElMessage, ElTabPane
+  ElFormItem, ElRow, ElInput, FormRules, ElStep, ElSteps, ElTable, ElTableColumn, ElCard, ElMessage, ElSwitch
 } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
+import { DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
 
 import writeXlsxFile from 'write-excel-file';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
-import type { UploadProps, UploadUserFile } from 'element-plus'
+import type { UploadUserFile } from 'element-plus'
 
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
 import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, batchImportGrievances, getByKeyword } from '@/api/grievance'
@@ -51,7 +54,7 @@ console.log("userInfo--->", userInfo)
 
 
 
-// Check for the "grm" role and get its level, field, and fieldvalue
+// Check for the "grm" role and get its level, field, and field value
 const isNationalStaff = ref(false)
 const grmRole = userInfo.roles.map(role => {
   if (role.name === "gbv") {
@@ -94,26 +97,28 @@ console.log('grmRole', grmRole);
 // Check for super_admin role
 const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin");
 
-// Determine the field_filter and value_filter based on roles
-let roles_filters = [];
+  // Determine the field_filter and value_filter based on roles
+  let roles_filters = [];
 
-if (isSuperAdmin) {
-  // If user is a super_admin, no filters needed
-  roles_filters = [];
-} else if (grmRole.length > 0 && grmRole[0].model === "national") {
-  // If user has a grm role at national level, no filters needed
-  roles_filters = [];
-} else if (grmRole.length > 0) {
-  // Otherwise, set filters based on the grm role's field and fieldvalue
-  const field_filter = grmRole[0].field;
-  const value_filter = grmRole[0].fieldvalue;
-  roles_filters.push({
-    field: field_filter,
-    value: value_filter
-  });
-}
+  if (isSuperAdmin) {
+    // If user is a super_admin, no filters needed
+    roles_filters = [];
+  } else if (grmRole.length > 0 && grmRole[0].model === "national") {
+    // If user has a grm role at national level, no filters needed
+    roles_filters = [];
+  } else if (grmRole.length > 0) {
+    // Otherwise, set filters based on the grm role's field and fieldvalue
+    const field_filter = grmRole[0].field;
+    const value_filter = grmRole[0].fieldvalue;
+    roles_filters.push({
+      field: field_filter,
+      value: value_filter
+    });
+  }
+
 
 console.log('roles_filters', roles_filters);
+
 
 
 
@@ -161,7 +166,7 @@ const downloadLoading = ref(false)
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 10;
+const defaultPageSize = 8;
 const mobilePageSize = 5;
 const pageSize = ref(defaultPageSize);
 const pageHeight = ref(600);
@@ -207,21 +212,24 @@ const showEditButtons = ref(appStore.getEditButtons)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 
-// Prepare filters array 
-var filters = ['isgbv' ];
-var filterValues = [[true] ];
-var filterFunction = ['in'];
+// Prepare filters array
 
+// var filters = ['status'];
+// var filterValues = [['Resolved', 'Rejected', 'Closed']];
+// var filterFunction = ['notIn'];
+
+const  filters=ref(['isgbv','status'])
+const  filterValues=ref([[true],['Sorting']])
+const  filterFunction=ref(['in','in'])
 
 
 if (roles_filters.length > 0) {
-  filters.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
+  filters.value.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
 }
 
 // Prepare filterValues array
-
 if (roles_filters.length > 0) {
-  filterValues.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
+  filterValues.value.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
 }
 
 console.log('filters', filters);
@@ -248,8 +256,8 @@ const handleClear = async () => {
   console.log('cleared....')
 
   // clear all the fileters -------
-  filterValues = []
-  filters = []
+  filterValues.value = []
+  filters.value  = []
   value1.value = ''
   value2.value = ''
   value3.value = ''
@@ -261,47 +269,21 @@ const handleClear = async () => {
 }
 
 
-const handleSelectGrievance = async (indicator: any) => {
-  var selectOption = 'id'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('category : index--->', index)
-
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
-
-  if (!filterValues.includes(indicator) && indicator.length > 0) {
-    filterValues.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (indicator.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
-}
+ 
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
   page.value = selPage
-  getFilteredData(filters, filterValues)
+  getFilteredData(filters.value, filterValues.value)
 }
 
 const onPageSizeChange = async (size: any) => {
   pageSize.value = size
-  getFilteredData(filters, filterValues)
+  getFilteredData(filters.value, filterValues.value)
 }
 
 const getInterventionsAll = async () => {
-  getFilteredData(filters, filterValues)
+  getFilteredData(filters.value, filterValues.value)
 }
 
 const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
@@ -335,7 +317,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   // - multiple filters -------------------------------------
   formData.filters = selFilters
   formData.filterValues = selfilterValues
-  formData.filterFunctions = filterFunction
+  formData.filterFunctions = filterFunction.value
 
   formData.associated_multiple_models = associated_multiple_models
 
@@ -346,12 +328,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   console.log('After Querry', res)
   tableDataList.value = res.data
 
-  if(res.data.data.length>0) {
-
-    availableFields.value = extractFields(tableDataList.value);
-
-
-  }
+  availableFields.value = extractFields(tableDataList.value);
 
 
 
@@ -360,36 +337,44 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
-const getIndicatorOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      //   pageIndex: 1,
-      //   limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'grievance',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
+const getIndicatorOptions = async (selFilters, selfilterValues) => {
+  const formData = {}
+   formData.limit = 1000
+  formData.page = 1
+  formData.curUser = 1 // Id for logged in user
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
 
-    loading.value = false
-    // pass result to the makeoptions
+  formData.assocModel = associated_Model
 
-    categories.value = ret
-    makeOptions(categories)
-  })
+  // - multiple filters -------------------------------------
+  formData.filters = selFilters
+  formData.filterValues = selfilterValues
+  formData.filterFunctions = filterFunction.value
+
+  formData.associated_multiple_models = associated_multiple_models
+
+  //-------------------------
+  //console.log(formData)
+  const res = await getGrievances(formData)
+ 
+  makeOptions(res.data)
+  
 }
+
+
+
+
 
 
 
 const makeOptions = (list) => {
   console.log('making the options..............', list)
   GrvOptions.value = []
-  list.value.forEach(function (arrayItem: { id: string; type: string }) {
+  list.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
     countyOpt.label = arrayItem.code
@@ -447,8 +432,29 @@ const ruleForm = reactive({
   title: '',
   shortTitle: ''
 })
+const handleClose = () => {
+
+  console.log("Clsoing the dialoig")
+  showSubmitBtn.value = true
+  showEditSaveButton.value = false
+
+  ruleForm.id = ''
+  ruleForm.title = ''
+  ruleForm.shortTitle = ''
+  formHeader.value = 'Add Activity'
+
+}
 
 
+
+
+const rules = reactive<FormRules>({
+  title: [
+    { required: true, message: 'Please provide A title', trigger: 'blur' },
+    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
+  ],
+
+})
 
 const AddComponent = () => {
   AddDialogVisible.value = true
@@ -456,6 +462,36 @@ const AddComponent = () => {
 
 
 
+const xuploadFiles = async (grievance_id) => {
+  console.log('grievance_id', grievance_id)
+
+
+  const formData = new FormData();
+
+  // Assuming `fileList` is an array of file objects and `grievance_id` is defined
+  for (var i = 0; i < fileList.value.length; i++) {
+    console.log('------>file', fileList.value[i]);
+    formData.append('files', fileList.value[i].raw);
+    formData.append('format', fileList.value[i].name.split('.').pop());
+    formData.append('grievance_id', grievance_id);
+    formData.append('protected_file', true);
+    formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2));
+    formData.append('code', uuid.v4());
+  }
+
+  // Printing out the contents of formData
+  for (let [key, value] of formData.entries()) {
+    console.log(`${key}: ${value}`);
+  }
+
+  const res = await uploadGrievanceDocuments(formData)
+
+  console.log("Docuemnts Uploaded", res)
+
+
+
+
+}
 
 
 
@@ -502,12 +538,16 @@ const logAction = async (grievance) => {
   formData.date_actioned = grievance.date_reported
   formData.prev_status = grievance.status
   formData.new_status = grievance.status
+  formData.current_level = 'settlement'
 
 
 
   const res = await logGrievanceAction(formData)
   console.log("Log Successful", res)
   return res.data
+
+
+
 
 }
 
@@ -517,7 +557,19 @@ const submitForm = async () => {
   grmForm.value.date_reported = new Date();
   grmForm.value.status = 'Sorting'
   grmForm.value.model = 'grievance';
-  grmForm.value.current_level = 'national';
+  grmForm.value.current_level = 'settlement';
+
+
+  if (grmForm.value.isgbv) {
+        grmForm.value.current_level = 'national';
+
+      }
+      else {
+        grmForm.value.current_level = 'settlement';
+
+      }
+
+
 
 
   const formInstance = dynamicFormRef
@@ -663,7 +715,7 @@ const getGrievanceDetails = (data) => {
   // drawer.value = true
 
   push({
-    name: 'GBVGrievanceDetails',
+    name: 'GrievanceDetails',
     params: { id: data.row.id }
   })
 
@@ -671,31 +723,7 @@ const getGrievanceDetails = (data) => {
   console.log(data)
 }
 
-const ActionOptions = [
-  {
-    value: 'Resolved',
-    label: 'Mark as Resolved',
-  },
-  {
-    value: 'Escalated',
-    label: 'Escalate to next Level',
-  },
-
-
-  {
-    value: 'Document Requested',
-    label: 'Ask for Documentation from complainant',
-  },
-]
-const formAction = ref({
-  grievance_id: null,
-  action_type: null,
-  action_by: null,
-  date_actioned: null,
-  prev_status: null,
-  new_status: null,
-});
-
+ 
 const showDownloadDialog = ref(false);
 
 const selectedFields = ref([]);
@@ -856,6 +884,10 @@ const grmForm = ref({
   isgbv: false,
   description: '',
   plea: '',
+
+  self_reported:false,
+  reporter_name : userInfo.name,
+  reporter_phone:userInfo.phone,
   witness: '',
   witness_phone: '',
   witness_statement: '',
@@ -907,7 +939,6 @@ const active = ref(0);
 
 
 const next = async () => {
-
   console.log(grmForm.value)
   const formInstance = dynamicFormRef
   formInstance.value.validate((valid: boolean) => {
@@ -918,6 +949,11 @@ const next = async () => {
   });
 
 
+};
+
+
+const xxnext = () => {
+  active.value++;
 };
 
 
@@ -1359,6 +1395,12 @@ const tableRowClassName = (data) => {
     return 'rejected-row'
   }
 
+  if (data.row.status == 'Investigations') {
+    return 'escalated-row'
+  }
+
+
+
   if (data.row.status == 'Escalated') {
     return 'escalated-row'
   }
@@ -1375,6 +1417,10 @@ const tableRowClassName = (data) => {
 
 const getFilteredBySearchData = async (searchKey) => {
   console.log('getFilteredBySearchData')
+
+  console.log('filters', filters);
+  console.log('filterValues', filterValues);
+
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -1391,12 +1437,14 @@ const getFilteredBySearchData = async (searchKey) => {
   // - multiple filters -------------------------------------
   formData.filters = filters.value
   formData.filterValues = filterValues.value
+  formData.filterFunctions = filterFunction.value
+
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = []
   //formData.cache_key = 'SeacrchByKey_' + search_string.value
 
   //-------------------------
-  console.log(formData)
+  console.log('SeacrchByKey_', formData)
 
   const res = await getByKeyword(formData)
 
@@ -1416,65 +1464,9 @@ const getFilteredBySearchData = async (searchKey) => {
 
 
 
-const handleSelectStatus = async (status: any) => {
-  var selectOption = 'status'
-  if (!filters.includes(selectOption)) {
-    filters.push(selectOption)
-  }
-  var index = filters.indexOf(selectOption) // 1
-  console.log('category : index--->', index)
+ 
 
-  // clear previously selected
-  if (filterValues[index]) {
-    // filterValues[index].length = 0
-    filterValues.splice(index, 1)
-  }
 
-  if (!filterValues.includes(status) && status.length > 0) {
-    filterValues.splice(index, 0, status) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (status.length === 0) {
-    filters.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues)
-
-  getFilteredData(filters, filterValues)
-}
-
-const StatusOptions = [
-  {
-    value: 'Sorting',
-    label: 'Sorting',
-  },
-  {
-    value: 'Investigation',
-    label: 'Investigation',
-  },
-
-  {
-    value: 'Escalated',
-    label: 'Escalated',
-  },
-  {
-    value: 'Resolved',
-    label: 'Resolved',
-  },
-  {
-    value: 'Rejected',
-    label: 'Rejected',
-  },
-  {
-    value: 'Referred',
-    label: 'Referred',
-  },
-  {
-    value: 'Closed',
-    label: 'Closed',
-  },
-]
 
 
 
@@ -1488,18 +1480,7 @@ const searchByName = async (filterString: any) => {
   getFilteredBySearchData(filterString)
 }
 
-const filterStatus = (value: string, row) => {
-  return row.status === value
-}
-
-const filterHandler = (
-  value: string,
-  row: row,
-  column: TableColumnCtx<row>
-) => {
-  const property = column['property']
-  return row[property] === value
-}
+ 
 
 
 const handleRowDblClick = (row) => {
@@ -1508,11 +1489,133 @@ const handleRowDblClick = (row) => {
 
 
   push({
-    name: 'GBVGrievanceDetails',
+    name: 'GrievanceDetails',
     params: { id: row.id }
   })
 
 }
+
+const grv_name =ref()
+const grv_code =ref()
+const grv_status =ref()
+
+
+
+
+const activeSegment = ref('Sorting')
+
+
+
+
+const Statuses = ref([
+  {
+    label: 'Sorting',
+    value: 'Sorting',
+    icon: Postcard,
+    count: 0,
+    hidden: false,
+  },
+  {
+    label: 'Resolved',
+    value: 'Resolved',
+    icon: CircleCheck,
+    count: 0,
+    hidden: false,
+  },
+  {
+    label: 'Escalated',
+    value: 'Escalated',
+    icon: TopRight,
+    count: 0,
+    hidden: false,
+  },
+  {
+    label: 'Closed',
+    value: 'Closed',
+    icon: Lock,
+    count: 0,
+    hidden: false,    
+ 
+
+  },
+  {
+    label: 'Referred',
+    value: 'Referred',
+    icon: Guide,
+    count: 0,
+    hidden: false
+  },
+  {
+    label: 'Rejected',
+    value: 'Rejected',
+    icon: Warning,
+    count: 0,
+    hidden: false
+  },
+])
+
+
+
+const filteredSegments = computed(() => {
+  return Statuses.value.filter(option => !option.hidden);
+});
+
+
+const filterFunctionHelper = (filterType, filterValue) => {
+  const index = filters.value.indexOf(filterType);
+
+  // Determine the appropriate filter function based on the value type
+  const filterFunc = Array.isArray(filterValue) ? 'in' : 'eq';
+
+  if (index === -1) {
+    // Add the filter type, value, and function if not already present
+    filters.value.push(filterType);
+    filterValues.value.push(Array.isArray(filterValue) ? filterValue : [filterValue]);
+    filterFunction.value.push(filterFunc);
+  } else {
+    // Update the value and function
+    filterValues.value[index] = Array.isArray(filterValue) ? filterValue : [filterValue];
+    filterFunction.value[index] = filterFunc;
+  }
+};
+
+const onSegmentClick = async () => {
+  console.log(activeSegment.value);
+  currentPage.value = 1; // Reset pagination to the first page
+
+  // Map segment names to their corresponding filter values
+  const segmentMapping = {
+    Sorting: 'Sorting',
+    Resolved: 'Resolved',
+    Escalated: 'Escalated',
+    Closed: 'Closed',
+    Referred: 'Referred',
+    Rejected: 'Rejected',
+  };
+
+  // Check if the active segment corresponds to a mapped filter value
+  const filterValue = segmentMapping[activeSegment.value];
+  if (filterValue) {
+    filterFunctionHelper('status', [filterValue]); // Apply the dynamic filter
+  }
+
+  // Process roles filters dynamically
+  roles_filters.forEach((role_filter) => {
+    filterFunctionHelper(role_filter.field, role_filter.value); // Use the helper to manage the logic
+  });
+
+  console.log('filters.value', filters.value);
+  console.log('filterValues.value', filterValues.value);
+  console.log('filterFunction.value', filterFunction.value);
+
+  // Call the filtering function with updated arrays
+  getFilteredData(filters.value, filterValues.value, filterFunction.value);
+};
+
+
+
+
+
 
 </script>
 
@@ -1528,21 +1631,21 @@ const handleRowDblClick = (row) => {
       </div>
 
 
-      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
-        placeholder="Search by Name, settlement, complaint,phone .."   style=" margin-right: 5px;"/>
+      <el-select v-model="grv_name" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+        placeholder="Search by Grievance code, Name, settlement, complaint,phone .." style=" margin-right: 5px;" />
 
       <!-- Title Search -->
-      <el-select v-model="value3" :onChange="handleSelectGrievance" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter by Code" style=" margin-right: 5px;">
+      <!-- <el-select v-model="grv_code" :onChange="handleSelectGrievance" :onClear="handleClear" multiple clearable
+        filterable collapse-tags placeholder="Filter by Code" style=" margin-right: 5px;">
         <el-option v-for="item in GrvOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+      </el-select> -->
 
 
       <!-- status Search -->
-      <el-select v-model="value3" :onChange="handleSelectStatus" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter By Status" style=" margin-right: 5px;">
+      <!-- <el-select v-model="grv_status" :onChange="handleSelectStatus" :onClear="handleClear" multiple clearable
+        filterable collapse-tags placeholder="Filter By Status" style=" margin-right: 5px;">
         <el-option v-for="item in StatusOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+      </el-select> -->
 
 
       <!-- Action Buttons -->
@@ -1575,81 +1678,452 @@ const handleRowDblClick = (row) => {
     </el-row>
 
 
-    <el-table :data="tableDataList" :loading="loading" style="width: 100%" :max-height="pageHeight"
-      @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
-      <el-table-column label="#" width="80" prop="id" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
-            <span>{{ scope.row.id }}</span>
-            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+
+    <div class="custom-style">
+
+      <el-segmented v-model="activeSegment" :options="filteredSegments" block :onChange="onSegmentClick">
+        <template #default="{ item }">
+          <div class="flex flex-col items-center gap-2 p-2">
+            <el-icon size="18">
+              <component :is="item.icon" />
+            </el-icon>
+            <div>{{ item.label }} ({{ item.count }}) </div>
           </div>
         </template>
-      </el-table-column>
-      <el-table-column prop="date" label="Date Reported" width="150">
-        <!-- Use a scoped slot to customize the rendering of the date column -->
-        <template #default="scope">
-          <span>{{ formatDate(scope.row.date_reported) }}</span>
-        </template>
-      </el-table-column>
+      </el-segmented>
 
-      <el-table-column prop="status" label="Status" width="100" sortable>
-        <template #default="scope">
-          <el-tag :type="scope.row.status == 'Closed' ? 'info'
-          : scope.row.status == 'Escalated' ? 'secondary'
+    </div>
+
+
+
+
+    <div v-if="activeSegment === 'Sorting'">
+      <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+        :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
+        <el-table-column label="#" width="80" prop="id" sortable>
+          <template #default="scope">
+            <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
+              <span>{{ scope.row.id }}</span>
+              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="date" label="Date Reported" width="150">
+          <!-- Use a scoped slot to customize the rendering of the date column -->
+          <template #default="scope">
+            <span>{{ formatDate(scope.row.date_reported) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="status" label="Status" width="100" sortable>
+          <template #default="scope">
+            <el-tag :type="scope.row.status == 'Closed' ? 'info'
+            : scope.row.status == 'Escalated' ? 'secondary'
             : scope.row.status == 'Referred' ? 'warning'
-              : scope.row.status == 'Rejected' ? 'danger'
-                : 'success'" disable-transitions>{{ scope.row.status }}
-          </el-tag>
-        </template>
-      </el-table-column>
+            : scope.row.status == 'Sorting' ? 'warning'
+                : scope.row.status == 'Rejected' ? 'danger'
+                  : 'success'" disable-transitions>{{ scope.row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Code" prop="code" sortable width="150" />
+        <el-table-column label="Level" prop="current_level" sortable width="150" />
+        <el-table-column label="Complainant" prop="name" sortable width="150" />
+        <el-table-column label="Reported By" width="150">
+          <template #default="scope">
+            <span v-if="scope.row.self_reported === true">Self</span>
+            <span v-else>{{ scope.row.reporter_name }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Description" prop="description" sortable width="350" />
+        <el-table-column label="Location" sortable width="350">
+          <template #default="scope">
+            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+          <template #default="scope">
+            <el-dropdown v-if="isMobile">
+              <span class="el-dropdown-link">
+                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                    :icon="Edit" color="green">Edit</el-dropdown-item>
+                  <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                    :icon="Delete" color="red">Delete</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <div v-else>
+              <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
+                More
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+      <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+        v-model:page-size="pageSize" :page-sizes="[5,8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    </div>
 
-      <el-table-column label="Level" prop="current_level" sortable width="150" />
+    <div v-if="activeSegment === 'Closed'">
+      <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+        :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
+        <el-table-column label="#" width="80" prop="id" sortable>
+          <template #default="scope">
+            <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
+              <span>{{ scope.row.id }}</span>
+              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="date" label="Date Reported" width="150">
+          <!-- Use a scoped slot to customize the rendering of the date column -->
+          <template #default="scope">
+            <span>{{ formatDate(scope.row.date_reported) }}</span>
+          </template>
+        </el-table-column>
 
-      <el-table-column label="Code" prop="code" sortable width="150" />
-      <el-table-column label="Complainant" prop="name" sortable width="250" />
-      <el-table-column label="Description" prop="description" sortable width="550" />
-      <el-table-column label="Location" sortable width="350">
-        <template #default="scope">
-          <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
-        </template>
-      </el-table-column>
+        <el-table-column prop="status" label="Status" width="100" sortable>
+          <template #default="scope">
+            <el-tag :type="scope.row.status == 'Closed' ? 'info'
+            : scope.row.status == 'Escalated' ? 'secondary'
+              : scope.row.status == 'Referred' ? 'warning'
+                : scope.row.status == 'Rejected' ? 'danger'
+                  : 'success'" disable-transitions>{{ scope.row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Code" prop="code" sortable width="150" />
+        <el-table-column label="Level" prop="current_level" sortable width="150" />
+        <el-table-column label="Complainant" prop="name" sortable width="150" />
+        <el-table-column label="Reported By" width="150">
+          <template #default="scope">
+            <span v-if="scope.row.self_reported === true">Self</span>
+            <span v-else>{{ scope.row.reporter_name }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Description" prop="description" sortable width="350" />
+        <el-table-column label="Location" sortable width="350">
+          <template #default="scope">
+            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+          <template #default="scope">
+            <el-dropdown v-if="isMobile">
+              <span class="el-dropdown-link">
+                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                    :icon="Edit" color="green">Edit</el-dropdown-item>
+                  <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                    :icon="Delete" color="red">Delete</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <div v-else>
+              <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
+                More
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+      <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+        v-model:page-size="pageSize" :page-sizes="[5,8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    </div>
 
+    <div v-if="activeSegment === 'Resolved'">
+      <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+        :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
+        <el-table-column label="#" width="80" prop="id" sortable>
+          <template #default="scope">
+            <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
+              <span>{{ scope.row.id }}</span>
+              <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="date" label="Date Reported" width="150">
+          <!-- Use a scoped slot to customize the rendering of the date column -->
+          <template #default="scope">
+            <span>{{ formatDate(scope.row.date_reported) }}</span>
+          </template>
+        </el-table-column>
 
-      <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-        <template #default="scope">
-          <el-dropdown v-if="isMobile">
-            <span class="el-dropdown-link">
-              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)" :icon="Edit"
-                  color="green">Edit</el-dropdown-item>
-                <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
-                  :icon="Delete" color="red">Delete</el-dropdown-item>
-              </el-dropdown-menu>
+        <el-table-column prop="status" label="Status" width="100" sortable>
+          <template #default="scope">
+            <el-tag :type="scope.row.status == 'Closed' ? 'info'
+            : scope.row.status == 'Escalated' ? 'secondary'
+              : scope.row.status == 'Referred' ? 'warning'
+                : scope.row.status == 'Rejected' ? 'danger'
+                  : 'success'" disable-transitions>{{ scope.row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Code" prop="code" sortable width="150" />
+        <el-table-column label="Level" prop="current_level" sortable width="150" />
+        <el-table-column label="Complainant" prop="name" sortable width="150" />
+        <el-table-column label="Reported By" width="150">
+          <template #default="scope">
+            <span v-if="scope.row.self_reported === true">Self</span>
+            <span v-else>{{ scope.row.reporter_name }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Description" prop="description" sortable width="350" />
+        <el-table-column label="Location" sortable width="350">
+          <template #default="scope">
+            <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+          <template #default="scope">
+            <el-dropdown v-if="isMobile">
+              <span class="el-dropdown-link">
+                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                    :icon="Edit" color="green">Edit</el-dropdown-item>
+                  <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                    :icon="Delete" color="red">Delete</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <div v-else>
+              <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
+                More
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+      <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+        v-model:page-size="pageSize" :page-sizes="[5,8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    </div>
+
+    <div v-if="activeSegment === 'Escalated'">
+        <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+          :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
+          <el-table-column label="#" width="80" prop="id" sortable>
+            <template #default="scope">
+              <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
+                <span>{{ scope.row.id }}</span>
+                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+              </div>
             </template>
-          </el-dropdown>
-          <div v-else>
-            <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
-              More
-            </el-button>
+          </el-table-column>
+          <el-table-column prop="date" label="Date Reported" width="150">
+            <!-- Use a scoped slot to customize the rendering of the date column -->
+            <template #default="scope">
+              <span>{{ formatDate(scope.row.date_reported) }}</span>
+            </template>
+          </el-table-column>
 
-          </div>
-        </template>
+          <el-table-column prop="status" label="Status" width="100" sortable>
+            <template #default="scope">
+              <el-tag :type="scope.row.status == 'Closed' ? 'info'
+            : scope.row.status == 'Escalated' ? 'secondary'
+              : scope.row.status == 'Referred' ? 'warning'
+                : scope.row.status == 'Rejected' ? 'danger'
+                  : 'success'" disable-transitions>{{ scope.row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="Code" prop="code" sortable width="150" />
+          <el-table-column label="Level" prop="current_level" sortable width="150" />
+          <el-table-column label="Complainant" prop="name" sortable width="150" />
+          <el-table-column label="Reported By" width="150">
+            <template #default="scope">
+              <span v-if="scope.row.self_reported === true">Self</span>
+              <span v-else>{{ scope.row.reporter_name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Description" prop="description" sortable width="350" />
+          <el-table-column label="Location" sortable width="350">
+            <template #default="scope">
+              <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                      :icon="Edit" color="green">Edit</el-dropdown-item>
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <div v-else>
+                <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
+                  More
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+        <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+          v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+     </div>
 
-      </el-table-column>
-    </el-table>
+     <div v-if="activeSegment === 'Referred'">
+        <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+          :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
+          <el-table-column label="#" width="80" prop="id" sortable>
+            <template #default="scope">
+              <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
+                <span>{{ scope.row.id }}</span>
+                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="date" label="Date Reported" width="150">
+            <!-- Use a scoped slot to customize the rendering of the date column -->
+            <template #default="scope">
+              <span>{{ formatDate(scope.row.date_reported) }}</span>
+            </template>
+          </el-table-column>
 
-    <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
-      v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
-      @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+          <el-table-column prop="status" label="Status" width="100" sortable>
+            <template #default="scope">
+              <el-tag :type="scope.row.status == 'Closed' ? 'info'
+            : scope.row.status == 'Escalated' ? 'secondary'
+              : scope.row.status == 'Referred' ? 'warning'
+                : scope.row.status == 'Rejected' ? 'danger'
+                  : 'success'" disable-transitions>{{ scope.row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="Code" prop="code" sortable width="150" />
+          <el-table-column label="Level" prop="current_level" sortable width="150" />
+          <el-table-column label="Complainant" prop="name" sortable width="150" />
+          <el-table-column label="Reported By" width="150">
+            <template #default="scope">
+              <span v-if="scope.row.self_reported === true">Self</span>
+              <span v-else>{{ scope.row.reporter_name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Description" prop="description" sortable width="350" />
+          <el-table-column label="Location" sortable width="350">
+            <template #default="scope">
+              <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                      :icon="Edit" color="green">Edit</el-dropdown-item>
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <div v-else>
+                <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
+                  More
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+        <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+          v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+     </div>
 
+     <div v-if="activeSegment === 'Rejected'">
+        <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+          :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
+          <el-table-column label="#" width="80" prop="id" sortable>
+            <template #default="scope">
+              <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
+                <span>{{ scope.row.id }}</span>
+                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="date" label="Date Reported" width="150">
+            <!-- Use a scoped slot to customize the rendering of the date column -->
+            <template #default="scope">
+              <span>{{ formatDate(scope.row.date_reported) }}</span>
+            </template>
+          </el-table-column>
 
+          <el-table-column prop="status" label="Status" width="100" sortable>
+            <template #default="scope">
+              <el-tag :type="scope.row.status == 'Closed' ? 'info'
+            : scope.row.status == 'Escalated' ? 'secondary'
+              : scope.row.status == 'Referred' ? 'warning'
+                : scope.row.status == 'Rejected' ? 'danger'
+                  : 'success'" disable-transitions>{{ scope.row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="Code" prop="code" sortable width="150" />
+          <el-table-column label="Level" prop="current_level" sortable width="150" />
+          <el-table-column label="Complainant" prop="name" sortable width="150" />
+          <el-table-column label="Reported By" width="150">
+            <template #default="scope">
+              <span v-if="scope.row.self_reported === true">Self</span>
+              <span v-else>{{ scope.row.reporter_name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Description" prop="description" sortable width="350" />
+          <el-table-column label="Location" sortable width="350">
+            <template #default="scope">
+              <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                      :icon="Edit" color="green">Edit</el-dropdown-item>
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <div v-else>
+                <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
+                  More
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+        <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+          v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+     </div>
   </el-card>
-
-
-
 
   <el-dialog title="Select Fields" v-model="showDownloadDialog" width="60%">
     <el-form>
@@ -1671,11 +2145,6 @@ const handleRowDblClick = (row) => {
 
 
 
-
-
-
-
-
   <el-dialog v-model="AddDialogVisible" @close="handleCloseDialog" title="File a grievance" width="65%" draggable>
 
     <el-steps :active="active" finish-status="success">
@@ -1690,7 +2159,7 @@ const handleRowDblClick = (row) => {
         <el-row v-if="active === 0" :gutter="10">
           <!-- Step 1: Personal Details -->
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item id="btn1" label="Name" prop="name">
+            <el-form-item id="btn1" label="Name of Complainant" prop="name">
               <el-input v-model="grmForm.name" placeholder="Enter name" style="width:90%" />
             </el-form-item>
 
@@ -1736,15 +2205,15 @@ const handleRowDblClick = (row) => {
           <!-- Step 2: Grievance Details -->
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
             <el-form-item id="btn10" label="County" prop="county_id">
-              <el-select v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
+              <el-select filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
                 style="width:90%">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
 
             <el-form-item id="btn11" label="Settlement" prop="settlement_id">
-              <el-select v-model="grmForm.settlement_id" placeholder="Settlement" @change="handleSelectSettlement"
-                style="width:90%">
+              <el-select filterable v-model="grmForm.settlement_id" placeholder="Settlement"
+                @change="handleSelectSettlement" style="width:90%">
                 <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
                   :value="item.value" />
               </el-select>
@@ -1763,8 +2232,8 @@ const handleRowDblClick = (row) => {
           </el-col>
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
 
-            <el-form-item id="btn14" label="Nature of Complaint" prop="nature">
-              <el-select v-model="grmForm.nature" placeholder="Select category" style="width:90%">
+            <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
+              <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
                 <el-option label="Land" value="land" />
                 <el-option label="Labour Related" value="labour" />
                 <el-option label="Infrastructure" value="infrastructure" />
@@ -1788,7 +2257,7 @@ const handleRowDblClick = (row) => {
 
         <el-row v-if="active === 2" :gutter="10">
           <!-- Step 3: Review & Submit -->
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+          <el-col :xs="12" :sm="21" :md="12" :lg="12" :xl="12">
             <el-form-item id="btn17" label="Witness Name" prop="witness">
               <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width:90%" />
             </el-form-item>
@@ -1802,7 +2271,28 @@ const handleRowDblClick = (row) => {
                 style="width:90%" />
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+
+
+          <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
+
+            <el-form-item id="btn17" label="Are you the complainant?" prop="witness">
+
+              <el-switch disabled v-model="grmForm.self_reported" class="ml-2" inline-prompt
+                style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes"
+                inactive-text="No" />
+
+            </el-form-item>
+
+            <el-form-item v-if="!grmForm.self_reported" id="btn18" label="Your Name" prop="reporter_name">
+              <el-input disabled v-model="grmForm.reporter_name" placeholder="Your Name" style="width:90%" />
+            </el-form-item>
+
+            <el-form-item v-if="!grmForm.self_reported" id="btn19" label="Your Phone" prop="reporter_phone">
+              <el-input disabled v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
+                style="width:90%" />
+            </el-form-item>
+
+
 
             <el-upload id="btn20" class="upload-demo"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
