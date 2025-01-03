@@ -3021,7 +3021,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
       </el-table>
 
-      <ElPagination   :hide-on-single-page  layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      <ElPagination    layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalApproved" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -3086,7 +3086,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
         </el-table-column>
 
       </el-table>
-      <ElPagination  :hide-on-single-page  layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      <ElPagination   layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalPending" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </div>
@@ -3152,7 +3152,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
       </el-table>
 
 
-      <ElPagination :hide-on-single-page layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+      <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="page"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalRejected" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </div>
@@ -3277,7 +3277,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
       </el-table>
 
       <!-- Pagination -->
-      <el-pagination :hide-on-single-page background class="mt-4" layout="prev, pager, next, jumper" :total="duplicateRecords.length"
+      <el-pagination background class="mt-4" layout="prev, pager, next, jumper" :total="duplicateRecords.length"
         :page-size="pageSize" @current-change="handlePageChange" />
 
 
