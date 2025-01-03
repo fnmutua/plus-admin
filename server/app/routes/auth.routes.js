@@ -53,7 +53,7 @@ module.exports = function (app) {
  // Signups via APP
  app.post(
   '/api/app/signup',  [verifySignUp.checkDuplicatePhone],
-  controller.signupViaApp
+  controller.signupGRC
 )
 
 // Signin via APP
