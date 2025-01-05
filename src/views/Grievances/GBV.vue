@@ -2466,3 +2466,41 @@ const onSegmentClick = async () => {
   margin-right: 40px;
 }
 </style>
+
+
+<style scoped>
+.custom-style .el-segmented {
+  --el-border-radius-base: 5px;
+}
+
+.segment-label {
+  white-space: nowrap;
+  /* Prevent text from wrapping */
+  overflow: hidden;
+  /* Hide overflowing text */
+  text-overflow: ellipsis;
+  /* Add ellipsis for truncated text */
+}
+
+@media (max-width: 600px) {
+  .custom-style .el-segmented {
+    font-size: 10px;
+    /* Adjust font size on mobile */
+    padding: 5px;
+    /* Adjust padding for smaller screens */
+  }
+
+  .segment-label {
+    font-size: 12px;
+    /* Smaller font size for labels */
+    text-align: center;
+    /* Center align text */
+    padding: 0 5px;
+    /* Add some padding for spacing */
+    white-space: normal;
+    /* Allow wrapping on smaller screens */
+    overflow: visible;
+    /* Allow the text to flow properly */
+  }
+}
+</style>
