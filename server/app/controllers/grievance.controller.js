@@ -1390,7 +1390,7 @@ exports.getGrievanceStatus = async (req, res) => {
         if (!grievanceId && (!grievanceCode || !phoneNumber)) {
           return res.status(400).send({
             code: '1001',
-            message: 'Grievance code and phone number are required, or provide the grievance ID',
+            message: 'Grievance code and phone number are required',
           });
         }
     

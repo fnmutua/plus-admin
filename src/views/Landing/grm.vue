@@ -49,7 +49,7 @@
                       </el-form-item>
 
                       <el-form-item id="btn5" label="Phone" prop="phone">
-                        <el-input v-model="grmForm.phone" placeholder="Enter phone number" style="width:90%"
+                        <el-input v-model="grmForm.phone" placeholder="Enter phone number (254.....)" style="width:90%"
                           :onChange="convertPhoneNumber" />
                       </el-form-item>
 
@@ -191,7 +191,7 @@
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="12" :lg="6" :xl="6">
                       <el-form-item label="Phone Number">
-                        <el-input v-model="statusForm.phoneNumber" placeholder="0700 000 0000" />
+                        <el-input v-model="statusForm.phoneNumber" placeholder="25470000000" />
                       </el-form-item>
                     </el-col>
                   </el-row>
@@ -256,7 +256,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref,watch, computed } from 'vue';
 import {
   ElMain, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
   ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip
@@ -624,6 +624,70 @@ const submitForm = async () => {
 
 
 };
+
+
+
+   // Watch for changes in grievanceCode and format as "GRM-..."
+   watch(
+      () => statusForm.value.grievanceCode,
+      (newVal) => {
+        if (!newVal.startsWith("GRM-")) {
+          statusForm.value.grievanceCode = `GRM-${newVal.replace(/[^0-9]/g, "")}`;
+        }
+      }
+    );
+
+    
+
+ 
+
+// Watch for changes in phoneNumber and ensure it starts with "254"
+watch(
+  () => statusForm.value.phoneNumber,
+  (newVal) => {
+    // Remove non-numeric characters
+    let sanitizedNumber = newVal.replace(/[^0-9]/g, "");
+
+    // Check if it starts with '0' and truncate it
+    if (sanitizedNumber.startsWith("0")) {
+      sanitizedNumber = sanitizedNumber.substring(1);
+    }
+
+    // Add '254' prefix if it's missing
+    if (!sanitizedNumber.startsWith("254")) {
+      sanitizedNumber = `254${sanitizedNumber}`;
+    }
+
+    // Ensure the number doesn't exceed the typical length of 12 digits
+    statusForm.value.phoneNumber = sanitizedNumber.substring(0, 12);
+  }
+);
+
+
+// Watch for changes in phoneNumber and ensure it starts with "254"
+watch(
+  () => grmForm.value.phone,
+  (newVal) => {
+    // Remove non-numeric characters
+    let sanitizedNumber = newVal.replace(/[^0-9]/g, "");
+
+    // Check if it starts with '0' and truncate it
+    if (sanitizedNumber.startsWith("0")) {
+      sanitizedNumber = sanitizedNumber.substring(1);
+    }
+
+    // Add '254' prefix if it's missing
+    if (!sanitizedNumber.startsWith("254")) {
+      sanitizedNumber = `254${sanitizedNumber}`;
+    }
+
+    // Ensure the number doesn't exceed the typical length of 12 digits
+    grmForm.value.phone = sanitizedNumber.substring(0, 12);
+  }
+);
+
+
+
 
 function formatDate(dateString) {
   const date = new Date(dateString);
