@@ -170,4 +170,5 @@ Close	42 days
 
 
  
+UPDATE settlement SET "isApproved" = 'Approved' WHERE id = 1163;
 
