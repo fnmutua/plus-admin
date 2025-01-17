@@ -133,6 +133,7 @@ const results =[
         <div v-if="accDelete">
 
           <div>
+            <el-scrollbar style="margin-top: 10px;" height="auto">
             <h2 class="text-2xl font-bold text-center w-[100%]">{{ t('Delete Account') }}</h2>
 
             <el-text class="w-500px " >
@@ -140,13 +141,13 @@ const results =[
               access to our services. Once the account is deleted, the following will happen:
             </el-text>
 
-            <el-scrollbar style="margin-top: 10px;" height="auto">
+      
               <div v-for="(item, index) in results" :key="index" class="scrollbar-demo-item">
                 <ElText>
                   {{ index + 1 }}. <b>{{ item.title }}</b> {{ item.text }}
                 </ElText>
               </div>
-            </el-scrollbar>
+        
 
 
             <el-form :model="ruleForm" label-width="auto" style="width: 100% ; margin-top:50px " :rules="rules"
@@ -184,7 +185,7 @@ const results =[
 
 
             </el-form>
-
+          </el-scrollbar>
           </div>
 
         </div>
