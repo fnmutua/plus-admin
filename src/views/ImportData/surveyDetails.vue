@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch ,computed} from 'vue'
 import {
-  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElCol,ElStatistic,
-  ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,
+  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,
 } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { Back } from '@element-plus/icons-vue'
@@ -255,7 +254,7 @@ watch([selectedFields, features], () => {
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 10;
+const defaultPageSize = 20;
 const mobilePageSize = 5;
 const pageSize = ref(10);
 const currentPage = ref(1);
@@ -640,11 +639,7 @@ const loadMap = () => {
 
 
 
-const source = ref(0)
-const outputValue = useTransition(source, {
-  duration: 1500,
-})
-source.value = 172000
+
 
 
 </script>
@@ -666,7 +661,7 @@ source.value = 172000
        
       </div>
     </template>
-       
+
 
 
     <el-tabs v-model="activeName" class="demo-tabs" type="border-card" @tab-click="clickTab">
@@ -1036,9 +1031,3 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 </style>
 
-
-<style scoped>
-.el-col {
-  text-align: center;
-}
-</style>
