@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref, watch, computed } from 'vue'
+import { onMounted, ref, watch ,computed} from 'vue'
 import {
-  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect, ElOption, ElPagination, ElRow,
+  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,
 } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { Back } from '@element-plus/icons-vue'
@@ -16,7 +16,7 @@ import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
 
 
 import {
-
+  
   getAllSubmissions
 } from '@/api/collector'
 
@@ -36,7 +36,7 @@ const { push } = useRouter()
 
 
 const { wsCache } = useCache()
-
+ 
 const appStore = useAppStore()
 
 const MapBoxToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
@@ -47,18 +47,18 @@ mapboxgl.accessToken = MapBoxToken;
 const route = useRoute()
 const loading = ref(true)
 
+ 
 
-
-
+ 
 
 
 ////Configurations //////////////
 
 //// ------------------parameters -----------------------////
-
+ 
 
 //// ------------------parameters -----------------------////
-
+ 
 const projectId = route.params.projectId
 const formId = route.params.xmlFormId
 const form_name = route.params.form_name
@@ -66,17 +66,17 @@ const form_name = route.params.form_name
 onMounted(async () => {
 
 
-
+ 
   console.log('')
 })
 
 
-const tableData = ref([]) // Table data extracted from GeoJSON
-const tableHeaders = ref([]) // The first five properties
-const allProperties = ref([]) // The first five properties
+const tableData =ref([]) // Table data extracted from GeoJSON
+const tableHeaders =ref([]) // The first five properties
+const allProperties =ref([]) // The first five properties
 const selectedFields = ref([]); // Ensure it's reactive
-const features = ref([])
-const totalItems = ref()
+const features =ref([])
+const  totalItems=ref()
 const getFormData = async () => {
   // Define the formData object with necessary fields
   const formData = {
@@ -93,37 +93,37 @@ const getFormData = async () => {
     const response = await getAllSubmissions(formData);
 
     console.log('Submissions:', response);
-
+ 
 
 
     // Parse GeoJSON data
-    features.value = response.data.features || [];
+      features.value = response.data.features || [];
     if (features.value.length > 0) {
-      // Extract the first feature's properties
-      allProperties.value = features.value[0].properties;
-      tableHeaders.value = Object.keys(allProperties.value).slice(0, 5); // Use first 10 fields initially
+          // Extract the first feature's properties
+          allProperties.value = features.value[0].properties;
+          tableHeaders.value = Object.keys(allProperties.value).slice(0, 3); // Use first 10 fields initially
 
-      // Initialize selectedFields with the default fields to show
-      selectedFields.value = tableHeaders.value;
+          // Initialize selectedFields with the default fields to show
+          selectedFields.value = tableHeaders.value;
 
-      // Map data for the table
-      tableData.value = features.value.map((feature) => {
-        const properties = feature.properties;
-        const row = {};
+          // Map data for the table
+          tableData.value = features.value.map((feature) => {
+            const properties = feature.properties;
+            const row = {};
 
-        // Loop through the selected fields and assign values from properties
-        selectedFields.value.forEach((key) => {
-          row[key] = properties[key] || "-"; // Set "-" if the property is missing or undefined
-        });
+            // Loop through the selected fields and assign values from properties
+            selectedFields.value.forEach((key) => {
+              row[key] = properties[key] || "-"; // Set "-" if the property is missing or undefined
+            });
 
-        return row;
-      });
-    }
+            return row;
+          });
+        }
 
 
 
-    console.log('tableHeaders', tableHeaders.value)
-    loading.value = false
+        console.log('tableHeaders',tableHeaders.value)
+        loading.value=false
 
   } catch (error) {
     // Handle errors here
@@ -159,24 +159,24 @@ const goBack = () => {
 
 const activeName = ref('data')
 
+ 
 
-
-
-
+ 
+ 
 // Watch for changes in the selected fields and update table data accordingly
 watch([selectedFields, features], () => {
   // Ensure features is updated
-  console.log('selectedFields', selectedFields.value)
+  console.log('selectedFields',selectedFields.value)
   if (features.value.length > 0) {
     tableData.value = features.value.map((feature) => {
       const properties = feature.properties;
       const row = {};
-
+      
       // Loop through the selected fields and assign values from properties
       selectedFields.value.forEach((key) => {
         row[key] = properties[key] || "-"; // Set "-" if the property is missing or undefined
       });
-
+      
       return row;
     });
   }
@@ -185,8 +185,12 @@ watch([selectedFields, features], () => {
 
 
 
+const mobileBreakpoint = 768;
+const defaultPageSize = 20;
+const mobilePageSize = 5;
 const pageSize = ref(10);
 const currentPage = ref(1);
+const width = ref(1080);
 
 
 // Computed property for paginated data based on filtered results
@@ -199,7 +203,7 @@ const paginatedData = computed(() => {
 // Watch the filtered data to update totalItems and reset the pagination
 watch(tableData, (newValue) => {
   totalItems.value = newValue.length; // Update total based on filtered data
-
+ 
 });
 
 
@@ -215,7 +219,7 @@ const handlePageSizeChange = (newSize) => {
   currentPage.value = 1; // Reset to first page when changing page size
 };
 
-
+ 
 
 
 
@@ -238,15 +242,16 @@ const clickTab = (tab) => {
 };
 
 
+const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
-
+ 
 
 </script>
 
 <template>
   <el-card>
 
-
+ 
 
     <!-- Header Section -->
     <template #header>
@@ -255,32 +260,43 @@ const showEditButtons = ref(appStore.getEditButtons)
           <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
             Back
           </el-button>
-          {{ form_name }}
+            {{ form_name }}
         </div>
-
+       
       </div>
     </template>
 
 
 
     <el-tabs v-model="activeName" class="demo-tabs" type="border-card" @tab-click="clickTab">
-
+     
       <el-tab-pane label="Data" name="data">
         <el-card v-loading="loading">
-
-
+        
+          
           <el-row type="flex" justify="start" gutter="10">
+            
+            <el-select
+            v-model="selectedFields"
+            multiple
+            placeholder="Select properties to display"
+            :collapse-tags="true"
+            style="margin-bottom: 10px; width: 95%;"
+            class="select-properties"
+          >
+            <el-option
+              v-for="(value, key) in allProperties"
+              :key="key"
+              :label="key"
+              :value="key"
+            /> 
+          </el-select>
 
-            <el-select v-model="selectedFields" multiple placeholder="Select properties to display"
-              :collapse-tags="true" style="margin-bottom: 10px; width: 95%;" class="select-properties">
-              <el-option v-for="(, key) in allProperties" :key="key" :label="key" :value="key" />
-            </el-select>
 
-
-            <DownloadCustom :data="paginatedData" :all="tableData" />
+          <DownloadCustom :data="paginatedData" :all="tableData" />
 
           </el-row>
-
+     
 
 
 
@@ -289,16 +305,22 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 
           <el-table :data="paginatedData" style="width: 100%" border stripe>
-            <el-table-column v-for="(key, index) in selectedFields" :key="index" :label="key" :prop="key" />
+            <el-table-column
+              v-for="(key, index) in selectedFields"
+              :key="index"
+              :label="key"
+              :prop="key"
+            />
           </el-table>
+          
+    <div style="margin-top: 20px;">
+      <!-- Pagination component -->
 
-          <div style="margin-top: 20px;">
- 
-            <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-              v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
-              @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
+      <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
+        @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
-          </div>
+    </div>
 
         </el-card>
 
@@ -310,12 +332,12 @@ const showEditButtons = ref(appStore.getEditButtons)
       </el-tab-pane>
 
 
+ 
 
-
-
-
-
-
+     
+ 
+ 
+     
     </el-tabs>
 
 
@@ -533,19 +555,15 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 .italic-green {
   color: rgb(48, 77, 6);
-  font-style: italic;
-  /* Italicized text */
+  font-style: italic; /* Italicized text */
 }
 
 .italic-red {
-  color: rgb(243, 11, 11);
-  /* Light gray text color */
-  font-style: italic;
-  /* Italicized text */
+  color: rgb(243, 11, 11); /* Light gray text color */
+  font-style: italic; /* Italicized text */
 }
 
 .td-bold {
-  font-weight: bold;
-  /* Italicized text */
+   font-weight: bold; /* Italicized text */
 }
 </style>
