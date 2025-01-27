@@ -19,7 +19,7 @@ exports.modelGetProjects = (req, res) => {
 }
 
 
-exports.modelLoginCollector = (req, res) => {
+exports.modelLoginCollector =  (req, res) => {
  // console.log('Body', req.body);
 
   // Extract email and password from req.body
@@ -67,12 +67,23 @@ exports.modelLoginCollector = (req, res) => {
       };
 
       // Send the HTTP request
-      request(requestOptions, function (error, response, body) {
+      request(requestOptions, async function (error, response, body) {
 
-        projects = body;
-       // console.log(projects)
+     //   projects = body;
+        let projects = await JSON.parse(body);
+        // const filteredProjects = projects.filter((project) => {
+        //   return (
+        //     !project.archived
+        //   );
+        // });
+        const filteredProjectsSorted = projects
+        .filter((project) => !project.archived) // Filter out archived projects
+        .sort((a, b) => new Date(b.lastSubmission) - new Date(a.lastSubmission)); // Sort by date (latest first)
+        
+        
+     // console.log(filteredProjectsSorted)
         res.status(200).send({
-          data: projects,
+          data: JSON.stringify(filteredProjectsSorted),
           code: '0000',
           token: token // Include the token in the response
         });
@@ -900,6 +911,192 @@ exports.modelGetSubmissions = (req, res) => {
     });
  };
  
+ 
+ /**
+ * Recursively search for GeoJSON geometry in the data.
+ * @param {Object|Array} data - Object or array that might contain GeoJSON geometry.
+ * @return {Object|null} The GeoJSON geometry (or null if not found).
+ */
+function findGeometry(data) {
+  if (typeof data === 'object' && data !== null) {
+      for (const [key, value] of Object.entries(data)) {
+          if (typeof value === 'object' && value !== null) {
+              if ('type' in value && 'coordinates' in value) {
+                  return value;
+              }
+              const geometry = findGeometry(value);
+              if (geometry) {
+                  return geometry;
+              }
+          }
+      }
+  } else if (Array.isArray(data)) {
+      for (const item of data) {
+          const geometry = findGeometry(item);
+          if (geometry) {
+              return geometry;
+          }
+      }
+  }
+  return null;
+}
+
+/**
+* Flatten a nested object to extract leaf nodes only.
+* @param {Object} obj - Object to flatten.
+* @return {Object} Flattened object.
+*/
+function flattenProperties(obj) {
+  const leaves = {};
+
+  for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          Object.assign(leaves, flattenProperties(value));
+      } else if (!Array.isArray(value)) { // Skip lists
+          leaves[key] = value;
+      }
+  }
+
+  return leaves;
+}
+
+/**
+* Convert a list of data dictionaries into a GeoJSON FeatureCollection.
+* Handles cases with and without nesting.
+* @param {Array} dataArray - List of dictionaries containing 'geometry' and 'properties'.
+* @param {string} outputFile - The output file to save the GeoJSON data.
+* @return {Object} GeoJSON FeatureCollection.
+*/
+function convertToGeoJSON(dataArray, outputFile) {
+  const features = [];
+
+  for (const data of dataArray) {
+      // Flatten all parent-level properties
+      const parentProperties = flattenProperties(data);
+      const foundGeometry = findGeometry(data);
+
+      // If geometry is found at the root level, create a feature
+      if (foundGeometry) {
+          const geojsonFeature = {
+              type: 'Feature',
+              geometry: foundGeometry,
+              properties: parentProperties,
+          };
+          features.push(geojsonFeature);
+          continue;
+      }
+
+      // If no root-level geometry, look for nested data structures
+      for (const [key, value] of Object.entries(data)) {
+          if (Array.isArray(value)) {
+              for (const item of value) {
+                  // Flatten each nested structure and find geometry
+                  const nestedGeometry = findGeometry(item);
+                  const nestedProperties = flattenProperties(item);
+
+                  // Combine parent properties with nested properties
+                  const combinedProperties = { ...parentProperties, ...nestedProperties };
+
+                  if (nestedGeometry) {
+                      const geojsonFeature = {
+                          type: 'Feature',
+                          geometry: nestedGeometry,
+                          properties: combinedProperties,
+                      };
+                      features.push(geojsonFeature);
+                  }
+              }
+          }
+      }
+  }
+
+  // Create a GeoJSON FeatureCollection
+  const geojsonCollection = {
+      type: 'FeatureCollection',
+      features: features,
+  };
+
+  // Save GeoJSON data to the specified file
+   
+//console.log(geojsonCollection)
+  return geojsonCollection;
+}
+
+
+
+ 
+
+
+
+ exports.modelGetAllSubmissions = (req, res) => {
+ 
+  // Extract email and password from req.body
+  const { project, form, token } = req.body;
+
+  
+
+ // let url 
+//  url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions`;
+const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions?%24expand=*`;
+
+
+
+ //const baseUrl = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions`;
+ //const url = `${baseUrl}?%24expand=*&%24filter=year(__system/createdAt) lt year(now())`;
+
+
+  // Login and get a token
+   // Login and get a token 
+   request({
+     method: 'GET',
+     url: url,
+   // url: `${url}?%24expand=*&$select=sec_officials`,  // Add query parameter here
+   // url: `${url}?%24expand=*&%24count=true&%24top=1`,  // Add query parameter here
+  // http://services.odata.org/V4/OData/OData.svc/Suppliers?$select=Name, ID, &$filter=ID eq 1
+
+     headers: {
+       'Content-Type': 'application/json',
+       'Authorization': `Bearer ${token}`,
+ 
+     },
+   }, async function (error, response, body) {
+    
+ 
+    // console.log('------>', error)
+ 
+     if (!error && response.statusCode === 200) {
+        
+       let objResults = JSON.parse(body)
+    //   console.log(objResults.value )
+       let tmp_objs = objResults.value 
+
+       const objs = tmp_objs.filter(submission => {
+       // Handle null or undefined values for reviewState
+       const reviewState = submission.__system?.reviewState?.toLowerCase();
+       return reviewState !== 'rejected';
+     });
+ 
+     const converted = convertToGeoJSON(objs)
+    // console.log(converted)
+    
+         res.status(200).send({
+           data: converted,
+           code: '0000',
+           token: token // Include the token in the response
+         });
+  
+ 
+ 
+  
+     } else {
+       // Handle errors here
+       console.error('Error:', error);
+       res.status(500).send({
+         error: 'Internal Server Error'
+       });
+     }
+   });
+};
 
 
  exports.xmodelDeleteSubmission = (req, res) => {

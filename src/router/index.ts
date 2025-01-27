@@ -864,6 +864,21 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       },
+      
+      {
+        path: ':projectId/:xmlFormId/:form_name',
+        component: () => import('@/views/ImportData/surveyDetails.vue'),
+        name: 'SurveyDetails',
+        meta: {
+          hidden: true,
+          title: 'Survey Details',
+          icon:'ion:document-attach',
+          role: [  'super_admin', 'grm' ] ,
+          locationLevel:['national' ],
+          noCache: true
+        }
+      },
+
 
       {
         path: 'data',

@@ -27,6 +27,7 @@ module.exports = function(app) {
   app.post("/api/v1/collector/project/media",  controller.modelDataCollectorCSVWithMedia);
 
   app.post("/api/v1/collector/submissions",  controller.modelGetSubmissions);
+  app.post("/api/v1/collector/submissions/all",  controller.modelGetAllSubmissions);
   app.post("/api/v1/collector/submissions/delete",  controller.modelDeleteSubmission);
   app.post("/api/v1/collector/submissions/edit",  controller.modelEditSubmission);
   app.post("/api/v1/collector/submissions/docs",  controller.getSubmissionAttachments);

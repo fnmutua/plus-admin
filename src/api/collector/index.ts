@@ -89,6 +89,12 @@ export const getSubmissions = (data)  => {
  });
 };
 
+export const getAllSubmissions = (data)  => {
+  return request.post({
+   url: prod + '/api/v1/collector/submissions/all',
+   data    
+ });
+};
 
 export const deleteSubmissions = (data)  => {
   return request.post({
