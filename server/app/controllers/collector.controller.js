@@ -1037,13 +1037,9 @@ function convertToGeoJSON(dataArray, outputFile) {
   // Extract email and password from req.body
   const { project, form, token } = req.body;
 
-  
-
- // let url 
+   // let url 
 //  url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions`;
 const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions?%24expand=*`;
-
-
 
  //const baseUrl = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}.svc/Submissions`;
  //const url = `${baseUrl}?%24expand=*&%24filter=year(__system/createdAt) lt year(now())`;
@@ -1081,11 +1077,14 @@ const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}
      });
  
      const converted = convertToGeoJSON(objs)
-    // console.log(converted)
+     const responseData = converted.features.length > 0? converted : objs;
+
+     console.log(converted)
     
          res.status(200).send({
-           data: converted,
+           data: responseData,
            code: '0000',
+           result:converted  && converted.features.length >0 ? 'geojson' : 'array',
            token: token // Include the token in the response
          });
   

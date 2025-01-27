@@ -88,6 +88,9 @@ const allProperties =ref([]) // The first five properties
 const selectedFields = ref([]); // Ensure it's reactive
 const features =ref([])
 const  totalItems=ref()
+const  disableMap=ref(false)
+
+
 const getFormData = async () => {
   // Define the formData object with necessary fields
   const formData = {
@@ -107,29 +110,82 @@ const getFormData = async () => {
  
 
 
-    // Parse GeoJSON data
-      features.value = response.data.features || [];
-    if (features.value.length > 0) {
-          // Extract the first feature's properties
-          allProperties.value = features.value[0].properties;
-          tableHeaders.value = Object.keys(allProperties.value).slice(0, 7); // Use first 10 fields initially
+    // // Parse GeoJSON data
+    //   features.value = response.data.features || [];
+    // if (features.value.length > 0) {
+    //       // Extract the first feature's properties
+    //       allProperties.value = features.value[0].properties;
+    //       tableHeaders.value = Object.keys(allProperties.value).slice(0, 7); // Use first 10 fields initially
 
-          // Initialize selectedFields with the default fields to show
-          selectedFields.value = tableHeaders.value;
+    //       // Initialize selectedFields with the default fields to show
+    //       selectedFields.value = tableHeaders.value;
 
-          // Map data for the table
-          tableData.value = features.value.map((feature) => {
-            const properties = feature.properties;
-            const row = {};
+    //       // Map data for the table
+    //       tableData.value = features.value.map((feature) => {
+    //         const properties = feature.properties;
+    //         const row = {};
 
-            // Loop through the selected fields and assign values from properties
-            selectedFields.value.forEach((key) => {
-              row[key] = properties[key] || "-"; // Set "-" if the property is missing or undefined
-            });
+    //         // Loop through the selected fields and assign values from properties
+    //         selectedFields.value.forEach((key) => {
+    //           row[key] = properties[key] || "-"; // Set "-" if the property is missing or undefined
+    //         });
 
-            return row;
+    //         return row;
+    //       });
+    //     }
+
+      // Parse GeoJSON data or handle non-GeoJSON results
+      if (response.data.features && response.data.features.length > 0) {
+        disableMap.value=false
+
+        // If the result is GeoJSON
+        features.value = response.data.features;
+
+        // Extract the first feature's properties
+        allProperties.value = features.value[0].properties;
+        tableHeaders.value = Object.keys(allProperties.value).slice(0, 7); // Use first 7 fields initially
+
+        // Initialize selectedFields with the default fields to show
+        selectedFields.value = tableHeaders.value;
+
+        // Map data for the table
+        tableData.value = features.value.map((feature) => {
+          const properties = feature.properties;
+          const row = {};
+
+          // Loop through the selected fields and assign values from properties
+          selectedFields.value.forEach((key) => {
+            row[key] = properties[key] || "-"; // Set "-" if the property is missing or undefined
           });
-        }
+
+          return row;
+        });
+      } 
+      else {
+              // If the result is an array of JavaScript objects
+              disableMap.value = true;
+              features.value = response.data || []; // Assume the data is an array of JavaScript objects
+
+              if (features.value.length > 0) {
+                // Extract properties dynamically from the first object
+                allProperties.value = features.value[0]; // The first object's properties
+                tableHeaders.value = Object.keys(allProperties.value).slice(0, 7); // Use the first 7 properties as headers
+
+                // Initialize selectedFields with the default fields to show
+                selectedFields.value = tableHeaders.value;
+
+                // Map data for the table
+                tableData.value = features.value.map((item) => {
+                  const row = {};
+                  selectedFields.value.forEach((key) => {
+                    row[key] = item[key] || "-"; // Set "-" if the key is missing or undefined
+                  });
+                  return row;
+                });
+              } 
+            }
+
+
 
 
 
@@ -180,7 +236,7 @@ watch([selectedFields, features], () => {
   console.log('selectedFields',selectedFields.value)
   if (features.value.length > 0) {
     tableData.value = features.value.map((feature) => {
-      const properties = feature.properties;
+      const properties = feature.properties ? feature.properties:feature;
       const row = {};
       
       // Loop through the selected fields and assign values from properties
@@ -652,7 +708,8 @@ const loadMap = () => {
     <div style="margin-top: 20px;">
       <!-- Pagination component -->
 
-      <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      <el-pagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
         @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
@@ -663,7 +720,7 @@ const loadMap = () => {
       </el-tab-pane>
 
 
-      <el-tab-pane label="Map" name="map">
+      <el-tab-pane label="Map" name="map" :disabled="disableMap">
         <div id="mapContainer" class="basemap"></div>
       </el-tab-pane>
 

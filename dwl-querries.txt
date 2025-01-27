@@ -44,8 +44,8 @@ DROP TABLE grievance CASCADE;
 ALTER TABLE users ALTER COLUMN phone TYPE VARCHAR(50);
 
 
-INSERT INTO public.user_roles(roleid, userid) VALUES (0,9);
-INSERT INTO public.user_roles(roleid, userid,location_level) VALUES (9,14,'national');
+INSERT INTO public.user_roles(roleid, userid) VALUES (0,233);
+INSERT INTO public.user_roles(roleid, userid,location_level) VALUES (0,233,'national');
 
 
 UPDATE roles
