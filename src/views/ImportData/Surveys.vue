@@ -6,8 +6,8 @@ import { Back } from '@element-plus/icons-vue'
 
 import { ref, computed } from 'vue'
 import {
-    ElInput, ElSelect, ElOption, ElButton, ElDialog,ElTable,ElTableColumn,ElPagination,
-  ElRow, ElCard
+    ElInput, ElSelect, ElOption, ElButton, ElDialog,ElTable,ElTableColumn,ElPagination,ElCol,ElStatistic,ElIcon,
+  ElRow, ElCard,ElDivider
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -16,9 +16,15 @@ import {
   getSubmissions
 } from '@/api/collector'
 
+import { useTransition } from '@vueuse/core'
 
 
-
+import {
+  ArrowRight,ChatLineRound,
+  CaretBottom,
+  CaretTop,
+  Warning,
+} from '@element-plus/icons-vue'
 
 import { watch, onMounted } from 'vue';
 
@@ -84,6 +90,41 @@ const projectOptions = ref([])
 const loading = ref(false)
 
 
+//const summary=ref()
+const summary = ref({
+        totalProjects: 0,
+        totalForms: 0,
+        totalSubmissions: 0,
+        mostRecentSubmission: null
+    });
+const processProjectData = async (projectArray) => {
+   
+
+    projectArray.forEach(project => {
+        // Increment total projects
+        summary.value.totalProjects += 1;
+
+        // Add to the total number of forms
+        summary.value.totalForms += project.forms || 0;
+
+        // Add up submissions from all forms
+        if (project.formList && Array.isArray(project.formList)) {
+            project.formList.forEach(form => {
+              summary.value.totalSubmissions += form.submissions || 0;
+
+                // Update the most recent submission
+                if (
+                    form.lastSubmission &&
+                    (!summary.value.mostRecentSubmission || new Date(form.lastSubmission) > new Date(summary.value.mostRecentSubmission))
+                ) {
+                  summary.value.mostRecentSubmission = form.lastSubmission;
+                }
+            });
+        }
+    });
+
+   // return result;
+}
 
 
 
@@ -104,6 +145,10 @@ const loginUserToCollector = async () => {
     const all_projects = JSON.parse(response.data);
     console.log('projects:', projects.value);
     totalItems.value=all_projects.length
+
+    processProjectData(all_projects)
+
+    console.log('summary.value',summary.value)
     // loop through each project 
     all_projects.forEach(function (project) {
 
@@ -536,31 +581,59 @@ push({
 }
 
 
-
  
-
 
 </script>
 
 <template>
   <el-card v-loading="loading">
-    <el-row type="flex" justify="start" gutter="10"
+
+
+    <el-card style="margin-bottom: 5px;"> 
+
+    <el-row>
+      <el-col :span="6">
+        <el-statistic title="Number of Data Collection Projects" :value="summary.totalProjects" />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic title="Number of Data Collection Forms" :value="summary.totalForms" />
+
+      </el-col>
+      <el-col :span="6">
+ 
+        <el-statistic title="Total Submissions" :value="summary.totalSubmissions" />
+      </el-col>
+
+      <el-col :span="6">
+         
+        <el-statistic title="Latest Submission" :value="formatDateAgo(summary.mostRecentSubmission)" />
+
+      </el-col>
+    </el-row>
+    </el-card>
+
+
+
+    <el-row
+type="flex" justify="start" gutter="10"
       style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
 
-      <div class="max-w-200px">
+      <!-- <div class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
           Back
         </el-button>
-      </div>
+      </div> -->
 
 
-      <el-select multiple v-model="category" placeholder="Filter By Category" style=" margin-right: 5px;  width:350px" clearable
+      <el-select
+multiple v-model="category" placeholder="Filter By Category" style=" margin-right: 5px;  width:250px" clearable
         filterable>
         <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
       
 
-      <el-input clearable v-model="search" placeholder="Search by project name"
+      <el-input
+clearable v-model="search" placeholder="Search by project name"
         :onInput="filterTableData" style=" margin-right: 15px;" />
 
  
@@ -623,7 +696,8 @@ push({
 
   <div style="margin-top: 20px;">
  
- <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+ <el-pagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
    v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
    @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
@@ -676,5 +750,53 @@ push({
 }
 .clickable-row:hover {
   background-color: #f5f7fa;
+}
+</style>
+
+
+
+<style scoped>
+:global(h2#card-usage ~ .example .example-showcase) {
+  background-color: var(--el-fill-color) !important;
+}
+
+.el-statistic {
+  --el-statistic-content-font-size: 28px;
+}
+
+.statistic-card {
+  height: 100%;
+  padding: 20px;
+  border-radius: 4px;
+  background-color: var(--el-bg-color-overlay);
+}
+
+.statistic-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  margin-top: 16px;
+}
+
+.statistic-footer .footer-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.statistic-footer .footer-item span:last-child {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+}
+
+.green {
+  color: var(--el-color-success);
+}
+.red {
+  color: var(--el-color-error);
 }
 </style>

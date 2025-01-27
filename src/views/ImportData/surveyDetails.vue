@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref, watch ,computed} from 'vue'
 import {
-  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,
+  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElCol,ElStatistic,
+  ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,
 } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { Back } from '@element-plus/icons-vue'
@@ -16,7 +17,8 @@ import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 
- 
+ import { useTransition } from '@vueuse/core'
+import { ChatLineRound, Male } from '@element-plus/icons-vue'
  
 
 
@@ -253,7 +255,7 @@ watch([selectedFields, features], () => {
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 20;
+const defaultPageSize = 10;
 const mobilePageSize = 5;
 const pageSize = ref(10);
 const currentPage = ref(1);
@@ -638,6 +640,13 @@ const loadMap = () => {
 
 
 
+const source = ref(0)
+const outputValue = useTransition(source, {
+  duration: 1500,
+})
+source.value = 172000
+
+
 </script>
 
 <template>
@@ -657,7 +666,7 @@ const loadMap = () => {
        
       </div>
     </template>
-
+       
 
 
     <el-tabs v-model="activeName" class="demo-tabs" type="border-card" @tab-click="clickTab">
@@ -1027,3 +1036,9 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
 </style>
 
+
+<style scoped>
+.el-col {
+  text-align: center;
+}
+</style>
