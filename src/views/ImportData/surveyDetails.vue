@@ -112,7 +112,7 @@ const getFormData = async () => {
     if (features.value.length > 0) {
           // Extract the first feature's properties
           allProperties.value = features.value[0].properties;
-          tableHeaders.value = Object.keys(allProperties.value).slice(0, 3); // Use first 10 fields initially
+          tableHeaders.value = Object.keys(allProperties.value).slice(0, 7); // Use first 10 fields initially
 
           // Initialize selectedFields with the default fields to show
           selectedFields.value = tableHeaders.value;
