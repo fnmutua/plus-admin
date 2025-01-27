@@ -434,8 +434,8 @@ const loadMap = () => {
         'line-cap': 'round',
       },
       paint: {
-        'line-color': 'red',
-        'line-width': 5,
+        'line-color': 'black',
+        'line-width': 2,
       },
       filter: ['==', '$type', 'LineString'],
     });
