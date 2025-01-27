@@ -78,8 +78,12 @@ exports.modelLoginCollector =  (req, res) => {
         // });
         const filteredProjectsSorted = projects
         .filter((project) => !project.archived) // Filter out archived projects
+        .map((project) => ({
+          ...project,
+          description: project.description ? project.description : 'Unspecified' // Set 'Unspecified' if description is null or empty
+        }))
         .sort((a, b) => new Date(b.lastSubmission) - new Date(a.lastSubmission)); // Sort by date (latest first)
-        
+
         
      // console.log(filteredProjectsSorted)
         res.status(200).send({
