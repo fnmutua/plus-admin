@@ -15,6 +15,10 @@ import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
 import '@mapbox/mapbox-gl-geocoder/lib/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf'
   
+ 
+ 
+ 
+
 import {
   
   getAllSubmissions
@@ -29,44 +33,49 @@ import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
  
 
-import { simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,
+import {
+  pieOptions, simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,
   lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs
 } from './chart-types'
  
-import { useCache } from '@/hooks/web/useCache'
-
-import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import { PieChart, BarChart, LineChart } from 'echarts/charts';
+ 
+import { PieChart, GaugeChart, BarChart, LineChart, } from 'echarts/charts';
 import {
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent,
+    TitleComponent,
+    TooltipComponent,
+    LegendComponent,
+    ToolboxComponent,
+    GridComponent,
+
 } from 'echarts/components';
-import VChart from 'vue-echarts';
+
+
+import { use } from "echarts/core";
+
+
+type EChartsOption = echarts.EChartsOption;
+ 
+var PieChartOption: EChartsOption;
+
 
 use([
-  CanvasRenderer,
-  PieChart,
-  BarChart,
-  LineChart,
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent,
+    GaugeChart,
+    CanvasRenderer,
+    PieChart,
+    LineChart,
+    BarChart,
+    TitleComponent,
+    TooltipComponent,
+    LegendComponent,
+    ToolboxComponent,
+    GridComponent
 ]);
 
 
 
 
-
-
-
-
-
-
-
+import { useCache } from '@/hooks/web/useCache'
 const { push } = useRouter()
 
 
@@ -861,69 +870,6 @@ let thisChart = {}
 const showCharts = ref(false)
 const customCharts = ref([])
 
-
-const PieOptions= {
-  title: {
-    text: 'Sample Chart',
-    left: 'center',
-  },
-  tooltip: {
-    trigger: 'item',
-  },
-  legend: {
-    orient: 'vertical',
-    left: 'left',
-  },
-  series: [
-    {
-      name: 'Sample Data',
-      type: 'pie',
-      radius: '50%',
-      data: [
-        { value: 1048, name: 'Search Engine' },
-        { value: 735, name: 'Direct' },
-        { value: 580, name: 'Email' },
-        { value: 484, name: 'Union Ads' },
-        { value: 300, name: 'Video Ads' },
-      ],
-      emphasis: {
-        itemStyle: {
-          shadowBlur: 10,
-          shadowOffsetX: 0,
-          shadowColor: 'rgba(0, 0, 0, 0.5)',
-        },
-      },
-    },
-  ],
-};
-
-const BarOptions= {
-  xAxis: {
-    type: 'category',
-    data: []
-  },
-  yAxis: {
-    type: 'value'
-  },
-  toolbox: {
-    feature: {
-      dataView: { show: true, readOnly: false },
-      restore: { show: true },
-      saveAsImage: { show: true }
-    }
-  },
-  legend: {
-    data: ['Evaporation', 'Precipitation', 'Temperature']
-  },
-  
-  series: [
-    {
-      data: [],
-      type: 'bar'
-    }
-  ]
-};
-
 const generateReport = async () => {
     showCharts.value = true
     // clear the charts first 
@@ -1013,65 +959,27 @@ const generateReport = async () => {
         }
     }
  
-    console.log('other-chart', chart) 
+
     // // loop through the extratced data and generated chart options
     for (const key in chart) {
         var updatedOptions
 
         if (typeChart.value == 'pie') {
             updatedOptions = {
-                ...PieOptions,
+                ...pieOptions,
                 title: {
-                    ...PieOptions.title,
+                    ...pieOptions.title,
                     //   text: obj[key].key 
                     text: computationMethod.value === 'count' ? chart[key].key : chart[key].key + '(%)',
                 },
 
                 series: {
-                    ...PieOptions.series[0],
-                    data: chart[key].data,    // data 
-                    name: chart[key].key    // data 
+                    ...pieOptions.series[0],
+                    data: chart[key].data    // data 
                 },
             };
         }
         
-
-
-       else if (typeChart.value == 'bar') {
-            updatedOptions = {
-                ...BarOptions, // Spread existing BarOptions
-                title: {
-                    ...BarOptions.title, // Spread existing title options
-                    text: computationMethod.value === 'count' ? chart[key].key : chart[key].key + ' (%)', // Set title text
-                },
-                xAxis: {
-                    type: 'category',
-                    data:  chart[key].category
-                  },
-
-                series: [ // series should be an array
-                    {
-                        ...BarOptions.series[0], // Spread existing series options
-                        data: chart[key].data, // Set data for the series
-                        name: chart[key].key, // Set name for the series
-                    }
-                ],
-            };
-}
-
-
-
-
-
-        
-
-
-
-
-
-
-
-
 
 
         console.log('updatedOptions ; PIE', updatedOptions)
@@ -1084,16 +992,42 @@ const generateReport = async () => {
 
 // Render charts after the DOM is mounted
 
-const chartOptions = [
-    {
-        value: 'pie',
-        label: 'Pie Chart',
-    },
-    {
-        value: 'bar',
-        label: 'Bar Chart',
-    }]
 
+const option = {
+  title: {
+    text: 'Referer of a Website',
+    subtext: 'Fake Data',
+    left: 'center'
+  },
+  tooltip: {
+    trigger: 'item'
+  },
+  legend: {
+    orient: 'vertical',
+    left: 'left'
+  },
+  series: [
+    {
+      name: 'Access From',
+      type: 'pie',
+      radius: '50%',
+      data: [
+        { value: 1048, name: 'Search Engine' },
+        { value: 735, name: 'Direct' },
+        { value: 580, name: 'Email' },
+        { value: 484, name: 'Union Ads' },
+        { value: 300, name: 'Video Ads' }
+      ],
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowOffsetX: 0,
+          shadowColor: 'rgba(0, 0, 0, 0.5)'
+        }
+      }
+    }
+  ]
+};
 
  
 
@@ -1123,72 +1057,113 @@ const chartOptions = [
 
       <el-tab-pane label="Data" name="data">
         <el-card v-loading="loading">
+
+
           <el-row type="flex" justify="start" gutter="10">
-            <el-select v-model="selectedFields" multiple clearable placeholder="Select properties to display"
+
+            <el-select v-model="selectedFields" multiple placeholder="Select properties to display"
               :collapse-tags="true" style="margin-bottom: 10px; width: 95%;" class="select-properties">
               <el-option v-for="(value, key) in allProperties" :key="key" :label="key" :value="key" />
             </el-select>
+
+
             <DownloadCustom :data="paginatedData" :all="tableData" />
+
           </el-row>
+
+
+
+
           <el-table :data="paginatedData" style="width: 100%" border stripe>
             <el-table-column v-for="(key, index) in selectedFields" :key="index" :label="key" :prop="key" />
           </el-table>
+
           <div style="margin-top: 20px;">
             <!-- Pagination component -->
+
             <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
               v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
               @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
+
           </div>
+
         </el-card>
+
       </el-tab-pane>
+
+
       <el-tab-pane label="Map" name="map" :disabled="disableMap">
         <div id="mapContainer" class="basemap"></div>
       </el-tab-pane>
 
-      <!-- New Cart Tab -->
+
+
+      <!-- New Chart Tab -->
       <el-tab-pane label="Charts" name="chart">
         <el-card v-loading="loading">
           <el-row type="flex" justify="start" gutter="10">
-            
-            <el-select  v-model="typeChart" clearable placeholder="Type of Chart" style="margin-bottom: 10px; margin-right: 10px;  width: 25%;">
-                        <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
-                    </el-select>
+            <!-- <el-select
+              v-model="selectedChartFields"
+              multiple
+              placeholder="Select fields to display in chart"
+              :collapse-tags="true"
+              style="margin-bottom: 10px; margin-right: 10px; width: 25%;"
+              class="select-properties"
+            >
+              <el-option
+                v-for="(value, key) in allProperties"
+                :key="key"
+                :label="key"
+                :value="key"
+              />
+            </el-select> -->
 
-            <el-select v-model="computationMethod"   placeholder="Computation Method"
+            <el-select v-model="computationMethod" multiple placeholder="Select fields to display in chart"
               :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px;  width: 25%;"
               class="select-properties" :onChange="generateReport">
               <el-option v-for="item in computationOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
 
-          </el-row>
-          <el-row :gutter="20">
-              <el-col 
-                v-for="(chart, index) in customCharts" 
-                :key="index" 
-                :span="12" 
-                :xl="12" 
-                :lg="12" 
-                :md="12" 
-                :sm="24" 
-                :xs="24"
-              >
-                <div>
-                  <el-card style="margin:5px">
-                    <v-chart 
-                      class="chart" 
-                      :option="chart" 
-                      style="width: 100%; height: 400px;" 
-                      autoresize 
-                    />
-                  </el-card>
-                </div>
-              </el-col>
-            </el-row>
 
+
+            <!-- <el-select :onChange="generateReport" v-model="computationMethod" clearable placeholder="Computation" style="margin-right: 10px; flex: 1;" class="select-properties">
+                <el-option v-for="item in computationOptions" :key="item.value" :label="item.label" :value="item.value" />
+             </el-select> -->
+
+
+          </el-row>
+
+          <!-- <div id="chartContainer" style="width: 100%; height: 400px;"></div> -->
+         <v-chart class="chart" :option="option"  />  
+ 
+      <!-- 
+                <el-col v-for="(chart) in customCharts" :key="chart" :span="24" :xl="24" :lg="24" :md="24" :sm="24" :xs="24">
+                  <div >
+                    <el-card>
+
+                    
+                        <v-chart class="chart" :option="option" autoresize />
+      
+
+      
+                    </el-card>
+                  </div>
+
+                </el-col> -->
 
         </el-card>
       </el-tab-pane>
+
+
+
+
     </el-tabs>
+
+
+
+
+
+
   </el-card>
 
 </template>
