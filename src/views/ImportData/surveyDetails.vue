@@ -43,6 +43,7 @@ import {
   TooltipComponent,
   LegendComponent,
   GridComponent,
+  ToolboxComponent
 } from 'echarts/components';
 import VChart from 'vue-echarts';
 
@@ -55,6 +56,7 @@ use([
   TooltipComponent,
   LegendComponent,
   GridComponent,
+  ToolboxComponent,
 ]);
 
 
@@ -228,7 +230,7 @@ const activeName = ref('data')
 // Watch for changes in the selected fields and update table data accordingly
 watch([selectedFields, features], () => {
   // Ensure features is updated
-  console.log('selectedFields',selectedFields.value)
+  console.log('listening selectedFields',selectedFields.value)
   if (features.value.length > 0) {
     tableData.value = features.value.map((feature) => {
       const properties = feature.properties ? feature.properties:feature;
@@ -301,6 +303,7 @@ const clickTab = (tab) => {
   }
 
   if (tab.props.name === 'chart') {
+    generateReport()
     setTimeout(() => {
       renderChart();
     }, 500);
@@ -857,6 +860,27 @@ let thisChart = {}
 
 
 
+const chartOptions = [
+    {
+        value: 'pie',
+        label: 'Pie Chart',
+    },
+    {
+        value: 'bar',
+        label: 'Bar Chart',
+    },
+    {
+        value: 'multi_bar',
+        label: 'Multiple Variable Bar Chart',
+    },
+    {
+        value: 'stacked_bar',
+        label: 'Stacked Bar Chart',
+    }
+
+  ]
+
+  
 
 const showCharts = ref(false)
 const customCharts = ref([])
@@ -867,6 +891,8 @@ const PieOptions= {
     text: 'Sample Chart',
     left: 'center',
   },
+ 
+
   tooltip: {
     trigger: 'item',
   },
@@ -895,6 +921,15 @@ const PieOptions= {
       },
     },
   ],
+  toolbox: {
+    show: true,
+    feature: {
+      mark: { show: true },
+      dataView: { show: true, readOnly: false },
+      restore: { show: true },
+      saveAsImage: { show: true }
+    }
+  },
 };
 
 const BarOptions= {
@@ -906,14 +941,13 @@ const BarOptions= {
     type: 'value'
   },
   toolbox: {
+    show: true,
     feature: {
-      dataView: { show: true, readOnly: false },
-      restore: { show: true },
-      saveAsImage: { show: true }
+      saveAsImage: {}
     }
   },
   legend: {
-    data: ['Evaporation', 'Precipitation', 'Temperature']
+    data: [ ]
   },
   
   series: [
@@ -924,11 +958,88 @@ const BarOptions= {
   ]
 };
 
+const MultiBarOptions = {
+  toolbox: {
+    show: true,
+    feature: {
+      saveAsImage: {}
+    }
+  },
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      type: 'shadow'
+    }
+  },
+  legend: {},
+  grid: {
+    left: '3%',
+    right: '4%',
+    bottom: '3%',
+    containLabel: true
+  },
+  xAxis: {
+    type: 'value',
+    boundaryGap: [0, 0.01]
+  },
+  yAxis: {
+    type: 'category',
+    data: []
+  },
+  series: []
+};
+
+ 
+
+const StackedBarOption = {
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      // Use axis to trigger tooltip
+      type: 'shadow' // 'shadow' as default; can also be 'line' or 'shadow'
+    }
+  },
+  toolbox: {
+    show: true,
+    feature: {
+      saveAsImage: {}
+    }
+  },
+  legend: {},
+  grid: {
+    left: '3%',
+    right: '4%',
+    bottom: '3%',
+    containLabel: true
+  },
+  xAxis: {
+    type: 'value'
+  },
+  yAxis: {
+    type: 'category',
+    data: []
+  },
+  textStyle: {
+      fontSize: 12,
+      overflow: "breakAll"
+    },
+  series: [
+   
+  ]
+};
+const handleChangeFields = async () => {
+  // Delay for 500ms (adjust the delay time as needed)
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  generateReport();
+};
+
+
 const generateReport = async () => {
     showCharts.value = true
     // clear the charts first 
     customCharts.value = []
-    console.log("reports........", computationMethod.value)
+    console.log("reports........", selectedFields.value, computationMethod.value)
+    console.log("tableData.value........", tableData.value)
 
     var frequencies
     if (computationMethod.value == 'count') {
@@ -953,146 +1064,232 @@ const generateReport = async () => {
 
     }
 
-
-
-
-      // Loop through the frequencies and extract the categories and data 
-      // if (typeChart.value == 'pie') {
-      //   processPieChart(frequencies)
-
-      // }
-
-
-    // //const result = await generatePropertyFrequencies(data, 'name');
-    // console.log('frequencies', frequencies);
-
-    // // loop through each propoert and get the responses 
-
-    // let chart = {}
-
-    // // Loop through the frequencies and extract the categories and data 
-    let chart ={}
-    if (typeChart.value == 'pie') {
-
-        for (const key in frequencies) {
-
-            if (frequencies.hasOwnProperty(key)) {
-                const nestedData = frequencies[key];
-                console.log('nestedData', nestedData)
-                let keys = Object.keys(nestedData)
-                let data = Object.values(nestedData)
-                let series = []
-
-                for (let i = 0; i < keys.length; i++) {
-                    series.push({ value: data[i], name: keys[i] })
-                }
-
-
-                chart[key] = {
-                    data: series,
-                    key: key.toUpperCase()
-                };
-
-            }
-        }
-        console.log('Pie-chart', chart)
-    }
-    else {
-
-        for (const key in frequencies) {
-            if (frequencies.hasOwnProperty(key)) {
-                const nestedData = frequencies[key];
-                chart[key] = {
-                    category: Object.keys(nestedData),
-                    data: Object.values(nestedData),
-                    key: key.toUpperCase()
-                };
-
-            }
-            // valuesArray.push(obj)
-        }
-    }
  
-    console.log('other-chart', chart) 
-    // // loop through the extratced data and generated chart options
-    for (const key in chart) {
-        var updatedOptions
+    let chart = {};
+      if (typeChart.value == 'pie') {
+          for (const key in frequencies) {
+              if (frequencies.hasOwnProperty(key)) {
+                  const nestedData = frequencies[key];
+                  console.log('nestedData', nestedData);
+                  let keys = Object.keys(nestedData);
+                  let data = Object.values(nestedData);
+                  let series = [];
 
-        if (typeChart.value == 'pie') {
+                  for (let i = 0; i < keys.length; i++) {
+                      series.push({ value: data[i], name: keys[i] });
+                  }
+
+                  chart[key] = {
+                      data: series,
+                      key: key.toUpperCase(),
+                  };
+              }
+          }
+          console.log('Pie-chart', chart);
+       } 
+      else if (typeChart.value == 'multi_bar') {
+          // Initialize categories and series
+          let categories = [];
+          let seriesData = {};
+
+          // Loop through the frequencies to populate categories and series
+          for (const key in frequencies) {
+              if (frequencies.hasOwnProperty(key)) {
+                  const nestedData = frequencies[key];
+                  let keys = Object.keys(nestedData);
+
+                  // Add unique categories to the list
+                  categories = [...new Set([...categories, ...keys])];
+
+                  // Populate series data for each key
+                  for (const category of keys) {
+                      if (!seriesData[key]) {
+                          seriesData[key] = [];
+                      }
+                      seriesData[key].push({ category, value: nestedData[category] });
+                  }
+              }
+          }
+
+          // Transform the seriesData into chart series format
+          let series = [];
+          for (const seriesName in seriesData) {
+              if (seriesData.hasOwnProperty(seriesName)) {
+                  series.push({
+                      name: seriesName.toUpperCase(),
+                      type: 'bar',
+                      data: seriesData[seriesName].map((item) => item.value || 0), // Fill missing categories with 0
+                  });
+              }
+          }
+
+          chart = {
+              categories: categories,
+              series: series,
+          };
+
+          console.log('Multivariate Bar Chart', chart);
+      }
+      
+      else if (typeChart.value == 'stacked_bar') {
+            for (const chartKey in frequencies) {
+
+             
+              if (frequencies.hasOwnProperty(chartKey)) {
+                const nestedFrequencies = frequencies[chartKey];
+
+                // Initialize categories as the keys of the nested frequency object (e.g., '26_35', '18_25', '_70', etc.)
+                let categories = Object.keys(nestedFrequencies);
+
+                // Initialize an empty array for the series data
+                let series = [];
+
+                // Loop through the subcategories (keys in the nested frequency object)
+                categories.forEach((subCategory) => {
+                  // Prepare the data for each subcategory (since the data is flat, each category is its own series)
+                  const data = categories.map((category) => {
+                    // The value for each subcategory in the categories, in this case it's just the number itself
+                    return nestedFrequencies[category] || 0;
+                  });
+
+                  // Push the series for each subcategory
+                  series.push({
+                    name: subCategory.toUpperCase(), // Name of the subcategory
+                    type: 'bar',
+                    stack: 'total', // Stack the bars
+                    data: data, // Data for the subcategory
+                  });
+                });
+
+                // Create the chart object for the current chartKey (e.g., 'age', 'gender', etc.)
+                
+                  chart[chartKey] = {
+                  title: chartKey.toUpperCase(), // Chart title: 'Age', 'Gender', 'Educational Level'
+                  categories: categories, // Categories (e.g., '26_35', '18_25', etc.)
+                  series: series, // Series data (stacked bars for each subcategory)
+                };
+                console.log('chartKey',chartKey)
+                // Debug: Log the chart object for verification
+              console.log(`Stacked Bar 1Chart for ${chartKey}`, chart);
+
+                // Add the chart to the customCharts array for rendering
+              //  customCharts.value.push(chart);
+              }
+            }
+          }
+
+
+ 
+      else {
+          for (const key in frequencies) {
+              if (frequencies.hasOwnProperty(key)) {
+                  const nestedData = frequencies[key];
+                  chart[key] = {
+                      category: Object.keys(nestedData),
+                      data: Object.values(nestedData),
+                      key: key.toUpperCase(),
+                  };
+              }
+          }
+      }
+
+
+
+     // // loop through the extratced data and generated chart options
+  for (const key in chart) {
+    let updatedOptions;
+
+    if (typeChart.value == 'pie') {
+      updatedOptions = {
+        ...PieOptions,
+        title: {
+          ...PieOptions.title,
+          text: computationMethod.value === 'count' ? chart[key].key : chart[key].key + '(%)',
+        },
+        series: {
+          ...PieOptions.series[0],
+          data: chart[key].data,
+          name: chart[key].key,
+        },
+      };
+    } else if (typeChart.value == 'bar') {
+      updatedOptions = {
+        ...BarOptions,
+        title: {
+          ...BarOptions.title,
+          text: computationMethod.value === 'count' ? chart[key].key : chart[key].key + ' (%)',
+        },
+        xAxis: {
+          type: 'category',
+          data: chart[key].category,
+        },
+        series: [
+          {
+            ...BarOptions.series[0],
+            data: chart[key].data,
+            name: chart[key].key,
+          },
+        ],
+      };
+    } else if (typeChart.value == 'multi_bar') {
+      updatedOptions = {
+        ...MultiBarOptions,
+
+        xAxis: {
+          type: 'category',
+          data: chart.categories, // Set categories for the x-axis
+        },
+        series: chart.series.map((seriesItem) => ({
+          ...MultiBarOptions.series[0], // Spread default series options
+          data: seriesItem.data,  // Set the data for the series
+          name: seriesItem.name,  // Set the name for the series
+          type: 'bar',            // Ensure it's a bar type
+        })),
+      };
+    }
+    else if (typeChart.value == 'stacked_bar') {
+    // Iterate over each chart key (e.g., 'age', 'gender', 'educational_level_highest')
+              // Create the updated chart options
+              console.log( 'stacked_bar',key)
+              let thisChart=chart[key]
             updatedOptions = {
-                ...PieOptions,
+                ...StackedBarOption,
                 title: {
-                    ...PieOptions.title,
-                    //   text: obj[key].key 
-                    text: computationMethod.value === 'count' ? chart[key].key : chart[key].key + '(%)',
-                },
-
-                series: {
-                    ...PieOptions.series[0],
-                    data: chart[key].data,    // data 
-                    name: chart[key].key    // data 
-                },
-            };
-        }
-        
-
-
-       else if (typeChart.value == 'bar') {
-            updatedOptions = {
-                ...BarOptions, // Spread existing BarOptions
-                title: {
-                    ...BarOptions.title, // Spread existing title options
-                    text: computationMethod.value === 'count' ? chart[key].key : chart[key].key + ' (%)', // Set title text
+                    ...StackedBarOption.title,
+                    text: key.toUpperCase(), // Set chart title
                 },
                 xAxis: {
-                    type: 'category',
-                    data:  chart[key].category
-                  },
-
-                series: [ // series should be an array
-                    {
-                        ...BarOptions.series[0], // Spread existing series options
-                        data: chart[key].data, // Set data for the series
-                        name: chart[key].key, // Set name for the series
-                    }
-                ],
+                    ...StackedBarOption.xAxis,
+                    data: thisChart.categories, // Set categories for X-axis
+                },
+                series: thisChart.series, // Set series data
             };
+
+            // Push the updated options to the customCharts array
+            customCharts.value.push(updatedOptions);
+           // console.log(`Stacked Bar 2Chart for ${chartKey}`, updatedOptions);
+     
 }
 
 
 
 
 
-        
+    console.log('updatedOptions:', updatedOptions);
+    // Check if the options are already in customCharts.value
+    const isAlreadyPresent = customCharts.value.some(
+      (chartOption) => JSON.stringify(chartOption) === JSON.stringify(updatedOptions)
+    );
 
-
-
-
-
-
-
-
-
-
-        console.log('updatedOptions ; PIE', updatedOptions)
-        customCharts.value.push(updatedOptions)
-
+    if (!isAlreadyPresent) {
+      customCharts.value.push(updatedOptions);
     }
+  }
 
     console.log("charts,", customCharts.value)
 }
 
 // Render charts after the DOM is mounted
-
-const chartOptions = [
-    {
-        value: 'pie',
-        label: 'Pie Chart',
-    },
-    {
-        value: 'bar',
-        label: 'Bar Chart',
-    }]
 
 
  
@@ -1128,6 +1325,7 @@ const chartOptions = [
               :collapse-tags="true" style="margin-bottom: 10px; width: 95%;" class="select-properties">
               <el-option v-for="(value, key) in allProperties" :key="key" :label="key" :value="key" />
             </el-select>
+
             <DownloadCustom :data="paginatedData" :all="tableData" />
           </el-row>
           <el-table :data="paginatedData" style="width: 100%" border stripe>
@@ -1145,12 +1343,19 @@ const chartOptions = [
         <div id="mapContainer" class="basemap"></div>
       </el-tab-pane>
 
+
+
       <!-- New Cart Tab -->
       <el-tab-pane label="Charts" name="chart">
         <el-card v-loading="loading">
           <el-row type="flex" justify="start" gutter="10">
             
-            <el-select  v-model="typeChart" clearable placeholder="Type of Chart" style="margin-bottom: 10px; margin-right: 10px;  width: 25%;">
+            <el-select v-model="selectedFields" :onChange="handleChangeFields"  multiple clearable placeholder="Select Fields"
+              :collapse-tags="true" style="margin-right: 10px; width: 25%;" class="select-properties">
+              <el-option v-for="(value, key) in allProperties" :key="key" :label="key" :value="key" />
+            </el-select>
+
+            <el-select  :onChange="generateReport" v-model="typeChart" clearable placeholder="Type of Chart" style="margin-bottom: 10px; margin-right: 10px;  width: 25%;">
                         <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
 
