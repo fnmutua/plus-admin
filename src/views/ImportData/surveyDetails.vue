@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref, watch ,computed} from 'vue'
+import { onMounted, onUnmounted, ref, watch ,computed} from 'vue'
 import {
-  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,ElSkeleton,ElCol,
+  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,ElSkeleton,ElCol,ElTableV2,ElAutoResizer,ElMessage
 } from 'element-plus'
+ 
 import { useRoute } from 'vue-router'
 import { Back } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
@@ -62,8 +63,20 @@ use([
 
 
 
+const tableWidth = ref(window.innerWidth * 0.9); // 90% of window width
 
 
+const updateWidth = () => {
+  tableWidth.value = window.innerWidth * 0.9;
+};
+
+onMounted(() => {
+  window.addEventListener("resize", updateWidth);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", updateWidth);
+});
 
 
 
@@ -320,7 +333,7 @@ let nmap; // Declare the map variable outside the function for scope
 
  
 
-const icon = ref(`<button>  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M4.97883 9.68508C2.99294 8.89073 2 8.49355 2 8C2 7.50645 2.99294 7.10927 4.97883 6.31492L7.7873 5.19153C9.77318 4.39718 10.7661 4 12 4C13.2339 4 14.2268 4.39718 16.2127 5.19153L19.0212 6.31492C21.0071 7.10927 22 7.50645 22 8C22 8.49355 21.0071 8.89073 19.0212 9.68508L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L4.97883 9.68508Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M2 8C2 8.49355 2.99294 8.89073 4.97883 9.68508L7.7873 10.8085C9.77318 11.6028 10.7661 12 12 12C13.2339 12 14.2268 11.6028 16.2127 10.8085L19.0212 9.68508C21.0071 8.89073 22 8.49355 22 8C22 7.50645 21.0071 7.10927 19.0212 6.31492L16.2127 5.19153C14.2268 4.39718 13.2339 4 12 4C10.7661 4 9.77318 4.39718 7.7873 5.19153L4.97883 6.31492C2.99294 7.10927 2 7.50645 2 8Z" fill="#1C274C"></path> <path opacity="0.7" d="M5.76613 10L4.97883 10.3149C2.99294 11.1093 2 11.5065 2 12C2 12.4935 2.99294 12.8907 4.97883 13.6851L7.7873 14.8085C9.77318 15.6028 10.7661 16 12 16C13.2339 16 14.2268 15.6028 16.2127 14.8085L19.0212 13.6851C21.0071 12.8907 22 12.4935 22 12C22 11.5065 21.0071 11.1093 19.0212 10.3149L18.2339 10L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L5.76613 10Z" fill="#1C274C"></path> <path opacity="0.4" d="M5.76613 14L4.97883 14.3149C2.99294 15.1093 2 15.5065 2 16C2 16.4935 2.99294 16.8907 4.97883 17.6851L7.7873 18.8085C9.77318 19.6028 10.7661 20 12 20C13.2339 20 14.2268 19.6028 16.2127 18.8085L19.0212 17.6851C21.0071 16.8907 22 16.4935 22 16C22 15.5065 21.0071 15.1093 19.0212 14.3149L18.2339 14L16.2127 14.8085C14.2268 15.6028 13.2339 16 12 16C10.7661 16 9.77318 15.6028 7.7873 14.8085L5.76613 14Z" fill="#1C274C"></path> </g></svg></button>`)
+const icon = ref(`<button title="Switch Baselayer">  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M4.97883 9.68508C2.99294 8.89073 2 8.49355 2 8C2 7.50645 2.99294 7.10927 4.97883 6.31492L7.7873 5.19153C9.77318 4.39718 10.7661 4 12 4C13.2339 4 14.2268 4.39718 16.2127 5.19153L19.0212 6.31492C21.0071 7.10927 22 7.50645 22 8C22 8.49355 21.0071 8.89073 19.0212 9.68508L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L4.97883 9.68508Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M2 8C2 8.49355 2.99294 8.89073 4.97883 9.68508L7.7873 10.8085C9.77318 11.6028 10.7661 12 12 12C13.2339 12 14.2268 11.6028 16.2127 10.8085L19.0212 9.68508C21.0071 8.89073 22 8.49355 22 8C22 7.50645 21.0071 7.10927 19.0212 6.31492L16.2127 5.19153C14.2268 4.39718 13.2339 4 12 4C10.7661 4 9.77318 4.39718 7.7873 5.19153L4.97883 6.31492C2.99294 7.10927 2 7.50645 2 8Z" fill="#1C274C"></path> <path opacity="0.7" d="M5.76613 10L4.97883 10.3149C2.99294 11.1093 2 11.5065 2 12C2 12.4935 2.99294 12.8907 4.97883 13.6851L7.7873 14.8085C9.77318 15.6028 10.7661 16 12 16C13.2339 16 14.2268 15.6028 16.2127 14.8085L19.0212 13.6851C21.0071 12.8907 22 12.4935 22 12C22 11.5065 21.0071 11.1093 19.0212 10.3149L18.2339 10L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L5.76613 10Z" fill="#1C274C"></path> <path opacity="0.4" d="M5.76613 14L4.97883 14.3149C2.99294 15.1093 2 15.5065 2 16C2 16.4935 2.99294 16.8907 4.97883 17.6851L7.7873 18.8085C9.77318 19.6028 10.7661 20 12 20C13.2339 20 14.2268 19.6028 16.2127 18.8085L19.0212 17.6851C21.0071 16.8907 22 16.4935 22 16C22 15.5065 21.0071 15.1093 19.0212 14.3149L18.2339 14L16.2127 14.8085C14.2268 15.6028 13.2339 16 12 16C10.7661 16 9.77318 15.6028 7.7873 14.8085L5.76613 14Z" fill="#1C274C"></path> </g></svg></button>`)
 
 const showSatellite = ref(false)
 
@@ -411,6 +424,58 @@ const featureCollection = {
 
 
  
+
+
+const downloadGeo = () => {
+  ElMessage({
+    message: 'Downloading in GeoJson format.....',
+    type: 'warning',
+  })
+
+  const featureCollection = {
+    type: 'FeatureCollection',
+    features: features.value
+  };
+  // facilityGeoPoints
+
+  //download(JSON.stringify(collection), title.value +".geojson", "text/plain");
+  downloadJSON(featureCollection, form_name + ".geojson")
+
+
+}
+
+function downloadJSON(jsonObj, fileName) {
+
+  console.log('downloading......')
+  // Convert the JSON object to a JSON string
+  const jsonString = JSON.stringify(jsonObj, null, 2);
+
+  // Create a Blob with the JSON string
+  const blob = new Blob([jsonString], { type: 'application/json' });
+
+  // Create a link element
+  const link = document.createElement('a');
+
+  // Set the download attribute and file name
+  link.download = fileName || 'download.json';
+
+  // Create a URL for the Blob and set it as the href attribute of the link
+  link.href = window.URL.createObjectURL(blob);
+
+  // Append the link to the document
+  document.body.appendChild(link);
+
+  // Trigger a click on the link to start the download
+  link.click();
+
+  // Remove the link from the document
+  document.body.removeChild(link);
+}
+
+
+
+
+
 
 
  
@@ -536,7 +601,7 @@ const loadMap = () => {
           const div = document.createElement("div");
           div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
           div.innerHTML =
-            `<button>
+            `<button title="Zoom To Full Extent">
                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M4 15V18C4 19.1046 4.89543 20 6 20H9M15.2173 20H18C19.1046 20 20 19.1046 20 18V15M20 9V6C20 4.89543 19.1046 4 18 4H15M4 9V6C4 4.89543 4.89543 4 6 4H9" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>    </button>`;
           div.addEventListener("contextmenu", (e) => e.preventDefault());
           div.addEventListener("click", () => zoomHome());
@@ -549,6 +614,27 @@ const loadMap = () => {
     }
     addHomeButton(nmap)
 
+
+
+    function addDownloadButton(map) {
+      class HomeButton {
+        onAdd(map) {
+          const div = document.createElement("div");
+          div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+          div.innerHTML =
+        `<button title="Download GeoJSON">
+         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M2 12C2 7.28595 2 4.92893 3.46447 3.46447C4.92893 2 7.28595 2 12 2C16.714 2 19.0711 2 20.5355 3.46447C22 4.92893 22 7.28595 22 12C22 16.714 22 19.0711 20.5355 20.5355C19.0711 22 16.714 22 12 22C7.28595 22 4.92893 22 3.46447 20.5355C2 19.0711 2 16.714 2 12ZM12 6.25C12.4142 6.25 12.75 6.58579 12.75 7V12.1893L14.4697 10.4697C14.7626 10.1768 15.2374 10.1768 15.5303 10.4697C15.8232 10.7626 15.8232 11.2374 15.5303 11.5303L12.5303 14.5303C12.3897 14.671 12.1989 14.75 12 14.75C11.8011 14.75 11.6103 14.671 11.4697 14.5303L8.46967 11.5303C8.17678 11.2374 8.17678 10.7626 8.46967 10.4697C8.76256 10.1768 9.23744 10.1768 9.53033 10.4697L11.25 12.1893V7C11.25 6.58579 11.5858 6.25 12 6.25ZM8 16.25C7.58579 16.25 7.25 16.5858 7.25 17C7.25 17.4142 7.58579 17.75 8 17.75H16C16.4142 17.75 16.75 17.4142 16.75 17C16.75 16.5858 16.4142 16.25 16 16.25H8Z" fill="#1C274C"></path> </g></svg> 
+          </button>`;
+          div.addEventListener("contextmenu", (e) => e.preventDefault());
+          div.addEventListener("click", () => downloadGeo());
+
+          return div;
+        }
+      }
+      const homeButton = new HomeButton();
+      nmap.addControl(homeButton, "top-right");
+    }
+    addDownloadButton(nmap)
 
 
 
@@ -687,7 +773,7 @@ const renderChart = () => {
 // Watch for changes in selected chart fields and update chart data
 watch(selectedChartFields, () => {
   updateChartData();
-  renderChart();
+ // renderChart();
 }, { deep: true });
 
 
@@ -1292,7 +1378,16 @@ const generateReport = async () => {
 // Render charts after the DOM is mounted
 
 
- 
+ // Computed property for dynamic columns
+const tableColumns = computed(() =>
+  selectedFields.value.map((field) => ({
+    key: field,
+    dataKey: field,
+    title: field.replace(/_/g, " ").toUpperCase(),
+    width: 150,
+    align: "left",
+  }))
+);
 
 </script>
 
@@ -1328,9 +1423,24 @@ const generateReport = async () => {
 
             <DownloadCustom :data="paginatedData" :all="tableData" />
           </el-row>
-          <el-table :data="paginatedData" style="width: 100%" border stripe>
-            <el-table-column v-for="(key, index) in selectedFields" :key="index" :label="key" :prop="key" />
-          </el-table>
+      <!-- el-table-v2 for better performance -->
+    
+        <!-- el-table-v2 for better performance -->
+       
+ 
+            <el-table-v2
+              :columns="tableColumns"
+              :data="paginatedData"
+              :width="tableWidth"            
+              :height=400
+              :fixed="true"
+              :bordered="true"
+              :stripe="true"
+            />
+      
+       
+    
+
           <div style="margin-top: 20px;">
             <!-- Pagination component -->
             <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"

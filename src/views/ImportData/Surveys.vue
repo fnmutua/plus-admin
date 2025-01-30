@@ -97,8 +97,14 @@ const summary = ref({
         totalSubmissions: 0,
         mostRecentSubmission: null
     });
+
+
 const processProjectData = async (projectArray) => {
    
+  summary.value.totalProjects=0
+  summary.value.totalForms=0
+  summary.value.totalSubmissions=0
+  summary.value.mostRecentSubmission=null
 
     projectArray.forEach(project => {
         // Increment total projects
@@ -470,8 +476,11 @@ watch([category, search], () => {
     return matchesCategory && matchesSearch;
   });
 
+  processProjectData( filteredProjects.value)
+
   // Reset pagination to the first page whenever the filter changes
   currentPage.value = 1;
+
 });
 
 // Computed property for filtered data based on selected categories and search text
@@ -495,28 +504,10 @@ watch(filteredProjects, (newValue) => {
 
 
 
-
-
-
-
-
-
-
 const router = useRouter()
 
 
-const goBack = () => {
-  // Add your logic to handle the back action
-  // For example, you can use Vue Router to navigate back
-  if (router) {
-    // Use router.back() to navigate back
-    router.back()
-  } else {
-    console.warn('Router instance not available.')
-  }
-
-}
-
+ 
  
  
 

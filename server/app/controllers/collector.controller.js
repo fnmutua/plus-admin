@@ -1110,6 +1110,7 @@ const url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}
   // Construct the URL for deleting a specific submission
   let url = `https://collector.kesmis.go.ke/v1/projects/${project}/forms/${form}/submissions/${id}`;
 
+  
   console.log(url)
   
   // PUT /v1/projects/{projectId}/forms/{xmlFormId}/submissions/{instanceId}
