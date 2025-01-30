@@ -59,7 +59,7 @@ export default defineComponent({
 
         <Backtop></Backtop>
 
-        <Setting></Setting>
+        {/* <Setting></Setting> */}
       </section>
     )
   }
@@ -69,10 +69,26 @@ export default defineComponent({
 <style lang="less" scoped>
 @prefix-cls: ~'@{namespace}-layout';
 
-.@{prefix-cls} {
-  background-color: var(--app-content-bg-color);
-  :deep(.@{elNamespace}-scrollbar__view) {
-    height: 100% !important;
-  }
+/* Customize the el-scrollbar's draggable part (thumb) */
+:deep(.el-scrollbar__thumb) {
+  background-color: red;  /* Set the scrollbar thumb (draggable part) color to red */
+  border-radius: 10px;  /* Optional: round the thumb edges */
+}
+
+/* Customize the el-scrollbar track (the area where the thumb slides) */
+:deep(.el-scrollbar__track) {
+  background-color: #f1f1f1;  /* Optional: light color for the track */
+  border-radius: 10px;  /* Optional: round the track edges */
+}
+
+/* Customize el-scrollbar bar (background of the scrollbar) */
+:deep(.el-scrollbar__bar) {
+  width: 12px;  /* Make scrollbar thicker */
+  height: 100% !important; /* Ensure scrollbar takes up the full height */
+}
+
+/* Add hover effect for the thumb */
+:deep(.el-scrollbar__thumb:hover) {
+  background-color: darkred; /* Darker thumb color on hover */
 }
 </style>

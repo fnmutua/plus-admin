@@ -12,6 +12,8 @@ import { useDesign } from '@/hooks/web/useDesign'
 import { useTemplateRefsList } from '@vueuse/core'
 import { ElScrollbar } from 'element-plus'
 import { useScrollTo } from '@/hooks/event/useScrollTo'
+import { ThemeSwitch } from '@/components/ThemeSwitch'
+
 import { Drawer } from '@/components/Setting'
 const { getPrefixCls } = useDesign()
 
@@ -354,6 +356,9 @@ watch(
       </ElScrollbar>
     </div>
 
+    <div style="margin-right:5px">
+    <ThemeSwitch/> 
+   </div>
 
     <span :class="`${prefixCls}__tool`"
       class="w-[var(--tags-view-height)] h-[var(--tags-view-height)] text-center leading-[var(--tags-view-height)] cursor-pointer"
