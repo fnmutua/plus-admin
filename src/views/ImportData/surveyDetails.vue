@@ -296,6 +296,9 @@ watch([selectedFields, features], () => {
       return row;
     });
   }
+
+  originalTableData.value = deepClone(tableData.value)
+  
 }, { deep: true });
 
 
@@ -1459,6 +1462,7 @@ const handleSelectFilterField = async () => {
 
 watch(filterValues, () => {
 
+  console.log('originalTableData.value',originalTableData.value)
 
   if (!filterField.value || !Array.isArray(originalTableData.value)) {
     return; // Return early if there's no valid field or original data
