@@ -122,10 +122,34 @@ const tableData =ref([]) // Table data extracted from GeoJSON
 const tableHeaders =ref([]) // The first five properties
 const allProperties =ref([]) // The first five properties
 const selectedFields = ref([]); // Ensure it's reactive
+const selectedFieldOptions = ref([]); // Ensure it's reactive
 const features =ref([])
 const  totalItems=ref()
 const  disableMap=ref(false)
 
+
+ // Store the original table data
+// Deep clone the original table data
+const deepClone = (data) => JSON.parse(JSON.stringify(data));
+const originalTableData =ref()
+
+
+const createSelectFieldOptions = async () => { 
+ // Generate value:label array for each selected field
+ selectedFieldOptions.value = selectedFields.value.map((field) => {
+              // Get unique values for the field across all features
+              console.log(field)
+              // Return the field with the unique values in value:label format
+              return {
+                label: String(field), 
+                value: String(field)
+                 
+              };
+            });
+
+        console.log("Value:Label Array:",   selectedFieldOptions.value);
+
+}
 
 const getFormData = async () => {
   // Define the formData object with necessary fields
@@ -157,7 +181,7 @@ const getFormData = async () => {
 
         // Initialize selectedFields with the default fields to show
         selectedFields.value = tableHeaders.value;
-
+      
         // Map data for the table
         tableData.value = features.value.map((feature) => {
           const properties = feature.properties;
@@ -170,6 +194,13 @@ const getFormData = async () => {
 
           return row;
         });
+
+
+        createSelectFieldOptions()
+       
+
+
+
       } 
       else {
               // If the result is an array of JavaScript objects
@@ -197,6 +228,10 @@ const getFormData = async () => {
 
 
 
+
+      // Store the original table data
+      originalTableData.value = deepClone(tableData.value); // Proper deep clone 
+      console.log('originalTableData', originalTableData.value)
 
 
         console.log('tableHeaders',tableHeaders.value)
@@ -242,8 +277,12 @@ const activeName = ref('data')
  
 // Watch for changes in the selected fields and update table data accordingly
 watch([selectedFields, features], () => {
-  // Ensure features is updated
-  console.log('listening selectedFields',selectedFields.value)
+  // udpate the Field filter as well
+  createSelectFieldOptions()
+    // Ensure features is updated
+    console.log('listening selectedFields',selectedFields.value)
+
+
   if (features.value.length > 0) {
     tableData.value = features.value.map((feature) => {
       const properties = feature.properties ? feature.properties:feature;
@@ -1389,6 +1428,54 @@ const tableColumns = computed(() =>
   }))
 );
 
+
+const filterField=ref()
+const filterOptions=ref([])
+const filterValues=ref([])
+
+
+const handleSelectFilterField = async () => {
+  if (!filterField.value || !Array.isArray(tableData.value)) return;
+
+  let uniqueValuesSet = new Set(
+    tableData.value.map(item => item[filterField.value]).filter(Boolean)
+  );
+
+  // Convert Set to array and map it to value-label objects
+  filterOptions.value = [...uniqueValuesSet].map(value => ({
+    value,
+    label: String(value)
+  }));
+
+  console.log("Filter Options:", filterOptions.value);
+};
+
+
+
+
+
+
+
+
+watch(filterValues, () => {
+
+
+  if (!filterField.value || !Array.isArray(originalTableData.value)) {
+    return; // Return early if there's no valid field or original data
+  }
+
+  // Filter the table data based on the selected values
+  if (filterValues.value.length === 0) {
+    // If no filter is selected, revert to original data
+    tableData.value = [...originalTableData.value];
+  } else {
+    // Apply the filter to original data
+    tableData.value = originalTableData.value.filter(item =>
+      filterValues.value.includes(item[filterField.value])
+    );
+  }
+}, { immediate: true });
+
 </script>
 
 <template>
@@ -1417,15 +1504,31 @@ const tableColumns = computed(() =>
         <el-card v-loading="loading">
           <el-row type="flex" justify="start" gutter="10">
             <el-select v-model="selectedFields" multiple clearable placeholder="Select properties to display"
-              :collapse-tags="true" style="margin-bottom: 10px; width: 95%;" class="select-properties">
+              :collapse-tags="true" style="margin-bottom: 10px; width: 25%; margin-right: 10px;" class="select-properties">
               <el-option v-for="(value, key) in allProperties" :key="key" :label="key" :value="key" />
             </el-select>
 
-            <DownloadCustom :data="paginatedData" :all="tableData" />
+            <el-select v-model="filterField" clearable placeholder="Filter By" :onChange="handleSelectFilterField"
+              :collapse-tags="true" style="margin-bottom: 10px;  margin-right: 10px; width: 25%;" class="select-properties">
+              <el-option v-for="(item, key) in selectedFieldOptions" :key="key" :label="item.value" :value="item.value" />
+            </el-select>
+
+            <el-select v-model="filterValues" multiple clearable placeholder="Filter Values"
+                  :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px; width: 25%;" 
+                  class="select-properties">
+                <el-option v-for="(option, index) in filterOptions" 
+                          :key="index" 
+                          :label="option.label" 
+                          :value="option.value" />
+              </el-select>
+
+
+            <!-- <DownloadCustom :data="paginatedData" :all="tableData" /> -->
+
+
+
           </el-row>
-      <!-- el-table-v2 for better performance -->
-    
-        <!-- el-table-v2 for better performance -->
+     
        
  
             <el-table-v2
@@ -1466,8 +1569,8 @@ const tableColumns = computed(() =>
             </el-select>
 
             <el-select  :onChange="generateReport" v-model="typeChart" clearable placeholder="Type of Chart" style="margin-bottom: 10px; margin-right: 10px;  width: 25%;">
-                        <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
-                    </el-select>
+                <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
 
             <el-select v-model="computationMethod"   placeholder="Computation Method"
               :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px;  width: 25%;"
