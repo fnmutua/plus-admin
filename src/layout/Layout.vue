@@ -69,17 +69,17 @@ export default defineComponent({
 <style lang="less" scoped>
 @prefix-cls: ~'@{namespace}-layout';
 
-/* Customize the el-scrollbar's draggable part (thumb) */
-:deep(.el-scrollbar__thumb) {
-  background-color: red;  /* Set the scrollbar thumb (draggable part) color to red */
-  border-radius: 10px;  /* Optional: round the thumb edges */
-}
+// /* Customize the el-scrollbar's draggable part (thumb) */
+// :deep(.el-scrollbar__thumb) {
+//   background-color: red;  /* Set the scrollbar thumb (draggable part) color to red */
+//   border-radius: 10px;  /* Optional: round the thumb edges */
+// }
 
-/* Customize the el-scrollbar track (the area where the thumb slides) */
-:deep(.el-scrollbar__track) {
-  background-color: #f1f1f1;  /* Optional: light color for the track */
-  border-radius: 10px;  /* Optional: round the track edges */
-}
+// /* Customize the el-scrollbar track (the area where the thumb slides) */
+// :deep(.el-scrollbar__track) {
+//   background-color: #f1f1f1;  /* Optional: light color for the track */
+//   border-radius: 10px;  /* Optional: round the track edges */
+// }
 
 /* Customize el-scrollbar bar (background of the scrollbar) */
 :deep(.el-scrollbar__bar) {
@@ -88,7 +88,7 @@ export default defineComponent({
 }
 
 /* Add hover effect for the thumb */
-:deep(.el-scrollbar__thumb:hover) {
-  background-color: darkred; /* Darker thumb color on hover */
-}
+// :deep(.el-scrollbar__thumb:hover) {
+//   background-color: darkred; /* Darker thumb color on hover */
+// }
 </style>
