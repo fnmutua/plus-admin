@@ -3,7 +3,8 @@ import { onMounted, onUnmounted, ref, watch ,computed} from 'vue'
 import {
   ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,ElSkeleton,ElCol,ElTableV2,ElAutoResizer,ElMessage,
 } from 'element-plus'
- 
+import { toRaw } from "vue"; // Import toRaw
+
 import { useRoute } from 'vue-router'
 import { useRouter } from 'vue-router'
 import { getModelSpecs, getModelRelatives } from '@/api/fields'
@@ -50,7 +51,7 @@ import {
 import VChart from 'vue-echarts';
 
 
-import { GoogleMap,Polygon ,InfoWindow    } from 'vue3-google-map'
+import { GoogleMap,Polygon ,InfoWindow, Marker ,MarkerCluster,Polyline   } from 'vue3-google-map'
 
 
 
@@ -1185,10 +1186,12 @@ const polygonOptions = ref({
 const BerMcenter = { lat: 24.886, lng: -70.268 }
 
 const polygons=ref([])
+const polylines=ref([])
+const markers=ref([])
  
 
 
-import { toRaw } from "vue"; // Import toRaw
+const gmap = ref(null); // Reference to the Google Map
 
 const loadGoogleMap = () => {
   console.log("Google <Map>");
@@ -1199,44 +1202,79 @@ const loadGoogleMap = () => {
     features: features.value,
   };
 
-  // Compute the centroid for map centering
-  const centroid = turf.centroid(featureCollection);
-  gmapCenter.value = {
-    lat: centroid.geometry.coordinates[1],
-    lng: centroid.geometry.coordinates[0],
-  };
-
-  // Clear the polygons array
+  // Clear the arrays
   polygons.value = [];
+  polylines.value = [];
+  markers.value = [];
 
-  // Loop through each feature and extract polygon paths
+  // Initialize bounds
+  const bounds = new google.maps.LatLngBounds();
+
+  // Loop through each feature and extract geometry
   featureCollection.features.forEach((feature, index) => {
-    if (feature.geometry.type === "Polygon") {
+    const { geometry, properties } = feature;
+
+    if (geometry.type === "Polygon") {
       // Convert GeoJSON coordinates to Google Maps format
-      const paths = feature.geometry.coordinates[0].map(([lng, lat]) => ({
-        lat,
-        lng,
-      }));
+      const paths = geometry.coordinates[0].map(([lng, lat]) => {
+        const point = { lat, lng };
+        bounds.extend(point); // Add to bounds
+        return point;
+      });
 
-      // Ensure properties are stored as a plain object
-      const rawProperties = feature.properties ? toRaw(feature.properties) : {};
-
-      // Append feature properties under `properties`
+      // Append polygon
       polygons.value.push({
-        id: feature.properties?.id || index, // Use feature ID if available, otherwise index
+        id: properties?.id || index,
         paths,
-        strokeColor: "#FF0000", // Red outline
-        strokeOpacity: 1, // Full opacity for outline
-        strokeWeight: 2, // Outline thickness
-        fillColor: "#FF0000", // Still red but transparent
-        fillOpacity: 0, // Fully transparent
-        properties: { ...rawProperties }, // ✅ Now properties is a plain object
+        strokeColor: "#FF0000",
+        strokeOpacity: 1,
+        strokeWeight: 2,
+        fillColor: "#FF0000",
+        fillOpacity: 0,
+        properties: { ...properties }, // Clone properties
+      });
+
+    } else if (geometry.type === "LineString") {
+      // Convert GeoJSON coordinates to Google Maps format
+      const path = geometry.coordinates.map(([lng, lat]) => {
+        const point = { lat, lng };
+        bounds.extend(point); // Add to bounds
+        return point;
+      });
+
+      // Append polyline
+      polylines.value.push({
+        id: properties?.id || index,
+        path,
+        strokeColor: "black", // Blue color for lines
+        strokeOpacity: 1,
+        strokeWeight: 2,
+        properties: { ...properties },
+      });
+
+    } else if (geometry.type === "Point") {
+      const [lng, lat] = geometry.coordinates;
+      const position = { lat, lng };
+      bounds.extend(position);
+
+      // Append marker
+      markers.value.push({
+        id: properties?.id || index,
+        position,
+        title: properties?.name || `Point ${index}`,
+        properties: { ...properties },
       });
     }
   });
 
-  console.log(polygons.value);
+  // Fit the map to all features
+  if (polygons.value.length > 0 || polylines.value.length > 0 || markers.value.length > 0) {
+    gmap.value?.map.fitBounds(bounds);
+  }
+
+  console.log({ polygons: polygons.value, polylines: polylines.value, markers: markers.value });
 };
+
 
 
 
@@ -2054,16 +2092,20 @@ const getModeldefinition = async () => {
 
  
 const infowindow = ref(false); // Will be open when mounted
-const selectedPolygon = ref(null);
+const selectedFeature = ref(null);
 
  // Function to handle polygon click
-const onPolygonClick = (polygon) => {
-  console.log('onPolygonClick',polygon)
+const onPolygonClick = (feature) => {
+  console.log('onPolygonClick',feature)
 
   infowindow.value=true
-  gmapCenter.value = polygon.paths[0]; // Set position to first coordinate
+  gmapCenter.value = feature.paths
+  ? feature.paths[0] // If Polygon, use the first coordinate
+  : feature.path
+  ? feature.path[Math.floor(feature.path.length / 2)] // If LineString, use midpoint
+  : feature.position || { lat: 0, lng: 0 }; // If Point, use its position, fallback to default
 
-  selectedPolygon.value = polygon;
+  selectedFeature.value = feature;
 
 };
 
@@ -2170,13 +2212,12 @@ const closePopup = () => {
         <div id="GooglemapContainer" class="basemap">
  
  
- 
-
           <GoogleMap
               api-key="AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk"
               style="width: 100%; height: 500px"
               :center="gmapCenter"
               :zoom="10"
+              ref="gmap"
             >
               <Polygon
                 v-for="polygon in polygons"
@@ -2185,19 +2226,37 @@ const closePopup = () => {
                 @click="onPolygonClick(polygon)"
               />
               
-              <!-- <InfoWindow v-if="infowindow"   @close="closePopup()" :options="{ position: gmapCenter, content: 'Hello World!' }" /> -->
+              <Polyline
+                v-for="line in polylines"
+                :key="line.id"
+                :options="line"
+                @click="onPolygonClick(line)"
+              />
+              
+
  
+
+
+              <MarkerCluster>
+              <Marker
+                v-for="(location, i) in markers"
+                :key="i"
+                :options="{ position: location.position }"
+                @click="onPolygonClick(location)"
+              />
+            </MarkerCluster>
+
+
+
               <InfoWindow v-if="infowindow" @close="closePopup()" :options="{ position: gmapCenter }">
-              <div>
-                <h1>Feature Properties</h1>
-                <table border="1" style="width: 100%; border-collapse: collapse;">
-                  <tr v-for="(value, key) in selectedPolygon?.properties" :key="key">
-                    <td style="font-weight: bold; padding: 5px;">{{ key }}</td>
-                    <td style="padding: 5px;">{{ value }}</td>
-                  </tr>
-                </table>
+              <div style="max-width: 400px;">
+                <el-table :data="Object.entries(selectedFeature?.properties || {})" border style="width: 100%;">
+                  <el-table-column prop="0" label="Property" width="120" />
+                  <el-table-column prop="1" label="Value"  width="250"/>
+                </el-table>
               </div>
             </InfoWindow>
+
 
             </GoogleMap>
   
