@@ -73,6 +73,15 @@ watch(
   }
 )
 
+
+watch(
+  () => theme.value,
+  (newTheme) => {
+    console.log('Dark Mode - 2025:', newTheme); // Logs the dark mode value whenever it changes
+  }
+)
+
+
 const resizeHandler = debounce(() => {
   if (echartRef) {
     echartRef.resize()

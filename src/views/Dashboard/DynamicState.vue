@@ -3,7 +3,7 @@ import {
   ElRow, ElCol, ElCard, ElDivider, ElTabs, ElTabPane, ElSkeleton, ElCascader, ElCascaderPanel, ElCascaderPanelContext, ElSelect, ElOption
 } from 'element-plus'
 
-import { ref, reactive, watch, onMounted } from 'vue'
+import { ref,computed, reactive, watch, onMounted } from 'vue'
 
 import { use } from "echarts/core";
 
@@ -42,6 +42,18 @@ import {
 } from 'echarts/components';
 import VChart, { THEME_KEY } from 'vue-echarts';
 import { provide } from 'vue';
+
+import { useAppStore } from '@/store/modules/app'
+
+
+const appStore = useAppStore()
+
+
+
+const isDark = computed(() => appStore.getIsDark)
+
+
+
 
 
 const colorPalette = ['#ff007f', '#0000ff'];  // Male-Female

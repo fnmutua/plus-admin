@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch ,computed} from 'vue'
 import {
-  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,ElSkeleton,ElCol,ElTableV2,ElAutoResizer,ElMessage
+  ElButton, ElTabPane, ElTabs, ElCard, ElTable, ElTableColumn, ElSelect,ElOption,ElPagination,ElRow,ElSkeleton,ElCol,ElTableV2,ElAutoResizer,ElMessage,
 } from 'element-plus'
  
 import { useRoute } from 'vue-router'
-import { Back } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
+import { getModelSpecs, getModelRelatives } from '@/api/fields'
 
 // Locally
 import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
@@ -28,7 +28,8 @@ import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css'
- 
+import { Position, Plus, Download, Delete, Edit, InfoFilled, UploadFilled, Back,Upload } from '@element-plus/icons-vue'
+
 
 import { simpleBarChart, multipleBarChart, stacklineOptions, mapChartOptions,
   lineOptions, stackedbarOptions, barMaleFemaleOptions,stackedbarOptionsAbs
@@ -410,7 +411,7 @@ const toggleFloatingDiv = async () => {
 
   } else {
 
-    console.log('Add Satellte');
+    console.log('Add Satellite');
 
 
 
@@ -590,7 +591,7 @@ const loadMap = () => {
       filter: ['==', '$type', 'LineString'],
     });
 
-    // Add polygon layer
+  // Add polygon layer
     nmap.addLayer({
       id: 'poly-layer',
       type: 'fill',
@@ -600,11 +601,77 @@ const loadMap = () => {
       },
       layout: {},
       paint: {
-        'fill-color': 'rgba(0, 0, 255, 0.05)',
-        'fill-outline-color': 'red',
+        'fill-color': 'rgba(0, 0, 255, 0)', // Fully transparent fill
       },
       filter: ['==', '$type', 'Polygon'],
     });
+
+
+    // Add polygon outline layer (thicker red line)
+    nmap.addLayer({
+      id: 'poly-outline-layer',
+      type: 'line',
+      source: {
+        type: 'geojson',
+        data: featureCollection,
+      },
+      layout: {},
+      paint: {
+        'line-color': 'red', // Outline color
+        'line-width': 3, // Adjust thickness
+            'line-dasharray': [3, 2], // Dotted pattern [dash length, gap length]
+
+      },
+      filter: ['==', '$type', 'Polygon'],
+    });
+
+
+
+// Extract vertices from polygon boundaries
+const vertices = {
+  type: 'FeatureCollection',
+  features: featureCollection.features.flatMap(feature => {
+    if (feature.geometry.type === 'Polygon') {
+      return feature.geometry.coordinates[0].map(coord => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: coord,
+        },
+        properties: {},
+      }));
+    }
+    return [];
+  }),
+};
+
+// Add a new source for vertices
+nmap.addSource('polygon-vertices', {
+  type: 'geojson',
+  data: vertices,
+});
+
+// Add layer for vertices (small red circles)
+nmap.addLayer({
+  id: 'polygon-vertices-layer',
+  type: 'circle',
+  source: 'polygon-vertices',
+  paint: {
+    'circle-radius': 4, // Size of the vertex points
+    'circle-color': 'green', // Color of vertices
+    'circle-stroke-width': 1,
+    'circle-stroke-color': 'white', // Outline for better visibility
+  },
+});
+
+
+
+
+
+
+
+
+
 
     // Center the map on the point
     nmap.setCenter(mapCenter);
@@ -1455,7 +1522,31 @@ const handleSelectFilterField = async () => {
 
 
 
-
+const uploadOptions = [
+ 
+      {
+        value: 'settlement',
+        label: 'Settlements'
+      },
+      {
+        value: 'households',
+        label: 'Households'
+      },
+      {
+        value: 'health_facility',
+        label: 'Health Facilities'
+      },
+      {
+        value: 'road',
+        label: 'Roads'
+      },
+      {
+        value: 'path',
+        label: 'Paths'
+      }
+   
+   
+]
 
 
 
@@ -1479,6 +1570,71 @@ watch(filterValues, () => {
     );
   }
 }, { immediate: true });
+
+
+
+//-----*-----------------Import data ------------------------//
+
+const uploadModel=ref()
+const fieldSet = ref([])
+const parentOptions = ref([])
+function toTitleCase(str) {
+  return str.replace(
+    /\w\S*/g,
+    function (txt) {
+      return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+    }
+  );
+}
+
+const getModeldefinition = async () => {
+    console.log(uploadModel.value)
+    var formData = {}
+    formData.model = uploadModel.value
+    console.log("gettign fields")
+
+
+    await getModelSpecs(formData).then((response) => {
+
+      var data = response.data
+
+      var fields = data.filter(function (obj) {
+        return (obj.field !== 'id');
+      });
+
+      var fields2 = fields.filter(function (obj) {
+        return (obj.field !== 'geom');
+      });
+
+      console.log("fields:", fields2)
+      //health_facility_fields.value = response.data
+      fieldSet.value = fields2
+    })
+
+    await getModelRelatives(formData).then((response) => {
+      console.log(response)
+      response.models.forEach(function (relative) {
+        var parentOpt = {}
+        parentOpt.value = relative.model
+        parentOpt.label = toTitleCase(relative.model)
+        parentOpt.key = relative.key
+
+        parentOptions.value.push(parentOpt)
+      })
+
+      //parentKeys.value.push(response.keys)
+
+      // console.log("keys---->", parentKeys.value)
+})
+
+}
+
+
+
+
+
+
+
 
 </script>
 
@@ -1513,12 +1669,12 @@ watch(filterValues, () => {
             </el-select>
 
             <el-select v-model="filterField" clearable placeholder="Filter By" :onChange="handleSelectFilterField"
-              :collapse-tags="true" style="margin-bottom: 10px;  margin-right: 10px; width: 25%;" class="select-properties">
+              :collapse-tags="true" style="margin-bottom: 10px;  margin-right: 10px; width: 15%;" class="select-properties">
               <el-option v-for="(item, key) in selectedFieldOptions" :key="key" :label="item.value" :value="item.value" />
             </el-select>
 
             <el-select v-model="filterValues" multiple clearable placeholder="Filter Values"
-                  :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px; width: 25%;" 
+                  :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px; width: 15%;" 
                   class="select-properties">
                 <el-option v-for="(option, index) in filterOptions" 
                           :key="index" 
@@ -1526,8 +1682,19 @@ watch(filterValues, () => {
                           :value="option.value" />
               </el-select>
 
+              <el-select v-model="uploadModel" multiple clearable placeholder="Import to"
+                  :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px; width: 15%;" 
+                  class="select-properties">
+                <el-option v-for="(option, index) in uploadOptions" 
+                          :key="index" 
+                          :label="option.label" 
+                          :value="option.value" />
+              </el-select>
 
-            <!-- <DownloadCustom :data="paginatedData" :all="tableData" /> -->
+              <el-tooltip content="Add Project" placement="top">
+                <el-button v-if="uploadModel" @click="getModeldefinition" type="success" :icon="Upload" />
+              </el-tooltip>
+             <DownloadCustom :data="paginatedData" :all="tableData" style="margin-bottom: 10px; margin-right: 10px; width: 15%;"  /> 
 
 
 

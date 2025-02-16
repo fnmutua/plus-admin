@@ -3,12 +3,23 @@ import { EChartsOption as EChartsWordOption } from 'echarts-wordcloud'
 import { useI18n } from '@/hooks/web/useI18n'
 import 'echarts/lib/component/toolbox'
 import { reactive } from 'vue';
+import { ref } from 'vue'
 
 import {
   FullScreen,
 } from '@element-plus/icons-vue'
 
 import VueApexCharts from 'vue3-apexcharts';
+import { useAppStore } from '@/store/modules/app'
+
+
+const appStore = useAppStore()
+
+
+
+const isDark = ref(appStore.getIsDark)
+
+
 
 const { t } = useI18n()
 
@@ -256,11 +267,14 @@ export const simpleBarChart = {
      left: 'center',
     textStyle: {
       fontSize: 14,
+      color: isDark.value ? '#ffffff' : '#000000', // White if dark mode, black if light mode
+
     },
     subtextStyle: {
       fontSize: 12,
     },
   },
+  darkMode: isDark.value,
   subtitle: {
     text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     align: 'left',
@@ -364,11 +378,14 @@ export const stackedbarOptions = {
      left: 'center',
     textStyle: {
       fontSize: 14,
+      color: isDark.value ? '#ffffff' : '#000000', // White if dark mode, black if light mode
     },
     subtextStyle: {
       fontSize: 12,
     },
-  },
+  },  
+  darkMode: isDark.value,
+
   subtitle: {
     text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     align: 'left',
@@ -443,11 +460,15 @@ export const stackedbarOptionsAbs = {
      left: 'center',
     textStyle: {
       fontSize: 14,
+      color: isDark.value ? '#ffffff' : '#000000', // White if dark mode, black if light mode
+
     },
     subtextStyle: {
       fontSize: 12,
     },
   },
+  darkMode: isDark.value,
+
   subtitle: {
     text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     align: 'left',
@@ -517,6 +538,8 @@ export const multipleBarChart = {
       fontSize: 12,
     },
   },
+  darkMode: isDark.value,
+
   subtitle: {
     text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
     align: 'left',
@@ -605,6 +628,7 @@ export const lineOptions = {
   markers: {
     size: 0,
   },
+  darkMode: isDark.value,
 
   subtitle: {
     text:  `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
@@ -638,6 +662,16 @@ export const pieOptions = {
       enabled: true,
     },
 
+  },
+  darkMode: isDark.value,
+  title: {
+    text: 'National Slum Database', // Set the title text
+    align: 'center',
+    style: {
+      fontSize: '16px',
+      fontWeight: 'bold',
+      color: isDark.value ? '#ffffff' : '#000000', // White if dark mode, black if light mode
+    },
   },
   plotOptions: {
     pie: {
@@ -676,6 +710,8 @@ export const barOptions: EChartsOption = {
     text: 'barchart',
     left: 'center'
   },
+  darkMode: isDark.value,
+
   tooltip: {
     trigger: 'axis',
     axisPointer: {
@@ -724,6 +760,7 @@ export const xmultipleBarChart: EChartsOption = {
       fontSize: 12
     }
   },
+  darkMode: isDark.value,
 
   toolbox: {
     show: true,
@@ -831,6 +868,8 @@ export const barOptionsMultiple: EChartsOption = {
       type: 'shadow'
     }
   },
+  darkMode: isDark.value,
+
   legend: {
     type: 'scroll',
     orient: 'vertical',
@@ -874,6 +913,7 @@ export const  barMaleFemaleOptions: EChartsOption = {
       fontSize: 12
     }
   },
+  darkMode: isDark.value,
 
   toolbox: {
     show: true,
@@ -989,6 +1029,7 @@ export const  xstackedbarOptions: EChartsOption = {
       fontSize: 12
     }
   },
+  darkMode: isDark.value,
 
   toolbox: {
     show: true,
@@ -1042,12 +1083,14 @@ export const  mapChartOptions: EChartsOption = {
   title: {
     text: 'map',
         subtext: `National Slum Database, ${new Date().getFullYear()}`, // Get the current year dynamically
-    sublink: 'https://mazingira.ags.co.ke/',
-    left: 'left',
+     left: 'left',
     textStyle: {
-      fontSize: 14
+      fontSize: 14,
+      
     },
   },
+  darkMode: isDark.value,
+
   tooltip: {
     trigger: 'item',
     showDelay: 0,
