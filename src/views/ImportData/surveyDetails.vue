@@ -49,6 +49,11 @@ import {
 } from 'echarts/components';
 import VChart from 'vue-echarts';
 
+
+import { GoogleMap,Polygon ,InfoWindow    } from 'vue3-google-map'
+
+
+
 use([
   CanvasRenderer,
   PieChart,
@@ -358,6 +363,14 @@ const clickTab = (tab) => {
     }, 500); // Delay in milliseconds (500 ms = 0.5 seconds)
   }
 
+  if (tab.props.name === 'gmap') {
+    // Delay the loadMap function
+    setTimeout(() => {
+      loadGoogleMap(); // Load map after a brief delay
+    }, 500); // Delay in milliseconds (500 ms = 0.5 seconds)
+  }
+
+  
   if (tab.props.name === 'chart') {
     generateReport()
     setTimeout(() => {
@@ -817,6 +830,415 @@ nmap.addLayer({
       .addTo(nmap);
   });
 };
+
+const gmapCenter=ref()
+const polygonPaths=ref([])
+// Polygon options
+const polygonOptions = ref({
+  strokeColor: "#FF0000",
+  paths:[
+  {
+      lat: 0.453788,
+      lng: 34.2507607
+  },
+  {
+      lat: 0.4537883,
+      lng: 34.2507568
+  },
+  {
+      lat: 0.4537031,
+      lng: 34.2504258
+  },
+  {
+      lat: 0.4536948,
+      lng: 34.2503084
+  },
+  {
+      lat: 0.4537166,
+      lng: 34.2501766
+  },
+  {
+      lat: 0.4536393,
+      lng: 34.2499947
+  },
+  {
+      lat: 0.4537482,
+      lng: 34.2499094
+  },
+  {
+      lat: 0.4538849,
+      lng: 34.2498233
+  },
+  {
+      lat: 0.4540451,
+      lng: 34.2497777
+  },
+  {
+      lat: 0.453973,
+      lng: 34.2496435
+  },
+  {
+      lat: 0.4539437,
+      lng: 34.2495795
+  },
+  {
+      lat: 0.4538936,
+      lng: 34.2495014
+  },
+  {
+      lat: 0.4538466,
+      lng: 34.249291
+  },
+  {
+      lat: 0.4538575,
+      lng: 34.2491741
+  },
+  {
+      lat: 0.4537422,
+      lng: 34.2490622
+  },
+  {
+      lat: 0.4535976,
+      lng: 34.2489529
+  },
+  {
+      lat: 0.4534326,
+      lng: 34.2489258
+  },
+  {
+      lat: 0.4532708,
+      lng: 34.2489848
+  },
+  {
+      lat: 0.4531767,
+      lng: 34.2490616
+  },
+  {
+      lat: 0.4530565,
+      lng: 34.2491812
+  },
+  {
+      lat: 0.4529584,
+      lng: 34.2491468
+  },
+  {
+      lat: 0.452865,
+      lng: 34.2491316
+  },
+  {
+      lat: 0.4527666,
+      lng: 34.2492502
+  },
+  {
+      lat: 0.452705,
+      lng: 34.2494031
+  },
+  {
+      lat: 0.4526438,
+      lng: 34.2494797
+  },
+  {
+      lat: 0.4525058,
+      lng: 34.2495212
+  },
+  {
+      lat: 0.4523661,
+      lng: 34.2494911
+  },
+  {
+      lat: 0.4522096,
+      lng: 34.2495128
+  },
+  {
+      lat: 0.4521251,
+      lng: 34.2495607
+  },
+  {
+      lat: 0.4519988,
+      lng: 34.2495362
+  },
+  {
+      lat: 0.4518462,
+      lng: 34.2494963
+  },
+  {
+      lat: 0.4517404,
+      lng: 34.2493802
+  },
+  {
+      lat: 0.4516359,
+      lng: 34.2492809
+  },
+  {
+      lat: 0.4515101,
+      lng: 34.2493944
+  },
+  {
+      lat: 0.4513556,
+      lng: 34.2494381
+  },
+  {
+      lat: 0.4512199,
+      lng: 34.2494674
+  },
+  {
+      lat: 0.4511,
+      lng: 34.2494848
+  },
+  {
+      lat: 0.4509762,
+      lng: 34.2495557
+  },
+  {
+      lat: 0.4508875,
+      lng: 34.2496526
+  },
+  {
+      lat: 0.4507363,
+      lng: 34.2495977
+  },
+  {
+      lat: 0.4505939,
+      lng: 34.2495377
+  },
+  {
+      lat: 0.450398,
+      lng: 34.249587
+  },
+  {
+      lat: 0.450381,
+      lng: 34.2497183
+  },
+  {
+      lat: 0.4503239,
+      lng: 34.2498896
+  },
+  {
+      lat: 0.4503013,
+      lng: 34.2500309
+  },
+  {
+      lat: 0.4502306,
+      lng: 34.2501484
+  },
+  {
+      lat: 0.4501738,
+      lng: 34.2502708
+  },
+  {
+      lat: 0.4501196,
+      lng: 34.2503727
+  },
+  {
+      lat: 0.4498127,
+      lng: 34.2503517
+  },
+  {
+      lat: 0.4498033,
+      lng: 34.2503861
+  },
+  {
+      lat: 0.4496947,
+      lng: 34.2505276
+  },
+  {
+      lat: 0.4495585,
+      lng: 34.2505615
+  },
+  {
+      lat: 0.4494307,
+      lng: 34.2505853
+  },
+  {
+      lat: 0.4493377,
+      lng: 34.2504938
+  },
+  {
+      lat: 0.44925,
+      lng: 34.2503687
+  },
+  {
+      lat: 0.4491286,
+      lng: 34.2503199
+  },
+  {
+      lat: 0.4489332,
+      lng: 34.2500986
+  },
+  {
+      lat: 0.4489338,
+      lng: 34.2499918
+  },
+  {
+      lat: 0.4488123,
+      lng: 34.2499657
+  },
+  {
+      lat: 0.4486165,
+      lng: 34.2499347
+  },
+  {
+      lat: 0.4485774,
+      lng: 34.2499176
+  },
+  {
+      lat: 0.4485276,
+      lng: 34.2499649
+  },
+  {
+      lat: 0.4483706,
+      lng: 34.2506031
+  },
+  {
+      lat: 0.4484642,
+      lng: 34.2513153
+  },
+  {
+      lat: 0.448509,
+      lng: 34.2520298
+  },
+  {
+      lat: 0.4486563,
+      lng: 34.2532993
+  },
+  {
+      lat: 0.4486771,
+      lng: 34.2539959
+  },
+  {
+      lat: 0.4487467,
+      lng: 34.2543549
+  },
+  {
+      lat: 0.4488886,
+      lng: 34.2544769
+  },
+  {
+      lat: 0.4489543,
+      lng: 34.2544894
+  },
+  {
+      lat: 0.4491892,
+      lng: 34.2544303
+  },
+  {
+      lat: 0.4494672,
+      lng: 34.2544003
+  },
+  {
+      lat: 0.4496477,
+      lng: 34.2544022
+  },
+  {
+      lat: 0.4501365,
+      lng: 34.2543372
+  },
+  {
+      lat: 0.4508665,
+      lng: 34.254164
+  },
+  {
+      lat: 0.4514805,
+      lng: 34.2539161
+  },
+  {
+      lat: 0.4521776,
+      lng: 34.2536955
+  },
+  {
+      lat: 0.4529142,
+      lng: 34.2535593
+  },
+  {
+      lat: 0.4534664,
+      lng: 34.2534857
+  },
+  {
+      lat: 0.4535101,
+      lng: 34.2535355
+  },
+  {
+      lat: 0.453964,
+      lng: 34.2533462
+  },
+  {
+      lat: 0.4538957,
+      lng: 34.2526147
+  },
+  {
+      lat: 0.4538865,
+      lng: 34.2517986
+  },
+  {
+      lat: 0.453788,
+      lng: 34.2507607
+  }
+],
+  strokeOpacity: 0.8,
+  strokeWeight: 2,
+  fillColor: "#FF0000",
+  fillOpacity: 0.35,
+});
+
+
+
+const BerMcenter = { lat: 24.886, lng: -70.268 }
+
+const polygons=ref([])
+ 
+
+
+import { toRaw } from "vue"; // Import toRaw
+
+const loadGoogleMap = () => {
+  console.log("Google <Map>");
+
+  // Create a FeatureCollection from the array of features
+  const featureCollection = {
+    type: "FeatureCollection",
+    features: features.value,
+  };
+
+  // Compute the centroid for map centering
+  const centroid = turf.centroid(featureCollection);
+  gmapCenter.value = {
+    lat: centroid.geometry.coordinates[1],
+    lng: centroid.geometry.coordinates[0],
+  };
+
+  // Clear the polygons array
+  polygons.value = [];
+
+  // Loop through each feature and extract polygon paths
+  featureCollection.features.forEach((feature, index) => {
+    if (feature.geometry.type === "Polygon") {
+      // Convert GeoJSON coordinates to Google Maps format
+      const paths = feature.geometry.coordinates[0].map(([lng, lat]) => ({
+        lat,
+        lng,
+      }));
+
+      // Ensure properties are stored as a plain object
+      const rawProperties = feature.properties ? toRaw(feature.properties) : {};
+
+      // Append feature properties under `properties`
+      polygons.value.push({
+        id: feature.properties?.id || index, // Use feature ID if available, otherwise index
+        paths,
+        strokeColor: "#FF0000", // Red outline
+        strokeOpacity: 1, // Full opacity for outline
+        strokeWeight: 2, // Outline thickness
+        fillColor: "#FF0000", // Still red but transparent
+        fillOpacity: 0, // Fully transparent
+        properties: { ...rawProperties }, // ✅ Now properties is a plain object
+      });
+    }
+  });
+
+  console.log(polygons.value);
+};
+
+
 
 
 
@@ -1630,11 +2052,27 @@ const getModeldefinition = async () => {
 }
 
 
+ 
+const infowindow = ref(false); // Will be open when mounted
+const selectedPolygon = ref(null);
 
+ // Function to handle polygon click
+const onPolygonClick = (polygon) => {
+  console.log('onPolygonClick',polygon)
 
+  infowindow.value=true
+  gmapCenter.value = polygon.paths[0]; // Set position to first coordinate
 
+  selectedPolygon.value = polygon;
 
+};
 
+ 
+const closePopup = () => { 
+  console.log('close popup')
+  infowindow.value=false
+}
+ 
 
 </script>
 
@@ -1725,9 +2163,47 @@ const getModeldefinition = async () => {
       </el-tab-pane>
       <el-tab-pane label="Map" name="map" :disabled="disableMap">
         <div id="mapContainer" class="basemap"></div>
+        
       </el-tab-pane>
 
+      <el-tab-pane label="Map(Google)" name="gmap" :disabled="disableMap">
+        <div id="GooglemapContainer" class="basemap">
+ 
+ 
+ 
 
+          <GoogleMap
+              api-key="AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk"
+              style="width: 100%; height: 500px"
+              :center="gmapCenter"
+              :zoom="10"
+            >
+              <Polygon
+                v-for="polygon in polygons"
+                :key="polygon.id"
+                :options="polygon"
+                @click="onPolygonClick(polygon)"
+              />
+              
+              <!-- <InfoWindow v-if="infowindow"   @close="closePopup()" :options="{ position: gmapCenter, content: 'Hello World!' }" /> -->
+ 
+              <InfoWindow v-if="infowindow" @close="closePopup()" :options="{ position: gmapCenter }">
+              <div>
+                <h1>Feature Properties</h1>
+                <table border="1" style="width: 100%; border-collapse: collapse;">
+                  <tr v-for="(value, key) in selectedPolygon?.properties" :key="key">
+                    <td style="font-weight: bold; padding: 5px;">{{ key }}</td>
+                    <td style="padding: 5px;">{{ value }}</td>
+                  </tr>
+                </table>
+              </div>
+            </InfoWindow>
+
+            </GoogleMap>
+  
+
+        </div>
+      </el-tab-pane>
 
       <!-- New Cart Tab -->
       <el-tab-pane label="Charts" name="chart">

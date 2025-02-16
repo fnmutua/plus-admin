@@ -109,6 +109,7 @@
     "vue-types": "^4.2.1",
     "vue-uuid": "^3.0.0",
     "vue3-apexcharts": "^1.8.0",
+    "vue3-google-map": "^0.21.1",
     "web-storage-cache": "^1.1.1",
     "write-excel-file": "^1.4.27",
     "xlsx": "^0.18.5"
