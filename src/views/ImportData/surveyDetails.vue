@@ -51,7 +51,7 @@ import {
 import VChart from 'vue-echarts';
 
 
-import { GoogleMap,Polygon ,InfoWindow, Marker ,MarkerCluster,Polyline   } from 'vue3-google-map'
+import { GoogleMap,Polygon ,InfoWindow, Marker,CustomMarker ,MarkerCluster,Polyline   } from 'vue3-google-map'
 
 
 
@@ -1188,6 +1188,7 @@ const BerMcenter = { lat: 24.886, lng: -70.268 }
 const polygons=ref([])
 const polylines=ref([])
 const markers=ref([])
+const vertices=ref([])
  
 
 
@@ -1206,6 +1207,7 @@ const loadGoogleMap = () => {
   polygons.value = [];
   polylines.value = [];
   markers.value = [];
+  vertices.value = [];
 
   // Initialize bounds
   const bounds = new google.maps.LatLngBounds();
@@ -1267,12 +1269,31 @@ const loadGoogleMap = () => {
     }
   });
 
+
+
+
   // Fit the map to all features
   if (polygons.value.length > 0 || polylines.value.length > 0 || markers.value.length > 0) {
     gmap.value?.map.fitBounds(bounds);
   }
 
   console.log({ polygons: polygons.value, polylines: polylines.value, markers: markers.value });
+
+
+  featureCollection.features.forEach(feature => {
+    if (feature.geometry.type === 'Polygon') {
+      feature.geometry.coordinates[0].forEach(coord => {
+        vertices.value.push({
+          lat: coord[1], // Convert from GeoJSON format [lng, lat]
+          lng: coord[0]
+        })
+      })
+    }
+  })
+
+
+ 
+
 };
 
 
@@ -2234,7 +2255,21 @@ const closePopup = () => {
               />
               
 
- 
+              <CustomMarker 
+                v-for="(vertex, index) in vertices" 
+                :key="index" 
+                :options="{ position: vertex, anchorPoint: 'BOTTOM_CENTER' }"
+              >
+                <div 
+                  style="
+                    width: 10px; 
+                    height: 10px; 
+                    background-color: red; 
+                    border-radius: 50%;
+                    border: 2px solid white;
+                  "
+                ></div>
+              </CustomMarker>
 
 
               <MarkerCluster>
