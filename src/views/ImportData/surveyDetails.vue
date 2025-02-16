@@ -1280,16 +1280,7 @@ const loadGoogleMap = () => {
   console.log({ polygons: polygons.value, polylines: polylines.value, markers: markers.value });
 
 
-  featureCollection.features.forEach(feature => {
-    if (feature.geometry.type === 'Polygon') {
-      feature.geometry.coordinates[0].forEach(coord => {
-        vertices.value.push({
-          lat: coord[1], // Convert from GeoJSON format [lng, lat]
-          lng: coord[0]
-        })
-      })
-    }
-  })
+
 
 
  
@@ -2116,19 +2107,34 @@ const infowindow = ref(false); // Will be open when mounted
 const selectedFeature = ref(null);
 
  // Function to handle polygon click
-const onPolygonClick = (feature) => {
-  console.log('onPolygonClick',feature)
+ const onPolygonClick = (feature) => {
+  console.log('onPolygonClick', feature);
+  vertices.value=[]
+  infowindow.value = true;
 
-  infowindow.value=true
+  // Set the InfoWindow position based on feature type
   gmapCenter.value = feature.paths
-  ? feature.paths[0] // If Polygon, use the first coordinate
-  : feature.path
-  ? feature.path[Math.floor(feature.path.length / 2)] // If LineString, use midpoint
-  : feature.position || { lat: 0, lng: 0 }; // If Point, use its position, fallback to default
+    ? feature.paths[0] // If Polygon, use the first coordinate
+    : feature.path
+    ? feature.path[Math.floor(feature.path.length / 2)] // If LineString, use midpoint
+    : feature.position || { lat: 0, lng: 0 }; // If Point, use its position, fallback to default
 
   selectedFeature.value = feature;
 
+  // Clear previous vertices
+  vertices.value = [];
+
+  // Extract vertices from the clicked polygon's paths
+  if (feature.paths) {
+    feature.paths.forEach(coord => {
+      vertices.value.push({
+        lat: coord.lat,
+        lng: coord.lng
+      });
+    });
+  }
 };
+
 
  
 const closePopup = () => { 
@@ -2235,7 +2241,7 @@ const closePopup = () => {
  
           <GoogleMap
               api-key="AIzaSyCrzbOkfG52zkAxYPkMvvRMlxE9qHK4uDk"
-              style="width: 100%; height: 500px"
+              style="width: 100%; height: 100%"
               :center="gmapCenter"
               :zoom="10"
               ref="gmap"
@@ -2255,7 +2261,7 @@ const closePopup = () => {
               />
               
 
-              <CustomMarker 
+              <CustomMarker  
                 v-for="(vertex, index) in vertices" 
                 :key="index" 
                 :options="{ position: vertex, anchorPoint: 'BOTTOM_CENTER' }"
@@ -2284,7 +2290,7 @@ const closePopup = () => {
 
 
               <InfoWindow v-if="infowindow" @close="closePopup()" :options="{ position: gmapCenter }">
-              <div style="max-width: 400px;">
+              <div style="max-width: 400px; height:250px">
                 <el-table :data="Object.entries(selectedFeature?.properties || {})" border style="width: 100%;">
                   <el-table-column prop="0" label="Property" width="120" />
                   <el-table-column prop="1" label="Value"  width="250"/>
