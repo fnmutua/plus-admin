@@ -145,6 +145,11 @@ const StatusOptions = ref([
     label: 'Reject Grievance',
   },
   {
+    value: 'In Court',
+    label: 'In Court',
+  },
+
+  {
     value: 'Referred',
     label: 'Refer to Court',
   },
@@ -259,9 +264,9 @@ onMounted(async () => {
         label: 'Reject Grievance',
       },
     ]
-
-
   }
+
+  
 
   else if (Grievance.value.status == 'Escalated') {
     button_label.value = 'Review Status';
@@ -309,10 +314,27 @@ onMounted(async () => {
         label: 'Close Grievance',
       }
     ]
-
-
-
   }
+
+
+
+  else if (Grievance.value.status == 'In Court') {
+    button_label.value = 'Review Status';
+    button_color.value = 'warning';
+    button_icon.value = 'icon-park-solid:preview-open';
+
+    StatusOptions.value = [
+      {
+        value: 'Closed',
+        label: 'Close Grievance',
+      }
+    ]
+  }
+
+
+
+
+
 
   else if (Grievance.value.status == 'Closed') {
     button_label.value = 'Review Status';
@@ -808,11 +830,9 @@ const downloadFile = async (data) => {
 
 
           <el-table :data="GrievanceDocuments" style="width: 100%">
-
             <el-table-column type="index" width="50" />
             <el-table-column prop="name" label="Name" />
             <el-table-column prop="createdAt" label="Uploaded" />
-
             <el-table-column fixed="right" label="">
               <template #default="scope">
                 <el-button type="primary" @click="downloadFile(scope.row)">
@@ -852,22 +872,7 @@ const downloadFile = async (data) => {
                     <el-icon>
                       <CaretRight />
                     </el-icon>
-
-                    <!-- <el-icon v-if="log.action_type === 'Resolved'">
-                        <Check />
-                      </el-icon>
-                      <el-icon v-else-if="log.action_type === 'Escalated'">
-                        <CaretRight />
-                      </el-icon>
-                      <el-icon v-else-if="log.action_type === 'Reported'">
-                        <Microphone />
-                      </el-icon>
-                      <el-icon v-else-if="log.action_type === 'Referred'">
-                        <Notification />
-                      </el-icon>
-                      <el-icon v-else-if="log.action_type === 'Closed'">
-                        <Lock />
-                      </el-icon>  -->
+ 
 
                     {{ log.action_type }}
                   </span>

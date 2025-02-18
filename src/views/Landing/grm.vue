@@ -92,6 +92,12 @@
                         label="Is this complaint related to Gender-Based Violence?" size="large"
                         style="margin-bottom:5px" />
 
+                 
+                        <el-checkbox id="btn13" v-model="grmForm.isInCourt"
+                        label="Is this complaint currently in court?" size="large"
+                        style="margin-bottom:5px" />
+
+
 
                     </el-col>
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
@@ -290,6 +296,7 @@ const grmForm = ref({
   address: '',
   nature: '',
   isgbv: false,
+  isInCourt: false,
   description: '',
   plea: '',
   witness: '',
@@ -564,7 +571,16 @@ const submitForm = async () => {
 
 
       grmForm.value.date_reported = new Date();
-      grmForm.value.status = 'Sorting'
+ 
+
+      if(grmForm.value.isInCourt) {
+        grmForm.value.status = 'In Court'
+      } else {
+        grmForm.value.status = 'Sorting'
+      }
+
+
+      
 
       grmForm.value.model = 'grievance';
 
@@ -581,11 +597,12 @@ const submitForm = async () => {
       else {
         grmForm.value.current_level = 'settlement';
       }
-
+ 
 
       //1. Submit teh greivance 
       const res = await generateGrievance(grmForm.value)
       console.log('res', res)
+
 
 
 

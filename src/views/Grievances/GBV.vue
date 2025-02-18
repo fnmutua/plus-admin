@@ -9,7 +9,7 @@ import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTag } from 'element-pl
 import {
   Plus, Download, Filter, ArrowLeft, ArrowRight, UploadFilled,
   Edit,
-  Back,Postcard,TopRight,Lock,Guide,
+  Back,Postcard,TopRight,Lock,Guide,TakeawayBox,
   InfoFilled, Position,CircleCheck, Message, CircleClose, Warning,
   Delete
 } from '@element-plus/icons-vue'
@@ -552,10 +552,31 @@ const logAction = async (grievance) => {
 }
 
 
+function getStageDuration(stageName) {
+  // Define the mapping of stages to their durations
+  const stageDurations = {
+    "Sorting": 7,
+    "Investigation": 14,
+    "Escalated": 14,
+    "Resolved": 21,
+    "Closed": 42
+  };
+
+  // Return the duration or a default value if the stage is not found
+  return stageDurations[stageName] || 0; // Default to 0 if the stage is invalid
+}
 
 const submitForm = async () => {
   grmForm.value.date_reported = new Date();
-  grmForm.value.status = 'Sorting'
+ 
+  
+  if(grmForm.value.isInCourt) {
+        grmForm.value.status = 'In Court'
+      } else {
+        grmForm.value.status = 'Sorting'
+      }
+
+
   grmForm.value.model = 'grievance';
   grmForm.value.current_level = 'settlement';
 
@@ -570,6 +591,10 @@ const submitForm = async () => {
       }
 
 
+
+
+      grmForm.value.current_status_date=new Date();
+      grmForm.value.status_expiry_date= new Date() + getStageDuration(grmForm.value.new_status);
 
 
   const formInstance = dynamicFormRef
@@ -882,9 +907,9 @@ const grmForm = ref({
   address: '',
   nature: '',
   isgbv: false,
+  isInCourt: false,
   description: '',
   plea: '',
-
   self_reported:false,
   reporter_name : userInfo.name,
   reporter_phone:userInfo.phone,
@@ -1546,6 +1571,15 @@ const Statuses = ref([
     hidden: false
   },
   {
+    label: 'In Court',
+    value: 'In Court',
+    icon: TakeawayBox,
+    count: 0,
+    hidden: false
+  },
+
+
+  {
     label: 'Rejected',
     value: 'Rejected',
     icon: Warning,
@@ -1591,13 +1625,20 @@ const onSegmentClick = async () => {
     Closed: 'Closed',
     Referred: 'Referred',
     Rejected: 'Rejected',
+    'In Court': 'In Court',
   };
 
+  console.log('activeSegment.value---',activeSegment.value)
   // Check if the active segment corresponds to a mapped filter value
   const filterValue = segmentMapping[activeSegment.value];
+
+  console.log('filterValue---',filterValue)
   if (filterValue) {
     filterFunctionHelper('status', [filterValue]); // Apply the dynamic filter
   }
+
+  // filterFunctionHelper('isgbv', [true]); // Apply the dynamic filter
+
 
   // Process roles filters dynamically
   roles_filters.forEach((role_filter) => {
@@ -2052,7 +2093,76 @@ const onSegmentClick = async () => {
           v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
      </div>
+     <div v-if="activeSegment === 'In Court'">
+        <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+          :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
+          <el-table-column label="#" width="80" prop="id" sortable>
+            <template #default="scope">
+              <div v-if="scope.row.grievance_documents.length > 0" style="display: inline-flex; align-items: center;">
+                <span>{{ scope.row.id }}</span>
+                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="date" label="Date Reported" width="150">
+            <!-- Use a scoped slot to customize the rendering of the date column -->
+            <template #default="scope">
+              <span>{{ formatDate(scope.row.date_reported) }}</span>
+            </template>
+          </el-table-column>
 
+          <el-table-column prop="status" label="Status" width="100" sortable>
+            <template #default="scope">
+              <el-tag :type="scope.row.status == 'Closed' ? 'info'
+            : scope.row.status == 'Escalated' ? 'secondary'
+              : scope.row.status == 'Referred' ? 'warning'
+                : scope.row.status == 'Rejected' ? 'danger'
+                  : 'success'" disable-transitions>{{ scope.row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="Code" prop="code" sortable width="150" />
+          <el-table-column label="Level" prop="current_level" sortable width="150" />
+          <el-table-column label="Complainant" prop="name" sortable width="150" />
+          <el-table-column label="Reported By" width="150">
+            <template #default="scope">
+              <span v-if="scope.row.self_reported === true">Self</span>
+              <span v-else>{{ scope.row.reporter_name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Description" prop="description" sortable width="350" />
+          <el-table-column label="Location" sortable width="350">
+            <template #default="scope">
+              <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                      :icon="Edit" color="green">Edit</el-dropdown-item>
+                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <div v-else>
+                <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
+                  More
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+        <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+          v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
+          @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+     </div>
      <div v-if="activeSegment === 'Rejected'">
         <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
@@ -2231,6 +2341,9 @@ const onSegmentClick = async () => {
 
           </el-col>
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+
+            <el-checkbox id="btn13" v-model="grmForm.isInCourt" label="Is this complaint currently in court?" size="large" style="margin-bottom:5px" />
+
 
             <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
               <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
