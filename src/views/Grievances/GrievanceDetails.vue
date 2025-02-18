@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
 import {
-  ElButton, ElTimeline, ElTimelineItem, ElCol, ElRow, ElForm, ElFormItem, ElInput, ElUpload, ElMessage,
+  ElButton, ElTimeline, ElTimelineItem, ElCol, ElRow, ElForm, ElFormItem, ElInput, ElUpload, ElMessage,ElPopconfirm,
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElIcon, ElCollapse, ElCollapseItem, ElSwitch, ElDatePicker,
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
-import { uploadGrievanceDocuments, logGrievanceAction, getActionFile, updateGrievanceStatus, sendAcknowledgement } from '@/api/grievance'
+import { uploadGrievanceDocuments, logGrievanceAction, getActionFile, updateGrievanceStatus, sendAcknowledgement, deleteCascade} from '@/api/grievance'
 import { uuid } from 'vue-uuid'
 
 
 import { Icon } from '@iconify/vue';
 import {
-  Download, CaretRight, Check, Close, Lock, Notification, Microphone
+  Download, CaretRight, Check, Close, Lock, Notification, Microphone,Delete
 } from '@element-plus/icons-vue'
 
 
@@ -35,7 +35,10 @@ const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
+ 
+const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
 
+console.log('userInfo',isSuperAdmin.value)
 
 function getLocationLevels(user) {
   // Check if the 'roles' array exists and has data
@@ -779,6 +782,20 @@ const downloadFile = async (data) => {
 };
 
 
+const handleDelete = async () => { 
+console.log(Grievance.value)
+
+const formData = {}
+  formData.model = 'grievance'
+  formData.id = Grievance.value.id
+
+  const response = await deleteCascade(formData);
+
+  goBack()
+  console.log(response)
+
+}
+
 
 </script>
 
@@ -963,6 +980,21 @@ const downloadFile = async (data) => {
 
       </el-tab-pane>
 
+
+      <el-tab-pane label="Settings" name="settings" v-if="isSuperAdmin">
+ 
+        <div class="flex justify-end p-4">
+          <el-popconfirm  width="340"
+            title="Are you sure you want to delete this grievance?" 
+            confirm-button-text="Yes" 
+            cancel-button-text="No"
+            @confirm="handleDelete"  >
+            <template #reference>
+              <el-button type="danger" :icon="Delete"   plain>Delete</el-button>
+            </template>
+          </el-popconfirm>
+  </div>
+      </el-tab-pane>
 
     </el-tabs>
   </el-card>

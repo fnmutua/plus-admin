@@ -70,4 +70,7 @@ export const sendAcknowledgement= (data: any) => {
     return request.post({ url: prod + '/api/v1/pdf',  data })
  }
  
-  
+ export const deleteCascade= (data: any) => {
+   // console.log('filters....', data)
+    return request.post({ url: prod + '/api/v1/delete/cascade',  data })
+ }

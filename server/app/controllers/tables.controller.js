@@ -5531,3 +5531,88 @@ exports.revertEdits = async (req, res) => {
 
   }
 };
+
+
+
+exports.deleteCascade = async (req, res) => {
+  try {
+    const { model, id } = req.body;
+
+    console.log("Deleting", model, "with ID", id);
+
+    // Validate input
+    if (!model || !id) {
+      return res.status(400).send({
+        message: "Model name and record ID are required.",
+      });
+    }
+
+    // Get the model dynamically
+    const Model = db.models[model];
+
+    if (!Model) {
+      return res.status(404).send({
+        message: "Invalid model name.",
+      });
+    }
+
+    // Find the record by ID
+    const record = await Model.findByPk(id);
+
+    if (!record) {
+      return res.status(404).send({
+        message: `${model} record not found.`,
+      });
+    }
+
+    // Get all associations for the model
+    const associations = Model.associations;
+
+    // Delete all associated records iteratively
+    for (const assocName in associations) {
+      const association = associations[assocName];
+
+      if (association.target) {
+        const relatedModel = association.target;
+
+        switch (association.associationType) {
+          case "HasMany":
+          case "HasOne":
+            await relatedModel.destroy({
+              where: { [association.foreignKey]: id },
+            });
+            break;
+          case "BelongsToMany":
+            const throughTable = association.throughModel || association.through;
+            await throughTable.destroy({
+              where: { [association.foreignKey]: id },
+            });
+            break;
+          case "BelongsTo":
+            await relatedModel.update(
+              { [association.foreignKey]: null },
+              { where: { [association.foreignKey]: id } }
+            );
+            break;
+          default:
+            console.log(`Unhandled association type: ${association.associationType}`);
+        }
+      }
+    }
+
+    // Delete the main record
+    await record.destroy();
+
+    res.status(200).send({
+      message: `${model} record and associated records deleted successfully.`,
+      data: record,
+      code: "0000",
+    });
+  } catch (error) {
+    console.error("Error deleting record:", error);
+    res.status(500).send({
+      message: "An error occurred while deleting the record.",
+      error: error.message,
+    });
+  }
+};

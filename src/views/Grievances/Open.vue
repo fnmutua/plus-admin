@@ -207,8 +207,23 @@ const formData = {}
   formData.groupFields = ['status'] //['county.name','indicator_category.category_title']
  
 
+  console.log(roles_filters.length)
+  if(roles_filters.length>0) {
+
+    formData.filterField =[filters.value[1]]
+  formData.filterValue =[[filterValues.value[1]]] 
+  formData.filterOperator = ['eq']
+  }
+  
+
+
+
   // added for unique couts 
  
+  console.log('filters.value', filters.value[1])
+  console.log('filterValues.value', filterValues.value[1])
+
+
   console.log('form-Data',formData)
 
   try {
