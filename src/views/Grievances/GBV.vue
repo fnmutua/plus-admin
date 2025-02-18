@@ -40,6 +40,7 @@ import { getModelSpecs } from '@/api/fields'
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
 
+import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
 
 const { wsCache } = useCache()
@@ -193,8 +194,58 @@ const updatePageSize = () => {
 
 };
 
+
+const getCounts =async  () => { 
+
+console.log('counts')
+
+const formData = {}
+  formData.model = 'grievance'
+  formData.summaryField = 'status'  // Remove ambiguous fields 
+  formData.summaryFunction = 'count'
+  formData.groupFields = ['status'] //['county.name','indicator_category.category_title']
+ 
+  formData.filterField = ['isgbv']
+  formData.filterOperator =['eq'] // Bitumen
+  formData.filterValue = [true]
+
+
+  // added for unique couts 
+ 
+  console.log('form-Data',formData)
+
+  try {
+    const response = await getSummarybyFieldFromMultipleIncludes(formData);
+    const amount = response.Total;
+    console.log('Summary', amount)
+
+
+
+    // Update Statuses count dynamically
+        Statuses.value.forEach((status) => {
+          const match = amount.find((item) => item.status === status.value);
+          if (match) {
+            status.count = parseInt(match.count, 10);
+          }
+        });
+
+
+ 
+ 
+  } catch (error) {
+    // Handle any errors that occur during the asynchronous operation
+    console.error(error);
+    //return null; // or any default value you prefer
+    return []; // or any default value you prefer
+  }
+
+
+}
+
+
 onMounted(async () => {
 
+  getCounts()
 
   window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
