@@ -582,22 +582,33 @@ push({
 
     <el-card style="margin-bottom: 5px;"> 
 
-    <el-row>
-      <el-col :span="6">
-        <el-statistic title="Number of Data Collection Projects" :value="summary.totalProjects" />
+    <el-row :gutter="20">
+        <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" shadow="always">
+          <el-card >
+            <el-statistic title="Number of Data Collection Projects" :value="summary.totalProjects" />
+          </el-card>
       </el-col>
-      <el-col :span="6">
-        <el-statistic title="Number of Data Collection Forms" :value="summary.totalForms" />
+      <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" shadow="always">
+
+        <el-card >
+          <el-statistic title="Number of Data Collection Forms" :value="summary.totalForms" />
+        </el-card>
 
       </el-col>
-      <el-col :span="6">
+      <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" shadow="always">
  
-        <el-statistic title="Total Submissions" :value="summary.totalSubmissions" />
+
+        <el-card >
+          <el-statistic title="Total Submissions" :value="summary.totalSubmissions" />
+        </el-card>
+
       </el-col>
 
-      <el-col :span="6">
-         
-        <el-statistic title="Latest Submission" :value="formatDateAgo(summary.mostRecentSubmission)" />
+      <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" >
+            
+        <el-card >
+          <el-statistic title="Latest Submission" :value="formatDateAgo(summary.mostRecentSubmission)" />
+        </el-card>
 
       </el-col>
     </el-row>
@@ -605,34 +616,35 @@ push({
 
 
 
-    <el-row
-type="flex" justify="start" gutter="10"
-      style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
+    <el-row type="flex" justify="start" gutter="10"       style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
 
-      <!-- <div class="max-w-200px">
-        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
-          Back
-        </el-button>
-      </div> -->
+    
 
+      <el-col :span="8" :lg="8" :md="12" :sm="24" :xs="24" >
 
       <el-select
-multiple v-model="category" placeholder="Filter By Category" style=" margin-right: 5px;  width:250px" clearable
+multiple v-model="category" placeholder="Filter By Category" style=" margin-right: 5px;  width:95%" clearable
         filterable>
         <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
       
+    </el-col>
+
+    <el-col :span="8" :lg="8" :md="12" :sm="24" :xs="24" >
 
       <el-input
 clearable v-model="search" placeholder="Search by project name"
         :onInput="filterTableData" style=" margin-right: 15px;" />
 
+      </el-col>
  
+
+      <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" >
 
 
       <DownloadCustom :data="paginatedData" :all="projects" />
 
-
+    </el-col>
     </el-row>
 
 
