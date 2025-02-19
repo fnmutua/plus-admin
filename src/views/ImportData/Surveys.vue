@@ -583,22 +583,22 @@ push({
     <el-card style="margin-bottom: 5px;"> 
 
     <el-row :gutter="20">
-        <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" shadow="always">
-          <el-card >
+        <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" shadow="hover">
+          <el-card   shadow="hover">
             <el-statistic title="Number of Data Collection Projects" :value="summary.totalProjects" />
           </el-card>
       </el-col>
-      <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" shadow="always">
+      <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" shadow="hover">
 
-        <el-card >
+        <el-card   shadow="hover">
           <el-statistic title="Number of Data Collection Forms" :value="summary.totalForms" />
         </el-card>
 
       </el-col>
-      <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" shadow="always">
+      <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24">
  
 
-        <el-card >
+        <el-card  shadow="hover" >
           <el-statistic title="Total Submissions" :value="summary.totalSubmissions" />
         </el-card>
 
@@ -606,7 +606,7 @@ push({
 
       <el-col :span="6" :lg="6" :md="12" :sm="24" :xs="24" >
             
-        <el-card >
+        <el-card  shadow="hover">
           <el-statistic title="Latest Submission" :value="formatDateAgo(summary.mostRecentSubmission)" />
         </el-card>
 
