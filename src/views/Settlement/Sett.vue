@@ -2869,7 +2869,6 @@ const RevertEdits = async (data: TableSlotDefault) => {
           filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
           <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
-
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">

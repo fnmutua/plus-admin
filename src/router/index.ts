@@ -26,7 +26,7 @@ export const constantRouterMap: AppRouteRecordRaw[] = [
     children: [
       {
         path: '/redirect/:path(.*)',
-        name: 'Redirect',
+        name: 'xRedirect',
         component: () => import('@/views/Redirect/Redirect.vue'),
         meta: {}
       }
@@ -238,7 +238,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
     path: '/data',
     component: Layout,
     redirect: '/data/settlement',
-    name: 'Settlements',
+    name: 'xSettlements',
     meta: {
       title: t('Data'),
       icon: 'mdi:map-legend',
@@ -859,7 +859,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         meta: {
           title: 'Surveys',
           icon: 'carbon:report',
-          role: ['admin', 'super_admin', 'staff'  ] ,
+          role: ['admin', 'super_admin', 'staff'] ,
           locationLevel:['national'],
 
         }
@@ -873,7 +873,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
           hidden: true,
           title: 'Survey Details',
           icon:'ion:document-attach',
-          role: [  'super_admin', 'grm' ] ,
+          role: ['admin', 'super_admin', 'staff'  ] ,
           locationLevel:['national' ],
           noCache: true
         }

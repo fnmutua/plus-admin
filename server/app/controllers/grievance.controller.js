@@ -449,7 +449,7 @@ exports.logGrievanceAction = async (req, res) => {
  
 
  
-exports.getGrievances = async (req, res) => {
+exports.xgetGrievances = async (req, res) => {
   console.log(req.thisUser);
   const user = req.thisUser;
   const currentUserRoles = await user.getRoles();
@@ -624,62 +624,59 @@ exports.getGrievances = async (req, res) => {
     });
 };
 
-exports.xgetGrievances = async (req, res) => {
-  console.log(req.thisUser);
+exports.getGrievances = async (req, res) => {
+  //console.log(req.thisUser);
   const user = req.thisUser;
   const currentUserRoles = await user.getRoles();
 
   const searchString = req.body.searchString;
   const userCounty = user.county_id;
-  const filters = req.body.filters || []; // Array of filter fields
-  const filterValues = req.body.filterValues || []; // Array of filter values corresponding to each filter field
-  const filterFunctions = req.body.filterFunctions || []; // Array of filter functions (e.g., 'eq', 'ne', 'like', etc.)
+  const filters = req.body.filters || []; // Filter fields
+  const filterValues = req.body.filterValues || []; // Corresponding values
+  const filterFunctions = req.body.filterFunctions || []; // Filter operators
+  const locationFilter = req.body.locationFilter || null; // Location filter if provided
 
-  let limit = req.body.limit || 10; // Default limit if not provided
-  let page = req.body.page || 1; // Default page if not provided
+  let limit = req.body.limit || 10; // Default limit
+  let page = req.body.page || 1; // Default page
 
-  const excludeGeomAssoc = req.body.excludeGeomAssoc || false; // New flag to exclude geom
+  console.log('filters:', filters);
+  console.log('filterValues:', filterValues);
+  console.log('filterFunctions:', filterFunctions);
 
-  console.log('Current >>>>User Roles, ', currentUserRoles);
-
-  // Initialize findAndCountOptions with common properties
+  // Initialize findAndCountOptions
   const findAndCountOptions = {
-    where: {}, // Initialize an empty where object
-    limit: limit,
+    where: {}, // Base filtering
+    limit,
     offset: (page - 1) * limit,
-    order: [['createdAt', 'DESC']], // Sort by most recent (assuming createdAt is the field tracking creation date)
+    order: [['createdAt', 'DESC']], // Sort by latest
   };
 
-  var attributes = [];
-  for (let key in db.models.grievance.rawAttributes) {
-    attributes.push(key);
-  }
+  // Define attributes
+  const attributes = Object.keys(db.models.grievance.rawAttributes);
 
-  // Decrypt the name field based on the user role
-  let decryptedName;
+  // Check roles
   const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
   const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
 
-  if (hasSuperAdminRole) {
-    decryptedName = [
-      Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'),
-      'name'
-    ];
-  } else {
-    decryptedName = [
-      Sequelize.literal(`
-        CASE 
-          WHEN "grievance"."isgbv" = false THEN 
-            PGP_SYM_DECRYPT(CAST("grievance"."name" AS BYTEA), '***REDACTED***')
-          ELSE 
-            '[REDACTED]'
-        END
-      `),
-      'name'
-    ];
-  }
+  // Decrypt name handling
+  const decryptedName = hasSuperAdminRole
+    ? [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'), 'name']
+    : [
+        Sequelize.literal(`
+          CASE 
+            WHEN "grievance"."isgbv" = false THEN 
+              PGP_SYM_DECRYPT(CAST("grievance"."name" AS BYTEA), '***REDACTED***')
+            ELSE 
+              '[REDACTED]'
+          END
+        `),
+        'name'
+      ];
   attributes.push(decryptedName);
 
+  findAndCountOptions.attributes = attributes;
+
+  // Restrict access if not a super admin or GRM role
   if (!hasGRMRole && !hasSuperAdminRole) {
     return res.status(200).send({
       data: [],
@@ -689,35 +686,34 @@ exports.xgetGrievances = async (req, res) => {
     });
   }
 
+  // Apply location-based filtering
   if (!hasSuperAdminRole) {
     const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
-    const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
-
     const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
-    let countyId;
-    if (countyAdminRole) {
-      countyId = countyAdminRole.user_roles.county_id;
-      console.log('County Admin Role detected. County ID:', countyId);
-    }
 
-    if (!hasNationalRole && hasCountyAdminRole) {
+    if (!hasNationalRole && countyAdminRole) {
+      const countyId = countyAdminRole.user_roles.county_id;
       findAndCountOptions.where.county_id = countyId;
       console.log('Applying county filter:', countyId);
     }
-  } else {
-    console.log('Super Admin detected. Bypassing location-level filtering.');
   }
 
+  // Apply additional location filter if provided in request
+  // if (locationFilter) {
+  //   findAndCountOptions.where.county_id = locationFilter;
+  //   console.log('Applying location filter from request:', locationFilter);
+  // }
+
+  // Apply search filter
   if (searchString) {
-    findAndCountOptions.where.name = {
-      [op.iLike]: `%${searchString}%`,
-    };
+    findAndCountOptions.where.name = { [op.iLike]: `%${searchString}%` };
   }
 
+  // Apply additional filters
   filters.forEach((filter, index) => {
     const value = filterValues[index];
-    const functionType = filterFunctions[index] || 'eq';
-
+    const functionType = filterFunctions[index] || 'eq'; // Default to 'eq'
+    
     const operatorMap = {
       eq: op.eq,
       ne: op.ne,
@@ -731,37 +727,23 @@ exports.xgetGrievances = async (req, res) => {
       lte: op.lte
     };
 
-    const operator = operatorMap[functionType] || op.eq;
-
-    if (Array.isArray(value)) {
-      findAndCountOptions.where[filter] = {
-        [operator]: value,
-      };
-    } else {
-      findAndCountOptions.where[filter] = {
-        [operator]: value,
-      };
-    }
+    findAndCountOptions.where[filter] = { [operatorMap[functionType] || op.eq]: value };
   });
 
-  if (hasSuperAdminRole) {
-    delete findAndCountOptions.where.county_id;
-  }
+  // Super Admin bypasses location filtering
+  // if (hasSuperAdminRole) {
+  //   delete findAndCountOptions.where.county_id;
+  // }
 
-  // Handle associated models inclusion with geom exclusion
+  console.log('findAndCountOptions:', findAndCountOptions);
+
+  // Include associated models if requested
   const associatedModels = req.body.associated_multiple_models || [];
   if (associatedModels.length > 0) {
-    findAndCountOptions.include = associatedModels.map(model => ({
-      model: db.models[model],
-      attributes: excludeGeomAssoc
-        ? { exclude: ['geom'] } // Exclude the 'geom' column if flag is true
-        : undefined,
-    }));
+    findAndCountOptions.include = associatedModels.map(model => ({ model: db.models[model] }));
   }
 
-  console.log('findAndCountOptions', findAndCountOptions);
-
-  // Execute the query
+  // Execute query
   Grievance.findAndCountAll(findAndCountOptions)
     .then(({ count, rows: grievances }) => {
       console.log('Total grievances:', count);
