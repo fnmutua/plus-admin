@@ -428,7 +428,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 });
 
 
-  
+loading.value = false
 
   console.log('segment', activeSegment.value)
 }
@@ -1990,7 +1990,7 @@ if (selectedCounty.value) {
 console.log(filters.value)
 
 if (search_string.value) {
-  getFilteredBySearchData(activeSegment.value, search_string.value)
+  getFilteredBySearchData(search_string.value)
 } else {
  // getNewOrRejectedSettlements(activeSegment.value)
 
@@ -2013,26 +2013,101 @@ if (subcounty_id) {
   getWardNames()
 }
 
+
+if (selectedSubCounty.value ) {
+  const selectOption = 'subcounty_id';
+
+  // Ensure the filter key exists
+  if (!filters.value.includes(selectOption)) {
+    filters.value.push(selectOption);
+      filterFunction.value.push('in')
+
+  }
+
+  const index = filters.value.indexOf(selectOption);
+
+  // Clear previously selected county filter values
+  filterValues.value[index] = [];
+
+  // Insert new county filter value if it's not empty
+  if (selectedSubCounty.value.length  > 0) {
+    filterValues.value[index] = [...selectedSubCounty.value];
+  }
+
+  // Remove filter key if no values are selected
+  if (selectedSubCounty.value.length === 0) {
+    filters.value.splice(index, 1);
+    filterValues.value.splice(index, 1);
+  }
+}
+
+
+
 if (search_string.value) {
-  getFilteredBySearchData(activeSegment.value, search_string.value)
+  getFilteredBySearchData(search_string.value)
 } else {
-  getNewOrRejectedSettlements(activeSegment.value)
+  getFilteredData(filters.value, filterValues.value)
 }
 }
+
+
+ 
+
+
+
+const selectedWard=ref()
+ 
+
 
 
 const filterByWard = async (ward_id: any) => {
 
+value6.value = null   // clear the ward sr
+
+
 if (ward_id) {
   selectedWard.value = ward_id
+ 
 }
 
+
+if (selectedWard.value ) {
+  const selectOption = 'ward_id';
+
+  // Ensure the filter key exists
+  if (!filters.value.includes(selectOption)) {
+    filters.value.push(selectOption);
+      filterFunction.value.push('in')
+
+  }
+
+  const index = filters.value.indexOf(selectOption);
+
+  // Clear previously selected county filter values
+  filterValues.value[index] = [];
+
+  // Insert new county filter value if it's not empty
+  if (selectedWard.value.length  > 0) {
+    filterValues.value[index] = [...selectedWard.value];
+  }
+
+  // Remove filter key if no values are selected
+  if (selectedWard.value.length === 0) {
+    filters.value.splice(index, 1);
+    filterValues.value.splice(index, 1);
+  }
+}
+
+
+
 if (search_string.value) {
-  getFilteredBySearchData(activeSegment.value, search_string.value)
+  getFilteredBySearchData(search_string.value)
 } else {
-  getNewOrRejectedSettlements(activeSegment.value)
+  getFilteredData(filters.value, filterValues.value)
 }
 }
+
+
 
 </script>
 
@@ -2052,7 +2127,7 @@ type="flex" justify="start" gutter="10"
 
       <el-col :xs="24" :sm="24" :md="12" :lg="5">
         <el-select
-size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
+size="default" v-model="selectedCounty" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
           filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
           <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -2060,15 +2135,15 @@ size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
         <el-select
-:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
+:disabled="!enableSubcounty" size="default" v-model="selectedSubCounty" :onChange="filterBySubCounty" multiple
           clearable filterable collapse-tags placeholder="By Subcounty" style=" margin-right: 5px;">
           <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select
-:disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
+        <el-select 
+:disabled="!enableSubcounty" size="default" v-model="selectedWard" :onChange="filterByWard" multiple
           clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
           <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -2132,9 +2207,9 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
 
 
-    <div v-if="activeSegment === 'Sorting'">
-      <el-table
-:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+    <div  v-if="activeSegment === 'Sorting'">
+      <el-table v-loading="loading"
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px; "  show-overflow-tooltip
         :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
         <el-table-column label="#" width="80" prop="id" sortable>
           <template #default="scope">
@@ -2144,7 +2219,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="date" label="Date Reported" width="150">
+        <el-table-column prop="date" label="Date Reported" sortable  width="150">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
             <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2172,7 +2247,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
             <span v-else>{{ scope.row.reporter_name }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Description" prop="description" sortable width="350" />
+        <el-table-column label="Description" prop="description" sortable  />
         <el-table-column label="Location" sortable width="350">
           <template #default="scope">
             <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
@@ -2210,8 +2285,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
     </div>
 
     <div v-if="activeSegment === 'Closed'">
-      <el-table
-:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+      <el-table v-loading="loading"
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
         :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
         <el-table-column label="#" width="80" prop="id" sortable>
           <template #default="scope">
@@ -2286,8 +2361,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
     </div>
 
     <div v-if="activeSegment === 'Resolved'">
-      <el-table
-:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+      <el-table v-loading="loading"
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
         :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
         <el-table-column label="#" width="80" prop="id" sortable>
           <template #default="scope">
@@ -2362,8 +2437,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
     </div>
 
     <div v-if="activeSegment === 'Escalated'">
-        <el-table
-:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+        <el-table v-loading="loading"
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
             <template #default="scope">
@@ -2438,8 +2513,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
      </div>
 
      <div v-if="activeSegment === 'In Court'">
-        <el-table
-:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+        <el-table v-loading="loading"
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
             <template #default="scope">
@@ -2515,8 +2590,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
 
 
      <div v-if="activeSegment === 'Referred'">
-        <el-table
-:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+        <el-table v-loading="loading"
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
             <template #default="scope">
@@ -2591,8 +2666,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
      </div>
 
      <div v-if="activeSegment === 'Rejected'">
-        <el-table
-:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+        <el-table v-loading="loading"
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
             <template #default="scope">
@@ -2974,8 +3049,28 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 </style>
 
 
+<style>
+/* Customize the tooltip style */
+.el-tooltip__popper {
+  max-width: 300px; /* Set max width for the tooltip */
+  background-color: #e00909; /* Dark background */
+  color: #fff; /* White text */
+  font-size: 14px; /* Adjust font size */
+  border-radius: 4px; /* Rounded corners */
+  padding: 8px 12px; /* Padding inside the tooltip */
+}
+
+/* Optional: Style the arrow of the tooltip */
+.el-tooltip__popper[x-placement^="top"] .popper__arrow {
+  border-top-color: #333;
+}
+</style>
+
 
 <style>
+ 
+
+
 .el-table .danger-row {
   --el-table-tr-bg-color: var(--el-color-danger-light-9);
   --el-table-tr-text-color: var(--el-color-danger);
@@ -3063,4 +3158,9 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
     /* Allow the text to flow properly */
   }
 }
+
+
+
+
+
 </style>
