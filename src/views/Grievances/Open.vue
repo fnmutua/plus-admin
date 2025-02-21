@@ -1690,6 +1690,7 @@ const filteredSegments = computed(() => {
 
 const onSegmentClick = async () => {
   console.log(activeSegment.value)
+  tableDataList.value=[]
   currentPage.value=1 // change paignation page to first every time
 
   if (activeSegment.value === "Sorting") {
@@ -1862,6 +1863,7 @@ const onSegmentClick = async () => {
         }
       });
 
+      loading.value=true
 
 console.log('filters.value', filters.value)
   console.log('filterValues.value', filterValues.value)
