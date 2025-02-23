@@ -334,6 +334,8 @@ const filterTableData = () => {
 
 const county_value = ref()
 const sett_value = ref()
+const position = ref()
+const category = ref()
 const filteredData = computed(() => {
   //const searchTerm = search.value.toLowerCase();
   // if (searchTerm) {
@@ -354,10 +356,28 @@ const filteredData = computed(() => {
   const searchTerm = search.value.toLowerCase();
   const selectedCounty = county_value.value;
   const selectedSettlement = sett_value.value;
+  const selectedCategory= category.value;
+  const selectedPosition= position.value;
+
+
+  console.log(sec_officials.value)
 
   return sec_officials.value.filter((data) => {
     const countyMatch = selectedCounty ? data.county === selectedCounty : true;
-    const settlementMatch = selectedSettlement ? data.settlement === selectedSettlement : true;
+  
+
+    const settlementMatch = selectedSettlement && selectedSettlement.length > 0
+      ? selectedSettlement.includes(data.settlement)
+      : true;
+
+
+    const categoryMatch = selectedCategory && selectedCategory.length > 0
+      ? selectedCategory.includes(data.category)
+      : true;
+
+    const positionMatch = selectedPosition && selectedPosition.length > 0
+      ? selectedPosition.includes(data.sec_position)
+      : true;
 
     if (searchTerm) {
       const nameMatch = data.name?.toLowerCase().includes(searchTerm);
@@ -369,7 +389,7 @@ const filteredData = computed(() => {
       return countyMatch && settlementMatch && (nameMatch || settlementTermMatch || telephoneMatch || idMatch || NPCTMatch);
     }
 
-    return countyMatch && settlementMatch;
+    return countyMatch && settlementMatch && categoryMatch && positionMatch;
   });
 
 });
@@ -410,6 +430,34 @@ const goBack = () => {
 
 
 
+
+const category_options =  [
+  { "value": "structure_owner", "label": "Structure Owner" },
+  { "value": "tenant", "label": "Tenant" },
+  { "value": "youth", "label": "Youth" },
+  { "value": "plwd", "label": "PLWD" },
+  { "value": "ngo", "label": "NGO" },
+  { "value": "faith_based", "label": "Faith-Based" },
+  { "value": "widow", "label": "Widow" },
+  { "value": "minority_marginalized", "label": "Minority Marginalized" },
+  { "value": "chief", "label": "Chief" },
+  { "value": "Asst. chief", "label": "Assistant Chief" },
+  { "value": "Member of the County assembly", "label": "Member of the County Assembly" },
+  { "value": "ward_admin", "label": "Ward Admin" }
+]
+
+const SEC_options =  [
+{ "value": "chairperson", "label": "Chairperson" },
+{ "value": "chairman", "label": "Chairman" },
+{ "value": "secretary", "label": "Secretary" },
+  { "value": "organizing_secretary", "label": "Organizing Secretary" },
+  { "value": "vice_chairperson", "label": "Vice Chairperson" },
+  { "value": "member", "label": "Member" }
+]
+
+
+ 
+
 </script>
 
 <template>
@@ -421,22 +469,45 @@ const goBack = () => {
         </el-button>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="5">
-        <el-select v-model="county_value" placeholder="Filter County" clearable filterable
+      <el-col :xs="24" :sm="24" :md="12" :lg="3">
+        <el-select
+v-model="county_value" placeholder="Filter County" clearable filterable
           style="width: 100%; margin-right: 5px;">
           <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="7">
-        <el-select v-model="sett_value" placeholder="Filter Settlement" clearable filterable
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+        <el-select
+multiple
+v-model="sett_value" placeholder="Filter Settlement" clearable filterable
           style="width: 100%; margin-right: 5px;">
           <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-col>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="8">
-        <el-input clearable v-model="search" placeholder="Search by Name, ID, Phone, County or Settlement"
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+        <el-select
+multiple  v-model="position" placeholder="Filter By Position" clearable filterable
+          style="width: 100%; margin-right: 5px;">
+          <el-option v-for="item in SEC_options" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-col>
+
+
+      <el-col :xs="24" :sm="24" :md="12" :lg="4">
+        <el-select
+multiple
+v-model="category" placeholder="Filter By Category" clearable filterable
+          style="width: 100%; margin-right: 5px;">
+          <el-option v-for="item in category_options" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+      </el-col>
+
+
+      <el-col :xs="24" :sm="24" :md="12" :lg="5">
+        <el-input
+clearable v-model="search" placeholder="Search by Name, ID, Phone.."
           :onInput="filterTableData" style="width: 100%; margin-right: 15px;" />
       </el-col>
 
@@ -447,7 +518,7 @@ const goBack = () => {
 
 
 
-    <el-table-v2 :columns="columnsx" :data="paginatedData" :width="width" :height="650" fixed>
+    <el-table-v2 :columns="columnsx" :data="paginatedData" :width="width" :height="450" fixed>
       <template #empty>
         <div class="flex items-center justify-center h-100%">
           <el-empty />
@@ -460,8 +531,9 @@ const goBack = () => {
     <div style="margin-top: 20px;">
       <!-- Pagination component -->
 
-      <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" :page-sizes="[5, 10,  20, 50, 100]" :total="totalItems" :background="true"
+      <el-pagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        v-model:page-size="pageSize" :page-sizes="[5, 10,  20, 50, 100,1000,10000]" :total="totalItems" :background="true"
         @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
     </div>

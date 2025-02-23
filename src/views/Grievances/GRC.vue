@@ -6,7 +6,7 @@ import { Plus, Back } from '@element-plus/icons-vue'
 
 import { ref, computed, unref } from 'vue'
 import {
-  ElPagination, ElInput, ElSelect, ElOption, ElButton, ElDialog,
+  ElPagination, ElInput, ElSelect, ElOption, ElButton, ElDialog,ElMessage,
   ElRow, ElTableV2, ElCard
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -21,6 +21,7 @@ import {
 } from '@/api/register'
 
 
+import { checkUser, checkUserNames } from '@/api/users'
 
 
 import { watch, onMounted } from 'vue';
@@ -248,7 +249,33 @@ const getGRCData = async () => {
     await extractData(response.data);
 
     // Log the extracted data
-    console.log(grc_officials.value);
+    console.log('grc_officials.value', grc_officials.value);
+    const usernames = grc_officials.value
+      .filter(official => official.grc_position === "secretary") // Only secretaries
+      .map(official => official.mobile); // Extract mobile numbers
+
+
+    const form = {}
+     form.usernames = usernames
+    const res = await checkUserNames(form)
+    console.log(res.data)
+
+
+
+    // Merge the exists property back into grc_officials.value
+      grc_officials.value = grc_officials.value.map(official => {
+        // Find the match in the return.data array based on username
+        const match = res.data.find(user => user.username === official.mobile);
+        console.log(match)
+        return {
+          ...official,
+          has_acc: match ? match.exists : 'N/A', // Default to false if no match is found
+        };
+      });
+
+    console.log('Updated grc_officials:', grc_officials.value);
+
+
 
   } catch (error) {
     // Handle errors here
@@ -448,6 +475,7 @@ const filteredData = computed(() => {
   const selectedPosition = position.value;
 
   console.log('selectedPosition', selectedPosition)
+  console.log('selectedPosition2', grc_officials.value)
 
 
 
@@ -482,6 +510,9 @@ const paginatedData = computed(() => {
   const end = start + pageSize.value;
   return filteredData.value.slice(start, end);
 });
+
+
+
 
 // Watch the filtered data to update totalItems and reset the pagination
 watch(filteredData, (newValue) => {
@@ -597,7 +628,7 @@ columnsx.unshift({
 })
 
 
-const getSelectedRows = () => {
+const xgetSelectedRows = () => {
   const selectedRows = paginatedData.value.filter((row) => row.checked)
   console.log(selectedRows[0])
 
@@ -652,6 +683,47 @@ const getSelectedRows = () => {
 
 }
 
+const getSelectedRows = () => {
+  // Filter selected rows where has_acc is NOT true
+ 
+  //const selectedRows = paginatedData.value.filter(row => row.checked && !row.has_acc);
+  const selectedRows = paginatedData.value.filter(row => row.checked && !row.has_acc);
+  
+  if (selectedRows.length === 0) {
+  ElMessage({
+    message: 'The selected GRCs already have accounts',
+    type: 'warning',
+  });
+}
+
+  // Loop through the filtered selected rows
+  selectedRows.forEach(async (row) => {
+    console.log(row);
+
+    await getOneByCode({ model: "settlement", code: row.settlement_code })
+      .then((res) => {
+        console.log(res);
+        const formData = {
+          username: row.mobile,
+          name: row.name,
+          phone: row.mobile,
+          password: "User@2024",
+          role: ["grm"],
+          location_level: "settlement",
+          location_id: res.data.id,
+          location_field: "settlement_id",
+        };
+
+        signupGRC(formData).then((response) => {
+          console.log(response);
+        });
+      })
+      .catch((error) => {
+        console.log("Error:", error); // Handle the error
+      });
+  });
+};
+
 
 // Computed property to check if any row is selected
 const anyRowSelected = computed(() => {
@@ -664,7 +736,8 @@ const anyRowSelected = computed(() => {
 
 <template>
   <el-card v-loading="loading">
-    <el-row type="flex" justify="start" gutter="10"
+    <el-row
+type="flex" justify="start" gutter="10"
       style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
 
       <div class="max-w-200px">
@@ -674,21 +747,25 @@ const anyRowSelected = computed(() => {
       </div>
 
 
-      <el-select v-model="county_value" placeholder="Filter County" style=" margin-right: 5px;  width:250px" clearable
+      <el-select
+v-model="county_value" placeholder="Filter County" style=" margin-right: 5px;  width:250px" clearable
         filterable>
         <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
-      <el-select v-model="sett_value" placeholder="Filter Settlement" clearable filterable
+      <el-select
+v-model="sett_value" placeholder="Filter Settlement" clearable filterable
         style=" margin-right: 5px; width:350px">
         <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
-      <el-select v-model="position" placeholder="Filter positions" clearable filterable
+      <el-select
+v-model="position" placeholder="Filter positions" clearable filterable
         style=" margin-right: 5px; width:350px">
         <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
-      <el-input clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Settlement"
+      <el-input
+clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Settlement"
         :onInput="filterTableData" style=" margin-right: 15px;" />
 
       <el-tooltip content="Add GRC" placement="top">
@@ -709,14 +786,14 @@ const anyRowSelected = computed(() => {
 
 
 
-      <el-table-v2 :columns="columnsx" :data="paginatedData" :width="width" :height="650" fixed>
+      <el-table-v2 :columns="columnsx" :data="paginatedData" :width="width" :height="450" fixed>
         <template #empty>
           <div class="flex items-center justify-center h-100%">
             <el-empty />
           </div>
         </template>
       </el-table-v2>
-      <el-button style="margin-top: 20px;" v-if="anyRowSelected" @click="getSelectedRows">Generate Accounts</el-button>
+      <el-button style="margin-top: 20px;" v-if="anyRowSelected " @click="getSelectedRows">Generate Accounts</el-button>
 
     </div>
 
@@ -724,8 +801,9 @@ const anyRowSelected = computed(() => {
     <div style="margin-top: 20px;">
       <!-- Pagination component -->
 
-      <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
+      <el-pagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100,1000,10000]" :total="totalItems" :background="true"
         @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
     </div>

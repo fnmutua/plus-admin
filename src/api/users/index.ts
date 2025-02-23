@@ -124,6 +124,12 @@ export const checkUser = (data: UserType): Promise<IResponse<UserType>> => {
   return request.post({ url: prod + '/api/v1/user/check', data })
 }
 
+export const checkUserNames = (data: UserType): Promise<IResponse<UserType>> => {
+  console.log('....', data)
+  return request.post({ url: prod + '/api/v1/user/multiple', data })
+}
+
+
 export const deleteAccount = (data: UserType): Promise<IResponse<UserType>> => {
   console.log('....', data)
   return request.post({ url: prod + '/api/v1/user/delete', data })

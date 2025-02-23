@@ -1177,3 +1177,36 @@ exports.getFeedback = (req, res) => {
 
 
  }
+
+
+
+  exports.checkUsers =async (req, res) => {
+  const { usernames } = req.body;
+
+  if (!Array.isArray(usernames) || usernames.length === 0) {
+    return res.status(400).json({ message: "Usernames must be a non-empty array." });
+  }
+
+  try {
+    const users = await User.findAll({
+      where: {
+        username: usernames,
+      },
+      attributes: ["username"],
+    });
+
+    const foundUsernames = users.map(user => user.username);
+
+    const result = usernames.map(username => ({
+      username,
+      exists: foundUsernames.includes(username),
+    }));
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error checking users:", error);
+    res.status(500).json({ message: "An error occurred while checking users." });
+  }
+};
+
+ 
