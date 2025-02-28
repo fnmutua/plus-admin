@@ -297,6 +297,7 @@ const selectedAttributes = [
   'gender',
   'national_id',
   'mobile',
+  'sec_position',
   'category',
   'submitter',
 ];
@@ -480,7 +481,7 @@ v-model="county_value" placeholder="Filter County" clearable filterable
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
         <el-select
 multiple
-v-model="sett_value" placeholder="Filter Settlement" clearable filterable
+v-model="sett_value" placeholder="Filter Settlement" clearable filterable collapse-tags	
           style="width: 100%; margin-right: 5px;">
           <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -488,7 +489,7 @@ v-model="sett_value" placeholder="Filter Settlement" clearable filterable
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
         <el-select
-multiple  v-model="position" placeholder="Filter By Position" clearable filterable
+multiple  v-model="position" placeholder="Filter By Position" clearable filterable collapse-tags	
           style="width: 100%; margin-right: 5px;">
           <el-option v-for="item in SEC_options" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -498,7 +499,7 @@ multiple  v-model="position" placeholder="Filter By Position" clearable filterab
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
         <el-select
 multiple
-v-model="category" placeholder="Filter By Category" clearable filterable
+v-model="category" placeholder="Filter By Category" clearable filterable collapse-tags	
           style="width: 100%; margin-right: 5px;">
           <el-option v-for="item in category_options" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>

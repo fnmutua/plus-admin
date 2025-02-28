@@ -4,10 +4,10 @@
 
 import { Plus, Back } from '@element-plus/icons-vue'
 
-import { ref, computed, unref } from 'vue'
+import { ref, computed,toRaw, unref } from 'vue'
 import {
   ElPagination, ElInput, ElSelect, ElOption, ElButton, ElDialog,ElMessage,
-  ElRow, ElTableV2, ElCard
+  ElRow, ElTableV2, ElCard,ElTable,ElTableColumn,
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -25,6 +25,7 @@ import { checkUser, checkUserNames } from '@/api/users'
 
 
 import { watch, onMounted } from 'vue';
+import type { TableInstance } from 'element-plus'
 
 import DownloadCustom from '@/views/Components/DownloadCustomFields.vue';
 import { useRouter } from 'vue-router'
@@ -50,7 +51,7 @@ const showEditButtons = ref(appStore.getEditButtons)
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 20;
+const defaultPageSize = 10;
 const mobilePageSize = 5;
 const pageSize = ref(10);
 const currentPage = ref(1);
@@ -687,9 +688,11 @@ const getSelectedRows = () => {
   // Filter selected rows where has_acc is NOT true
  
   //const selectedRows = paginatedData.value.filter(row => row.checked && !row.has_acc);
-  const selectedRows = paginatedData.value.filter(row => row.checked && !row.has_acc);
+  //const selectedRows = paginatedData.value.filter(row => row.checked && !row.has_acc);
+
+  //console.log(selectedRows)
   
-  if (selectedRows.length === 0) {
+  if (multipleSelection.value.length === 0) {
   ElMessage({
     message: 'The selected GRCs already have accounts',
     type: 'warning',
@@ -697,7 +700,7 @@ const getSelectedRows = () => {
 }
 
   // Loop through the filtered selected rows
-  selectedRows.forEach(async (row) => {
+  multipleSelection.value.forEach(async (row) => {
     console.log(row);
 
     await getOneByCode({ model: "settlement", code: row.settlement_code })
@@ -726,10 +729,24 @@ const getSelectedRows = () => {
 
 
 // Computed property to check if any row is selected
-const anyRowSelected = computed(() => {
-  return paginatedData.value.some((row) => row.checked)
-})
+// const anyRowSelected = computed(() => {
+//   return paginatedData.value.some((row) => row.checked)
+// })
 
+const anyRowSelected=ref(false)
+
+const multipleTableRef = ref<TableInstance>()
+const multipleSelection = ref()
+
+const selectable = (row: any) => !row.has_acc;
+const handleSelectionChange = (val: any[]) => {
+  multipleSelection.value = val
+  anyRowSelected.value=true
+
+  multipleSelection.value = val.map(toRaw); // Convert proxies to raw objects
+
+
+ }
 
 
 </script>
@@ -786,13 +803,35 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Sett
 
 
 
-      <el-table-v2 :columns="columnsx" :data="paginatedData" :width="width" :height="450" fixed>
+
+      <el-table
+    ref="multipleTableRef"
+    :data="paginatedData"
+    row-key="national_id"
+    style="width: 100%"
+    @selection-change="handleSelectionChange"
+   >
+    <el-table-column type="selection" :selectable="selectable"   width="55" />
+  
+    <el-table-column property="name" label="Name"   />
+    <el-table-column property="gender" label="Gender" />
+     <el-table-column property="category" label="Category" />
+    <el-table-column property="grc_position" label="Position" />
+    <el-table-column property="mobile" label="Phone" />
+    <el-table-column label="Location">
+      <template #default="{ row }">
+        {{ row.settlement ? row.settlement + ', ' : '' }}{{ row.county }}
+      </template>
+    </el-table-column>
+  </el-table>
+
+      <!-- <el-table-v2 :columns="columnsx" :data="paginatedData" :width="width" :height="450" fixed>
         <template #empty>
           <div class="flex items-center justify-center h-100%">
             <el-empty />
           </div>
         </template>
-      </el-table-v2>
+      </el-table-v2> -->
       <el-button style="margin-top: 20px;" v-if="anyRowSelected " @click="getSelectedRows">Generate Accounts</el-button>
 
     </div>
