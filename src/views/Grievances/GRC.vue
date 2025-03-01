@@ -628,61 +628,7 @@ columnsx.unshift({
   },
 })
 
-
-const xgetSelectedRows = () => {
-  const selectedRows = paginatedData.value.filter((row) => row.checked)
-  console.log(selectedRows[0])
-
-
-  // Loop through the selected rows
-  selectedRows.forEach(async (row) => {
-
-    console.log(row)
-
-
-    await getOneByCode({ 'model': 'settlement', 'code': row.settlement_code })
-      .then((res) => {
-
-
-        console.log(res)
-        var formData = {}
-        formData.username = row.mobile,
-          formData.name = row.name,
-          formData.phone = row.mobile,
-          formData.password = 'User@2024',
-          formData.role = ["grm"]
-          formData.location_level = "settlement"
-          formData.location_id = res.data.id
-          formData.location_field = "settlement_id"
-
-
-        signupGRC(formData).then((response) => {
-          console.log(response)
-        })
-
-      })
-      .catch((error) => {
-        // Handle the error here
-        console.log('Error:', error);
-      });
-
-
-
-
-
-  })
-
-  // .post(server +'api/auth/signup', {
-  //     username: userForm.username,
-  //     password: userForm.password,
-  //     name: userForm.name,
-  //     email: userForm.email,
-  //     role: ['public']
-  //   })
-
-
-
-}
+ 
 
 const getSelectedRows = () => {
   // Filter selected rows where has_acc is NOT true
@@ -705,7 +651,7 @@ const getSelectedRows = () => {
 
     await getOneByCode({ model: "settlement", code: row.settlement_code })
       .then((res) => {
-        console.log(res);
+        console.log('sett-ID', res);
         const formData = {
           username: row.mobile,
           name: row.name,
