@@ -2243,12 +2243,12 @@ const closePopup = () => {
           </div>
         </el-card>
       </el-tab-pane>
-      <el-tab-pane label="Map" name="map" :disabled="disableMap">
+      <!-- <el-tab-pane label="Map" name="map" :disabled="disableMap">
         <div id="mapContainer" class="basemap"></div>
         
-      </el-tab-pane>
+      </el-tab-pane> -->
 
-      <el-tab-pane label="Map(Google)" name="gmap" :disabled="disableMap">
+      <el-tab-pane label="Map" name="gmap" :disabled="disableMap">
         <div id="GooglemapContainer" class="basemap">
  
  

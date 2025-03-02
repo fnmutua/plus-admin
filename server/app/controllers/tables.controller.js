@@ -4341,6 +4341,7 @@ async function sendSettDataToODK(settArray) {
             "data": {
               "county_name": county.name,
               "sett_name": settArray[i].name,
+              "deleted": 'false',
               "code": settArray[i].code,
             }
           };
@@ -4375,7 +4376,7 @@ async function sendSettDataToODK(settArray) {
 
 
 // Function to send a POST request with the array of JSON objects
-async function deleteSettlementDataFromODK(settToDelete) {
+async function xdeleteSettlementDataFromODK(settToDelete) {
 
   console.log("here to delete the settlement from ODK",)
   // Construct the request body as a JSON object
@@ -4469,6 +4470,120 @@ async function deleteSettlementDataFromODK(settToDelete) {
   });
 }
 
+ 
+
+async function deleteSettlementDataFromODK(settToUpdate) {
+
+  console.log("here to update the settlement in ODK")
+  // Construct the request body as a JSON object
+  const requestBody = {
+    email: 'kisip.mis@gmail.com',
+    password: '***REDACTED***'
+  };
+
+  let token;
+
+  // Login and get a token
+  request({
+    method: 'POST',
+    url: 'https://collector.kesmis.go.ke/v1/sessions',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(requestBody) // Convert the object to a JSON string
+  }, async function (error, response, body) {
+    if (!error && response.statusCode === 200) {
+      console.log('Logged in')
+      const responseBody = JSON.parse(body);
+
+      token = responseBody.token;
+ 
+      // get all entities 
+      request({
+        method: 'GET',
+        url: 'https://collector.kesmis.go.ke/v1/projects/1/datasets/settlements.svc/entities',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      }, function (error, response, body) {
+        
+        if (!error && response.statusCode === 200) {
+        //  console.log(body)
+          let entities = JSON.parse(body);
+
+           console.log(settToUpdate)
+
+          const targetCode =settToUpdate.code; // The code you want to filter by
+
+ 
+          const filteredEntity = entities.value.filter(item => item.code === targetCode);
+        //  console.log("filteredEntity",filteredEntity[0].__id )
+
+          // Now we have the entity - Delete it from dataasets
+         //   /projects/16/datasets/people/entities/54a405a0-53ce-4748-9788-d23a30cc3afa
+          // delete only if such an entiry is found 
+
+          
+          //https://private-anon-90cf62d59f-odkcentral.apiary-mock.com/projects/projectId/datasets/name/entities/uuid
+          
+          
+          
+      let settObj = {
+         "label": settToUpdate.name,
+        "data": {
+          "sett_name": settToUpdate.name,
+          "deleted": 'true',
+       
+      
+         }
+      };
+
+
+          
+          
+          if (filteredEntity.length>0) {
+            let url = 'https://collector.kesmis.go.ke/v1/projects/1/datasets/settlements/entities/'+filteredEntity[0].__id+'?force=true'
+             request({
+              method: 'PATCH',
+              url: url,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify(settObj) // Convert the object to a JSON string
+
+            },
+              function (error, response, body) { 
+                console.log('Update ODK....... Successful')
+               console.log(response.body)
+              }
+            )
+          }
+       
+              
+     
+        } else {
+          // Handle errors here
+          console.error('Error:', error);
+          
+        }
+      });
+
+
+
+
+
+
+
+
+
+    } else {
+      // Handle errors here
+      console.error('Error:', error);
+    }
+  });
+}
 
 
 // Function to send a POST request with the array of JSON objects
