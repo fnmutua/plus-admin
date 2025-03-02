@@ -751,24 +751,28 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone,County or Sett
 
 
       <el-table
-    ref="multipleTableRef"
-    :data="paginatedData"
-    row-key="national_id"
-    style="width: 100%"
-    @selection-change="handleSelectionChange"
-   >
-    <el-table-column type="selection" :selectable="selectable"   width="55" />
-  
-    <el-table-column property="name" label="Name"   />
-    <el-table-column property="gender" label="Gender" />
-     <el-table-column property="category" label="Category" />
-    <el-table-column property="grc_position" label="Position" />
-    <el-table-column property="mobile" label="Phone" />
-    <el-table-column label="Location">
-      <template #default="{ row }">
-        {{ row.settlement ? row.settlement + ', ' : '' }}{{ row.county }}
-      </template>
-    </el-table-column>
+      ref="multipleTableRef"
+      :data="paginatedData"
+      row-key="national_id"
+      style="width: 100%"
+      @selection-change="handleSelectionChange"
+    >
+      <el-table-column type="selection" :selectable="selectable"   width="55" />
+    
+      <el-table-column property="name" label="Name"  sortable />
+      <el-table-column property="gender" label="Gender" />
+      <el-table-column property="category" label="Category" sortable/>
+      <el-table-column property="grc_position"  label="Position" sortable/>
+      <el-table-column property="mobile" label="Phone"  />
+      <el-table-column property="date" label="Date formed"  sortable/>
+
+
+      
+      <el-table-column label="Location">
+        <template #default="{ row }">
+          {{ row.settlement ? row.settlement + ', ' : '' }}{{ row.county }}
+        </template>
+      </el-table-column>
   </el-table>
 
       <!-- <el-table-v2 :columns="columnsx" :data="paginatedData" :width="width" :height="450" fixed>

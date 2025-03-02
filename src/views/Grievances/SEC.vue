@@ -7,7 +7,7 @@ import { Back } from '@element-plus/icons-vue'
 
 import { ref, computed } from 'vue'
 import {
-  ElPagination, ElInput, ElSelect, ElOption, ElCol,
+  ElPagination, ElInput, ElSelect, ElOption, ElCol,ElTable,ElTableColumn,
   ElRow, ElTableV2, ElCard
 } from 'element-plus'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -28,9 +28,9 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 
 
 const mobileBreakpoint = 768;
-const defaultPageSize = 20;
+const defaultPageSize = 18;
 const mobilePageSize = 5;
-const pageSize = ref(20);
+const pageSize = ref(18);
 const currentPage = ref(1);
 const width = ref(1080);
 
@@ -458,6 +458,20 @@ const SEC_options =  [
 
 
  
+const anyRowSelected=ref(false)
+
+const multipleTableRef = ref<TableInstance>()
+const multipleSelection = ref()
+
+const selectable = (row: any) => !row.has_acc;
+const handleSelectionChange = (val: any[]) => {
+  multipleSelection.value = val
+  anyRowSelected.value=true
+
+  multipleSelection.value = val.map(toRaw); // Convert proxies to raw objects
+
+
+ }
 
 </script>
 
@@ -518,15 +532,39 @@ clearable v-model="search" placeholder="Search by Name, ID, Phone.."
     </el-row>
 
 
-
+<!-- 
     <el-table-v2 :columns="columnsx" :data="paginatedData" :width="width" :height="450" fixed>
       <template #empty>
         <div class="flex items-center justify-center h-100%">
           <el-empty />
         </div>
       </template>
-    </el-table-v2>
+    </el-table-v2> -->
 
+
+
+    <el-table
+      ref="multipleTableRef"
+      :data="paginatedData"
+      row-key="national_id"
+      style="width: 100%"
+      @selection-change="handleSelectionChange"
+    >
+    
+      <el-table-column property="name" label="Name"  sortable />
+      <el-table-column property="gender" label="Gender" />
+      <el-table-column property="category" label="Category" sortable />
+      <el-table-column property="sec_position" label="Position" sortable />
+      <el-table-column property="mobile" label="Phone" />
+      <el-table-column property="date" label="Date formed"  sortable/>
+
+       <el-table-column label="Location">
+        <template #default="{ row }">
+          {{ row.settlement ? row.settlement + ', ' : '' }}{{ row.county }}
+        </template>
+      </el-table-column>
+  </el-table>
+  
 
 
     <div style="margin-top: 20px;">
