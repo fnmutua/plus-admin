@@ -2119,7 +2119,18 @@ const selectedFeature = ref(null);
     ? feature.path[Math.floor(feature.path.length / 2)] // If LineString, use midpoint
     : feature.position || { lat: 0, lng: 0 }; // If Point, use its position, fallback to default
 
-  selectedFeature.value = feature;
+    console.log('feature', feature )
+
+
+
+ selectedFeature.value = feature;
+
+ selectedFeature.value = { 
+  ...feature, 
+  properties: Object.fromEntries(
+    Object.entries(feature.properties).filter(([_, value]) => value)
+  ) 
+};
 
   // Clear previous vertices
   vertices.value = [];
@@ -2140,6 +2151,8 @@ const selectedFeature = ref(null);
 const closePopup = () => { 
   console.log('close popup')
   infowindow.value=false
+  vertices.value = [];
+
 }
  
 
@@ -2289,7 +2302,7 @@ const closePopup = () => {
 
 
 
-              <InfoWindow v-if="infowindow" @close="closePopup()" :options="{ position: gmapCenter }">
+              <InfoWindow v-if="infowindow" @closeclick="closePopup" :options="{ position: gmapCenter }">
               <div style="max-width: 400px; height:250px">
                 <el-table :data="Object.entries(selectedFeature?.properties || {})" border style="width: 100%;">
                   <el-table-column prop="0" label="Property" width="120" />
