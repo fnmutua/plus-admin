@@ -120,7 +120,7 @@ async function sendNotificationSMS(sms_obj) {
     });
 }
 
-async function sendSMS(sms_obj,serverUrl) {
+async function sendCreateSMS(sms_obj,serverUrl) {
   // Send OTP via Leopard (not implemented in this code snippet)
   const url = "https://quicksms.advantasms.com/api/services/sendotp/";
  
@@ -141,7 +141,7 @@ async function sendSMS(sms_obj,serverUrl) {
 
   const requestData = {
     apikey: "***REDACTED***",
- partnerID: '12108',
+     partnerID: '12108',
     shortcode: "KISIP",
     message: msg,
     mobile: sms_obj.phone,
@@ -252,7 +252,7 @@ exports.createGrievanceRecord = async (req, res) => {
 
     const serverUrl = `${req.protocol}://${req.get('host')}`;
 
-    sendSMS(item,serverUrl);
+    sendCreateSMS(item,serverUrl);
 
     let grm_officials=[]
     let grm_officials_names=[]
@@ -1535,6 +1535,31 @@ exports.modelImportGrievances = async (req, res) => {
             const [insertedData, created] = await db.models[reg_model].upsert(item, {
               returning: true, // Get the inserted/updated data
             });
+ 
+              // Decrypt the fields after creation
+            const decryptedName = await db.sequelize.query(
+              `SELECT PGP_SYM_DECRYPT(name::bytea, '***REDACTED***') AS name FROM grievance WHERE id = :id`,
+              {
+                replacements: { id: item.id },
+                type: Sequelize.QueryTypes.SELECT
+              }
+            );
+
+            const decryptedNationalId = await db.sequelize.query(
+              `SELECT PGP_SYM_DECRYPT(national_id::bytea, '***REDACTED***') AS national_id FROM grievance WHERE id = :id`,
+              {
+                replacements: { id: item.id },
+                type: Sequelize.QueryTypes.SELECT
+              }
+            );
+            // Add the decrypted values to the response object
+            item.name = decryptedName[0].name;
+            item.national_id = decryptedNationalId[0].national_id;
+                
+            const serverUrl = `${req.protocol}://${req.get('host')}`;
+            sendCreateSMS(item,serverUrl);
+            
+
 
             console.log('Logged--------------->')
             // 1. Create a log for creation 
@@ -1563,13 +1588,7 @@ exports.modelImportGrievances = async (req, res) => {
             
             logGrievanceAction (current_action)
 
-
-    
-
-
-
-
-
+ 
 
             if (created) {
               insertedDocuments.push(insertedData); // Add the inserted document to the array if it was created
