@@ -408,7 +408,7 @@ exports.createGrievanceBatchRecords = async (req, res) => {
 
       // Add the decrypted values to the response object
       item.name = decryptedName[0].name;
-      item.national_id = decryptedNationalId[0].national_id;
+      item.national_id = obj.national_id;
 
       const serverUrl = `${req.protocol}://${req.get('host')}`;
 
