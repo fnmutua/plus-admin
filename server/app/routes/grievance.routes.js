@@ -32,7 +32,7 @@ module.exports = function (app) {
   
   
   app.post(
-    "/api/v1/grv/download", [authJwt.verifyToken], controller.downloadFile
+    "/api/v1/grv/download",  controller.downloadFile
   );
 
 }
