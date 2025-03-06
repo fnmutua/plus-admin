@@ -402,6 +402,89 @@ exports.createGrievanceBatchRecords = async (req, res) => {
       );
       item.name = decryptedName[0].name;
 
+
+
+
+
+      // Add the decrypted values to the response object
+      item.name = decryptedName[0].name;
+      item.national_id = decryptedNationalId[0].national_id;
+
+      const serverUrl = `${req.protocol}://${req.get('host')}`;
+
+      sendCreateSMS(item,serverUrl);
+
+
+
+      let grm_officials=[]
+      let grm_officials_names=[]
+      
+      // query for all users  with 
+        await Users.findAll({
+          include: [
+            {
+              model: UserRoles,
+               // here get the Super Admin Roles only 
+              where: {
+                roleid: 4,  // GRM
+                [op.or]: [
+                  { settlement_id: obj.settlement_id.toString() },     // Settlement ID match
+                  {  county_id: obj.county_id.toString()},              // Super Admin role
+                  {  location_level: 'national'},              // Super Admin role
+  
+                ]
+              }
+  
+            }
+          ]
+        }).then(grms => {
+          // handle the results
+          grms.forEach(grm => {
+            if (grm.name) { // Push only if name is not null or undefined
+              grm_officials_names.push(grm.name);
+            }
+          
+            if (grm.phone) { // Push only if phone is not null or undefined
+  
+              let msg = 'A new grievance has been reported. Please review for your action. Reference:' + generatedCode
+             // grm_officials.push(grm.phone);
+              let msg_obj={} 
+              msg_obj.message = msg 
+              msg_obj.phone=grm.phone
+              msg_obj.grievance_id = item.id
+              msg_obj.grv_code = item.code 
+              msg_obj.status = item.status 
+  
+  
+              // for each number send a notification SMS
+              sendNotificationSMS(msg_obj)
+  
+  
+            }
+          });
+          
+   
+          console.log('grm_officials_names',grm_officials_names,grm_officials)
+  
+        }).catch(error => {
+          // handle the error
+          console.log('Fail:',error)
+        });
+  
+  
+   
+
+
+
+
+
+
+
+
+
+
+
+
       return item;
     });
 
