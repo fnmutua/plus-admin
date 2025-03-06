@@ -2395,7 +2395,7 @@ const onSegmentClick = async () => {
 
             <el-checkbox id="btn13" v-model="grmForm.isInCourt" label="Is this complaint currently in court?" size="large" style="margin-bottom:5px" />
 
-
+          <!-- 
             <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
               <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
                 <el-option label="Land" value="land" />
@@ -2403,7 +2403,34 @@ const onSegmentClick = async () => {
                 <el-option label="Infrastructure" value="infrastructure" />
                 <el-option label="Others" value="others" />
               </el-select>
-            </el-form-item>
+            </el-form-item> -->
+
+
+            <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
+                          <el-select v-model="grmForm.nature" placeholder="Select category" style="width:90%">
+                            <el-option label="Land Ownership Disputes" value="land_ownership" />
+                            <el-option label="Evictions and Displacement" value="evictions" />
+                            <el-option label="Compensation Concerns" value="compensation" />
+                            <el-option label="Labour Wage Disputes" value="labour_wages" />
+                            <el-option label="Unfair Dismissal or Termination" value="unfair_dismissal" />
+                            <el-option label="Workplace Harassment" value="workplace_harassment" />
+                            <el-option label="Unsafe Working Conditions" value="unsafe_conditions" />
+                            <el-option label="Poor Road Conditions" value="poor_roads" />
+                            <el-option label="Water and Sanitation Issues" value="water_sanitation" />
+                            <el-option label="Electricity and Power Supply Concerns" value="electricity" />
+                            <el-option label="Inadequate Public Transport" value="public_transport" />
+                            <el-option label="Pollution Complaints" value="pollution" />
+                            <el-option label="Waste Management Issues" value="waste_management" />
+                            <el-option label="Public Health Hazards" value="public_health" />
+                            <el-option label="Deforestation or Land Degradation" value="deforestation" />
+                            <el-option label="Discrimination and Exclusion" value="discrimination" />
+                            <el-option label="Corruption and Mismanagement" value="corruption" />
+                            <el-option label="Others" value="others" />
+                          </el-select>
+                        </el-form-item>
+
+
+
 
             <el-form-item id="btn15" label="Complaint Description" prop="description">
               <el-input v-model="grmForm.description" type="textarea" rows="2" placeholder="Describe your complaint"
