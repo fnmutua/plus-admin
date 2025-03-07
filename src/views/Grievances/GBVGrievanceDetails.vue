@@ -175,7 +175,7 @@ const processGrievance = async() => {
   Grievance.value.current_level = res.data.current_level
 
 
-  if(Grievance.value.status =='Closed' ) {
+  if(Grievance.value.status =='Closed' || Grievance.value.status =='In Court' ) {
    showActionButton.value=false
   } else {
     showActionButton.value=true

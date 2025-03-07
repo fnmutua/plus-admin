@@ -1751,9 +1751,9 @@ const onSegmentClick = async () => {
     }
 
     if (!filterValues.value.includes('Escalated')) {
-      filterValues.value.splice(index, 0, ['Escalated']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+      filterValues.value.splice(index, 0, ['Escalated','Returned']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
     }
-
+   
    }
 
   if (activeSegment.value === "Closed") {
@@ -2233,6 +2233,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
             <el-tag
 :type="scope.row.status == 'Closed' ? 'info'
             : scope.row.status == 'Escalated' ? 'secondary'
+            : scope.row.status == 'Returned' ? 'danger'
             : scope.row.status == 'Referred' ? 'warning'
             : scope.row.status == 'Sorting' ? 'warning'
                 : scope.row.status == 'Rejected' ? 'danger'
@@ -2461,6 +2462,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               <el-tag
 :type="scope.row.status == 'Closed' ? 'info'
             : scope.row.status == 'Escalated' ? 'secondary'
+            : scope.row.status == 'Returned' ? 'danger'
               : scope.row.status == 'Referred' ? 'warning'
                 : scope.row.status == 'Rejected' ? 'danger'
                   : 'success'" disable-transitions>{{ scope.row.status }}

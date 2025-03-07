@@ -24,7 +24,7 @@ module.exports = function (app) {
   app.post('/api/v1/grv/upload/pcode',   controller.batchDocumentsUploadByGrievanceCode)
   app.post('/api/v1/grv/log',   controller.logGrievanceAction)
   app.post('/api/v1/grv/status',   controller.getGrievanceStatus)
-  app.post('/api/v1/grv/status/update',   controller.updateGrievanceStatus)
+  app.post('/api/v1/grv/status/update', [authJwt.verifyToken],  controller.updateGrievanceStatus)
   app.post('/api/v1/grv/upsert',   controller.modelImportGrievances)
   app.post('/api/v1/grv/keyword',[authJwt.verifyToken, authJwt.isGrmOfficerNational],   controller.getGrievancesByKeyword)
   app.post('/api/v1/grv/phone', [authJwt.verifyToken],  controller.getGrievanceByUserPhone)

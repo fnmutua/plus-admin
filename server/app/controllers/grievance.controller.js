@@ -1835,13 +1835,52 @@ exports.modelImportGrievances = async (req, res) => {
     
 
  exports.updateGrievanceStatus = async (req, res) => {
+
       try {
+
+
+        const user = req.thisUser;
+        console.log(user)
+    
+        const currentUserRoles = await user.getRoles();
+        const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
+        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
+      
+        let settlement_id;
+        let county_id;
+
+        if (!hasGRMRole && !hasSuperAdminRole) {
+          return res.status(200).send({
+            data: [],
+            total: 0,
+            code: '9999',
+            message: 'Unauthorized access to grievances denied',
+          });
+        }
+      
+        if (!hasSuperAdminRole) {
+          const hasCountyAdminRole = currentUserRoles.some(role => role.user_roles.location_level === 'county');
+          const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
+          const settlementGRCRole = currentUserRoles.find(role => role.user_roles.location_level === 'settlement');
+          if (hasCountyAdminRole) {
+            county_id = countyAdminRole?.user_roles?.county_id;
+          }
+
+          if (settlementGRCRole) {
+            settlement_id = settlementGRCRole?.user_roles?.settlement_id;
+            
+          }
+
+        }
+
+        
         const grievanceCode = req.body.code;
         const newStatus = req.body.new_status; // The new status to update
         const action = req.body.action; // The new status to update
         const current_level = req.body.current_level; // The new status to update
 
-        console.log( 'req.body <action', req.body)
+        console.log('Updating status..... newStatus',newStatus)
+        console.log('Updating status..... newStatus',current_level)
     
         if (!grievanceCode ||  !newStatus) {
           return res.status(400).send({
@@ -1874,13 +1913,162 @@ exports.modelImportGrievances = async (req, res) => {
 
         // -------- Escalated -------- //
 
-        // if(newStatus =='Escalated') {
-        //   if(grievance.current_level=='settlement'){
-        //     grievance.current_level ='county' 
-        //   }else {
-        //     grievance.current_level ='national'  
-        //   }
-        // }
+        if(newStatus =='Escalated') {
+        
+
+          const grm_officials = [];
+          const grm_officials_names = [];
+          
+          try {
+            const whereConditions = {
+              roleid: 4, // GRM Role
+            };
+            
+            const orConditions = [];
+            
+            // Add conditions only if values exist
+            if (settlement_id) {
+              orConditions.push({ settlement_id: settlement_id.toString() });
+            }
+            if (county_id) {
+              orConditions.push({ county_id: county_id.toString() });
+            }
+            
+            // Always include national level match
+            orConditions.push({ location_level: 'national' });
+            
+            if (orConditions.length > 0) {
+              whereConditions[Op.or] = orConditions;
+            }
+            
+            const grms = await Users.findAll({
+              include: [
+                {
+                  model: UserRoles,
+                  where: whereConditions,
+                },
+              ],
+            });
+            
+          
+            for (const grm of grms) {
+              if (grm.name) {
+                grm_officials_names.push(grm.name);
+              }
+          
+              if (grm.phone) {
+                const msg = `A grievance has been escalated/referred for your action. Please review and act accordingly.`;
+                
+                const msg_obj = {
+                  message: msg,
+                  phone: grm.phone,
+                  grievance_id: grievance.id,
+                  grv_code: grievance.code,
+                  status: grievance.status
+                };
+          
+                // Send SMS notification
+                await sendNotificationSMS(msg_obj);
+              }
+            }
+          
+            console.log('GRM Officials:', grm_officials_names, grm_officials);
+          
+          } catch (error) {
+            console.error('Failed to retrieve GRM officials:', error);
+          }
+          
+
+
+
+        }
+
+        if (newStatus == 'Returned') {
+          const grm_officials = [];
+          const grm_officials_names = [];
+        
+          try {
+            let targetSettlementId = null;
+            let targetCountyId = null;
+        
+            // Determine the target level
+            if (current_level === 'settlement') {
+              // If the user is at county level, return to settlement level
+              targetSettlementId = grievance.settlement_id;
+            } else if (current_level === 'county') {
+              // If the user is at national level, return to county level
+              targetCountyId = grievance.county_id;
+            }
+        
+            console.log('targetSettlementId',  targetSettlementId)
+            console.log('targetCountyId',  targetSettlementId)
+            if (!targetSettlementId && !targetCountyId) {
+              console.warn('No valid target level found for returning grievance.');
+              return;
+            }
+        
+           
+            const whereConditions = {
+              roleid: 4, // GRM Role
+            };
+            
+            const orConditions = [];
+            
+            // Add conditions only if values exist
+            if (targetSettlementId) {
+              orConditions.push({ settlement_id: targetSettlementId.toString() });
+            }
+            if (targetCountyId) {
+              orConditions.push({ county_id: targetCountyId.toString() });
+            }
+            // Always include national level match
+             
+            if (orConditions.length > 0) {
+              whereConditions[Op.or] = orConditions;
+            }
+
+            console.log('orConditions',orConditions)
+            
+            const grms = await Users.findAll({
+              include: [
+                {
+                  model: UserRoles,
+                  where: whereConditions,
+                },
+              ],
+            });
+            
+          
+            for (const grm of grms) {
+              if (grm.name) {
+                grm_officials_names.push(grm.name);
+              }
+
+              console.log('grm_officials_names',grm_officials_names)
+          
+              if (grm.phone) {
+                const msg = `A grievance has been returned to your level for review and  action. Please address accordingly.`;
+                
+                const msg_obj = {
+                  message: msg,
+                  phone: grm.phone,
+                  grievance_id: grievance.id,
+                  grv_code: grievance.code,
+                  status: grievance.status
+                };
+          
+                // Send SMS notification
+                await sendNotificationSMS(msg_obj);
+              }
+            }
+        
+            console.log('GRM Officials:', grm_officials_names, grm_officials);
+        
+          } catch (error) {
+            console.error('Failed to return grievance:', error);
+          }
+        }
+        
     
         // Update the grievance status
         grievance.status = newStatus;

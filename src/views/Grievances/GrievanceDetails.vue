@@ -189,7 +189,7 @@ const processGrievance = async() => {
   Grievance.value.current_level = res.data.current_level
 
 
-  if(Grievance.value.status =='Closed' ) {
+  if(Grievance.value.status =='Closed' || Grievance.value.status =='In Court' ) {
    showActionButton.value=false
   } else {
     showActionButton.value=true
@@ -270,9 +270,7 @@ const processGrievance = async() => {
     ]
   }
 
-  
-
-  else if (Grievance.value.status == 'Escalated') {
+   else if (Grievance.value.status == 'Escalated') {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
@@ -303,6 +301,29 @@ const processGrievance = async() => {
     ]
 
 
+
+     // If grievance is at national level, remove some options
+     if (Grievance.value.current_level === 'national') {
+        StatusOptions.value = StatusOptions.value.filter(option => 
+          option.value !== 'Escalated' && option.value !== 'Referred'
+        );
+
+           // Add option to send back to county
+     StatusOptions.value.push({
+          value: 'Returned',
+          label: 'Send Back to County',
+        });
+    }
+  
+
+       // If grievance is at county level
+       if (Grievance.value.current_level === 'county') {
+        // Add option to send back to settlement
+        StatusOptions.value.push({
+          value: 'Returned',
+          label: 'Send Back to Settlement',
+        });
+    }
   }
 
 
@@ -468,17 +489,29 @@ const sortedGrievanceLogs = computed(() => {
   return GrievanceLogs.value
     .map(log => ({
       ...log,
-      action_type: log.action === "escalate"
+      action_type: log.action_type === "Escalated"
         ? log.current_level === "county" 
-          ? "Escalated to county  team for resolution" 
+          ? "Escalated to county team for resolution" 
           : log.current_level === "national" 
             ? "Escalated to National team for resolution" 
             : log.action_type
-        : log.action_type
+        : log.action_type === "Returned"
+          ? log.current_level === "county"
+            ? "Returned to county team for review"
+            : log.current_level === "settlement"
+              ? "Returned to settlement GRC team for review"
+              : log.action_type
+          : log.action_type
     }))
     .slice()
     .sort((a, b) => new Date(b.date_actioned) - new Date(a.date_actioned));
 });
+
+
+
+
+
+
 
 console.log('sortedGrievanceLogs',sortedGrievanceLogs)
 
@@ -647,24 +680,28 @@ const submitResolutionForm = async () => {
       form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
 
       let msg = ''
-
       if (form.value.new_status == 'Escalated') {
         if (current_user_roles[0] == 'settlement') {
-          form.value.current_level = 'county'
-          msg = "Your grievance has been escalated to the county"
-
+          form.value.current_level = 'county';
+          msg = "Your grievance has been escalated to the county.";
         } else {
-          form.value.current_level = 'national'
-          msg = "Your grievance has been escalated to the national team"
-
+          form.value.current_level = 'national';
+          msg = "Your grievance has been escalated to the national team.";
         }
-
-      }
+      } 
+      else if (form.value.new_status == 'Returned') {
+        if (current_user_roles[0] == 'county') {
+          form.value.current_level = 'settlement';
+          msg = "Your grievance has been referred to the settlement Grievance Redress team for resolution.";
+        } else {
+          form.value.current_level = 'county';
+          msg = "Your grievance has been referred to the county team for resolution.";
+        }
+      } 
       else {
-        form.value.current_level = Grievance.value.current_level
-        msg = form.value.action
+        form.value.current_level = Grievance.value.current_level;
+        msg = form.value.action;
       }
-
 
 
       console.log("checking issue.............")
@@ -935,7 +972,7 @@ const getActionClass =   (actionType) => {
                     <el-row align="middle" :gutter="20">
                       <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14" :gutter="10">
                         <!-- <p class="action-header">{{log.action_type}} </p> -->
-                        <p class="action-body"> Action: {{ log.action ? log.action : 'None' }}</p>
+                        <p class="action-body"> Comments: {{ log.action ? log.action : 'None' }}</p>
                         <p class="action-footer">By: {{ log.user ? log.user.name : 'System' }}</p>
                       </el-col>
 
