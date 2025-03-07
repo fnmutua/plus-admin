@@ -1800,7 +1800,7 @@ const onSegmentClick = async () => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="date" label="Date Reported" width="150">
+        <el-table-column prop="date" label="Date Reported" sortable width="150">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
             <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -1872,7 +1872,7 @@ const onSegmentClick = async () => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="date" label="Date Reported" width="150">
+        <el-table-column prop="date" label="Date Reported" sortable  width="150">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
             <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -1943,7 +1943,7 @@ const onSegmentClick = async () => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="date" label="Date Reported" width="150">
+        <el-table-column prop="date" label="Date Reported"  sortable width="150">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
             <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2014,7 +2014,7 @@ const onSegmentClick = async () => {
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="date" label="Date Reported" width="150">
+          <el-table-column prop="date" label="Date Reported" sortable  width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
               <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2085,7 +2085,7 @@ const onSegmentClick = async () => {
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="date" label="Date Reported" width="150">
+          <el-table-column prop="date" label="Date Reported" sortable  width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
               <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2155,7 +2155,7 @@ const onSegmentClick = async () => {
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="date" label="Date Reported" width="150">
+          <el-table-column prop="date" label="Date Reported"  sortable width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
               <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2225,7 +2225,7 @@ const onSegmentClick = async () => {
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="date" label="Date Reported" width="150">
+          <el-table-column prop="date" label="Date Reported" sortable  width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
               <span>{{ formatDate(scope.row.date_reported) }}</span>

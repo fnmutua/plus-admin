@@ -229,7 +229,7 @@ const formData = {}
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const amount = response.Total;
-    console.log('Summary', amount)
+    console.log('status.count Summary', amount)
 
 
 
@@ -2287,8 +2287,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
     </div>
 
     <div v-if="activeSegment === 'Closed'">
-      <el-table v-loading="loading"
-:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
+      <el-table v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
         :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
         <el-table-column label="#" width="80" prop="id" sortable>
           <template #default="scope">
@@ -2298,7 +2297,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="date" label="Date Reported" width="150">
+        <el-table-column prop="date" label="Date Reported"  sortable width="150">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
             <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2374,7 +2373,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="date" label="Date Reported" width="150">
+        <el-table-column prop="date" label="Date Reported" sortable width="150">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
             <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2450,7 +2449,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="date" label="Date Reported" width="150">
+          <el-table-column prop="date" label="Date Reported" sortable  width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
               <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2526,7 +2525,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="date" label="Date Reported" width="150">
+          <el-table-column prop="date" label="Date Reported" sortable width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
               <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2603,7 +2602,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="date" label="Date Reported" width="150">
+          <el-table-column prop="date" label="Date Reported" sortable width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
               <span>{{ formatDate(scope.row.date_reported) }}</span>
@@ -2679,7 +2678,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="date" label="Date Reported" width="150">
+          <el-table-column prop="date" label="Date Reported" sortable  width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
               <span>{{ formatDate(scope.row.date_reported) }}</span>
