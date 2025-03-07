@@ -98,7 +98,7 @@ const redirect = ref<string>('')
 
 
 
-const passwordValidator = async (rule, value) => {
+const xpasswordValidator = async (rule, value) => {
   console.log('Validate main password')
   if (value === '') {
     return Promise.reject('Please enter the password.');
@@ -111,6 +111,27 @@ const passwordValidator = async (rule, value) => {
   }
 };
  
+const passwordValidator = async (rule, value) => {
+  console.log('Validating password...');
+  
+  if (!value || value.trim() === '') {
+    return Promise.reject('Please enter the password.');
+  }
+
+  if (value.length < 8 || value.length > 20) {
+    return Promise.reject('The password must be between 8 and 20 characters long.');
+  }
+
+  // Updated regex to allow ALL special characters
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_])[A-Za-z\d\W_]+$/;
+
+  if (!passwordRegex.test(value)) {
+    return Promise.reject('Required: at least one uppercase letter, one lowercase letter, one digit, and one special character.');
+  }
+
+  return Promise.resolve();
+};
+
 
 const passwordMatchValidator = async (rule, value, formData) => {
   const { getFormData } = methods
