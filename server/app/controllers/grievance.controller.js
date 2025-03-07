@@ -2373,6 +2373,9 @@ exports.modelImportGrievances = async (req, res) => {
 
         }
     
+        updateGrievanceHistory(grievance.id, updatedData, req.thisUser.id, 'Edit');
+
+        
         Object.assign(grievance, updatedData);
         await grievance.save();
     
@@ -2389,7 +2392,6 @@ exports.modelImportGrievances = async (req, res) => {
        // await sendNotificationSMS(msg_obj);
     
 
-       updateGrievanceHistory(grievance.id, updatedData, req.thisUser.id, 'Edit');
 
 
         return res.status(200).send({
@@ -3150,53 +3152,59 @@ exports.modelImportGrievances = async (req, res) => {
 
       exports.revertEdits = async (req, res) => {
         const { history_id } = req.body;
-      
+    
         try {
-          // Find the history record by primary key
-          const history = await db.models.grievance_history.findByPk(history_id);
-          if (!history) {
-            throw new Error('History record not found');
-          }
-      
-          const { grievance_id, changes } = history;
-      
-          // Check if the settlement exists
-          let grievance = await db.models.grievance.findByPk(grievance_id);
-          if (!grievance) {
-            // If the settlement was deleted, recreate it using the "before" data
-            grievance = await db.models.grievance.create({
-              id: grievance_id, // Preserve the original settlement ID if necessary
-              ...changes.before, // Use the "before" data from the history
+            // Find the history record by primary key
+            const history = await db.models.grievance_history.findByPk(history_id);
+            if (!history) {
+                return res.status(404).send({
+                    message: 'History record not found',
+                    code: '1001',
+                });
+            }
+    
+            const { grievance_id, changes } = history;
+    
+            // Ensure `changes.before` is properly formatted
+            const beforeData = typeof changes.before === 'string' ? JSON.parse(changes.before) : changes.before;
+    
+            if (!beforeData) {
+                return res.status(400).send({
+                    message: 'Invalid history data',
+                    code: '1002',
+                });
+            }
+    
+            // Check if the grievance exists
+            let grievance = await db.models.grievance.findByPk(grievance_id);
+            if (!grievance) {
+                // If deleted, recreate it
+                grievance = await db.models.grievance.create({
+                    id: grievance_id, // Preserve original ID if necessary
+                    ...beforeData,
+                });
+    
+                await history.update({ status: 'Reverted' });
+    
+                return res.status(200).send({
+                    message: 'Deleted grievance restored successfully.',
+                    code: '0000',
+                });
+            }
+    
+            // If exists, update to its previous state
+            await grievance.update(beforeData);
+            await history.update({ status: 'Reverted' });
+    
+            res.status(200).send({
+                message: 'Changes reverted successfully.',
+                code: '0000',
             });
-      
-            await history.update({ status: 'Reverted' }); // Update history status
-            console.log('history.update')
-      
-            
-            return res.status(200).send({
-              message: 'Deleted settlement restored successfully.',
-              code: '0000',
-            });
-          }
-      
-          // If the settlement exists, update it to its previous state
-          await grievance.update(changes.before);
-          console.log('grievance.update')
-       
-          await history.update({ status: 'Reverted' }); // Update history status
-          console.log('history.update')
-      
-          res.status(200).send({
-            message: 'Changes reverted successfully.',
-            code: '0000',
-          });
         } catch (error) {
-          // console.log(error)
-         // res.status(500).json({ error: error.message });
-          res.status(500).send({
-            message: 'An error occurred while reverting edits.' +  error.message ,
-            code: '0004',
-          });
-      
+            res.status(500).send({
+                message: 'An error occurred while reverting edits: ' + error.message,
+                code: '0004',
+            });
         }
-      };
+    };
+    
