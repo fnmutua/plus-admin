@@ -791,7 +791,7 @@ const getGrievanceDetails = (data) => {
   // drawer.value = true
 
   push({
-    name: 'GrievanceDetails',
+    name: 'GBVGrievanceDetails',
     params: { id: data.row.id }
   })
 
@@ -1565,7 +1565,7 @@ const handleRowDblClick = (row) => {
 
 
   push({
-    name: 'GrievanceDetails',
+    name: 'GBVGrievanceDetails',
     params: { id: row.id }
   })
 

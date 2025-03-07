@@ -137,7 +137,7 @@ const StatusOptions = ref([
 
   {
     value: 'Escalated',
-    label: 'Escalate Grievance',
+    label: 'Escalate/Refer Grievance',
   },
   {
     value: 'Resolved',
@@ -163,9 +163,7 @@ const StatusOptions = ref([
 ])
 
 
-
-
-onMounted(async () => {
+const processGrievance = async() => { 
   const id = route.params.id
   const formData = {}
   formData.associated_multiple_models = associated_multiple_models
@@ -201,11 +199,7 @@ onMounted(async () => {
 
 
     button_disabled.value = true
-  }
-
-
-
-
+  } 
 
   //'Sorting', 'Investigation', 'Rejected', 'Resolved', 'Escalated','Referred', 'Closed'
 
@@ -227,7 +221,7 @@ onMounted(async () => {
 
       {
         value: 'Escalated',
-        label: 'Escalate Grievance',
+        label: 'Escalate/Refer Grievance',
       },
       {
         value: 'Resolved',
@@ -255,7 +249,7 @@ onMounted(async () => {
       },
       {
         value: 'Escalated',
-        label: 'Escalate Grievance',
+        label: 'Escalate/Refer Grievance',
       },
 
       {
@@ -288,7 +282,7 @@ onMounted(async () => {
 
       {
         value: 'Escalated',
-        label: 'Escalate Grievance',
+        label: 'Escalate/Refer Grievance',
       },
 
       {
@@ -443,6 +437,12 @@ onMounted(async () => {
   console.log('GrievanceNotifications.value', GrievanceNotifications.value)
 
 
+}
+
+
+
+onMounted(async () => {
+  await processGrievance()
 })
 
 
@@ -455,11 +455,28 @@ const grievanceData = computed(() => {
 });
 
 
+ 
+
 const sortedGrievanceLogs = computed(() => {
-  return GrievanceLogs.value.slice().sort((a, b) => new Date(b.date_actioned) - new Date(a.date_actioned));
+  return GrievanceLogs.value
+    .map(log => ({
+      ...log,
+      action_type: log.action === "escalate"
+        ? log.current_level === "county" 
+          ? "Escalated to county  team for resolution" 
+          : log.current_level === "national" 
+            ? "Escalated to National team for resolution" 
+            : log.action_type
+        : log.action_type
+    }))
+    .slice()
+    .sort((a, b) => new Date(b.date_actioned) - new Date(a.date_actioned));
 });
 
+console.log('sortedGrievanceLogs',sortedGrievanceLogs)
 
+
+ 
 const sortedGrievanceNotifications = computed(() => {
   return GrievanceNotifications.value.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 });
@@ -673,11 +690,13 @@ const submitResolutionForm = async () => {
 
 
       /// udpate the status
-      await updateGrievanceStatus(formData)
+      const updatedGrievance = await updateGrievanceStatus(formData)
 
-      console.log('Grievance.value', Grievance.value)
-      console.log('res.data', res.data)
+      await processGrievance()
 
+      console.log('Old Grievance.value', Grievance.value)
+      console.log('New Grievance.value', updatedGrievance)
+ 
       await generatePDFform(Grievance.value, res.data)
 
 
@@ -796,6 +815,20 @@ const formData = {}
 
 }
 
+const getActionClass =   (actionType) => {
+  console.log('actionType',actionType)
+    if (!actionType) return '';
+    if (actionType.includes('Sorting')) return 'sorting-title';
+    if (actionType.includes('Resolved')) return 'resolved-title';
+    if (actionType.includes('Escalated'))  return 'escalated-title';
+    if (actionType.includes('Reported')) return 'reported-title';
+    if (actionType.includes('Referred')) return 'referred-title';
+    if (actionType.includes('Closed')) return 'closed-title';
+    if (actionType.includes('Rejected')) return 'rejected-title';
+    return '';
+  }
+  
+ 
 
 </script>
 
@@ -844,8 +877,6 @@ const formData = {}
       </el-tab-pane>
       <el-tab-pane label="Supporting Documentation" name="documents">
         <el-card>
-
-
           <el-table :data="GrievanceDocuments" style="width: 100%">
             <el-table-column type="index" width="50" />
             <el-table-column prop="name" label="Name" />
@@ -877,16 +908,8 @@ const formData = {}
               <el-collapse-item :title="log.action_type" :name="log.action_type" :icon="CaretRight">
                 <!-- Scoped slot for custom title -->
                 <template #title>
-                  <span :class="{
-          'resolved-title': log.action_type === 'Resolved',
-          'escalated-title': log.action_type === 'Escalated',
-          'reported-title': log.action_type === 'Reported',
-          'referred-title': log.action_type === 'Referred',
-          'closed-title': log.action_type === 'Closed'
-        }">
-
-
-                    <el-icon>
+                  <span :class="getActionClass(log.action_type)" >
+                                <el-icon>
                       <CaretRight />
                     </el-icon>
  
@@ -967,6 +990,7 @@ const formData = {}
                     <!-- Message -->
                     <p class="action-body">Message: {{ notification.message }}</p>
                     <p class="action-footer">Date: {{ notification.createdAt }}</p>
+                    <p class="action-footer">Phone: {{ notification.recipient }}</p>                  
                     <p class="action-footer">Delivery Status: {{ notification.status }}</p>
                     <p class="action-footer">Sent By: {{ notification.user ? notification.user.name : 'System' }}</p>
                   </div>
@@ -1272,6 +1296,12 @@ const formData = {}
   /* Green */
 }
 
+.sorting-title {
+  color: #1b5ef0;
+  /* Orange */
+}
+
+
 .escalated-title {
   color: #FF9800;
   /* Orange */
@@ -1282,6 +1312,11 @@ const formData = {}
   /* Red */
 }
 
+
+.rejected-title {
+  color: #e41212;
+  /* Red */
+}
 .referred-title {
   color: #2196F3;
   /* Blue */

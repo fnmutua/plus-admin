@@ -1782,6 +1782,7 @@ exports.modelImportGrievances = async (req, res) => {
           code: '0000',
           message: 'Grievance status updated successfully',
           data: {
+            grievance: grievance,
             code: grievance.code,
             date_reported: grievance.date_reported,
             status: grievance.status, // The updated status of the grievance
