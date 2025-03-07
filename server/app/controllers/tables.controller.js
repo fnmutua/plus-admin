@@ -5718,6 +5718,8 @@ exports.deleteCascade = async (req, res) => {
     // Delete the main record
     await record.destroy();
 
+    
+
     res.status(200).send({
       message: `${model} record and associated records deleted successfully.`,
       data: record,

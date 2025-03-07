@@ -1650,6 +1650,29 @@ db.models.users.hasMany(db.models.settlement_history, {
 
 
 
+// Grievance History
+
+db.models.grievance_history.belongsTo(db.models.grievance, {
+  foreignKey: 'grievance_id',
+  onDelete: 'SET NULL', // Ensures the foreign key is set to NULL when the parent is deleted
+
+})
+
+db.models.grievance.hasMany(db.models.grievance_history, {
+  foreignKey: 'grievance_id'
+})
+
+
+db.models.grievance_history.belongsTo(db.models.users, {
+  foreignKey: 'changed_by',
+  onDelete: 'SET NULL', // Ensures the foreign key is set to NULL when the parent is deleted
+
+})
+
+db.models.users.hasMany(db.models.grievance_history, {
+  foreignKey: 'changed_by'
+})
+
 
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

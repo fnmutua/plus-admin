@@ -81,6 +81,7 @@ var _grievance_notification= require('./grievance_notification')
 var _structure= require('./structure')
 var _article= require('./article')
 var _settlement_history= require('./settlement_history')
+var _grievance_history= require('./grievance_history')
  
 
 
@@ -168,6 +169,7 @@ function initModels(sequelize) {
 
   var article = _article(sequelize, DataTypes)
   var settlement_history = _settlement_history(sequelize, DataTypes)
+  var grievance_history = _grievance_history(sequelize, DataTypes)
 
   
   
@@ -242,7 +244,7 @@ function initModels(sequelize) {
     project_beneficiary,grievance_resolution_level,
     grievance,
     grievance_log,
-     grievance_resolution,grievance_escalation,grievance_document, grievance_notification,article,settlement_history,
+     grievance_resolution,grievance_escalation,grievance_document, grievance_notification,article,settlement_history,grievance_history,
 
   }
 }

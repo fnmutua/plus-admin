@@ -590,7 +590,7 @@ exports.xgetGrievances = async (req, res) => {
       Sequelize.literal(`
         CASE 
           WHEN "grievance"."isgbv" = false THEN 
-            PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '***REDACTED***')
+            PGP_SYM_DECRYPT(CAST("grievance"."name" AS BYTEA), '***REDACTED***')
           ELSE 
             '[REDACTED]'
         END
@@ -702,7 +702,7 @@ exports.xgetGrievances = async (req, res) => {
       });
     })
     .catch((error) => {
-      console.error('Error fetching Grievances 2:', error);
+      console.error('Error fetching Grievances: 3', error);
       res.status(500).send({ message: 'Unable to retrieve Grievances. Please try again later.' });
     });
 };
@@ -748,7 +748,7 @@ exports.xgetGrievances = async (req, res) => {
         Sequelize.literal(`
           CASE 
             WHEN "grievance"."isgbv" = false THEN 
-              PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '***REDACTED***')
+              PGP_SYM_DECRYPT(CAST("grievance"."name" AS BYTEA), '***REDACTED***')
             ELSE 
               '[REDACTED]'
           END
@@ -839,12 +839,12 @@ exports.xgetGrievances = async (req, res) => {
       });
     })
     .catch((error) => {
-      console.error('Error fetching Grievances 3:', error);
+      console.error('Error fetching Grievances: 1', error);
       res.status(500).send({ message: 'Unable to retrieve Grievances. Please try again later.' });
     });
 };
 
-exports.xgetGrievances = async (req, res) => {
+exports.getGrievances = async (req, res) => {
   const user = req.thisUser;
   const currentUserRoles = await user.getRoles();
 
@@ -963,146 +963,7 @@ exports.xgetGrievances = async (req, res) => {
       message: 'Grievances retrieved successfully',
     });
   } catch (error) {
-    console.error('Error fetching Grievances:', error);
-    res.status(500).send({ message: 'Unable to retrieve Grievances. Please try again later.' });
-  }
-};
-
-exports.getGrievances = async (req, res) => {
-  const user = req.thisUser;
-  const currentUserRoles = await user.getRoles();
-
-  const searchString = req.body.searchString;
-  const userCounty = user.county_id;
-  const filters = req.body.filters || [];
-  const filterValues = req.body.filterValues || [];
-  const filterFunctions = req.body.filterFunctions || [];
-  const locationFilter = req.body.locationFilter || null;
-
-  let limit = req.body.limit || 10;
-  let page = req.body.page || 1;
-
-  console.log('filters:', filters);
-  console.log('filterValues:', filterValues);
-  console.log('filterFunctions:', filterFunctions);
-
-  const findAndCountOptions = {
-    where: {},
-    limit,
-    offset: (page - 1) * limit,
-    order: [['createdAt', 'DESC']],
-    distinct: true, // Ensure distinct count when including associations
-  };
-
-  const attributes = Object.keys(db.models.grievance.rawAttributes);
-
-  // Role checks
-  const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-  const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
-
-  // Decrypt name and national_id
-  const decryptedName = hasSuperAdminRole
-  ? [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.name'), 'bytea'), '***REDACTED***'), 'name']
-  : [
-      Sequelize.literal(`
-        CASE 
-          WHEN "grievance"."isgbv" = false AND "grievance"."name" IS NOT NULL THEN 
-            PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '***REDACTED***')
-          ELSE 
-            '[REDACTED]'
-        END
-      `),
-      'name'
-    ];
-
-const decryptedNationalId = hasSuperAdminRole
-  ? [Sequelize.fn('PGP_SYM_DECRYPT', Sequelize.cast(Sequelize.col('grievance.national_id'), 'bytea'), '***REDACTED***'), 'national_id']
-  : [
-      Sequelize.literal(`
-        CASE 
-          WHEN "grievance"."isgbv" = false AND "grievance"."national_id" IS NOT NULL THEN 
-            PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '***REDACTED***')
-          ELSE 
-            '[REDACTED]'
-        END
-      `),
-      'national_id'
-    ];
-
-  attributes.push(decryptedName, decryptedNationalId);
-
-  findAndCountOptions.attributes = attributes;
-
-  // Unauthorized users
-  if (!hasGRMRole && !hasSuperAdminRole) {
-    return res.status(200).send({
-      data: [],
-      total: 0,
-      code: '9999',
-      message: 'Unauthorized access to grievances denied',
-    });
-  }
-
-  // Apply location filtering for non-super-admin users
-  if (!hasSuperAdminRole) {
-    const hasNationalRole = currentUserRoles.some(role => role.user_roles.location_level === 'national');
-    const countyAdminRole = currentUserRoles.find(role => role.user_roles.location_level === 'county');
-
-    if (!hasNationalRole && countyAdminRole) {
-      const countyId = countyAdminRole.user_roles.county_id;
-      findAndCountOptions.where.county_id = countyId;
-      console.log('Applying county filter:', countyId);
-    }
-  }
-
-  // Search filter
-  if (searchString) {
-    findAndCountOptions.where.name = { [op.iLike]: `%${searchString}%` };
-  }
-
-  // Additional filters
-  filters.forEach((filter, index) => {
-    const value = filterValues[index];
-    const functionType = filterFunctions[index] || 'eq';
-
-    const operatorMap = {
-      eq: op.eq,
-      ne: op.ne,
-      like: op.like,
-      iLike: op.iLike,
-      in: op.in,
-      notIn: op.notIn,
-      gt: op.gt,
-      lt: op.lt,
-      gte: op.gte,
-      lte: op.lte
-    };
-
-    findAndCountOptions.where[filter] = { [operatorMap[functionType] || op.eq]: value };
-  });
-
-  console.log('findAndCountOptions:', findAndCountOptions);
-
-  // Include associated models if requested
-  const associatedModels = req.body.associated_multiple_models || [];
-  if (associatedModels.length > 0) {
-    findAndCountOptions.include = associatedModels.map(model => ({ model: db.models[model] }));
-  }
-
-  // Execute query
-  try {
-    const { count, rows: grievances } = await Grievance.findAndCountAll(findAndCountOptions);
-    
-    console.log('Total grievances:', count);
-
-    res.status(200).send({
-      data: grievances,
-      total: count,
-      code: '0000',
-      message: 'Grievances retrieved successfully',
-    });
-  } catch (error) {
-    console.error('Error fetching Grievances:', error);
+    console.error('Error fetching Grievances: 2', error);
     res.status(500).send({ message: 'Unable to retrieve Grievances. Please try again later.' });
   }
 };
@@ -1405,7 +1266,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
               Sequelize.literal(`
                 CASE 
                   WHEN "grievance"."isgbv" = false THEN 
-                    PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '***REDACTED***')
+                    PGP_SYM_DECRYPT(CAST("grievance"."name" AS BYTEA), '***REDACTED***')
                   ELSE 
                     '[REDACTED]'
                 END
@@ -1416,7 +1277,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
               Sequelize.literal(`
                 CASE 
                   WHEN "grievance"."isgbv" = false THEN 
-                    PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '***REDACTED***')
+                    PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS BYTEA), '***REDACTED***')
                   ELSE 
                     '[REDACTED]'
                 END
@@ -1583,7 +1444,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
           Sequelize.literal(`
             CASE 
               WHEN "grievance"."isgbv" = false THEN 
-                PGP_SYM_DECRYPT(CAST("grievance"."name" AS bytea), '***REDACTED***')
+                PGP_SYM_DECRYPT(CAST("grievance"."name" AS BYTEA), '***REDACTED***')
               ELSE 
                 '[REDACTED]'
             END
@@ -1594,7 +1455,7 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
           Sequelize.literal(`
             CASE 
               WHEN "grievance"."isgbv" = false THEN 
-                PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS bytea), '***REDACTED***')
+                PGP_SYM_DECRYPT(CAST("grievance"."national_id" AS BYTEA), '***REDACTED***')
               ELSE 
                 '[REDACTED]'
             END
@@ -2252,7 +2113,7 @@ exports.modelImportGrievances = async (req, res) => {
       }
     };
  
- exports.xupdateGrievance = async (req, res) => {
+exports.updateGrievance = async (req, res) => {
       try {
         const user = req.thisUser;
         const currentUserRoles = await user.getRoles();
@@ -2320,92 +2181,6 @@ exports.modelImportGrievances = async (req, res) => {
       }
     };
 
- 
-    exports.updateGrievance = async (req, res) => {
-      try {
-        const user = req.thisUser;
-        const currentUserRoles = await user.getRoles();
-        const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
-        const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
-    
-        if (!hasGRMRole && !hasSuperAdminRole) {
-          return res.status(403).send({
-            code: '9999',
-            message: 'Unauthorized access to update grievances denied',
-          });
-        }
-    
-        const grievanceCode = req.body.code;
-        let updatedData = req.body.updatedData;
-    
-        if (!grievanceCode || !updatedData) {
-          return res.status(400).send({
-            code: '1001',
-            message: 'Grievance code and update data are required',
-          });
-        }
-    
-        const grievance = await Grievance.findOne({
-          where: {
-            code: {
-              [Op.iLike]: `%${grievanceCode}%`,
-            },
-          },
-        });
-    
-        if (!grievance) {
-          return res.status(404).send({
-            code: '1002',
-            message: 'No grievance found for the given code',
-          });
-        }
-    
-        // Encrypt sensitive fields if provided in updatedData
-        if (updatedData.name) {
-          //updatedData.name = encryptData(updatedData.name);
-
-          updatedData.name = Sequelize.fn('PGP_SYM_ENCRYPT', updatedData.name, '***REDACTED***');
-
-        }
-        if (updatedData.national_id) {
-       //   updatedData.national_id = encryptData(updatedData.national_id);
-          updatedData.national_id = Sequelize.fn('PGP_SYM_ENCRYPT', updatedData.national_id, '***REDACTED***');
-
-        }
-    
-        Object.assign(grievance, updatedData);
-        await grievance.save();
-    
-        const msg_obj = {
-          message: 'Your grievance has been updated. Please check for details.',
-          type: 'Notification',
-          phone: grievance.phone,
-          grv_code: grievance.code,
-          status: grievance.status,
-          grievance_id: grievance.id,
-          sender_id: req.body.action_by,
-        };
-    
-       // await sendNotificationSMS(msg_obj);
-    
-
-       updateGrievanceHistory(grievance.id, updatedData, req.thisUser.id, 'Edit');
-
-
-        return res.status(200).send({
-          code: '0000',
-          message: 'Grievance updated successfully',
-          data: grievance,
-        });
-      } catch (error) {
-        console.error('Error updating grievance:', error);
-        return res.status(500).send({
-          code: '9999',
-          message: 'Unable to update grievance. Please try again later.',
-        });
-      }
-    };
-    
 
  exports.getGrievancesByKeyword = async (req, res) => {
       console.log('--------------------------------------------getGrievancesByKeyword');
@@ -2553,7 +2328,7 @@ exports.modelImportGrievances = async (req, res) => {
           });
         })
         .catch(error => {
-          console.error('Error fetching grievances 1:', error);
+          console.error('Error fetching grievances:', error);
           res.status(500).send({ message: 'Unable to retrieve grievances. Please try again later.' });
         });
     };
@@ -3144,59 +2919,5 @@ exports.modelImportGrievances = async (req, res) => {
             message: "An error occurred while deleting the record.",
             error: error.message,
           });
-        }
-      };
-
-
-      exports.revertEdits = async (req, res) => {
-        const { history_id } = req.body;
-      
-        try {
-          // Find the history record by primary key
-          const history = await db.models.grievance_history.findByPk(history_id);
-          if (!history) {
-            throw new Error('History record not found');
-          }
-      
-          const { grievance_id, changes } = history;
-      
-          // Check if the settlement exists
-          let grievance = await db.models.grievance.findByPk(grievance_id);
-          if (!grievance) {
-            // If the settlement was deleted, recreate it using the "before" data
-            grievance = await db.models.grievance.create({
-              id: grievance_id, // Preserve the original settlement ID if necessary
-              ...changes.before, // Use the "before" data from the history
-            });
-      
-            await history.update({ status: 'Reverted' }); // Update history status
-            console.log('history.update')
-      
-            
-            return res.status(200).send({
-              message: 'Deleted settlement restored successfully.',
-              code: '0000',
-            });
-          }
-      
-          // If the settlement exists, update it to its previous state
-          await grievance.update(changes.before);
-          console.log('grievance.update')
-       
-          await history.update({ status: 'Reverted' }); // Update history status
-          console.log('history.update')
-      
-          res.status(200).send({
-            message: 'Changes reverted successfully.',
-            code: '0000',
-          });
-        } catch (error) {
-          // console.log(error)
-         // res.status(500).json({ error: error.message });
-          res.status(500).send({
-            message: 'An error occurred while reverting edits.' +  error.message ,
-            code: '0004',
-          });
-      
         }
       };

@@ -6,16 +6,24 @@ import {
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
-import { uploadGrievanceDocuments, logGrievanceAction, getActionFile, updateGrievanceStatus, sendAcknowledgement, deleteCascade} from '@/api/grievance'
+import { uploadGrievanceDocuments, logGrievanceAction, getActionFile, updateGrievanceStatus, 
+  updateGrievance, sendAcknowledgement, deleteCascade,revertGrievanceHistory} from '@/api/grievance'
 import { uuid } from 'vue-uuid'
 
 
 import { Icon } from '@iconify/vue';
 import {
-  Download, CaretRight, Check, Close, Lock, Notification, Microphone,Delete
+  Download, CaretRight, Check, Close, Lock, Notification, Microphone,Delete,Edit,ArrowLeft,RefreshLeft,
 } from '@element-plus/icons-vue'
 
-
+import {
+  getOneGeo,
+  getOneSettlement,
+  getSettlementListByCounty,
+  getfilteredGeo
+} from '@/api/settlements'
+import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
+import type { UploadUserFile } from 'element-plus'
 
 
 
@@ -165,6 +173,8 @@ const StatusOptions = ref([
 
 const showActionButton=ref(true)
 
+const FullGrievanceData=ref()
+
 const processGrievance = async() => { 
   const id = route.params.id
   const formData = {}
@@ -173,6 +183,7 @@ const processGrievance = async() => {
 
   const res = await getOneGrievance(formData)
   console.log(res.data)
+  FullGrievanceData.value=res.data
   // Get the Details of the Grievance
   Grievance.value.id = id
   Grievance.value.code = res.data.code
@@ -467,10 +478,89 @@ const processGrievance = async() => {
 
 }
 
+function getDifferences(before, after, parentKey = '') {
+  const differences = [];
 
+  for (const key in before) {
+    const currentKey = parentKey ? `${parentKey}.${key}` : key;
+
+    if (typeof before[key] === 'object' && before[key] !== null) {
+      if (Array.isArray(before[key])) {
+        // Compare arrays deeply
+        if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+          differences.push({
+            field: currentKey,
+            before: before[key].join(', '),
+            after: (after[key] || []).join(', '),
+          });
+        }
+      } else {
+        // Recursively compare nested objects
+        differences.push(...getDifferences(before[key], after[key] || {}, currentKey));
+      }
+    } else {
+      // Compare primitive values
+      if (before[key] !== after[key]) {
+        differences.push({
+          field: currentKey,
+          before: before[key] || '',
+          after: after[key] || '',
+        });
+      }
+    }
+  }
+
+  return differences;
+}
+
+
+
+const editHistory = ref([])
+const getGrievanceHistory = async (grievance_id) => {
+
+const model = 'grievance_history'
+
+const formData = {}
+formData.model = model
+//-Search field--------------------------------------------
+formData.searchField = 'name'
+formData.excludeGeom = false
+formData.associated_multiple_models = ['users']
+
+//--Single Filter -----------------------------------------
+
+
+// - multiple filters -------------------------------------
+formData.filters = ['grievance_id']
+formData.filterValues = [[grievance_id]]
+
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+//-------------------------
+console.log("formData", formData)
+//console.log(formData)
+const res = await getSettlementListByCounty(formData)
+
+console.log('Greivance History collected........', res.data)
+const rawHistory = res.data;
+
+// Process the differences for nested properties
+editHistory.value = rawHistory.map((record) => {
+  const changes = record.changes;
+  const differences = getDifferences(changes.before, changes.after);
+  return {
+    ...record,
+    differences,
+  };
+});
+
+
+
+}
 
 onMounted(async () => {
   await processGrievance()
+  await getGrievanceHistory(route.params.id)
 })
 
 
@@ -873,6 +963,288 @@ const getActionClass =   (actionType) => {
   }
   
  
+const EditDialogVisible=ref(false)
+
+const handleCloseDialog = () => {
+  EditDialogVisible.value = false
+}
+
+
+const countiesOptions=ref([])
+const settlementOptions=ref([])
+
+const getCounties = async () => {
+
+const formData = {}
+formData.model = 'county'
+await getCountyAuth({}).then((response) => {
+  console.log('List of counties:', response)
+  //tableDataList.value = response.data
+  var cnty = response.data
+
+  cnty.forEach(function (arrayItem) {
+    var countyOpt = {}
+    countyOpt.value = arrayItem.id
+    countyOpt.label = arrayItem.name
+    //  console.log(countyOpt)
+    countiesOptions.value.push(countyOpt)
+  })
+
+
+  // sort by value
+  countiesOptions.value.sort(function (a, b) {
+    return a.value - b.value;
+  });
+
+})
+}
+
+
+const getSettlementByCounty = async (selectCounty) => {
+  // nullify selection after change 
+  settlementOptions.value = []
+  grmForm.value.settlement_id = null
+
+
+  console.log("County:", selectCounty)
+
+  const formData = {}
+  formData.model = 'settlement'
+  await getSettlementByCountyAuth({ county_id: selectCounty }).then((response) => {
+    console.log('List of settlement:', response)
+    //tableDataList.value = response.data
+    var opt = response.data
+
+    opt.forEach(function (arrayItem) {
+      var item = {}
+      item.value = arrayItem.id
+      item.label = arrayItem.name
+      item.county_id = arrayItem.county_id
+      item.subcounty_id = arrayItem.subcounty_id
+      item.ward_id = arrayItem.ward_id
+
+      settlementOptions.value.push(item)
+    })
+
+
+    // sort by value
+    settlementOptions.value.sort(function (a, b) {
+      return a.value - b.value;
+    });
+
+  })
+}
+
+const handleSelectSettlement = async (settlementId) => {
+  console.log(settlementId)
+  const filteredOptions = settlementOptions.value.filter(option => option.value === settlementId);
+  console.log(filteredOptions[0].subcounty_id)
+  grmForm.value.subcounty_id = filteredOptions[0].subcounty_id
+  grmForm.value.ward_id = filteredOptions[0].ward_id
+
+}
+
+
+
+const grmForm = ref({
+  name: '',
+  gender: '',
+  age: '',
+  national_id: '',
+  phone: '',
+  email: '',
+  county_id: '',
+  settlement_id: '',
+  address: '',
+  nature: '',
+  isgbv: false,
+  description: '',
+  plea: '',
+  isInCourt:false,
+  self_reported:false,
+  reporter_name : userInfo.name,
+  reporter_phone:userInfo.phone,
+  witness: '',
+  witness_phone: '',
+  witness_statement: '',
+});
+
+
+const clickEdit = () => {
+
+  getCounties()
+  getSettlementByCounty(FullGrievanceData.value.county_id)
+console.log(FullGrievanceData.value)
+  grmForm.value = {
+    name: FullGrievanceData.value.name || '',
+    gender: FullGrievanceData.value.gender || '',
+    age: FullGrievanceData.value.age || '',
+    national_id: FullGrievanceData.value.national_id || '',
+    phone: FullGrievanceData.value.phone || '',
+    email: FullGrievanceData.value.email || '',
+    county_id: FullGrievanceData.value.county_id || '',
+    settlement_id: FullGrievanceData.value.settlement_id || '',
+    address: FullGrievanceData.value.address || '',
+    nature: FullGrievanceData.value.nature || '',
+    isgbv: FullGrievanceData.value.isgbv ?? false, // Handle boolean values safely
+    description: FullGrievanceData.value.description || '',
+    plea: FullGrievanceData.value.plea || '',
+    isInCourt: FullGrievanceData.value.isInCourt ?? false,
+    self_reported: FullGrievanceData.value.self_reported ?? false,
+    reporter_name: FullGrievanceData.value.reporter_name || userInfo.name, // Use existing user info as fallback
+    reporter_phone: FullGrievanceData.value.reporter_phone || userInfo.phone,
+    witness: FullGrievanceData.value.witness || '',
+    witness_phone: FullGrievanceData.value.witness_phone || '',
+    witness_statement: FullGrievanceData.value.witness_statement || '',
+   };
+  EditDialogVisible.value = true
+
+}
+ 
+
+
+const saveGrievance = async () => {
+  const formInstance = dynamicFormRef
+
+  formInstance.value.validate(async (valid: boolean) => {
+    if (valid) {
+      form.value.grievance_id = Grievance.value.id
+      form.value.action_type = 'Edit'
+      form.value.action_by = userInfo.id  // remember t change 
+      form.value.date_actioned = new Date();
+      form.value.prev_status = Grievance.value.status
+      form.value.action_level = current_user_roles[0] ? current_user_roles[0] : 'settlement'
+      form.value.current_level = Grievance.value.current_level;
+      form.value.new_status = Grievance.value.status;
+ 
+      
+      // Log the action 
+
+    const res = await logGrievanceAction(form.value)
+
+
+      /// Upload fies
+      await uploadFiles(res.data.id, Grievance.value.id)
+
+      const formData = {}
+        formData.code = FullGrievanceData.value.code 
+        formData.updatedData = grmForm.value  // Remove ambiguous fields
+
+
+      /// udpate the status
+     await updateGrievance(formData)
+
+     await processGrievance()
+
+     EditDialogVisible.value = false
+
+      
+     // await generatePDFform(Grievance.value, res.data)
+
+
+      ElMessage({
+        message: res.message,
+        type: 'success'
+      })
+
+      dialogFormVisible.value = false
+    } else {
+      console.log('is Not Valid')
+      ElMessage({
+        message: 'Please provide all required details',
+        type: 'error'
+      })    // felix - show message on success request 
+
+    }
+  });
+
+
+};
+
+
+const validationRules = ({
+  // Validation rules for each step
+  step1: {
+    name: [{ required: true, message: 'Name is required', trigger: 'blur' }],
+    gender: [{ required: true, message: 'Gender is required', trigger: 'change' }],
+    age: [{ required: true, message: 'Age is required', trigger: 'change' }],
+    national_id: [{ required: true, message: 'National ID is required', trigger: 'blur' }],
+    phone: [{ required: true, message: 'Phone number is required', trigger: 'blur' }],
+
+  },
+
+  step2: {
+    county_id: [{ required: true, message: 'County is required', trigger: 'change' }],
+    settlement_id: [{ required: true, message: 'Settlement is required', trigger: 'change' }],
+    nature: [{ required: true, message: 'Nature of complaint is required', trigger: 'change' }],
+    description: [{ required: true, message: 'Description is required', trigger: 'blur' }],
+    plea: [{ required: true, message: 'Plea/request is required', trigger: 'blur' }],
+  },
+
+
+
+});
+
+
+
+const ageRanges = [
+  { value: '18-25', label: '18-25' },
+  { value: '26-35', label: '26-35' },
+  { value: '36-45', label: '36-45' },
+  { value: '46-55', label: '46-55' },
+  { value: '56-65', label: '56-65' },
+  { value: '65+', label: '65+' },
+];
+
+
+
+
+const currentStepRules = computed(() => {
+  const stepRulesKey = `step${active.value + 1}`;
+  console.log('stepRulesKey', stepRulesKey)
+  return validationRules[stepRulesKey];
+});
+
+
+const active = ref(0);
+
+
+
+const next = async () => {
+  console.log(grmForm.value)
+  const formInstance = dynamicFormRef
+  formInstance.value.validate((valid: boolean) => {
+    if (valid) {
+      console.log(formInstance)
+      active.value++;
+    }
+  });
+
+
+};
+
+const fileList = ref<UploadUserFile[]>([])
+
+
+
+const prev = () => {
+  active.value--;
+};
+
+
+const RevertEdits = async (data: TableSlotDefault) => {
+  console.log('Reverts.....', data.row)
+
+  const formData = {
+    model: 'grievance',
+    history_id: data.row.id,
+  };
+
+  const res = await revertGrievanceHistory(formData);
+  console.log('Reverts success.....', res.data)
+
+
+};
 
 </script>
 
@@ -1052,6 +1424,7 @@ const getActionClass =   (actionType) => {
       <el-tab-pane label="Settings" name="settings" v-if="isSuperAdmin">
  
         <div class="flex justify-end p-4">
+        <el-button @click="clickEdit"  type="success" :icon="Edit"   plain>Edit</el-button>
           <el-popconfirm  width="340"
             title="Are you sure you want to delete this grievance?" 
             confirm-button-text="Yes" 
@@ -1061,7 +1434,35 @@ const getActionClass =   (actionType) => {
               <el-button type="danger" :icon="Delete"   plain>Delete</el-button>
             </template>
           </el-popconfirm>
-  </div>
+
+       </div>
+       <el-table :data="editHistory" border ref="tableEditRef" >
+              <el-table-column label="" type="expand" >
+                <template #default="{ row }">
+                  <el-table :data="row.differences" style="margin: 10px 0;" border >
+                    <el-table-column prop="field" label="Field"  />
+                    <el-table-column prop="before" label="Before"  class-name="italic-red" show-overflow-tooltip />
+                    <el-table-column prop="after" label="After"  class-name="italic-green" show-overflow-tooltip  />
+                  </el-table>
+                </template>
+              </el-table-column>
+
+              <el-table-column label="Date Edited" prop="created_at" sortable class-name="td-bold">
+                <template #default="scope">
+                  {{ formatDate(scope.row.created_at) }}
+                </template>
+              </el-table-column>
+
+              <el-table-column label="Edited By" prop="user.name" sortable  class-name="td-bold"/>
+              <el-table-column fixed="right" label="Actions" width="100">
+                <template #default="scope">
+                  <el-tooltip content="Revert " placement="top">
+                    <el-button type="warning" :icon="RefreshLeft" @click="RevertEdits(scope as TableSlotDefault)" />
+                  </el-tooltip>
+                </template>
+              </el-table-column>
+              </el-table>
+
       </el-tab-pane>
 
     </el-tabs>
@@ -1185,6 +1586,230 @@ const getActionClass =   (actionType) => {
 
 
 
+  <el-dialog v-model="EditDialogVisible" @close="handleCloseDialog" title="Edit the Grievance" width="65%" draggable>
+
+            <el-steps :active="active" finish-status="success">
+              <el-step title="Complainant Details" />
+              <el-step title="Grievance Details" />
+              <el-step title="Review & Submit" />
+            </el-steps>
+
+            <el-form
+            :model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules"
+              ref="dynamicFormRef">
+              <el-card shadow="hover">
+                <el-row v-if="active === 0" :gutter="10">
+                  <!-- Step 1: Personal Details -->
+                  <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+                    <el-form-item id="btn1" label="Name of Complainant" prop="name">
+                      <el-input v-model="grmForm.name" placeholder="Enter name" style="width:90%" />
+                    </el-form-item>
+
+                    <el-form-item id="btn2" label="Gender" prop="gender">
+                      <el-select v-model="grmForm.gender" placeholder="Select" style="width:90%">
+                        <el-option label="Female" value="female" />
+                        <el-option label="Male" value="male" />
+                        <el-option label="Unspecified" value="unspecified" />
+                      </el-select>
+                    </el-form-item>
+
+                    <el-form-item id="btn3" label="Age" prop="age">
+                      <el-select v-model="grmForm.age" placeholder="Select" style="width:90%">
+                        <el-option v-for="item in ageRanges" :key="item.value" :label="item.label" :value="item.value" />
+                      </el-select>
+                    </el-form-item>
+
+
+                  </el-col>
+
+
+                  <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+                    <el-form-item id="btn4" label="National ID" prop="national_id">
+                      <el-input v-model="grmForm.national_id" placeholder="Enter ID number" style="width:90%" />
+                    </el-form-item>
+
+                    <el-form-item id="btn5" label="Phone" prop="phone">
+                      <el-input
+            v-model="grmForm.phone" placeholder="Enter phone number" style="width:90%"
+                        :onChange="convertPhoneNumber" />
+                    </el-form-item>
+
+                    <el-form-item id="btn6" label="Email" prop="email">
+                      <el-input v-model="grmForm.email" placeholder="Enter Email" style="width:90%" />
+                    </el-form-item>
+                  </el-col>
+
+
+                </el-row>
+
+
+
+                <el-row v-if="active === 1" :gutter="10">
+                  <!-- Step 2: Grievance Details -->
+                  <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+                    <el-form-item id="btn10" label="County" prop="county_id">
+                      <el-select
+            filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
+                        style="width:90%">
+                        <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
+                      </el-select>
+                    </el-form-item>
+
+                    <el-form-item id="btn11" label="Settlement" prop="settlement_id">
+                      <el-select
+            filterable v-model="grmForm.settlement_id" placeholder="Settlement"
+                        @change="handleSelectSettlement" style="width:90%">
+                        <el-option
+            v-for="item in settlementOptions" :key="item.value" :label="item.label"
+                          :value="item.value" />
+                      </el-select>
+                    </el-form-item>
+
+                    <el-form-item id="btn12" label="Address" prop="address">
+                      <el-input v-model="grmForm.address" placeholder="Enter address" style="width:90%" />
+                    </el-form-item>
+
+
+
+                    <el-checkbox id="btn13" v-model="grmForm.isgbv" label="Is this complaint related to Gender-Based Violence?" size="large" style="margin-bottom:5px" />
+
+
+
+
+                  </el-col>
+                  <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+
+                    <el-checkbox id="btn13" v-model="grmForm.isInCourt" label="Is this complaint currently in court?" size="large" style="margin-bottom:5px" />
+ 
+
+
+                    <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
+                                  <el-select  filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
+                                    <el-option label="Land Ownership Disputes" value="land_ownership" />
+                                    <el-option label="Evictions and Displacement" value="evictions" />
+                                    <el-option label="Compensation Concerns" value="compensation" />
+                                    <el-option label="Labour Wage Disputes" value="labour_wages" />
+                                    <el-option label="Unfair Dismissal or Termination" value="unfair_dismissal" />
+                                    <el-option label="Workplace Harassment" value="workplace_harassment" />
+                                    <el-option label="Unsafe Working Conditions" value="unsafe_conditions" />
+                                    <el-option label="Poor Road Conditions" value="poor_roads" />
+                                    <el-option label="Water and Sanitation Issues" value="water_sanitation" />
+                                    <el-option label="Electricity and Power Supply Concerns" value="electricity" />
+                                    <el-option label="Inadequate Public Transport" value="public_transport" />
+                                    <el-option label="Pollution Complaints" value="pollution" />
+                                    <el-option label="Waste Management Issues" value="waste_management" />
+                                    <el-option label="Public Health Hazards" value="public_health" />
+                                    <el-option label="Deforestation or Land Degradation" value="deforestation" />
+                                    <el-option label="Discrimination and Exclusion" value="discrimination" />
+                                    <el-option label="Corruption and Mismanagement" value="corruption" />
+                                    <el-option label="Others" value="others" />
+                                  </el-select>
+                                </el-form-item>
+
+                                
+
+                    <el-form-item id="btn15" label="Complaint Description" prop="description">
+                      <el-input
+            v-model="grmForm.description" type="textarea" rows="2" placeholder="Describe your complaint"
+                        style="width:90%" />
+                    </el-form-item>
+
+                    <el-form-item id="btn16" label="Plea/Request" prop="plea">
+                      <el-input
+            v-model="grmForm.plea" type="textarea" rows="2" placeholder="Enter your plea/request"
+                        style="width:90%" />
+                    </el-form-item>
+                  </el-col>
+
+
+                </el-row>
+
+                <el-row v-if="active === 2" :gutter="10">
+                  <!-- Step 3: Review & Submit -->
+                  <el-col :xs="12" :sm="21" :md="12" :lg="12" :xl="12">
+                    <el-form-item id="btn17" label="Witness Name" prop="witness">
+                      <el-input v-model="grmForm.witness" placeholder="Enter witness name" style="width:90%" />
+                    </el-form-item>
+
+                    <el-form-item id="btn18" label="Witness Phone" prop="witness_phone">
+                      <el-input v-model="grmForm.witness_phone" placeholder="Enter witness phone" style="width:90%" />
+                    </el-form-item>
+
+                    <el-form-item id="btn19" label="Witness Statement" prop="witness_statement">
+                      <el-input
+            v-model="grmForm.witness_statement" type="textarea" placeholder="Enter witness statement"
+                        style="width:90%" />
+                    </el-form-item>
+                  </el-col>
+
+
+                  <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
+
+                    <el-form-item id="btn17" label="Are you the complainant?" prop="witness">
+
+                      <el-switch
+            disabled v-model="grmForm.self_reported" class="ml-2" inline-prompt
+                        style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes"
+                        inactive-text="No" />
+
+                    </el-form-item>
+
+                    <el-form-item v-if="!grmForm.self_reported" id="btn18" label="Your Name" prop="reporter_name">
+                      <el-input disabled v-model="grmForm.reporter_name" placeholder="Your Name" style="width:90%" />
+                    </el-form-item>
+
+                    <el-form-item v-if="!grmForm.self_reported" id="btn19" label="Your Phone" prop="reporter_phone">
+                      <el-input
+            disabled v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
+                        style="width:90%" />
+                    </el-form-item>
+
+
+
+                    <el-upload
+            id="btn20" class="upload-demo"
+                      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
+                      :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" v-model:file-list="fileList"
+                      :auto-upload="false" :on-exceed="handleExceed">
+                      <el-button type="primary">Upload Supporting Documentation</el-button>
+                      <template #tip>
+                        <div class="el-upload__tip">pdf/jpg/png files with a size less than 500KB.</div>
+                      </template>
+                    </el-upload>
+
+
+
+
+
+                  </el-col>
+
+                </el-row>
+              </el-card>
+            </el-form>
+
+            <template #footer>
+              <div
+            class="steps-navigation"
+                style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+                <div>
+                 
+
+                  <el-button id="btn9" v-if="active > 0" @click="prev" type="primary" :icon="ArrowLeft">Previous </el-button>
+                </div>
+                <div>
+                  <el-button id="btn7" v-if="active < 2" type="primary" @click="next">
+                    Next <el-icon class="el-icon--right">
+                      <ArrowRight />
+                    </el-icon>
+                  </el-button>
+
+                  <el-button
+            id="btn2" v-if="active === 2" type="primary" @click="saveGrievance"
+                    style="margin-left: 10px;">Save</el-button>
+                 </div>
+              </div>
+            </template>
+            </el-dialog>
 
 
 </template>

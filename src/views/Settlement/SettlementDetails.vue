@@ -1333,22 +1333,13 @@ const editSettlement = () => {
           </el-table-column>
 
           <el-table-column label="Edited By" prop="user.name" sortable  class-name="td-bold"/>
-
-
-
-
           <el-table-column fixed="right" label="Actions" width="100">
             <template #default="scope">
-
-
               <el-tooltip content="Revert " placement="top">
                 <el-button type="warning" :icon="RefreshLeft" @click="RevertEdits(scope as TableSlotDefault)" />
               </el-tooltip>
-
-
             </template>
           </el-table-column>
-
         </el-table>
       </el-tab-pane>
 

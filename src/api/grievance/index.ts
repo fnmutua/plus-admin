@@ -46,6 +46,12 @@ export const getGrievanceStatus = (data: any): Promise<IResponse> => {
    return request.post({ url: prod + '/api/v1/grv/status/update', data })
  }
 
+
+
+ export const updateGrievance  = (data: any): Promise<IResponse> => {
+   return request.post({ url: prod + '/api/v1/grv/update', data })
+ }
+
  export const batchImportGrievances = (data: any): Promise<IResponse> => {
    return request.post({ url: prod + '/api/v1/grv/upsert', data })
  }
@@ -72,5 +78,10 @@ export const sendAcknowledgement= (data: any) => {
  
  export const deleteCascade= (data: any) => {
    // console.log('filters....', data)
-    return request.post({ url: prod + '/api/v1/delete/cascade',  data })
+    return request.post({ url: prod + '/api/v1/grv/delete',  data })
+ }
+
+ export const revertGrievanceHistory = (data: any): Promise<IResponse<any>> => {
+   // console.log('....', data)
+   return request.post({ url: prod + '/api/v1/grv/revert', data })
  }
