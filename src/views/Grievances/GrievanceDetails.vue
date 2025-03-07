@@ -163,6 +163,8 @@ const StatusOptions = ref([
 ])
 
 
+const showActionButton=ref(true)
+
 const processGrievance = async() => { 
   const id = route.params.id
   const formData = {}
@@ -187,6 +189,11 @@ const processGrievance = async() => {
   Grievance.value.current_level = res.data.current_level
 
 
+  if(Grievance.value.status =='Closed' ) {
+   showActionButton.value=false
+  } else {
+    showActionButton.value=true
+  }
 
   console.log('res.data.current_level', res.data.current_level)
   console.log('current_user_roles', current_user_roles[0])
@@ -858,8 +865,8 @@ const getActionClass =   (actionType) => {
             <el-table-column prop="value" label="" />
           </el-table>
 
-          <template #header>
-            <div class="dialog-footer">
+          <template #header v-if="showActionButton" >
+            <div  class="dialog-footer">
               <el-tooltip content="Close the grievance if all issues have been resolved and complainant satisfied"
                 placement="top">
                 <el-button :disabled="button_disabled" :type="button_color" @click="dialogFormVisible = true">
