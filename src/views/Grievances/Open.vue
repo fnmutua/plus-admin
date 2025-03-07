@@ -41,6 +41,7 @@ import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
 
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
+import { formatDistanceToNow } from "date-fns";  // Optional for better formatting
 
 
 const { wsCache } = useCache()
@@ -413,6 +414,9 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getGrievances(formData)
 
   console.log('After Querry', res)
+
+
+
   tableDataList.value = res.data
 
   availableFields.value = extractFields(tableDataList.value);
@@ -2109,7 +2113,19 @@ if (search_string.value) {
 }
 }
 
+const getDaysToExpiry = (expiryDate) => {
+  if (!expiryDate) return "N/A";  // Handle missing dates
+  const expiry = new Date(expiryDate);
+  const today = new Date();
+  const diffTime = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24)); // Convert milliseconds to days
+  return diffTime > 0 ? `${diffTime} days` : "Expired";
+};
 
+const getExpiryClass = (expiryDate) => {
+  if (!expiryDate) return "";
+  const diff = getDaysToExpiry(expiryDate);
+  return diff === "Expired" ? "text-red-500" : "text-green-500"; // Apply color styling
+};
 
 </script>
 
@@ -2230,8 +2246,7 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
         <el-table-column prop="status" label="Status" width="100" sortable>
           <template #default="scope">
-            <el-tag
-:type="scope.row.status == 'Closed' ? 'info'
+            <el-tag  :type="scope.row.status == 'Closed' ? 'info'
             : scope.row.status == 'Escalated' ? 'secondary'
             : scope.row.status == 'Returned' ? 'danger'
             : scope.row.status == 'Referred' ? 'warning'
@@ -2241,6 +2256,14 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="Days to Stage Expiry" width="150">
+          <template #default="scope">
+            <span :class="getExpiryClass(scope.row.status_expiry_date)">
+              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
+            </span>
+          </template>
+        </el-table-column>
+
         <el-table-column label="Code" prop="code" sortable width="150" />
         <el-table-column label="Level" prop="current_level" sortable width="150" />
         <el-table-column label="Complainant" prop="name" sortable width="150" />
@@ -2256,7 +2279,12 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
             <span>{{ scope.row.settlement.name }}, {{ scope.row.county.name }}</span>
           </template>
         </el-table-column>
-        <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
+
+       
+
+
+
+        <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
           <template #default="scope">
             <el-dropdown v-if="isMobile">
               <span class="el-dropdown-link">
@@ -2279,13 +2307,13 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               </el-button>
             </div>
           </template>
-        </el-table-column>
+        </el-table-column>  -->
       </el-table>
       <ElPagination
 :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
         v-model:page-size="pageSize" :page-sizes="[5,8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-    </div>
+    </div> 
 
     <div v-if="activeSegment === 'Closed'">
       <el-table v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
@@ -2297,7 +2325,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
             </div>
           </template>
-        </el-table-column>
+        </el-table-column> 
         <el-table-column prop="date" label="Date Reported"  sortable width="150">
           <!-- Use a scoped slot to customize the rendering of the date column -->
           <template #default="scope">
@@ -2314,6 +2342,13 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                 : scope.row.status == 'Rejected' ? 'danger'
                   : 'success'" disable-transitions>{{ scope.row.status }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Days to Stage Expiry" width="150">
+          <template #default="scope">
+            <span :class="getExpiryClass(scope.row.status_expiry_date)">
+              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="Code" prop="code" sortable width="150" />
@@ -2392,6 +2427,13 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="Days to Stage Expiry" width="150">
+          <template #default="scope">
+            <span :class="getExpiryClass(scope.row.status_expiry_date)">
+              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column label="Code" prop="code" sortable width="150" />
         <el-table-column label="Level" prop="current_level" sortable width="150" />
         <el-table-column label="Complainant" prop="name" sortable width="150" />
@@ -2431,6 +2473,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
             </div>
           </template>
         </el-table-column>
+      -->
       </el-table>
       <ElPagination
 :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
@@ -2450,6 +2493,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               </div>
             </template>
           </el-table-column>
+          
           <el-table-column prop="date" label="Date Reported" sortable  width="150">
             <!-- Use a scoped slot to customize the rendering of the date column -->
             <template #default="scope">
@@ -2469,6 +2513,13 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               </el-tag>
             </template>
           </el-table-column>
+          <el-table-column label="Days to Stage Expiry" width="150">
+          <template #default="scope">
+            <span :class="getExpiryClass(scope.row.status_expiry_date)">
+              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
+            </span>
+          </template>
+        </el-table-column>
           <el-table-column label="Code" prop="code" sortable width="150" />
           <el-table-column label="Level" prop="current_level" sortable width="150" />
           <el-table-column label="Complainant" prop="name" sortable width="150" />
@@ -2545,6 +2596,13 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               </el-tag>
             </template>
           </el-table-column>
+          <el-table-column label="Days to Stage Expiry" width="150">
+          <template #default="scope">
+            <span :class="getExpiryClass(scope.row.status_expiry_date)">
+              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
+            </span>
+          </template>
+        </el-table-column>
           <el-table-column label="Code" prop="code" sortable width="150" />
           <el-table-column label="Level" prop="current_level" sortable width="150" />
           <el-table-column label="Complainant" prop="name" sortable width="150" />
@@ -2622,6 +2680,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
               </el-tag>
             </template>
           </el-table-column>
+          
           <el-table-column label="Code" prop="code" sortable width="150" />
           <el-table-column label="Level" prop="current_level" sortable width="150" />
           <el-table-column label="Complainant" prop="name" sortable width="150" />
@@ -2871,7 +2930,7 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
 
 
             <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
-                          <el-select v-model="grmForm.nature" placeholder="Select category" style="width:90%">
+                          <el-select  filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
                             <el-option label="Land Ownership Disputes" value="land_ownership" />
                             <el-option label="Evictions and Displacement" value="evictions" />
                             <el-option label="Compensation Concerns" value="compensation" />

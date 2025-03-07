@@ -2406,7 +2406,7 @@ const onSegmentClick = async () => {
             </el-form-item> -->
 
 
-            <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
+            <el-form-item  filterable v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
                           <el-select v-model="grmForm.nature" placeholder="Select category" style="width:90%">
                             <el-option label="Land Ownership Disputes" value="land_ownership" />
                             <el-option label="Evictions and Displacement" value="evictions" />
