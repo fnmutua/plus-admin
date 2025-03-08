@@ -2245,7 +2245,19 @@ const getExpiryClass = (expiryDate) => {
 
 
 
-function formatDate2(row, column, cellValue) {
+const formatDate2 = (row, column, dateString) => {
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+}
+
+function _formatDate2(row, column, cellValue) {
   if (!cellValue) return '';  // Handle null or undefined values
 
   // Format the date (you can use libraries like moment.js or Day.js, or use native Date methods)
@@ -3052,7 +3064,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
         <el-table-column type="index" width="50" />
         <el-table-column label="code" width="200" prop="code" sortable />     
         <el-table-column label="Description" prop="description" sortable />
-         <el-table-column label="Date" prop="delete_date" sortable :formatter="formatDate2" />
+         <el-table-column label="Date Deleted" prop="delete_date" sortable :formatter="formatDate2" />
         <el-table-column label="Deleted By" prop="deleted_by" sortable  />
          
         <el-table-column fixed="right" label="Operations" min-width="120">
