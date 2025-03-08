@@ -7,13 +7,14 @@ import {
 // Locally
 import { getOneGrievance } from '@/api/grievance'
 import { uploadGrievanceDocuments, logGrievanceAction, getActionFile, updateGrievanceStatus, 
-  updateGrievance, sendAcknowledgement, deleteCascade,revertGrievanceHistory} from '@/api/grievance'
+  updateGrievance, sendAcknowledgement, deleteCascade,revertGrievanceHistory,getGrievanceHistoryByGrievanceId} from '@/api/grievance'
 import { uuid } from 'vue-uuid'
 
 
 import { Icon } from '@iconify/vue';
 import {
   Download, CaretRight, Check, Close, Lock, Notification, Microphone,Delete,Edit,ArrowLeft,RefreshLeft,
+  ArrowRight,
 } from '@element-plus/icons-vue'
 
 import {
@@ -522,6 +523,10 @@ const model = 'grievance_history'
 
 const formData = {}
 formData.model = model
+formData.grievance_id = grievance_id
+
+
+
 //-Search field--------------------------------------------
 formData.searchField = 'name'
 formData.excludeGeom = false
@@ -539,7 +544,7 @@ formData.filterValues = [[grievance_id]]
 //-------------------------
 console.log("formData", formData)
 //console.log(formData)
-const res = await getSettlementListByCounty(formData)
+const res = await getGrievanceHistoryByGrievanceId(formData)
 
 console.log('Greivance History collected........', res.data)
 const rawHistory = res.data;
@@ -1242,6 +1247,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
   const res = await revertGrievanceHistory(formData);
   console.log('Reverts success.....', res.data)
+  //await getGrievanceHistory(route.params.id)
 
 
 };
@@ -1276,7 +1282,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
           <template #header v-if="showActionButton" >
             <div  class="dialog-footer">
-              <el-tooltip content="Close the grievance if all issues have been resolved and complainant satisfied"
+              <el-tooltip
+content="Close the grievance if all issues have been resolved and complainant satisfied"
                 placement="top">
                 <el-button :disabled="button_disabled" :type="button_color" @click="dialogFormVisible = true">
                   <Icon :icon="button_icon" /> {{ button_label }}
@@ -1317,7 +1324,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
       <el-tab-pane label="Action Logs" name="timeline">
 
         <el-timeline style="max-width: 100%;">
-          <el-timeline-item v-for="(log, index) in sortedGrievanceLogs" :key="index" placement="top" color="green"
+          <el-timeline-item
+v-for="(log, index) in sortedGrievanceLogs" :key="index" placement="top" color="green"
             :timestamp="formatDate(log.date_actioned)" timestamp-class="timestamp-class">
 
             <el-collapse accordion>
@@ -1334,7 +1342,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
                   </span>
                 </template>
 
-                <el-card class="notification-custom-card" shadow="hover" :class="log.action_type === 'Resolved' ? 'resolved-background' :
+                <el-card
+class="notification-custom-card" shadow="hover" :class="log.action_type === 'Resolved' ? 'resolved-background' :
           log.action_type === 'Escalated' ? 'escalated-background' :
             log.action_type === 'Reported' ? 'reported-background' :
               log.action_type === 'Referred' ? 'referred-background' :
@@ -1377,7 +1386,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
       <el-tab-pane label="Notifications" name="notifications">
 
         <el-timeline style="max-width: 100%;">
-          <el-timeline-item v-for="(notification, index) in sortedGrievanceNotifications" :key="index" placement="top"
+          <el-timeline-item
+v-for="(notification, index) in sortedGrievanceNotifications" :key="index" placement="top"
             :timestamp="formatDate(notification.createdAt)" timestamp-class="timestamp-class"
             :color="notification.status == 'Success' ? 'green' : 'red'">
             <el-collapse>
@@ -1400,7 +1410,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
                   </span>
                 </template>
 
-                <el-card class="notification-custom-card" shadow="hover"
+                <el-card
+class="notification-custom-card" shadow="hover"
                   :class="notification.status === 'Success' ? 'success-background' : 'closed-background'">
                   <div class="notification-container">
                     <!-- Message -->
@@ -1425,7 +1436,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
  
         <div class="flex justify-end p-4">
         <el-button @click="clickEdit"  type="success" :icon="Edit"   plain>Edit</el-button>
-          <el-popconfirm  width="340"
+          <el-popconfirm
+width="340"
             title="Are you sure you want to delete this grievance?" 
             confirm-button-text="Yes" 
             cancel-button-text="No"
@@ -1487,7 +1499,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
         </el-col>
 
         <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
-          <el-form-item label="Was field verification of complaint conducted?  " label-position="top"
+          <el-form-item
+label="Was field verification of complaint conducted?  " label-position="top"
             prop="field_verification_conducted">
             <el-switch v-model="form.field_verification_conducted" />
           </el-form-item>
@@ -1504,9 +1517,11 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
       </el-row>
 
-      <el-form-item v-if="form.new_status == 'Resolved'" label="Findings of field investigation" label-position="top"
+      <el-form-item
+v-if="form.new_status == 'Resolved'" label="Findings of field investigation" label-position="top"
         prop="field_investigations">
-        <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
+        <el-input
+type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
           v-model="form.field_investigations" />
       </el-form-item>
 
@@ -1519,15 +1534,18 @@ const RevertEdits = async (data: TableSlotDefault) => {
           </el-form-item>
         </el-col>
         <el-col :xs="16" :sm="16" :md="16" :lg="16" :xl="16">
-          <el-form-item v-if="form.agreement_reached" label="If agreement was reached, detail the agreement below:"
+          <el-form-item
+v-if="form.agreement_reached" label="If agreement was reached, detail the agreement below:"
             label-position="top" prop="agreement">
             <el-input type="textarea" :rows="2" placeholder="Provide details of  here" v-model="form.agreement" />
           </el-form-item>
 
-          <el-form-item v-if="!form.agreement_reached"
+          <el-form-item
+v-if="!form.agreement_reached"
             label="If agreement was not reached, specify the points of disagreement below" label-position="top"
             prop="point_disagreement">
-            <el-input type="textarea" :rows="2" placeholder="Provide details of  here"
+            <el-input
+type="textarea" :rows="2" placeholder="Provide details of  here"
               v-model="form.point_disagreement" />
           </el-form-item>
 
@@ -1540,7 +1558,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 
       <el-form-item v-if="form.new_status == 'Resolved'" label="Issues" label-position="top" prop="issues">
-        <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
+        <el-input
+type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
           v-model="form.issues" />
       </el-form-item>
 
@@ -1551,7 +1570,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 
       <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
-        <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
+        <el-input
+type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
           v-model="form.action" />
       </el-form-item>
 
@@ -1561,7 +1581,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 
       <el-form-item label="Upload Documentation" label-position="top" prop="fileList">
-        <el-upload class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+        <el-upload
+class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
           :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
           v-model:file-list="form.fileList" :auto-upload="false" :on-exceed="handleExceed">
 
@@ -1745,14 +1766,12 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
                   <el-col :xs="12" :sm="12" :md="12" :lg="12" :xl="12">
 
-                    <el-form-item id="btn17" label="Are you the complainant?" prop="witness">
-
+                    <!-- <el-form-item id="btn17" label="Are you the complainant?" prop="witness">
                       <el-switch
             disabled v-model="grmForm.self_reported" class="ml-2" inline-prompt
                         style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes"
                         inactive-text="No" />
-
-                    </el-form-item>
+                    </el-form-item> -->
 
                     <el-form-item v-if="!grmForm.self_reported" id="btn18" label="Your Name" prop="reporter_name">
                       <el-input disabled v-model="grmForm.reporter_name" placeholder="Your Name" style="width:90%" />
@@ -1803,6 +1822,8 @@ const RevertEdits = async (data: TableSlotDefault) => {
                     </el-icon>
                   </el-button>
 
+ 
+
                   <el-button
             id="btn2" v-if="active === 2" type="primary" @click="saveGrievance"
                     style="margin-left: 10px;">Save</el-button>
@@ -1848,14 +1869,27 @@ const RevertEdits = async (data: TableSlotDefault) => {
 .el-row {
   margin-top: 20px;
 }
+ 
+:root {
+  /* Light Mode Variables */
+  --card-header-color: #333;
+  --card-header-bg: #f9f9f9;
+}
+
+[data-theme="dark"] {
+  /* Dark Mode Variables */
+  --card-header-color: #ddd;
+  --card-header-bg: #222;
+}
 
 .card-header {
   display: flex;
-
-
   font-weight: bold;
   font-size: 1.2rem;
-  color: #333;
+  color: var(--card-header-color);
+  background-color: var(--card-header-bg);
+  padding: 10px;
+  border-radius: 5px;
 }
 
 /* Custom styling for documents container */

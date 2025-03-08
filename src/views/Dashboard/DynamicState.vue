@@ -1151,20 +1151,39 @@ const getCardData = async () => {
 
     }
  
+    // result.then((crd) => {
+    //   console.log('resultx',crd); // "Promise resolved!"
+    //   let card = arrayItem
+    //   card.value = crd
+    //   card.symbol=cardSymbol
+    //   cards.value.push(card)
+    // });
+
     result.then((crd) => {
       console.log('resultx',crd); // "Promise resolved!"
       let card = arrayItem
+
       card.value = crd
       card.symbol=cardSymbol
+
+      console.log('resultx2',card)
+
+
       cards.value.push(card)
+      cards.value.sort((a, b) => a.id - b.id);
+
+      console.log('Sorted',  cards.value)
+
+
     });
+
 
   })
 
 
 
-  cards.value.sort((a, b) => a.id - b.id);
-  console.log('Sorted',   cards.value)
+  // cards.value.sort((a, b) => a.id - b.id);
+  // console.log('Sorted',   cards.value)
 }
 
 const getCards = async () => {

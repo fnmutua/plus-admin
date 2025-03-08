@@ -5,6 +5,7 @@ import {
 
 import { ref, reactive, watch, onBeforeMount, onMounted } from 'vue'
 
+
 import { use } from "echarts/core";
 
 
@@ -763,13 +764,31 @@ const getCardData = async () => {
     var result = getSummary(arrayItem)
   //  var result = getSummary(arrayItem.card_model, arrayItem.card_model_field, arrayItem.aggregation)
 
-  result.then((crd) => {
-      console.log('resultx',crd); // "Promise resolved!"
-      let card = arrayItem
-      card.value = crd
-      card.symbol=cardSymbol
-      cards.value.push(card)
-    });
+      result.then((crd) => {
+          console.log('resultx',crd); // "Promise resolved!"
+          let card = arrayItem
+
+          card.value = crd
+          card.symbol=cardSymbol
+
+          console.log('resultx2',card)
+
+
+          cards.value.push(card)
+          cards.value.sort((a, b) => a.id - b.id);
+
+          console.log('Sorted',  cards.value)
+
+
+        });
+
+  // result.then((crd) => {
+  //     console.log('resultx',crd); // "Promise resolved!"
+  //     let card = arrayItem
+  //     card.value = crd
+  //     card.symbol=cardSymbol
+  //     cards.value.push(card)
+  //   });
 
   })
 

@@ -85,3 +85,9 @@ export const sendAcknowledgement= (data: any) => {
    // console.log('....', data)
    return request.post({ url: prod + '/api/v1/grv/revert', data })
  }
+
+ export const getGrievanceHistoryByGrievanceId = (data: any): Promise<IResponse<any>> => {
+   // console.log('....', data)
+   return request.post({ url: prod + '/api/v1/grv/history', data })
+ }
+ 

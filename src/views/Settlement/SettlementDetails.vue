@@ -1376,14 +1376,26 @@ const editSettlement = () => {
   }
 }
 
+:root {
+  /* Light Mode Variables */
+  --card-header-color: #333;
+  --card-header-bg: #f9f9f9;
+}
+
+[data-theme="dark"] {
+  /* Dark Mode Variables */
+  --card-header-color: #ddd;
+  --card-header-bg: #222;
+}
 
 .card-header {
   display: flex;
-
-
   font-weight: bold;
   font-size: 1.2rem;
-  color: #333;
+  color: var(--card-header-color);
+  background-color: var(--card-header-bg);
+  padding: 10px;
+  border-radius: 5px;
 }
 
 

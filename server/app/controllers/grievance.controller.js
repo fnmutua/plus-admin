@@ -3050,7 +3050,8 @@ exports.modelImportGrievances = async (req, res) => {
         
         // Save changes in history
         await db.models.grievance_history.create({
-          grievance_id:  change_type === 'Delete' ? null : grievance_id,
+          //grievance_id:  change_type === 'Delete' ? null : grievance_id,
+          grievance_id:  grievance_id,
           changed_by: userId,
           change_type: change_type,
           changes: {
@@ -3068,7 +3069,7 @@ exports.modelImportGrievances = async (req, res) => {
  
 
       
-      exports.deleteCascadeGrievance = async (req, res) => {
+      exports.xdeleteCascadeGrievance = async (req, res) => {
         try {
           const { model, id } = req.body;
       
@@ -3134,10 +3135,11 @@ exports.modelImportGrievances = async (req, res) => {
             }
           }
       
+          updateGrievanceHistory(record.id, record, req.thisUser.id, 'Delete');
+
           // Delete the main record
           await record.destroy();
       
-          updateGrievanceHistory(record.id, record, req.thisUser.id, 'Delete');
       
           res.status(200).send({
             message: `${model} record and associated records deleted successfully.`,
@@ -3153,8 +3155,58 @@ exports.modelImportGrievances = async (req, res) => {
         }
       };
 
-
-      exports.revertEdits = async (req, res) => {
+      exports.deleteCascadeGrievance = async (req, res) => {
+        try {
+            const { model, id } = req.body;
+    
+            console.log("Deleting", model, "with ID", id);
+    
+            // Validate input
+            if (!model || !id) {
+                return res.status(400).send({
+                    message: "Model name and record ID are required.",
+                });
+            }
+    
+            // Get the model dynamically
+            const Model = db.models[model];
+    
+            if (!Model) {
+                return res.status(404).send({
+                    message: "Invalid model name.",
+                });
+            }
+    
+            // Find the record by ID
+            const record = await Model.findByPk(id);
+    
+            if (!record) {
+                return res.status(404).send({
+                    message: `${model} record not found.`,
+                });
+            }
+    
+            // Log grievance deletion before deleting the record
+            await updateGrievanceHistory(record.id, record, req.thisUser.id, "Delete");
+    
+            // Delete only the main record (without affecting associations)
+            await record.destroy();
+    
+            res.status(200).send({
+                message: `${model} record deleted successfully.`,
+                data: record,
+                code: "0000",
+            });
+        } catch (error) {
+            console.error("Error deleting record:", error);
+            res.status(500).send({
+                message: "An error occurred while deleting the record.",
+                error: error.message,
+            });
+        }
+    };
+    
+      exports._revertEdits = async (req, res) => {
         const { history_id } = req.body;
     
         try {
@@ -3211,4 +3263,320 @@ exports.modelImportGrievances = async (req, res) => {
             });
         }
     };
+
+
+
+    exports.revertEdits = async (req, res) => {
+      const { history_id } = req.body;
+  
+      try {
+          // Find the history record by primary key
+          const history = await db.models.grievance_history.findByPk(history_id);
+          if (!history) {
+              return res.status(404).send({
+                  message: 'History record not found',
+                  code: '1001',
+              });
+          }
+  
+          let { grievance_id, changes } = history;
+  
+          // Ensure `changes.before` is properly formatted
+          const beforeData = typeof changes.before === 'string' ? JSON.parse(changes.before) : changes.before;
+  
+          if (!beforeData || typeof beforeData !== 'object') {
+              return res.status(400).send({
+                  message: 'Invalid history data',
+                  code: '1002',
+              });
+          }
+  
+          // Function to find `grievance_id` within the `before` JSONB object
+          const extractGrievanceId = (obj) => {
+              if (!obj || typeof obj !== 'object') return null;
+  
+              if (obj.id) return obj.id; // Direct match
+              for (const key in obj) {
+                  if (typeof obj[key] === 'object') {
+                      const foundId = extractGrievanceId(obj[key]);
+                      if (foundId) return foundId;
+                  }
+              }
+              return null;
+          };
+  
+          // If `grievance_id` is not valid, extract it from `beforeData`
+          if (!grievance_id) {
+              grievance_id = extractGrievanceId(beforeData);
+          }
+  
+          if (!grievance_id) {
+              return res.status(400).send({
+                  message: 'Grievance ID not found in history record',
+                  code: '1003',
+              });
+          }
+  
+          // Check if the grievance exists
+          let grievance = await db.models.grievance.findByPk(grievance_id);
+          if (!grievance) {
+              // If deleted, recreate it
+              grievance = await db.models.grievance.create({
+                  id: grievance_id, // Preserve original ID
+                  ...beforeData,
+              });
+  
+              await history.update({ status: 'Reverted' });
+  
+              return res.status(200).send({
+                  message: 'Deleted grievance restored successfully.',
+                  code: '0000',
+              });
+          }
+  
+          // If exists, update to its previous state
+          await grievance.update(beforeData);
+          await history.update({ status: 'Reverted' });
+  
+          res.status(200).send({
+              message: 'Changes reverted successfully.',
+              code: '0000',
+          });
+      } catch (error) {
+          console.error("Error reverting edits:", error);
+          res.status(500).send({
+              message: 'An error occurred while reverting edits: ' + error.message,
+              code: '0004',
+          });
+      }
+  };
+  
+
     
+    exports._getGrievanceHistoryByGrievanceId = async (req, res) => {
+      try {
+          const { grievance_id } = req.body; // Grievance ID from request
+  
+          if (!grievance_id) {
+              return res.status(400).send({
+                  message: "Grievance ID is required.",
+              });
+          }
+  
+          // Attempt to fetch history records where grievance_id matches directly
+          let historyRecords = await db.models.grievance_history.findAll({
+              where: { grievance_id: grievance_id },
+          });
+  
+          // If no records found, search within the `changes` JSONB field
+          if (historyRecords.length === 0) {
+              console.log(`No direct match found for grievance_id ${grievance_id}. Searching JSON changes...`);
+  
+              historyRecords = await db.models.grievance_history.findAll();
+              
+               // Function to check if grievance_id exists in the nested JSON object
+                    const containsGrievanceId = (obj, grievance_id) => {
+                      if (!obj || typeof obj !== 'object') return false;
+
+                      return Object.values(obj).some(value => {
+                          if (typeof value === 'object' && value !== null) {
+                              return containsGrievanceId(value, grievance_id); // Recursively check nested objects
+                          }
+                          return value?.toString() === grievance_id.toString(); // Compare ID values
+                      });
+                    };
+
+                    // Filter records where grievance_id appears in "before" or "after" fields
+                    historyRecords = historyRecords.filter(record => {
+                      const { changes } = record;
+                      
+                      return (
+                          containsGrievanceId(changes.before, grievance_id) ||
+                          containsGrievanceId(changes.after, grievance_id)
+                      );
+                    });
+
+
+          }
+  
+          if (historyRecords.length === 0) {
+              return res.status(404).send({
+                  message: "No grievance history found for the provided ID.",
+              });
+          }
+  
+          // Format the response to show before/after changes
+          const formattedHistory = historyRecords 
+  
+          res.status(200).send({
+              message: "Grievance history records retrieved successfully.",
+              data: formattedHistory,
+              code: "0000",
+          });
+      } catch (error) {
+          console.error("Error retrieving grievance history:", error);
+          res.status(500).send({
+              message: "An error occurred while fetching grievance history.",
+              error: error.message,
+          });
+      }
+  };
+  
+
+  exports.xgetGrievanceHistoryByGrievanceId = async (req, res) => {
+    try {
+        const { grievance_id, associated_multiple_models } = req.body; // Grievance ID & associated models from request
+
+        if (!grievance_id) {
+            return res.status(400).send({
+                message: "Grievance ID is required.",
+            });
+        }
+
+        // Dynamically include associated models if provided
+        let includeModels = [];
+        if (associated_multiple_models && Array.isArray(associated_multiple_models)) {
+            includeModels = associated_multiple_models.map(modelName => {
+                if (db.models[modelName]) {
+                    return { model: db.models[modelName] }; // Include only valid models
+                }
+                console.warn(`Warning: Model ${modelName} not found in database.`);
+                return null;
+            }).filter(Boolean); // Remove invalid models
+        }
+
+        // Attempt to fetch history records where grievance_id matches directly
+        let historyRecords = await db.models.grievance_history.findAll({
+            where: { grievance_id: grievance_id },
+            include: includeModels, // Include associated models dynamically
+        });
+
+        // If no records found, search within the `changes` JSONB field
+        if (historyRecords.length === 0) {
+            console.log(`No direct match found for grievance_id ${grievance_id}. Searching JSON changes...`);
+
+            historyRecords = await db.models.grievance_history.findAll({ include: includeModels });
+
+            // Function to check if grievance_id exists in the nested JSON object
+            const containsGrievanceId = (obj, grievance_id) => {
+                if (!obj || typeof obj !== 'object') return false;
+
+                return Object.values(obj).some(value => {
+                    if (typeof value === 'object' && value !== null) {
+                        return containsGrievanceId(value, grievance_id); // Recursively check nested objects
+                    }
+                    return value?.toString() === grievance_id.toString(); // Compare ID values
+                });
+            };
+
+            // Filter records where grievance_id appears in "before" or "after" fields
+            historyRecords = historyRecords.filter(record => {
+                const { changes } = record;
+                return (
+                    containsGrievanceId(changes.before, grievance_id) ||
+                    containsGrievanceId(changes.after, grievance_id)
+                );
+            });
+        }
+
+        if (historyRecords.length === 0) {
+            return res.status(404).send({
+                message: "No grievance history found for the provided ID.",
+            });
+        }
+
+        res.status(200).send({
+            message: "Grievance history records retrieved successfully.",
+            data: historyRecords,
+            code: "0000",
+        });
+    } catch (error) {
+        console.error("Error retrieving grievance history:", error);
+        res.status(500).send({
+            message: "An error occurred while fetching grievance history.",
+            error: error.message,
+        });
+    }
+};
+
+
+exports.getGrievanceHistoryByGrievanceId = async (req, res) => {
+  try {
+      const { grievance_id, associated_multiple_models } = req.body;
+
+      if (!grievance_id) {
+          return res.status(400).send({
+              message: "Grievance ID is required.",
+              code: "1001",
+          });
+      }
+
+      // Dynamically include associated models if provided
+      let includeModels = [];
+      if (associated_multiple_models && Array.isArray(associated_multiple_models)) {
+          includeModels = associated_multiple_models.map(modelName => {
+              if (db.models[modelName]) {
+                  return { model: db.models[modelName] }; // Include only valid models
+              }
+              console.warn(`Warning: Model ${modelName} not found in database.`);
+              return null;
+          }).filter(Boolean); // Remove invalid models
+      }
+
+      // Fetch records where grievance_id matches directly
+      let historyRecords = await db.models.grievance_history.findAll({
+          where: { grievance_id: grievance_id },
+          include: includeModels,
+      });
+
+      // Fetch additional records where grievance_id is NULL but might contain the ID in changes.before/after
+      let additionalRecords = await db.models.grievance_history.findAll({
+          where: { grievance_id: null },
+          include: includeModels,
+      });
+
+      // Function to check if grievance_id exists in a nested JSON object
+      const containsGrievanceId = (obj, grievance_id) => {
+          if (!obj || typeof obj !== 'object') return false;
+
+          return Object.values(obj).some(value => {
+              if (typeof value === 'object' && value !== null) {
+                  return containsGrievanceId(value, grievance_id); // Recursively check nested objects
+              }
+              return value?.toString() === grievance_id.toString(); // Compare ID values
+          });
+      };
+
+      // Filter records where grievance_id appears in "before" or "after" fields
+      additionalRecords = additionalRecords.filter(record => {
+          const { changes } = record;
+          return (
+              containsGrievanceId(changes.before, grievance_id) ||
+              containsGrievanceId(changes.after, grievance_id)
+          );
+      });
+
+      // Combine results from both queries
+      const allRecords = [...historyRecords, ...additionalRecords];
+
+      if (allRecords.length === 0) {
+          return res.status(404).send({
+              message: "No grievance history found for the provided ID.",
+              code: "1002",
+          });
+      }
+
+      res.status(200).send({
+          message: "Grievance history records retrieved successfully.",
+          data: allRecords,
+          code: "0000",
+      });
+  } catch (error) {
+      console.error("Error retrieving grievance history:", error);
+      res.status(500).send({
+          message: "An error occurred while fetching grievance history.",
+          error: error.message,
+          code: "0004",
+      });
+  }
+};

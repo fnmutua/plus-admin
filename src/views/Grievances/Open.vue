@@ -347,16 +347,16 @@ const getDeletedCounts = async () => {
     summaryField: 'change_type',
     summaryFunction: 'count',
     groupFields: ['change_type'],
-    filterField: ['change_type'],
-    filterValue: [['Delete']],
-    filterOperator: ['eq']
+    filterField: ['change_type','status'],
+    filterValue: [['Delete'],['Open']],
+    filterOperator: ['eq','eq']
   };
 
   try {
     const response = await getSummarybyFieldFromMultipleIncludes(formData);
     const deletedCount = response.Total.find(item => item.change_type === 'Delete')?.count || 0;
 
-    console.log('Deleted grievance count:', deletedCount);
+    console.log('Deleted grievance count:', response.Total);
     
           // Update only the 'Deleted' status count
       Statuses.value.forEach((status) => {
@@ -2264,6 +2264,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
   const res = await revertGrievanceHistory(formData);
   console.log('Reverts success.....', res)
+  await getGrievanceDeleted()
 
 
 };
@@ -2422,9 +2423,9 @@ v-model="grv_name" multiple clearable filterable remote :remote-method="searchBy
           <el-button :onClick="AddComponent" type="primary" :icon="Plus" />
         </el-tooltip>
 
-        <el-tooltip content="Clear" placement="top">
+        <!-- <el-tooltip content="Clear" placement="top">
           <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-        </el-tooltip>
+        </el-tooltip> -->
  
 
         <DownloadCustom
