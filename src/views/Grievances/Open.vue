@@ -7,14 +7,15 @@ import { getGrievances } from '@/api/grievance'
 
 import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTag } from 'element-plus'
 import {
-  Plus, Download, Filter, ArrowLeft, ArrowRight, UploadFilled,
+  Plus, Filter, ArrowLeft, ArrowRight, UploadFilled,RefreshLeft,
   Edit,
   Back,Postcard,TopRight,Lock,Guide,TakeawayBox,
-  InfoFilled, Position,CircleCheck, Message, CircleClose, Warning,
+  InfoFilled, Position,CircleCheck, Warning,View,
   Delete
 } from '@element-plus/icons-vue'
 import {   ElSegmented } from 'element-plus'
 
+import { getSettlementListByCounty, getDuplicates, mergeDuplicates } from '@/api/settlements'
 
 
 import { ref, reactive, onMounted, computed } from 'vue'
@@ -35,13 +36,12 @@ import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import type { UploadUserFile } from 'element-plus'
 
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
-import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, batchImportGrievances, getByKeyword } from '@/api/grievance'
+import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction,revertGrievanceHistory, batchImportGrievances, getByKeyword } from '@/api/grievance'
 import { getModelSpecs } from '@/api/fields'
 import exportFromJSON from 'export-from-json'
 import Papa from 'papaparse';
 
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
-import { formatDistanceToNow } from "date-fns";  // Optional for better formatting
 
 
 const { wsCache } = useCache()
@@ -51,13 +51,79 @@ const userInfo = wsCache.get(appStore.getUserInfo)
 const countiesOptions = ref([])
 const settlementOptions = ref([])
 
+const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
 
 console.log("userInfo--->", userInfo)
 
+const Statuses = ref([
+  {
+    label: 'Sorting',
+    value: 'Sorting',
+    icon: Postcard,
+    count: 0,
+    hidden: false,
+  },
+  {
+    label: 'Resolved',
+    value: 'Resolved',
+    icon: CircleCheck,
+    count: 0,
+    hidden: false,
+  },
+  {
+    label: 'Escalated',
+    value: 'Escalated',
+    icon: TopRight,
+    count: 0,
+    hidden: false,
+  },
+  {
+    label: 'Closed',
+    value: 'Closed',
+    icon: Lock,
+    count: 0,
+    hidden: false,    
+ 
+
+  },
+  {
+    label: 'Referred',
+    value: 'Referred',
+    icon: Guide,
+    count: 0,
+    hidden: false
+  },
+
+  {
+    label: 'In Court',
+    value: 'In Court',
+    icon: TakeawayBox,
+    count: 0,
+    hidden: false
+  },
+
+  {
+    label: 'Rejected',
+    value: 'Rejected',
+    icon: Warning,
+    count: 0,
+    hidden: false
+  },
+  {
+    label: 'Deleted',
+    value: 'Deleted',
+    icon: Delete,
+    count: 0,
+    hidden: !isSuperAdmin.value
+  },
+])
 
 
-// Check for the "grm" role and get its level, field, and field value
 const isNationalStaff = ref(false)
+let  roles_filters = [];
+
+const getUserRoles =   () => { 
+  // Check for the "grm" role and get its level, field, and field value
 const grmRole = userInfo.roles.map(role => {
   if (role.name === "grm") {
     let field = null;
@@ -97,12 +163,11 @@ const grmRole = userInfo.roles.map(role => {
 console.log('grmRole', grmRole);
 
 // Check for super_admin role
-const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin");
+  isSuperAdmin.value = userInfo.roles.some(role => role.name === "super_admin");
 
   // Determine the field_filter and value_filter based on roles
-  let roles_filters = [];
 
-  if (isSuperAdmin) {
+  if (isSuperAdmin.value) {
     // If user is a super_admin, no filters needed
     roles_filters = [];
   } else if (grmRole.length > 0 && grmRole[0].model === "national") {
@@ -119,7 +184,25 @@ const isSuperAdmin = userInfo.roles.some(role => role.name === "super_admin");
   }
 
 
+  
+
+if (roles_filters.length > 0) {
+  filters.value.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
+}
+
+// Prepare filterValues array
+if (roles_filters.length > 0) {
+  filterValues.value.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
+}
+
+console.log('isSuperAdmin.value', isSuperAdmin.value);
+console.log('filterValues', filterValues);
+
 console.log('roles_filters', roles_filters);
+
+}
+
+
 
 
 
@@ -255,8 +338,44 @@ const formData = {}
 
 }
 
-onMounted(async () => {
 
+const getDeletedCounts = async () => {
+  console.log('Fetching deleted grievance count...');
+
+  const formData = {
+    model: 'grievance_history',
+    summaryField: 'change_type',
+    summaryFunction: 'count',
+    groupFields: ['change_type'],
+    filterField: ['change_type'],
+    filterValue: [['Delete']],
+    filterOperator: ['eq']
+  };
+
+  try {
+    const response = await getSummarybyFieldFromMultipleIncludes(formData);
+    const deletedCount = response.Total.find(item => item.change_type === 'Delete')?.count || 0;
+
+    console.log('Deleted grievance count:', deletedCount);
+    
+          // Update only the 'Deleted' status count
+      Statuses.value.forEach((status) => {
+        if (status.value === 'Deleted') {
+          status.count = deletedCount; // Use deletedCount directly
+        }
+      });
+
+   
+  } catch (error) {
+    console.error('Error fetching deleted grievance count:', error);
+    return 0;
+  }
+};
+
+
+onMounted(async () => {
+  getUserRoles()
+  getDeletedCounts()
   getCounts()
   window.addEventListener('resize', updatePageSize);
   updatePageSize(); // Initial check
@@ -284,18 +403,6 @@ const  filters=ref(['status'])
 const  filterValues=ref([['Sorting']])
 const  filterFunction=ref(['in'])
 
-
-if (roles_filters.length > 0) {
-  filters.value.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
-}
-
-// Prepare filterValues array
-if (roles_filters.length > 0) {
-  filterValues.value.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
-}
-
-console.log('filters', filters);
-console.log('filterValues', filterValues);
 
 var tblData = []
 const associated_Model = ''
@@ -1629,61 +1736,7 @@ const activeSegment = ref('Sorting')
 
 
 
-const Statuses = ref([
-  {
-    label: 'Sorting',
-    value: 'Sorting',
-    icon: Postcard,
-    count: 0,
-    hidden: false,
-  },
-  {
-    label: 'Resolved',
-    value: 'Resolved',
-    icon: CircleCheck,
-    count: 0,
-    hidden: false,
-  },
-  {
-    label: 'Escalated',
-    value: 'Escalated',
-    icon: TopRight,
-    count: 0,
-    hidden: false,
-  },
-  {
-    label: 'Closed',
-    value: 'Closed',
-    icon: Lock,
-    count: 0,
-    hidden: false,    
- 
 
-  },
-  {
-    label: 'Referred',
-    value: 'Referred',
-    icon: Guide,
-    count: 0,
-    hidden: false
-  },
-
-  {
-    label: 'In Court',
-    value: 'In Court',
-    icon: TakeawayBox,
-    count: 0,
-    hidden: false
-  },
-
-  {
-    label: 'Rejected',
-    value: 'Rejected',
-    icon: Warning,
-    count: 0,
-    hidden: false
-  },
-])
 
 
 
@@ -1691,6 +1744,59 @@ const filteredSegments = computed(() => {
   return Statuses.value.filter(option => !option.hidden);
 });
 
+const deletedGrievances =ref([])
+const deletedGrievancesCount =ref()
+
+const getGrievanceDeleted = async () => {
+  deletedGrievances.value=[] // EMpty the  deletedSettlements.value first
+const model = 'grievance_history'
+
+const formData = {}
+formData.model = model
+//-Search field--------------------------------------------
+formData.searchField = 'name'
+formData.excludeGeom = false
+formData.associated_multiple_models = ['users']
+
+//--Single Filter -----------------------------------------
+
+
+// - multiple filters -------------------------------------
+formData.filters = ['change_type','status' ]
+formData.filterValues = [['Delete'],['Open']]
+
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+//-------------------------
+console.log("formData", formData)
+//console.log(formData)
+const res = await getSettlementListByCounty(formData)
+
+console.log('History collected........', res.data)
+ // Initialize deleted settlements
+ 
+// Process each element in the response
+res.data.forEach((item) => {
+  const beforeObject = item.changes?.before; // Extract the "before" object if it exists
+  if (beforeObject) {
+    // Add the history_id to the beforeObject
+    beforeObject.history_id = item.id;
+    beforeObject.deleted_by = item.user.name;
+    beforeObject.delete_date = item.updatedAt;
+    
+    
+    // Push the updated beforeObject to deletedSettlements
+    deletedGrievances.value.push(beforeObject);
+  }
+});
+
+ 
+deletedGrievancesCount.value = deletedGrievances.value.length;
+
+console.log(' deletedGrievancesCount.value . ', deletedGrievances.value )
+ 
+
+}
 
 const onSegmentClick = async () => {
   console.log(activeSegment.value)
@@ -1840,6 +1946,16 @@ const onSegmentClick = async () => {
       if (!filterValues.value.includes('Rejected')) {
         filterValues.value.splice(index, 0, ['Rejected']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
       }
+
+  }
+
+
+  
+  if (activeSegment.value === "Deleted") {
+    
+    console.log("Deleted settlements.....")
+ 
+   await getGrievanceDeleted()
 
   }
     // if (roles_filters.length > 0) {
@@ -2127,6 +2243,123 @@ const getExpiryClass = (expiryDate) => {
   return diff === "Expired" ? "text-red-500" : "text-green-500"; // Apply color styling
 };
 
+
+
+function formatDate2(row, column, cellValue) {
+  if (!cellValue) return '';  // Handle null or undefined values
+
+  // Format the date (you can use libraries like moment.js or Day.js, or use native Date methods)
+  const date = new Date(cellValue);
+  return date.toLocaleDateString();  // Format to local date string
+}
+
+
+const RevertEdits = async (data: TableSlotDefault) => {
+  console.log('Reverts.....', data)
+
+  const formData = {
+    model: 'grievance',
+    history_id: data.history_id,
+  };
+
+  const res = await revertGrievanceHistory(formData);
+  console.log('Reverts success.....', res)
+
+
+};
+
+
+const thisHistory =ref()
+
+const getThisHistory = async (history_id) => {
+  try {
+    const model = 'grievance_history';
+
+    const formData = {
+      model, 
+      searchField: 'name', 
+      excludeGeom: false,
+      associated_multiple_models: ['users'],
+      filters: [ 'id'],
+      filterValues: [ [history_id]]
+    };
+
+    console.log("formData", formData);
+
+    // Fetch the history data
+    const res = await getSettlementListByCounty(formData);
+
+    // Check if the response is valid and contains data
+    if (res && res.data) {
+      console.log('History collected........', res.data);
+     
+      thisHistory.value = res.data
+    } else {
+      console.warn("No data found in response.");
+      thisHistory.value = []; // Return an empty array if no data is found
+    }
+  } catch (error) {
+    console.error("Error fetching history:", error.message);
+    throw new Error("Failed to fetch history. Please try again later."); // Rethrow the error for higher-level handling
+  }
+};
+
+
+const ShowReviewDialog=ref(false)
+const DeletedGrievance=ref()
+
+const transformGrievanceData = () => {
+  if (!DeletedGrievance.value || Object.keys(DeletedGrievance.value).length === 0) return [];
+
+  return Object.keys(DeletedGrievance.value)
+    .filter(key => DeletedGrievance.value[key] !== null && DeletedGrievance.value[key] !== '') // Exclude null or empty values
+    .map(key => ({
+      label: formatSentence(key),
+      value: formatSentence(DeletedGrievance.value[key])
+    }));
+};
+
+const grievanceData=ref()
+const DeleteReview = async (data: TableSlotDefault) => {
+  console.log('Review .....', data);
+  ShowReviewDialog.value = true;
+
+  // Get user who deleted 
+  await getThisHistory(data.history_id);
+
+  console.log('thisHistory', thisHistory.value);
+  DeletedGrievance.value = data;
+
+  // Transform grievance data
+  grievanceData.value = transformGrievanceData();
+
+  console.log('grievanceData.value', grievanceData.value)
+  formHeader.value = "Review Deleted Grievance";
+
+  reviewDialog.value=true
+};
+
+
+
+function formatSentence(text) {
+
+// Replace underscores with spaces
+let formattedText = String(text).replace(/_/g, ' ');
+
+// Capitalize the first letter
+formattedText = formattedText.charAt(0).toUpperCase() + formattedText.slice(1);
+
+// Ensure proper punctuation and spacing
+// This is a basic example; you might need more complex rules based on requirements
+formattedText = formattedText.replace(/(\.\s*)([a-z])/g, (match, p1, p2) => p1 + p2.toUpperCase());
+
+return formattedText;
+}
+
+ const reviewDialog=ref(false)
+
+
+
 </script>
 
 <template>
@@ -2210,15 +2443,16 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
     <div class="custom-style">
 
       <el-segmented v-model="activeSegment" :options="filteredSegments" block :onChange="onSegmentClick">
-        <template #default="{ item }">
-          <div class="flex flex-col items-center gap-2 p-2">
-            <el-icon size="18">
-              <component :is="item.icon" />
-            </el-icon>
-            <div>{{ item.label }} ({{ item.count }}) </div>
-          </div>
-        </template>
-      </el-segmented>
+  <template #default="{ item }">
+    <div class="flex flex-col items-center gap-2 p-2">
+      <el-icon size="18" :class="item.label === 'Deleted' ? 'text-red-600' : ''">
+        <component :is="item.icon" />
+      </el-icon>
+      <div>{{ item.label }} ({{ item.count }})</div>
+    </div>
+  </template>
+</el-segmented>
+
 
     </div>
 
@@ -2226,7 +2460,8 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
 
     <div  v-if="activeSegment === 'Sorting'">
-      <el-table v-loading="loading"
+      <el-table
+v-loading="loading"
 :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px; "  show-overflow-tooltip
         :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
         <el-table-column label="#" width="80" prop="id" sortable>
@@ -2246,7 +2481,8 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
 
         <el-table-column prop="status" label="Status" width="100" sortable>
           <template #default="scope">
-            <el-tag  :type="scope.row.status == 'Closed' ? 'info'
+            <el-tag
+:type="scope.row.status == 'Closed' ? 'info'
             : scope.row.status == 'Escalated' ? 'secondary'
             : scope.row.status == 'Returned' ? 'danger'
             : scope.row.status == 'Referred' ? 'warning'
@@ -2316,7 +2552,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
     </div> 
 
     <div v-if="activeSegment === 'Closed'">
-      <el-table v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
+      <el-table
+v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
         :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
         <el-table-column label="#" width="80" prop="id" sortable>
           <template #default="scope">
@@ -2398,7 +2635,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
     </div>
 
     <div v-if="activeSegment === 'Resolved'">
-      <el-table v-loading="loading"
+      <el-table
+v-loading="loading"
 :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
         :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
         <el-table-column label="#" width="80" prop="id" sortable>
@@ -2473,8 +2711,7 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
             </div>
           </template>
         </el-table-column>
-      -->
-      </el-table>
+       </el-table>
       <ElPagination
 :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
         v-model:page-size="pageSize" :page-sizes="[5,8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
@@ -2482,7 +2719,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
     </div>
 
     <div v-if="activeSegment === 'Escalated'">
-        <el-table v-loading="loading"
+        <el-table
+v-loading="loading"
 :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
@@ -2567,7 +2805,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
      </div>
 
      <div v-if="activeSegment === 'In Court'">
-        <el-table v-loading="loading"
+        <el-table
+v-loading="loading"
 :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
@@ -2651,7 +2890,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
 
 
      <div v-if="activeSegment === 'Referred'">
-        <el-table v-loading="loading"
+        <el-table
+v-loading="loading"
 :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
@@ -2728,7 +2968,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
      </div>
 
      <div v-if="activeSegment === 'Rejected'">
-        <el-table v-loading="loading"
+        <el-table
+v-loading="loading"
 :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"  show-overflow-tooltip
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
@@ -2802,6 +3043,41 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
           v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
      </div>
+
+
+
+     <div v-if="activeSegment === 'Deleted'" >
+      <el-table :data="deletedGrievances" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
+        <el-table-column type="index" width="50" />
+        <el-table-column label="code" width="200" prop="code" sortable />     
+        <el-table-column label="Description" prop="description" sortable />
+         <el-table-column label="Date" prop="delete_date" sortable :formatter="formatDate2" />
+        <el-table-column label="Deleted By" prop="deleted_by" sortable  />
+         
+        <el-table-column fixed="right" label="Operations" min-width="120">
+          <template  #default="{ row }">
+            <el-tooltip content="Review" placement="top">
+              <el-button
+type="primary" size="small" :icon="View" @click="DeleteReview(row)"
+                plain />
+            </el-tooltip> 
+            <el-tooltip content="Restore" placement="top">
+            <el-button type="warning"  size="small" :icon="RefreshLeft" @click="RevertEdits(row)" />
+          </el-tooltip> 
+          </template>
+    </el-table-column>
+
+      </el-table>
+
+     
+
+    </div>
+
+
+
+
+
+
   </el-card>
 
   <el-dialog title="Select Fields" v-model="showDownloadDialog" width="60%">
@@ -3088,12 +3364,38 @@ class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
   </el-dialog>
 
 
+
+
+  
+  <el-dialog v-model="reviewDialog" title="Review Deleted Data" width="50%" @close="reviewDialog = false">
+     
+    <el-table 
+          :data="grievanceData" 
+          style="width: 100%" 
+           height="300px" 
+          max-height="400px">
+          
+          <el-table-column prop="label" label="" width="150">
+            <template #default="{ row }">
+              <span style="font-weight: bold">{{ row.label }}</span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="value" label="" />
+        </el-table>
+
+   
+  </el-dialog>
+
+
+
   <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
     <el-tour-step
 v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
       :description="step.content" />
   </el-tour>
 </template>
+
 
 
 

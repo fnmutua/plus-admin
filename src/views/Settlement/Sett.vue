@@ -2768,7 +2768,7 @@ const onSegmentClick = async () => {
 
 
 };
-
+getSettlementListByCounty
 
 
 const getSettlmentHistory = async (sett_id) => {

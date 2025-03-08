@@ -782,7 +782,7 @@ const groupedDocuments = computed(() => {
 
 
 const searchQuery = ref('')
-// Filter and group documents by `document_type.type`
+// Filter and group documents by `documeFFnt_type.type`
 const filteredGroupedDocuments = computed(() => {
   const query = searchQuery.value.toLowerCase();
 

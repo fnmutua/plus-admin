@@ -3047,6 +3047,7 @@ exports.modelImportGrievances = async (req, res) => {
           originalData = grievance.toJSON();
         }
       
+        
         // Save changes in history
         await db.models.grievance_history.create({
           grievance_id:  change_type === 'Delete' ? null : grievance_id,
@@ -3063,6 +3064,9 @@ exports.modelImportGrievances = async (req, res) => {
           return await db.models.grievance.update(updatedData, { where: { id: grievance_id } });
         }
       }
+
+ 
+
       
       exports.deleteCascadeGrievance = async (req, res) => {
         try {
