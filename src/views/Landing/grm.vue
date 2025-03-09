@@ -239,7 +239,18 @@
                           <p style="margin-top: 10px"><strong>Ref:</strong> {{ statusResult.code }}</p>
                           <p style="margin-top: 10px"><strong>Date Reported:</strong> {{ statusResult.date_reported }}
                             ({{ getDaysSince(statusResult.date_reported) }} days ago)</p>
-                          <p style="margin-top: 10px"><strong>Status:</strong> {{ statusResult.status }}</p>
+                            <p style="margin-top: 10px"><strong>Status:</strong> {{ statusResult.status }}</p>
+                            <p style="margin-top: 10px"><strong>Status2:</strong> {{ statusResult.daysToExpiryDate }}</p>
+                            <el-button  
+                              type="danger"
+                              style="margin-top: 10px"
+                              v-if="statusResult.daysToExpiryDate < 0" 
+                              @click="escalateIssue"
+                            >
+                              {{ statusResult.escalateLabel }}
+                            </el-button>
+
+
                         </el-card>
                       </div>
                     </el-col>
@@ -285,18 +296,49 @@
 
 
   </div>
+
+
+  
+    <el-dialog 
+          v-model="showEscalateMessage" 
+          title="Escalate Grievance" 
+          width="50%" 
+          :close-on-click-modal="false"
+        >
+          <el-row justify="center">
+            <el-col :span="24">
+              <el-input 
+                v-model="EscalateMessage" 
+                placeholder="Enter escalation reason. Provide as much detail as possible" 
+                type="textarea" 
+                :rows="3"
+                maxlength="500"
+                show-word-limit
+              />
+            </el-col>
+          </el-row>
+
+          <template #footer>
+            <div class="dialog-footer">
+              <el-button @click="showEscalateMessage = false">Cancel</el-button>
+              <el-button type="success" @click="submitEscalation()">Submit</el-button>
+            </div>
+          </template>
+  </el-dialog>
+
+
 </template>
 
 <script setup lang="ts">
 import { ref,watch, computed } from 'vue';
 import {
-  ElMain, ElButton, ElCard, ElForm, ElFormItem, ElInput, ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
-  ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip
+  ElMain, ElButton, ElCard, ElForm, ElFormItem,  ElUpload, ElCheckbox, ElTour, ElTourStep, ElSwitch,
+  ElTabPane, ElTabs, ElSelect, ElOption, ElRow, ElCol, ElMessage, ElStep, ElSteps, ElIcon, ElTooltip,ElDialog, 
 } from 'element-plus';
 
 import BaseLayout from './BaseLayout.vue';
 import { getCountyAuth, getSettlementByCountyAuth } from '@/api/register'
-import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, getGrievanceStatus, sendAcknowledgement } from '@/api/grievance'
+import { uploadGrievanceDocuments, generateGrievance, logGrievanceAction, getGrievanceStatus, sendAcknowledgement,selfEscalate } from '@/api/grievance'
 import {
   ArrowLeft,
   ArrowRight,
@@ -305,6 +347,7 @@ import {
 import type { UploadUserFile } from 'element-plus'
 import { uuid } from 'vue-uuid'
 import { useRouter } from 'vue-router';
+import { ElInput } from 'element-plus';
 
 
 const activeName = ref('file');
@@ -384,7 +427,7 @@ const statusForm = ref({
   phoneNumber: '',
 });
 
-const statusResult = ref(null);
+const statusResult = ref({ current_level: 'settlement' }); // Example reactive object
 
 
 const ageRanges = [
@@ -790,9 +833,25 @@ const checkStatus = async () => {
   statusResult.value = {
     code: res.data.code,
     date_reported: res.data.date_reported,
-    status: 'The status of your grievance is : ' + res.data.status
+    status: 'The status of your grievance is : ' + res.data.status,
+    daysToExpiryDate: res.data.daysToExpiryDate,
+    current_level:  res.data.current_level,
+    escalateLabel:  res.data.escalateLabel
   };
 };
+
+
+ 
+ 
+
+ 
+
+
+
+
+
+
+
 
 const handlePreview = (file) => {
   console.log('Preview:', file);
@@ -1031,8 +1090,48 @@ function getDaysSince(dateString) {
   return daysDifference;
 }
 
+const showEscalateMessage=ref(false)
+const EscalateMessage=ref(null)
+const escalateIssue = async () => {
+
+  console.log('Escalating......')
+  showEscalateMessage.value=true
+
+ }
+ const submitEscalation = async () => {
+
+  console.log(EscalateMessage.value)
+
+  const formData = {}
+  formData.code = statusResult.value.code
+  formData.action = EscalateMessage.value
+  formData.new_status = 'Escalate'
+
+  if (statusResult.value.current_level === 'settlement') {
+  formData.current_level = 'county';
+} else if (statusResult.value.current_level === 'county') {
+  formData.current_level = 'national';
+} else {
+  formData.current_level = statusResult.value.current_level; // Default fallback (no change)
+}
+  
+formData.status_expiry_date = new Date() + getStageDuration(formData.new_status);
+
+  
+console.log(formData)
+
+//const res = await selfEscalate(formData)
+
+  //console.log(res)
 
 
+
+  showEscalateMessage.value=false
+
+ }
+
+
+ 
 </script>
 
 

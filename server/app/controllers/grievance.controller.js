@@ -1724,7 +1724,7 @@ exports.getGrievanceStatus = async (req, res) => {
     
         // Initialize findOne options
         let findOptions = {
-          attributes: ['phone', 'code', 'date_reported', 'status'], // Fields to include
+          attributes: ['phone', 'code', 'date_reported', 'status','status_expiry_date','current_level'], // Fields to include
         };
     
         // If associated models are provided, build the include options dynamically
@@ -1764,12 +1764,40 @@ exports.getGrievanceStatus = async (req, res) => {
         console.log('grievance',grievance)
 
 
+
+        function daysToExpiry(status_expiry_date) {
+          const expiryDate = new Date(status_expiry_date);
+          const today = new Date();
+          
+          // Calculate the difference in milliseconds
+          const diffTime = expiryDate - today;
+          
+          // Convert milliseconds to days
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+          return diffDays;
+      }
+        // Function to determine escalate label
+        function getEscalateLabel(level) {
+          if (level === 'settlement') {
+            return 'Escalate to County';
+          } else if (level === 'county') {
+            return 'Escalate to National Office';
+          }
+          return 'Escalate'; // Default fallback
+        }
+
         // Format the response object
         const responseObject = {
           code: grievance.code,
           date_reported: grievance.date_reported,
           phone: grievance.phone,
           status: grievance.status,
+          status_expiry_date: grievance.status_expiry_date,
+          daysToExpiryDate: daysToExpiry(grievance.status_expiry_date),
+          current_level:grievance.current_level,
+          escalateLabel: getEscalateLabel(grievance.current_level), // Added escalateLabel
+
         };
     
 
@@ -3578,5 +3606,78 @@ exports.getGrievanceHistoryByGrievanceId = async (req, res) => {
           error: error.message,
           code: "0004",
       });
+  }
+};
+
+
+
+exports.updateGrievanceStatusByComplainant = async (req, res) => {
+  try {
+    const grievanceCode = req.body.code;
+    const newStatus = req.body.new_status;
+    const action = req.body.action;
+    const current_level = req.body.current_level;
+
+    console.log('Updating status..... newStatus', newStatus);
+    console.log('Updating status..... current_level', current_level);
+
+    if (!grievanceCode || !newStatus) {
+      return res.status(400).send({
+        code: '1001',
+        message: 'Grievance code and new status are required',
+      });
+    }
+
+    const findOptions = {
+      where: {
+        code: {
+          [op.iLike]: `%${grievanceCode}%`,
+        },
+      },
+    };
+
+    const grievance = await Grievance.findOne(findOptions);
+
+    if (!grievance) {
+      return res.status(404).send({
+        code: '1002',
+        message: 'No grievance found for the given code',
+      });
+    }
+
+    grievance.status = newStatus;
+    grievance.current_level = current_level;
+    await grievance.save();
+
+    let msg_obj = {
+      message: action,
+      type: 'Notification',
+      phone: grievance.phone,
+      grv_code: grievance.code,
+      status: newStatus,
+      grievance_id: grievance.id,
+      sender_id: req.body.action_by,
+    };
+
+    console.log('Grievance ---->', msg_obj);
+
+    //sendNotificationSMS(msg_obj);
+
+    return res.status(200).send({
+      code: '0000',
+      message: 'Grievance status updated successfully',
+      data: {
+        grievance: grievance,
+        code: grievance.code,
+        date_reported: grievance.date_reported,
+        status: grievance.status,
+      },
+    });
+  } catch (error) {
+    console.error('Error updating grievance status:', error);
+    return res.status(500).send({
+      code: '9999',
+      message: 'Unable to update grievance status. Please try again later.',
+    });
   }
 };

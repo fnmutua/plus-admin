@@ -33,6 +33,7 @@ module.exports = function (app) {
   app.post('/api/v1/grv/keyword',[authJwt.verifyToken, authJwt.isGrmOfficerNational],   controller.getGrievancesByKeyword)
   app.post('/api/v1/grv/phone', [authJwt.verifyToken],  controller.getGrievanceByUserPhone)
   app.post('/api/v1/grv/history', [authJwt.verifyToken],  controller.getGrievanceHistoryByGrievanceId)
+  app.post('/api/v1/grv/self/escalate',   controller.updateGrievanceStatusByComplainant)
 
 
   

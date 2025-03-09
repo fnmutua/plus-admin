@@ -91,3 +91,8 @@ export const sendAcknowledgement= (data: any) => {
    return request.post({ url: prod + '/api/v1/grv/history', data })
  }
  
+
+ export const selfEscalate = (data: any): Promise<IResponse<any>> => {
+  // console.log('....', data)
+  return request.post({ url: prod + '/api/v1/grv/self/escalate', data })
+}
