@@ -1724,7 +1724,7 @@ exports.getGrievanceStatus = async (req, res) => {
     
         // Initialize findOne options
         let findOptions = {
-          attributes: ['phone', 'code', 'date_reported', 'status','status_expiry_date','current_level'], // Fields to include
+          attributes: ['id', 'phone', 'code', 'date_reported', 'status','status_expiry_date','current_level'], // Fields to include
         };
     
         // If associated models are provided, build the include options dynamically
@@ -1789,6 +1789,7 @@ exports.getGrievanceStatus = async (req, res) => {
 
         // Format the response object
         const responseObject = {
+          id: grievance.id,
           code: grievance.code,
           date_reported: grievance.date_reported,
           phone: grievance.phone,
@@ -2332,8 +2333,75 @@ exports.modelImportGrievances = async (req, res) => {
           sender_id: req.body.action_by,
         };
     
+        // Send message to compainat for ackhonwlegement 
+
         await sendNotificationSMS(msg_obj);
-    
+
+
+        // ge the GRMS for ecalation 
+
+          const grm_officials = [];
+          const grm_officials_names = [];
+          
+          try {
+            const whereConditions = {
+              roleid: 4, // GRM Role
+            };
+            
+            const orConditions = [];
+            
+            // Add conditions only if values exist
+            if (current_level=='county') {
+              orConditions.push({ county_id: grievance.county_id.toString() });
+            }  
+            else {
+                // Always include national level match
+                orConditions.push({ location_level: 'national' });
+            
+            }
+        
+          
+            if (orConditions.length > 0) {
+              whereConditions[Op.or] = orConditions;
+            }
+            
+            const grms = await Users.findAll({
+              include: [
+                {
+                  model: UserRoles,
+                  where: whereConditions,
+                },
+              ],
+            });
+            
+          
+            for (const grm of grms) {
+              if (grm.name) {
+                grm_officials_names.push(grm.name);
+              }
+          
+              if (grm.phone) {
+                const msg = `A grievance has been escalated/referred for your action. Please review and act accordingly.`;
+                
+                const msg_obj = {
+                  message: msg,
+                  phone: grm.phone,
+                  grievance_id: grievance.id,
+                  grv_code: grievance.code,
+                  status: grievance.status
+                };
+          
+                // Send SMS notification
+                await sendNotificationSMS(msg_obj);
+              }
+            }
+          
+            console.log('GRM Officials:', grm_officials_names, grm_officials);
+          
+          } catch (error) {
+            console.error('Failed to retrieve GRM officials:', error);
+          }
+          
         return res.status(200).send({
           code: '0000',
           message: 'Grievance updated successfully',
@@ -2989,8 +3057,6 @@ exports.modelImportGrievances = async (req, res) => {
                       });
                   }
                   
-
-
 
                   }
 
@@ -3656,7 +3722,7 @@ exports.updateGrievanceStatusByComplainant = async (req, res) => {
     await grievance.save();
 
     let msg_obj = {
-      message: action,
+      message: 'Your grievance has been successfully been escalated to the ' +current_level + ' team for action.' ,
       type: 'Notification',
       phone: grievance.phone,
       grv_code: grievance.code,
@@ -3667,11 +3733,77 @@ exports.updateGrievanceStatusByComplainant = async (req, res) => {
 
     console.log('Grievance ---->', msg_obj);
 
-    //sendNotificationSMS(msg_obj);
+    sendNotificationSMS(msg_obj);
+
+
+    // ge the GRMS for ecalation 
+
+    const grm_officials = [];
+    const grm_officials_names = [];
+    
+    try {
+      const whereConditions = {
+        roleid: 4, // GRM Role
+      };
+      
+      const orConditions = [];
+      
+      // Add conditions only if values exist
+      if (current_level=='county') {
+        orConditions.push({ county_id: grievance.county_id.toString() });
+      }  
+      else {
+        // Always include national level match
+        orConditions.push({ location_level: 'national' });
+      
+      }
+  
+    
+      if (orConditions.length > 0) {
+        whereConditions[Op.or] = orConditions;
+      }
+      
+      const grms = await Users.findAll({
+        include: [
+          {
+            model: UserRoles,
+            where: whereConditions,
+          },
+        ],
+      });
+      
+    
+      for (const grm of grms) {
+        if (grm.name) {
+          grm_officials_names.push(grm.name);
+        }
+    
+        if (grm.phone) {
+          const msg = `A grievance has been escalated/referred for your action. Please review and act accordingly.`;
+          
+          const msg_obj = {
+            message: msg,
+            phone: grm.phone,
+            grievance_id: grievance.id,
+            grv_code: grievance.code,
+            status: grievance.status
+          };
+    
+          // Send SMS notification
+          await sendNotificationSMS(msg_obj);
+        }
+      }
+    
+      console.log('GRM Officials:', grm_officials_names, grm_officials);
+    
+    } catch (error) {
+      console.error('Failed to retrieve GRM officials:', error);
+    }
+    
 
     return res.status(200).send({
       code: '0000',
-      message: 'Grievance status updated successfully',
+      message: 'Grievance has been escalated successfully',
       data: {
         grievance: grievance,
         code: grievance.code,

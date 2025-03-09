@@ -639,7 +639,7 @@ function getStageDuration(stageName) {
   const stageDurations = {
     "Sorting": 7,
     "Investigation": 14,
-    "Escalate": 14,
+    "Escalated": 14,
     "Resolved": 21,
     "Closed": 42
   };
@@ -850,8 +850,9 @@ const checkStatus = async () => {
   // Handle checking status logic here
   statusResult.value = {
     code: res.data.code,
+    id: res.data.id,
     date_reported: res.data.date_reported,
-    status: 'The status of your grievance is : ' + res.data.status,
+    status: res.data.status,
     daysToExpiryDate: res.data.daysToExpiryDate,
     current_level:  res.data.current_level,
     escalateLabel:  res.data.escalateLabel
@@ -1123,7 +1124,7 @@ const escalateIssue = async () => {
   const formData = {}
   formData.code = statusResult.value.code
   formData.action = EscalateMessage.value
-  formData.new_status = 'Escalate'
+  formData.new_status = 'Escalated'
 
   if (statusResult.value.current_level === 'settlement') {
   formData.current_level = 'county';
@@ -1136,12 +1137,29 @@ const escalateIssue = async () => {
 formData.status_expiry_date = new Date() + getStageDuration(formData.new_status);
 formData.current_status_date=new Date();
 
+// here we provide log actiion 
+formData.grievance_id=statusResult.value.id
+formData.action_type = 'Escalate'
+formData.action_by = 1 /// to be changed
+formData.date_actioned = new Date();
+formData.prev_status = statusResult.value.status
+formData.action_level = statusResult.value.current_level 
   
+
+
 console.log(formData)
 
-const res = await selfEscalate(formData)
+try {
+  const res = await selfEscalate(formData);
+  if (res) {
+    console.log(res)
 
-  //console.log(res)
+    await logGrievanceAction(formData);
+  }
+} catch (error) {
+  console.error("Error in selfEscalate:", error);
+}
+
 
 
 
