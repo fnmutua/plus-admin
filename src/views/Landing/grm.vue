@@ -14,7 +14,8 @@
                 <el-step title="Review & Submit" />
               </el-steps>
 
-              <el-form :model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules"
+              <el-form
+:model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules"
                 ref="dynamicFormRef">
                 <el-card shadow="hover">
                   <el-row v-if="active === 0" :gutter="10">
@@ -34,7 +35,8 @@
 
                       <el-form-item id="btn3" label="Age" prop="age">
                         <el-select v-model="grmForm.age" placeholder="Select" style="width:90%">
-                          <el-option v-for="item in ageRanges" :key="item.value" :label="item.label"
+                          <el-option
+v-for="item in ageRanges" :key="item.value" :label="item.label"
                             :value="item.value" />
                         </el-select>
                       </el-form-item>
@@ -49,7 +51,8 @@
                       </el-form-item>
 
                       <el-form-item id="btn5" label="Phone" prop="phone">
-                        <el-input v-model="grmForm.phone" placeholder="Enter phone number (254.....)" style="width:90%"
+                        <el-input
+v-model="grmForm.phone" placeholder="Enter phone number (254.....)" style="width:90%"
                           :onChange="convertPhoneNumber" />
                       </el-form-item>
 
@@ -67,17 +70,21 @@
                     <!-- Step 2: Grievance Details -->
                     <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
                       <el-form-item id="btn10" label="County" prop="county_id">
-                        <el-select filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
+                        <el-select
+filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
                           style="width:90%">
-                          <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label"
+                          <el-option
+v-for="item in countiesOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
                         </el-select>
                       </el-form-item>
 
                       <el-form-item id="btn11" label="Settlement" prop="settlement_id">
-                        <el-select filterable v-model="grmForm.settlement_id" placeholder="Settlement"
+                        <el-select
+filterable v-model="grmForm.settlement_id" placeholder="Settlement"
                           @change="handleSelectSettlement" style="width:90%">
-                          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
+                          <el-option
+v-for="item in settlementOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
                         </el-select>
                       </el-form-item>
@@ -88,12 +95,14 @@
 
 
 
-                      <el-checkbox id="btn13" v-model="grmForm.isgbv"
+                      <el-checkbox
+id="btn13" v-model="grmForm.isgbv"
                         label="Is this complaint related to Gender-Based Violence?" size="large"
                         style="margin-bottom:5px" />
 
                  
-                        <el-checkbox id="btn13" v-model="grmForm.isInCourt"
+                        <el-checkbox
+id="btn13" v-model="grmForm.isInCourt"
                         label="Is this complaint currently in court?" size="large"
                         style="margin-bottom:5px" />
 
@@ -138,12 +147,14 @@
 
 
                       <el-form-item id="btn15" label="Complaint Description" prop="description">
-                        <el-input v-model="grmForm.description" type="textarea" rows="2"
+                        <el-input
+v-model="grmForm.description" type="textarea" rows="2"
                           placeholder="Describe your complaint" style="width:90%" />
                       </el-form-item>
 
                       <el-form-item id="btn16" label="Plea/Request" prop="plea">
-                        <el-input v-model="grmForm.plea" type="textarea" rows="2" placeholder="Enter your plea/request"
+                        <el-input
+v-model="grmForm.plea" type="textarea" rows="2" placeholder="Enter your plea/request"
                           style="width:90%" />
                       </el-form-item>
                     </el-col>
@@ -163,7 +174,8 @@
                       </el-form-item>
 
                       <el-form-item id="btn19" label="Witness Statement" prop="witness_statement">
-                        <el-input v-model="grmForm.witness_statement" type="textarea"
+                        <el-input
+v-model="grmForm.witness_statement" type="textarea"
                           placeholder="Enter witness statement" style="width:90%" />
                       </el-form-item>
                     </el-col>
@@ -171,7 +183,8 @@
 
                       <el-form-item id="btn17" label="Are you the complainant?" prop="witness">
 
-                        <el-switch v-model="grmForm.self_reported" class="ml-2" inline-prompt
+                        <el-switch
+v-model="grmForm.self_reported" class="ml-2" inline-prompt
                           style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes"
                           inactive-text="No" />
 
@@ -182,14 +195,16 @@
                       </el-form-item>
 
                       <el-form-item v-if="!grmForm.self_reported" id="btn19" label="Your Phone" prop="reporter_phone">
-                        <el-input v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
+                        <el-input
+v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
                           style="width:90%" />
                       </el-form-item>
 
 
 
 
-                      <el-upload id="btn20" class="upload-demo"
+                      <el-upload
+id="btn20" class="upload-demo"
                         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
                         :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
                         v-model:file-list="fileList" :auto-upload="false" :on-exceed="handleExceed">
@@ -260,7 +275,8 @@
             </el-tab-pane>
           </el-tabs>
           <template #footer>
-            <div class="steps-navigation"
+            <div
+class="steps-navigation"
               style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
               <div>
                 <el-tooltip content="Help" placement="top">
@@ -277,7 +293,8 @@
                   </el-icon>
                 </el-button>
 
-                <el-button id="btn2" v-if="active === 2" type="primary" @click="submitForm"
+                <el-button
+id="btn2" v-if="active === 2" type="primary" @click="submitForm"
                   style="margin-left: 10px;">Submit</el-button>
                 <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button>
               </div>
@@ -290,7 +307,8 @@
 
 
     <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
-      <el-tour-step v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
+      <el-tour-step
+v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
         :description="step.content" />
     </el-tour>
 
@@ -621,7 +639,7 @@ function getStageDuration(stageName) {
   const stageDurations = {
     "Sorting": 7,
     "Investigation": 14,
-    "Escalated": 14,
+    "Escalate": 14,
     "Resolved": 21,
     "Closed": 42
   };
@@ -1116,11 +1134,12 @@ const escalateIssue = async () => {
 }
   
 formData.status_expiry_date = new Date() + getStageDuration(formData.new_status);
+formData.current_status_date=new Date();
 
   
 console.log(formData)
 
-//const res = await selfEscalate(formData)
+const res = await selfEscalate(formData)
 
   //console.log(res)
 

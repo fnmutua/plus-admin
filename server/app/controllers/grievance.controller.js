@@ -3617,6 +3617,8 @@ exports.updateGrievanceStatusByComplainant = async (req, res) => {
     const newStatus = req.body.new_status;
     const action = req.body.action;
     const current_level = req.body.current_level;
+    const status_expiry_date = req.body.status_expiry_date;
+    const current_status_date = req.body.current_status_date;
 
     console.log('Updating status..... newStatus', newStatus);
     console.log('Updating status..... current_level', current_level);
@@ -3647,6 +3649,10 @@ exports.updateGrievanceStatusByComplainant = async (req, res) => {
 
     grievance.status = newStatus;
     grievance.current_level = current_level;
+    grievance.status_expiry_date = status_expiry_date;
+    grievance.current_status_date = current_status_date;
+
+
     await grievance.save();
 
     let msg_obj = {
