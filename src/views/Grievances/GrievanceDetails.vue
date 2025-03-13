@@ -210,8 +210,9 @@ const processGrievance = async() => {
   console.log('res.data.current_level', res.data.current_level)
   console.log('current_user_roles', current_user_roles[0])
 
-  if (current_user_roles[0] == res.data.current_level) {
-    console.log('user roles matches grievances')
+  if (current_user_roles[0] === res.data.current_level || current_user_roles[0]  == "national") {
+//  if (current_user_roles[0] == res.data.current_level) {
+    console.log('user roles matches grievances', current_user_roles[0]  )
     button_disabled.value = false
 
   } else {
