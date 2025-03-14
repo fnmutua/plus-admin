@@ -761,23 +761,35 @@ const logAction = async (grievance) => {
 }
 
 
-function getStageDuration(stageName) {
-  // Define the mapping of stages to their durations
-  const stageDurations = {
-    "Sorting": 7,
-    "Investigation": 14,
-    "Escalated": 14,
-    "Resolved": 21,
-    "Closed": 42
-  };
+ 
 
-  // Return the duration or a default value if the stage is not found
-  return stageDurations[stageName] || 0; // Default to 0 if the stage is invalid
+
+function getStageDuration(status) {
+    const durations = {
+        "Sorting": 7, // 7 days
+        "Investigation": 14, // 14 days
+        "Escalated": 14 , // 3 days
+        "Resolved": 21,  // 3 days
+        "Closed": 42,  // 3 days
+  
+    };
+    return (durations[status] || 0) * 24 * 60 * 60 * 1000; // Convert days to milliseconds
 }
+
+
 
 const submitForm = async () => {
   grmForm.value.date_reported = new Date();
- 
+  grmForm.value.status = 'Sorting'
+
+  grmForm.value.current_status_date=new Date();
+  grmForm.value.status_expiry_date = new Date(Date.now() + getStageDuration(grmForm.value.status));
+
+      
+      grmForm.value.model = 'grievance';
+      grmForm.value.current_level = 'settlement';
+
+console.log('grmForm.value',grmForm.value)
 
   if(grmForm.value.isInCourt) {
         grmForm.value.status = 'In Court'
@@ -787,12 +799,6 @@ const submitForm = async () => {
 
 
 
-      grmForm.value.current_status_date=new Date();
-      grmForm.value.status_expiry_date= new Date() + getStageDuration(grmForm.value.new_status);
-
-
-  grmForm.value.model = 'grievance';
-  grmForm.value.current_level = 'settlement';
 
 
   if (grmForm.value.isgbv) {
@@ -1901,8 +1907,11 @@ const onSegmentClick = async () => {
       }
 
       if (!filterValues.value.includes('Referred')) {
-        filterValues.value.splice(index, 0, ['Referred']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+        filterValues.value.splice(index, 0, ['Referred','ExternalReferral']) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
       }
+
+
+
 
   }
 
@@ -2234,6 +2243,7 @@ const getDaysToExpiry = (expiryDate) => {
   const expiry = new Date(expiryDate);
   const today = new Date();
   const diffTime = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24)); // Convert milliseconds to days
+  console.log('expiry',expiry, 'today',today,'diffTime',diffTime )
   return diffTime > 0 ? `${diffTime} days` : "Expired";
 };
 
@@ -2373,6 +2383,20 @@ return formattedText;
 
 
 
+const shouldShowReminder = (date) => {
+console.log('getDaysToExpiry(date)' ,getDaysToExpiry(date) )
+  return getDaysToExpiry(date) ==='Expired'   // Show reminder if ≤ 3 days left
+};
+
+const sendReminder = (row) => {
+
+  ElMessage.success(`Reminder sent to responsible person for grievance ID: ${row.grievance_id || "N/A"}`);
+
+  // API Call Example:
+  // axios.post("/api/reminder", { grievanceId: row.grievance_id })
+};
+
+
 </script>
 
 <template>
@@ -2505,13 +2529,26 @@ v-loading="loading"
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Days to Stage Expiry" width="150">
-          <template #default="scope">
-            <span :class="getExpiryClass(scope.row.status_expiry_date)">
-              {{ getDaysToExpiry(scope.row.status_expiry_date) }}
-            </span>
-          </template>
-        </el-table-column>
+       
+
+        <el-table-column label="Days to Stage Expiry" width="200">
+        <template #default="scope">
+          <span :class="getExpiryClass(scope.row.status_expiry_date)" style="margin-right: 5px;">
+            {{ getDaysToExpiry(scope.row.status_expiry_date) }}
+          </span>
+
+          <el-button 
+            v-if="shouldShowReminder(scope.row.status_expiry_date)" 
+            type="warning" 
+            size="small"
+            plain 
+            @click="sendReminder(scope.row)">
+            Send Reminder
+          </el-button>
+        </template>
+      </el-table-column>
+
+
 
         <el-table-column label="Code" prop="code" sortable width="150" />
         <el-table-column label="Level" prop="current_level" sortable width="150" />
@@ -2529,34 +2566,7 @@ v-loading="loading"
           </template>
         </el-table-column>
 
-       
-
-
-
-        <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-          <template #default="scope">
-            <el-dropdown v-if="isMobile">
-              <span class="el-dropdown-link">
-                <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
-                    :icon="Edit" color="green">Edit</el-dropdown-item>
-                  <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
-                    :icon="Delete" color="red">Delete</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-            <div v-else>
-              <el-button size="small" type="primary" plain :icon="Position" @click="getGrievanceDetails(scope)">
-                More
-              </el-button>
-            </div>
-          </template>
-        </el-table-column>  -->
+        
       </el-table>
       <ElPagination
 :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
@@ -3208,14 +3218,7 @@ v-for="item in settlementOptions" :key="item.value" :label="item.label"
 
             <el-checkbox id="btn13" v-model="grmForm.isInCourt" label="Is this complaint currently in court?" size="large" style="margin-bottom:5px" />
 
-            <!-- <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">
-              <el-select filterable v-model="grmForm.nature" placeholder="Select category" style="width:90%">
-                <el-option label="Land" value="land" />
-                <el-option label="Labour Related" value="labour" />
-                <el-option label="Infrastructure" value="infrastructure" />
-                <el-option label="Others" value="others" />
-              </el-select>
-            </el-form-item> -->
+          
 
 
             <el-form-item v-if="!grmForm.isgbv" id="btn14" label="Nature of Complaint" prop="nature">

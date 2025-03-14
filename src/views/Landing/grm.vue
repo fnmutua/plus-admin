@@ -634,20 +634,18 @@ const logAction = async (grievance) => {
 
 }
 
-function getStageDuration(stageName) {
-  // Define the mapping of stages to their durations
-  const stageDurations = {
-    "Sorting": 7,
-    "Investigation": 14,
-    "Escalated": 14,
-    "Resolved": 21,
-    "Closed": 42
-  };
-
-  // Return the duration or a default value if the stage is not found
-  return stageDurations[stageName] || 0; // Default to 0 if the stage is invalid
+function getStageDuration(status) {
+    const durations = {
+        "Sorting": 7, // 7 days
+        "Investigation": 14, // 14 days
+        "Escalated": 14 , // 3 days
+        "Resolved": 21,  // 3 days
+        "Closed": 42,  // 3 days
+  
+    };
+    return (durations[status] || 0) * 24 * 60 * 60 * 1000; // Convert days to milliseconds
 }
-
+ 
 const submitForm = async () => {
 
   const formInstance = dynamicFormRef
@@ -672,8 +670,8 @@ const submitForm = async () => {
       grmForm.value.model = 'grievance';
 
       grmForm.value.current_status_date=new Date();
-      grmForm.value.status_expiry_date= new Date() + getStageDuration(grmForm.value.new_status);
-
+ 
+      grmForm.value.status_expiry_date = new Date(Date.now() + getStageDuration(grmForm.value.status));
 
 
 

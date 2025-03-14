@@ -93,6 +93,12 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true
       },
      
+      reffered_to: {
+        type: DataTypes.STRING,
+        allowNull: true
+      }, 
+
+
       field_investigations: {
         type: DataTypes.STRING,
          allowNull: true

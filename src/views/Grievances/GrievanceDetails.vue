@@ -176,6 +176,10 @@ const showActionButton=ref(true)
 
 const FullGrievanceData=ref()
 
+const showRefferalField=ref(false)
+const shouldShowReminder=ref(false)
+ 
+
 const processGrievance = async() => { 
   const id = route.params.id
   const formData = {}
@@ -183,8 +187,11 @@ const processGrievance = async() => {
   formData.id = id
 
   const res = await getOneGrievance(formData)
-  console.log(res.data)
+  console.log('FullGrievanceData', res.data)
   FullGrievanceData.value=res.data
+  shouldShowReminder.value= getStageDuration(res.data.status) < 1 
+  console.log(  'shouldShowReminder.value', getStageDuration(res.data.status))
+
   // Get the Details of the Grievance
   Grievance.value.id = id
   Grievance.value.code = res.data.code
@@ -340,7 +347,7 @@ const processGrievance = async() => {
   }
 
 
-  else if (Grievance.value.status == 'Referred') {
+  else if (Grievance.value.status == 'Referred' || Grievance.value.status == 'ExternalReferral'  ) {
     button_label.value = 'Review Status';
     button_color.value = 'warning';
     button_icon.value = 'icon-park-solid:preview-open';
@@ -449,6 +456,17 @@ const processGrievance = async() => {
 
 
 
+// Check if level is 'county' or 'national', then add the external agency option
+if (res.data.current_level  == 'county' || res.data.current_level  == 'national') {
+  showRefferalField.value=true
+  StatusOptions.value.push({
+    value: 'ExternalReferral',
+    label: 'Refer to External Agency',
+  });
+}else {
+  showRefferalField.value=false
+
+}
 
 
 
@@ -639,6 +657,7 @@ const form = ref({
   action_type: null,
   action_by: null,
   action: null,
+  reffered_to: null,
   date_actioned: null,
   prev_status: null,
   new_status: null,
@@ -688,18 +707,7 @@ const validateFileUploads = (rule: any, value: any, callback: any) => {
   }
 }
 
-const rules = ({
-  action: [{ required: true, message: 'Action is required', trigger: 'blur' }],
-  new_status: [{ required: true, message: 'Status is required', trigger: 'blur' }],
-  field_investigations: [{ required: true, message: 'This is required', trigger: 'blur' }],
-  agreement_reached: [{ required: true, message: 'This is required', trigger: 'blur' }],
-  field_verification_conducted: [{ required: true, message: 'Status is required', trigger: 'blur' }],
-  filer_present: [{ required: true, message: 'This is required', trigger: 'blur' }],
-  resolution_date: [{ required: true, message: 'Resolution date is required', trigger: 'blur' }],
-  // fileList: [{required: true,  validator: validateFileUploads, trigger: 'change' }],
 
-
-});
 
 
 
@@ -746,19 +754,19 @@ const generatePDFform = async (grievance, action) => {
 }
 
 
-function getStageDuration(stageName) {
-  // Define the mapping of stages to their durations
-  const stageDurations = {
-    "Sorting": 7,
-    "Investigation": 14,
-    "Escalated": 14,
-    "Resolved": 21,
-    "Closed": 42
-  };
 
-  // Return the duration or a default value if the stage is not found
-  return stageDurations[stageName] || 0; // Default to 0 if the stage is invalid
+function getStageDuration(status) {
+    const durations = {
+        "Sorting": 7, // 7 days
+        "Investigation": 14, // 14 days
+        "Escalated": 14 , // 3 days
+        "Resolved": 21,  // 3 days
+        "Closed": 42,  // 3 days
+  
+    };
+    return (durations[status] || 0) * 24 * 60 * 60 * 1000; // Convert days to milliseconds
 }
+
 
 
 const dynamicFormRef = ref<FormInstance>()
@@ -822,7 +830,7 @@ const submitResolutionForm = async () => {
         action: msg,
         current_level: form.value.current_level,
         current_status_date: new Date(),
-        status_expiry_date: new Date() + getStageDuration(form.value.new_status),
+        status_expiry_date: new Date() + getStageDuration(form.value.new_status), 
         action_by: userInfo.id,
         action_level: current_user_roles[0] ? current_user_roles[0] : 'settlement',
 
@@ -1253,11 +1261,44 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 };
 
+
+const rules = computed(() => ({
+  action: [{ required: true, message: "Action is required", trigger: "blur" }],
+  reffered_to: [{ required: true, message: "Name of organization is required", trigger: "blur" }],
+  new_status: [{ required: true, message: "Status is required", trigger: "blur" }],
+  field_investigations: [{ required: true, message: "This is required", trigger: "blur" }],
+  agreement_reached: [{ required: true, message: "This is required", trigger: "blur" }],
+  field_verification_conducted: [{ required: true, message: "Status is required", trigger: "blur" }],
+  filer_present: [{ required: true, message: "This is required", trigger: "blur" }],
+  resolution_date: [{ required: true, message: "Resolution date is required", trigger: "blur" }],
+
+  fileList: [
+    {
+      required: form.value.new_status === "Resolved",
+      message: "Please upload supporting documents",
+      trigger: "change"
+    }
+  ]
+}));
+
+
+
+
+
+const sendReminder = (row) => {
+
+ console.log(row)
+  // API Call Example:
+  // axios.post("/api/reminder", { grievanceId: row.grievance_id })
+};
+
+
+
 </script>
 
 <template>
   <el-card>
-    <!-- Header Section -->
+ 
     <template #header>
       <div class="card-header">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
@@ -1290,9 +1331,13 @@ content="Close the grievance if all issues have been resolved and complainant sa
                   <Icon :icon="button_icon" /> {{ button_label }}
                 </el-button>
               </el-tooltip>
-
-
-
+              <el-button 
+                v-if="shouldShowReminder"
+                   type="warning" 
+                   plain 
+                  @click="sendReminder(FullGrievanceData)">
+                  <Icon :icon="'icon-park-outline:remind'" style="margin-right: 10px;"/>  Send Reminder
+                </el-button>
             </div>
           </template>
         </el-card>
@@ -1578,7 +1623,11 @@ type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
 
 
 
-
+      <el-form-item  v-if="form.new_status == 'ExternalReferral'"  label="Name of organization case reffered to" label-position="top" prop="reffered_to">
+          <el-input
+  type="textarea" :rows="2" placeholder="Name of organization "
+            v-model="form.reffered_to" />
+        </el-form-item> 
 
 
       <el-form-item label="Upload Documentation" label-position="top" prop="fileList">
