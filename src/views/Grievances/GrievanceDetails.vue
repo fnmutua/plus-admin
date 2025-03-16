@@ -189,7 +189,7 @@ const processGrievance = async() => {
   const res = await getOneGrievance(formData)
   console.log('FullGrievanceData', res.data)
   FullGrievanceData.value=res.data
-  shouldShowReminder.value= getStageDuration(res.data.status) < 1 
+  shouldShowReminder.value= new Date(res.data.status_expiry_date) < new Date();
   console.log(  'shouldShowReminder.value', getStageDuration(res.data.status))
 
   // Get the Details of the Grievance
@@ -764,7 +764,7 @@ function getStageDuration(status) {
         "Closed": 42,  // 3 days
   
     };
-    return (durations[status] || 0) * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+    return (durations[status] || 0)  ; // Convert days to milliseconds
 }
 
 
@@ -1285,9 +1285,32 @@ const rules = computed(() => ({
 
 
 
-const sendReminder = (row) => {
+const sendReminder =async (row) => {
 
  console.log(row)
+
+ const formData = {}
+
+ formData.grievance_id = row.id;
+ formData.action_type = 'Reminder';
+ formData.action_by = userInfo.id;
+ formData.date_actioned = new Date();
+ formData.prev_status = row.status;
+ formData.new_status = row.status;
+ formData.status = row.status;
+ formData.action = "This is a reminder that grievance " + row.code + " is pending sorting and requires your attention. Kindly review and take the necessary action at your earliest convenience to ensure timely resolution.";
+ 
+ formData.current_level = row.current_level;
+
+      console.log("Submitting log...",formData);
+     const res = await logGrievanceAction(formData);
+
+     if (res && res.success) {
+      console.log(res)
+
+      // send SMS notification to GRM officer 
+    }
+
   // API Call Example:
   // axios.post("/api/reminder", { grievanceId: row.grievance_id })
 };

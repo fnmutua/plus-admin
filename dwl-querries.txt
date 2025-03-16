@@ -172,3 +172,10 @@ Close	42 days
  
 UPDATE settlement SET "isApproved" = 'Approved' WHERE id = 1163;
 
+
+
+
+ALTER TABLE public.grievance_logs
+ADD COLUMN reffered_to VARCHAR;
+
+grievance_logs.reffered_to

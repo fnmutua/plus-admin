@@ -2537,14 +2537,14 @@ v-loading="loading"
             {{ getDaysToExpiry(scope.row.status_expiry_date) }}
           </span>
 
-          <el-button 
+          <!-- <el-button 
             v-if="shouldShowReminder(scope.row.status_expiry_date)" 
             type="warning" 
             size="small"
             plain 
             @click="sendReminder(scope.row)">
             Send Reminder
-          </el-button>
+          </el-button> -->
         </template>
       </el-table-column>
 
