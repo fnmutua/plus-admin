@@ -6,7 +6,7 @@ import {
 } from 'element-plus'
 // Locally
 import { getOneGrievance } from '@/api/grievance'
-import { uploadGrievanceDocuments, logGrievanceAction, getActionFile, updateGrievanceStatus, 
+import { uploadGrievanceDocuments, logGrievanceAction, getActionFile, updateGrievanceStatus, sendOverdueReminder,
   updateGrievance, sendAcknowledgement, deleteCascade,revertGrievanceHistory,getGrievanceHistoryByGrievanceId} from '@/api/grievance'
 import { uuid } from 'vue-uuid'
 
@@ -1303,14 +1303,9 @@ const sendReminder =async (row) => {
  formData.current_level = row.current_level;
 
       console.log("Submitting log...",formData);
-     const res = await logGrievanceAction(formData);
+     const res = await sendOverdueReminder(formData);
 
-     if (res && res.success) {
-      console.log(res)
-
-      // send SMS notification to GRM officer 
-    }
-
+     
   // API Call Example:
   // axios.post("/api/reminder", { grievanceId: row.grievance_id })
 };

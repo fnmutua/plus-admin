@@ -96,3 +96,9 @@ export const sendAcknowledgement= (data: any) => {
   // console.log('....', data)
   return request.post({ url: prod + '/api/v1/grv/self/escalate', data })
 }
+
+
+export const sendOverdueReminder = (data: any): Promise<IResponse<any>> => {
+  // console.log('....', data)
+  return request.post({ url: prod + '/api/v1/grv/reminder', data })
+}

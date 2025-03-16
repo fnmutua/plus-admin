@@ -3819,3 +3819,120 @@ exports.updateGrievanceStatusByComplainant = async (req, res) => {
     });
   }
 };
+
+// Export function
+ 
+
+
+exports.xsendReminder = async (req, res) => {
+  try {
+  
+    // Prepare the object for creation
+    let obj = req.body;
+
+    console.log("Here to Remind..")
+
+    console.log('Log>>', obj)
+
+       // Create the record
+    const item = await db.models.grievance_log.create(obj);
+
+    console.log('Created log:', item);
+
+    res.status(200).send({
+      data: item,
+      code: '0000',
+      message: 'Action Logged successfully.'
+    });
+
+  } catch (err) {
+   
+    console.log(err)
+    res.status(500).send({ message: 'Logging action failed' });
+  }
+};
+
+ 
+
+
+exports.sendReminder = async (req, res) => {
+  try {
+    const user = req.thisUser;
+    const currentUserRoles = await user.getRoles();
+    const hasSuperAdminRole = currentUserRoles.some((role) => role.name === "super_admin");
+    const hasGRMRole = currentUserRoles.some((role) => role.name === "grm" || role.name === "gbv");
+
+    if (!hasGRMRole && !hasSuperAdminRole) {
+      return res.status(403).send({ code: "9999", message: "Unauthorized access to grievances denied" });
+    }
+
+    const { grievance_id: grievance_id, new_status: new_status, action  } = req.body;
+    if (!grievance_id || !new_status) {
+      return res.status(400).send({ code: "1001", message: "Grievance ID and new status are required" });
+    }
+
+    const grievance = await Grievance.findOne({ 
+      where: { id: grievance_id } 
+    });
+
+    if (!grievance) {
+      return res.status(404).send({ code: "1002", message: "No grievance found for the given ID" });
+    }
+
+    // Get GRM officials based on grievance location
+    const grmOfficials = await Users.findAll({
+      include: [
+        {
+          model: UserRoles,
+          where: {
+            roleid: 4,
+            [Op.or]: [
+              { settlement_id: grievance.settlement_id ? grievance.settlement_id.toString() : null },
+              { county_id: grievance.county_id ? grievance.county_id.toString() : null },
+              { location_level: "national" },
+            ],
+          },
+        },
+      ],
+    });
+
+
+     // Prepare the object for creation
+     let obj = req.body;
+
+     console.log("Here to Remind..")
+ 
+     console.log('Log>>', obj)
+ 
+        // Create the record
+     const item = await db.models.grievance_log.create(obj);
+
+
+    if (item){
+          // Send SMS notifications to GRM officials
+          for (const grm of grmOfficials) {
+            if (grm.phone) {
+              const msg_obj = {
+                message: action,
+                phone: grm.phone,
+                grievance_id: grievance.id,
+                grv_code: grievance.code,
+                status: grievance.status,
+              };
+              await sendNotificationSMS(msg_obj);
+            }
+          }
+    }
+  
+
+   
+    return res.status(200).send({
+      code: "0000",
+      message: "Grievance Reminder sent successfully",
+      data: { grievance, code: grievance.code, date_reported: grievance.date_reported, status: grievance.status },
+    });
+  } catch (error) {
+    console.error("Error updating grievance status:", error);
+    return res.status(500).send({ code: "9999", message: "Unable to update grievance status. Please try again later." });
+  }
+};

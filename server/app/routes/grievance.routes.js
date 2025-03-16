@@ -34,8 +34,9 @@ module.exports = function (app) {
   app.post('/api/v1/grv/phone', [authJwt.verifyToken],  controller.getGrievanceByUserPhone)
   app.post('/api/v1/grv/history', [authJwt.verifyToken],  controller.getGrievanceHistoryByGrievanceId)
   app.post('/api/v1/grv/self/escalate',   controller.updateGrievanceStatusByComplainant)
+  app.post('/api/v1/grv/reminder', [authJwt.verifyToken],   controller.sendReminder)
 
-
+  
   
 
   app.post('/api/v1/grv/delete', [authJwt.verifyToken],  controller.deleteCascadeGrievance)
