@@ -39,9 +39,9 @@ module.exports = function (app) {
   
   
 
-  app.post('/api/v1/grv/delete', [authJwt.verifyToken],  controller.deleteCascadeGrievance)
+  app.post('/api/v1/grv/delete', [authJwt.verifyToken,authJwt.isGrmOfficerNational],  controller.deleteCascadeGrievance)
 
-  app.post('/api/v1/grv/revert', [authJwt.verifyToken, authJwt.isStaffOrAdmin],  controller.revertEdits)
+  app.post('/api/v1/grv/revert', [authJwt.verifyToken,authJwt.isGrmOfficerNational, authJwt.isStaffOrAdmin],  controller.revertEdits)
 
   
   app.post(

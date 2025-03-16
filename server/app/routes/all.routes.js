@@ -39,9 +39,9 @@ module.exports = function (app) {
   
 
 
-  app.post('/api/v1/data/download/all', [authJwt.verifyToken, authJwt.isAdmin], controller.getAllListforDownload)
+ app.post('/api/v1/data/download/all', [authJwt.verifyToken, authJwt.isAdmin], controller.getAllListforDownload)
 
-  
+ 
 
 
 

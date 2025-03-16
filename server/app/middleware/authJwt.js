@@ -69,7 +69,7 @@ verifyToken = (req, res, next) => {
 //   });
 // };
 
- isAdmin = (req, res, next) => {
+ _isAdmin = (req, res, next) => {
   User.findByPk(req.userid).then(user => {
     user.getRoles().then(roles => {
       const acceptedRoles = ["admin", "super_admin", "staff"];
@@ -91,6 +91,35 @@ verifyToken = (req, res, next) => {
       error: err.message
     });
   });
+};
+
+isAdmin = (req, res, next) => {
+  User.findByPk(req.userid)
+    .then(user => {
+      if (!user) {
+        return res.status(404).send({ message: "User not found!" });
+      }
+      user.getRoles().then(roles => {
+        const acceptedRoles = ["admin", "super_admin", "staff", "grm"];
+
+        for (let i = 0; i < roles.length; i++) {
+          if (acceptedRoles.includes(roles[i].name) || roles[i].user_roles?.location_level === "national") {
+            next();
+            return;
+          }
+        }
+
+        res.status(403).send({
+          message: "This resource requires an elevated role or national-level access!"
+        });
+      });
+    })
+    .catch(err => {
+      res.status(500).send({
+        message: "Unable to validate role!",
+        error: err.message
+      });
+    });
 };
 
 
@@ -290,7 +319,7 @@ isAdminOrCountyAdmin = (req, res, next) => {
    });
  };
  
- isGrmOfficerNational = (req, res, next) => {
+ _isGrmOfficerNational = (req, res, next) => {
   // console.log("Requrest,",req.userid)
    User.findByPk(req.userid).then(user => {
   console.log('-----------------------isGrmOfficerNational',user)
@@ -319,6 +348,37 @@ isAdminOrCountyAdmin = (req, res, next) => {
    });
  };
  
+
+ isGrmOfficerNational = async (req, res, next) => {
+  try {
+    const user =   await User.findByPk(req.userid);
+    if (!user) {
+      return res.status(404).send({ message: "User not found" });
+    }
+
+    const roles =  await user.getRoles();
+
+    for (const role of roles) {
+      console.log(role.name, role.user_roles?.location_level); // Debugging output
+
+      if (role.name === "super_admin") {
+        return next(); // Super Admins bypass location checks
+      }
+
+      if ((role.name === "grm" || role.name === "gbv") && role.user_roles?.location_level === "national") {
+        return next();
+      }
+    }
+
+    res.status(403).send({ message: "You require a national-level grievance role to perform this function" });
+  } catch (error) {
+    console.error("Error in isGrmOfficerNational:", error);
+    res.status(500).send({ message: "Server error" });
+  }
+};
+
+
+
 const authJwt = {
   verifyToken: verifyToken,
   isAdmin: isAdmin,
