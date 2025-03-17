@@ -1491,15 +1491,16 @@ db.models.grievance.hasMany(db.models.grievance_document, {
 
 
 
-// grievance_notification  - grievance
+// Define associations
 db.models.grievance_notification.belongsTo(db.models.grievance, {
-  foreignKey: 'grievance_id'
-})
+  foreignKey: 'grievance_id',
+  onDelete: 'SET NULL',  // Ensures foreign key is set to NULL on deletion
+});
 
 db.models.grievance.hasMany(db.models.grievance_notification, {
-  foreignKey: 'grievance_id'
-})
-
+  foreignKey: 'grievance_id',
+  onDelete: 'SET NULL',  // Ensures dependent records' foreign key is set to NULL
+});
 
 
 

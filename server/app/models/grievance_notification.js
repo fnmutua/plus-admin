@@ -10,11 +10,8 @@ module.exports = function(sequelize, DataTypes) {
 
     grievance_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'grievance', // name of the Grievance model
-        key: 'id'
-      }
+      allowNull: true, // Must be NULLABLE for ON DELETE SET NULL
+    
     },
 
     sender_id: {
@@ -27,7 +24,6 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
 
-    
     medium: {
       type: DataTypes.STRING,
       allowNull: false
@@ -48,12 +44,11 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
      
- 
     code: {
       type: DataTypes.STRING,
       allowNull: false
     },
- 
+
   }, {
     sequelize,
     tableName: 'grievance_notification',
@@ -66,8 +61,7 @@ module.exports = function(sequelize, DataTypes) {
         fields: [
           { name: "id" },
         ]
-      }, 
-
+      },
     ]
   });
 };

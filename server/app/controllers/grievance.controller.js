@@ -3249,6 +3249,7 @@ exports.modelImportGrievances = async (req, res) => {
         }
       };
 
+
       exports.deleteCascadeGrievance = async (req, res) => {
         try {
             const { model, id } = req.body;
@@ -3283,9 +3284,80 @@ exports.modelImportGrievances = async (req, res) => {
             // Log grievance deletion before deleting the record
             await updateGrievanceHistory(record.id, record, req.thisUser.id, "Delete");
     
+            const associations = Model.associations;
+     
+          // Delete all associated records iteratively
+          for (const assocName in associations) {
+            const association = associations[assocName];
+
+            console.log('assocName',assocName)
+            if (assocName === "grievance_histories") continue; // Skip grievance_history association
+            if (assocName === "grievance_documents") continue; // Skip grievance_history association
+            if (assocName === "grievance_notifications") continue; // Skip grievance_history association
+            if (assocName === "grievance_logs") continue; // Skip grievance_history association
+
+      
+            if (association.target) {
+              const relatedModel = association.target;
+      
+              switch (association.associationType) {
+                case "HasMany":
+                case "HasOne":
+                  await relatedModel.destroy({
+                    where: { [association.foreignKey]: id },
+                  });
+                  break;
+                case "BelongsToMany":
+                  const throughTable = association.throughModel || association.through;
+                  await throughTable.destroy({
+                    where: { [association.foreignKey]: id },
+                  });
+                  break;
+                case "BelongsTo":
+                  await relatedModel.update(
+                    { [association.foreignKey]: null },
+                    { where: { [association.foreignKey]: id } }
+                  );
+                  break;
+                default:
+                  console.log(`Unhandled association type: ${association.associationType}`);
+              }
+            }
+          }
+
             // Delete only the main record (without affecting associations)
             await record.destroy();
     
+
+            // Get GRM officials based on grievance location
+            const grmOfficials = await Users.findAll({
+              include: [
+                {
+                  model: UserRoles,
+                  where: {
+                    roleid: 4,
+                    [Op.or]: [
+                      { location_level: "national" },
+                    ],
+                  },
+                },
+              ],
+            });
+
+          // Send SMS notifications to GRM officials
+          for (const grm of grmOfficials) {
+            if (grm.phone) {
+              const msg_obj = {
+                message: 'The greivance has been deleted',
+                phone: grm.phone,
+                grievance_id: record.id,
+                grv_code: record.code,
+                status: record.status,
+              };
+              await sendNotificationSMS(msg_obj);
+            }
+          }
+
             res.status(200).send({
                 message: `${model} record deleted successfully.`,
                 data: record,
