@@ -102,9 +102,7 @@ module.exports = function (app) {
   app.post('/api/v1/data/count/distinct', [authJwt.verifyToken], controller.modelCountDistinct)
   app.post('/api/v1/user/activate', [authJwt.verifyToken], controller.modelActivateUser)
 
-  // Gets county users
-  app.get('/api/v1/user/county', [authJwt.verifyToken], controller.modelCountyUsers)
-
+ 
   // Gets all users
 
   //app.post('/api/v1/user/all',  [authJwt.verifyToken],controller.modelAllUsers) // retrired 

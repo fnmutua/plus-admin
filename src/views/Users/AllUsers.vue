@@ -2,8 +2,6 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { getUserRoles,getByName } from '@/api/users'
 
@@ -24,7 +22,7 @@ import {
 } from '@element-plus/icons-vue'
 
 import { ref, reactive, computed } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElDivider,ElCard,ElCol, ELRow } from 'element-plus'
+import { ElPagination, ElTooltip, ElOption, ElDivider,ElCol } from 'element-plus'
 import { useRouter } from 'vue-router'
  import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -33,10 +31,6 @@ import xlsx from "json-as-xlsx"
 import DownloadAll from '@/views/Components/DownloadAll.vue';
 
 import { searchByKeyWord } from '@/api/settlements'
-interface Params {
-  pageIndex?: number
-  xpageSize?: number
-}
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -56,7 +50,6 @@ if (isMobile.value) {
 
 }
 const showAdminButtons =  ref(appStore.getAdminButtons)
-const showEditButtons =  ref(appStore.getEditButtons)
 
 
 const currentUser = wsCache.get(appStore.getUserInfo)
@@ -84,13 +77,11 @@ const loading = ref(true)
 const pageSize = ref(5)
 const currentPage = ref(1)
 const total = ref(0)
-const downloadLoading = ref(false)
 
 
 
 
 const dialogFormVisible = ref(false)
-const editUserForm = ref()
 const formLabelWidth = '100px'
 
 
@@ -223,63 +214,8 @@ const destructure = (obj) => {
 }
 
 const getCountyNames = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'county',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var countyOpt = {}
-      countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
-      //  console.log(countyOpt)
-      countiesOptions.value.push(countyOpt)
-    })
-  })
 }
 
-const xgetRoles = async () => {
-  const res = await getUserRoles({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'roles',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var roleOpt = {}
-      roleOpt.value = arrayItem.id
-      roleOpt.label = arrayItem.name
-      //  console.log(countyOpt)
-      if (arrayItem.name !=='super_admin') {
-        RolesOptions.value.push(roleOpt)
-
-      }
-    })
-  })
-}
 
 const getRoles = async () => {
   
@@ -314,27 +250,6 @@ const getRoles = async () => {
 }
 
 const getSettlementsOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-    loading.value = false
-    // pass result to the makeoptions
-
-    settlements.value = ret
-    makeSettlementOptions(settlements)
-  })
 }
 
 
@@ -357,41 +272,6 @@ const activateDeactivate = (data: TableSlotDefault) => {
 }
 
 
-const xgetFilteredBySearchData = async (searchString) => {
-  const formData = {}
-  formData.limit = pSize.value
-  formData.page = page.value
-  formData.curUser = 1 // Id for logged in user
-  formData.model = model
-
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = searchString
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = filters
-  formData.filterValues = filterValues
-  formData.associated_multiple_models = associated_multiple_models
-  //formData.nested_models = nested_models
-  //formData.nested_filter = nested_filter
-
-  //-------------------------
-  console.log(formData)
-  const res = await searchByKeyWord(formData)
-
-  console.log('After -----x ------Querry', res)
-  tableDataList.value = res.data
-  tableDataList_orig.value = res.data // back for post filter
-
-  total.value = res.total
-  loading.value = false
-
-  tblData = [] // reset the table data
-
-}
 
 const getFilteredBySearchData = async (searchString) => {
   const formData = {}
@@ -499,7 +379,7 @@ getInterventionsAll()
 
 
 
-const AddUser = (data: TableSlotDefault) => {
+const AddUser = () => {
 
   ElMessage.warning("Coming soon...")
   // push({
@@ -539,7 +419,6 @@ const updateUser = () => {
 
   dialogFormVisible.value = false
 }
-const search = ref('')
 
  
 

@@ -3199,42 +3199,6 @@ exports.modelLookup = async (req, res) => {
 
 
 
-exports.modelCountyUsers = (req, res) => {
-  var reg_model = req.query.model
-  var pg_number = req.query.page
-  var limit = req.query.limit
-  var sort = req.query.sort
-  var county = req.query.county_id
-  var curUSer = req.query.curUser
-
-  console.log('modelCountyUsers ------->', req.query)
-
-  console.log('Sort:order', req.query.sort)
-  console.log('Model', reg_model)
-  console.log('Limit', limit)
-
-  var qry = {}
-
-  if (reg_model === 'users') {
-    //   console.log("Include for users......")
-    qry.offset = (req.query.page - 1) * req.query.limit
-      ; (qry.limit = limit), (qry.where = { county_id: county, id: { [op.ne]: curUSer } }) // Exclude the logged in user returing in the list
-    qry.order = [['id', sort]]
-  } else {
-    ; (qry.offset = pg_number * limit), (qry.limit = limit), (qry.order = [['id', sort]])
-  }
-
-  console.log('The Querry', qry)
-  db.models[reg_model].findAndCountAll(qry).then((list) => {
-    console.log(list.count)
-    res.status(200).send({
-      data: list.rows,
-      total: list.count,
-      code: 20000
-    })
-  })
-}
-
 
 exports.modelGetParentIDS = (req, res) => {
   var reg_model = req.body.parent

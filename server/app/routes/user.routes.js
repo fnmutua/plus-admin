@@ -34,6 +34,8 @@ module.exports = function(app) {
   app.post("/api/v1/feedback/add", controller.sendFeedback);
   app.post("/api/v1/feedback/all", [authJwt.verifyToken, authJwt.isStaffOrAdmin],controller.getFeedback);
 
+ // Gets county users
+ //app.get('/api/v1/user/county', [authJwt.verifyToken], controller.modelCountyUsers)
 
 
 
