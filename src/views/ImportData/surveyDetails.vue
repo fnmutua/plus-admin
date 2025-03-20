@@ -131,6 +131,7 @@ const allProperties =ref([]) // The first five properties
 const selectedFields = ref([]); // Ensure it's reactive
 const selectedFieldOptions = ref([]); // Ensure it's reactive
 const features =ref([])
+const originalFeatures =ref([])
 const  totalItems=ref()
 const  disableMap=ref(false)
 
@@ -181,7 +182,7 @@ const getFormData = async () => {
 
         // If the result is GeoJSON
         features.value = response.data.features;
-
+        originalFeatures.value = response.data.features;
         // Extract the first feature's properties
         allProperties.value = features.value[0].properties;
         tableHeaders.value = Object.keys(allProperties.value).slice(0, 7); // Use first 7 fields initially
@@ -260,6 +261,7 @@ getFormData()
 
 
 
+
 const router = useRouter()
 
 
@@ -324,6 +326,12 @@ const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
   const end = start + pageSize.value;
   return tableData.value.slice(start, end);
+});
+
+
+// Watch paginatedData to detect changes
+watch(paginatedData, (newValue) => {
+  console.log("Paginated data changed:", newValue);
 });
 
 // Watch the filtered data to update totalItems and reset the pagination
@@ -2023,25 +2031,51 @@ const uploadOptions = [
 
 
 
-watch(filterValues, () => {
+// watch(filterValues, () => {
 
-  console.log('originalTableData.value',originalTableData.value)
+//   console.log('originalTableData.value',originalTableData.value)
+
+//   if (!filterField.value || !Array.isArray(originalTableData.value)) {
+//     return; // Return early if there's no valid field or original data
+//   }
+
+//   // Filter the table data based on the selected values
+//   if (filterValues.value.length === 0) {
+//     // If no filter is selected, revert to original data
+//     tableData.value = [...originalTableData.value];
+//   } else {
+//     // Apply the filter to original data
+//     tableData.value = originalTableData.value.filter(item =>
+//       filterValues.value.includes(item[filterField.value])
+//     );
+//   }
+// }, { immediate: true });
+
+
+watch(filterValues, () => {
+  console.log('originalTableData.value', originalTableData.value);
+  console.log('originalFeatures.value', originalFeatures.value);
 
   if (!filterField.value || !Array.isArray(originalTableData.value)) {
-    return; // Return early if there's no valid field or original data
+    return; // Exit if no valid field or original data
   }
 
-  // Filter the table data based on the selected values
   if (filterValues.value.length === 0) {
-    // If no filter is selected, revert to original data
+    // Restore original data when filter is cleared
     tableData.value = [...originalTableData.value];
+    features.value = deepClone(originalFeatures.value);
   } else {
-    // Apply the filter to original data
+    // Filter `tableData`
     tableData.value = originalTableData.value.filter(item =>
       filterValues.value.includes(item[filterField.value])
     );
+
+    // Filter `features.value` based on `filterValues`
+    features.value = originalFeatures.value.filter(feature =>
+      filterValues.value.includes(feature.properties[filterField.value])
+    );
   }
-}, { immediate: true });
+}, { immediate: true, deep: true });
 
 
 
@@ -2155,6 +2189,8 @@ const closePopup = () => {
 
 }
  
+ 
+
 
 </script>
 
@@ -2183,17 +2219,17 @@ const closePopup = () => {
       <el-tab-pane label="Data" name="data">
         <el-card v-loading="loading">
           <el-row type="flex" justify="start" gutter="10">
-            <el-select v-model="selectedFields" multiple clearable placeholder="Select properties to display"
+            <el-select v-model="selectedFields" multiple  filterable clearable placeholder="Select properties to display"
               :collapse-tags="true" style="margin-bottom: 10px; width: 25%; margin-right: 10px;" class="select-properties">
               <el-option v-for="(value, key) in allProperties" :key="key" :label="key" :value="key" />
             </el-select>
 
-            <el-select v-model="filterField" clearable placeholder="Filter By" :onChange="handleSelectFilterField"
+            <el-select v-model="filterField" filterable  clearable placeholder="Filter By" :onChange="handleSelectFilterField"
               :collapse-tags="true" style="margin-bottom: 10px;  margin-right: 10px; width: 15%;" class="select-properties">
               <el-option v-for="(item, key) in selectedFieldOptions" :key="key" :label="item.value" :value="item.value" />
             </el-select>
 
-            <el-select v-model="filterValues" multiple clearable placeholder="Filter Values"
+            <el-select v-model="filterValues" filterable multiple clearable placeholder="Filter Values"
                   :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px; width: 15%;" 
                   class="select-properties">
                 <el-option v-for="(option, index) in filterOptions" 
@@ -2202,7 +2238,7 @@ const closePopup = () => {
                           :value="option.value" />
               </el-select>
 
-              <el-select v-model="uploadModel" multiple clearable placeholder="Import to"
+              <el-select v-model="uploadModel" filterable multiple clearable placeholder="Import to"
                   :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px; width: 15%;" 
                   class="select-properties">
                 <el-option v-for="(option, index) in uploadOptions" 
@@ -2220,8 +2256,7 @@ const closePopup = () => {
 
           </el-row>
      
-       
- 
+        
             <el-table-v2
               :columns="tableColumns"
               :data="paginatedData"

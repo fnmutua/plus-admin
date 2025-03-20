@@ -44,7 +44,7 @@ DROP TABLE grievance CASCADE;
 ALTER TABLE users ALTER COLUMN phone TYPE VARCHAR(50);
 
 
-INSERT INTO public.user_roles(roleid, userid) VALUES (0,233);
+INSERT INTO public.user_roles(roleid, userid) VALUES (-99,1);
 INSERT INTO public.user_roles(roleid, userid,location_level) VALUES (0,233,'national');
 
 
@@ -183,3 +183,10 @@ grievance_logs.reffered_to
 
 
 ALTER TABLE users ALTER COLUMN name SET NOT NULL;
+
+UPDATE roles SET id = -99  WHERE name = 'root_admin';
+
+
+UPDATE roles
+SET subordinates = subordinates || '{0}'
+WHERE id = -99;
