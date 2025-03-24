@@ -2604,13 +2604,13 @@ v-loading="loading" :data="tableDataList" :loading="loading" style="width: 100% 
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Days to Stage Expiry" width="150">
+        <!-- <el-table-column label="Days to Stage Expiry" width="150">
           <template #default="scope">
             <span :class="getExpiryClass(scope.row.status_expiry_date)">
               {{ getDaysToExpiry(scope.row.status_expiry_date) }}
             </span>
           </template>
-        </el-table-column>
+        </el-table-column> -->
         <el-table-column label="Code" prop="code" sortable width="150" />
         <el-table-column label="Level" prop="current_level" sortable width="150" />
         <el-table-column label="Complainant" prop="name" sortable width="150" />
@@ -2858,13 +2858,13 @@ v-loading="loading"
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="Days to Stage Expiry" width="150">
+          <!-- <el-table-column label="Days to Stage Expiry" width="150">
           <template #default="scope">
             <span :class="getExpiryClass(scope.row.status_expiry_date)">
               {{ getDaysToExpiry(scope.row.status_expiry_date) }}
             </span>
           </template>
-        </el-table-column>
+        </el-table-column> -->
           <el-table-column label="Code" prop="code" sortable width="150" />
           <el-table-column label="Level" prop="current_level" sortable width="150" />
           <el-table-column label="Complainant" prop="name" sortable width="150" />

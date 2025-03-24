@@ -804,6 +804,17 @@ const updateUser = () => {
 
     console.log("udapyetd")
 
+       // Find the index of the object with the matching ID
+       const index = tableDataList.value.findIndex(item => item.id === response.user.id);
+
+        if (index !== -1) {
+          // Replace the object with the updated response data
+          tableDataList.value[index] = response.user;
+
+          console.log('updated  tableDataList.value', tableDataList.value)
+        }
+
+
 
 
   })

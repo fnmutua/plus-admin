@@ -2,8 +2,8 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty } from '@/api/settlements'
-import { getCountyListApi } from '@/api/counties'
 import { getUserRoles, getByName } from '@/api/users'
+import { getCountyListApi } from '@/api/counties'
 
 
 import {
@@ -22,12 +22,7 @@ import { useRouter } from 'vue-router'
 import { activateUserApi, updateUserApi, getCountyStaff } from '@/api/users'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
-import xlsx from "json-as-xlsx"
 
-interface Params {
-  pageIndex?: number
-  xpageSize?: number
-}
 
 const { wsCache } = useCache()
 const appStore = useAppStoreWithOut()
@@ -52,7 +47,6 @@ if (isMobile.value) {
 const currentUser = wsCache.get(appStore.getUserInfo)
 
 const showAdminButtons = ref(appStore.getAdminButtons)
-const showEditButtons = ref(appStore.getEditButtons)
 
 
 
@@ -75,7 +69,6 @@ const selCounties = []
 const loading = ref(true)
 const currentPage = ref(1)
 const total = ref(0)
-const downloadLoading = ref(false)
 
 const tmp_roles = ref([])
 
@@ -107,7 +100,6 @@ onMounted(async () => {
 
 
 const dialogFormVisible = ref(false)
-const editUserForm = ref()
 const formLabelWidth = '100px'
 
 
@@ -306,27 +298,6 @@ const getRoles = async () => {
 }
 
 const getSettlementsOptions = async () => {
-  const res = await getCountyListApi({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'settlement',
-      searchField: 'name',
-      searchKeyword: '',
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-
-
-    // pass result to the makeoptions
-
-    settlements.value = ret
-    makeSettlementOptions(settlements)
-  })
 }
 
 
@@ -424,13 +395,11 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   total.value = res.total   // instead of usign the erronues total reurned due to left/right joins
 
 
-
+  console.log('After getting all users tableDataList.value ', tableDataList.value )
 
   res.data.forEach(function (arrayItem) {
     console.log('arrayItem ----->', arrayItem)
-    // delete arrayItem[associated_multiple_models[0]]['geom'] //  remove the geometry column
-    // delete arrayItem['photo'] //  remove the geometry column
-
+ 
 
     var opt = {}
     opt.value = arrayItem.id
@@ -458,7 +427,7 @@ getInterventionsAll()
 
 
 
-const AddUser = (data: TableSlotDefault) => {
+const AddUser = () => {
 
   ElMessage.warning("Coming soon...")
   // push({
@@ -500,26 +469,7 @@ const EditUser = async (data: TableSlotDefault) => {
 });
 
 
-  // data.row.roles.forEach(async function (arrayItem) {
-  //   console.log("tis USers Roles", arrayItem.user_roles)
-  //   await handleChangeLevel((arrayItem.user_roles.location_level))
-
-
-  //   if (arrayItem.user_roles.county_id) {
-  //     console.log("Get Settleemntsf ofr thus county", arrayItem.user_roles.county_id)
-  //     await getCountySettlements(parseInt(arrayItem.user_roles.county_id))
-  //     arrayItem.user_roles.county_id = parseInt(arrayItem.user_roles.county_id, 10);
-
-  //   }
-
-
-  //   if (arrayItem.user_roles.settlement_id) {
-  //     arrayItem.user_roles.settlement_id = parseInt(arrayItem.user_roles.settlement_id, 10);
-
-  //   }
-  //   tmp_roles.value.push(arrayItem.user_roles)
-  // })
-
+   
   console.log('tmp_roles>>>>', tmp_roles.value)
 
 
@@ -530,63 +480,11 @@ const EditUser = async (data: TableSlotDefault) => {
 
 
 
-const search = ref('')
 
 
 
 
 
-const DownloadXlsx = async () => {
-  console.log(tableDataList.value)
-
-  // change here !
-  let fields = [
-    { label: "S/No", value: "index" }, // Top level data
-    { label: "Name", value: "name" }, // Top level data
-    { label: "Email", value: "email" }, // Custom format
-    { label: "Username", value: "username" }, // Run functions
-    { label: "Phone", value: "phone" }, // Run functions
-    { label: "County", value: "county" }, // Run functions
-
-  ]
-
-
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
-    let thisRecord = {}
-    tableDataList.value[i]
-    thisRecord.index = i + 1
-    thisRecord.name = tableDataList.value[i].name
-    thisRecord.county = tableDataList.value[i].county.name
-    thisRecord.email = tableDataList.value[i].email
-    thisRecord.username = tableDataList.value[i].username
-    thisRecord.phone = tableDataList.value[i].phone
-
-
-    dataHolder.push(thisRecord)
-  }
-  dataObj.content = dataHolder
-
-
-
-
-  let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
-}
 
 const router = useRouter()
 
@@ -618,24 +516,6 @@ const locationOptions = [
 
 const showSettlement = ref(false)
 const showCounty = ref(false)
-const handleSelectLevel = async (level) => {
-  console.log('Level', level)
-  if (level == 'settlement') {
-    showSettlement.value = true
-    showCounty.value = true
-  }
-  else if (level == 'county') {
-    showSettlement.value = false
-    showCounty.value = true
-
-  }
-
-  else {
-    showSettlement.value = false
-    showCounty.value = false
-
-  }
-}
 
 const isNationalLevel = ref(false)
 const isCountyLevel = ref(false)
@@ -779,6 +659,18 @@ const updateUser = () => {
     console.log('form.value', form.value)
     updateUserApi(form.value).then((response) => {
       console.log("udapyetd", response)
+
+        // Find the index of the object with the matching ID
+    const index = tableDataList.value.findIndex(item => item.id === response.user.id);
+
+      if (index !== -1) {
+        // Replace the object with the updated response data
+        tableDataList.value[index] = response.user;
+
+        console.log('updated  tableDataList.value', tableDataList.value)
+      }
+
+
     })
 
     dialogFormVisible.value = false

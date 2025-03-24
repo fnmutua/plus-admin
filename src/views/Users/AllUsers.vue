@@ -214,7 +214,33 @@ const destructure = (obj) => {
 }
 
 const getCountyNames = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'county',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received response:', response)
+    //tableDataList.value = response.data
+    var ret = response.data
+
+
+
+    ret.forEach(function (arrayItem: { id: string; type: string }) {
+      var countyOpt = {}
+      countyOpt.value = arrayItem.id
+      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      //  console.log(countyOpt)
+      countiesOptions.value.push(countyOpt)
+    })
+  })
 }
+
 
 
 const getRoles = async () => {
@@ -415,7 +441,23 @@ const EditUser = (data: TableSlotDefault) => {
 
 const updateUser = () => {
   form.roles=[form.roles ]
-  updateUserApi(form).then(() => { })
+  updateUserApi(form).then((response) => {
+
+ // Find the index of the object with the matching ID
+  const index = tableDataList.value.findIndex(item => item.id === response.user.id);
+
+  if (index !== -1) {
+    // Replace the object with the updated response data
+    tableDataList.value[index] = response.user;
+
+    console.log('updated  tableDataList.value', tableDataList.value)
+  }
+
+
+
+
+
+   })
 
   dialogFormVisible.value = false
 }

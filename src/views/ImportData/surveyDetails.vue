@@ -2030,28 +2030,6 @@ const uploadOptions = [
 
 
 
-
-// watch(filterValues, () => {
-
-//   console.log('originalTableData.value',originalTableData.value)
-
-//   if (!filterField.value || !Array.isArray(originalTableData.value)) {
-//     return; // Return early if there's no valid field or original data
-//   }
-
-//   // Filter the table data based on the selected values
-//   if (filterValues.value.length === 0) {
-//     // If no filter is selected, revert to original data
-//     tableData.value = [...originalTableData.value];
-//   } else {
-//     // Apply the filter to original data
-//     tableData.value = originalTableData.value.filter(item =>
-//       filterValues.value.includes(item[filterField.value])
-//     );
-//   }
-// }, { immediate: true });
-
-
 watch(filterValues, () => {
   console.log('originalTableData.value', originalTableData.value);
   console.log('originalFeatures.value', originalFeatures.value);
