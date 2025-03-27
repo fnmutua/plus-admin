@@ -5,9 +5,7 @@ import Vue from '@vitejs/plugin-vue'
 import WindiCSS from 'vite-plugin-windicss'
 import VueJsx from '@vitejs/plugin-vue-jsx'
 import EslintPlugin from 'vite-plugin-eslint'
-//import VueI18n from '@intlify/vite-plugin-vue-i18n'
-import VueI18n from '@intlify/unplugin-vue-i18n/vite'
-
+import VueI18n from '@intlify/vite-plugin-vue-i18n'
 import { createStyleImportPlugin, ElementPlusResolve } from 'vite-plugin-style-import'
 import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
 import PurgeIcons from 'vite-plugin-purge-icons'
@@ -58,8 +56,7 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
       VueI18n({
         runtimeOnly: true,
         compositionOnly: true,
-        include: [resolve(__dirname, 'src/locales/**')],
-        fullInstall: false
+        include: [resolve(__dirname, 'src/locales/**')]
       }),
       createSvgIconsPlugin({
         iconDirs: [pathResolve('src/assets/svgs')],
@@ -100,14 +97,9 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
     resolve: {
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.less', '.css'],
       alias: [
-        // {
-        //   find: 'vue-i18n',
-        //   replacement: 'vue-i18n/dist/vue-i18n.cjs.js'
-        // },
-
         {
-          find: '@intlify/shared',
-          replacement: '@intlify/shared/dist/shared.esm.js'
+          find: 'vue-i18n',
+          replacement: 'vue-i18n/dist/vue-i18n.cjs.js'
         },
         {
           find: /\@\//,
