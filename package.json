@@ -173,6 +173,8 @@
   "engines": {
     "node": ">= 20.9.0"
   },
+  "packageManager": "pnpm@9.0.3",
+
   "license": "MIT",
   "repository": {
     "type": "git",
