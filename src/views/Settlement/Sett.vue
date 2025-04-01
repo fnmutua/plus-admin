@@ -11,6 +11,10 @@ import {
 import { ElMessage, ElSegmented } from 'element-plus'
 import { Position, Plus, Delete, Edit, Filter, InfoFilled, CopyDocument, Clock, Search, Setting, Back, Loading, CircleCheck, Message, CircleClose, Warning,View,RefreshLeft } from '@element-plus/icons-vue'
 
+import {
+  ArrowLeft, ArrowRight, UploadFilled,Postcard,TopRight,Lock,Guide,TakeawayBox
+} from '@element-plus/icons-vue'
+
 import { ref, reactive, computed } from 'vue'
 import { ElPagination, ElTooltip, ElOption } from 'element-plus'
 import { useRouter } from 'vue-router'
@@ -51,9 +55,9 @@ import UploadComponent from '@/views/Components/UploadComponent.vue';
 import ListDocuments from '@/views/Components/ListDocuments.vue';
 import DownloadCustom from '@/views/Components/DownloadCustom.vue';
 import TableActions from '@/views/Components/TableActions.vue';
-import { getUniqueFieldValues } from '@/api/households';
 
 
+import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
 
 const MapBoxToken =
@@ -181,20 +185,6 @@ console.log('showAdminButtons.value >>>>>>', showAdminButtons.value)
 
 
 // Push Role FIlters ---- ////
-const xpushRoleFilters = () => {
-  if (roles_filters.length > 0) {
-    filters.value.push(roles_filters[0].field);  // Add the field to filters if roles_filters is not empty
-  }
-
-  // Prepare filterValues array
-  if (roles_filters.length > 0) {
-    filterValues.value.push([roles_filters[0].value]);  // Add the value to filterValues if roles_filters is not empty
-  }
-
-  console.log('With Role filters', filters.value);
-  console.log('With Role  filterValues', filterValues.value);
-
-}
 
 const pushRoleFilters = () => {
   if (roles_filters.length > 0) {
@@ -283,9 +273,72 @@ const updatePageSize = () => {
 
 
 
+const getCounts =async  () => { 
+
+console.log('counts')
+
+const formData = {}
+  formData.model = 'settlement'
+  formData.summaryField = 'isApproved'  // Remove ambiguous fields 
+  formData.summaryFunction = 'count'
+  formData.groupFields = ['isApproved'] //['county.name','indicator_category.category_title']
+ 
+
+  console.log(roles_filters.length)
+  if(roles_filters.length>0) {
+
+  formData.filterField =[filters.value[1]]
+  formData.filterValue =[[filterValues.value[1]]] 
+  formData.filterOperator = ['eq']
+  }
+  
+
+  // added for unique couts 
+ 
+  console.log('filters.value', filters.value[1])
+  console.log('filterValues.value', filterValues.value[1])
+
+
+  console.log('form-Data',formData)
+
+  try {
+    const response = await getSummarybyFieldFromMultipleIncludes(formData);
+    const amount = response.Total;
+    console.log('status.count Summary', amount)
+
+
+
+    // Update Statuses count dynamically
+      Statuses.value.forEach((status) => {
+          let keyToCompare = status.value;  // Default comparison key
+
+          if (status.value === 'New') {
+            keyToCompare = 'Pending';  // Compare 'New' with 'Pending' in amount
+          }
+
+          const match = amount.find((item) => item.isApproved === keyToCompare);
+          if (match) {
+            status.count = parseInt(match.count, 10);
+          }
+        });
+
+
+
+ 
+ 
+  } catch (error) {
+    // Handle any errors that occur during the asynchronous operation
+    console.error(error);
+    //return null; // or any default value you prefer
+    return []; // or any default value you prefer
+  }
+
+
+}
+
+
 console.log('window.innerHeight1', window.innerHeight)
 
-const activeName = ref('Approved')
 
 onMounted(async () => {
 
@@ -307,8 +360,8 @@ onMounted(async () => {
   //   clickTab(obj)
   // }
 
-
-
+  getCounts()
+  getSettlmentHistory()
 })
 
 // onActivated(async () => {
@@ -348,7 +401,6 @@ const page = ref(1)
 const loading = ref(true)
 
 const currentPage = ref(1)
-const activeTab = ref('list')
 const enableSubcounty = ref(false)
 
 const total = ref(0)
@@ -363,6 +415,9 @@ const duplicateTotal = ref(0)
 const deletedSettlements=ref([])
 const deletedSettlementsCount=ref(0)
 
+
+const decommSettlements=ref([])
+const decommSettlementsCount=ref(0)
 //let tableDataList = ref<UserType[]>([])
 const tableDataList = ref([])
 let tableDataListNew = ref<UserType[]>([])
@@ -404,15 +459,11 @@ const handleClear = async () => {
   // clear all the fileters -------
   filterValues.value = []
   filters.value = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
-  value4.value = ''
-  value5.value = ''
+  
 
 
   currentPage.value = 1
-  tblData.value = []
+  
   //----run the get data--------
   getAllSetllementsInitially()
 }
@@ -483,56 +534,6 @@ const onPageSizeChange = async (size: any) => {
 
 
 
-const clickTab = async (obj) => {
-  page.value = 1
-  activeSegment.value = obj.props.name
-  localStorage.setItem('activeSegment', obj.props.name);
-
-
-  console.log("Loading tabs.............", obj.props.label)
-  console.log("Loading activeSegment.............", activeSegment.value)
-  console.log("Loading search_string.............", search_string.value)
-  dynamicDocumentComponent.value = null
-
-  if (obj.props.name === 'Approved') {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Approved'], ['true']]  // make sure the inner array is array
-
-  } else if (obj.props.name === "New") {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Pending'], ['true']]  // make sure the inner array is array
-
-  }
-  else if (obj.props.name === "Rejected") {
-    filters.value = ['settlement_type', 'isApproved', 'isActive']
-    filterValues.value = [[1, 2], ['Rejected'], ['true']]  // make sure the inner array is array
-  }
-
-
-  if (obj.props.name === "Duplicates") {
-    getPotentialDuplicates()
-    showPagination.value = false
-
-  }
-
- 
-
-
-  else {
-
-    if (search_string.value) {
-      getFilteredBySearchData(obj.props.name, search_string.value)
-      showPagination.value = true
-    } else {
-      getNewOrRejectedSettlements(obj.props.name)
-      showPagination.value = true
-
-    }
-
-  }
-
-
-}
 
 
 
@@ -597,6 +598,10 @@ const getNewOrRejectedSettlements = async (tab) => {
   } else if (tab === 'Rejected') {
     filters.value = ['isApproved', 'isActive']
     filterValues.value = [['Rejected'], ['true']]  // make sure the inner array is array
+  }
+  else if (tab === 'Decommissioned') {
+    filters.value = ['isApproved', 'isActive']
+    filterValues.value = [['Decommissioned'], ['true']]  // make sure the inner array is array
   }
 
   else {
@@ -723,6 +728,12 @@ const getNewOrRejectedSettlements = async (tab) => {
     tableDataListRejected.value = res.data
     totalRejected.value = res.total
   }
+  else if (tab == 'Decommissioned') {
+    decommSettlements.value = res.data
+    decommSettlementsCount.value = res.total
+  }
+ 
+
   else {
     tableDataList.value = res.data
     totalApproved.value = res.total
@@ -954,16 +965,6 @@ function getLatLonFromGeom(geom) {
 
 
 // Function to process the res.data and add latitude/longitude using turf
-function addLatLonToData(data) {
-  data.forEach(item => {
-    const geometry = item.geom; // Assuming the geometry is in `item.geometry`
-    const { latitude, longitude } = getLatLonFromGeom(geometry);
-    item.latitude = latitude;
-    item.longitude = longitude;
-  });
-
-  return data; // Return the modified data with lat/lon added
-}
 
 
 
@@ -1020,14 +1021,6 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
 
 
-const viewHHs = (data: TableSlotDefault) => {
-  console.log('On Click.....', data.row.id)
-  push({
-    path: '/settlement/hh/:id',
-    name: 'Households',
-    params: { id: data.row.id }
-  })
-}
 
 const ShowReviewDialog = ref(false)
 const RejectDialog = ref(false)
@@ -1321,6 +1314,7 @@ const countiesOptions = ref([])
 
 
 
+
 const getCountyNames = async () => {
   const res = await getListWithoutGeo({
     params: {
@@ -1363,8 +1357,8 @@ const wardOptions = ref([])
 
 
 const subcountiesOptions = ref([])
-const subcountyfilteredOptions = ref([])
 
+ 
 const getSubCountyNames = async () => {
   const res = await getListWithoutGeo({
     params: {
@@ -1763,74 +1757,6 @@ const handleDelete = (data: TableSlotDefault) => {
 
 
 
-const decommisionSettlement = async (data: TableSlotDefault) => {
-
-  console.log(data)
-  ruleForm.id = data.id
-  ruleForm.name = data.name
-  ruleForm.county_id = data.county_id
-  ruleForm.settlement_type = data.settlement_type
-  ruleForm.population = data.population
-  ruleForm.area = data.area
-  ruleForm.description = data.description
-  ruleForm.code = data.code
-  ruleForm.dist_town = data.dist_town
-  ruleForm.dist_trunk = data.dist_trunk
-  ruleForm.parcel_no = data.parcel_no
-  ruleForm.parcel_owner = data.parcel_owner
-  ruleForm.rim_no = data.rim_no
-  ruleForm.isApproved = data.isApproved
-  ruleForm.subcounty_id = data.subcounty_id
-  ruleForm.ward_id = data.ward_id
-  ruleForm.isApproved = data.isApproved
-  ruleForm.geom = data.geom
-
-  // keep  decommision here !
-  ruleForm.isActive = 'false'
-
-  ruleForm.model = model
-  const result = await updateOneRecord(ruleForm)
-  console.log('archving data', result.data)
-  console.log(activeSegment.value)
-
-  var updatedObject = result.data
-
-
-  if (activeSegment.value === 'Approved') {
-    // get the index of the updated object
-    const index = tableDataList.value.findIndex(obj => obj.id === updatedObject.id);
-
-    // Get the updatedobjetc keys and updated the old data 
-    const updatedKeys = Object.keys(updatedObject);
-    for (const key of updatedKeys) {
-      tableDataList.value[index][key] = updatedObject[key];
-      //   tableDataListNew.value[index_new][key] = updatedObject[key];
-      //  tableDataListRejected.value[index_rej][key] = updatedObject[key];
-    }
-  } else if (activeSegment.value === 'New') {
-
-    // get the index of the updated object
-    const index = tableDataListNew.value.findIndex(obj => obj.id === updatedObject.id);
-
-    const updatedKeys = Object.keys(updatedObject);
-    for (const key of updatedKeys) {
-      tableDataListNew.value[index][key] = updatedObject[key];
-
-    }
-  }
-
-  else if (activeSegment.value === 'Rejected') {
-    const index = tableDataListRejected.value.findIndex(obj => obj.id === updatedObject.id);
-
-    const updatedKeys = Object.keys(updatedObject);
-    for (const key of updatedKeys) {
-      tableDataListRejected.value[index][key] = updatedObject[key];
-
-    }
-
-  }
-
-}
 
 const showSelectFields = ref(false)
 const selectedFields = ref([])
@@ -1980,7 +1906,6 @@ if (isMobile.value) {
 
 }
 
-const DocTypes = ref([])
 const getDocumentTypes = async () => {
 }
 getDocumentTypes()
@@ -2303,28 +2228,6 @@ const selectedDuplicate = ref(null);
 const map = ref();
 const mapContainer = ref(null);
 
-const xshowDuplicateMap = (duplicate) => {
-  console.log(duplicate.row)
-  selectedDuplicate.value = duplicate.row;
-  console.log(selectedDuplicate.value)
-  duplicateDialogShow.value = true;
-
-  nextTick(() => {
-    if (!map.value) {
-      mapboxgl.accessToken = 'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg';
-      map.value = new mapboxgl.Map({
-        container: mapContainer.value,
-        style: 'mapbox://styles/mapbox/streets-v11',
-        center: [37.9062, -0.0236], // Set center based on first point
-        zoom: 12,
-      });
-
-      map.value.on('load', () => {
-        addDuplicatesToMap(duplicate.row.duplicates);
-      });
-    }
-  });
-};
 
 
 
@@ -2371,7 +2274,7 @@ const showDuplicateMap = (duplicate) => {
 };
 
 // Toggle between the layers
-const toggleLayer = (layerId) => {
+const toggleLayer = () => {
   const streetsLayerVisibility = map.value.getLayoutProperty('satellite-layer', 'visibility');
 
   if (streetsLayerVisibility === 'none') {
@@ -2401,15 +2304,8 @@ const addDuplicatesToMap = (duplicates) => {
 
       if (geometryType === 'Point') {
         // Add a point for Point geometries
-        const marker = new mapboxgl.Marker()
-          .setLngLat(duplicate.geom.coordinates)
-          .addTo(map.value);
 
         // Add a popup to the marker
-        const popup = new mapboxgl.Popup({ offset: 25 })
-          .setText(duplicate.name + ": ID -" + duplicate.id)
-          .setLngLat(duplicate.geom.coordinates)
-          .addTo(map.value);
 
         // Extend bounds to include the point
         bounds.extend(duplicate.geom.coordinates);
@@ -2420,15 +2316,8 @@ const addDuplicatesToMap = (duplicates) => {
         const centroid = turf.centroid(polygon);
 
         // Add a marker for the centroid
-        const centroidMarker = new mapboxgl.Marker({ color: 'red' })
-          .setLngLat(centroid.geometry.coordinates)
-          .addTo(map.value);
 
         // Add a popup to the centroid marker
-        const centroidPopup = new mapboxgl.Popup({ offset: 25 })
-          .setText(duplicate.name + ": ID - " + duplicate.id + " (Centroid)")
-          .setLngLat(centroid.geometry.coordinates)
-          .addTo(map.value);
 
         // Add a polygon for Polygon geometries
         map.value.addSource(`duplicate-${duplicate.id}`, {
@@ -2582,7 +2471,7 @@ const handleRowDblClick = (row) => {
 }
 const activeSegment = ref('Approved')
 
-const options = ref([
+const Statuses = ref([
   {
     label: 'Approved',
     value: 'Approved',
@@ -2615,6 +2504,13 @@ const options = ref([
 
   },
   {
+    label: 'Decommissioned',
+    value: 'Decommissioned',
+    icon: Delete,
+    count: decommSettlementsCount,
+    hidden: !isSuperAdmin.value
+  },
+  {
     label: 'Deleted',
     value: 'Deleted',
     icon: Delete,
@@ -2625,10 +2521,10 @@ const options = ref([
 
 
 
-
+ 
 
 const filteredSegments = computed(() => {
-  return options.value.filter(option => !option.hidden);
+  return Statuses.value.filter(option => !option.hidden);
 });
 
 
@@ -2669,7 +2565,7 @@ const getThisHistory = async (sett_id) => {
 
 const onSegmentClick = async () => {
   
-
+console.log('activeSegment.value' ,activeSegment.value )
 
   if (activeSegment.value === "Approved") {
 
@@ -2736,6 +2632,30 @@ const onSegmentClick = async () => {
 
   }
 
+  
+ else if (activeSegment.value === "Decommissioned") {
+
+      var selectOption = 'isApproved'
+      if (!filters.value.includes(selectOption)) {
+        filters.value.push(selectOption)
+      }
+
+      var index = filters.value.indexOf(selectOption) // 1
+      // clear previously selected
+      if (filterValues.value[index]) {
+        // filterValues[index].length = 0
+        filterValues.value.splice(index, 1)
+      }
+
+      if (!filterValues.value.includes('Decommissioned')) {
+        filterValues.value.splice(index, 0, 'Decommissioned') //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
+      }
+
+
+      
+
+}
+
 
 
   if (activeSegment.value != "Duplicates" && activeSegment.value != "Deleted" )  {
@@ -2771,7 +2691,7 @@ const onSegmentClick = async () => {
 getSettlementListByCounty
 
 
-const getSettlmentHistory = async (sett_id) => {
+const getSettlmentHistory = async () => {
   deletedSettlements.value=[] // EMpty the  deletedSettlements.value first
 const model = 'settlement_history'
 
@@ -2844,9 +2764,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
 <template>
   <el-card v-loading="loadingGetData" :element-loading-text="loadingGetDataMsg">
-
-
-
+ 
     <div v-if="dynamicComponent">
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
@@ -3157,6 +3075,75 @@ const RevertEdits = async (data: TableSlotDefault) => {
     </div>
 
 
+    <div v-if="activeSegment === 'Decommissioned'">
+
+        <el-table :data="decommSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
+          border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+          <el-table-column type="expand">
+            <template #default="props">
+              <div m="4">
+                <h3>Documents</h3>
+                <div>
+                  <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
+                </div>
+                <el-button style="margin-left: 10px; margin-top: 5px" size="small" v-if="showAdminButtons" type="success"
+                  :icon="Plus" circle @click="toggleComponent(props.row)" />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Id" width="80" prop="id" sortable>
+            <template #default="scope">
+              <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+                <span>{{ scope.row.id }}</span>
+                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="Name" width="200" prop="name" sortable />
+
+          <el-table-column label="Location" sortable width="400">
+            <template #default="scope">
+              <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
+                }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Population" prop="population" sortable />
+          <el-table-column label="Area(HA)" prop="area" sortable />
+          <el-table-column label="Created" prop="createdAt" sortable :formatter="formatDate" />
+
+          <el-table-column label="Code" prop="code" sortable>
+            <template #default="{ row }">
+              <div style="position: relative;" @mouseenter="showCopyIcon(row)" @mouseleave="hideCopyIcon(row)">
+                <span>{{ row.code }}</span>
+                <el-tooltip class="item" effect="dark" content="Copy" placement="top">
+                  <el-button v-show="isCopyIconVisible(row)" type="information" size="small" :icon="Clock" circle plain
+                    style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); margin-right: 5px;"
+                    @click="copyToClipboard(row.code)" />
+                </el-tooltip>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="Actions" width="300">
+            <template #default="{ row }">
+              <!-- Example 1: Only Edit and Delete buttons -->
+              <TableActions :item="row" :buttons="action_buttons" @edit="handleEdit" @review="Review"
+                @delete="handleDelete" @viewOnMap="handleViewOnMap" />
+
+            </template>
+          </el-table-column>
+
+        </el-table>
+
+
+        <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="page"
+        v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="decommSettlementsCount" :background="true"
+        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
+    </div>
+
+
+
+
     <div v-if="activeSegment === 'Deleted'">
       <el-table :data="deletedSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"  border  >
         <el-table-column type="index" width="50" />
@@ -3195,11 +3182,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
     </div>
 
-
-
  
-
-
 
     <div v-if="activeSegment === 'Duplicates'">
       <!-- Table with pagination -->

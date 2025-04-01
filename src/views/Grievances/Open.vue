@@ -7,7 +7,7 @@ import { getGrievances } from '@/api/grievance'
 
 import { ElButton, ElSelect, ElCheckbox, ElCol, ElIcon, ElTag } from 'element-plus'
 import {
-  Plus, Filter, ArrowLeft, ArrowRight, UploadFilled,RefreshLeft,
+  Plus, ArrowLeft, ArrowRight, UploadFilled,RefreshLeft,
   Edit,
   Back,Postcard,TopRight,Lock,Guide,TakeawayBox,
   InfoFilled, Position,CircleCheck, Warning,View,
@@ -15,7 +15,7 @@ import {
 } from '@element-plus/icons-vue'
 import {   ElSegmented } from 'element-plus'
 
-import { getSettlementListByCounty, getDuplicates, mergeDuplicates } from '@/api/settlements'
+import { getSettlementListByCounty } from '@/api/settlements'
 
 
 import { ref, reactive, onMounted, computed } from 'vue'
@@ -238,15 +238,12 @@ const value2 = ref([])
 var value3 = ref([])
 const indicatorsOptions = ref([])
 const GrvOptions = ref([])
-const categories = ref([])
-const filteredIndicators = ref([])
 const page = ref(1)
 
 const selCounties = []
 const loading = ref(true)
 const currentPage = ref(1)
 const total = ref(0)
-const downloadLoading = ref(false)
 
 
 
@@ -438,33 +435,6 @@ const handleClear = async () => {
 }
 
 
-const handleSelectGrievance = async (indicator: any) => {
-  var selectOption = 'id'
-  if (!filters.value.includes(selectOption)) {
-    filters.value.push(selectOption)
-  }
-  var index = filters.value.indexOf(selectOption) // 1
-  console.log('category : index--->', index)
-
-  // clear previously selected
-  if (filterValues.value[index]) {
-    // filterValues[index].length = 0
-    filterValues.value.splice(index, 1)
-  }
-
-  if (!filterValues.value.includes(indicator) && indicator.length > 0) {
-    filterValues.value.splice(index, 0, indicator) //will insert item into arr at the specified index (deleting 0 items first, that is, it's just an insert).
-  }
-
-  // expunge the filter if the filter values are null
-  if (indicator.length === 0) {
-    filters.value.splice(index, 1)
-  }
-
-  console.log('FilterValues:', filterValues.value)
-
-  getFilteredData(filters.value, filterValues.value)
-}
 
 const onPageChange = async (selPage: any) => {
   console.log('on change change: selected counties ', selCounties)
@@ -636,34 +606,14 @@ const DeleteIndicator = async (data: TableSlotDefault) => {
   getFilteredData(filters, filterValues)
 }
 
-const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
   title: '',
   shortTitle: ''
 })
-const handleClose = () => {
-
-  console.log("Clsoing the dialoig")
-  showSubmitBtn.value = true
-  showEditSaveButton.value = false
-
-  ruleForm.id = ''
-  ruleForm.title = ''
-  ruleForm.shortTitle = ''
-  formHeader.value = 'Add Activity'
-
-}
 
 
 
 
-const rules = reactive<FormRules>({
-  title: [
-    { required: true, message: 'Please provide A title', trigger: 'blur' },
-    { min: 3, message: 'Length should be at least 3 characters', trigger: 'blur' }
-  ],
-
-})
 
 const AddComponent = () => {
   AddDialogVisible.value = true
@@ -671,36 +621,6 @@ const AddComponent = () => {
 
 
 
-const xuploadFiles = async (grievance_id) => {
-  console.log('grievance_id', grievance_id)
-
-
-  const formData = new FormData();
-
-  // Assuming `fileList` is an array of file objects and `grievance_id` is defined
-  for (var i = 0; i < fileList.value.length; i++) {
-    console.log('------>file', fileList.value[i]);
-    formData.append('files', fileList.value[i].raw);
-    formData.append('format', fileList.value[i].name.split('.').pop());
-    formData.append('grievance_id', grievance_id);
-    formData.append('protected_file', true);
-    formData.append('size', (fileList.value[i].raw.size / 1024 / 1024).toFixed(2));
-    formData.append('code', uuid.v4());
-  }
-
-  // Printing out the contents of formData
-  for (let [key, value] of formData.entries()) {
-    console.log(`${key}: ${value}`);
-  }
-
-  const res = await uploadGrievanceDocuments(formData)
-
-  console.log("Docuemnts Uploaded", res)
-
-
-
-
-}
 
 
 
@@ -855,22 +775,6 @@ console.log('grmForm.value',grmForm.value)
 
 };
 
-const editForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate((valid, fields) => {
-    if (valid) {
-      ruleForm.model = model
-
-      updateOneRecord(ruleForm).then(() => { })
-
-      // dialogFormVisible.value = false
-
-
-    } else {
-      console.log('error submit!', fields)
-    }
-  })
-}
 
 
 
@@ -882,51 +786,6 @@ if (userInfo) {
 }
 
 
-const DownloadXlsx = async () => {
-  console.log(tableDataList.value)
-
-  // change here !
-  let fields = [
-    { label: "S/No", value: "id" }, // Top level data
-    { label: "Title", value: "title" }, // Top level data
-    { label: "Code", value: "code" }, // Custom format
-
-  ]
-
-
-  // Preprae the data object 
-  var dataObj = {}
-  dataObj.sheet = 'data'
-  dataObj.columns = fields
-
-  let dataHolder = []
-  // loop through the table data and sort the data 
-  // change here !
-  for (let i = 0; i < tableDataList.value.length; i++) {
-    let thisRecord = {}
-    tableDataList.value[i]
-    thisRecord.id = tableDataList.value[i].id
-    thisRecord.title = tableDataList.value[i].title
-    thisRecord.code = tableDataList.value[i].code
-
-
-    dataHolder.push(thisRecord)
-  }
-  dataObj.content = dataHolder
-
-
-
-
-  let settings = {
-    fileName: model, // Name of the resulting spreadsheet
-    writeMode: "writeFile", // The available parameters are 'WriteFile' and 'write'. This setting is optional. Useful in such cases https://docs.sheetjs.com/docs/solutions/output#example-remote-file
-    writeOptions: {}, // Style options from https://docs.sheetjs.com/docs/api/write-options
-  }
-
-  // Enclose in array since the fucntion expects an array of sheets
-  xlsx([dataObj], settings) //  download the excel file
-
-}
 
 
 
@@ -948,9 +807,6 @@ const goBack = () => {
 
 const drawer = ref(false)
 
-const handleCloseGrievance = () => {
-  drawer.value = false
-}
 
 const getGrievanceDetails = (data) => {
   // drawer.value = true
@@ -970,9 +826,6 @@ const showDownloadDialog = ref(false);
 const selectedFields = ref([]);
 const availableFields = ref([]);
 
-const selectDownload = () => {
-  showDownloadDialog.value = true;
-};
 
 
 const extractFields = (data) => {
@@ -1193,9 +1046,6 @@ const next = async () => {
 };
 
 
-const xxnext = () => {
-  active.value++;
-};
 
 
 const prev = () => {
@@ -1219,11 +1069,11 @@ const handleRemove = (file, fileList) => {
   console.log('Remove:', file, fileList);
 };
 
-const beforeRemove = (file) => {
+const beforeRemove = () => {
   return true;
 };
 
-const handleExceed = (files, fileList) => {
+const handleExceed = () => {
   ElMessage.warning('You can only upload up to 3 files.');
 };
 
@@ -1731,8 +1581,6 @@ const handleRowDblClick = (row) => {
 }
 
 const grv_name =ref()
-const grv_code =ref()
-const grv_status =ref()
 
 
 
@@ -2008,7 +1856,6 @@ const selectedSubCounty=ref()
 const enableSubcounty=ref(false)
 const selectedCounty=ref()
  
-const value4=ref()
 const value5=ref()
 const value6=ref()
 const search_string=ref()
@@ -2016,66 +1863,13 @@ const search_string=ref()
 
 
 const subcountiesOptions = ref([])
-const subcountyfilteredOptions = ref([])
 
 const getSubCountyNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'subcounty',
-      searchField: 'county_id',
-      searchKeyword: selectedCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received subcounties response:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-    subcountiesOptions.value = []
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var subcountyOpt = {}
-      subcountyOpt.value = arrayItem.id
-      subcountyOpt.county_id = arrayItem.county_id
-      subcountyOpt.label = arrayItem.name
-      //  console.log(countyOpt)
-      subcountiesOptions.value.push(subcountyOpt)
-    })
-  })
 }
 
 
 
 const getWardNames = async () => {
-  const res = await getListWithoutGeo({
-    params: {
-      pageIndex: 1,
-      limit: 100,
-      curUser: 1, // Id for logged in user
-      model: 'ward',
-      searchField: 'subcounty_id',
-      searchKeyword: selectedSubCounty.value,
-      sort: 'ASC'
-    }
-  }).then((response: { data: any }) => {
-    console.log('Received Wards:', response)
-    //tableDataList.value = response.data
-    var ret = response.data
-    wardOptions.value = []
-
-    loading.value = false
-
-    ret.forEach(function (arrayItem: { id: string; type: string }) {
-      var opt = {}
-      opt.value = arrayItem.id
-      opt.label = arrayItem.name
-      //  console.log(countyOpt)
-      wardOptions.value.push(opt)
-    })
-  })
 }
 
 
@@ -2267,13 +2061,6 @@ const formatDate2 = (row, column, dateString) => {
   }).format(date);
 }
 
-function _formatDate2(row, column, cellValue) {
-  if (!cellValue) return '';  // Handle null or undefined values
-
-  // Format the date (you can use libraries like moment.js or Day.js, or use native Date methods)
-  const date = new Date(cellValue);
-  return date.toLocaleDateString();  // Format to local date string
-}
 
 
 const RevertEdits = async (data: TableSlotDefault) => {
@@ -2383,18 +2170,7 @@ return formattedText;
 
 
 
-const shouldShowReminder = (date) => {
-console.log('getDaysToExpiry(date)' ,getDaysToExpiry(date) )
-  return getDaysToExpiry(date) ==='Expired'   // Show reminder if ≤ 3 days left
-};
 
-const sendReminder = (row) => {
-
-  ElMessage.success(`Reminder sent to responsible person for grievance ID: ${row.grievance_id || "N/A"}`);
-
-  // API Call Example:
-  // axios.post("/api/reminder", { grievanceId: row.grievance_id })
-};
 
 
 </script>

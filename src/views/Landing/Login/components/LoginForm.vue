@@ -259,6 +259,17 @@ const getRole = async (authenticatedUser) => {
   });
 
   switch (highestRole) {
+
+    case 'root_admin':
+        appStore.setAdminButtons(true);
+        appStore.setEditButtons(true);
+        appStore.setAdmin(true);
+        console.log('root_admin role processed');
+
+        break;
+
+
+
       case 'super_admin':
         appStore.setAdminButtons(true);
         appStore.setEditButtons(true);

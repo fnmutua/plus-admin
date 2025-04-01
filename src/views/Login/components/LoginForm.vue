@@ -198,6 +198,17 @@ const getRole = async (authenticatedUser) => {
   // Iterate over the roles and apply the appropriate logic for each
   for (const role of formData.roles) {
     switch (role) {
+
+      
+    case 'root_admin':
+        appStore.setAdminButtons(true);
+        appStore.setEditButtons(true);
+        appStore.setAdmin(true);
+        console.log('root_admin role processed');
+
+        break;
+
+        
       case 'super_admin':
         appStore.setAdminButtons(true);
         appStore.setEditButtons(true);
