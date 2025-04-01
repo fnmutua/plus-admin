@@ -456,16 +456,19 @@ const handleClear = async () => {
   console.log('cleared....')
   enableSubcounty.value = false
   search_string.value = ''
+  selectedCounty.value =[]
   // clear all the fileters -------
   filterValues.value = []
   filters.value = []
   
-
+  value4.value =null
+  value5.value =null
+  value6.value =null
 
   currentPage.value = 1
   
   //----run the get data--------
-  getAllSetllementsInitially()
+  getAllSetllementsInitially(activeSegment.value)
 }
 
 
@@ -537,9 +540,9 @@ const onPageSizeChange = async (size: any) => {
 
 
 
-const getAllSetllementsInitially = async () => {
+const getAllSetllementsInitially = async (tab) => {
   // getFilteredData(filters, filterValues)
-  await getNewOrRejectedSettlements('Approved')
+  await getNewOrRejectedSettlements(tab)
   getSettlementCount()  // This gets the approved/new/rejecetd counts
 
   //getPotentialDuplicates()
@@ -1262,16 +1265,24 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   console.log('activeSegment', tab)
   const res = await searchByKeyWord(formData)
   searchLoading.value = false
+
   if (tab === 'Approved') {
     tableDataList.value = res.data
+    totalApproved.value=res.Total
 
   } else if (tab === 'New') {
     tableDataListNew.value = res.data
+    totalPending.value= res.Total
+
+  }
+  else if (tab === 'Decommissioned') {
+    decommSettlements.value = res.data
+    decommSettlementsCount.value = res.Total
 
   }
   else {
     tableDataListRejected.value = res.data
-
+    totalRejected.value= res.Total
   }
 
   // Process and add lat/lon fields to the tableDataList using Turf
@@ -1479,7 +1490,7 @@ const filterByWard = async (ward_id: any) => {
 
 
 //getSettlementsOptions()
-getAllSetllementsInitially()
+getAllSetllementsInitially('Approved')
 
 
 getSubCountyNames()
