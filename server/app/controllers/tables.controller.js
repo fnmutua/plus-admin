@@ -846,6 +846,8 @@ exports.modelImportDataUpsert = async (req, res) => {
         data.map(async (item) => {
           item.createdBy = req.thisUser.id;
 
+          console.log(item)
+
           try {
             // Use upsert to insert or update depending on conflicts
             const [insertedData, created] = await db.models[reg_model].upsert(item, {
