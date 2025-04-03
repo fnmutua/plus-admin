@@ -1,57 +1,80 @@
 import pandas as pd
 import geopandas as gpd
-from shapely import wkt
+from shapely import wkt, prepared
 from pathlib import Path
+import warnings
+
+# Suppress warnings about CRS
+warnings.filterwarnings('ignore', message='.*CRS.*')
 
 # File paths
-csv_path = Path("open_buildings_v3_polygons_ne_110m_KEN.csv")  # Update with actual CSV file
-aoi_path = Path("aoi.geojson")  # Update with actual AOI file path
-output_dir = Path("output_buildings")  # Directory for saving results
-output_dir.mkdir(exist_ok=True)  # Ensure directory exists
+csv_path = Path("open_buildings_v3_polygons_ne_110m_KEN.csv")
+aoi_path = Path("Rennaisance.geojson")
+output_path = Path("Rennaisance_buffered.parquet")
 
-# Load AOI Boundaries
-print("🌍 Loading AOI boundaries...")
-aoi_gdf = gpd.read_file(aoi_path)
-
-# Ensure 'name' property exists
-if "name" not in aoi_gdf.columns:
-    raise ValueError("The AOI GeoJSON must have a 'name' property for unique filenames.")
-
-# Process CSV in chunks, reading only "geometry" column
-chunksize = 500_000  # Adjust based on memory capacity
-print("🔍 Loading and processing CSV in chunks...")
-
-for _, aoi in aoi_gdf.iterrows():
-    aoi_name = aoi["name"].replace(" ", "_")  # Ensure safe filename
-    aoi_geom = aoi.geometry  # Get AOI geometry
-    output_path = output_dir / f"{aoi_name}.parquet"
-
-    print(f"\n🚀 Processing AOI: {aoi_name}...")
-
+def main():
+    # 1. Load and prepare AOI with buffer in geographic coordinates
+    print("🌍 Loading and buffering AOI boundary...")
+    aoi = gpd.read_file(aoi_path)
+    
+    # Fix invalid geometries and create a single union
+    aoi['geometry'] = aoi.geometry.buffer(0)
+    
+    # Apply buffer in degrees (approximate conversion - adjust buffer_size as needed)
+    # Note: 0.001 degrees ≈ 111 meters at equator (less towards poles)
+    buffer_size = 0.0009  # ≈ 100 meters near equator (adjust for your latitude)
+    aoi['geometry'] = aoi.geometry.buffer(buffer_size)
+    
+    aoi_geom = aoi.geometry.unary_union
+    prepared_aoi = prepared.prep(aoi_geom)
+    
+    # 2. Process CSV in optimized chunks
+    chunksize = 1000_000
+    filtered_chunks = []
+    total_processed = 0
     chunk_counter = 0
-    found_buildings = False  # Flag to stop early
-
+    
+    print("🔍 Processing CSV in chunks...")
+    
     for chunk in pd.read_csv(csv_path, usecols=["geometry"], chunksize=chunksize):
         chunk_counter += 1
-        print(f"📦 Processing chunk {chunk_counter}: {len(chunk):,} rows...")
-
+        total_processed += len(chunk)
+        print(f"📦 Chunk {chunk_counter}: Processing {len(chunk):,} rows (Total: {total_processed:,})...")
+        
         # Convert WKT to geometry
-        chunk["geometry"] = chunk["geometry"].apply(wkt.loads)
+        geometries = chunk['geometry'].apply(wkt.loads)
+        gseries = gpd.GeoSeries(geometries, crs="EPSG:4326")
+        
+        # Bounding box check
+        bounds = gseries.bounds
+        in_aoi_bbox = (
+            (bounds['minx'] >= aoi_geom.bounds[0]) & 
+            (bounds['maxx'] <= aoi_geom.bounds[2]) &
+            (bounds['miny'] >= aoi_geom.bounds[1]) & 
+            (bounds['maxy'] <= aoi_geom.bounds[3])
+        )
+        
+        # Precise geometry check
+        candidates = gseries[in_aoi_bbox]
+        if len(candidates) > 0:
+            in_aoi = candidates.apply(lambda g: prepared_aoi.contains(g))
+            filtered = candidates[in_aoi]
+            
+            if len(filtered) > 0:
+                filtered_chunks.append(gpd.GeoDataFrame({'geometry': filtered}, crs="EPSG:4326"))
+                print(f"✅ Found {len(filtered):,} buildings in buffered AOI (Chunk {chunk_counter})")
+        
+        # Clear memory
+        del chunk, geometries, gseries, bounds, in_aoi_bbox, candidates
+                
+    # 3. Save results
+    if filtered_chunks:
+        final_gdf = pd.concat(filtered_chunks, ignore_index=True)
+        final_gdf.to_parquet(output_path, index=False)
+        print(f"\n🎉 Finished! Processed {total_processed:,} total rows")
+        print(f"📦 Exported {len(final_gdf):,} buildings to {output_path}")
+    else:
+        print("\n⚠️ No buildings found within buffered AOI.")
 
-        # Convert to GeoDataFrame
-        gdf_chunk = gpd.GeoDataFrame(chunk, geometry="geometry", crs="EPSG:4326")
-
-        # Clip to AOI
-        gdf_filtered = gdf_chunk[gdf_chunk.intersects(aoi_geom)]
-
-        # If buildings found, save and stop processing
-        if not gdf_filtered.empty:
-            print(f"✅ Found {len(gdf_filtered):,} buildings in {aoi_name} (Chunk {chunk_counter}). Saving and moving to next AOI...")
-            gdf_filtered.to_parquet(output_path, index=False)
-            found_buildings = True
-            break  # Stop processing further chunks for this AOI
-
-    if not found_buildings:
-        print(f"⚠️ No buildings found within AOI: {aoi_name}.")
-
-print("\n🎉 Processing complete! Check the 'output_buildings' directory for results.")
+if __name__ == "__main__":
+    main()
