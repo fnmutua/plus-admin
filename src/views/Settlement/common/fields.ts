@@ -158,8 +158,8 @@ const formFields: Field[][] = [
     {
       id: "btn5", name: "settlement_type", label: "Type", type: "select", multiselect: 'false', adminUnit: false,
       options: [
-        { label: 'Slum', value: "1" },
-        { label: 'Informal', value: "2" }
+        { label: 'Slum', value: 1 },
+        { label: 'Informal', value: 2 }
       ]
     },
     { id: "btn6", name: "parcel_number", label: "Parcel No.", type: "text", multiselect: 'false', adminUnit: false, options: []},
@@ -178,9 +178,9 @@ const formFields: Field[][] = [
     { id: "btn13", name: "near_river", label: "Near River?", type: "select", multiselect: 'false', adminUnit: false, options: yesNo.value },
     { id: "btn14", name: "on_wayleave", label: "On a utility way-leave?", type: "select", multiselect: 'false', adminUnit: false, options: yesNo.value },
     { id: "btn15", name: "on_road_reserve", label: "On a road reserve?", type: "select", multiselect: 'false', adminUnit: false, options: yesNo.value },
-    { id: "btn16", name: "structure_types", label: "Types of Structures", type: "select", multiselect: 'true', adminUnit: false, options: structureTypes.value },
-    { id: "btn17", name: "development", label: "Level of Development", type: "select", multiselect: 'true', adminUnit: false, options: levelDevt.value },
-    { id: "btn18", name: "typical_building_materials", label: "Typical Building Materials", type: "select", multiselect: 'true', adminUnit: false, options: buildingMaterials.value },
+    { id: "btn16", name: "structure_types", label: "Types of Structures", type: "text", multiselect: 'true', adminUnit: false, options: structureTypes.value },
+    { id: "btn17", name: "development", label: "Level of Development", type: "text", multiselect: 'true', adminUnit: false, options: levelDevt.value },
+    { id: "btn18", name: "typical_building_materials", label: "Typical Building Materials", type: "text", multiselect: 'true', adminUnit: false, options: buildingMaterials.value },
     { id: "btn19", name: "avg_dist_between", label: "Dist. between structures (M)", type: "number", multiselect: 'true', adminUnit: false, options: [] },
     { id: "btn20", name: "dist_town", label: "Distance to Urban Center (Km)", type: "number", adminUnit: false, multiselect: 'false', options: [] },
     { id: "btn21", name: "dist_trunk", label: "Distance to Trunk Road (Km)", type: "number", adminUnit: false, multiselect: 'false', options: [] },
@@ -192,7 +192,8 @@ const formFields: Field[][] = [
         { value: 'false', label: 'Decommissioned' }
       ]
     },
-    { id: "btn24", name: "comments", label: "Comments/Remarks", type: "textarea", multiselect: 'false', adminUnit: false, options: [] }
+    { id: "btn24", name: "description", label: "Description", type: "textarea", multiselect: 'false', adminUnit: false, options: [] },
+    { id: "btn24x", name: "comments", label: "Comments/Remarks", type: "textarea", multiselect: 'false', adminUnit: false, options: [] }
 
   ],
 

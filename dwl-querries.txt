@@ -190,3 +190,27 @@ UPDATE roles SET id = -99  WHERE name = 'root_admin';
 UPDATE roles
 SET subordinates = subordinates || '{0}'
 WHERE id = -99;
+
+
+..............................................
+
+-- Convert directly using array_to_string
+ALTER TABLE settlement 
+ALTER COLUMN typical_building_materials TYPE TEXT 
+USING array_to_string(typical_building_materials, ', ');
+
+
+
+ALTER TABLE settlement 
+ALTER COLUMN structure_types TYPE TEXT 
+USING array_to_string(structure_types, ', ');
+
+
+ALTER TABLE settlement 
+ALTER COLUMN development TYPE TEXT 
+USING array_to_string(development, ', ');
+
+
+
+ALTER TABLE settlement 
+RENAME COLUMN comments TO description;

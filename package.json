@@ -95,6 +95,7 @@
     "request": "^2.88.2",
     "request-ip": "^3.3.0",
     "sequelize": "^6.32.1",
+    "sequelize-cli": "^6.6.2",
     "shapefile": "^0.6.6",
     "shortid": "^2.2.16",
     "tmp": "^0.2.3",
@@ -173,10 +174,7 @@
   "engines": {
     "node": ">= 20.9.0"
   },
- 
-    "packageManager": "pnpm@8.15.3",
-  
-  
+  "packageManager": "pnpm@8.15.3",
   "license": "MIT",
   "repository": {
     "type": "git",

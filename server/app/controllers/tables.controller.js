@@ -788,7 +788,7 @@ exports.modelImportData = async (req, res) => {
 
  
 
-exports.modelImportDataUpsert = async (req, res) => {
+exports.old_modelImportDataUpsert = async (req, res) => {
 
   console.log('req.body', req.body);
 
@@ -889,6 +889,114 @@ exports.modelImportDataUpsert = async (req, res) => {
   } catch (err) {
     console.error('Unexpected error:', err);
     res.status(500).send({ message: 'Internal Server Error', error: err.message });
+  }
+};
+
+
+exports.modelImportDataUpsert = async (req, res) => {
+  try {
+    console.log('req.body', req.body);
+    
+    const { model: reg_model, data: rawData } = req.body;
+    let data = rawData;
+
+    // Parse JSON if data is string
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch (error) {
+        return res.status(400).json({ message: 'Invalid JSON format for data' });
+      }
+    }
+
+    // Validate data is array
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ message: 'Data must be an array' });
+    }
+
+    const results = [];
+    const errors = [];
+    const currentUser = req.thisUser.id;
+
+    // Common processing for all items
+    const processItem = async (item) => {
+      try {
+        item.createdBy = currentUser;
+
+        // Model-specific processing
+        if (reg_model === 'project') {
+          item.sourceFunding = Array.isArray(item.sourceFunding) 
+            ? item.sourceFunding 
+            : [item.sourceFunding];
+          item.activities = Array.isArray(item.activities) 
+            ? item.activities 
+            : [item.activities];
+        }
+
+        // Upsert with conflict handling
+        const [document, created] = await db.models[reg_model].upsert(item, {
+          returning: true,
+          conflictFields: ['code'], // Specify conflict fields
+          updateOnDuplicate: Object.keys(item).filter(key => key !== 'code') // Update all fields except ID
+        });
+
+        // Handle project activities
+        if (reg_model === 'project' && item.activities?.length) {
+          const activities = await db.models.activity.findAll({
+            where: { id: item.activities },
+          });
+          await document.addActivities(activities);
+        }
+
+        // Send settlement data if applicable
+        if (reg_model === 'settlement' && created) {
+          sendSettDataToODK([item]);
+        }
+
+        results.push({ document, created });
+      } catch (err) {
+        console.error(`Error processing ${reg_model} item:`, err);
+        errors.push({
+          item,
+          error: err.original || err.message
+        });
+      }
+    };
+
+    // Process all items in parallel
+    await Promise.all(data.map(processItem));
+
+    // Handle response
+    if (errors.length > 0) {
+      const errorCodes = [...new Set(errors.map(e => e.error?.code))];
+      let errorMsg = `Import/Update completed with ${errors.length} errors`;
+
+      if (errorCodes.includes("42P10") || errorCodes.includes("23505")) {
+        errorMsg = 'Duplicate records detected. Non-duplicates were processed successfully.';
+      }
+
+      return res.status(207).json({ // 207 Multi-Status
+        message: errorMsg,
+        successCount: results.length,
+        errorCount: errors.length,
+        errors: errors.slice(0, 10), // Return first 10 errors to avoid huge response
+        code: 'PARTIAL_SUCCESS'
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Import/Update Successful',
+      insertedCount: results.filter(r => r.created).length,
+      updatedCount: results.filter(r => !r.created).length,
+      code: '0000'
+    });
+
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    return res.status(500).json({ 
+      message: 'Internal Server Error', 
+      error: err.message 
+    });
   }
 };
 
