@@ -916,7 +916,7 @@ exports.signin = async (req, res) => {
         console.log('Logging in whereClause:', whereClause)
 
  
-        Users.findOne({
+    User.findOne({
       where:{ [Op.or]:
               whereClause
             },

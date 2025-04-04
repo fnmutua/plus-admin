@@ -59,6 +59,16 @@ db.models.roles.hasMany(db.models.user_roles, {
 
 
 
+db.models.user_roles.belongsTo(db.user, {
+  foreignKey: 'userid'
+})
+
+db.user.hasMany(db.models.user_roles, {
+  foreignKey: 'userid'
+})
+
+ 
+ 
 
 
 
