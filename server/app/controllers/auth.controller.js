@@ -1813,7 +1813,8 @@ exports.verifyCode = async (req, res) => {
     var authorities = []
     user.getRoles().then((roles) => {
       for (let i = 0; i < roles.length; i++) {
-        authorities.push(roles[i].name)
+       // authorities.push(roles[i].name)
+        authorities.push(roles[i])
       }
 
       const expiryDate = new Date();
