@@ -19,7 +19,8 @@ const fs = require('fs');
 const path = require('path');
 const requestIp = require('request-ip');
 const axios = require('axios');
- 
+const UserRoles = db.models.user_roles
+
  
 
  
@@ -914,13 +915,16 @@ exports.signin = async (req, res) => {
 
         console.log('Logging in whereClause:', whereClause)
 
-
  
     User.findOne({
-  
       where:{ [Op.or]:
               whereClause
-            }
+            },
+            include: [
+              {
+                model: UserRoles,
+              }
+            ]
     })
     .then(async (user) => {
     
@@ -991,6 +995,7 @@ exports.signin = async (req, res) => {
           name: user.name,
           email: user.email,
           roles: authorities,
+          user_roles: user.user_roles,
           phone: user.phone,
           county_id: user.county_id,
           accessToken: token,
