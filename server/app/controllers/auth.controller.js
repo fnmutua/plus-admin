@@ -1797,6 +1797,11 @@ exports.verifyCode = async (req, res) => {
       where: {
         id: otp.user_id // Assuming user_id is the field representing user's id in the OTP table
       },
+      include: [
+        {
+          model: UserRoles,
+        }
+      ],
       attributes: {
         exclude: ['photo'] // Exclude the 'photo' field from the result
       }
@@ -1833,6 +1838,7 @@ exports.verifyCode = async (req, res) => {
         name: user.name,
         email: user.email,
         roles: authorities,
+        user_roles: user.user_roles,
         phone: user.phone,
         county_id: user.county_id,
         accessToken: token,
