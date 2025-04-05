@@ -365,9 +365,17 @@ isAdminOrCountyAdmin = (req, res, next) => {
         return next(); // Super Admins bypass location checks
       }
 
-      if ((role.name === "grm" || role.name === "gbv") && role.user_roles?.location_level === "national") {
+      // if ((role.name === "grm" || role.name === "gbv") && role.user_roles?.location_level === "national") {
+      //   return next();
+      // }
+      if (
+        (role.name === "grm" || role.name === "gbv") &&
+        ["national", "county", "settlement"].includes(role.user_roles?.location_level)
+      ) {
         return next();
       }
+      
+
     }
 
     res.status(403).send({ message: "You require a national-level grievance role to perform this function" });
