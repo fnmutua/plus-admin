@@ -1685,7 +1685,12 @@ exports.batchDocumentsUploadByGrievanceCode = async (req, res) => {
         };
     
         // Check if the current user has the 'super_admin' role or 'grm/gbv' roles
-        const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
+       //  const hasSuperAdminRole = currentUserRoles.some(role => role.name === 'super_admin');
+        const hasSuperAdminRole = currentUserRoles.some(role => 
+          role.name === 'super_admin' || role.name === 'root_admin'
+        );
+
+        
         const hasGRMRole = currentUserRoles.some(role => role.name === 'grm' || role.name === 'gbv');
     
         // Initialize attributes, including all fields from grievance and sensitive fields with conditional redaction

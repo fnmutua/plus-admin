@@ -23,6 +23,7 @@ router.beforeEach(async (to, from, next) => {
   loadStart();
 
   const userInfo = wsCache.get(appStore.getUserInfo);
+  
 
   if (userInfo) {
     if (to.path === '/login') {
@@ -43,29 +44,41 @@ router.beforeEach(async (to, from, next) => {
       }
 
       const roles = userInfo.roles; // Get all roles for the user
+        const adminRoles = ['root_admin', 'super_admin', 'admin', 'staff', 'monitoring'];
+        const nonAdminRoles = ['grm', 'consultant'];
 
-      // Loop through each role and its location_level, and generate routes
-      for (const role of roles) {
-        console.log("gettinguser roles: ",role)
-        await permissionStore.generateRoutes(role.name, role.user_roles.location_level);
+        // Flags to track the button state
+        let hasAdminRole = false;
+        let hasEditRole = false;
 
-        if(role.name=='root_admin' ||role.name=='super_admin' || role.name=='admin' || role.name=='staff' || role.name=='monitoring' ) {
+        for (const role of roles) {
+          console.log("getting user roles: ", role);
+
+          await permissionStore.generateRoutes(role.name, role.user_roles.location_level);
+
+          if (adminRoles.includes(role.name)) {
+            hasAdminRole = true;
+            hasEditRole = true;  // Admin roles typically have edit permissions
+          } else if (nonAdminRoles.includes(role.name)) {
+            hasEditRole = true;  // Non-admin roles may have edit permissions but not admin
+          }
+        }
+
+        // After processing all roles, update the button state
+        if (hasAdminRole) {
           appStore.setAdminButtons(true);
+          appStore.setEditButtons(true);  // Admins get both buttons
+        } else if (hasEditRole) {
           appStore.setEditButtons(true);
-
-        }
-        else if (role.name=='grm' || role.name=='consultant' ){
-          appStore.setEditButtons(true);
+          appStore.setAdminButtons(false);  // Non-admins can have edit buttons only
+        } else {
           appStore.setAdminButtons(false);
-
+          appStore.setEditButtons(false);  // No permissions, so no buttons
         }
-        else {
-          appStore.setAdminButtons(false);
-          appStore.setEditButtons(false);
 
-        }
-        
-      }
+        console.log('appStore', appStore);
+
+    
 
       permissionStore.getAddRouters.forEach((route) => {
         router.addRoute(route as unknown as RouteRecordRaw); // Dynamically add accessible routes
@@ -77,10 +90,14 @@ router.beforeEach(async (to, from, next) => {
       permissionStore.setIsAddRouters(true);
       next(nextData);
     }
-  } else {
+  } 
+  else {
     if (whiteList.indexOf(to.path) !== -1) {
       next();
     } else if (to.path.startsWith('/reset')) {
+
+      
+
       next(); // For reset, do not redirect
     } 
     else if (to.path.startsWith('/status')) {

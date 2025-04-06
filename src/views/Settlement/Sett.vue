@@ -78,7 +78,10 @@ const appStore = useAppStore()
 const userInfo = wsCache.get(appStore.getUserInfo)
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
-const isSuperAdmin = ref(userInfo.roles.some(role => role.name === "super_admin"));
+const isSuperAdmin = ref(
+  userInfo.roles.some(role => role.name === "super_admin" || role.name === "root_admin")
+);
+
 const thisHistory =ref()
 
 console.log('userInfo.roles',userInfo.roles)

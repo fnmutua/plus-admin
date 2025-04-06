@@ -3,12 +3,12 @@
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, ElSelectV2, ElStep, ElSteps, FormInstance, ElCard, ElTour, ElTourStep, ElText } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, ElStep, ElSteps, FormInstance, ElCard, ElTour, ElTourStep,ElText } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
   Edit,
-  Delete, CircleCloseFilled,
+  Delete,CircleCloseFilled,
   UploadFilled,
   Position, Back,
   InfoFilled
@@ -22,6 +22,7 @@ import {
 } from 'element-plus'
 
 import { useRouter } from 'vue-router'
+import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
@@ -31,7 +32,7 @@ import { getModelSpecs } from '@/api/fields'
 import { BatchImportUpsert } from '@/api/settlements'
 import { UserType } from '@/api/register/types'
 import { Icon } from '@iconify/vue';
-import { getOneGeo } from '@/api/settlements'
+import {   getOneGeo  } from '@/api/settlements'
 
 
 import UploadComponent from '@/views/Components/UploadComponent.vue';
@@ -47,7 +48,6 @@ import TableActions from '@/views/Components/TableActions.vue';
 import { MapboxLayerSwitcherControl } from "mapbox-layer-switcher";
 import "mapbox-layer-switcher/styles.css";
 import * as turf from '@turf/turf'
-import { useAppStore } from '@/store/modules/app'
 
 
 const MapBoxToken =
@@ -58,24 +58,22 @@ mapboxgl.accessToken = MapBoxToken;
 
 
 const { wsCache } = useCache()
-const appStore = useAppStore()
+const appStore = useAppStoreWithOut()
 const userInfo = wsCache.get(appStore.getUserInfo)
 
 const showAdminButtons = ref(appStore.getAdminButtons)
 const showEditButtons = ref(appStore.getEditButtons)
 
- 
-console.log("userInfo--->", userInfo)
 
 console.log("showAdminButtons--->", showAdminButtons.value)
-
+console.log("userInfo--->", userInfo)
 
 const action_buttons = ref([])
 if (showAdminButtons.value) {
   action_buttons.value = ['edit', 'delete', 'viewOnMap']
 } else if (showEditButtons.value) {
 
-  action_buttons.value = ['edit', 'viewOnMap']
+  action_buttons.value = [ 'edit', 'viewOnMap']
 }
 else {
   action_buttons.value = ['viewOnMap']
@@ -139,14 +137,13 @@ function emptyRuleForm() {
 
 const ruleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-  indicator_category_id: [],
-  indicators: [],
+  indicator_category_id: null,
   baseline: 0,
   target: 0,
-  project_id: null,
+  project_id:null,
   project_location_id: null,
   activity_id: null,
-  programme_implementation_id: null,
+  programme_implementation_id:null,
   settlement_id: null,
   subcounty_id: null,
   ward_id: null,
@@ -203,12 +200,12 @@ const rules = reactive<FormRules>({
   //   { required: true, message: 'Required', trigger: 'blur' },
   // ],
 
-
+ 
 
 })
 
 
-
+ 
 
 const AddDialogVisible = ref(false)
 const ImportDialogVisible = ref(false)
@@ -224,14 +221,14 @@ const showEditSaveButton = ref(false)
 let tableDataList = ref<UserType[]>([])
 //// ------------------parameters -----------------------////
 //const filters = ['intervention_type', 'intervention_phase', 'settlement_id']
-var filters = []
-var filterValues = []  // remember to change here!
+var filters = [ ]
+var filterValues = [ ]  // remember to change here!
 var tblData = []
 const associated_Model = ''
 const model = 'indicator_category_report'
-const associated_multiple_models = ['document', 'settlement', 'county', 'users', 'indicator_category']
+const associated_multiple_models = ['document', 'settlement', 'county', 'users','indicator_category'  ]
 //const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
-const nested_models = ['activity', 'project']  // The mother, then followed by the child
+const nested_models =['activity', 'project']  // The mother, then followed by the child
 
 //// ------------------parameters -----------------------////
 
@@ -355,10 +352,10 @@ const getModeldefinition = async (selModel) => {
 
 }
 
-const loading = ref(false)
+const loading =ref(false)
 const getFilteredData = async (selFilters, selfilterValues) => {
 
-  loading.value = true
+  loading.value=true
   const formData = {}
   formData.limit = pageSize.value
   formData.page = page.value
@@ -382,16 +379,16 @@ const getFilteredData = async (selFilters, selfilterValues) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('Reports collected........', res)
-
+  
   // tableDataList.value = res.data.filter(item => item.indicator_category.indicator_level === 'activity');
 
-  tableDataList.value = res.data
-  loading.value = false
+  tableDataList.value=res.data
+  loading.value=false
 
   //tableDataList.value = res.data
   total.value = res.total
-
-
+ 
+ 
 }
 
 const projectOptions = ref([])
@@ -399,7 +396,7 @@ const projectOptionsAll = ref([])
 const indicatorsOptions = ref([])
 const indicatorsOptionsFiltered = ref([])
 
-
+ 
 const getIndicatorNames = async () => {
   console.log('getIndicatorNames >>>>>>>>>>>>>>>>>>>>>>>>>>>>');
 
@@ -431,9 +428,9 @@ const getIndicatorNames = async () => {
 
     // Collect only output indicators
     ///if (arrayItem.indicator_level === 'activity') {
-    indicatorsOptions.value.push(opt);
-    indicatorsOptionsFiltered.value.push(opt);
-    //  }
+      indicatorsOptions.value.push(opt);
+      indicatorsOptionsFiltered.value.push(opt);
+  //  }
 
     // Check if `activity` exists and has `projects`
     if (arrayItem.activity && Array.isArray(arrayItem.activity.projects)) {
@@ -446,98 +443,24 @@ const getIndicatorNames = async () => {
         };
         projectOptions.value.push(prj);
         projectOptionsAll.value.push(prj);
-
+        
       });
     } else {
       console.log('No projects found for this activity');
-
+      
     }
   });
 
-
+   
 };
 
 
 
+ 
 
 
 
 const editReport = async (data: TableSlotDefault) => {
-  showSubmitBtn.value = false;
-  await getProjectLocations(data.project_id); // Ensure you have project locations if needed
-
-  showEditSaveButton.value = true;
-  console.log('editReport', data);
-
-  // Pre-populate form fields except for indicators
-  ruleForm.id = data.id;
-  ruleForm.county_id = data.county_id;
-  ruleForm.subcounty_id = data.subcounty_id;
-  ruleForm.settlement_id = data.settlement_id;
-  ruleForm.project_id = data.project_id;
-  ruleForm.activity_id = data.activity_id;
-  ruleForm.date = data.date;
-  ruleForm.amount = data.amount;
-  ruleForm.indicator_category_id = [data.indicator_category_id];
-  ruleForm.programme_implementation_id = data.programme_implementation_id;
-  ruleForm.project_location_id = data.project_location_id;
-  ruleForm.ward_id = data.ward_id;
-  ruleForm.code = data.code;
-  ruleForm.progress = data.progress;
-  ruleForm.project_status = data.project_status;
-  ruleForm.disbursement = data.disbursement;
-  ruleForm.comments = data.comments;
-
-  // Files/Documents linked to this report
-  fileUploadList.value = data.documents;
-
-  // Now handle the indicators separately, populating dynamic data
-     handleIndicatorsChange([data.indicator_category_id]) // If indicators data is passed, map it. If not, leave it empty.
-
-     changeIndicator(data.indicator_category_id)
-
-     // Ensure indicators have default values if necessary
-      ruleForm.indicators = ruleForm.indicators.map((indicator: any) => ({
-        ...indicator,
-        cumAmount: ruleForm.cumAmount || 0,
-        amount: ruleForm.amount || 0,
-        progress: ruleForm.progress || '0.00',
-        cumProgress: ruleForm.cumProgress || '0.00',
-        date: ruleForm.date || new Date(),
-        target: ruleForm.target || 0,
-        baseline: ruleForm.baseline || 0,
-        activity_id: ruleForm.activity_id || ruleForm.activity_id, // If needed
-      }));
-
-      console.log('ruleForm.indicators', ruleForm.indicators);
-
-
-
-  console.log('ruleForm.indicatorsEditing', ruleForm.indicator_category_id);
-
-   
-
-  // Header for the dialog when editing
-  formHeader.value = 'Edit Report';
-
-  // Fetch cumulative progress for editing indicators
-  getCumulativeProgressEditPhase(data.indicator_category_id);
-  changeIndicator(data.indicator_category_id); // This might depend on the `indicator_category_id`
-
-  // Check if project scope is National (optional for the form)
-  const thisProject = projectOptionsAll.value.filter(prj => prj.value == data.project_id);
-  console.log('Edit thisProject', thisProject);
-  isNationalProject.value = thisProject && thisProject[0].implementation_scope === 'National';
-
-  // Open the dialog for editing
-  AddDialogVisible.value = true;
-};
-
-
-
-
-
-const old_editReport = async (data: TableSlotDefault) => {
   showSubmitBtn.value = false
 
   await getProjectLocations(data.project_id)
@@ -582,17 +505,17 @@ const old_editReport = async (data: TableSlotDefault) => {
 
 
   const thisProject = projectOptionsAll.value.filter(prj =>
-    prj.value == data.project_id
-  );
-  console.log('Edit thisProject', thisProject)
-  if (thisProject && thisProject[0].implementation_scope == 'National') {
-    isNationalProject.value = true
+          prj.value ==  data.project_id
+      );
+      console.log('Edit thisProject', thisProject)
+      if(thisProject && thisProject[0].implementation_scope =='National' ){
+        isNationalProject.value=true
 
-  } else {
-    isNationalProject.value = false
+      } else {
+        isNationalProject.value=false
 
 
-  }
+      }
 
 
 
@@ -651,7 +574,6 @@ const handleClose = () => {
   ruleForm.amount = null
   ruleForm.ward_id = null
   ruleForm.location = []
-  ruleForm.indicators = []
 
   formHeader.value = 'Add M&E Report'
   AddDialogVisible.value = false
@@ -719,54 +641,54 @@ const getProjectLocations = async (project_id) => {
 
 const getProjectActivityIndicators = async (activity_ids) => {
   const formData = {}
-
+ 
   formData.model = 'indicator_category'
   //-Search field--------------------------------------------
   formData.searchField = 'title'
   formData.searchKeyword = ''
   //--Single Filter -----------------------------------------
 
-
+ 
   // - multiple filters -------------------------------------
-
+ 
 
   formData.filters = ['activity_id']
   formData.filterValues = [activity_ids]
-
+ 
 
   formData.associated_multiple_models = ['indicator']
-
+ 
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
-
+ 
   console.log('This Project  Idnicator configs', res.data)
   return res.data
 }
 
 const getProjectProjectOutcomeIndicators = async () => {
   const formData = {}
-
+ 
   formData.model = 'indicator_category'
   //-Search field--------------------------------------------
   formData.searchField = 'title'
   formData.searchKeyword = ''
   //--Single Filter -----------------------------------------
 
-
+ 
   // - multiple filters -------------------------------------
-
+ 
 
   formData.filters = ['indicator_level']
   formData.filterValues = ['project']
-
+ 
 
   formData.associated_multiple_models = ['indicator']
-
+ 
   //-------------------------
   //console.log(formData)
   const res = await getSettlementListByCounty(formData)
-
+ 
   console.log('This Project  level  indicaors', res.data)
   return res.data
 }
@@ -782,84 +704,84 @@ const getProjectActivities = async (project_id) => {
   };
 
   const res = await getSettlementListByCounty(formData);
-
+  
   console.log('This Project Activiies...:', res.data);
-
+  
   // Return an array of ids
   const activityIds = res.data.map(activity => activity.activity_id);
-
+  
   return activityIds;
 };
 
 
 
-const disableIndicator = ref(false)
-const isNationalProject = ref(false)
+const disableIndicator=ref(false)
+const isNationalProject=ref(false)
 
 const changeProject = async (project: any) => {
+  
+  ruleForm.project_location_id=null
+  ruleForm.project_id=project
 
-  ruleForm.project_location_id = null
-  ruleForm.project_id = project
-
-  let project_activities = []
-  let sel_indicators = []
-  let outcome_indicators = []
+  let project_activities=[]
+  let sel_indicators=[]
+  let outcome_indicators=[]
 
   console.log('changeProject', project)
   console.log('projectOptionsAll', projectOptionsAll)
 
   const thisProject = projectOptionsAll.value.filter(prj =>
-    prj.value == project
-  );
-  console.log('thisProject', thisProject)
-  if (thisProject && thisProject[0].implementation_scope == 'National') {
-    isNationalProject.value = true
-    console.log('isNationalProject', isNationalProject.value)
+          prj.value == project
+      );
+      console.log('thisProject', thisProject)
+      if(thisProject && thisProject[0].implementation_scope =='National' ){
+        isNationalProject.value=true
+        console.log('isNationalProject', isNationalProject.value)
 
 
-  } else {
-    isNationalProject.value = false
-    project_activities = await getProjectActivities(project)
-    sel_indicators = await getProjectActivityIndicators(project_activities)
+      } else {
+        isNationalProject.value=false
+        project_activities = await getProjectActivities(project)
+        sel_indicators = await getProjectActivityIndicators(project_activities)
 
-    console.log('project_activities', project_activities)
+        console.log('project_activities', project_activities)
 
-  }
-
-
-  outcome_indicators = await getProjectProjectOutcomeIndicators()
-
-  console.log('outcome_indicators', outcome_indicators)
+      }
 
 
+      outcome_indicators = await getProjectProjectOutcomeIndicators()
+
+      console.log('outcome_indicators', outcome_indicators)
 
 
-  console.log('sel_indicators', sel_indicators)
+  
 
+  console.log('sel_indicators',sel_indicators)
 
+  
 
-  console.log('outcome_indicators', outcome_indicators)
+  console.log('outcome_indicators',outcome_indicators)
 
+  
+// Merging the two arrays
+const merged_indicators = [...sel_indicators, ...outcome_indicators];
 
-  // Merging the two arrays
-  const merged_indicators = [...sel_indicators, ...outcome_indicators];
+console.log('merged_indicators',merged_indicators)
 
-  console.log('merged_indicators', merged_indicators)
-
-  const transformedArray = merged_indicators.map(item => {
+  const transformedArray = merged_indicators.map(item => { 
     console.log(item)
-    return {
-      label: item.indicator.name + ' ' + item.category_title,
-      value: item.id,
-      project_id: item.project_id,
-      unit: item.indicator.unit,
-      activity_id: item.activity_id
-    };
-  });
+          return {
+              label: item.indicator.name + ' ' + item.category_title,
+              value: item.id,
+              project_id: item.project_id,
+              unit: item.indicator.unit,
+              activity_id: item.activity_id
+            };
+        });
 
-  indicatorsOptionsFiltered.value = transformedArray
+      indicatorsOptionsFiltered.value =transformedArray
 
-  console.log('transformedArray', transformedArray)
+      console.log('transformedArray',transformedArray)
 
 
   const filteredOpts = projectOptionsAll.value.filter(item => item.value == project);
@@ -875,7 +797,7 @@ const changeProject = async (project: any) => {
   ruleForm.indicator_category_id = []
   ruleForm.activity_id = null
 
-
+   
 
   getProjectLocations(project)
 
@@ -884,7 +806,7 @@ const changeProject = async (project: any) => {
 }
 
 
-
+ 
 
 const changeLocation = async (location: any) => {
   console.log('changeLocation', location)
@@ -900,7 +822,6 @@ const changeLocation = async (location: any) => {
   ruleForm.subcounty_id = selected_location.subcounty_id
   ruleForm.ward_id = selected_location.ward_id
   ruleForm.settlement_id = selected_location.settlement_id
-  ruleForm.geom = selected_location.geom
   //ruleForm.project_location_id = location.id
 
 
@@ -911,7 +832,7 @@ const changeLocation = async (location: any) => {
 
 
 const changeIndicator = async (indicator_category_id: any) => {
-  //ruleForm.indicator_category_id = indicator_category_id
+  ruleForm.indicator_category_id = indicator_category_id
 
   console.log('Filtre indicatorsOptionsFiltered', indicatorsOptionsFiltered)
 
@@ -920,8 +841,8 @@ const changeIndicator = async (indicator_category_id: any) => {
   });
 
 
-  // ruleForm.project_id = filtredOptions[0].project_id
-  ruleForm.activity_id = filtredOptions[0].activity_id
+ // ruleForm.project_id = filtredOptions[0].project_id
+  ruleForm.activity_id= filtredOptions[0].activity_id
 
 
 
@@ -950,97 +871,78 @@ const AddReport = () => {
   showSubmitBtn.value = true
 }
 
- 
-
 
 const submitForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return;
-
+  if (!formEl) return
   await formEl.validate(async (valid, fields) => {
-    if (!valid) {
-      console.log('Form validation failed:', fields);
-      return;
-    }
+    if (valid) {
+      ruleForm.model = 'indicator_category_report'
+      ruleForm.period = getQuarter()
+      ruleForm.code = uuid.v4()
+      ruleForm.userId = userInfo.id
 
-    const submittedReportIds = [];
+      
 
-    for (const indicator of ruleForm.indicators) {
-      // Calculate new cumulative amount
-      const updatedCumAmount = (indicator.cumAmount || 0) + (indicator.amount || 0);
+      console.log('cumProgress', ruleForm.value)
 
-      // Calculate progress = 100 * (cumAmount / target)
-      const progress = isFinite(updatedCumAmount / (indicator.target || 1))
-        ? ((updatedCumAmount / indicator.target) * 100).toFixed(2)
-        : '0.00';
+      ruleForm.cumAmount = ruleForm.cumAmount + ruleForm.amount
 
-      const reportPayload = {
-        model: 'indicator_category_report',
-        period: getQuarter(),
-        code: uuid.v4(),
-        userId: userInfo.id,
-        project_id: ruleForm.project_id,
-        project_location_id: ruleForm.project_location_id,
-        indicator_category_id: indicator.value,
-        amount: indicator.amount || 0,
-        baseline: indicator.baseline || 0,
-        target: indicator.target || 0,
-        date: indicator.date || new Date(),
-        cumAmount: updatedCumAmount,
-        cumProgress: progress,
-        progress:progress,
-        comments: ruleForm.comments,
-        programme_implementation_id: ruleForm.programme_implementation_id,
-        settlement_id: ruleForm.settlement_id,
-        county_id: ruleForm.county_id,
-        subcounty_id: ruleForm.subcounty_id,
-        ward_id: ruleForm.ward_id,
-        activity_id: indicator.activity_id,
-        geom: ruleForm.geom,
-  
- 
-      };
+      let calculatedProgress = (100 * (ruleForm.cumAmount / ruleForm.target));
 
- 
-
-      // Submit individual indicator report
-      const report = await CreateRecord(reportPayload);
-      console.log(`Report created for indicator ${indicator.label}: ID ${report.data.id}`);
-
-      submittedReportIds.push(report.data.id);
-    }
-
-    // Upload files for each created report
-    if (submittedReportIds.length && fileUploadList.value.length) {
-      for (const reportId of submittedReportIds) {
-        const formData = new FormData();
-
-        fileUploadList.value.forEach((file) => {
-          formData.append('files', file.raw);
-          formData.append('format', file.name.split('.').pop());
-          formData.append('field_id', 'report_id');
-          formData.append('category', 2);
-          formData.append('report_id', parseInt(reportId));
-          formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2));
-          formData.append('createdBy', userInfo.id);
-          formData.append('protected', false);
-        });
-
-        formData.append('code', uuid.v4());
-
-        const uploaded = await uploadFilesBatch(formData);
-        console.log(`Files uploaded for report ID ${reportId}:`, uploaded.data);
+      if (isFinite(calculatedProgress)) {
+        ruleForm.cumProgress = calculatedProgress.toFixed(2);
+      } else {
+        ruleForm.cumProgress = '0.00';
       }
+
+
+      //Progress towards target (%realized) [(B-A)/(C- A)]
+
+      const report = await CreateRecord(ruleForm)   // first save the form on DB
+      console.log("Report", report.data.id)
+
+      emptyRuleForm()
+
+      // uploading the documents 
+
+      const formData = new FormData()
+      for (var i = 0; i < fileUploadList.value.length; i++) {
+        console.log('------>file', fileList.value[i])
+        var column = 'report_id'
+        formData.append('files', fileUploadList.value[i].raw)
+        formData.append('format', fileUploadList.value[i].name.split('.').pop())
+        formData.append('field_id', 'report_id')
+        formData.append('category', 2)
+        formData.append(column, parseInt(report.data.id))
+        formData.append('size', (fileUploadList.value[i].raw.size / 1024 / 1024).toFixed(2))
+        formData.append('createdBy', userInfo.id)
+        formData.append('protected', false)
+
+        //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
+      }
+
+      formData.append('code', uuid.v4())
+
+
+
+      console.log('Befoer submit', formData)
+      const docs = await uploadFilesBatch(formData)
+
+      console.log('after submit', docs.data)
+
+
+      AddDialogVisible.value = false
+      handleClose()
+
+    } else {
+      console.log('error submit!', fields)
     }
-
-    emptyRuleForm();
-    AddDialogVisible.value = false;
-    handleClose();
-  });
-};
+  })
+}
 
 
 
-const xeditForm = async (formEl: FormInstance | undefined) => {
+const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
     if (valid) {
@@ -1091,88 +993,6 @@ const xeditForm = async (formEl: FormInstance | undefined) => {
   })
 }
 
-const editForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return;
-
-  await formEl.validate(async (valid, fields) => {
-    if (!valid) {
-      console.log('Form validation failed:', fields);
-      return;
-    }
-
-    const updatedReportIds = [];
-
-    for (const indicator of ruleForm.indicators) {
-      // Calculate new cumulative amount
-      const updatedCumAmount = (indicator.cumAmount || 0) + (indicator.amount || 0);
-
-      // Calculate progress = 100 * (cumAmount / target)
-      const progress = isFinite(updatedCumAmount / (indicator.target || 1))
-        ? ((updatedCumAmount / indicator.target) * 100).toFixed(2)
-        : '0.00';
-
-      const reportPayload = {
-        model: 'indicator_category_report',
-        id: ruleForm.id, // Use existing report ID to update
-        period: getQuarter(),
-        code: uuid.v4(),
-        userId: userInfo.id,
-        project_id: ruleForm.project_id,
-        project_location_id: ruleForm.project_location_id,
-        indicator_category_id: indicator.id,
-        amount: indicator.amount || 0,
-        baseline: indicator.baseline || 0,
-        target: indicator.target || 0,
-        date: indicator.date || new Date(),
-        cumAmount: updatedCumAmount,
-        cumProgress: progress,
-        progress: progress,
-        comments: ruleForm.comments,
-        programme_implementation_id: ruleForm.programme_implementation_id,
-        settlement_id: ruleForm.settlement_id,
-        county_id: ruleForm.county_id,
-        subcounty_id: ruleForm.subcounty_id,
-        ward_id: ruleForm.ward_id,
-        activity_id: ruleForm.activity_id,
-      };
-
-      // Update individual indicator report
-      const updatedReport = await updateOneRecord(reportPayload);  // Assuming `UpdateRecord` is the function to update the report
-      console.log(`Report updated for indicator ${indicator.label}: ID ${updatedReport.data.id}`);
-
-      updatedReportIds.push(updatedReport.data.id);
-    }
-
-    // Upload files for each updated report
-    if (updatedReportIds.length && fileUploadList.value.length) {
-      for (const reportId of updatedReportIds) {
-        const formData = new FormData();
-
-        fileUploadList.value.forEach((file) => {
-          formData.append('files', file.raw);
-          formData.append('format', file.name.split('.').pop());
-          formData.append('field_id', 'report_id');
-          formData.append('category', 2);
-          formData.append('report_id', parseInt(reportId));
-          formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2));
-          formData.append('createdBy', userInfo.id);
-          formData.append('protected', false);
-        });
-
-        formData.append('code', uuid.v4());
-
-        const uploaded = await uploadFilesBatch(formData);
-        console.log(`Files uploaded for report ID ${reportId}:`, uploaded.data);
-      }
-    }
-
-    // Reset the form
-    emptyRuleForm();
-    AddDialogVisible.value = false;
-    handleClose();
-  });
-};
-
 
 const batchData = ref([])
 const submitBatchImport = async () => {
@@ -1220,7 +1040,7 @@ const submitBatchImport = async () => {
 
 
 
-const firstReport = ref(true)
+const firstReport=ref(true)
 
 const getCumulativeProgress = async () => {
 
@@ -1230,7 +1050,7 @@ const getCumulativeProgress = async () => {
   var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
   [ruleForm.project_id], [ruleForm.programme_implementation_id]]  // remember to change here!
 
-  console.log(ruleForm.value)
+console.log(ruleForm.value)
 
   if (ruleForm.settlement_id) {
     filters.push('settlement_id')
@@ -1264,10 +1084,10 @@ const getCumulativeProgress = async () => {
 
 
   console.log('yaay. Got last reports', res.data)
-  if (res.data.length == 0) {
-    firstReport.value = true
-  } else {
-    firstReport.value = false
+  if (res.data.length==0){
+    firstReport.value=true
+  }else {
+    firstReport.value=false
   }
 
   function getLatestReport(dataList) {
@@ -1593,18 +1413,18 @@ const submitFiles = async () => {
 
 getModeldefinition(model)
 
-getIndicatorNames()
-
+ getIndicatorNames()
+ 
 //getCategoryOptions()
 getInterventionsAll()
 
 
-
+ 
 
 
 
 const tableRowClassName = (data) => {
-
+   
   if (data.row.status == 'Rejected') {
     return 'danger-row'
   }
@@ -1675,10 +1495,10 @@ function toggleComponent(row) {
 
 
 function disabledFutureDates(date) {
-  const today = new Date();
-  return date.getTime() > today.getTime(); // Disable dates after today
-}
-
+      const today = new Date();
+      return date.getTime() > today.getTime(); // Disable dates after today
+    }
+  
 
 
 // component for docuemnts 
@@ -1724,7 +1544,7 @@ const showMap = async (row) => {
   const res = await getOneGeo(formData)
   const loc_geom = res.data[0].json_build_object
   var centroid = turf.centroid(loc_geom);
-  console.log('centroid', centroid)
+  console.log('centroid',centroid)
   reportGeom.value = centroid
 
 
@@ -1733,34 +1553,34 @@ const showMap = async (row) => {
   const projLocFormData = {}
   projLocFormData.model = 'project_location'
   projLocFormData.id = row.project_location_id
-
+ 
   const prj_res = await getOneGeo(projLocFormData)
   const proj_geom = prj_res.data[0].json_build_object
   var proj_centroid = turf.centroid(proj_geom);
-  console.log('centroid', proj_centroid)
+  console.log('centroid',proj_centroid)
   projectGeom.value = proj_centroid
 
 
-  console.log('  projectGeom.value', projectGeom.value)
-  console.log('  projectGeom.value', projectGeom.value)
+  console.log('  projectGeom.value',  projectGeom.value)
+  console.log('  projectGeom.value',  projectGeom.value)
 
 
   dialogMap.value = true
 
-  //   projectGeom.value = reportDetails.value.project.geom
+//   projectGeom.value = reportDetails.value.project.geom
 
 
+ 
+   var options = { units: 'kilometers' };
 
-  var options = { units: 'kilometers' };
-
-  var distance = turf.distance(proj_centroid, centroid, options);
+   var distance = turf.distance(proj_centroid,centroid, options);
   console.log('distance , ', distance)
 
-  if (distance < 1) {
-    projectLocationColor.value = 'green'
-  }
+   if (distance < 1) {
+      projectLocationColor.value = 'green'
+   }
 
-  locationStatus.value = 'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
+    locationStatus.value = 'The report is ' + distance.toFixed(2) + ' kilometers from the center of the project'
   setTimeout(loadMap, 100); // delay for the dialog to fully load
   //loadMap()
 }
@@ -1861,8 +1681,8 @@ const loadMap = () => {
 
 
 
-    //     Add Project Location layer
-    nmap.addLayer({
+  //     Add Project Location layer
+     nmap.addLayer({
       id: 'project-layer',
       type: 'circle',
       source: {
@@ -1877,63 +1697,63 @@ const loadMap = () => {
     });
 
 
-    // Add marker to the map
+     // Add marker to the map
     // Create a new marker and set its position
-    const proj_marker = new mapboxgl.Marker()
-      .setLngLat(projectGeom.value.geometry.coordinates) // Set the marker position using the GeoJSON coordinates
-      .addTo(nmap); // Add the marker to the map
+      const proj_marker = new mapboxgl.Marker()
+          .setLngLat(projectGeom.value.geometry.coordinates) // Set the marker position using the GeoJSON coordinates
+          .addTo(nmap); // Add the marker to the map
 
-    // Create a new popup
-    const project_popup = new mapboxgl.Popup({ offset: 25 }) // Optionally add an offset
-      .setHTML('<h3>Project Location</h3><p>Coordinates: ' + projectGeom.value.geometry.coordinates[1] + ', ' + projectGeom.value.geometry.coordinates[0] + '</p>'); // Set the HTML content of the popup
+      // Create a new popup
+      const project_popup = new mapboxgl.Popup({ offset: 25 }) // Optionally add an offset
+          .setHTML('<h3>Project Location</h3><p>Coordinates: ' + projectGeom.value.geometry.coordinates[1] + ', ' + projectGeom.value.geometry.coordinates[0] + '</p>'); // Set the HTML content of the popup
 
-    // Attach the popup to the marker
-    proj_marker.setPopup(project_popup).togglePopup(); // Automatically open the popup when the marker is added to the map
-
-
-
-    const lineString = {
-      "type": "Feature",
-      "properties": {},
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          projectGeom.value.geometry.coordinates, // First point coordinates
-          reportGeom.value.geometry.coordinates  // Second point coordinates
-        ]
-      }
-    };
-
-    nmap.addLayer({
-      id: 'distance-layer',
-      type: 'line', // Change to 'line' to display the outline
-      source: {
-        type: 'geojson',
-        data: lineString
-      },
-      'paint': {
-        'line-color': 'red',
-        'line-width': 1,
-        'line-dasharray': [10, 10],
-
-
-      },
-      layout: {
-        'line-cap': 'round',
-        'line-join': 'round'
-      }
-    });
-
-
-    const bounds = turf.bbox((lineString))
-    console.log("From geo", bounds)
-    nmap.fitBounds(bounds, { padding: 100 })
+      // Attach the popup to the marker
+      proj_marker.setPopup(project_popup).togglePopup(); // Automatically open the popup when the marker is added to the map
 
 
 
+      const lineString = {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                projectGeom.value.geometry.coordinates, // First point coordinates
+                reportGeom.value.geometry.coordinates  // Second point coordinates
+                ]
+            }
+        };
+
+        nmap.addLayer({
+            id: 'distance-layer',
+            type: 'line', // Change to 'line' to display the outline
+            source: {
+              type: 'geojson',
+              data: lineString
+            },
+            'paint': {
+                'line-color': 'red',
+                'line-width': 1,
+                'line-dasharray': [10, 10],
+
+                 
+            },
+            layout: {
+                'line-cap': 'round',
+                'line-join': 'round'
+            }
+          });
 
 
-    console.log(nmap)
+         const bounds = turf.bbox((lineString))
+            console.log("From geo",bounds)
+          nmap.fitBounds(bounds, { padding: 100 })
+
+
+    
+
+
+  console.log(nmap)
 
     nmap.addControl(new MapboxLayerSwitcherControl(layers));
 
@@ -2043,7 +1863,7 @@ const prevStep = () => {
 const tableRef = ref(null);
 
 const handleCancel = () => {
-  disableIndicator.value = false
+  disableIndicator.value=false
   AddDialogVisible.value = false
 }
 
@@ -2077,29 +1897,6 @@ const searchProject = (query) => {
 };
 
 
- 
-
-
-function handleIndicatorsChange(selectedIds) {
-  const selectedIndicators = indicatorsOptionsFiltered.value.filter(opt =>
-    selectedIds.includes(opt.value)
-  ); 
-
- console.log('selectedIds',selectedIds)
-
-  ruleForm.indicators = selectedIndicators.map(ind => ({
-    ...ind,
-    amount: null,
-    baseline: null,
-    target: null,
-    date: new Date(),
-    cumProgress: null
-  }));
-
-
-  console.log(ruleForm.indicators,ruleForm.indicators)
-}
-
 
 </script>
 
@@ -2107,7 +1904,7 @@ function handleIndicatorsChange(selectedIds) {
   <el-card>
 
 
-    <el-row type="flex" justify="start" gutter="10" style=" margin-bottom: 10px; display: flex; flex-wrap: nowrap; align-items: center;">
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
       <div class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
@@ -2116,7 +1913,8 @@ function handleIndicatorsChange(selectedIds) {
       </div>
 
       <!-- Title Search -->
-      <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Filter by Project/Indicator" style="width: 450px; margin-right: 10px;">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -2134,8 +1932,7 @@ function handleIndicatorsChange(selectedIds) {
 
       <!-- Download All Component -->
       <!-- <DownloadToCSV v-if="showEditButtons && tableDataList.length >0" :model="model"  />  -->
-      <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="model"
-        :associated_models="associated_multiple_models" />
+        <DownloadCustom   v-if="showEditButtons"  :data="tableDataList" :model="model" :associated_models="associated_multiple_models"  />
 
     </el-row>
 
@@ -2148,14 +1945,16 @@ function handleIndicatorsChange(selectedIds) {
 
 
 
-    <el-table :data="tableDataList" border :row-class-name="tableRowClassName" @expand-change="handleExpand"
-      ref="tableRef" v-loading="loading">
+    <el-table
+:data="tableDataList"   border :row-class-name="tableRowClassName"
+      @expand-change="handleExpand" ref="tableRef"  v-loading="loading">
 
       <el-table-column type="expand">
         <template #default="props">
 
           <div>
-            <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+            <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
               @openDialog="toggleComponent(props.row)" />
           </div>
 
@@ -2170,8 +1969,8 @@ function handleIndicatorsChange(selectedIds) {
         </template>
       </el-table-column>
 
-      <el-table-column label="Indicator"  prop="indicator_category.indicator_name" sortable />
-      <el-table-column label="Settlement"   prop="settlement.name" sortable />
+      <el-table-column label="Indicator" width="350" prop="indicator_category.indicator_name" sortable />
+      <el-table-column label="Settlement" width="350"  prop="settlement.name" sortable />
 
       <el-table-column label="Date" prop="date" sortable>
         <template #default="scope">
@@ -2239,11 +2038,10 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"  width="300
         </template>
       </el-table-column> -->
 
-
+      
       <el-table-column label="Actions" width="250">
         <template #default="{ row }">
-          <TableActions :item="row" :buttons="action_buttons" @viewOnMap="showMap" @edit="editReport"
-            @delete="DeleteReport" />
+           <TableActions :item="row" :buttons="action_buttons" @viewOnMap="showMap"   @edit="editReport" @delete="DeleteReport"   />
 
 
         </template>
@@ -2252,153 +2050,173 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"  width="300
     </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
 
 
 
-
-
-
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth">
-  <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
-    <el-step title="Project Details" />
-    <el-step title="Indicator Selection" />
-    <el-step title="Input Values" />
-    <el-step title="Submit" />
-  </el-steps>
 
-  <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
-    <!-- Step 0 -->
-    <el-row v-if="activeStep === 0" :gutter="20">
-      <el-col :span="24">
-        <el-form-item label="Project" prop="project_id">
-          <el-select v-model="ruleForm.project_id" placeholder="Search by Project title, county, settlement" filterable remote :remote-method="searchProject" :loading="loading" clearable :onChange="changeProject" style="width: 90%;">
-            <el-option v-for="option in projectOptions" :key="option.value" :label="option.label" :value="option.value">
-              <span class="option-text">{{ option.label }}</span>
-            </el-option>
-          </el-select>
-          <el-text v-if="disableIndicator" class="mx-1" type="danger">No output indicators are configured for this project</el-text>
-        </el-form-item>
+    <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
+      <el-step title="Project Details" />
+      <el-step title="Activity Details" />
+      <el-step title="Output" />
+      <el-step title="Submit" />
+    </el-steps>
 
-        <el-form-item v-if="!isNationalProject" label="Location" prop="project_location_id">
-          <el-select :disabled="disableIndicator" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select" @change="changeLocation" style="width: 100%;">
-            <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
-              <div style="display: flex; align-items: center;">
-                <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
-                <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
-                  {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
-                </span>
-              </div>
-            </el-option>
-          </el-select>
-        </el-form-item>
-      </el-col>
-    </el-row>
-
-    <!-- Step 1 -->
-    <el-row v-if="activeStep === 1" :gutter="20">
-      <el-col :span="24">
-        <el-form-item label="Indicators" prop="indicator_category_id">
-          <el-select-v2
-            v-model="ruleForm.indicator_category_id"
-            multiple
-            filterable
-            :options="indicatorsOptionsFiltered"
-            placeholder="Select one or more indicators"
-            style="width: 100%;"
-            @change="handleIndicatorsChange"
-          />
-        </el-form-item>
-      </el-col>
-    </el-row>
-
-    <!-- Step 2 -->
-    <el-row v-if="activeStep === 2" :gutter="20">
-      <el-col :span="24">
-        <el-table :data="ruleForm.indicators" style="width: 100%;" border>
-          <el-table-column label="Indicator" prop="label" />
-          <el-table-column label="Amount">
-            <template #default="{ row }">
-              <el-input-number min="0"  v-model="row.amount" style="width: 100%;" />
-            </template>
-          </el-table-column>
-          <!-- <el-table-column label="Baseline">
-            <template #default="{ row }">
-              <el-input-number v-model="row.baseline" style="width: 100%;" />
-            </template>
-          </el-table-column> -->
-          <!-- <el-table-column label="Target">
-            <template #default="{ row }">
-              <el-input-number v-model="row.target" style="width: 100%;" />
-            </template>
-          </el-table-column> -->
-          <el-table-column label="Date">
-            <template #default="{ row }">
-              <el-date-picker  v-model="row.date" type="date" placeholder="Pick a day" style="width: 100%;" :disabled-date="disabledFutureDates" />
-            </template>
-          </el-table-column>
-          <!-- <el-table-column label="Progress (%)">
-            <template #default="{ row }">
-              <el-input-number v-model="row.cumProgress" style="width: 100%;" />
-            </template>
-          </el-table-column> -->
-        </el-table>
-      </el-col>
-    </el-row>
-
-    <!-- Step 3 -->
-    <el-row v-if="activeStep === 3" :gutter="20">
-      <el-col :span="24">
-        <el-form-item label="Comments" prop="comments">
-          <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
-        </el-form-item>
-
-        <el-upload
-          v-model:file-list="fileUploadList"
-          class="upload-demo"
-          action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-          multiple
-          :on-preview="handlePreview"
-          :on-remove="handleRemove"
-          :before-remove="beforeRemove"
-          :limit="3"
-          :auto-upload="false"
-          :on-exceed="handleExceed"
-        >
-          <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
-        </el-upload>
-      </el-col>
-    </el-row>
-  </el-form>
-
-  <!-- Footer -->
-  <template #footer>
-    <span class="dialog-footer">
-      <el-row :gutter="5">
+    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="100px" label-position="top">
+      <el-row v-if="activeStep == 0" :gutter="20">
         <el-col :span="24">
-          <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
-          <el-button :disabled="disableIndicator" @click="nextStep" v-if="activeStep < 3">Next</el-button>
-          <el-button @click="handleCancel">Cancel</el-button>
-          <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
-          <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
+       
+
+          <el-form-item id="btn1" label="Project" prop="project_id">
+            <el-select
+              v-model="ruleForm.project_id"
+              placeholder="Search by Project title, county, settlement"
+              filterable
+              remote
+              :remote-method="searchProject"
+              :loading="loading"
+              clearable
+              :onChange="changeProject"
+              style="width: 90%;"
+            >
+              <el-option
+                v-for="option in projectOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              >
+                <span class="option-text">{{ option.label }}</span>
+              </el-option>
+            </el-select>
+            <el-text v-if="disableIndicator" class="mx-1" type="danger">No output indicators are configured for this project</el-text>
+          </el-form-item>
+
+
+
+          <el-form-item v-if="!isNationalProject" id="btn2" label="Location" prop="project_location_id">
+            <el-select
+:disabled="disableIndicator"  ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
+              @change="changeLocation" style="width: 100%;">
+              <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
+                <div style="display: flex; align-items: center;">
+                  <span style="flex: 1; text-align: left;">{{ item.settlementName }}</span>
+                  <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
+                    {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
+                  </span>
+                </div>
+              </el-option>
+            </el-select>
+
+          </el-form-item>
         </el-col>
       </el-row>
-    </span>
-  </template>
-</el-dialog>
+
+      <el-row v-if="activeStep == 1" :gutter="20">
+        <el-col :span="24">
+          <!-- <el-form-item id="btn3" label="Activity" prop="activity_id">
+            <el-select-v2 filterable v-model="ruleForm.activity_id" @change="changeActivity" style="width: 100%"
+              :options="activityOptionsFiltered" placeholder="Select Activity" />
+          </el-form-item> -->
+
+          <el-form-item id="btn4" label="Indicator" prop="indicator_category_id">
+            <el-select-v2
+filterable v-model="ruleForm.indicator_category_id" @change="changeIndicator"
+              :options="indicatorsOptionsFiltered" style="width: 100%" placeholder="Select Indicator" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <el-row v-if="activeStep === 2" :gutter="20">
+        <el-col :span="12">
+          <el-form-item id="btn5" :label="ruleForm.units" prop="amount">
+            <el-input-number v-model="ruleForm.amount" style="width: 100%;" />
+          </el-form-item>
+          <el-form-item id="btn8" label="Baseline">
+            <el-input-number v-model="ruleForm.baseline" type="number" disabled style="width: 100%;">
+              <template #prepend>Baseline(Amount)</template>
+            </el-input-number>
+          </el-form-item>
+          <el-form-item id="btn10" label="Date" prop="date">
+            <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" style="width: 100%;"     :disabled-date="disabledFutureDates"
+            />
+          </el-form-item>
+        </el-col>
+
+        <el-col :span="12">
+          <el-form-item id="btn6" :label="ruleForm.cumUnits">
+            <el-input-number v-model="ruleForm.cumAmount" type="number" disabled style="width: 100%;">
+              <template #prepend>Cumulative(Amount)</template>
+            </el-input-number>
+          </el-form-item>
+          <el-form-item id="btn9" label="Target">
+            <el-input-number v-model="ruleForm.target" type="number" :disabled ="!firstReport" style="width: 100%;">
+              <template #prepend>Target(Amount)</template>
+            </el-input-number>
+          </el-form-item>
+          <el-form-item id="btn11" label="Progress(%)">
+            <el-input-number v-model="ruleForm.cumProgress" type="number" disabled style="width: 100%;">
+              <template #prepend>Cumulative(Amount)</template>
+            </el-input-number>
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <el-row v-if="activeStep === 3" :gutter="20">
+        <el-col :span="24">
+          <el-form-item id="btn12" label="Comments" prop="comments">
+            <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
+          </el-form-item>
+
+          <el-upload
+id="btn13" v-model:file-list="fileUploadList" class="upload-demo"
+            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
+            :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
+            :on-exceed="handleExceed">
+            <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
+          </el-upload>
+        </el-col>
+
+
+      </el-row>
+
+    </el-form>
 
 
 
+    <template #footer>
+      <span class="dialog-footer">
+        <el-row :gutter="5">
+          <el-col :span="24">
+            <!-- <el-button type="primary" plain @click="openHelp = true">Help</el-button> -->
+            <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
+
+            <el-button :disabled="disableIndicator"   @click="nextStep" v-if="activeStep < 3">Next</el-button>
+            <el-button @click="handleCancel">Cancel</el-button>
+            <el-button
+v-if="showSubmitBtn && activeStep === 3" type="primary"
+              @click="submitForm(ruleFormRef)">Submit</el-button>
+            <el-button
+v-if="showEditSaveButton && activeStep === 3" type="primary"
+              @click="editForm(ruleFormRef)">Save</el-button>
+          </el-col>
+        </el-row>
+      </span>
+    </template>
 
 
+  </el-dialog>
 
 
-  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
+  <el-dialog
+v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
     draggable>
-    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+    <el-upload
+class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="5" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>
@@ -2446,14 +2264,18 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"  width="300
 
   <el-tour v-model="openHelp" z-index="100000">
     <el-tour-step target="#btn1" title="Project" description="Select the project you want to set up" />
-    <el-tour-step target="#btn2" title="Location"
+    <el-tour-step
+target="#btn2" title="Location"
       description="Select the location where this project is implemented. Repeat this for every settlement the project is being implemented" />
-    <el-tour-step target="#btn3" title="Activity"
+    <el-tour-step
+target="#btn3" title="Activity"
       description="Select the  specific activity you wish to configure monitoring for" />
-    <el-tour-step target="#btn4" title="Indicator"
+    <el-tour-step
+target="#btn4" title="Indicator"
       description="Select the  indicator associated with that activity. If not configured, use the + button to create a new indicator" />
 
-    <el-tour-step target="#btn5" title="Quantity"
+    <el-tour-step
+target="#btn5" title="Quantity"
       description="Specify the amount/value/quantity for this reporting period.  " />
 
     <el-tour-step target="#btn6" title="Cumulative" description=" Shows the cumulative achievements todate" />
@@ -2468,14 +2290,17 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"  width="300
 
     <el-tour-step target="#btn10" title="Date" description="Specify reporting date." />
 
-    <el-tour-step target="#btn11" title="Progress"
+    <el-tour-step
+target="#btn11" title="Progress"
       description="Progress of achievements. How much of the quantity has been achieved todate?" />
 
 
-    <el-tour-step target="#btn12" title="Comments"
+    <el-tour-step
+target="#btn12" title="Comments"
       description="Provide any commentary or additional information related to this submission" />
 
-    <el-tour-step target="#btn13" title="Documentation"
+    <el-tour-step
+target="#btn13" title="Documentation"
       description="Upload any documentation that is required. It includes photos, reports of data" />
 
 
