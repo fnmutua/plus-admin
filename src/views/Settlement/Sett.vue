@@ -2185,14 +2185,24 @@ const DocumentComponentProps = ref({
 
 });
 
+const expandedRowKeys = ref([])
 
-function handleExpand(row) {
+
+function handleExpand(row,expandedRows) {
   dynamicDocumentComponent.value = null; // Unload the component
   rowData.value = row
   DocumentComponentProps.value.data = row
   setTimeout(() => {
     dynamicDocumentComponent.value = documentComponent; // Load the component
   }, 100); // 0.1 seconds
+
+  if (expandedRows.includes(row)) {
+    expandedRowKeys.value = [row.id] // Only keep one expanded
+  } else {
+    expandedRowKeys.value = []
+  }
+
+  
 }
 
 
@@ -2874,7 +2884,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
     <div v-if="activeSegment === 'Approved'">
       <el-table :data="tableDataList" @row-dblclick="handleRowDblClick" :show-overflow-tooltip="true"
-        style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+        style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys">
 
         <el-table-column type="expand">
           <template #default="props">
@@ -2961,7 +2971,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
 
     <div v-if="activeSegment === 'New'">
       <el-table :data="tableDataListNew" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;" border
-        :row-class-name="tableRowClassName" @expand-change="handleExpand">
+        :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys">
         <el-table-column type="expand">
           <template #default="props">
 
@@ -3025,7 +3035,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
     <div v-if="activeSegment === 'Rejected'">
 
       <el-table :data="tableDataListRejected" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
-        border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+        border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"   :expand-row-keys="expandedRowKeys">
         <el-table-column type="expand">
           <template #default="props">
             <div m="4">
@@ -3092,7 +3102,7 @@ const RevertEdits = async (data: TableSlotDefault) => {
     <div v-if="activeSegment === 'Decommissioned'">
 
         <el-table :data="decommSettlements" :show-overflow-tooltip="true" style="width: 100% ; margin-top: 10px;"
-          border :row-class-name="tableRowClassName" @expand-change="handleExpand">
+          border :row-class-name="tableRowClassName" @expand-change="handleExpand" row-key="id"  :expand-row-keys="expandedRowKeys">
           <el-table-column type="expand">
             <template #default="props">
               <div m="4">

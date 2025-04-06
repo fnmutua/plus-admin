@@ -53,8 +53,20 @@ const onSearch = () => {
 };
 
 
+const checkScreenSize = () => {
+ 
+      isSmallScreen.value = window.innerWidth < 768; // threshold for small screens
+
+      console.log('isSmallScreen.value' ,isSmallScreen.value )
+    } 
+
+const isSmallScreen=ref(false)
 // lifecycle hooks
 onMounted(() => {
+
+  checkScreenSize();
+ window.addEventListener('resize', checkScreenSize);
+
 
   console.log('data----x', props.data)
   console.log('userInfo----x', userInfo)
@@ -256,99 +268,99 @@ const addDocument = () => {
      
 
     </div> -->
-
     <el-table
-          :data="tableDocumentsFiltered"
-          v-loading="viewLoading" 
-          border
-          style="width: 100%;  margin: 0 auto;"
+  :data="tableDocumentsFiltered"
+  v-loading="viewLoading"
+  border
+  style="width: 100%; margin: 0 auto;"
+>
+  <!-- Document Name Column with Search in Header -->
+  <el-table-column
+    prop="name"
+    label="Document Name"
+    :min-width="isSmallScreen ? '100%' : '75%'"
+  >
+    <template #header>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span>Document Name</span>
+        <el-input
+          v-model="searchQuery"
+          placeholder="Search documents..."
+          clearable
+          size="small"
+          @input="onSearch"
+        />
+      </div>
+    </template>
+
+    <template #default="{ row, $index }">
+      {{ $index + 1 }}. {{ row.name }}
+    </template>
+  </el-table-column>
+
+  <!-- Actions Column -->
+  <el-table-column
+    label="Actions"
+    align="right"
+    :min-width="isSmallScreen ? '100%' : '25%'"
+  >
+    <template #header>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Actions</span>
+        <el-button
+          size="small"
+          type="primary"
+          :icon="UploadFilled"
+          @click="addDocument"
+          plain
         >
-          <!-- Document Name Column with Search in Header -->
-          <el-table-column
-            prop="name"
-            label="Document Name"
-          >
-            <template #header>
-              <div style="display: flex; flex-direction: column; gap: 6px;">
-                <span>Document Name</span>
-                <el-input
-                  v-model="searchQuery"
-                  placeholder="Search documents..."
-                  clearable
-                  size="small"
-                  @input="onSearch"
-                />
-              </div>
-            </template>
+          Import
+        </el-button>
+      </div>
+    </template>
 
-            <template #default="{ row, $index }">
-              {{ $index + 1 }}. {{ row.name }}
-            </template>
-          </el-table-column>
-
-          <!-- Actions Column with Import Button -->
-          <el-table-column
-            label="Actions"
-            align="right" 
-          >
-            <template #header>
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Actions</span>
-                <el-button
-                  size="small"
-                  type="primary"
-                  :icon="UploadFilled"
-                  @click="addDocument"
-                  plain
-                >
-                  Import
-                </el-button>
-              </div>
-            </template>
-
-            <template #default="{ row }">
-              <div class="button-container">
-                <el-button
-                  size="small"
-                  @click="viewDocument(row)"
-                  :icon="TopRight"
-                  plain
-                />
-                <el-button
-                  size="small"
-                  :loading="downloadStarted"
-                  @click="downloadFile(row)"
-                  :icon="Download"
-                  plain
-                />
-                <el-popconfirm
-                  confirm-button-text="Yes"
-                  cancel-button-text="No"
-                  :icon="InfoFilled"
-                  width="290px"
-                  icon-color="#626AEF"
-                  title="Are you sure to delete this document?"
-                  @confirm="removeDocument(row)"
-                  v-if="userIsAdmin || documentOwner"
-                >
-                  <template #reference>
-                    <el-button
-                      size="small"
-                      :icon="Delete"
-                      plain
-                      v-if="showAdminButtons"
-                    />
-                  </template>
-                </el-popconfirm>
-              </div>
-            </template>
-          </el-table-column>
+    <template #default="{ row }">
+      <div class="button-container">
+        <el-button
+          size="small"
+          @click="viewDocument(row)"
+          :icon="TopRight"
+          plain
+        />
+        <el-button
+          size="small"
+          :loading="downloadStarted"
+          @click="downloadFile(row)"
+          :icon="Download"
+          plain
+        />
+        <el-popconfirm
+          confirm-button-text="Yes"
+          cancel-button-text="No"
+          :icon="InfoFilled"
+          width="290px"
+          icon-color="#626AEF"
+          title="Are you sure to delete this document?"
+          @confirm="removeDocument(row)"
+          v-if="userIsAdmin || documentOwner"
+        >
+          <template #reference>
+            <el-button
+              size="small"
+              :icon="Delete"
+              plain
+              v-if="showAdminButtons"
+            />
+          </template>
+        </el-popconfirm>
+      </div>
+    </template>
+  </el-table-column>
 </el-table>
 
 
 
-<p v-if="tableDocumentsFiltered.length === 0" class="no-docs-msg">No documents found.</p>
-
+<!-- <p v-if="tableDocumentsFiltered.length === 0" class="no-docs-msg">No documents found.</p> -->
     <p v-if="loading">Loading...</p>
     <p v-if="noMore">No more</p>
   </div>
