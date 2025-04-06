@@ -2,7 +2,7 @@
 import { ref, toRefs, onMounted } from 'vue'
 import {
   ElButton, ElProgress, ElDialog, ElUpload, ElSelect, ElOption, ElTable, ElTableColumn, ElDropdown,
-  ElDropdownItem, ElPopconfirm, ElTooltip, ElInput
+  ElDropdownItem, ElPopconfirm, ElTooltip, ElInput, 
 } from 'element-plus';
 import {
   Position, View, Plus, User, TopRight, Briefcase, Download, Delete, Edit,
@@ -243,38 +243,112 @@ const addDocument = () => {
 
   <div>
 
-    <div class="search-add-container">
-      <el-input v-model="searchQuery" placeholder="Search documents..." clearable style="margin-left: 10px ; width:75%"
-        @input="onSearch" />
-
-
+    <!-- <div class="search-add-container">
       <el-tooltip v-if="showAdminButtons" content="Import Documents" placement="top" >
         <el-button   type="primary" :icon="UploadFilled" @click="addDocument">Import</el-button>
       </el-tooltip>
 
 
-    </div>
+      <el-input v-model="searchQuery" placeholder="Search documents..." clearable style="margin-left: 10px ; width:55%"
+        @input="onSearch" />
 
 
-    <ul v-infinite-scroll="tableDocumentsFiltered" v-loading="viewLoading" :infinite-scroll-disabled="disabled"
-      class="infinite-list" style="  width:80%; overflow: auto">
-      <li v-for="(document, index) in tableDocumentsFiltered" :key="document.id" class="list-item">
-        <span class="document-name">{{ index + 1 }}. {{ document.name }}</span>
+     
 
-        <div class="button-container">
-          <el-button size="small" type="primary" @click="viewDocument(document)" :icon="TopRight" plain />
-          <el-button size="small" v-loading="downloadStarted" type="success" @click="downloadFile(document)"
-            :icon="Download" plain />
-          <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="290px"
-            icon-color="#626AEF" title="Are you sure to delete this document?" @confirm="removeDocument(document)"
-            v-if="showAdminButtons">
-            <template #reference>
-              <el-button size="small" type="danger" v-if="userIsAdmin || documentOwner" :icon="Delete" plain />
+    </div> -->
+
+    <el-table
+          :data="tableDocumentsFiltered"
+          v-loading="viewLoading" 
+          border
+          style="width: 100%;  margin: 0 auto;"
+        >
+          <!-- Document Name Column with Search in Header -->
+          <el-table-column
+            prop="name"
+            label="Document Name"
+          >
+            <template #header>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <span>Document Name</span>
+                <el-input
+                  v-model="searchQuery"
+                  placeholder="Search documents..."
+                  clearable
+                  size="small"
+                  @input="onSearch"
+                />
+              </div>
             </template>
-          </el-popconfirm>
-        </div>
-      </li>
-    </ul>
+
+            <template #default="{ row, $index }">
+              {{ $index + 1 }}. {{ row.name }}
+            </template>
+          </el-table-column>
+
+          <!-- Actions Column with Import Button -->
+          <el-table-column
+            label="Actions"
+            align="right" 
+          >
+            <template #header>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Actions</span>
+                <el-button
+                  size="small"
+                  type="primary"
+                  :icon="UploadFilled"
+                  @click="addDocument"
+                  plain
+                >
+                  Import
+                </el-button>
+              </div>
+            </template>
+
+            <template #default="{ row }">
+              <div class="button-container">
+                <el-button
+                  size="small"
+                  @click="viewDocument(row)"
+                  :icon="TopRight"
+                  plain
+                />
+                <el-button
+                  size="small"
+                  :loading="downloadStarted"
+                  @click="downloadFile(row)"
+                  :icon="Download"
+                  plain
+                />
+                <el-popconfirm
+                  confirm-button-text="Yes"
+                  cancel-button-text="No"
+                  :icon="InfoFilled"
+                  width="290px"
+                  icon-color="#626AEF"
+                  title="Are you sure to delete this document?"
+                  @confirm="removeDocument(row)"
+                  v-if="userIsAdmin || documentOwner"
+                >
+                  <template #reference>
+                    <el-button
+                      size="small"
+                      :icon="Delete"
+                      plain
+                      v-if="showAdminButtons"
+                    />
+                  </template>
+                </el-popconfirm>
+              </div>
+            </template>
+          </el-table-column>
+</el-table>
+
+
+
+<p v-if="tableDocumentsFiltered.length === 0" class="no-docs-msg">No documents found.</p>
+
     <p v-if="loading">Loading...</p>
     <p v-if="noMore">No more</p>
   </div>

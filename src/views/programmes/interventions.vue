@@ -693,37 +693,7 @@ const loadMap = () => {
 
 
 const showUploadDialog = ref(false)
-const onClickTab = async (obj) => {
-  console.log("Loading map....cs.........", obj.props.label)
-  console.log(facilityGeoLines.value.length, facilityGeoPoints.value.length, facilityGeoPolygons.value.length)
-
-
-  if (obj.props.label == "Map") {
-
-    if (facilityGeoLines.value.length == 0 && facilityGeoPoints.value.length == 0 && facilityGeoPolygons.value.length == 0) {
-      ElMessage({
-        message: 'The listed projects do not have geometry',
-        type: 'warning',
-      })
-    }
-    else {
-      loadMap()
-      //console.log(map.value)
-      //maxBounds.value = turf.bbox(facilityGeo.value);
-    }
-
-  } else {
-    console.log('Disable Map')
-    tabDisabled.value = true
-
-  }
-  if (obj.props.label != "Beneficiary") {
-    beneficiaryTabDisabled.value = true
-    tabDisabled.value = true
-
-  }
-
-}
+ 
 
 
 const getFilteredBySearchData = async (searchString) => {
@@ -2168,58 +2138,14 @@ const ImportProjects = async () => {
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="Project Title" prop="title" width="650" resizable sortable />
+      <el-table-column label="Project Title" prop="title"  resizable sortable />
 
-      <el-table-column label="Programme" prop="programme.acronym" width="130" sortable />
+      <el-table-column label="Programme" prop="programme.acronym" sortable />
       <el-table-column label="Status" prop="status" sortable />
       <el-table-column label="Start" prop="start_date" :formatter="formatStartDate" sortable />
       <el-table-column label="End" prop="end_date" :formatter="formatEndDate" sortable />
-      <!-- <el-table-column fixed="right" label="Operations" :width="actionColumnWidth">
-            <template #header>
-              <span v-if="isMobile">Actions</span>
-              <el-input v-else v-model="search" placeholder="Filter" :onInput="filterTableData" />
-            </template>
-            <template #default="scope">
-              <el-dropdown v-if="isMobile">
-                <span class="el-dropdown-link">
-                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="editProject(scope as TableSlotDefault)"
-                      :icon="Edit">Edit</el-dropdown-item>
-
-                    <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteProject(scope.row as TableSlotDefault)"
-                      :icon="Delete" color="red">Delete</el-dropdown-item>
-
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-              <div v-else>
-                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
-                  <el-button
-type="success" size="small" :icon="Edit" @click="editProject(scope as TableSlotDefault)"
-                    circle />
-                </el-tooltip>
-
-
-                <el-tooltip content="Delete" placement="top">
-                  <el-popconfirm
-confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
-                    icon-color="#626AEF" title="Are you sure to delete this project?"
-                    @confirm="DeleteProject(scope.row as TableSlotDefault)">
-                    <template #reference>
-                      <el-button size="small" v-if="showAdminButtons" type="danger" :icon=Delete circle />
-                    </template>
-                  </el-popconfirm>
-                </el-tooltip>
-              </div>
-            </template>
-          </el-table-column> -->
-
-      <el-table-column label="Actions" width="250">
+ 
+      <el-table-column label="Actions"  >
         <template #default="{ row }">
            <TableActions :item="row" :buttons="action_buttons" @edit="editProject" @delete="DeleteProject" />
         </template>

@@ -454,6 +454,7 @@ const getIndicatorNames = async () => {
     }
   });
 
+ 
 
 };
 
@@ -474,8 +475,7 @@ const editReport = async (data: TableSlotDefault) => {
   ruleForm.county_id = data.county_id;
   ruleForm.subcounty_id = data.subcounty_id;
   ruleForm.settlement_id = data.settlement_id;
-  ruleForm.project_id = data.project_id;
-  ruleForm.activity_id = data.activity_id;
+   ruleForm.activity_id = data.activity_id;
   ruleForm.date = data.date;
   ruleForm.amount = data.amount;
   ruleForm.indicator_category_id = [data.indicator_category_id];
@@ -487,6 +487,18 @@ const editReport = async (data: TableSlotDefault) => {
   ruleForm.project_status = data.project_status;
   ruleForm.disbursement = data.disbursement;
   ruleForm.comments = data.comments;
+  ruleForm.project_id = data.project_id;
+
+
+
+
+   // Get the project object from projectOptions that matches the project_id
+   const selectedProject = projectOptionsAll.value.find(project => project.value === data.project_id);
+  if (selectedProject) {
+    prj_obj.value = selectedProject;  // Assign the full project object, not just the ID
+  }
+
+
 
   // Files/Documents linked to this report
   fileUploadList.value = data.documents;
@@ -537,72 +549,7 @@ const editReport = async (data: TableSlotDefault) => {
 
 
 
-const old_editReport = async (data: TableSlotDefault) => {
-  showSubmitBtn.value = false
-
-  await getProjectLocations(data.project_id)
-
-  showEditSaveButton.value = true
-  console.log('editReport', data)
-  ruleForm.id = data.id
-  ruleForm.county_id = data.county_id
-  ruleForm.subcounty_id = data.subcounty_id
-
-  ruleForm.settlement_id = data.settlement_id
-  ruleForm.project_id = data.project_id
-  ruleForm.activity_id = data.activity_id
-
-
-  ruleForm.date = data.date
-  ruleForm.amount = data.amount
-  ruleForm.indicator_category_id = data.indicator_category_id
-  ruleForm.programme_implementation_id = data.programme_implementation_id
-  ruleForm.project_location_id = data.project_location_id
-
-  console.log("project_locations", project_locations.value)
-  ruleForm.ward_id = data.ward_id
-  ruleForm.code = data.code
-  ruleForm.progress = data.progress
-  ruleForm.project_status = data.project_status
-  ruleForm.disbursement = data.disbursement
-  ruleForm.comments = data.comments
-
-  // Nullify Cumulatives every time theres an edit to avoid multiple editign duplciations
-  ruleForm.cumDisbursement = 0
-  // ruleForm.cumProgress = 0
-  ruleForm.cumAmount = 0
-
-  formHeader.value = 'Edit Report'
-  fileUploadList.value = data.documents
-
-  getCumulativeProgressEditPhase(data.indicator_category_id)
-  changeIndicator(data.indicator_category_id)
-
-
-
-
-  const thisProject = projectOptionsAll.value.filter(prj =>
-    prj.value == data.project_id
-  );
-  console.log('Edit thisProject', thisProject)
-  if (thisProject && thisProject[0].implementation_scope == 'National') {
-    isNationalProject.value = true
-
-  } else {
-    isNationalProject.value = false
-
-
-  }
-
-
-
-
-
-
-
-  AddDialogVisible.value = true
-}
-
+ 
 
 
 const DeleteReport = (data: TableSlotDefault) => {
@@ -795,11 +742,12 @@ const getProjectActivities = async (project_id) => {
 
 const disableIndicator = ref(false)
 const isNationalProject = ref(false)
+const prj_obj=ref()
 
 const changeProject = async (project: any) => {
 
   ruleForm.project_location_id = null
-  ruleForm.project_id = project
+  ruleForm.project_id = project.value
 
   let project_activities = []
   let sel_indicators = []
@@ -808,8 +756,10 @@ const changeProject = async (project: any) => {
   console.log('changeProject', project)
   console.log('projectOptionsAll', projectOptionsAll)
 
+
+
   const thisProject = projectOptionsAll.value.filter(prj =>
-    prj.value == project
+    prj.value == project.value
   );
   console.log('thisProject', thisProject)
   if (thisProject && thisProject[0].implementation_scope == 'National') {
@@ -819,7 +769,7 @@ const changeProject = async (project: any) => {
 
   } else {
     isNationalProject.value = false
-    project_activities = await getProjectActivities(project)
+    project_activities = await getProjectActivities(project.value)
     sel_indicators = await getProjectActivityIndicators(project_activities)
 
     console.log('project_activities', project_activities)
@@ -832,10 +782,7 @@ const changeProject = async (project: any) => {
   console.log('outcome_indicators', outcome_indicators)
 
 
-
-
   console.log('sel_indicators', sel_indicators)
-
 
 
   console.log('outcome_indicators', outcome_indicators)
@@ -862,7 +809,7 @@ const changeProject = async (project: any) => {
   console.log('transformedArray', transformedArray)
 
 
-  const filteredOpts = projectOptionsAll.value.filter(item => item.value == project);
+  const filteredOpts = projectOptionsAll.value.filter(item => item.value == project.value);
 
   console.log('filteredOpts', filteredOpts[0].programme_implementation_id)
 
@@ -877,7 +824,7 @@ const changeProject = async (project: any) => {
 
 
 
-  getProjectLocations(project)
+  getProjectLocations(project.value)
 
 
 
@@ -920,7 +867,7 @@ const changeIndicator = async (indicator_category_id: any) => {
   });
 
 
-  // ruleForm.project_id = filtredOptions[0].project_id
+ 
   ruleForm.activity_id = filtredOptions[0].activity_id
 
 
@@ -978,7 +925,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         period: getQuarter(),
         code: uuid.v4(),
         userId: userInfo.id,
-        project_id: ruleForm.project_id,
+        project_id: prj_obj.value.value,
         project_location_id: ruleForm.project_location_id,
         indicator_category_id: indicator.value,
         amount: indicator.amount || 0,
@@ -1039,58 +986,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 };
 
 
-
-const xeditForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate(async (valid, fields) => {
-    if (valid) {
-      ruleForm.model = 'indicator_category_report'
-      ruleForm.userId = userInfo.id
-      console.log(ruleForm.value)
-      await updateOneRecord(ruleForm).then(() => { })
-
-      //emptyRuleForm()
-      // dialogFormVisible.value = false
-
-      const updateformData = new FormData()
-      // uploading the documents 
-
-      for (var i = 0; i < fileUploadList.value.length; i++) {
-
-        console.log('------>file', fileUploadList.value[i])
-
-        var column = 'report_id'
-        updateformData.append('files', fileUploadList.value[i].raw)
-        updateformData.append('format', fileUploadList.value[i].name.split('.').pop())
-        updateformData.append('field_id', 'report_id')
-        updateformData.append('category', 2)
-        updateformData.append(column, parseInt(ruleForm.id))
-        updateformData.append('size', (fileUploadList.value[i].raw.size / 1024 / 1024).toFixed(2))
-        updateformData.append('createdBy', userInfo.id)
-        updateformData.append('protected', false)
-
-        //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
-      }
-
-      updateformData.append('code', uuid.v4())
-
-
-
-      console.log('Befoer submit', updateformData)
-      const docs = await uploadFilesBatch(updateformData)
-
-      console.log('after submit', docs.data)
-
-
-
-
-
-    } else {
-      console.log('error submit!', fields)
-    }
-  })
-}
-
+ 
 const editForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return;
 
@@ -1117,7 +1013,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
         period: getQuarter(),
         code: uuid.v4(),
         userId: userInfo.id,
-        project_id: ruleForm.project_id,
+        project_id: prj_obj.value.value,
         project_location_id: ruleForm.project_location_id,
         indicator_category_id: indicator.id,
         amount: indicator.amount || 0,
@@ -1692,16 +1588,26 @@ const DocumentComponentProps = ref({
 
 });
 
+const expandedRowKeys = ref([])
 
-function handleExpand(row) {
+function handleExpand(row,expandedRows) {
   dynamicDocumentComponent.value = null; // Unload the component
   rowData.value = row
   DocumentComponentProps.value.data = row
   setTimeout(() => {
     dynamicDocumentComponent.value = documentComponent; // Load the component
   }, 100); // 0.1 seconds
+
+  if (expandedRows.includes(row)) {
+    expandedRowKeys.value = [row.id] // Only keep one expanded
+  } else {
+    expandedRowKeys.value = []
+  }
+
+
 }
 
+ 
 
 
 const dialogMap = ref(false)
@@ -2047,7 +1953,7 @@ const handleCancel = () => {
   AddDialogVisible.value = false
 }
 
-const getFilteredProjects = (query) => {
+const _getFilteredProjects = (query) => {
   const filteredProjects = projectOptionsAll.value.filter(project =>
     project.label.toLowerCase().includes(query.toLowerCase())
   );
@@ -2065,14 +1971,55 @@ const getFilteredProjects = (query) => {
   return Array.from(uniqueProjects.values());
 };
 
+
+const getFilteredProjects = (query) => {
+  let filteredProjects = [];
+
+  // If the query is not provided, return the first 10 projects
+  if (!query) {
+    filteredProjects = projectOptionsAll.value.slice(0, 10);
+  } else {
+    // Otherwise, filter the projects based on the query
+    filteredProjects = projectOptionsAll.value.filter(project =>
+      project.label.toLowerCase().includes(query.toLowerCase())
+    );
+  }
+
+  // Create a new Map to store unique project labels
+  const uniqueProjects = new Map();
+
+  filteredProjects.forEach(project => {
+    if (!uniqueProjects.has(project.label)) {
+      uniqueProjects.set(project.label, project);
+    }
+  });
+
+  // Return the unique projects as an array
+  return Array.from(uniqueProjects.values());
+};
+
+
+ 
 const searchProject = (query) => {
+  console.log('touched')
+  loading.value=true
   if (query !== '') {
     // Simulate API call
     setTimeout(() => {
       projectOptions.value = getFilteredProjects(query); // Replace with API call
+      console.log('projectOptions.value1 ', projectOptions.value )
+
+      loading.value=false
     }, 500);
   } else {
-    projectOptions.value = [];
+    loading.value=false
+    projectOptions.value = getFilteredProjects(''); // Replace with API call
+
+    console.log('projectOptions.value2 ', projectOptions.value )
+
+    //projectOptions.value = [];
+    
+
   }
 };
 
@@ -2117,7 +2064,7 @@ function handleIndicatorsChange(selectedIds) {
 
       <!-- Title Search -->
       <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
-        filterable collapse-tags placeholder="Filter by Project/Indicator" style="width: 450px; margin-right: 10px;">
+        filterable collapse-tags placeholder="Filter by Indicator" style="width: 85%; margin-right: 10px;">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
@@ -2148,108 +2095,69 @@ function handleIndicatorsChange(selectedIds) {
 
 
 
-    <el-table :data="tableDataList" border :row-class-name="tableRowClassName" @expand-change="handleExpand"
-      ref="tableRef" v-loading="loading">
+    <el-table :data="tableDataList" row-key="id"  border :row-class-name="tableRowClassName" @expand-change="handleExpand" :expand-row-keys="expandedRowKeys"
+          ref="tableRef" v-loading="loading">
 
-      <el-table-column type="expand">
-        <template #default="props">
-
-          <div>
-            <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-              @openDialog="toggleComponent(props.row)" />
-          </div>
-
-        </template>
-      </el-table-column>
-      <el-table-column label="#" width="80" prop="id" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
-            <span>{{ scope.row.id }}</span>
-            <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
-          </div>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="Indicator"  prop="indicator_category.indicator_name" sortable />
-      <el-table-column label="Settlement"   prop="settlement.name" sortable />
-
-      <el-table-column label="Date" prop="date" sortable>
-        <template #default="scope">
-          {{ formatDate(scope.row.date) }}
-        </template>
-      </el-table-column>
-
-      <el-table-column label="Category" prop="indicator_category.category_title" sortable />
-      <el-table-column label="Amount" prop="amount" sortable />
-
-      <el-table-column label="Status" prop="status" sortable>
-        <template #default="scope">
-          <div v-if="scope.row.status === 'Rejected'">
-            <el-tooltip :content="scope.row.reject_msg" placement="top">
-              <span>{{ scope.row.status }}</span>
-            </el-tooltip>
-          </div>
-          <div v-else>
-            <span>{{ scope.row.status }}</span>
-          </div>
-        </template>
-      </el-table-column>
-
-
-      <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
-        <template #default="scope">
-          <el-dropdown v-if="isMobile">
-            <span class="el-dropdown-link">
-              <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-v-if="showEditButtons" @click="editReport(scope as TableSlotDefault)"
-                  :icon="Edit">Edit</el-dropdown-item>
-                <el-dropdown-item
-v-if="showAdminButtons" @click="DeleteReport(scope.row as TableSlotDefault)"
-                  :icon="Delete" color="red">Delete</el-dropdown-item>
-              </el-dropdown-menu>
+          <el-table-column type="expand">
+            <template #default="props">
+              <div>
+                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+                  @openDialog="toggleComponent(props.row)" />
+              </div>
             </template>
-          </el-dropdown>
-          <div v-else>
-            <el-tooltip content="Edit" placement="top">
-              <el-button
-v-if="showEditButtons" type="success" size="small" :icon="Edit"
-                @click="editReport(scope.row as TableSlotDefault)" :disabled="scope.row.status == 'Approved'" circle />
-            </el-tooltip>
+          </el-table-column>
 
-            <el-tooltip content="Map" placement="top">
-              <el-button
-v-if="showEditButtons" type="warning" size="small" :icon="Position"
-                :disabled="isGeomNull(scope.row.geom)" @click="showMap(scope.row as TableSlotDefault)" circle />
-            </el-tooltip>
-            <el-tooltip content="Delete" placement="top">
-              <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"  width="300" icon-color="#626AEF"
-                title="Are you sure to delete this report?" @confirm="DeleteReport(scope.row as TableSlotDefault)">
-                <template #reference>
-                  <el-button v-if="showAdminButtons" type="danger" size="small" :icon=Delete circle />
-                </template>
-              </el-popconfirm>
-            </el-tooltip>
+          <el-table-column label="#" prop="id" sortable width="70">
+            <template #default="scope">
+              <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+                <span>{{ scope.row.id }}</span>
+                <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+              </div>
+            </template>
+          </el-table-column>
 
-          </div>
-        </template>
-      </el-table-column> -->
+          <!-- ✅ Combined Indicator + Settlement Column -->
+          <el-table-column label="Indicator / Settlement" sortable width="400">
+            <template #default="scope">
+              <div>
+                <div> {{ scope.row.indicator_category?.indicator_name }}-{{scope.row.indicator_category.category_title}},  {{ scope.row.settlement?.name }} </div>
+              </div>
+            </template>
+          </el-table-column>
 
+          <el-table-column label="Date" prop="date" sortable>
+            <template #default="scope">
+              {{ formatDate(scope.row.date) }}
+            </template>
+          </el-table-column>
+        
+        <el-table-column label="Qty" prop="amount" sortable />
 
-      <el-table-column label="Actions" width="250">
-        <template #default="{ row }">
-          <TableActions :item="row" :buttons="action_buttons" @viewOnMap="showMap" @edit="editReport"
-            @delete="DeleteReport" />
+          <el-table-column label="Status" prop="status" sortable>
+            <template #default="scope">
+              <div v-if="scope.row.status === 'Rejected'">
+                <el-tooltip :content="scope.row.reject_msg" placement="top">
+                  <span>{{ scope.row.status }}</span>
+                </el-tooltip>
+              </div>
+              <div v-else>
+                <span>{{ scope.row.status }}</span>
+              </div>
+            </template>
+          </el-table-column>
 
-
-        </template>
-      </el-table-column>
-
-    </el-table>
+          <el-table-column label="Actions">
+            <template #default="{ row }">
+              <TableActions
+                :item="row"
+                :buttons="action_buttons"
+                @viewOnMap="showMap"
+                @edit="editReport"
+                @delete="DeleteReport"
+              />
+            </template>
+          </el-table-column>
+</el-table>
 
 
     <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
@@ -2275,11 +2183,37 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"  width="300
     <el-row v-if="activeStep === 0" :gutter="20">
       <el-col :span="24">
         <el-form-item label="Project" prop="project_id">
-          <el-select v-model="ruleForm.project_id" placeholder="Search by Project title, county, settlement" filterable remote :remote-method="searchProject" :loading="loading" clearable :onChange="changeProject" style="width: 90%;">
-            <el-option v-for="option in projectOptions" :key="option.value" :label="option.label" :value="option.value">
-              <span class="option-text">{{ option.label }}</span>
-            </el-option>
-          </el-select>
+        
+
+
+          <el-select
+              id="location-select"
+              v-model="prj_obj"
+              filterable
+              remote
+              reserve-keyword
+              :loading="loading"
+              placeholder="Search by Project title, county, settlement"
+              :remote-method="searchProject"
+              style="width: 100%"
+              @change="changeProject"
+            >
+              <el-option
+                v-for="item in projectOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item"
+              >
+                <div style="display: flex; align-items: center;">
+                  <span style="flex: 1; text-align: left;">{{ item.label }}</span>
+                 
+                </div>
+              </el-option>
+            </el-select>
+
+ 
+
+
           <el-text v-if="disableIndicator" class="mx-1" type="danger">No output indicators are configured for this project</el-text>
         </el-form-item>
 
@@ -2325,26 +2259,13 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"  width="300
               <el-input-number min="0"  v-model="row.amount" style="width: 100%;" />
             </template>
           </el-table-column>
-          <!-- <el-table-column label="Baseline">
-            <template #default="{ row }">
-              <el-input-number v-model="row.baseline" style="width: 100%;" />
-            </template>
-          </el-table-column> -->
-          <!-- <el-table-column label="Target">
-            <template #default="{ row }">
-              <el-input-number v-model="row.target" style="width: 100%;" />
-            </template>
-          </el-table-column> -->
+         
           <el-table-column label="Date">
             <template #default="{ row }">
               <el-date-picker  v-model="row.date" type="date" placeholder="Pick a day" style="width: 100%;" :disabled-date="disabledFutureDates" />
             </template>
           </el-table-column>
-          <!-- <el-table-column label="Progress (%)">
-            <template #default="{ row }">
-              <el-input-number v-model="row.cumProgress" style="width: 100%;" />
-            </template>
-          </el-table-column> -->
+       
         </el-table>
       </el-col>
     </el-row>
