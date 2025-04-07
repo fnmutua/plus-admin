@@ -934,11 +934,13 @@ exports.modelImportDataUpsert = async (req, res) => {
         }
 
         // Upsert with conflict handling
+        console.log('Upsert with conflict handling')
         const [document, created] = await db.models[reg_model].upsert(item, {
           returning: true,
-          conflictFields: ['code'], // Specify conflict fields
-          updateOnDuplicate: Object.keys(item).filter(key => key !== 'code') // Update all fields except ID
+          // conflictFields: ['code'], // Specify conflict fields (ensure this exists or adjust it as necessary)
+          // updateOnDuplicate: Object.keys(item).filter(key => key !== 'code' && item[key] !== undefined) // Exclude 'code' and any undefined fields
         });
+        
 
         // Handle project activities
         if (reg_model === 'project' && item.activities?.length) {

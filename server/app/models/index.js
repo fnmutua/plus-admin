@@ -207,6 +207,7 @@ db.models.settlement.hasMany(db.models.project_beneficiary, {
 db.models.project_beneficiary.belongsTo(db.models.settlement, {
   foreignKey: 'settlement_id'
 }) 
+
 // Beneficiaries -Ward 
 
 db.models.county.hasMany(db.models.project_location, {
@@ -219,6 +220,9 @@ db.models.project_location.belongsTo(db.models.county, {
 
 
 
+// project Lcoation  -project 
+
+ 
 
 
 

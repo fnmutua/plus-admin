@@ -1618,6 +1618,7 @@ const projectGeom = ref([])
 const reportDetails = ref();
 const locationStatus = ref('')
 const projectLocationColor = ref('red')
+
 const showMap = async (row) => {
   reportDetails.value = row
 
