@@ -1,0 +1,3248 @@
+<script setup lang="ts">
+import { onMounted, computed,watch,reactive } from 'vue'
+import {
+  ElButton, ElCascader, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
+  ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElDescriptions,
+   ElDescriptionsItem, ElText, ElDatePicker,ElPopconfirm ,ElStep ,ElSteps, FormRules, ElSelectV2,ElInputNumber  } from 'element-plus'
+// Locally
+import { logGrievanceAction, updateGrievanceStatus } from '@/api/grievance'
+import { uuid } from 'vue-uuid'
+import { getSettlementListByCounty    } from '@/api/settlements'
+import type { RouteLocationNormalizedLoaded, RouterLinkProps } from 'vue-router'
+
+
+import { Icon } from '@iconify/vue';
+import {
+  Download, UploadFilled, Edit, Back
+} from '@element-plus/icons-vue'
+
+import { getCountyListApi, } from '@/api/counties'
+
+import { uploadFilesBatch } from '@/api/settlements'
+import { addTask, getTasks, getNestedTasks,batchImport, deleteTask } from '@/api/project'
+
+import {
+  getOneSettlement
+} from '@/api/settlements'
+
+import { updateOneRecord,  deleteDocument } from '@/api/settlements'
+import {
+  searchByKeyWord
+} from '@/api/settlements'
+
+import { CreateRecord, DeleteRecord } from '@/api/settlements'
+import type { UploadProps, UploadUserFile } from 'element-plus'
+
+
+
+import { ref } from 'vue'
+
+import '@dafcoe/vue-collapsible-panel/dist/vue-collapsible-panel.css'
+import { useRoute } from 'vue-router'
+
+import { useRouter } from 'vue-router'
+import { useCache } from '@/hooks/web/useCache'
+import { useAppStoreWithOut } from '@/store/modules/app'
+
+
+import "mapbox-layer-switcher/styles.css";
+import * as turf from '@turf/turf'
+import { getFile } from '@/api/summary'
+import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
+import shortid from 'shortid';
+
+import type { FormInstance } from 'element-plus'
+import { getModelSpecs } from '@/api/fields'
+
+import exportFromJSON from 'export-from-json'
+import Papa from 'papaparse';
+
+import TaskNode from './TaskNode.vue';
+
+import TaskNodeNested from './TaskNodeNested.vue'
+   
+
+
+
+const MapBoxToken =  'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
+mapboxgl.accessToken = MapBoxToken;
+
+
+
+const { wsCache } = useCache()
+const appStore = useAppStoreWithOut()
+const userInfo = wsCache.get(appStore.getUserInfo)
+
+
+
+
+// Resolve, Escalate, Documentation 
+
+const route = useRoute()
+
+const Grievance = ref(
+  {
+    'code': null,
+    'complainant': null,
+    'telephone': null,
+    'county': null,
+    'settlement': null,
+    'nature': null,
+    'is_GBV': null,
+    'description': null,
+    'status': null,
+    'plea': null,
+    'date_reported': null
+  }
+)
+
+
+
+const projectDocuments = ref([])
+
+const projectLogs = ref([])
+
+//// ------------------parameters -----------------------////
+
+//const associated_Model = ''
+
+
+const associated_multiple_models = ['county', 'subcounty', 'ward', 'component', 'programme',  "document", "project_team", "project_contractor"]
+const nested_models = ['document', 'document_category'] // The mother, then followed by the child
+
+function formatSentence(text) {
+  // Replace underscores and periods with spaces
+  let formattedText = String(text).replace(/[_\.]/g, ' ');
+
+  // Capitalize the first letter of each word
+  formattedText = formattedText
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+  // Trim any leading or trailing spaces
+  formattedText = formattedText.trim();
+
+  // Remove extra spaces between words
+  formattedText = formattedText.replace(/\s+/g, ' ');
+
+  return formattedText;
+}
+
+
+const activityOptions = ref([])
+
+const DocTypes = ref([])
+const DocTypesFiltered = ref([])
+const DocTypesAll = ref([])
+const getDocumentTypes = async () => {
+  const res = await getCountyListApi({
+    params: {
+      pageIndex: 1,
+      limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'document_type',
+      searchField: 'name',
+      searchKeyword: '',
+      sort: 'ASC'
+    }
+  }).then((response) => {
+    //tableDataList.value = response.data
+    var ret = response.data
+    console.log('filterOptions---Docypes-x', response.data)
+
+
+    const nestedData = ret.reduce((acc, cur) => {
+      const group = cur.group;
+      if (!acc[group]) {
+        acc[group] = [];
+      }
+      acc[group].push(cur);
+      return acc;
+    }, {});
+
+    //console.log(nestedData.Map)
+    for (let property in nestedData) {
+      let opts = nestedData[property];
+      var doc = {}
+      doc.label = property
+      doc.options = []
+
+      opts.forEach(function (arrayItem) {
+        let opt = {}
+        opt.value = arrayItem.id
+        opt.label = arrayItem.type
+        doc.options.push(opt)
+
+      })
+  //    console.log('doc, ', doc)
+
+      DocTypes.value.push(doc)
+      DocTypesFiltered.value.push(doc)
+      DocTypesAll.value.push(doc)
+
+
+    }
+    console.log(DocTypes)
+
+  })
+
+
+  DocTypes.value = DocTypesFiltered.value
+
+}
+
+
+const getActivities = async (keyword) => {
+
+  const formData = {}
+  formData.model = 'activity'
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = keyword
+  formData.excludeGeom = false
+  formData.associated_multiple_models = []
+
+  //--Single Filter -----------------------------------------
+
+
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+
+  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+  //-------------------------
+  console.log("formData", formData)
+  const res = await searchByKeyWord(formData)
+
+  console.log("res.data", res.data)
+
+  if (res.data && res.data.length > 0) {
+    activityOptions.value = res.data.map(item => ({
+      value: item.id,
+      id: item.id,
+      label: item.title,
+      title: item.title,
+      code: item.code,
+
+    }));
+
+  }
+
+
+}
+
+
+const contractorOptions = ref([])
+const getContractors = async (keyword) => {
+
+  const formData = {}
+  formData.model = 'contractor'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = keyword
+  formData.excludeGeom = false
+  formData.associated_multiple_models = []
+
+  //--Single Filter -----------------------------------------
+
+
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+
+  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+  //-------------------------
+  console.log("formData", formData)
+  const res = await searchByKeyWord(formData)
+
+  console.log("res.data", res.data)
+
+  if (res.data && res.data.length > 0) {
+    contractorOptions.value = res.data.map(item => ({
+      value: item.id,
+      id: item.id,
+      label: item.name,
+      name: item.name,
+      code: item.code,
+
+    }));
+
+  }
+
+
+}
+
+const indicatorReports=ref([])
+const getIndicatorCategoryReports = async (projectId) => {
+
+ const model = 'indicator_category_report'
+const associated_multiple_models = ['document','project',  'county', 'subcounty','ward', 'users','indicator_category' ,'document' ]
+//const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
+const nested_models =['activity', 'project']  // The mother, then followed by the child
+
+
+
+const formData = {}
+formData.model = model
+//-Search field--------------------------------------------
+formData.searchField = 'name'
+ formData.excludeGeom = false
+ formData.associated_multiple_models = associated_multiple_models
+ formData.nested_models = nested_models
+
+//--Single Filter -----------------------------------------
+
+
+// - multiple filters -------------------------------------
+formData.filters = ['project_id']
+formData.filterValues = [[projectId]]
+
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+//-------------------------
+console.log("formData", formData)
+  //console.log(formData)
+ const res = await getSettlementListByCounty(formData)
+
+  console.log('Reports collected........', projectId)
+  indicatorReports.value=res.data
+ 
+
+
+}
+
+const AddDialogVisible =ref(false)
+const showSubmitBtn =ref(false)
+
+const AddReport = () => {
+  AddDialogVisible.value = true
+  showSubmitBtn.value = true
+}
+
+
+const Project = ref({})
+// Define the properties you want to map
+const propertiesToMap = [
+  'code',
+  'name',
+  'ward.name',
+  'county.name',
+  'contract',
+  'owner',
+  'type',
+  'status',
+  'number_of_units',
+  'start_date',
+   'cost',
+ 
+  'description',
+
+];
+
+const indicatorsOptions =ref([])
+const indicatorsOptionsFiltered=ref([])
+
+const getIndicatorNames = async () => {
+  console.log('getIndicatorNames >>>>>>>>>>>>>>>>>>>>>>>>>>>>');
+
+  const formData = {
+    curUser: 1,
+    model: 'indicator_category',
+    searchField: 'name',
+    searchKeyword: '',
+    assocModel: '',
+    filters: [ ],
+    filterValues: [ ],
+    associated_multiple_models: ['project', 'category','indicator'],
+    nested_models: ['activity', 'project'],
+  };
+
+  const res = await getSettlementListByCounty(formData);
+  console.log('indicator_category Response:', res);
+
+  res.data.forEach((arrayItem) => {
+    // console.log('=====>', arrayItem);
+
+    const opt = {
+      value: arrayItem.id,
+      label: `${arrayItem.indicator_name} | ${arrayItem.category.category}`,
+      title: arrayItem.category.title,
+      activity_id: arrayItem.activity ? arrayItem.activity.id : null,
+      unit: arrayItem.indicator.unit,
+    };
+
+  //  console.log(opt)
+    // Collect only output indicators
+    ///if (arrayItem.indicator_level === 'activity') {
+      indicatorsOptions.value.push(opt);
+      indicatorsOptionsFiltered.value.push(opt);
+   //  }
+
+    
+  });
+
+    
+};
+
+
+
+
+function objectToArray(obj) {
+  return Object.entries(obj).map(([key, value]) => {
+    return {
+      property: key,
+      value: value
+    };
+  });
+}
+
+
+
+const getProjectActivityIndicators = async (activity_ids) => {
+  const formData = {}
+ 
+  formData.model = 'indicator_category'
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+ 
+  // - multiple filters -------------------------------------
+ 
+
+  formData.filters = ['activity_id']
+  formData.filterValues = [activity_ids]
+ 
+
+  formData.associated_multiple_models = ['indicator']
+ 
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+ 
+  console.log('This Project  Idnicator configs', res.data)
+  return res.data
+}
+
+const getProjectProjectOutcomeIndicators = async () => {
+  const formData = {}
+ 
+  formData.model = 'indicator_category'
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+ 
+  // - multiple filters -------------------------------------
+ 
+
+  formData.filters = ['indicator_level']
+  formData.filterValues = ['project']
+ 
+
+  formData.associated_multiple_models = ['indicator']
+ 
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+ 
+  console.log('This Project  level  indicaors', res.data)
+  return res.data
+}
+
+const getProjectActivities = async (project_id) => {
+  const formData = {
+    model: 'project_activity',
+    searchField: 'title',
+    searchKeyword: '',
+    filters: ['project_id'],
+    filterValues: [[project_id]],
+    associated_multiple_models: [],
+  };
+
+  const res = await getSettlementListByCounty(formData);
+  
+  console.log('This Project Activiies...:', res.data);
+  
+  // Return an array of ids
+  const activityIds = res.data.map(activity => activity.activity_id);
+  
+  return activityIds;
+};
+
+ const changeProject = async (project: any) => {
+
+   
+  ruleForm.project_location_id=null
+  ruleForm.project_id=project
+
+
+  let project_activities=[]
+  let sel_indicators=[]
+  let outcome_indicators=[]
+
+  console.log('changeProject', project)
+ 
+ 
+
+ 
+        project_activities = await getProjectActivities(project)
+        sel_indicators = await getProjectActivityIndicators(project_activities)
+
+        console.log('project_activities', project_activities)
+
+       
+
+
+      outcome_indicators = await getProjectProjectOutcomeIndicators()
+
+      console.log('outcome_indicators', outcome_indicators)
+
+
+  
+
+  console.log('sel_indicators',sel_indicators)
+
+  
+
+  console.log('outcome_indicators',outcome_indicators)
+
+  
+// Merging the two arrays
+const merged_indicators = [...sel_indicators, ...outcome_indicators];
+
+console.log('merged_indicators',merged_indicators)
+
+  const transformedArray = merged_indicators.map(item => { 
+  //  console.log(item)
+          return {
+              label: item.indicator.name + ' ' + item.category_title,
+              value: item.id,
+              project_id: item.project_id,
+              unit: item.indicator.unit,
+              activity_id: item.activity_id
+            };
+        });
+
+      indicatorsOptionsFiltered.value =transformedArray
+
+      console.log('transformedArray',transformedArray) 
+
+
+ 
+
+    
+
+
+
+}
+
+
+
+const projectDescription = ref([])
+const projectGeom = ref()
+const projectScope = ref()
+const projectFullData = ref()
+const projectTeamData = ref()
+const projectContractors = ref()
+
+
+
+
+onMounted(async () => {
+  const id = route.params.id
+  const formData = {}
+  formData.model = 'project'
+  formData.id = route.params.id
+  formData.associated_multiple_models = associated_multiple_models
+  formData.id = id
+  formData.nested_models = nested_models
+
+  const res = await getOneSettlement(formData)
+
+  projectFullData.value = res.data
+
+  console.log(res.data)
+  projectDocuments.value = res.data.documents
+  projectScope.value = res.data.activities
+  projectTeamData.value = res.data.project_teams
+
+  projectContractors.value = res.data.project_contractors
+
+  getDocumentTypes()
+  getActivities()
+  getContractors()
+ // fetchNestedParentTasks(route.params.id)
+ getIndicatorCategoryReports(route.params.id)
+ changeProject(route.params.id)
+
+
+ ruleForm.subcounty_id= projectFullData.value.subcounty_id, 
+ ruleForm.ward_id= projectFullData.value.ward_id,
+ ruleForm.county_id= projectFullData.value.county_id, 
+ 
+
+
+ getIndicatorNames()
+  projectGeom.value = res.data.geom
+  for (const key of propertiesToMap) {
+    // Split the key on '.' to handle nested properties
+    const keys = key.split('.');
+    let value = res.data;
+
+    // Navigate through the nested properties
+    for (const k of keys) {
+      if (value && k in value) {
+        value = value[k];
+      } else {
+        value = undefined; // If any key in the path doesn't exist, set value to undefined
+        break; // Exit if a key is missing
+      }
+    }
+
+    // Assign the found value to Project.value, if defined
+    if (value !== undefined) {
+      Project.value[key] = value;
+    }
+  }
+
+
+
+  console.log(Project.value)
+
+
+  projectDescription.value = objectToArray(Project.value);
+  console.log(projectDescription);
+
+
+  // get current Tab 
+  const savedTab = localStorage.getItem('activeTab');
+      if (savedTab) {
+        activeName.value = savedTab;
+      }
+
+})
+
+
+
+
+
+
+const sortedprojectLogs = computed(() => {
+  return projectLogs.value.slice().sort((a, b) => new Date(b.date_actioned) - new Date(a.date_actioned));
+});
+
+
+
+const router = useRouter()
+
+
+const goBack = () => {
+  // Add your logic to handle the back action
+  // For example, you can use Vue Router to navigate back
+  if (router) {
+    // Use router.back() to navigate back
+    router.back()
+  } else {
+    console.warn('Router instance not available.')
+  }
+
+
+}
+
+
+const form = ref({
+  grievance_id: null,
+  action_type: null,
+  action_by: null,
+  date_actioned: null,
+  prev_status: null,
+  new_status: null,
+  fileList: [],
+});
+
+
+
+
+const dialogFormVisible = ref(false)
+const handlePreview = (file) => {
+  console.log('Preview:', file);
+};
+
+const handleRemove = (file, fileList) => {
+  console.log('Remove:', file, fileList);
+};
+
+const beforeRemove = () => {
+  return true;
+};
+
+const handleExceed = () => {
+  ElMessage.warning('You can only upload up to 3 files.');
+};
+
+
+
+const validateFileUploads = (rule: any, value: any, callback: any) => {
+  if (value === '') {
+    callback(new Error('Please input the password'))
+  } else {
+    if (form.value.fileList.length == 0) {
+      console.log("Error,", form.value)
+      callback(new Error('Please upload at least one document'));
+    }
+    callback()
+  }
+}
+
+ 
+
+
+const dynamicFormRef = ref<FormInstance>()
+
+ 
+
+const uploadFiles = async (action_id, grievance_id) => {
+  const formData = new FormData();
+
+  // Assuming `fileList` is an array of file objects and `grievance_id` is defined
+  for (var i = 0; i < form.value.fileList.length; i++) {
+    console.log('------>file', form.value.fileList[i]);
+    formData.append('files', form.value.fileList[i].raw);
+    formData.append('format', form.value.fileList[i].name.split('.').pop());
+    formData.append('grievance_id', grievance_id);
+    formData.append('action_id', action_id);
+    formData.append('protected_file', true);
+    formData.append('size', (form.value.fileList[i].raw.size / 1024 / 1024).toFixed(2));
+    formData.append('code', uuid.v4());
+  }
+
+  // Printing out the contents of formData
+  for (let [key, value] of formData.entries()) {
+    console.log(`${key}: ${value}`);
+  }
+
+  //const res =  await uploadprojectDocuments(formData)
+
+  console.log("Docuemnts Uploaded", res)
+
+
+
+
+}
+
+const viewLoading = ref(false)
+
+const downloadFile = async (data) => {
+  console.log(data);
+  viewLoading.value = true;
+  const formData = {};
+  formData.filename = data.name;
+  formData.doc_id = data.id;
+  formData.responseType = 'blob';
+
+  // Add a flag to track if the download has started
+
+
+  // Attach a 'beforeunload' event listener to the window
+  window.addEventListener('beforeunload', () => {
+    if (viewLoading.value) {
+      console.log('Download has started.');
+      viewLoading.value = false;
+    }
+  });
+
+  try {
+    const response = await getFile(formData);
+    console.log(response);
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', data.name);
+    document.body.appendChild(link);
+    link.click();
+    viewLoading.value = false;
+  } catch (error) {
+    ElMessage.error('Failed');
+    viewLoading.value = false;
+  }
+};
+
+
+
+
+let nmap; // Declare the map variable outside the function for scope
+
+const draw = new MapboxDraw({
+  displayControlsDefault: false,
+  controls: {
+    point: true,
+    line_string: false,
+    polygon: true,
+    trash: true
+  },
+
+})
+
+ 
+
+const icon = ref(`<button>  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M4.97883 9.68508C2.99294 8.89073 2 8.49355 2 8C2 7.50645 2.99294 7.10927 4.97883 6.31492L7.7873 5.19153C9.77318 4.39718 10.7661 4 12 4C13.2339 4 14.2268 4.39718 16.2127 5.19153L19.0212 6.31492C21.0071 7.10927 22 7.50645 22 8C22 8.49355 21.0071 8.89073 19.0212 9.68508L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L4.97883 9.68508Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M2 8C2 8.49355 2.99294 8.89073 4.97883 9.68508L7.7873 10.8085C9.77318 11.6028 10.7661 12 12 12C13.2339 12 14.2268 11.6028 16.2127 10.8085L19.0212 9.68508C21.0071 8.89073 22 8.49355 22 8C22 7.50645 21.0071 7.10927 19.0212 6.31492L16.2127 5.19153C14.2268 4.39718 13.2339 4 12 4C10.7661 4 9.77318 4.39718 7.7873 5.19153L4.97883 6.31492C2.99294 7.10927 2 7.50645 2 8Z" fill="#1C274C"></path> <path opacity="0.7" d="M5.76613 10L4.97883 10.3149C2.99294 11.1093 2 11.5065 2 12C2 12.4935 2.99294 12.8907 4.97883 13.6851L7.7873 14.8085C9.77318 15.6028 10.7661 16 12 16C13.2339 16 14.2268 15.6028 16.2127 14.8085L19.0212 13.6851C21.0071 12.8907 22 12.4935 22 12C22 11.5065 21.0071 11.1093 19.0212 10.3149L18.2339 10L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L5.76613 10Z" fill="#1C274C"></path> <path opacity="0.4" d="M5.76613 14L4.97883 14.3149C2.99294 15.1093 2 15.5065 2 16C2 16.4935 2.99294 16.8907 4.97883 17.6851L7.7873 18.8085C9.77318 19.6028 10.7661 20 12 20C13.2339 20 14.2268 19.6028 16.2127 18.8085L19.0212 17.6851C21.0071 16.8907 22 16.4935 22 16C22 15.5065 21.0071 15.1093 19.0212 14.3149L18.2339 14L16.2127 14.8085C14.2268 15.6028 13.2339 16 12 16C10.7661 16 9.77318 15.6028 7.7873 14.8085L5.76613 14Z" fill="#1C274C"></path> </g></svg></button>`)
+
+const showSatellite = ref(false)
+
+const toggleFloatingDiv = async () => {
+  showSatellite.value = !showSatellite.value;
+  console.log('Show Satellite', showSatellite.value);
+
+  // Get the map style
+  let style = nmap.getStyle();
+
+  // Get all layers
+  let allLayers = style.layers;
+
+  // Log all layers to the console
+  console.log('before ', allLayers);
+
+
+
+  if (!showSatellite.value) {
+    console.log('Remove Satellte');
+
+
+
+
+
+    if (nmap.getLayer('Satellite')) {
+      nmap.removeLayer('Satellite');
+      nmap.removeSource('Satellite');
+
+    }
+
+
+  } else {
+
+    console.log('Add Satellte');
+
+
+
+    if (nmap.getLayer('Satellite')) {
+      nmap.removeLayer('Satellite');
+      nmap.removeSource('Satellite');
+
+    } else {
+
+      icon.value = `<button>  <svg viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="si-glyph si-glyph-satellite" fill="#f20707"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <title>650</title> <defs> </defs> <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"> <g fill="#fb0e0e"> <path d="M12.495,5.893 C12.832,6.231 14.184,4.877 13.847,4.541 L10.864,1.557 C10.526,1.219 9.174,2.573 9.51,2.909 L12.495,5.893 L12.495,5.893 Z" class="si-glyph-fill"> </path> <path d="M3.288,10.897 C3.072,10.68 2.597,10.802 2.23,11.168 C1.863,11.536 1.742,12.009 1.959,12.228 L3.233,13.501 C3.45,13.719 3.922,13.597 4.289,13.23 C4.658,12.864 4.779,12.388 4.562,12.172 L3.288,10.897 L3.288,10.897 Z" class="si-glyph-fill"> </path> <rect transform="translate(2.240100, 2.131300) rotate(-44.991897) translate(-2.240100, -2.131300) " x="-0.25987605" y="1.13130958" width="4.96295245" height="1.95398128" class="si-glyph-fill"> </rect> <path d="M12.088,8.374 L10.657,9.802 L9.918,9.063 L11.543,7.439 C11.814,7.168 11.81,6.723 11.531,6.447 L9.031,3.948 C8.757,3.673 8.314,3.67 8.043,3.939 L6.419,5.564 L5.684,4.829 L7.113,3.401 L5.718,2.007 L2.221,5.503 L3.614,6.897 L5.028,5.484 L5.763,6.219 L4.134,7.849 C3.864,8.12 3.866,8.564 4.141,8.838 L6.641,11.336 C6.917,11.612 7.363,11.617 7.632,11.346 L9.262,9.717 L10.001,10.456 L8.585,11.869 L9.967,13.25 L13.464,9.753 L12.088,8.374 L12.088,8.374 Z" class="si-glyph-fill"> </path> <rect transform="translate(13.426200, 12.673100) rotate(-45.056720) translate(-13.426200, -12.673100) " x="10.9262228" y="11.6731091" width="4.96795479" height="1.97998198" class="si-glyph-fill"> </rect> </g> </g> </g></svg> </button>`
+
+      nmap.addLayer(
+        {
+          id: 'Satellite',
+          source: { "type": "raster", "url": "mapbox://mapbox.satellite", "tileSize": 256 },
+          type: "raster"
+        },
+        'country-label'
+      );
+    }
+
+
+
+  }
+
+  // Get the map style
+  style = nmap.getStyle();
+
+  // Get all layers
+  allLayers = style.layers;
+
+  // Log all layers to the console
+  console.log('after', allLayers);
+
+}
+
+
+
+const loadMap = () => {
+  if (nmap) {
+    nmap.remove(); // Remove existing map instance if it exists
+  }
+  // Assuming projectGeom is a GeoJSON Feature object with geometry type like Polygon or MultiPolygon
+  const centroid = turf.centroid(projectGeom.value);
+  const mapCenter = centroid.geometry.coordinates;
+
+  nmap = new mapboxgl.Map({
+    container: "mapContainer",
+    style: "mapbox://styles/mapbox/streets-v12",
+    center: mapCenter, // starting position
+    zoom: 15,
+  });
+
+  nmap.addControl(draw, 'top-left');
+
+
+
+  nmap.on("load", () => {
+
+
+
+    nmap.addLayer({
+      id: 'labels',
+      type: 'symbol',
+      source: {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [
+            {
+              type: 'Feature',
+              geometry: {
+                type: 'Point',
+                coordinates: centroid.value, // Replace with initial coordinates
+              },
+              properties: {
+                title:  projectFullData.value.name, // Initialize with an empty string
+              },
+            },
+          ],
+        },
+      },
+      layout: {
+        'text-field': ['get', 'title'],
+        'text-size': 16,
+        'text-anchor': 'top',
+      },
+      paint: {
+        'text-color': '#FF0000', // Red text color
+        'text-halo-color': '#FFFFFF', // White halo color
+        'text-halo-width': 2, // Adjust the halo width as needed    
+      },
+
+
+    });
+
+
+    // Add layers only once the map has loaded
+    // nmap.addLayer({
+    //   id: "Satellite",
+    //   source: { type: "raster", url: "mapbox://mapbox.satellite", tileSize: 256 },
+    //   type: "raster",
+    // });
+
+    nmap.addLayer({
+      id: "Streets",
+      source: { type: "raster", url: "mapbox://mapbox.streets", tileSize: 256 },
+      type: "raster",
+    });
+
+    nmap.setLayoutProperty("Satellite", "visibility", "none");
+
+    const layers = [
+      {
+        id: "Satellite",
+        title: "Satellite",
+        visibility: "none",
+        type: "base",
+      },
+      {
+        id: "Streets",
+        title: "Streets",
+        visibility: "visible",
+        type: "base",
+      },
+    ];
+
+    // Add point layer
+    nmap.addLayer({
+      id: 'point-layer',
+      type: 'circle',
+      source: {
+        type: 'geojson',
+        data: projectGeom.value,
+      },
+      paint: {
+        'circle-color': 'red',
+        'circle-radius': 6,
+      },
+      filter: ['==', '$type', 'Point'],
+    });
+
+    console.log(projectGeom.value)
+
+    // Add line layer
+    nmap.addLayer({
+      id: 'line-layer',
+      type: 'line',
+      source: {
+        type: 'geojson',
+        data: projectGeom.value, // Make sure projectGeom.value contains a LineString
+      },
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round',
+      },
+      paint: {
+        'line-color': 'blue', // Change color as needed
+        'line-width': 2, // Adjust line width
+      },
+      filter: ['==', '$type', 'LineString'], // Filter for LineString type
+    });
+
+    // Add polygon layer
+    nmap.addLayer({
+      id: 'poly-layer',
+      type: 'fill', // Use 'fill' for polygons
+      source: {
+        type: 'geojson',
+        data: projectGeom.value, // Make sure projectGeom.value contains a Polygon
+      },
+      layout: {},
+      paint: {
+        'fill-color': 'rgba(0, 0, 255, 0.05)', // Change color and opacity as needed
+        'fill-outline-color': 'blue', // Outline color
+      },
+      filter: ['==', '$type', 'Polygon'], // Filter for Polygon type
+    });
+
+
+
+
+    // Center the map on the point
+    nmap.setCenter(mapCenter); // Use the point coordinates directly
+
+    //  nmap.addControl(new MapboxLayerSwitcherControl(layers));
+    const nav = new mapboxgl.NavigationControl();
+    nmap.addControl(nav, "top-right");
+    nmap.resize();
+  });
+
+
+
+  function updateRuleform(feature) {
+    // do something with the new marker feature
+    var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+    feature.geometry.crs = crs
+    console.log('----feature', feature);
+
+    const formData = {}
+
+    formData.geom = feature.geometry
+    // console.log(formData)
+    // formData.land_size = calculateArea(feature.geometry)
+    // area_ha.value = calculateArea(feature.geometry)
+
+    var centre = turf.centroid(feature.geometry);
+    centroid.value = centre.geometry.coordinates
+
+    console.log('centroid.value', centroid)
+
+    nmap.getSource('labels').setData({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: centroid.value, // Update with the actual coordinates
+          },
+          properties: {
+            title: projectFullData.value.name, // Update with the desired label text (area)
+          },
+        },
+      ],
+    });
+
+  }
+
+  // listen for the draw.create event
+  nmap.on('draw.create', function (e) {
+    // check if the new feature is a marker
+    // if (e.features[0].geometry.type === 'Polygon') {
+    // trigger your function here
+    updateRuleform(e.features[0]);
+
+    //  }
+  });
+
+
+
+  function addInfo(map) {
+    class LayerButton {
+      onAdd(map) {
+        const div = document.createElement("div");
+        div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+        div.innerHTML = icon.value;
+        div.addEventListener("contextmenu", (e) => e.preventDefault());
+        div.addEventListener("click", () => toggleFloatingDiv());
+
+        return div;
+      }
+    }
+    const lryButton = new LayerButton();
+    nmap.addControl(lryButton, "top-right");
+  }
+  addInfo(nmap)
+
+
+
+};
+
+const handleTabClick = (tab) => {
+  console.log('Tab clicked:', tab.props);
+  localStorage.setItem('activeTab', tab.props.name);
+
+  if (tab.props.name === 'map') {
+    // Delay the loadMap function
+    setTimeout(() => {
+      loadMap(); // Load map after a brief delay
+    }, 500); // Delay in milliseconds (500 ms = 0.5 seconds)
+  }
+
+  if (tab.props.name === 'Scope') {
+    projectScopeChecked.value = projectScope.value.map(activity => activity.id);
+
+  }
+};
+
+const addMoreDocuments = ref(false)
+
+
+
+function toggleComponent(row) {
+
+  console.log(row)
+  addMoreDocuments.value = true
+
+}
+
+
+
+const count = ref(0)
+const morefileList = ref([])
+const documentCategory = ref()
+
+const showUpload = ref(false)
+
+const handleSelect = async (selected) => {
+  showUpload.value = true
+}
+
+const protectedFile = ref(false)
+
+
+const loadingPosting = ref(false)
+
+
+const submitMoreDocuments = async () => {
+
+  console.log('loadingPosting.value.......', morefileList.value.length)
+
+
+  if (morefileList.value.length == 0) {
+    ElMessage.error('Select at least one file!')
+  }
+
+
+  else {
+    // uploading the documents 
+    loadingPosting.value = true
+
+    const fileTypes = []
+    const formData = new FormData()
+
+    for (var i = 0; i < morefileList.value.length; i++) {
+      console.log('------>file', morefileList.value[i])
+      var format = morefileList.value[i].name.split('.').pop() // get file extension
+
+      // formData.append('files', fileList.value[i])
+      // formData.file = fileList.value[i]
+
+      formData.append('model', 'project')
+      formData.append('createdBy', userInfo.id)
+
+      formData.append('files', morefileList.value[i].raw)
+      formData.append('format', morefileList.value[i].name.split('.').pop())
+      formData.append('category', documentCategory.value)
+      formData.append('field_id', 'project_id')
+      formData.append('protected', protectedFile.value)
+
+      formData.append('size', (morefileList.value[i].raw.size / 1024 / 1024).toFixed(2))
+      formData.append('code', uuid.v4())
+      formData.append('project_id', route.params.id)
+
+
+
+    }
+
+    // addMoreDocuments.value = false
+
+    const res = await uploadFilesBatch(formData)
+
+
+
+
+    if (res.code === "0000") {
+      loadingPosting.value = false
+      addMoreDocuments.value = false
+    }
+
+  }
+
+
+
+}
+
+
+const deleteRow = (index: number) => {
+  projectScope.value.splice(index, 1)
+}
+
+
+
+const updateChanges = async () => {
+  // Assuming projectScope.value is an array of objects with an 'id' property
+  //projectFullData.value.activities = projectScope.value.map(activity => activity.id);
+  projectFullData.value.activities = projectScopeChecked.value;
+
+
+  projectFullData.value.model = 'project'
+  const res = await updateOneRecord(projectFullData.value)
+  console.log(res)
+}
+
+
+const ShowActivityAddDialog = ref(false)
+
+
+
+
+const AddScope = async () => {
+  ShowActivityAddDialog.value = true
+}
+
+const AddActivity = async () => {
+  projectFullData.value.activities = projectScope.value.map(activity => activity.id);
+  updateChanges()
+}
+
+
+
+const projectScopeChecked = ref([])
+
+const toggleActivity = () => {
+  console.log(projectScopeChecked.value)
+
+}
+
+// do not use same name with ref
+const teamForm = ref({
+  project_id: route.params.id,
+  name: '',
+  phone: '',
+  role: '',
+  email: null,
+  code: shortid.generate()
+
+})
+
+function validateEmail(rule, value, callback) {
+  if (!value) {
+    callback(new Error('Email is required'));
+  } else {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
+      callback(new Error('Invalid email format'));
+    } else {
+      callback();
+    }
+  }
+}
+
+
+const rules = ({
+  name: [
+    { required: true, message: 'Please input a name', trigger: 'blur' },
+    { min: 3, message: 'Length should be atleast 3 characters', trigger: 'blur' },
+  ],
+
+  phone: [
+    { required: true, message: 'Please input a name', trigger: 'blur' },
+    { min: 9, message: 'Length should be at least 9 characters', trigger: 'blur' },
+  ],
+  email: [
+    { required: true, message: 'Email is required', trigger: 'blur' },
+    { validator: validateEmail, trigger: 'blur' }, // Added email validation
+  ],
+
+  role: [
+    { required: true, message: 'Please input a name', trigger: 'blur' },
+  ],
+})
+
+
+const AddTeamDialog = ref(false)
+
+
+const AddTeam = async () => {
+  AddTeamDialog.value = true
+}
+
+const roles = ['Project Manager', 'Regional Lead', 'CDH', 'Clerk of Works', 'Other'];
+
+
+
+
+const ruleFormRef = ref<FormInstance>()
+
+const updateTeam = async () => {
+
+  ruleFormRef.value.validate(async (valid: boolean) => {
+
+    if (valid) {
+      console.log('submit!')
+
+      teamForm.value.model = 'project_team'
+
+      const res = await CreateRecord(teamForm.value)
+
+
+      projectTeamData.value.push(res.data)
+      // if (res.data && res.data.length > 0) {
+      //   projectTeamData.value = res.data.map(item); 
+      // }
+
+
+
+
+    } else {
+      console.log('error submit!')
+    }
+
+
+  })
+
+
+}
+
+const RemoveTeamMember = async (row) => {
+
+  let formData = {}
+  formData.id = row.id
+  formData.model = 'project_team'
+
+  await DeleteRecord(formData);
+
+
+
+  // remove the deleted object from array list 
+  let index = projectTeamData.value.indexOf(row);
+  if (index !== -1) {
+    projectTeamData.value.splice(index, 1);
+  }
+
+
+
+
+
+}
+
+
+
+
+
+
+/// contratcor 
+
+// COntractor 
+
+const AddContractorTeamDialog = ref(false)
+const contractorFormRef = ref()
+
+const AddContractorTeam = async () => {
+  AddContractorTeamDialog.value = true
+}
+
+// do not use same name with ref
+const contractorForm = ref({
+  project_id: route.params.id,
+  contractor_id: null,
+  role: null,
+  scope: '',
+  name: null,
+  code: shortid.generate()
+})
+
+// contractior RUles 
+
+const contractorRules = ({
+  contractor_id: [
+    { required: true, message: 'Please input a name', trigger: 'blur' },
+  ],
+
+  role: [
+    { required: true, message: 'Role is required', trigger: 'blur' },
+  ],
+
+
+  scope: [
+    { required: true, message: 'Scope is required', trigger: 'blur' },
+  ],
+})
+
+
+const contract_roles = ['Main Contractor', 'Subcontractor', 'Consultant', 'Other'];
+
+
+const updateContractor = async () => {
+
+  contractorFormRef.value.validate(async (valid: boolean) => {
+
+    if (valid) {
+      console.log('submit!')
+
+      contractorForm.value.model = 'project_contractor'
+
+      const res = await CreateRecord(contractorForm.value)
+
+      projectContractors.value.push(res.data)
+      AddContractorTeamDialog.value = false
+    } else {
+      console.log('error submit!')
+    }
+
+
+  })
+
+
+}
+
+
+const RemoveContractor = async (row) => {
+
+  let formData = {}
+  formData.id = row.id
+  formData.model = 'project_contractor'
+
+  await DeleteRecord(formData);
+
+
+
+  // remove the deleted object from array list 
+  let index = projectContractors.value.indexOf(row);
+  if (index !== -1) {
+    projectContractors.value.splice(index, 1);
+  }
+
+}
+const handleSelectContractor = async (selected) => {
+  const selectedContractor = contractorOptions.value.filter(item => item.id == selected);
+
+  contractorForm.value.name = selectedContractor[0].name
+  console.log(contractorForm.value)
+}
+
+
+
+// ASdd Missing Contractot
+
+const showAddNewContractor = ref(false)
+
+const onAddOption = () => {
+  showAddNewContractor.value = true
+}
+
+// do not use same name with ref
+const NewContractorForm = ref({
+  name: null,
+  contact_person: null,
+  email: null,
+  address: null,
+  phone: '',
+  code: shortid.generate()
+})
+
+
+
+
+const NewContractorRef = ref()
+const ruleFormRules = ({
+  name: [
+    { required: true, message: 'Please input a name', trigger: 'blur' },
+  ],
+
+  phone: [
+    { required: true, message: 'Phone is required', trigger: 'blur' },
+  ],
+  contact_person: [
+    { required: true, message: 'Contact Person is required', trigger: 'blur' },
+  ],
+
+  address: [
+    { required: true, message: 'Address is required', trigger: 'blur' },
+  ],
+
+  email: [
+    { required: true, message: 'Please enter an email address', trigger: 'blur' },
+    { type: 'email', message: 'Please enter a valid email address', trigger: ['blur', 'change'] }
+  ],
+
+})
+
+
+const createNewContractor = async () => {
+
+  NewContractorRef.value.validate(async (valid: boolean) => {
+
+    if (valid) {
+      console.log('submit!')
+
+      NewContractorForm.value.model = 'contractor'
+
+      const res = await CreateRecord(NewContractorForm.value)
+
+      console.log(res.data)
+
+      if (res.data) {
+        let new_cont = {}
+        new_cont.value = res.data.id
+        new_cont.id = res.data.id
+        new_cont.label = res.data.name
+        new_cont.name = res.data.name
+        new_cont.code = res.data.code
+
+        contractorOptions.value.push(new_cont)
+
+
+      }
+      /*  contractorOptions.value = 
+         contractorOptions.value = res.data.map(item => ({
+           value: item.id,
+           id: item.id,
+           label: item.name,
+           name: item.name,
+           code: item.code,
+           
+         })); */
+
+
+
+
+      showAddNewContractor.value = false
+
+
+    } else {
+      console.log('error submit!')
+    }
+
+
+  })
+
+
+}
+
+
+const { push } = useRouter()
+
+const editProject = async () => {
+  push({
+    path: '/interventions/add/:domain',
+    name: 'AddInterventionProjectsV2',
+    query: { id: projectFullData.value.id },
+    params: { id: projectFullData.value.id, domain: projectFullData.value.component_id }
+  })
+
+
+
+
+
+}
+
+
+// Reactive state
+const tasks = ref([]);
+const dialogVisible = ref(false);
+const taskForm = ref({
+  project_id: null,
+  parentTaskId: null, // Added for parent task selection
+  parentTaskPath:[],
+  progress: 0,
+  status: 'Pending',
+  startDate: null,
+  endDate: null,
+  createdBy: userInfo.id,
+  username: userInfo.name,
+  code: null,
+
+});
+const selectedTask = ref(null);
+const expandedRows = ref([]);
+
+const parentTasks = ref([]); // To hold the available parent tasks
+const parentTasksOptions = ref([]); // To hold the available parent tasks
+
+
+
+function buildNestedTasks(tasks) {
+  const taskMap = new Map();
+
+  // Step 1: Prepare task entries and add to the map
+  tasks.forEach((task) => {
+    taskMap.set(task.id, {
+      value: task.id,
+      label: task.name,
+      children: [],
+      startDate: task.startDate,
+      endDate: task.endDate,
+      progress: task.progress,
+      status: task.status,
+      time_spent: task.time_spent,
+    });
+  });
+
+  const nestedTasks = [];
+
+  // Step 2: Assign children based on parentTaskId
+  tasks.forEach((task) => {
+    const taskEntry = taskMap.get(task.id);
+    if (task.parentTaskId) {
+      const parentTask = taskMap.get(task.parentTaskId);
+      if (parentTask) {
+        parentTask.children.push(taskEntry); // Add to parent's children
+      }
+    } else {
+      nestedTasks.push(taskEntry); // Add to top-level if no parent
+    }
+  });
+
+  return nestedTasks;
+}
+
+
+// Fetch available parent tasks
+const fetchParentTasks = async (id) => {
+  try {
+    // const response = await axios.get('/api/tasks'); // Assuming the API endpoint returns tasks
+    const response = await getTasks({ 'project_id': id })
+    //   tasks.value=response.data
+    console.log('fetchParentTasks', response.data)
+    parentTasks.value = response.data
+
+     parentTasksOptions.value = buildNestedTasks( response.data);
+
+     console.log('parentTasksOptions.value',parentTasksOptions.value)
+
+   // parentTasks.value = response.data.filter(task => task.id); // Adjust this as per your API response
+  } catch (error) {
+    console.error('Failed to fetch parent tasks', error);
+  }
+};
+
+ 
+
+ 
+
+
+
+ 
+
+
+ 
+
+const disableParent = ref(false)
+
+const AddEditTask = async () => {
+  disableParent.value = false
+  taskForm.value.parentTaskId = null
+
+  console.log('dialogVisible', dialogVisible.value)
+  dialogVisible.value = true
+  taskForm.value.project_id = projectFullData.value.id
+  fetchParentTasks(projectFullData.value.id)
+
+};
+
+const AddSubTask = async (parent) => {
+  // disableParent.value = true
+
+  console.log('dialogVisible', dialogVisible.value)
+  dialogVisible.value = true
+  taskForm.value.project_id = projectFullData.value.id
+  taskForm.value.parentTaskId = parent
+  fetchParentTasks(projectFullData.value.id)
+
+};
+
+
+
+// Toggle row expansion for subtasks
+const toggleRowExpansion = (row) => {
+  const index = expandedRows.value.indexOf(row);
+  if (index === -1) {
+    expandedRows.value.push(row);
+  } else {
+    expandedRows.value.splice(index, 1);
+  }
+};
+
+// Check if a row is expanded
+const isRowExpanded = (row) => {
+  return expandedRows.value.includes(row);
+};
+
+// Edit task (open dialog with task details)
+const editTask = (task) => {
+  selectedTask.value = task;
+  taskForm.value.progress = task.progress;
+  taskForm.value.status = task.status;
+  dialogVisible.value = true;
+};
+
+// Submit the task update
+const submitTask = async () => {
+
+  console.log(taskForm.value)
+
+  taskForm.value.code = shortid.generate()
+  taskForm.value.model = 'project_task'
+
+  try {
+    //await axios.put(`/api/tasks/${selectedTask.value.id}`, taskForm);
+    await addTask(taskForm.value)
+    //fetchTasks(); // Refresh the tasks list
+    dialogVisible.value = false; // Close the dialog
+  } catch (error) {
+    console.error('Failed to update task', error);
+  }
+};
+
+
+// Recursive function to find the path for a given task ID
+function findPathById(options, targetId, path = []) {
+  for (const option of options) {
+    //console.log('option>>',option, "ccc", targetId)
+    const currentPath = [...path, option.value];
+
+    // Check if this option matches the target ID
+    if (option.value == targetId) {
+      return currentPath;
+    }
+
+    // If children exist, search recursively
+    if (option.children) {
+      const result = findPathById(option.children, targetId, currentPath);
+      if (result) return result;
+    }
+  }
+  return null; // Return null if the path is not found
+}
+
+const hasChildren =ref(true)
+// Check if a task has children by looking for it in the options array
+const checkChildren = (taskId) => {
+  const findTask = (options) => {
+    for (const option of options) {
+
+      console.log('option of options',option)
+      if (option.value === taskId) {
+        return option.children && option.children.length > 0;
+      }
+      if (option.children) {
+        const result = findTask(option.children);
+        if (result) return result;
+      }
+    }
+    return false;
+  };
+  return findTask(parentTasksOptions.value);
+};
+
+
+// Edit task handler
+const handleEdit = async (task) => {
+  console.log('Edit task:', task);
+  // Implement the logic to open the edit form/modal here
+  taskForm.value.id = task.id;
+  taskForm.value.project_id = task.project_id;
+  taskForm.value.progress = task.progress;
+  taskForm.value.name = task.name;
+  taskForm.value.status = task.status;
+  taskForm.value.startDate = task.startDate;
+  taskForm.value.endDate = task.endDate;
+  taskForm.value.parentTaskId = task.parentTaskId;
+  dialogVisible.value = true;
+
+
+
+  hasChildren.value= await checkChildren(task.id)
+
+  console.log('hasChildren.value',hasChildren.value)
+
+
+
+  fetchParentTasks(task.project_id)
+
+  
+   // Get the path to the parent task ID
+ const path = findPathById(parentTasksOptions.value, task.parentTaskId);
+  taskForm.value.parentTaskPath = path || []; // Set path or empty array if not found
+  console.log('Edit task path:', path);
+ 
+};
+
+
+
+
+// Delete task handler
+const handleDelete = async (row) => {
+  console.log('Delete task:', row);
+  // You can prompt for confirmation and delete the record
+  // Implement the actual delete logic here (e.g., API call)
+
+  const formData = {}
+  formData.model = 'project_task'
+  formData.id = row.id
+
+  await deleteTask(formData)
+
+  // Check if it's a subtask (it has a parentTaskId)
+  if (row.parentTaskId !== null) {
+    // Find the parent task that contains this subtask
+    const parentTask = tasks.value.find(task => task.id === row.parentTaskId);
+
+    if (parentTask && parentTask.Subtasks) {
+      // Filter out the specific subtask from the parent's subtasks array
+      parentTask.Subtasks = parentTask.Subtasks.filter(subtask => subtask.id !== row.id);
+      console.log(`Subtask ${row.id} removed from Parent Task ${parentTask.id}`);
+    }
+  } else {
+    // If it's a parent task, delete the parent task entirely
+    tasks.value = tasks.value.filter(task => task.id !== row.id);
+    console.log(`Parent Task ${row.id} and its subtasks removed`);
+  }
+
+};
+
+const generateNewId = () => {
+  const ids = tasks.value.flatMap(task => [task.id, ...task.subtasks.map(subtask => subtask.id)]);
+  return Math.max(...ids) + 1;
+};
+
+const handleClone = (row) => {
+  console.log('Cloning task or subtask:', row);
+
+  // Create a new task or subtask with a unique id
+  const newId = generateNewId();
+  const clonedItem = { ...row, id: newId, name: `${row.name} (Cloned)` };
+
+  // Check if it's a subtask
+  if (row.parentTaskId !== null) {
+    // Find the parent task and add the cloned subtask
+    const parentTask = tasks.value.find(task => task.id === row.parentTaskId);
+    if (parentTask && parentTask.Subtasks) {
+      parentTask.Subtasks.push(clonedItem);
+      console.log(`Subtask ${row.id} cloned to Subtask ${newId}`);
+    }
+  } else {
+    // It's a parent task, so add the cloned task to the main tasks array
+    clonedItem.Subtasks = clonedItem.Subtasks.map(subtask => ({
+      ...subtask,
+      id: generateNewId(),
+      parentTaskId: newId,
+      name: `${subtask.name} (Cloned)`
+    }));
+    tasks.value.push(clonedItem);
+    console.log(`Parent Task ${row.id} cloned to Parent Task ${newId}`);
+  }
+
+  console.log('Updated tasks:', tasks.value);
+};
+
+const uploadDialog = ref(false)
+const field_set = ref([])
+
+const uploadData = async () => {
+  uploadDialog.value = true
+  console.log('Uploading data.......')
+  var formData = {}
+  formData.model = 'project_task'
+  await getModelSpecs(formData).then((response) => {
+    console.log(response.data)
+    field_set.value = response.data
+  })
+
+}
+
+
+function convertStringArraysToProperArrays(data) {
+  return data.map(item => {
+    const newItem = { ...item }; // Create a shallow copy of the object
+
+    for (const key in newItem) {
+      if (newItem.hasOwnProperty(key)) {
+        const value = newItem[key];
+
+        // Check if the value is a string and can be parsed as an array
+        if (typeof value === 'string') {
+          try {
+            const parsedValue = JSON.parse(value);
+
+            if (Array.isArray(parsedValue)) {
+              newItem[key] = parsedValue;
+            }
+          } catch (e) {
+            // Handle any JSON parsing errors
+            console.error(`Error parsing string to array for key ${key}:`, e);
+          }
+        }
+      }
+    }
+
+
+    // Assuming 'latitude' and 'longitude' are the keys for lat/lon
+    if (newItem.latitude && newItem.longitude) {
+      newItem.geom = {
+        type: "Point",  // You can adjust the type if necessary
+        coordinates: [newItem.longitude, newItem.latitude]  // Note: GeoJSON uses [lon, lat]
+      };
+    }
+
+    return newItem;
+  });
+}
+
+const ImportProjectTasks = async () => {
+
+  //console.log('deleted_locations',deleted_locations)
+  var form = {}
+  form.model = 'project_task'
+
+  const dta = convertStringArraysToProperArrays(parsedData.value)
+  console.log('dta', dta)
+
+
+  form.data = dta
+  console.log('formData', form)
+
+  const results = await batchImport(form)
+
+  console.log('batchImport', results.insertedDocuments)
+
+
+
+}
+
+
+const handleCsvUpload = async (file) => {
+
+  if (file.raw) {
+    parseCSV(file.raw);
+  }
+}
+
+const parsedData = ref([])
+
+const parseCSV = async (file) => {
+  Papa.parse(file, {
+    header: true,
+    dynamicTyping: true,
+    skipEmptyLines: true,
+    complete: (result) => {
+      parsedData.value = result.data;
+
+      console.log('parsedData.value', parsedData.value)
+      //  ImportProjects()
+      ImportProjectTasks()
+    },
+    error: (error) => {
+      console.error('Error parsing CSV:', error);
+    },
+  });
+}
+
+
+const handleDownload = async () => {
+
+  const data = field_set.value
+  const fileName = 'task_template'
+  const exportType = exportFromJSON.types.csv
+  if (data) exportFromJSON({ data, fileName, exportType })
+}
+
+const activeName =ref('details')
+
+const DeleteProject = async (id) => {
+  let formData = {};
+  formData.id = id;
+  formData.model = 'project';
+
+  try {
+    await DeleteRecord(formData);
+
+    // Delete documents only if there are any documents to delete
+    if (projectDocuments.value.length > 0) {
+      formData.filesToDelete = projectDocuments.value;
+      await deleteDocument(formData);
+    }
+
+    ElMessage({
+      message: 'Project deleted successfully!',
+      type: 'success',
+      duration: 3000,
+    });
+
+    goBack();
+  } catch (error) {
+    ElMessage({
+      message: 'Failed to delete the project. Please try again.',
+      type: 'error',
+      duration: 3000,
+    });
+  }
+};
+
+const items = [
+  {
+    title: 'A. PRELIMINARIES',
+    icon: 'ic:baseline-plus',
+    children: [
+      { title: 'Site Handover', icon: 'vscode-icons:file-type-typescript' },
+      { title: 'Mobilisation', icon: 'vscode-icons:file-type-typescript' },
+      { title: 'Site Establishment - Hoarding, site office, site storage etc', icon: 'vscode-icons:file-type-typescript' },
+ 
+
+    ],
+  },
+  {
+    title: 'B. RELOCATION OF EXISTING SEWERLINE',
+    children: [
+      {
+        title: 'Home',
+        icon: 'lucide:folder',
+        children: [
+          { title: 'Card.vue', icon: 'vscode-icons:file-type-vue' },
+          { title: 'Button.vue', icon: 'vscode-icons:file-type-vue' },
+        ],
+      },
+    ],
+  },
+  {
+ 
+
+    title: 'C. MARKET BUILDING',
+    children: [
+      {
+        title: 'Concrete Works',
+        icon: 'lucide:folder',
+        children: [
+          { title: 'Basement 2 Slab', icon: 'vscode-icons:file-type-vue' },
+          { title: 'Columns', icon: 'vscode-icons:file-type-vue' },
+        ],
+      },
+    ],
+  },
+  { title: 'app.vue', icon: 'vscode-icons:file-type-vue' },
+  { title: 'nuxt.config.ts', icon: 'vscode-icons:file-type-nuxt' },
+]
+
+
+
+const handleChange = (value) => {
+  console.log(value)
+  taskForm.value.parentTaskId = value[value.length - 1]; // Only store the last item
+  console.log('Last selected value:', taskForm.value.parentTaskId );
+
+  
+}
+
+const props1 = {
+  checkStrictly: true,
+}
+
+
+const onClose = () => {
+  console.log('Dialog closed');
+  // Clear or reset the form when the dialog is closed
+ 
+  hasChildren.value= true
+  dialogVisible.value = false
+};
+
+ 
+
+// Method to validate progress and ensure it stays within the range
+const validateProgress = () => {
+  if (taskForm.value.progress < 0) {
+    taskForm.value.progress = 0;
+  } else if (taskForm.value.progress > 100) {
+    taskForm.value.progress = 100;
+  }
+};
+
+
+const tableRowClassName = (data) => {
+   
+   if (data.row.status == 'Rejected') {
+     return 'danger-row'
+   }
+   if (data.row.status == 'Approved') {
+     return 'success-row'
+   }
+ 
+   return ''
+ }
+
+ function formatDate (dateString) {
+      const dateObj = new Date(dateString);
+      const year = dateObj.getUTCFullYear();
+      const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+
+    function getQuarter(date = new Date()) {
+  return Math.floor(date.getMonth() / 3 + 1);
+}
+    /// here to File a report (m&E)
+
+ const ReportRuleFormRef = ref<FormInstance>()
+ const ruleForm = reactive({
+        indicator_category_id: null,
+        baseline: 0,
+        target: 0,
+        project_id:route.params.id,
+        project_location_id: null,
+        activity_id: null,
+        programme_implementation_id:null,
+        settlement_id: null,
+        subcounty_id: null,
+        ward_id: null,
+        county_id: null,
+        region_id: null,
+        period: getQuarter,
+        date: new Date(),
+        progress: 0,
+        amount: 0,
+        files: '',
+        project_status: '',
+        disbursement: 0,
+        userId: userInfo.id,
+        code: '',
+        cumDisbursement: 0,
+        cumProgress: 0,
+        prevAmount: 0,
+        cumAmount: 0,
+        comments: '',
+        units: 'Quantity',
+        cumUnits: 'Cumulative(qty)'
+      })
+
+ const ReportRules = reactive<FormRules>({
+        project_id: [
+          { required: true, message: 'Required', trigger: 'blur' },
+        ],
+
+        project_location_id: [
+          { required: true, message: 'Required', trigger: 'blur' },
+        ],
+
+
+        activity_id: [
+          { required: true, message: 'Required', trigger: 'blur' },
+        ],
+
+        indicator_category_id: [
+          { required: true, message: 'Required', trigger: 'blur' },
+        ],
+
+
+
+
+        amount: [
+          { required: true, message: 'Required', trigger: 'blur' },
+        ],
+
+        date: [
+          { required: true, message: 'Required', trigger: 'blur' },
+        ],
+
+ 
+})
+
+
+
+ 
+const changeIndicator = async (indicator_category_id: any) => {
+  ruleForm.indicator_category_id = indicator_category_id
+
+  console.log('Filtre indicatorsOptionsFiltered', indicatorsOptionsFiltered)
+
+  var filtredOptions = indicatorsOptionsFiltered.value.filter(function (el) {
+    return el.value == indicator_category_id
+  });
+
+
+ // ruleForm.project_id = filtredOptions[0].project_id
+  ruleForm.activity_id= filtredOptions[0].activity_id
+
+
+
+  console.log("Filtered Indicators", filtredOptions[0])
+  ruleForm.units = "Quantity(" + filtredOptions[0].unit + ")"
+  ruleForm.cumUnits = "Cumulative(" + filtredOptions[0].unit + ")"
+
+  ruleForm.baseline = filtredOptions[0].baseline
+  //ruleForm.target = filtredOptions[0].target
+
+  //ruleForm.indicator_category_title = filtredOptions[0].category_title
+
+  getCumulativeProgress(indicator_category_id)
+}
+
+
+ const activeStep = ref(0)
+
+ const nextStep = async () => {
+  console.log(ruleFormRef.value)
+  await ReportRuleFormRef.value?.validate((valid) => {
+    if (valid) {
+      if (activeStep.value < 3) {
+        activeStep.value++
+      }
+    }
+  })
+
+
+}
+
+
+
+const prevStep = () => {
+  if (activeStep.value > 0) {
+    activeStep.value--;
+  }
+}
+ 
+
+function disabledFutureDates(date) {
+      const today = new Date();
+      return date.getTime() > today.getTime(); // Disable dates after today
+    }
+
+
+    const firstReport=ref(true)
+
+const getCumulativeProgress = async () => {
+
+  var filters = ['userId', 'indicator_category_id', 'county_id', 'subcounty_id', 'ward_id', 'project_id', 
+  ]
+
+  var filterValues = [[userInfo.id], [ruleForm.indicator_category_id], [ruleForm.county_id], [ruleForm.subcounty_id], [ruleForm.ward_id],
+  [ruleForm.project_id] ]  // remember to change here!
+
+console.log(ruleForm.value)
+
+ 
+
+
+  console.log('filters', filters)
+  console.log('filterValues', filterValues)
+  const formData = {}
+  formData.limit = 100
+  formData.page = 1
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'indicator_category_report'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = []
+
+  // - multiple filters -------------------------------------
+  formData.filters = filters
+  formData.filterValues = filterValues
+  formData.associated_multiple_models = []
+ 
+  //-------------------------
+  //console.log(formData)
+  const res = await getSettlementListByCounty(formData)
+
+
+  console.log('yaay. Got last reports', res.data)
+  if (res.data.length==0){
+    firstReport.value=true
+  }else {
+    firstReport.value=false
+  }
+
+  function getLatestReport(dataList) {
+    if (dataList.length === 0) {
+      return null;
+    }
+
+    // Find the latest ID using reduce function
+    const latestID = dataList.reduce((prevObj, currentObj) => (currentObj.id > prevObj.id ? currentObj : prevObj)).id;
+
+    // Find the object with the latest ID
+    const objectWithLatestID = dataList.find((obj) => obj.id === latestID);
+
+    // Return the object with the latest ID
+    return objectWithLatestID;
+  }
+
+
+  // Get the object with the latest date
+  const objectWithLatestDate = getLatestReport(res.data);
+  console.log('objectWithLatestDate', objectWithLatestDate);
+
+  // ruleForm.cumProgress = parseInt(objectWithLatestDate.cumProgress)
+  // ruleForm.cumDisbursement = parseInt(objectWithLatestDate.cumDisbursement)
+  ruleForm.cumAmount = parseFloat(objectWithLatestDate.cumAmount)
+  ruleForm.cumProgress = parseFloat(objectWithLatestDate.cumProgress)
+  ruleForm.prevAmount = parseFloat(objectWithLatestDate.amount)
+
+  ruleForm.target = parseFloat(objectWithLatestDate.target)
+
+  console.log('cumProgress ats tart', ruleForm);
+
+}
+
+
+ 
+
+
+const fileUploadList = ref<UploadUserFile[]>([])
+
+// Function to empty all fields in ruleForm
+function emptyRuleForm() {
+  for (const key in ruleForm) {
+    ruleForm[key] = null;
+  }
+}
+
+const submitForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate(async (valid, fields) => {
+    if (valid) {
+      ruleForm.model = 'indicator_category_report'
+      ruleForm.period = getQuarter()
+      ruleForm.code = uuid.v4()
+      ruleForm.userId = userInfo.id 
+
+      console.log('cumProgress', ruleForm.value)
+
+      ruleForm.cumAmount = ruleForm.cumAmount + ruleForm.amount
+
+      let calculatedProgress = (100 * (ruleForm.cumAmount / ruleForm.target));
+
+      if (isFinite(calculatedProgress)) {
+        ruleForm.cumProgress = calculatedProgress.toFixed(2);
+      } else {
+        ruleForm.cumProgress = '0.00';
+      }
+
+
+      //Progress towards target (%realized) [(B-A)/(C- A)]
+
+      const report = await CreateRecord(ruleForm)   // first save the form on DB
+      console.log("Report", report.data.id)
+
+      emptyRuleForm()
+
+      // uploading the documents 
+
+      const formData = new FormData()
+      for (var i = 0; i < fileUploadList.value.length; i++) {
+        console.log('------>file', fileList.value[i])
+        var column = 'report_id'
+        formData.append('files', fileUploadList.value[i].raw)
+        formData.append('format', fileUploadList.value[i].name.split('.').pop())
+        formData.append('field_id', 'report_id')
+        formData.append('category', 2)
+        formData.append(column, parseInt(report.data.id))
+        formData.append('size', (fileUploadList.value[i].raw.size / 1024 / 1024).toFixed(2))
+        formData.append('createdBy', userInfo.id)
+        formData.append('protected', false)
+
+        //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
+      }
+
+      formData.append('code', uuid.v4())
+
+
+
+      console.log('files uploadFilesBatch submit', formData)
+      const docs = await uploadFilesBatch(formData)
+
+      console.log('after submit', docs.data)
+
+
+      AddDialogVisible.value = false
+     
+
+    } else {
+      console.log('error submit!', fields)
+    }
+  })
+}
+
+
+
+</script>
+
+<template>
+  <el-card>
+    <!-- Header Section -->
+    <template #header>
+      <div class="card-header">
+        <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
+          Back
+        </el-button>
+
+        <el-text tag="b" size="large"> {{ projectFullData.title }} ( {{ projectFullData.code }}) </el-text>
+      </div>
+    </template>
+
+    <el-tabs v-model="activeName" type="border-card" class="demo-tabs" tab-position="top" @tab-click="handleTabClick">
+      <el-tab-pane label="Project Details" name="details">
+
+        <el-card>
+
+          <el-descriptions title="Project Information" border>
+            <template #extra>
+              <el-button size="mini" type="primary" :icon="Edit" @click="editProject">
+                Edit Project
+                <el-icon>
+                  <Edit />
+                </el-icon>
+              </el-button>
+
+
+            </template>
+
+            <el-descriptions-item
+v-for="item in projectDescription" :key="item.property"
+              :label="formatSentence(item.property)">
+              {{ formatSentence(item.value) }}
+            </el-descriptions-item>
+          </el-descriptions>
+
+
+
+        </el-card>
+
+
+
+      </el-tab-pane>
+      <el-tab-pane label="Location" name="map">
+        <div id="mapContainer" class="basemap"></div>
+      </el-tab-pane>
+
+      <el-tab-pane label="Scope" name="Scope">
+        <el-card>
+          <div>
+            <el-button :onClick="updateChanges" style="margin-left :5px;margin-bottom :5px; " plain>
+              <Icon icon="ic:round-save" style=" color: green" size="52" /> Save Changes
+            </el-button>
+
+
+          </div>
+          <div style="margin-left :5px;">
+            <p> Select project components and associated physical and social amenities</p>
+          </div>
+          <el-row>
+            <el-col :sm="24" :md="24" :lg="24" :xl="24" v-for="(activity) in activityOptions" :key="activity.id">
+              <el-checkbox v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()">
+                {{ activity.title }}
+              </el-checkbox>
+            </el-col>
+          </el-row> 
+        </el-card>
+
+      </el-tab-pane>
+
+
+      <el-tab-pane label="Achievements" name="Indicator">
+        <el-card>
+
+          <el-button :onClick="AddReport" style="margin-left :5px;margin-bottom :5px; " plain>
+            <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Report/Achievement
+          </el-button>
+        
+                <el-table  :data="indicatorReports"   border :row-class-name="tableRowClassName" ref="tableRef"  >
+
+                  
+                  <el-table-column label="#" width="80" prop="id" sortable>
+                    <template #default="scope">
+                      <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
+                        <span>{{ scope.row.id }}</span>
+                        <Icon icon="material-symbols:attachment" style="margin-left: 4px;" />
+                      </div>
+                    </template>
+                  </el-table-column>
+
+                
+                  <el-table-column label="Indicator  " width="400" sortable>
+                      <template #default="{ row }">
+                        <div>
+                          <span> {{ row.indicator_category.indicator_name }} {{ row.indicator_category.category_title }}  </span>
+                          
+                        </div>
+                      </template>
+                    </el-table-column>
+                  <el-table-column label="Date" prop="date" sortable>
+                    <template #default="scope">
+                      {{ formatDate(scope.row.date) }}
+                    </template>
+                  </el-table-column>
+
+                  <el-table-column label="Amount" prop="amount" sortable />
+                  <el-table-column label="Amount (cumulutaive)" prop="cumAmount" sortable />
+                  <el-table-column label="Status" prop="status" sortable>
+                  <template #default="scope">
+                    <div v-if="scope.row.status === 'Rejected'">
+                      <el-tooltip :content="'Reason for rejection: ' + scope.row.reject_msg" placement="top">
+                        <span>{{ scope.row.status }}</span>
+                      </el-tooltip>
+                    </div>
+                    <div v-else>
+                      <span>{{ scope.row.status }}</span>
+                    </div>
+                  </template>
+                  </el-table-column>
+
+
+
+ 
+
+</el-table>
+        </el-card>
+
+      </el-tab-pane>
+
+
+   
+      
+
+      <el-tab-pane label="Documentation" name="documents">
+        <el-card>
+          <el-table :data="projectDocuments" style="width: 100%">
+            <el-table-column type="index" width="50" />
+            <el-table-column prop="name" label="Name" />
+            <el-table-column prop="createdAt" label="Uploaded" />
+
+            <el-table-column fixed="right" label="">
+              <template #default="scope">
+                <el-button type="primary" @click="downloadFile(scope.row)">
+                  <Icon icon="fa-solid:download" style="  margin-right: 5px;" />
+                  Download
+                </el-button>
+
+
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <el-button @click="toggleComponent(Project)" style="margin-top:10px">Upload</el-button>
+
+        </el-card>
+
+      </el-tab-pane>
+
+
+      <el-tab-pane label="Team" name="team">
+        <el-card>
+
+          <el-button :onClick="AddTeam" style="margin-left :5px;margin-bottom :5px; " plain>
+            <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Team
+          </el-button>
+          <el-table :data="projectTeamData" style="width: 100%">
+            <el-table-column type="index" width="50" />
+            <el-table-column prop="name" label="Name" />
+            <el-table-column prop="phone" label="Phone" />
+            <el-table-column prop="email" label="Email" />
+            <el-table-column prop="role" label="Role" />
+
+            <el-table-column fixed="right" label="">
+              <template #default="scope">
+                <el-button plain @click="RemoveTeamMember(scope.row)">
+                  <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
+                  Remove
+                </el-button>
+
+
+              </template>
+            </el-table-column>
+
+          </el-table>
+        </el-card>
+
+      </el-tab-pane>
+
+
+      <el-tab-pane label="Contractor" name="contractor">
+        <el-card>
+
+          <el-button :onClick="AddContractorTeam" style="margin-left :5px;margin-bottom :5px; " plain>
+            <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Contractor(s)
+          </el-button>
+          <el-table :data="projectContractors" style="width: 100%">
+            <el-table-column type="index" width="50" />
+            <el-table-column prop="name" label="Name" />
+            <el-table-column prop="role" label="Role" />
+            <el-table-column prop="scope" label="Phone" />
+
+            <el-table-column fixed="right" label="">
+              <template #default="scope">
+                <el-button plain @click="RemoveContractor(scope.row)">
+                  <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
+                  Remove
+                </el-button>
+
+
+              </template>
+            </el-table-column>
+
+          </el-table>
+        </el-card>
+
+      </el-tab-pane>
+
+
+
+
+      <el-tab-pane label="Timeline" name="timeline">
+
+        <el-timeline style="max-width: 100%;">
+          <el-timeline-item
+v-for="(log, index) in sortedprojectLogs" :key="index" placement="top"
+            :timestamp="log.date_actioned" timestamp-class="timestamp-class">
+            <el-card
+class="custom-card" shadow="hover" :class="log.action_type == 'Resolved' ? 'success-background' :
+          log.action_type == 'Escalated' ? 'warning-background' :
+            log.action_type == 'Closed' ? 'closed-background' :
+              log.action_type == 'Referred' ? 'referred-background' :
+                'info-background'
+          ">
+              <el-row align="middle" :gutter="20">
+                <!-- Icon in the first 1/4 of the card -->
+                <el-col :xs="24" :sm="24" :md="24" :lg="2">
+                  <Icon v-if="log.action_type == 'Resolved'" icon="fluent-mdl2:completed-solid" width="60" />
+                  <Icon v-if="log.action_type == 'Escalated'" icon="streamline:dangerous-zone-sign-solid" width="60" />
+                  <Icon v-if="log.action_type == 'Reported'" icon="fluent-mdl2:report-warning" width="60" />
+                  <Icon v-if="log.action_type == 'Referred'" icon="mdi:justice" width="60" />
+                  <Icon v-if="log.action_type == 'Closed'" icon="fluent:lock-closed-20-filled" width="60" />
+
+                </el-col>
+
+                <el-col :xs="24" :sm="24" :md="14" :lg="14" :xl="14" :gutter="10">
+                  <p class="action-header">{{ log.action_type }} </p>
+                  <p class="action-body">{{ log.action ? log.action : 'None' }}</p>
+                  <p class="action-footer">By: {{ log.user ? log.user.name : 'System' }}</p>
+                </el-col>
+
+                <el-col v-if="log.grievance_documents.length > 0" :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+                  <p class="documents-header">Documentation </p>
+
+                  <p v-for="(doc, docIndex) in log.grievance_documents" :key="docIndex">
+
+                    <el-button @click="downloadFile(doc)" link type="primary" size="small" :icon="Download">{{ doc.name
+                      }}</el-button>
+
+                  </p>
+                </el-col>
+
+              </el-row>
+            </el-card>
+          </el-timeline-item>
+
+
+        </el-timeline>
+
+      </el-tab-pane>
+
+       
+
+      <el-tab-pane label="Settings" name="Settings"> 
+        <el-popconfirm  width="300" title="Are you sure to delete this project?" @confirm="DeleteProject(projectFullData.id)">
+    <template #reference>
+      <el-button  style="color: red; border-color: red; margin-left: 5px; margin-bottom: 5px;" plain>
+              <Icon icon="material-symbols:delete" style="color: red;" size="52" />
+              Delete Project
+            </el-button>    </template>
+  </el-popconfirm>
+ 
+      </el-tab-pane>
+
+    </el-tabs>
+  </el-card>
+
+
+
+  <el-dialog v-model="ShowActivityAddDialog" title="Add Project Activity" width="500">
+    <el-select
+id="location-select" v-model="projectScope" multiple filterable remote reserve-keyword
+      placeholder=" Search Activities" :remote-method="getActivities" style="width: 85%">
+      <el-option v-for="item in activityOptions" :key="item.id" :label="item.label" :value="item">
+        <div style="display: flex; align-items: center;">
+          <span style="flex: 1; text-align: left;">{{ item.label }}</span>
+          <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
+            {{ item.code }}
+          </span>
+        </div>
+      </el-option>
+    </el-select>
+    <el-tooltip content="Save" placement="top">
+      <el-button :onClick="AddActivity" style="margin-left :10px;" type="primary">
+        <Icon icon="ic:round-save" style=" color: white" size="48" />
+      </el-button>
+
+
+    </el-tooltip>
+
+  </el-dialog>
+
+
+
+  <el-dialog v-model="addMoreDocuments" title="Upload Documents" width="25%">
+    <el-select
+class="dialog-select" v-model="documentCategory" placeholder="Select Type" clearable filterable
+      style="margin-bottom:10px" :onChange="handleSelect">
+      <el-option-group v-for="group in DocTypes" :key="group.label" :label="group.label">
+        <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
+      </el-option-group>
+    </el-select>
+
+    <div class="dialog-upload">
+      <el-upload
+ref="upload" v-if="showUpload" v-model:file-list="morefileList" multiple :limit="10"
+        :on-exceed="onExceeed" :auto-upload="false">
+        <el-button class="full-width" type="primary" :icon="UploadFilled"> Select File(s) </el-button>
+
+      </el-upload>
+    </div>
+
+
+    <el-tooltip
+class="box-item" effect="dark" content="Only the Owner and Admin can view Private documents"
+      placement="right-end">
+      <el-checkbox v-model="protectedFile">Private File</el-checkbox>
+    </el-tooltip>
+
+    <div class="dialog-progress">
+      <el-progress
+:stroke-width="20" :show-text="false" :percentage="loadingPosting ? '50' : ''" :format="format"
+        :indeterminate="true" />
+    </div>
+
+
+
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="addMoreDocuments">Cancel</el-button>
+        <el-button type="primary" @click="submitMoreDocuments()">
+          Confirm
+        </el-button>
+      </div>
+    </template>
+
+
+  </el-dialog>
+
+
+
+  <el-dialog v-model="AddTeamDialog" title="Add Project Team" width="500">
+    <el-form
+:model="teamForm" label-width="auto" style="max-width: 600px" label-position="top" ref="ruleFormRef"
+      :rules="rules">
+      <el-form-item label="Role" prop='role'>
+        <el-select v-model="teamForm.role" placeholder="Select  Role">
+          <el-option v-for="role in roles" :key="role" :label="role" :value="role" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Name" prop='name'>
+        <el-input v-model="teamForm.name" />
+      </el-form-item>
+      <el-form-item label="Phone" prop='phone'>
+        <el-input v-model="teamForm.phone" />
+      </el-form-item>
+
+      <el-form-item label="Email" prop='email'>
+        <el-input v-model="teamForm.email" />
+      </el-form-item>
+
+      <el-tooltip content="Save" placement="top">
+        <el-button :onClick="updateTeam" style="margin-left :10px;" type="primary">
+          <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
+        </el-button>
+
+      </el-tooltip>
+
+    </el-form>
+
+
+  </el-dialog>
+
+
+  <el-dialog v-model="AddContractorTeamDialog" title="Add Project Contractors" width="500">
+    <el-form
+:model="contractorForm" label-width="auto" style="max-width: 600px" label-position="top"
+      ref="contractorFormRef" :rules="contractorRules">
+      <el-form-item label="Contractor" prop='contractor'>
+        <el-select
+v-model="contractorForm.contractor_id" placeholder="Select " filterable
+          :onChange="handleSelectContractor">
+          <el-option v-for="cont in contractorOptions" :key="cont" :label="cont.label" :value="cont.id" />
+          <template #footer>
+            <el-button text bg size="small" @click="onAddOption">
+              Add A Contractor
+            </el-button>
+
+          </template>
+
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Role" prop='role'>
+        <el-select v-model="contractorForm.role" placeholder="Select ">
+          <el-option v-for="role in contract_roles" :key="role" :label="role" :value="role" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="Scope" prop='scope'>
+        <el-input v-model="contractorForm.scope" />
+      </el-form-item>
+
+
+
+      <el-tooltip content="Save" placement="top">
+        <el-button :onClick="updateContractor" style="margin-left :10px;" type="primary">
+          <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
+        </el-button>
+
+      </el-tooltip>
+
+    </el-form>
+
+
+  </el-dialog>
+
+
+
+
+  <el-dialog v-model="showAddNewContractor" title="Register New Contractors" width="500">
+    <el-form
+:model="NewContractorForm" label-width="auto" style="max-width: 600px" label-position="top"
+      ref="NewContractorRef" :rules="ruleFormRules">
+
+
+      <el-form-item label="Contractor" prop='name'>
+        <el-input v-model="NewContractorForm.name" />
+      </el-form-item>
+
+      <el-form-item label="Contact Person" prop='contact_person'>
+        <el-input v-model="NewContractorForm.contact_person" />
+      </el-form-item>
+
+
+
+      <el-form-item label="Email" prop='email'>
+        <el-input v-model="NewContractorForm.email" />
+      </el-form-item>
+
+
+      <el-form-item label="Phone" prop='phone'>
+        <el-input v-model="NewContractorForm.phone" />
+      </el-form-item>
+
+
+
+      <el-form-item label="Address" prop='address'>
+        <el-input v-model="NewContractorForm.address" />
+      </el-form-item>
+
+      <el-tooltip content="Save" placement="top">
+        <el-button :onClick="createNewContractor" style="margin-left :10px;" type="primary">
+          <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
+        </el-button>
+
+      </el-tooltip>
+
+    </el-form>
+
+
+  </el-dialog>
+
+
+
+  <el-dialog v-model="uploadDialog" title="Import Document" width="400" @close="uploadDialog = false">
+    <span>
+      To upload data on projects, use this
+      <button @click="handleDownload" class="template-link">template</button>
+      , then upload it below.
+    </span>
+
+    <el-upload
+class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
+      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15">
+      <div class="el-upload__text">
+        Drop file here or <em>click to upload</em>
+      </div>
+
+    </el-upload>
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="uploadDialog = false">Cancel</el-button>
+        <el-button type="primary" @click="uploadData">
+          Confirm
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
+
+
+
+
+  <el-dialog v-model="AddDialogVisible"  title="File a Report"  width="50%">
+
+        <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
+           <el-step title="Activity Details" />
+          <el-step title="Output" />
+          <el-step title="Submit" />
+        </el-steps>
+
+        <el-form ref="ReportRuleFormRef" :model="ruleForm" :rules="ReportRules" label-width="100px" label-position="top">
+          
+          <el-row v-if="activeStep == 0" :gutter="20">
+            <el-col :span="24">
+            
+
+              <el-form-item id="btn4" label="Indicator" prop="indicator_category_id">
+                <el-select-v2
+        filterable v-model="ruleForm.indicator_category_id" @change="changeIndicator"
+                  :options="indicatorsOptionsFiltered" style="width: 100%" placeholder="Select Indicator" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row v-if="activeStep === 1" :gutter="20">
+            <el-col :span="12">
+              <el-form-item id="btn5" :label="ruleForm.units" prop="amount">
+                <el-input-number v-model="ruleForm.amount" style="width: 100%;" />
+              </el-form-item>
+              <el-form-item id="btn8" label="Baseline">
+                <el-input-number v-model="ruleForm.baseline" type="number" disabled style="width: 100%;">
+                  <template #prepend>Baseline(Amount)</template>
+                </el-input-number>
+              </el-form-item>
+              <el-form-item id="btn10" label="Date" prop="date">
+                <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" style="width: 100%;" :disabled-date="disabledFutureDates"
+                />
+              </el-form-item>
+            </el-col>
+
+            <el-col :span="12">
+              <el-form-item id="btn6" :label="ruleForm.cumUnits">
+                <el-input-number v-model="ruleForm.cumAmount" type="number" disabled style="width: 100%;">
+                  <template #prepend>Cumulative(Amount)</template>
+                </el-input-number>
+              </el-form-item>
+              <el-form-item id="btn9" label="Target">
+                <el-input-number v-model="ruleForm.target" type="number" :disabled ="!firstReport" style="width: 100%;">
+                  <template #prepend>Target(Amount)</template>
+                </el-input-number>
+              </el-form-item>
+              <el-form-item id="btn11" label="Progress(%)">
+                <el-input-number v-model="ruleForm.cumProgress" type="number" disabled style="width: 100%;">
+                  <template #prepend>Cumulative(Amount)</template>
+                </el-input-number>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row v-if="activeStep === 2" :gutter="20">
+            <el-col :span="24">
+              <el-form-item id="btn12" label="Please describe any challenges experienced" prop="comments">
+                <el-input v-model="ruleForm.comments" type="textarea" placeholder="Please describe any challenges experienced" />
+              </el-form-item>
+
+              <el-upload
+        id="btn13" v-model:file-list="fileUploadList" class="upload-demo"
+                action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
+                :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
+                :on-exceed="handleExceed">
+                <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
+              </el-upload>
+            </el-col>
+
+
+          </el-row>
+
+        </el-form>
+
+
+
+        <template #footer>
+          <span class="dialog-footer">
+            <el-row :gutter="5">
+              <el-col :span="24">
+                <!-- <el-button type="primary" plain @click="openHelp = true">Help</el-button> -->
+                <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
+
+                <el-button :disabled="disableIndicator"   @click="nextStep" v-if="activeStep < 2">Next</el-button>
+                <el-button @click="handleCancel">Cancel</el-button>
+                <el-button
+        v-if="showSubmitBtn && activeStep === 2" type="primary"
+                  @click="submitForm(ReportRuleFormRef)">Submit</el-button>
+            
+              </el-col>
+            </el-row>
+          </span>
+        </template>
+
+
+</el-dialog>
+
+</template>
+<style scoped>
+/* Custom styling for details container */
+.details-container {
+  margin-top: 20px;
+}
+
+/* Custom styling for each detail item */
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  padding: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+/* Label styling */
+.label-text {
+  font-weight: bold;
+  color: #333;
+
+  width: 10%;
+  /* Adjust as needed */
+}
+
+/* Value styling */
+.value {
+  width: 90%;
+  /* Adjust as needed */
+
+}
+
+/* Ensure spacing between rows */
+.el-row {
+  margin-top: 20px;
+}
+
+.card-header {
+  display: flex;
+
+
+  font-weight: bold;
+  font-size: 1.2rem;
+  color: #333;
+}
+
+/* Custom styling for documents container */
+.documents-container {
+  margin-top: 20px;
+}
+
+.documents-container ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.documents-container li {
+  margin-bottom: 10px;
+}
+</style>
+<style scoped>
+.action-col {
+  padding: 10px;
+}
+
+.action-header {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1px;
+  color: #333;
+}
+
+.documents-header {
+  font-size: 0.95rem;
+  font-weight: bold;
+  margin-bottom: 1px;
+  color: #837f7f;
+}
+
+.action-body {
+  font-size: 1rem;
+  font-weight: 200;
+  color: #666;
+}
+
+.action-footer {
+  font-size: 1rem;
+  font-weight: 300;
+  color: #2e0dc2;
+}
+
+.success-background {
+  background-color: rgba(226, 248, 231, 0.4);
+  /* Light green with 80% opacity */
+  color: #1bd847;
+  /* Dark green text */
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #c3e6cb;
+  /* Border color */
+
+}
+
+.warning-background {
+  background-color: rgba(255, 243, 205, 0.4);
+  /* Light yellow with 80% opacity */
+  color: #856404;
+  /* Dark yellow text */
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ffeeba;
+  /* Border color */
+}
+
+.closed-background {
+  background-color: rgba(255, 0, 0, 0.14);
+  /* Red with 80% opacity */
+  color: #fa0707;
+  /* Darker text for contrast */
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #fb050552;
+  /* Lighter red border */
+}
+
+.referred-background {
+  background-color: rgba(247, 155, 7, 0.2);
+  /* Pink with 20% opacity */
+  color: rgb(255, 192, 254);
+  /* Same text color */
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #d6d6d6;
+  /* Lighter pink border */
+}
+
+
+
+
+.info-background {
+  background-color: rgba(204, 229, 255, 0.4);
+  /* Light blue with 80% opacity */
+  color: #004085;
+  /* Dark blue text */
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #b8daff;
+  /* Border color */
+}
+
+
+.custom-card {
+  padding: 5px;
+  /* Reduce padding */
+  margin: 5px 0;
+  /* Adjust margin as needed */
+  min-height: 10px;
+  /* Set a minimum height if needed */
+}
+
+.timestamp-class {
+  font-weight: bold;
+  /* Example: Make it bold */
+  color: #6c757d;
+  /* Example: Set color */
+  font-size: 14px;
+  /* Example: Adjust font size */
+  /* Add any additional styles as needed */
+}
+</style>
+
+
+
+<style scoped>
+.basemap {
+  width: 100%;
+  height: 65vh;
+}
+
+
+.template-link {
+  text-decoration: underline;
+  color: #409EFF;
+  /* Optional: change link color */
+}
+</style>
+
+<style scoped>
+.task-card {
+  margin-bottom: 20px;
+}
+
+.task-card-item {
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #ffffff56;
+}
+
+.task-card-item .task-name {
+  margin-bottom: 10px;
+  font-weight: lighter;
+}
+
+.task-card-item .task-details {
+  margin-left: 10px;
+  line-height: 1.6;
+}
+
+
+.bold-task {
+  font-weight: bold;
+}
+</style>
+
+
+
+<style>
+.el-table .danger-row {
+  --el-table-tr-bg-color: var(--el-color-danger-light-9);
+  --el-table-tr-text-color: var(--el-color-danger);
+  color: var(--el-table-tr-text-color);
+}
+
+.el-table .success-row {
+  --el-table-tr-bg-color: var(--el-color-success-light-9);
+  --el-table-tr-text-color: var(--el-color-success);
+  color: var(--el-table-tr-text-color);
+}
+
+.item {
+  margin-top: 10px;
+  margin-right: 40px;
+}
+</style>

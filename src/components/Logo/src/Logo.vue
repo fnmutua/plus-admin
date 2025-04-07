@@ -55,14 +55,16 @@ watch(
 </script>
 
 <template>
-  <router-link :class="[
+  <router-link
+:class="[
     prefixCls,
     layout !== 'classic' ? `${prefixCls}__Top` : '',
     'flex !h-[var(--logo-height)] items-center cursor-pointer pl-8px relative',
     'dark:bg-[var(--el-bg-color)]'
   ]" to="/">
     <img src="@/assets/imgs/logo.png" class="w-[calc(var(--logo-height)-10px)] h-[calc(var(--logo-height)-10px)]" />
-    <div v-if="show" :class="[
+    <div
+v-if="show" :class="[
       'ml-10px text-16px font-700',
       {
         'text-[var(--logo-title-text-color)]': layout === 'classic',

@@ -1675,7 +1675,8 @@ const filteredSegments = computed(() => {
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="5">
-        <el-select size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
+        <el-select
+size="default" v-model="value4" :onChange="filterByCounty" :onClear="handleClear" multiple clearable
           filterable collapse-tags placeholder="By County" style=" margin-right: 5px;">
           <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -1683,7 +1684,8 @@ const filteredSegments = computed(() => {
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select :disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
+        <el-select
+:disabled="!enableSubcounty" size="default" v-model="value5" :onChange="filterBySubCounty" multiple
           clearable filterable collapse-tags placeholder="By Subcounty" style=" margin-right: 5px;"
           :empty-values="[null, undefined]">
           <el-option v-for="item in subcountiesOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -1691,7 +1693,8 @@ const filteredSegments = computed(() => {
       </el-col>
 
       <el-col :xs="24" :sm="24" :md="12" :lg="4">
-        <el-select :disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
+        <el-select
+:disabled="!enableSubcounty" size="default" v-model="value6" :onChange="filterByWard" multiple
           clearable filterable collapse-tags placeholder="By Ward" style=" margin-right: 5px;">
           <el-option v-for="item in wardOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
@@ -1699,7 +1702,8 @@ const filteredSegments = computed(() => {
 
       <el-col :xs="24" :sm="24" :md="12" :lg="5">
 
-        <el-input v-model="search_string" clearable :onClear="handleClear"
+        <el-input
+v-model="search_string" clearable :onClear="handleClear"
           placeholder="Search by name (or part of it).." @change="searchByNewName" class="input-with-select"
           style=" margin-right: 5px;">
           <template #append>
@@ -1722,7 +1726,8 @@ const filteredSegments = computed(() => {
             <el-button :onClick="handleClear" type="primary" :icon="Filter" />
           </el-tooltip>
 
-          <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="model"
+          <DownloadCustom
+v-if="showEditButtons" :data="tableDataList" :model="model"
             :associated_models="associated_multiple_models" />
         </div>
 
@@ -1760,7 +1765,8 @@ const filteredSegments = computed(() => {
               <div>
                 <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
               </div>
-              <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+              <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
                 :icon="Plus" circle @click="toggleComponent(props.row)" />
             </div>
           </template>
@@ -1777,7 +1783,8 @@ const filteredSegments = computed(() => {
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
             <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions :item="row" :buttons="action_buttons" @viewOnMap="flyTo" @edit="editFacility"
+            <TableActions
+:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
               @delete="DeleteFacility" />
 
           </template>
@@ -1785,7 +1792,8 @@ const filteredSegments = computed(() => {
 
       </el-table>
 
-      <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         v-model:page-size="pageSize" :page-sizes="[6, 20, 50, 200, 1000]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -1801,7 +1809,8 @@ const filteredSegments = computed(() => {
               <div>
                 <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
               </div>
-              <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+              <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
                 :icon="Plus" circle @click="toggleComponent(props.row)" />
             </div>
           </template>
@@ -1817,7 +1826,8 @@ const filteredSegments = computed(() => {
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
             <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions :item="row" :buttons="action_buttons" @viewOnMap="flyTo" @edit="editFacility" @review="Review"
+            <TableActions
+:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility" @review="Review"
               @delete="DeleteFacility" />
 
           </template>
@@ -1825,14 +1835,16 @@ const filteredSegments = computed(() => {
 
       </el-table>
 
-      <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="totalNew" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </div>
 
     <div v-if="activeSegment === 'Rejected'">
 
-      <el-table :data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
+      <el-table
+:data="tableDataListRejected" style="width: 100%; margin-top: 10px;" border
         @expand-change="handleExpand">
         <el-table-column type="expand">
           <template #default="props">
@@ -1841,7 +1853,8 @@ const filteredSegments = computed(() => {
               <div>
                 <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
               </div>
-              <el-button style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
+              <el-button
+style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
                 :icon="Plus" circle @click="toggleComponent(props.row)" />
             </div>
           </template>
@@ -1857,7 +1870,8 @@ const filteredSegments = computed(() => {
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
             <!-- Example 1: Only Edit and Delete buttons -->
-            <TableActions :item="row" :buttons="action_buttons" @viewOnMap="flyTo" @edit="editFacility"
+            <TableActions
+:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility"
               @delete="DeleteFacility" />
 
           </template>
@@ -1867,7 +1881,8 @@ const filteredSegments = computed(() => {
 
       </el-table>
 
-      <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+      <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
         v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="totalRejected" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -1930,14 +1945,16 @@ const filteredSegments = computed(() => {
 
           <el-form-item v-if="showSubcountyOpts" label="Subcounty" prop="subcounty_id">
             <el-select v-model="ruleForm.subcounty_id" filterable placeholder="Select subcounty">
-              <el-option v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
+              <el-option
+v-for="item in subcountyfilteredOptions" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>
 
           <el-form-item label="Settlement" prop="settlement_id">
             <el-select v-model="ruleForm.settlement_id" filterable placeholder="Settlement">
-              <el-option v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
+              <el-option
+v-for="item in settlementfilteredOptions" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>

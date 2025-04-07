@@ -127,7 +127,8 @@ const DeleteProject = async (data) => {
       </el-tooltip>
 
       <el-tooltip content="View Profile" placement="top">
-        <el-button v-if="isAdmin"
+        <el-button
+v-if="isAdmin"
           type="primary" size="small" :icon="TopRight"
           @click="viewProfile(scope.row)" circle />
       </el-tooltip>

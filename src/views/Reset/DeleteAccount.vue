@@ -150,7 +150,8 @@ const results =[
         
 
 
-            <el-form :model="ruleForm" label-width="auto" style="width: 100% ; margin-top:50px " :rules="rules"
+            <el-form
+:model="ruleForm" label-width="auto" style="width: 100% ; margin-top:50px " :rules="rules"
               ref="ruleFormRef">
               <el-form-item label="Username" prop="username" label-position="top">
                 <el-input style="width: 100%" v-model="ruleForm.username" />
@@ -164,7 +165,8 @@ const results =[
               <el-form-item>
                 <!-- <el-button style="width: 100%" type="primary" @click="onSubmit(ruleFormRef)">Submit</el-button> -->
 
-                <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="350px"
+                <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" width="350px"
                   icon-color="red" title="Are you sure you want to delete your account? This action cannot be undone."
                   @confirm="onSubmit(ruleFormRef)">
 

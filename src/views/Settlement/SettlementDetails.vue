@@ -1137,16 +1137,19 @@ const editSettlement = () => {
     <el-tabs v-model="activeName" class="demo-tabs" type="border-card" @tab-click="clickTab">
       <el-tab-pane label="Profile" name="profile">
 
-        <Descriptions :title="t('Profile')" :message="t('Settlement Profile')" :data="profile"
+        <Descriptions
+:title="t('Profile')" :message="t('Settlement Profile')" :data="profile"
           :schema="schemaProfile" />
 
 
-        <Descriptions :title="t('Housing')" :message="t('Settlement Housing')" :data="housing"
+        <Descriptions
+:title="t('Housing')" :message="t('Settlement Housing')" :data="housing"
           :schema="schemaHousing" />
 
 
 
-        <Descriptions :title="t('Utilities')" :message="t('Access to Utilities')" :data="utilities"
+        <Descriptions
+:title="t('Utilities')" :message="t('Access to Utilities')" :data="utilities"
           :schema="schemaUtilities" />
 
 
@@ -1164,10 +1167,12 @@ const editSettlement = () => {
 
         <div>
           <!-- Filter Input -->
-          <el-input v-model="searchQuery" type="text" placeholder="Search documents..." style="width: 100%"
+          <el-input
+v-model="searchQuery" type="text" placeholder="Search documents..." style="width: 100%"
             :prefix-icon="Search" clearable />
 
-          <div v-for="(docs, type) in filteredGroupedDocuments" :key="type"
+          <div
+v-for="(docs, type) in filteredGroupedDocuments" :key="type"
             :class="[prefixCls, 'bg-[var(--el-color-white)] dark:(bg-[var(--el-bg-color)] border-[var(--el-border-color)] border-1px)']">
             <!-- Collapsible Header -->
             <div
@@ -1235,7 +1240,8 @@ const editSettlement = () => {
               <template #default="scope">
 
                 <el-tooltip content="More Details" placement="top">
-                  <el-button type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefault)"
+                  <el-button
+type="success" size="small" :icon="More" @click="Review(scope as TableSlotDefault)"
                     plain />
                 </el-tooltip>
 
@@ -1344,7 +1350,8 @@ const editSettlement = () => {
       </el-tab-pane>
 
       <el-tab-pane label="Settings" name="Settings">
-        <el-popconfirm width="300" title="Are you sure to delete this project?"
+        <el-popconfirm
+width="300" title="Are you sure to delete this project?"
           @confirm="DeleteProject(projectFullData.id)">
           <template #reference>
             <el-button style="color: red; border-color: red; margin-left: 5px; margin-bottom: 5px;" plain>

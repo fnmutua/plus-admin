@@ -1749,6 +1749,20 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
             }
           }, 
+
+          {
+            path: ':id',
+            component: () => import('@/views/programmes/ProjectDetails.vue'),
+            name: 'ProjectDetails',
+            meta: {
+              hidden: true,
+              title: 'Project Details',
+              icon:'ion:document-attach',
+              noCache: true
+            }
+          },
+
+          
         ]
       },
 

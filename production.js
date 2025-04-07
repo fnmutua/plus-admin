@@ -166,5 +166,6 @@ require('./server/app/routes/collector.routes')(app)
 require('./server/app/routes/grievance.routes')(app)
 require('./server/app/routes/pdf.routes')(app)
 require('./server/app/routes/geoserver.routes')(app)
+require('./server/app/routes/project.routes')(app)
 
 // set port, listen for requests

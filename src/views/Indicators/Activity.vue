@@ -540,7 +540,8 @@ const goBack = () => {
       </div>
 
       <!-- Title Search -->
-      <el-select v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multiple clearable filterable
+      <el-select
+v-model="value3" :onChange="handleSelectActivity" :onClear="handleClear" multiple clearable filterable
         collapse-tags placeholder="Search Activity" style=" margin-right: 5px;">
         <el-option v-for="item in ActivityOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -635,7 +636,8 @@ v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
 
     </el-table>
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>

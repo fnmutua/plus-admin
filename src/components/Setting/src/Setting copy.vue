@@ -200,7 +200,8 @@ const clear = () => {
 </script>
 
 <template>
-  <div :class="prefixCls"
+  <div
+:class="prefixCls"
     class="fixed top-[45%] right-0 w-40px h-40px text-center leading-40px bg-[var(--el-color-primary)] cursor-pointer"
     @click="drawer = true">
     <Icon icon="ant-design:setting-outlined" color="#fff" />
@@ -222,7 +223,8 @@ const clear = () => {
 
       <!-- 系统主题 -->
       <ElDivider>{{ t('setting.systemTheme') }}</ElDivider>
-      <ColorRadioPicker v-model="systemTheme" :schema="[
+      <ColorRadioPicker
+v-model="systemTheme" :schema="[
         '#409eff',
         '#684035', //   #684035  #cd7700  #d45500
         '#009688',
@@ -236,7 +238,8 @@ const clear = () => {
 
       <!-- 头部主题 -->
       <ElDivider>{{ t('setting.headerTheme') }}</ElDivider>
-      <ColorRadioPicker v-model="headerTheme" :schema="[
+      <ColorRadioPicker
+v-model="headerTheme" :schema="[
         '#fff',
         '#f5f5f5',
         '#684b45', // #803300  KISIP theme  
@@ -251,7 +254,8 @@ const clear = () => {
       <!-- 菜单主题 -->
       <template v-if="layout !== 'top'">
         <ElDivider>{{ t('setting.menuTheme') }}</ElDivider>
-        <ColorRadioPicker v-model="menuTheme" :schema="[
+        <ColorRadioPicker
+v-model="menuTheme" :schema="[
           '#fff',
           '#d45500',
           '#684b45', // #d1d0d1  #e3e2df  KISIP theme 

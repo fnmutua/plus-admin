@@ -836,12 +836,14 @@ const updateUser = () => {
       </div>
 
       <!-- Title Search -->
-      <el-select style="  margin-right: 10px;" v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear"
+      <el-select
+style="  margin-right: 10px;" v-model="value2" :onChange="handleSelectCounty" :onClear="handleClear"
         multiple clearable filterable collapse-tags placeholder="Filter by County">
         <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
-      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select
+v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Name" />
 
 
@@ -889,7 +891,8 @@ const updateUser = () => {
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item v-if="showAdminButtons">
-                  <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+                  <el-switch
+v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
                     :icon="Edit" />
 
 
@@ -905,7 +908,8 @@ const updateUser = () => {
           <div v-else>
 
             <el-tooltip content="Activate" placement="top">
-              <el-switch v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
+              <el-switch
+v-model="scope.row.isactive" @click="activateDeactivate(scope as TableSlotDefault)"
                 class="my-switch" />
             </el-tooltip>
             <el-tooltip content="Edit" placement="top">
@@ -923,7 +927,8 @@ const updateUser = () => {
 
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -962,7 +967,8 @@ const updateUser = () => {
 
           <el-table-column prop="role" label="Role">
             <template #default="{ row }">
-              <el-select v-model="row.roleid" placeholder="Select Role" size="small" style="width:80%" searchable
+              <el-select
+v-model="row.roleid" placeholder="Select Role" size="small" style="width:80%" searchable
                 filterable>
                 <el-option v-for="item in RolesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
@@ -970,7 +976,8 @@ const updateUser = () => {
           </el-table-column>
           <el-table-column prop="level" label="Level">
             <template #default="{ row }">
-              <el-select v-model="row.location_level" placeholder="Select level" size="small" filterable
+              <el-select
+v-model="row.location_level" placeholder="Select level" size="small" filterable
                 @change="handleChangeLevel(row.location_level)" style="width:80%">
                 <el-option v-for="item in locationOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
@@ -979,7 +986,8 @@ const updateUser = () => {
 
           <el-table-column prop="county_id" label="County">
             <template #default="{ row }">
-              <el-select v-model="row.county_id" placeholder="County" clearable :disabled="isNationalLevel" filterable
+              <el-select
+v-model="row.county_id" placeholder="County" clearable :disabled="isNationalLevel" filterable
                 @change="getCountySettlements(row.county_id)" size="small" style="width:80%">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
@@ -988,9 +996,11 @@ const updateUser = () => {
 
           <el-table-column prop="settlement_id" label="Settlement">
             <template #default="{ row }">
-              <el-select v-model="row.settlement_id" placeholder="Settlement" size="small"
+              <el-select
+v-model="row.settlement_id" placeholder="Settlement" size="small"
                 :disabled="!isSettlementLevel" style="width:80%" filterable clearable>
-                <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
+                <el-option
+v-for="item in settlementOptions" :key="item.value" :label="item.label"
                   :value="item.value" />
               </el-select>
             </template>

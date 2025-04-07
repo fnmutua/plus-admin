@@ -27,10 +27,12 @@ v-for="(field, index) in currentStepFields" :key="index"
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
               <el-input v-if="field.type === 'textarea'" type="textarea" v-model="formData[field.name]" />
 
-              <el-input-number :min="field.min" v-else-if="field.type === 'number'" v-model="formData[field.name]"
+              <el-input-number
+:min="field.min" v-else-if="field.type === 'number'" v-model="formData[field.name]"
                 @change="getFieldChangeHandler(field.name)" />
 
-                <el-input :min="field.min" v-else-if="field.type === 'money'" v-model="formData[field.name]"
+                <el-input
+:min="field.min" v-else-if="field.type === 'money'" v-model="formData[field.name]"
                 @change="getFieldChangeHandler(field.name)"     :formatter="formatMoney"  :parser="parseMoney" >  
                 <template #prepend>USD($)</template>
               </el-input> 

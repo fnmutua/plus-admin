@@ -1259,7 +1259,8 @@ v-model="value3" multiple clearable filterable remote :remote-method="searchByNa
                         <Icon icon="material-symbols:download-for-offline-rounded" color="#46c93a" width="36" />
                       </el-link>
                       <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+                        <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
                           icon-color="#626AEF" title="Are you sure to delete this document?"
                           @confirm="removeDocument(scope.row)">
                           <template #reference>

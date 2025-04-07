@@ -1219,7 +1219,8 @@ const remoteMethod = async (keyword) => {
     <el-row :gutter="20">
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
 
-        <el-select v-model="type" :onChange="handleSelectType" :onClear="handleClear"
+        <el-select
+v-model="type" :onChange="handleSelectType" :onClear="handleClear"
           placeholder="Select data to import">
           <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
             <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
@@ -1232,7 +1233,8 @@ const remoteMethod = async (keyword) => {
           <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select> -->
 
-        <el-select v-if="showSettleementSelect" id="location-select" v-model="settlement" filterable remote
+        <el-select
+v-if="showSettleementSelect" id="location-select" v-model="settlement" filterable remote
           reserve-keyword :loading="loading" placeholder=" Search the settlement for this data"
           :remote-method="remoteMethod" style="margin-top:10px">
           <el-option v-for="item in parentOptions" :key="item.id" :label="item.label" :value="item.value">
@@ -1250,7 +1252,8 @@ const remoteMethod = async (keyword) => {
 
         <div style="margin-top: 20px">
 
-          <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+          <el-upload
+class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
             v-if="showUploadinput" ref="upload" v-model:file-list="fileList" :on-preview="handlePreview"
             :on-remove="handleRemove" :before-remove="beforeRemove" :on-change="handleFileChange" :auto-upload="false"
             :accept="'application/zip,.geojson,.json'">
@@ -1269,7 +1272,8 @@ const remoteMethod = async (keyword) => {
           <el-button-group class="mt-1" style="width: 100%">
 
 
-            <el-button :disabled="disableProcess" @click="submitFiles" type="primary"
+            <el-button
+:disabled="disableProcess" @click="submitFiles" type="primary"
               style="display: inline-block; margin-left: 5px" class="mt-1">
               Process
               <el-icon class="el-icon--right">
@@ -1283,7 +1287,8 @@ const remoteMethod = async (keyword) => {
               </el-icon>
             </el-button>
 
-            <el-button v-if="showUploadinput && !disableSubmitMatched" class="mt-1" @click="handleProcess"
+            <el-button
+v-if="showUploadinput && !disableSubmitMatched" class="mt-1" @click="handleProcess"
               type="primary" style="display: inline-block; margin-left: 5px">
               Submit Data<el-icon class="el-icon--right">
                 <UploadFilled />
@@ -1303,7 +1308,8 @@ const remoteMethod = async (keyword) => {
 
 
         <!-- Table Content (only shown when loading is false) -->
-        <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 400px; overflow-y: scroll;"
+        <el-table
+size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 400px; overflow-y: scroll;"
           border>
           <el-table-column prop="column" label="Field">
             <template #default="scope">
@@ -1315,7 +1321,8 @@ const remoteMethod = async (keyword) => {
 
 
               <el-select v-model="scope.row.match" @change="updateSelect(scope.row, scope.$index)" filterable clearable>
-                <el-option v-for="(option, index) in matchOptions" :key="index" :label="option.label"
+                <el-option
+v-for="(option, index) in matchOptions" :key="index" :label="option.label"
                   :value="option.value" :disabled="option.disabled" />
               </el-select>
 

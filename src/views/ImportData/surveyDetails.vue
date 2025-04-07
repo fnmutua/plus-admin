@@ -2197,29 +2197,35 @@ const closePopup = () => {
       <el-tab-pane label="Data" name="data">
         <el-card v-loading="loading">
           <el-row type="flex" justify="start" gutter="10">
-            <el-select v-model="selectedFields" multiple  filterable clearable placeholder="Select properties to display"
+            <el-select
+v-model="selectedFields" multiple  filterable clearable placeholder="Select properties to display"
               :collapse-tags="true" style="margin-bottom: 10px; width: 25%; margin-right: 10px;" class="select-properties">
               <el-option v-for="(value, key) in allProperties" :key="key" :label="key" :value="key" />
             </el-select>
 
-            <el-select v-model="filterField" filterable  clearable placeholder="Filter By" :onChange="handleSelectFilterField"
+            <el-select
+v-model="filterField" filterable  clearable placeholder="Filter By" :onChange="handleSelectFilterField"
               :collapse-tags="true" style="margin-bottom: 10px;  margin-right: 10px; width: 15%;" class="select-properties">
               <el-option v-for="(item, key) in selectedFieldOptions" :key="key" :label="item.value" :value="item.value" />
             </el-select>
 
-            <el-select v-model="filterValues" filterable multiple clearable placeholder="Filter Values"
+            <el-select
+v-model="filterValues" filterable multiple clearable placeholder="Filter Values"
                   :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px; width: 15%;" 
                   class="select-properties">
-                <el-option v-for="(option, index) in filterOptions" 
+                <el-option
+v-for="(option, index) in filterOptions" 
                           :key="index" 
                           :label="option.label" 
                           :value="option.value" />
               </el-select>
 
-              <el-select v-model="uploadModel" filterable multiple clearable placeholder="Import to"
+              <el-select
+v-model="uploadModel" filterable multiple clearable placeholder="Import to"
                   :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px; width: 15%;" 
                   class="select-properties">
-                <el-option v-for="(option, index) in uploadOptions" 
+                <el-option
+v-for="(option, index) in uploadOptions" 
                           :key="index" 
                           :label="option.label" 
                           :value="option.value" />
@@ -2250,7 +2256,8 @@ const closePopup = () => {
 
           <div style="margin-top: 20px;">
             <!-- Pagination component -->
-            <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+            <el-pagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
               v-model:page-size="pageSize" :page-sizes="[5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
               @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
           </div>
@@ -2336,7 +2343,8 @@ const closePopup = () => {
         <el-card v-loading="loading">
           <el-row type="flex" justify="start" gutter="10">
             
-            <el-select v-model="selectedFields" :onChange="handleChangeFields"  multiple clearable placeholder="Select Fields"
+            <el-select
+v-model="selectedFields" :onChange="handleChangeFields"  multiple clearable placeholder="Select Fields"
               :collapse-tags="true" style="margin-right: 10px; width: 25%;" class="select-properties">
               <el-option v-for="(value, key) in allProperties" :key="key" :label="key" :value="key" />
             </el-select>
@@ -2345,7 +2353,8 @@ const closePopup = () => {
                 <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
 
-            <el-select v-model="computationMethod"   placeholder="Computation Method"
+            <el-select
+v-model="computationMethod"   placeholder="Computation Method"
               :collapse-tags="true" style="margin-bottom: 10px; margin-right: 10px;  width: 25%;"
               class="select-properties" :onChange="generateReport">
               <el-option v-for="item in computationOptions" :key="item.value" :label="item.label" :value="item.value" />

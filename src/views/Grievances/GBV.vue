@@ -1713,7 +1713,8 @@ const onSegmentClick = async () => {
 
 <template>
   <el-card>
-    <el-row type="flex" justify="start" gutter="10"
+    <el-row
+type="flex" justify="start" gutter="10"
       style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
 
       <div class="max-w-200px">
@@ -1723,7 +1724,8 @@ const onSegmentClick = async () => {
       </div>
 
 
-      <el-select v-model="grv_name" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select
+v-model="grv_name" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Grievance code, Name, settlement, complaint,phone .." style=" margin-right: 5px;" />
 
       <!-- Title Search -->
@@ -1759,7 +1761,8 @@ const onSegmentClick = async () => {
         <el-tooltip content="Download" placement="top">
           <el-button @click="selectDownload" type="primary" :icon="Download" />
         </el-tooltip>
-        <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="model"
+        <DownloadCustom
+v-if="showEditButtons" :data="tableDataList" :model="model"
           :associated_models="associated_multiple_models" />
 
 
@@ -1790,7 +1793,8 @@ const onSegmentClick = async () => {
 
 
     <div v-if="activeSegment === 'Sorting'">
-      <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+      <el-table
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
         :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
         <el-table-column label="#" width="80" prop="id" sortable>
           <template #default="scope">
@@ -1809,7 +1813,8 @@ const onSegmentClick = async () => {
 
         <el-table-column prop="status" label="Status" width="100" sortable>
           <template #default="scope">
-            <el-tag :type="scope.row.status == 'Closed' ? 'info'
+            <el-tag
+:type="scope.row.status == 'Closed' ? 'info'
             : scope.row.status == 'Escalated' ? 'secondary'
             : scope.row.status == 'Referred' ? 'warning'
             : scope.row.status == 'Sorting' ? 'warning'
@@ -1841,9 +1846,11 @@ const onSegmentClick = async () => {
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                  <el-dropdown-item
+v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
                     :icon="Edit" color="green">Edit</el-dropdown-item>
-                  <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                  <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                     :icon="Delete" color="red">Delete</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -1856,13 +1863,15 @@ const onSegmentClick = async () => {
           </template>
         </el-table-column>
       </el-table>
-      <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+      <ElPagination
+:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
         v-model:page-size="pageSize" :page-sizes="[5,8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </div>
 
     <div v-if="activeSegment === 'Closed'">
-      <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+      <el-table
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
         :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
         <el-table-column label="#" width="80" prop="id" sortable>
           <template #default="scope">
@@ -1881,7 +1890,8 @@ const onSegmentClick = async () => {
 
         <el-table-column prop="status" label="Status" width="100" sortable>
           <template #default="scope">
-            <el-tag :type="scope.row.status == 'Closed' ? 'info'
+            <el-tag
+:type="scope.row.status == 'Closed' ? 'info'
             : scope.row.status == 'Escalated' ? 'secondary'
               : scope.row.status == 'Referred' ? 'warning'
                 : scope.row.status == 'Rejected' ? 'danger'
@@ -1912,9 +1922,11 @@ const onSegmentClick = async () => {
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                  <el-dropdown-item
+v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
                     :icon="Edit" color="green">Edit</el-dropdown-item>
-                  <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                  <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                     :icon="Delete" color="red">Delete</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -1927,13 +1939,15 @@ const onSegmentClick = async () => {
           </template>
         </el-table-column>
       </el-table>
-      <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+      <ElPagination
+:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
         v-model:page-size="pageSize" :page-sizes="[5,8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </div>
 
     <div v-if="activeSegment === 'Resolved'">
-      <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+      <el-table
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
         :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
         <el-table-column label="#" width="80" prop="id" sortable>
           <template #default="scope">
@@ -1952,7 +1966,8 @@ const onSegmentClick = async () => {
 
         <el-table-column prop="status" label="Status" width="100" sortable>
           <template #default="scope">
-            <el-tag :type="scope.row.status == 'Closed' ? 'info'
+            <el-tag
+:type="scope.row.status == 'Closed' ? 'info'
             : scope.row.status == 'Escalated' ? 'secondary'
               : scope.row.status == 'Referred' ? 'warning'
                 : scope.row.status == 'Rejected' ? 'danger'
@@ -1983,9 +1998,11 @@ const onSegmentClick = async () => {
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                  <el-dropdown-item
+v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
                     :icon="Edit" color="green">Edit</el-dropdown-item>
-                  <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                  <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                     :icon="Delete" color="red">Delete</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -1998,13 +2015,15 @@ const onSegmentClick = async () => {
           </template>
         </el-table-column>
       </el-table>
-      <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+      <ElPagination
+:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
         v-model:page-size="pageSize" :page-sizes="[5,8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
         @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
     </div>
 
     <div v-if="activeSegment === 'Escalated'">
-        <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+        <el-table
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
             <template #default="scope">
@@ -2023,7 +2042,8 @@ const onSegmentClick = async () => {
 
           <el-table-column prop="status" label="Status" width="100" sortable>
             <template #default="scope">
-              <el-tag :type="scope.row.status == 'Closed' ? 'info'
+              <el-tag
+:type="scope.row.status == 'Closed' ? 'info'
             : scope.row.status == 'Escalated' ? 'secondary'
               : scope.row.status == 'Referred' ? 'warning'
                 : scope.row.status == 'Rejected' ? 'danger'
@@ -2054,9 +2074,11 @@ const onSegmentClick = async () => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
                       :icon="Edit" color="green">Edit</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -2069,13 +2091,15 @@ const onSegmentClick = async () => {
             </template>
           </el-table-column>
         </el-table>
-        <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+        <ElPagination
+:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
           v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
      </div>
 
      <div v-if="activeSegment === 'Referred'">
-        <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+        <el-table
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
             <template #default="scope">
@@ -2094,7 +2118,8 @@ const onSegmentClick = async () => {
 
           <el-table-column prop="status" label="Status" width="100" sortable>
             <template #default="scope">
-              <el-tag :type="scope.row.status == 'Closed' ? 'info'
+              <el-tag
+:type="scope.row.status == 'Closed' ? 'info'
             : scope.row.status == 'Escalated' ? 'secondary'
               : scope.row.status == 'Referred' ? 'warning'
                 : scope.row.status == 'Rejected' ? 'danger'
@@ -2125,9 +2150,11 @@ const onSegmentClick = async () => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
                       :icon="Edit" color="green">Edit</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -2140,12 +2167,14 @@ const onSegmentClick = async () => {
             </template>
           </el-table-column>
         </el-table>
-        <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+        <ElPagination
+:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
           v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
      </div>
      <div v-if="activeSegment === 'In Court'">
-        <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+        <el-table
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
             <template #default="scope">
@@ -2164,7 +2193,8 @@ const onSegmentClick = async () => {
 
           <el-table-column prop="status" label="Status" width="100" sortable>
             <template #default="scope">
-              <el-tag :type="scope.row.status == 'Closed' ? 'info'
+              <el-tag
+:type="scope.row.status == 'Closed' ? 'info'
             : scope.row.status == 'Escalated' ? 'secondary'
               : scope.row.status == 'Referred' ? 'warning'
                 : scope.row.status == 'Rejected' ? 'danger'
@@ -2195,9 +2225,11 @@ const onSegmentClick = async () => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
                       :icon="Edit" color="green">Edit</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -2210,12 +2242,14 @@ const onSegmentClick = async () => {
             </template>
           </el-table-column>
         </el-table>
-        <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+        <ElPagination
+:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
           v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
      </div>
      <div v-if="activeSegment === 'Rejected'">
-        <el-table :data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
+        <el-table
+:data="tableDataList" :loading="loading" style="width: 100% ; margin-top: 10px;"
           :max-height="pageHeight" @row-click="handleRowDblClick" border :row-class-name="tableRowClassName">
           <el-table-column label="#" width="80" prop="id" sortable>
             <template #default="scope">
@@ -2234,7 +2268,8 @@ const onSegmentClick = async () => {
 
           <el-table-column prop="status" label="Status" width="100" sortable>
             <template #default="scope">
-              <el-tag :type="scope.row.status == 'Closed' ? 'info'
+              <el-tag
+:type="scope.row.status == 'Closed' ? 'info'
             : scope.row.status == 'Escalated' ? 'secondary'
               : scope.row.status == 'Referred' ? 'warning'
                 : scope.row.status == 'Rejected' ? 'danger'
@@ -2265,9 +2300,11 @@ const onSegmentClick = async () => {
                 </span>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showEditButtons" @click="editIndicator(scope as TableSlotDefault)"
                       :icon="Edit" color="green">Edit</el-dropdown-item>
-                    <el-dropdown-item v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope.row as TableSlotDefault)"
                       :icon="Delete" color="red">Delete</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -2280,7 +2317,8 @@ const onSegmentClick = async () => {
             </template>
           </el-table-column>
         </el-table>
-        <ElPagination :layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
+        <ElPagination
+:layout="paginationLayout" v-model:currentPage="currentPage" :pager-count="pagerCount"
           v-model:page-size="pageSize" :page-sizes="[5, 8, 10, 20, 50, 200, 10000]" :total="total" :background="true"
           @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
      </div>
@@ -2314,7 +2352,8 @@ const onSegmentClick = async () => {
       <el-step title="Review & Submit" />
     </el-steps>
 
-    <el-form :model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules"
+    <el-form
+:model="grmForm" class="demo-form-inline" label-position="top" :rules="currentStepRules"
       ref="dynamicFormRef">
       <el-card shadow="hover">
         <el-row v-if="active === 0" :gutter="10">
@@ -2348,7 +2387,8 @@ const onSegmentClick = async () => {
             </el-form-item>
 
             <el-form-item id="btn5" label="Phone" prop="phone">
-              <el-input v-model="grmForm.phone" placeholder="Enter phone number" style="width:90%"
+              <el-input
+v-model="grmForm.phone" placeholder="Enter phone number" style="width:90%"
                 :onChange="convertPhoneNumber" />
             </el-form-item>
 
@@ -2366,16 +2406,19 @@ const onSegmentClick = async () => {
           <!-- Step 2: Grievance Details -->
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
             <el-form-item id="btn10" label="County" prop="county_id">
-              <el-select filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
+              <el-select
+filterable v-model="grmForm.county_id" placeholder="County" @change="getSettlementByCounty"
                 style="width:90%">
                 <el-option v-for="item in countiesOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
 
             <el-form-item id="btn11" label="Settlement" prop="settlement_id">
-              <el-select filterable v-model="grmForm.settlement_id" placeholder="Settlement"
+              <el-select
+filterable v-model="grmForm.settlement_id" placeholder="Settlement"
                 @change="handleSelectSettlement" style="width:90%">
-                <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label"
+                <el-option
+v-for="item in settlementOptions" :key="item.value" :label="item.label"
                   :value="item.value" />
               </el-select>
             </el-form-item>
@@ -2386,7 +2429,8 @@ const onSegmentClick = async () => {
 
 
 
-            <el-checkbox id="btn13" v-model="grmForm.isgbv" label="Is this complaint related to Gender-Based Violence?"
+            <el-checkbox
+id="btn13" v-model="grmForm.isgbv" label="Is this complaint related to Gender-Based Violence?"
               size="large" style="margin-bottom:5px" />
 
 
@@ -2433,12 +2477,14 @@ const onSegmentClick = async () => {
 
 
             <el-form-item id="btn15" label="Complaint Description" prop="description">
-              <el-input v-model="grmForm.description" type="textarea" rows="2" placeholder="Describe your complaint"
+              <el-input
+v-model="grmForm.description" type="textarea" rows="2" placeholder="Describe your complaint"
                 style="width:90%" />
             </el-form-item>
 
             <el-form-item id="btn16" label="Plea/Request" prop="plea">
-              <el-input v-model="grmForm.plea" type="textarea" rows="2" placeholder="Enter your plea/request"
+              <el-input
+v-model="grmForm.plea" type="textarea" rows="2" placeholder="Enter your plea/request"
                 style="width:90%" />
             </el-form-item>
           </el-col>
@@ -2458,7 +2504,8 @@ const onSegmentClick = async () => {
             </el-form-item>
 
             <el-form-item id="btn19" label="Witness Statement" prop="witness_statement">
-              <el-input v-model="grmForm.witness_statement" type="textarea" placeholder="Enter witness statement"
+              <el-input
+v-model="grmForm.witness_statement" type="textarea" placeholder="Enter witness statement"
                 style="width:90%" />
             </el-form-item>
           </el-col>
@@ -2468,7 +2515,8 @@ const onSegmentClick = async () => {
 
             <el-form-item id="btn17" label="Are you the complainant?" prop="witness">
 
-              <el-switch disabled v-model="grmForm.self_reported" class="ml-2" inline-prompt
+              <el-switch
+disabled v-model="grmForm.self_reported" class="ml-2" inline-prompt
                 style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949" active-text="Yes"
                 inactive-text="No" />
 
@@ -2479,13 +2527,15 @@ const onSegmentClick = async () => {
             </el-form-item>
 
             <el-form-item v-if="!grmForm.self_reported" id="btn19" label="Your Phone" prop="reporter_phone">
-              <el-input disabled v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
+              <el-input
+disabled v-model="grmForm.reporter_phone" type="text" placeholder="Your Phone"
                 style="width:90%" />
             </el-form-item>
 
 
 
-            <el-upload id="btn20" class="upload-demo"
+            <el-upload
+id="btn20" class="upload-demo"
               action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
               :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" v-model:file-list="fileList"
               :auto-upload="false" :on-exceed="handleExceed">
@@ -2506,7 +2556,8 @@ const onSegmentClick = async () => {
     </el-form>
 
     <template #footer>
-      <div class="steps-navigation"
+      <div
+class="steps-navigation"
         style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
         <div>
           <el-tooltip content="Help" placement="top">
@@ -2522,7 +2573,8 @@ const onSegmentClick = async () => {
             </el-icon>
           </el-button>
 
-          <el-button id="btn2" v-if="active === 2" type="primary" @click="submitForm"
+          <el-button
+id="btn2" v-if="active === 2" type="primary" @click="submitForm"
             style="margin-left: 10px;">Submit</el-button>
           <el-button id="btn8" @click="resetForm" style="margin-left: 10px;">Reset</el-button>
         </div>
@@ -2538,7 +2590,8 @@ const onSegmentClick = async () => {
     </span>
 
 
-    <el-upload class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
+    <el-upload
+class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15">
       <div class="el-upload__text">
         Drop file here or <em>click to upload</em>
@@ -2558,7 +2611,8 @@ const onSegmentClick = async () => {
 
 
   <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
-    <el-tour-step v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
+    <el-tour-step
+v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
       :description="step.content" />
   </el-tour>
 </template>

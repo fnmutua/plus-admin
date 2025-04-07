@@ -1843,14 +1843,17 @@ watch(
       </div>
 
       <!-- Title Search -->
-      <el-select v-model="value5" :onChange="handleFilterDashboards" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value5" :onChange="handleFilterDashboards" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Search Dashboard" style="width: 35%; margin-right: 10px;">
         <el-option v-for="item in dashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
 
-      <el-select v-model="value3" :onChange="handleSelectDashboardSection" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value3" :onChange="handleSelectDashboardSection" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Search Dashboard Section" style="width: 35%; margin-right: 10px;">
-        <el-option v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.label"
+        <el-option
+v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.label"
           :value="item.value" />
       </el-select>
 
@@ -1902,15 +1905,18 @@ watch(
         </template>
         <template #default="scope">
           <el-tooltip content="Edit" placement="top">
-            <el-button size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
+            <el-button
+size="small" type="success" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
               plain />
           </el-tooltip>
           <el-tooltip content="Clone" placement="top">
-            <el-button size="small" type="warning" :icon="CopyDocument" @click="CloneChart(scope as TableSlotDefault)"
+            <el-button
+size="small" type="warning" :icon="CopyDocument" @click="CloneChart(scope as TableSlotDefault)"
               plain />
           </el-tooltip>
           <el-tooltip content="Delete" placement="top">
-            <el-popconfirm confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
+            <el-popconfirm
+confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
               icon-color="#626AEF" title="Are you sure to delete this chart?"
               @confirm="DeleteIndicator(scope as TableSlotDefault)">
               <template #reference>
@@ -1924,7 +1930,8 @@ watch(
     </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pSize"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage" v-model:page-size="pSize"
       :page-sizes="[3, 5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onpSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </el-card>
@@ -1945,7 +1952,8 @@ watch(
       <el-row v-if="activeStep == 0" :gutter="20">
         <el-col :span="24">
           <el-form-item id="btn1" label="Dashboard" prop="dashboard_id">
-            <el-select v-model="ruleForm.dashboard_id" filterable placeholder="Select"
+            <el-select
+v-model="ruleForm.dashboard_id" filterable placeholder="Select"
               :onChange="handleFilterDashboards">
               <el-option v-for="item in dashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
@@ -1953,7 +1961,8 @@ watch(
 
           <el-form-item id="btn2" label="Dashboard Section" prop="dashboard_section_id">
             <el-select v-model="ruleForm.dashboard_section_id" filterable placeholder="Select">
-              <el-option v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.label"
+              <el-option
+v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>
@@ -1978,14 +1987,16 @@ watch(
             </el-select>
           </el-form-item>
           <el-form-item id="btn6" label="Entity" v-if="showStatusExtras" prop="card_model">
-            <el-select v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
+            <el-select
+v-model="ruleForm.card_model" :onClear="handleClear" clearable filterable collapse-tags
               :onChange="handleSelectModel" placeholder="Select Entity to summarize" style="width: 100%;">
               <el-option v-for="item in ModelOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
           <el-form-item id="btn7" v-if="ruleForm.category == 'Status'" label="Field" prop="card_model_field">
-            <el-select v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
+            <el-select
+v-model="ruleForm.card_model_field" :onClear="handleClear" clearable filterable collapse-tags
               placeholder="Field to summarize">
               <el-option v-for="item in fieldSet" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
@@ -1993,9 +2004,11 @@ watch(
 
 
           <el-form-item id="btn8" label="Indicators" v-if="!showStatusExtras" prop="indicator_id">
-            <el-select v-model="ruleForm.indicator_id" filterable multiple placeholder="Select" collapse-tags
+            <el-select
+v-model="ruleForm.indicator_id" filterable multiple placeholder="Select" collapse-tags
               style="width: 100%;">
-              <el-option v-for="item in IndicatorCategoryOptions" :key="item.value" :label="item.label"
+              <el-option
+v-for="item in IndicatorCategoryOptions" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>
@@ -2011,7 +2024,8 @@ watch(
 
         <el-col :span="12">
           <el-form-item id="btn11" label="Chart Type" prop="type">
-            <el-select style="width: 100%;" v-model="ruleForm.type" :onClear="handleClear" clearable filterable
+            <el-select
+style="width: 100%;" v-model="ruleForm.type" :onClear="handleClear" clearable filterable
               collapse-tags :onChange="handleSelectChart" placeholder="Select Type of Chart">
               <el-option v-for="item in chartOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
@@ -2019,9 +2033,11 @@ watch(
 
 
           <el-form-item id="btn12" label="Aggregation" prop="aggregation">
-            <el-select size="default" v-model="ruleForm.aggregation" :onClear="handleClear" clearable filterable
+            <el-select
+size="default" v-model="ruleForm.aggregation" :onClear="handleClear" clearable filterable
               collapse-tags placeholder="Select">
-              <el-option v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
+              <el-option
+v-for="item in aggregationOptionsFiltered" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>
@@ -2037,12 +2053,14 @@ watch(
         <el-col :span="24">
 
           <el-form-item id="btn13" label="Filter" prop="filtered" v-if="ruleForm.card_model">
-            <el-switch v-model="ruleForm.filtered" style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
+            <el-switch
+v-model="ruleForm.filtered" style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
               active-text="Yes" inactive-text="No" />
           </el-form-item>
 
           <div>
-            <el-table v-if="ruleForm.filtered" :data="tableData" style="width: 90%; margin-left: 10px;" max-height="250"
+            <el-table
+v-if="ruleForm.filtered" :data="tableData" style="width: 90%; margin-left: 10px;" max-height="250"
               size="small">
               <el-table-column prop="field" label="Field">
                 <template #default="scope">
@@ -2055,7 +2073,8 @@ watch(
               <el-table-column prop="operation" label="Operation">
                 <template #default="scope">
                   <el-select v-model="scope.row.operation" placeholder="Select Operation">
-                    <el-option v-for="item in functionOptions" :key="item.value" :label="item.label"
+                    <el-option
+v-for="item in functionOptions" :key="item.value" :label="item.label"
                       :value="item.value" />
                   </el-select>
                 </template>
@@ -2063,7 +2082,8 @@ watch(
 
               <el-table-column prop="value" label="Value">
                 <template #default="scope">
-                  <el-select v-model="scope.row.value" placeholder="Select Value" filterable allow-create multiple
+                  <el-select
+v-model="scope.row.value" placeholder="Select Value" filterable allow-create multiple
                     collapse-tags-tooltip collapse-tags :onChange="saveFilter">
                     <el-option v-for="item in fieldOptions" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
@@ -2112,9 +2132,11 @@ watch(
 
             <el-button @click="nextStep" v-if="activeStep < 2">Next</el-button>
             <el-button @click="AddDialogVisible = false">Cancel</el-button>
-            <el-button v-if="showSubmitBtn && activeStep === 2" type="primary"
+            <el-button
+v-if="showSubmitBtn && activeStep === 2" type="primary"
               @click="submitForm(ruleFormRef)">Submit</el-button>
-            <el-button v-if="showEditSaveButton && activeStep === 2" type="primary"
+            <el-button
+v-if="showEditSaveButton && activeStep === 2" type="primary"
               @click="editForm(ruleFormRef)">Save</el-button>
           </el-col>
         </el-row>
@@ -2152,7 +2174,8 @@ watch(
 
 
   <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
-    <el-tour-step v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
+    <el-tour-step
+v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
       :description="step.content" />
   </el-tour>
 

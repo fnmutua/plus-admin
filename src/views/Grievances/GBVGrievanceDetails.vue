@@ -752,7 +752,8 @@ const getActionClass =   (actionType) => {
 
           <template #header v-if="showActionButton" >
             <div class="dialog-footer">
-              <el-tooltip content="Close the grievance if all issues have been resolved and complainant satisfied"
+              <el-tooltip
+content="Close the grievance if all issues have been resolved and complainant satisfied"
                 placement="top">
                 <el-button :disabled="button_disabled" :type="button_color" @click="dialogFormVisible = true">
                   <Icon :icon="button_icon" /> {{ button_label }}
@@ -797,7 +798,8 @@ const getActionClass =   (actionType) => {
       <el-tab-pane label="Action Logs" name="timeline">
 
         <el-timeline style="max-width: 100%;">
-          <el-timeline-item v-for="(log, index) in sortedGrievanceLogs" :key="index" placement="top" color="green"
+          <el-timeline-item
+v-for="(log, index) in sortedGrievanceLogs" :key="index" placement="top" color="green"
             :timestamp="formatDate(log.date_actioned)" timestamp-class="timestamp-class">
 
             <el-collapse accordion>
@@ -814,7 +816,8 @@ const getActionClass =   (actionType) => {
                   </span>
                 </template>
 
-                <el-card class="notification-custom-card" shadow="hover" :class="log.action_type === 'Resolved' ? 'resolved-background' :
+                <el-card
+class="notification-custom-card" shadow="hover" :class="log.action_type === 'Resolved' ? 'resolved-background' :
           log.action_type === 'Escalated' ? 'escalated-background' :
             log.action_type === 'Reported' ? 'reported-background' :
               log.action_type === 'Referred' ? 'referred-background' :
@@ -857,7 +860,8 @@ const getActionClass =   (actionType) => {
       <el-tab-pane label="Notifications" name="notifications">
 
         <el-timeline style="max-width: 100%;">
-          <el-timeline-item v-for="(notification, index) in sortedGrievanceNotifications" :key="index" placement="top"
+          <el-timeline-item
+v-for="(notification, index) in sortedGrievanceNotifications" :key="index" placement="top"
             :timestamp="formatDate(notification.createdAt)" timestamp-class="timestamp-class"
             :color="notification.status == 'Success' ? 'green' : 'red'">
             <el-collapse>
@@ -880,7 +884,8 @@ const getActionClass =   (actionType) => {
                   </span>
                 </template>
 
-                <el-card class="notification-custom-card" shadow="hover"
+                <el-card
+class="notification-custom-card" shadow="hover"
                   :class="notification.status === 'Success' ? 'success-background' : 'closed-background'">
                   <div class="notification-container">
                     <!-- Message -->
@@ -902,7 +907,8 @@ const getActionClass =   (actionType) => {
       <el-tab-pane label="Settings" name="settings" v-if="isSuperAdmin">
  
             <div class="flex justify-end p-4">
-              <el-popconfirm  width="340"
+              <el-popconfirm
+width="340"
                 title="Are you sure you want to delete this grievance?" 
                 confirm-button-text="Yes" 
                 cancel-button-text="No"
@@ -940,7 +946,8 @@ const getActionClass =   (actionType) => {
         </el-col>
 
         <el-col :xs="8" :sm="8" :md="8" :lg="8" :xl="8">
-          <el-form-item label="Was field verification of complaint conducted?  " label-position="top"
+          <el-form-item
+label="Was field verification of complaint conducted?  " label-position="top"
             prop="field_verification_conducted">
             <el-switch v-model="form.field_verification_conducted" />
           </el-form-item>
@@ -957,9 +964,11 @@ const getActionClass =   (actionType) => {
 
       </el-row>
 
-      <el-form-item v-if="form.new_status == 'Resolved'" label="Findings of field investigation" label-position="top"
+      <el-form-item
+v-if="form.new_status == 'Resolved'" label="Findings of field investigation" label-position="top"
         prop="field_investigations">
-        <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
+        <el-input
+type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
           v-model="form.field_investigations" />
       </el-form-item>
 
@@ -972,15 +981,18 @@ const getActionClass =   (actionType) => {
           </el-form-item>
         </el-col>
         <el-col :xs="16" :sm="16" :md="16" :lg="16" :xl="16">
-          <el-form-item v-if="form.agreement_reached" label="If agreement was reached, detail the agreement below:"
+          <el-form-item
+v-if="form.agreement_reached" label="If agreement was reached, detail the agreement below:"
             label-position="top" prop="agreement">
             <el-input type="textarea" :rows="2" placeholder="Provide details of  here" v-model="form.agreement" />
           </el-form-item>
 
-          <el-form-item v-if="!form.agreement_reached"
+          <el-form-item
+v-if="!form.agreement_reached"
             label="If agreement was not reached, specify the points of disagreement below" label-position="top"
             prop="point_disagreement">
-            <el-input type="textarea" :rows="2" placeholder="Provide details of  here"
+            <el-input
+type="textarea" :rows="2" placeholder="Provide details of  here"
               v-model="form.point_disagreement" />
           </el-form-item>
 
@@ -993,7 +1005,8 @@ const getActionClass =   (actionType) => {
 
 
       <el-form-item v-if="form.new_status == 'Resolved'" label="Issues" label-position="top" prop="issues">
-        <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
+        <el-input
+type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
           v-model="form.issues" />
       </el-form-item>
 
@@ -1004,7 +1017,8 @@ const getActionClass =   (actionType) => {
 
 
       <el-form-item label="Describe the Action Taken" label-position="top" prop="action">
-        <el-input type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
+        <el-input
+type="textarea" :rows="2" placeholder="Provide details of the resolution  here"
           v-model="form.action" />
       </el-form-item>
 
@@ -1014,7 +1028,8 @@ const getActionClass =   (actionType) => {
 
 
       <el-form-item label="Upload Documentation" label-position="top" prop="fileList">
-        <el-upload class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+        <el-upload
+class="upload-demo" action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
           :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3"
           v-model:file-list="form.fileList" :auto-upload="false" :on-exceed="handleExceed">
 

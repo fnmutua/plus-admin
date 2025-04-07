@@ -40,7 +40,8 @@
             <el-icon style="color:green "><star-filled /> </el-icon>
           </el-divider>
 
-          <el-card shadow="hover"
+          <el-card
+shadow="hover"
             style=" margin-top:20px; max-width: 99%; background-color: var(--el-color-success-light-3 )">
             <el-row>
               <el-col :span="6">

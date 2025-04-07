@@ -5,34 +5,40 @@
 
 
       <el-tooltip content="Edit" placement="top">
-        <el-button v-if="buttons.includes('edit')" type="success" size="small" :icon="Edit" @click="onEdit(item)"
+        <el-button
+v-if="buttons.includes('edit')" type="success" size="small" :icon="Edit" @click="onEdit(item)"
           plain />
       </el-tooltip>
 
       <el-tooltip content="View on Map" placement="top">
-        <el-button v-if="buttons.includes('viewOnMap')" type="warning" size="small" :icon="Position"
+        <el-button
+v-if="buttons.includes('viewOnMap')" type="warning" size="small" :icon="Position"
           @click="onViewOnMap(item)" plain />
       </el-tooltip>
 
       <el-tooltip content="Review" placement="top">
-        <el-button v-if="buttons.includes('review')" type="primary" size="small" :icon="View" @click="onReview(item)"
+        <el-button
+v-if="buttons.includes('review')" type="primary" size="small" :icon="View" @click="onReview(item)"
           plain />
       </el-tooltip>
 
       <el-tooltip content="Download" placement="top">
-        <el-button v-if="buttons.includes('download')" type="tertiary" size="small" :icon="Download"
+        <el-button
+v-if="buttons.includes('download')" type="tertiary" size="small" :icon="Download"
           @click="onDownload(item)" plain />
       </el-tooltip>
 
       <el-tooltip content="Preview" placement="top">
-        <el-button v-if="buttons.includes('preview')" type="warning" size="small" :icon="TopRight"
+        <el-button
+v-if="buttons.includes('preview')" type="warning" size="small" :icon="TopRight"
           @click="onPreview(item)" plain />
       </el-tooltip>
 
 
       <el-tooltip content="Delete" placement="top">
         <template #default>
-          <el-popconfirm width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
+          <el-popconfirm
+width="300" confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"
             icon-color="#626AEF" title="Are you sure to delete this record?" @confirm="onDelete(item)">
             <template #reference>
               <el-button v-if="buttons.includes('delete')" type="danger" size="small" :icon="Delete" plain />

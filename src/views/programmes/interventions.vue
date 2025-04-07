@@ -1972,6 +1972,19 @@ const ImportProjects = async () => {
 }
 
 
+
+const handleRowDblClick = (row) => {
+ 
+ console.log('Double clicked row:', row);
+
+ push({
+  name: 'ProjectDetails',
+ params: { id: row.id }
+})
+}
+
+
+
 </script>
 
 <template>
@@ -1991,10 +2004,12 @@ const ImportProjects = async () => {
       </div>
 
       <!-- Title Search -->
-      <el-select v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
+      <el-select
+v-model="value3" multiple clearable filterable remote :remote-method="searchByName" reserve-keyword
         placeholder="Search by Title" style="width: 150px; margin-right: 10px;" />
 
-      <el-select size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear" multiple clearable
+      <el-select
+size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear" multiple clearable
         filterable collapse-tags placeholder="By Programme" style="width: 150px; margin-right: 10px;">
         <el-option v-for="item in implementationOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -2021,8 +2036,8 @@ const ImportProjects = async () => {
     </el-row>
 
 
-    <el-table ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
-      :row-class-name="tableRowClassName" flexible @expand-change="handleExpand">
+    <el-table  ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
+      :row-class-name="tableRowClassName" flexible @expand-change="handleExpand" @row-click="handleRowDblClick" >
 
 
       <el-table-column label="ID" width="80" prop="id" sortable>
@@ -2041,7 +2056,8 @@ const ImportProjects = async () => {
             <el-tabs tab-position="top" class="demo-tabs">
               <el-tab-pane>
                 <template #label>
-                  <el-badge style="margin-left: 10px;" :value="project_locations_filtered.length" type="warning"
+                  <el-badge
+style="margin-left: 10px;" :value="project_locations_filtered.length" type="warning"
                     class="item" :offset="[10, 5]">
                     Locations
                   </el-badge>
@@ -2055,7 +2071,8 @@ const ImportProjects = async () => {
                   <el-table-column width="50">
                     <template #header>
                       <el-tooltip content="Add Location" placement="top">
-                        <el-button size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
+                        <el-button
+size="small" @click="ShowLocationAddDialog = true" type="secondary" :icon="Plus"
                           circle />
                       </el-tooltip>
                     </template>
@@ -2066,11 +2083,13 @@ const ImportProjects = async () => {
                     </template>
                     <template #default="scope">
                       <el-tooltip content="View on Map" placement="top">
-                        <el-button type="secondary" size="small" :icon="Position"
+                        <el-button
+type="secondary" size="small" :icon="Position"
                           @click="flyTo(scope as TableSlotDefault)" circle />
                       </el-tooltip>
                       <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
+                        <el-popconfirm
+confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
                           icon-color="#626AEF" title="Are you sure to delete this project location?"
                           @confirm="DeleteProjectLocation(scope.row as TableSlotDefault)">
                           <template #reference>
@@ -2091,7 +2110,8 @@ const ImportProjects = async () => {
                   <el-table-column width="50">
                     <template #header>
                       <el-tooltip content="Add Activity" placement="top">
-                        <el-button size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
+                        <el-button
+size="small" @click="ShowActivityAddDialog = true" type="secondary" :icon="Plus"
                           circle />
                       </el-tooltip>
                     </template>
@@ -2102,7 +2122,8 @@ const ImportProjects = async () => {
                     </template>
                     <template #default="scope">
                       <el-tooltip content="Delete" placement="top">
-                        <el-popconfirm confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
+                        <el-popconfirm
+confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
                           icon-color="#626AEF" title="Are you sure to delete this project activity?"
                           @confirm="DeleteProjectActivity(scope.row as TableSlotDefault)">
                           <template #reference>
@@ -2125,8 +2146,9 @@ const ImportProjects = async () => {
 
 
                   <div>
-                    <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                      @openDialog="toggleComponent(props.row)" />
+                    <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+                      @open-dialog="toggleComponent(props.row)" />
                   </div>
                 </div>
 
@@ -2152,7 +2174,8 @@ const ImportProjects = async () => {
       </el-table-column>
 
     </el-table>
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[3, 5, 10, 20, 50, 100]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
 
@@ -2160,7 +2183,8 @@ const ImportProjects = async () => {
 
     <el-dialog v-model="showUploadDialog" title="Upload a Zipped Shapefile/Geojson/KML/KMZ" width="30%" draggable>
 
-      <el-upload v-model:file-list="fileList" class="upload-demo" drag
+      <el-upload
+v-model:file-list="fileList" class="upload-demo" drag
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false"
         :show-file-list="false" :on-change="handleUploadGeo">
         <template #trigger>
@@ -2186,7 +2210,8 @@ const ImportProjects = async () => {
 
 
     <el-dialog v-model="ShowLocationAddDialog" title="Add Project Location" width="500" :before-close="handleCloseAdd">
-      <el-select id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
+      <el-select
+id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
         :loading="loading" placeholder=" Search Settlements" :remote-method="remoteMethod" style="width: 85%">
         <el-option v-for="item in sett_options" :key="item.id" :label="item.label" :value="item">
           <div style="display: flex; align-items: center;">
@@ -2209,7 +2234,8 @@ const ImportProjects = async () => {
 
 
     <el-dialog v-model="ShowActivityAddDialog" title="Add Project Activity" width="500" :before-close="handleCloseAdd">
-      <el-select id="location-select" v-model="extra_activities" multiple filterable remote reserve-keyword
+      <el-select
+id="location-select" v-model="extra_activities" multiple filterable remote reserve-keyword
         placeholder=" Search Activities" :remote-method="getActivities" style="width: 85%">
         <el-option v-for="item in activityOptions" :key="item.id" :label="item.label" :value="item">
           <div style="display: flex; align-items: center;">
@@ -2241,7 +2267,8 @@ const ImportProjects = async () => {
     </span>
 
 
-    <el-upload class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
+    <el-upload
+class="upload-demo" :on-change="handleCsvUpload" drag :auto-upload="false"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15">
       <div class="el-upload__text">
         Drop file here or <em>click to upload</em>

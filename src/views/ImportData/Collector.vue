@@ -2042,7 +2042,8 @@ const chartOptions = [
 </script>
 
 <template>
-    <ContentWrap v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait......."
+    <ContentWrap
+v-loading="loadingPosting" element-loading-text="Loading the data.. Please wait......."
         :title="t('Surveys')" :message="t('Data Collected via collector.kesmis...')">
 
 
@@ -2063,9 +2064,11 @@ const chartOptions = [
                     <el-col :span="12">
                         <el-card v-loading="loading" shadow="hover">
                             <div v-if="showSelect" class="card-content">
-                                <el-select v-model="project" :onChange="handleSelectProject" filterable clearable
+                                <el-select
+v-model="project" :onChange="handleSelectProject" filterable clearable
                                     placeholder="Select Project" style=" margin-right: 20px">
-                                    <el-option v-for="item in projectListOptions" :key="item.value" :label="item.label"
+                                    <el-option
+v-for="item in projectListOptions" :key="item.value" :label="item.label"
                                         :value="item.value" />
                                 </el-select>
                             </div>
@@ -2078,22 +2081,26 @@ const chartOptions = [
 
 
                     <el-select v-model="form" :onChange="handleSelectForm" placeholder="Select Form">
-                        <el-option v-for="item in filteredForms" :key="item.value" :label="item.label"
+                        <el-option
+v-for="item in filteredForms" :key="item.value" :label="item.label"
                             :value="item.value" />
                     </el-select>
 
                     <div style="display: inline-block; margin-top: 20px; margin-left: 10px">
 
-                        <el-select v-model="submitter_filter" placeholder="Filter by Submitter"
+                        <el-select
+v-model="submitter_filter" placeholder="Filter by Submitter"
                             :onChange="handleSelectSubmitter">
-                            <el-option v-for="item in submitterOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in submitterOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                     </div>
 
 
                     <div style="display: inline-block; margin-left: 10px">
-                        <el-dropdown v-loading="downloadingCsv" @command="handleCommand"
+                        <el-dropdown
+v-loading="downloadingCsv" @command="handleCommand"
                             class="el-button    el-button--plain  ">
                             <span class="el-dropdown-link">
                                 Download
@@ -2104,11 +2111,14 @@ const chartOptions = [
                             <template #dropdown>
                                 <el-dropdown-menu>
                                     <el-dropdown-item command="raw" :icon="Document">Raw Data</el-dropdown-item>
-                                    <el-dropdown-item command="xlsx" :disabled="disableDownloadOption"
+                                    <el-dropdown-item
+command="xlsx" :disabled="disableDownloadOption"
                                         :icon="List">XLSX</el-dropdown-item>
-                                    <el-dropdown-item command="geojson" disabled
+                                    <el-dropdown-item
+command="geojson" disabled
                                         :icon="LocationFilled">GeoJSOn</el-dropdown-item>
-                                    <el-dropdown-item command="media" disabled
+                                    <el-dropdown-item
+command="media" disabled
                                         :icon="CameraFilled">Attachments</el-dropdown-item>
                                     <el-dropdown-item command="report" :icon="Histogram">Charts</el-dropdown-item>
                                 </el-dropdown-menu>
@@ -2117,31 +2127,40 @@ const chartOptions = [
                     </div>
                     <el-divider content-position="left" style="flex: 1;">Chart Options</el-divider>
 
-                    <div v-if="showReport"
+                    <div
+v-if="showReport"
                         style="margin-top: 10px; display: flex; flex-wrap: wrap; align-items: flex-start;">
 
-                        <el-select v-model="filterField" filterable clearable placeholder="Filter By"
+                        <el-select
+v-model="filterField" filterable clearable placeholder="Filter By"
                             style="margin-right: 5px; flex: 1;" size="small" :onChange="getUniqueValues">
-                            <el-option v-for="item in filterFieldOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in filterFieldOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
 
-                        <el-select :onChange="filterCustom" :onClear="clearfilterCustom" filterable
+                        <el-select
+:onChange="filterCustom" :onClear="clearfilterCustom" filterable
                             v-model="filterValue" clearable placeholder="Filter Value"
                             style="margin-right: 5px; flex: 1;" size="small">
-                            <el-option v-for="item in filterValueOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in filterValueOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
 
-                        <el-select :onChange="generateReport" v-model="computationMethod" clearable
+                        <el-select
+:onChange="generateReport" v-model="computationMethod" clearable
                             placeholder="Computation" style="margin-right: 10px; flex: 1;" size="small">
-                            <el-option v-for="item in computationOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in computationOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
 
-                        <el-select :onChange="generateReport" v-model="typeChart" clearable placeholder="Type of Chart"
+                        <el-select
+:onChange="generateReport" v-model="typeChart" clearable placeholder="Type of Chart"
                             style="margin-right: 10px; flex: 1;" size="small">
-                            <el-option v-for="item in chartOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in chartOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
 
@@ -2152,7 +2171,8 @@ const chartOptions = [
                         <el-row>
 
                             <el-col :span="6" v-for="(option, index) in FormFields" :key="index">
-                                <el-checkbox v-model="selectedFields" :label="option" size="small"
+                                <el-checkbox
+v-model="selectedFields" :label="option" size="small"
                                     :onChange="generateReport" class="ellipsis-checkbox" />
                             </el-col>
                         </el-row>
@@ -2161,24 +2181,29 @@ const chartOptions = [
                     </el-scrollbar>
 
                     <div v-if="showChildParent" style="display: inline-block; margin-top: 20px">
-                        <el-select v-model="type" :onChange="handleSelectType" filterable clearable
+                        <el-select
+v-model="type" :onChange="handleSelectType" filterable clearable
                             placeholder="Select data to import" style=" margin-right: 20px">
                             <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
-                                <el-option v-for="item in group.options" :key="item.value" :label="item.label"
+                                <el-option
+v-for="item in group.options" :key="item.value" :label="item.label"
                                     :value="item.value" />
                             </el-option-group>
                         </el-select>
 
-                        <el-select v-model="selectedparent" :onChange="handleSelectParentModel"
+                        <el-select
+v-model="selectedparent" :onChange="handleSelectParentModel"
                             placeholder="Select Parent Model">
-                            <el-option v-for="item in parentOptions" :key="item.value" :label="item.label"
+                            <el-option
+v-for="item in parentOptions" :key="item.value" :label="item.label"
                                 :value="item.value" />
                         </el-select>
                     </div>
                     <el-text v-if="showMatching" class="button-container"> Matching data with database... Please
                         wait</el-text>
                     <div>
-                        <el-progress v-if="showMatching" class="button-container" :percentage="100" status="success"
+                        <el-progress
+v-if="showMatching" class="button-container" :percentage="100" status="success"
                             :indeterminate="true" :duration="1" :show-text="false" />
 
                     </div>
@@ -2196,10 +2221,12 @@ const chartOptions = [
                         <el-table-column prop="key1" label="Database Field" />
                         <el-table-column label="From Collector">
                             <template #default="scope">
-                                <el-select v-model="scope.row.key2" @change="updateSelect(scope.row, scope.$index)"
+                                <el-select
+v-model="scope.row.key2" @change="updateSelect(scope.row, scope.$index)"
                                     filterable clearable>
 
-                                    <el-option v-for="(option, index) in selectOptions" :key="index"
+                                    <el-option
+v-for="(option, index) in selectOptions" :key="index"
                                         :label="option.label" :value="option.value" :disabled="option.disabled" />
                                 </el-select>
                             </template>
@@ -2207,7 +2234,8 @@ const chartOptions = [
                     </el-table>
 
                     <div v-if="showCharts">
-                        <el-col v-for="(chart) in customCharts" :key="chart" :span="24" :xl="24" :lg="24" :md="24"
+                        <el-col
+v-for="(chart) in customCharts" :key="chart" :span="24" :xl="24" :lg="24" :md="24"
                             :sm="24" :xs="24">
                             <div class="tabs-container">
                                 <el-card>

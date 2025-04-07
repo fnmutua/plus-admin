@@ -9,65 +9,81 @@
 
 
       <el-steps :active="currentStep" finish-status="success" align-center class="small-steps">
-        <el-step v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
+        <el-step
+v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
           @click="handleStepClick(index)" />
       </el-steps>
       <el-divider />
 
-      <el-form :model="formData" :rules="currentStepRules" label-width="200px" :label-position="labelPosition"
+      <el-form
+:model="formData" :rules="currentStepRules" label-width="200px" :label-position="labelPosition"
         ref="dynamicFormRef">
         <el-row :gutter="16">
-          <el-col v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="8"
+          <el-col
+v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="12" :lg="8"
             :xl="8">
             <el-form-item :id="field.id" :label="field.label" :prop="field.name">
               <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
               <el-input v-else-if="field.type === 'textarea'" type="textarea" v-model="formData[field.name]" />
-              <el-input-number :min="field.min" v-else-if="field.type === 'number'" v-model="formData[field.name]"
+              <el-input-number
+:min="field.min" v-else-if="field.type === 'number'" v-model="formData[field.name]"
                 @change="getFieldChangeHandler(field.name)" />
               <el-date-picker v-else-if="field.type === 'date'" type="date" v-model="formData[field.name]" />
               <!-- Add more conditions for other field types as needed -->
-              <el-select v-else-if="field.type === 'select' && field.multiselect === 'false' && !field.adminUnit"
+              <el-select
+v-else-if="field.type === 'select' && field.multiselect === 'false' && !field.adminUnit"
                 v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Select"
                 @change="getFieldChangeHandler(field.name)">
-                <el-option v-for="option in field.options" :key="option.value" :label="option.label"
+                <el-option
+v-for="option in field.options" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
 
-              <el-select v-else-if="field.type === 'select' && field.multiselect === 'true'"
+              <el-select
+v-else-if="field.type === 'select' && field.multiselect === 'true'"
                 v-model="formData[field.name]" :filterable="true" multiple collapse-tags placeholder="Select"
                 @change="getFieldChangeHandler(field.name)">
-                <el-option v-for="option in field.options" :key="option.value" :label="option.label"
+                <el-option
+v-for="option in field.options" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
 
 
 
-              <el-select v-else-if="field.type === 'select' && field.adminUnit && field.name === 'county_id'"
+              <el-select
+v-else-if="field.type === 'select' && field.adminUnit && field.name === 'county_id'"
                 v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="County"
                 @change="getFieldChangeHandler(field.name)">
-                <el-option v-for="option in countyOptions" :key="option.value" :label="option.label"
+                <el-option
+v-for="option in countyOptions" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
 
-              <el-select v-else-if="field.type === 'select' && field.adminUnit && field.name === 'subcounty_id'"
+              <el-select
+v-else-if="field.type === 'select' && field.adminUnit && field.name === 'subcounty_id'"
                 v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Subcounty"
                 @change="getFieldChangeHandler(field.name)">
-                <el-option v-for="option in subcountyOptionsFiltered" :key="option.value" :label="option.label"
+                <el-option
+v-for="option in subcountyOptionsFiltered" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
 
 
-              <el-select v-else-if="field.type === 'select' && field.adminUnit && field.name === 'ward_id'"
+              <el-select
+v-else-if="field.type === 'select' && field.adminUnit && field.name === 'ward_id'"
                 v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Ward"
                 @change="getFieldChangeHandler(field.name)">
-                <el-option v-for="option in wardOptionsFiltered" :key="option.value" :label="option.label"
+                <el-option
+v-for="option in wardOptionsFiltered" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
 
-              <el-select v-else-if="field.type === 'select' && field.adminUnit && field.name === 'settlement_id'"
+              <el-select
+v-else-if="field.type === 'select' && field.adminUnit && field.name === 'settlement_id'"
                 v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Settlement"
                 @change="getFieldChangeHandler(field.name)">
-                <el-option v-for="option in settOptionsFiltered" :key="option.value" :label="option.label"
+                <el-option
+v-for="option in settOptionsFiltered" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
 
@@ -89,7 +105,8 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
         </el-row>
       </el-form>
 
-      <div class="button-container"
+      <div
+class="button-container"
         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <div>
           <el-tooltip content="Help" placement="top">
@@ -121,7 +138,8 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
         </el-select>
 
         <el-select v-model="subcounty_id" class="m-2" @change="onSelectSubcounty" placeholder="Select" size="large">
-          <el-option v-for="item in subcountyOptionsFiltered" :key="item.value" :label="item.label"
+          <el-option
+v-for="item in subcountyOptionsFiltered" :key="item.value" :label="item.label"
             :value="item.value" />
         </el-select>
 
@@ -152,7 +170,8 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
 
     <el-dialog v-model="showUploadDialog" title="Upload a Zipped Shapefile/Geojson/KML/KMZ" width="30%">
 
-      <el-upload v-model:file-list="fileList" class="upload-demo"
+      <el-upload
+v-model:file-list="fileList" class="upload-demo"
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false"
         :show-file-list="false" :on-change="handleUploadGeo">
         <template #trigger>
@@ -172,7 +191,8 @@ v-else-if="field.type === 'upload' && visibleUpload" v-model:file-list="fileList
   </div>
 
   <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
-    <el-tour-step v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
+    <el-tour-step
+v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
       :description="step.content" />
   </el-tour>
 

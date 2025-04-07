@@ -821,7 +821,8 @@ const filteredTourSteps = computed(() => {
 
     <el-row :gutter="10" style="margin-bottom:10px;">
       <el-col :xs="24" :sm="24" :md="20" :lg="20">
-        <el-select v-model="search_string" multiple clearable filterable remote :remote-method="searchByNewName"
+        <el-select
+v-model="search_string" multiple clearable filterable remote :remote-method="searchByNewName"
           reserve-keyword no-match-text='' placeholder="Search an article by its title or part of it ..."
           style=" margin-right: 5px;" />
 
@@ -838,7 +839,8 @@ const filteredTourSteps = computed(() => {
             <el-button :onClick="handleClear" type="primary" :icon="Filter" />
           </el-tooltip>
 
-          <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="model"
+          <DownloadCustom
+v-if="showEditButtons" :data="tableDataList" :model="model"
             :associated_models="associated_multiple_models" />
         </div>
       </el-col>
@@ -869,22 +871,26 @@ const filteredTourSteps = computed(() => {
             <el-image v-else :src="'/placeholder.jpg'" fit="cover" style="width: 100%; height: 150px;" />
 
             <!-- Summary (Truncate if too long) -->
-            <p class="article-summary"
+            <p
+class="article-summary"
               style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">
               {{ article.description }}
             </p>
 
             <!-- Actions -->
-            <div class="article-actions-row"
+            <div
+class="article-actions-row"
               style="display: flex; align-items: center; justify-content: space-between; margin-bottom:5px">
               <el-link :href="article.url" target="_blank">Read Full Story</el-link>
               <div>
                 <el-tooltip content="Edit" placement="top">
-                  <el-button v-if="showAdminButtons" type="primary" size="small" @click="editStory(article)"
+                  <el-button
+v-if="showAdminButtons" type="primary" size="small" @click="editStory(article)"
                     :icon="Edit" circle />
                 </el-tooltip>
                 <el-tooltip content="Delete" placement="top">
-                  <el-button v-if="showAdminButtons" type="danger" size="small" @click="deleteStory(article)"
+                  <el-button
+v-if="showAdminButtons" type="danger" size="small" @click="deleteStory(article)"
                     :icon="Delete" circle />
                 </el-tooltip>
               </div>
@@ -894,7 +900,8 @@ const filteredTourSteps = computed(() => {
             <div v-if="article.documents.length" class="attachments">
               <h4>Attachments:</h4>
               <ul>
-                <li v-for="(attachment, index) in article.documents.filter(doc => doc.category !== 52)" :key="index"
+                <li
+v-for="(attachment, index) in article.documents.filter(doc => doc.category !== 52)" :key="index"
                   style="display: flex; align-items: center; justify-content: space-between;">
                   <el-button type="text" @click="downloadFile(attachment)">
                     {{ attachment.name }}
@@ -923,7 +930,8 @@ const filteredTourSteps = computed(() => {
       <el-step title="Media" />
     </el-steps>
 
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="currentStepRules" class="demo-form-inline"
+    <el-form
+ref="ruleFormRef" :model="ruleForm" :rules="currentStepRules" class="demo-form-inline"
       label-position="top">
       <el-card shadow="hover">
         <el-row v-if="active === 0" :gutter="10">
@@ -975,7 +983,8 @@ const filteredTourSteps = computed(() => {
 
 
             <el-form-item id="btn5" label="Upload Cover Photo" prop="cover_photo">
-              <el-upload v-model:file-list="coverPhotoList" class="upload-demo" action="" :auto-upload="false"
+              <el-upload
+v-model:file-list="coverPhotoList" class="upload-demo" action="" :auto-upload="false"
                 :limit="1" accept="image/*" :on-change="handleCoverPhoto" :on-remove="deleteAttachment">
                 <el-button type="primary">Upload Cover Photo</el-button>
               </el-upload>
@@ -985,9 +994,11 @@ const filteredTourSteps = computed(() => {
 
 
 
-            <el-form-item id="btn6" label="Select/Drop newspaper cuttings and other files here or click to upload"
+            <el-form-item
+id="btn6" label="Select/Drop newspaper cuttings and other files here or click to upload"
               style="width: 100%;">
-              <el-upload v-model:file-list="fileList" class="upload-demo" action="" :auto-upload="false"
+              <el-upload
+v-model:file-list="fileList" class="upload-demo" action="" :auto-upload="false"
                 :on-change="handleFiles" :on-remove="deleteAttachment">
                 <el-button type="primary">Other Documents</el-button>
 
@@ -1005,7 +1016,8 @@ const filteredTourSteps = computed(() => {
     </el-form>
 
     <template #footer>
-      <div class="steps-navigation"
+      <div
+class="steps-navigation"
         style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
         <div>
           <el-tooltip content="Help" placement="top">
@@ -1027,7 +1039,8 @@ const filteredTourSteps = computed(() => {
 
 
 
-          <el-button id="btn10" v-if="!showEditSaveButton" type="primary"
+          <el-button
+id="btn10" v-if="!showEditSaveButton" type="primary"
             @click="submitForm(ruleFormRef)">Submit</el-button>
           <el-button id="btn11" v-if="showEditSaveButton" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
 
@@ -1039,7 +1052,8 @@ const filteredTourSteps = computed(() => {
 
 
   <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
-    <el-tour-step v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
+    <el-tour-step
+v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
       :description="step.content" />
   </el-tour>
 

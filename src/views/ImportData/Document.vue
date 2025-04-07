@@ -762,16 +762,19 @@ const handleFileUpload = async () => {
 </script>
 
 <template>
-    <ContentWrap :title="t('Batch Upload Documents')" v-loading="loadingPosting"
+    <ContentWrap
+:title="t('Batch Upload Documents')" v-loading="loadingPosting"
         element-loading-text="Saving the data.. Please wait.......">
 
         <el-row :gutter="10" style=" margin-bottom:10px;">
             <el-col :xs="24" :sm="24" :md="6" :lg="6" class="max-w-200px">
 
-                <el-select v-model="type" :onChange="handleSelectType" placeholder="Select Model"
+                <el-select
+v-model="type" :onChange="handleSelectType" placeholder="Select Model"
                     style="  margin-right: 10px;" filterable clearable>
                     <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
-                        <el-option v-for="item in group.options" :key="item.value" :label="item.label"
+                        <el-option
+v-for="item in group.options" :key="item.value" :label="item.label"
                             :value="item.value" />
                     </el-option-group>
                 </el-select>
@@ -808,13 +811,15 @@ const handleFileUpload = async () => {
 
 
 
-                <el-upload v-if="showUploadSpace" class="upload-demo" drag :auto-upload="false"
+                <el-upload
+v-if="showUploadSpace" class="upload-demo" drag :auto-upload="false"
                     action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
                     v-model:file-list="fileList">
                     <div class="el-upload__text"> Drop files here or <em>click to upload</em> </div>
                 </el-upload>
 
-                <el-button v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload"
+                <el-button
+v-if="showUploadSpace" class="mt-4" style="width: 100%" @click="handleFileUpload"
                     type="primary" :disabled="disableDoubeUpload">
                     Upload<el-icon class="el-icon--right">
                         <Upload />
@@ -835,7 +840,8 @@ const handleFileUpload = async () => {
                                     <template #label>
                                         <span style="font-weight: bold">{{ group.label }}</span>
                                     </template>
-                                    <el-option v-for="item in group.options" :key="item.value" :label="item.label"
+                                    <el-option
+v-for="item in group.options" :key="item.value" :label="item.label"
                                         :value="item.value" />
                                 </el-option-group>
 
@@ -854,10 +860,12 @@ v-for="item in parentOptions" :key="item.value" :label="item.label"
                             :value="item.value" />
                     </el-select> -->
 
-                            <el-select id="location-select" v-model="row[document_field]" filterable remote
+                            <el-select
+id="location-select" v-model="row[document_field]" filterable remote
                                 reserve-keyword :loading="loading" placeholder=" Search ..."
                                 :remote-method="remoteMethod" style="width: 75%">
-                                <el-option v-for="item in parentOptions" :key="item.id" :label="item.label"
+                                <el-option
+v-for="item in parentOptions" :key="item.id" :label="item.label"
                                     :value="item.value">
                                     <div style="display: flex; align-items: center;">
                                         <span style="flex: 1; text-align: left;">{{ item.label }}</span>
@@ -887,7 +895,8 @@ v-for="item in parentOptions" :key="item.value" :label="item.label"
         </el-icon>
     </el-button> -->
                 <div v-if="showTable" class="flex mt-4" style="justify-content: flex-end;">
-                    <el-button type="primary" :icon="Promotion" @click="handleSubmitData"
+                    <el-button
+type="primary" :icon="Promotion" @click="handleSubmitData"
                         :disabled="DisablePostSubmit">Submit</el-button>
                     <el-button type="danger" :onClick="handleReset">
                         Cancel<el-icon class="el-icon--right">

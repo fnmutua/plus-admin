@@ -460,7 +460,8 @@ const paginatedData = computed(() => {
 
 <template>
   <el-card>
-    <el-row type="flex" justify="start" gutter="10"
+    <el-row
+type="flex" justify="start" gutter="10"
       style="display: flex; flex-wrap: nowrap; align-items: center; margin-bottom:10px">
 
       <div class="max-w-200px">
@@ -471,7 +472,8 @@ const paginatedData = computed(() => {
 
 
       <!-- Title Search -->
-      <el-select v-model="value3" :onChange="handleSelectLayer" clearable filterable collapse-tags
+      <el-select
+v-model="value3" :onChange="handleSelectLayer" clearable filterable collapse-tags
         placeholder="Select Imagery " style=" margin-right: 5px;">
         <el-option v-for="item in selOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -491,7 +493,8 @@ const paginatedData = computed(() => {
         <el-tooltip content="Download" placement="top">
           <el-button @click="selectDownload" type="primary" :icon="Download" />
         </el-tooltip>
-        <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="model"
+        <DownloadCustom
+v-if="showEditButtons" :data="tableDataList" :model="model"
           :associated_models="associated_multiple_models" />
 
 
@@ -531,7 +534,8 @@ const paginatedData = computed(() => {
       </el-table-column>
     </el-table>
 
-    <el-pagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <el-pagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[2, 5, 10, 15, 20, 50, 100]" :total="totalItems" :background="true"
       @size-change="handlePageSizeChange" @current-change="handlePageChange" class="mt-4" />
 
@@ -572,7 +576,8 @@ const paginatedData = computed(() => {
 
 
         <el-form-item label="Coordinate System">
-          <el-select v-model="form.crs" clearable filterable collapse-tags placeholder="Select Coordinate System "
+          <el-select
+v-model="form.crs" clearable filterable collapse-tags placeholder="Select Coordinate System "
             style=" margin-right: 5px;">
             <el-option v-for="item in crsOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
@@ -618,7 +623,8 @@ const paginatedData = computed(() => {
       </el-form-item>
 
       <el-form-item label="Coordinate System">
-        <el-select v-model="form.crs" clearable filterable collapse-tags placeholder="Select Coordinate System "
+        <el-select
+v-model="form.crs" clearable filterable collapse-tags placeholder="Select Coordinate System "
           style=" margin-right: 5px;">
           <el-option v-for="item in crsOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>

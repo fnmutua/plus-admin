@@ -236,7 +236,8 @@ onMounted(() => {
   <Descriptions :title="t('Profile')" :message="t('Facility Profile')" :data="profile" :schema="schemaProfile" />
 
   <Form is-custom :model="form" @register="register">
-    <Descriptions :title="t('Staffing')" :message="t('Facility Staffing Levels')" :data="staffing"
+    <Descriptions
+:title="t('Staffing')" :message="t('Facility Staffing Levels')" :data="staffing"
       :schema="schemaStaffing" />
   </Form>
 

@@ -1955,7 +1955,7 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
           <div>
             <list-documents
 :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-              @openDialog="toggleComponent(props.row)" />
+              @open-dialog="toggleComponent(props.row)" />
           </div>
 
         </template>
@@ -2041,7 +2041,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled"  width="300
       
       <el-table-column label="Actions" width="250">
         <template #default="{ row }">
-           <TableActions :item="row" :buttons="action_buttons" @viewOnMap="showMap"   @edit="editReport" @delete="DeleteReport"   />
+           <TableActions :item="row" :buttons="action_buttons" @view-on-map="showMap"   @edit="editReport" @delete="DeleteReport"   />
 
 
         </template>

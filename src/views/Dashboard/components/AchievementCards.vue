@@ -177,7 +177,8 @@ getTitleDeeds()
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
                   t('Titles Deeds Issued')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.titleDeeds"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.titleDeeds"
                   :duration="2600" />
               </div>
             </div>
@@ -200,7 +201,8 @@ getTitleDeeds()
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
                   t('Community Development Plans Prepared')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.communityDevPlans"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.communityDevPlans"
                   :duration="2600" />
               </div>
             </div>
@@ -223,7 +225,8 @@ getTitleDeeds()
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
                   t('Roads Upgraded (Km)')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.roadsKm"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.roadsKm"
                   :duration="2600" />
               </div>
             </div>
@@ -245,7 +248,8 @@ getTitleDeeds()
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
                   t('Slum Prevention Strategies Developed')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.countyStrategies"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.countyStrategies"
                   :duration="2600" />
               </div>
             </div>

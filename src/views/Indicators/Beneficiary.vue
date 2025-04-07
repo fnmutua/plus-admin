@@ -1226,7 +1226,8 @@ watch(
       </div>
 
       <!-- Title Search -->
-      <el-select v-model="value2" :onChange="handleSelectProject" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value2" :onChange="handleSelectProject" :onClear="handleClear" multiple clearable
         collapse-tags filterable placeholder="Filter by Project" style="width: 80%; margin-right: 10px;">
         <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -1251,15 +1252,17 @@ watch(
       <upload-component :is="dynamicComponent" v-bind="componentProps" />
     </div>
 
-    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+    <el-table
+:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
       @expand-change="handleExpand">
 
       <el-table-column type="expand">
         <template #default="props">
 
           <div>
-            <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-              @openDialog="toggleComponent(props.row)" />
+            <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+              @open-dialog="toggleComponent(props.row)" />
           </div>
 
         </template>
@@ -1327,7 +1330,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
     </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
@@ -1343,12 +1347,14 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
       <el-row v-if="activeStep == 0" :gutter="20">
         <el-col :span="24">
           <el-form-item id="btn1" label="Project" prop="project_id">
-            <el-select-v2 filterable v-model="ruleForm.project_id" @change="changeProject" style="width: 100%"
+            <el-select-v2
+filterable v-model="ruleForm.project_id" @change="changeProject" style="width: 100%"
               :options="projectOptions" placeholder="Select Project" />
           </el-form-item>
 
           <el-form-item id="btn2" label="Location" prop="project_location_id">
-            <el-select ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
+            <el-select
+ref="ref2" v-model="ruleForm.project_location_id" value-key="id" placeholder="Select"
               @change="changeLocation" style="width: 100%;">
               <el-option v-for="item in project_locations" :key="item.id" :label="item.settlementName" :value="item.id">
                 <div style="display: flex; align-items: center;">
@@ -1392,7 +1398,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
             <el-input v-model="ruleForm.comments" type="textarea" placeholder="Do you have any comments?" />
           </el-form-item>
 
-          <el-upload id="btn8" v-model:file-list="fileUploadList" class="upload-demo"
+          <el-upload
+id="btn8" v-model:file-list="fileUploadList" class="upload-demo"
             action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
             :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
             :on-exceed="handleExceed">
@@ -1416,9 +1423,11 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
             <el-button @click="nextStep" v-if="activeStep < 2">Next</el-button>
             <el-button @click="AddDialogVisible = false">Cancel</el-button>
-            <el-button v-if="showSubmitBtn && activeStep === 2" type="primary"
+            <el-button
+v-if="showSubmitBtn && activeStep === 2" type="primary"
               @click="submitForm(ruleFormRef)">Submit</el-button>
-            <el-button v-if="showEditSaveButton && activeStep === 2" type="primary"
+            <el-button
+v-if="showEditSaveButton && activeStep === 2" type="primary"
               @click="editForm(ruleFormRef)">Save</el-button>
           </el-col>
         </el-row>
@@ -1432,7 +1441,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
 
   <el-tour v-model="isTourVisible" :z-index="100000" :on-close="endTour">
-    <el-tour-step v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
+    <el-tour-step
+v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :title="step.title"
       :description="step.content" />
   </el-tour>
 

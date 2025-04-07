@@ -54,7 +54,7 @@ export default defineComponent({
     // 注册
     onMounted(() => {
       const tableRef = unref(elTableRef)
-      emit('register', tableRef?.$parent, elTableRef)
+      emit('register', tableRef?.$parent, elTableRef.value)
     })
 
     const pageSizeRef = ref(props.pageSize)
@@ -268,30 +268,57 @@ export default defineComponent({
     }
 
     return () => (
-      <div v-loading={unref(getProps).loading}>
-        <ElTable
-          // @ts-ignore
-          ref={elTableRef}
-          data={unref(getProps).data}
-          onSelection-change={selectionChange}
-          {...unref(getBindValue)}
-        >
-          {{
-            default: () => rnderTableColumn(),
-            // @ts-ignore
-            append: () => getSlot(slots, 'append')
-          }}
-        </ElTable>
-        {unref(getProps).pagination ? (
-          <ElPagination
-            v-model:pageSize={pageSizeRef.value}
-            v-model:currentPage={currentPageRef.value}
-            class="mt-10px"
-            {...unref(pagination)}
-          ></ElPagination>
-        ) : undefined}
-      </div>
-    )
+  <div v-loading={unref(getProps).loading}>
+    <ElTable
+      // @ts-ignore
+      ref={elTableRef}
+      data={unref(getProps).data}
+      onSelection-change={selectionChange}
+      {...unref(getBindValue)}
+    >
+      {{
+        default: () => rnderTableColumn(),
+        // @ts-ignore
+        append: () => getSlot(slots, 'append')
+      }}
+    </ElTable>
+    {unref(getProps).pagination ? (
+      <ElPagination
+        v-model:pageSize={pageSizeRef.value}  {/* Already correct */}
+        v-model:currentPage={currentPageRef.value}  {/* Already correct */}
+        class="mt-10px"
+        {...unref(pagination)}
+      ></ElPagination>
+    ) : undefined}
+  </div>
+)
+
+
+    // return () => (
+    //   <div v-loading={unref(getProps).loading}>
+    //     <ElTable
+    //       // @ts-ignore
+    //       ref={elTableRef}
+    //       data={unref(getProps).data}
+    //       onSelection-change={selectionChange}
+    //       {...unref(getBindValue)}
+    //     >
+    //       {{
+    //         default: () => rnderTableColumn(),
+    //         // @ts-ignore
+    //         append: () => getSlot(slots, 'append')
+    //       }}
+    //     </ElTable>
+    //     {unref(getProps).pagination ? (
+    //       <ElPagination
+    //         v-model:pageSize={pageSizeRef.value}
+    //         v-model:currentPage={currentPageRef.value}
+    //         class="mt-10px"
+    //         {...unref(pagination)}
+    //       ></ElPagination>
+    //     ) : undefined}
+    //   </div>
+    // )
   }
 })
 </script>

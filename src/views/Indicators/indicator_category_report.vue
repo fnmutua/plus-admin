@@ -2063,7 +2063,8 @@ function handleIndicatorsChange(selectedIds) {
       </div>
 
       <!-- Title Search -->
-      <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Filter by Indicator" style="width: 85%; margin-right: 10px;">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -2081,7 +2082,8 @@ function handleIndicatorsChange(selectedIds) {
 
       <!-- Download All Component -->
       <!-- <DownloadToCSV v-if="showEditButtons && tableDataList.length >0" :model="model"  />  -->
-      <DownloadCustom v-if="showEditButtons" :data="tableDataList" :model="model"
+      <DownloadCustom
+v-if="showEditButtons" :data="tableDataList" :model="model"
         :associated_models="associated_multiple_models" />
 
     </el-row>
@@ -2095,14 +2097,16 @@ function handleIndicatorsChange(selectedIds) {
 
 
 
-    <el-table :data="tableDataList" row-key="id"  border :row-class-name="tableRowClassName" @expand-change="handleExpand" :expand-row-keys="expandedRowKeys"
+    <el-table
+:data="tableDataList" row-key="id"  border :row-class-name="tableRowClassName" @expand-change="handleExpand" :expand-row-keys="expandedRowKeys"
           ref="tableRef" v-loading="loading">
 
           <el-table-column type="expand">
             <template #default="props">
               <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-                  @openDialog="toggleComponent(props.row)" />
+                <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+                  @open-dialog="toggleComponent(props.row)" />
               </div>
             </template>
           </el-table-column>
@@ -2151,7 +2155,7 @@ function handleIndicatorsChange(selectedIds) {
               <TableActions
                 :item="row"
                 :buttons="action_buttons"
-                @viewOnMap="showMap"
+                @view-on-map="showMap"
                 @edit="editReport"
                 @delete="DeleteReport"
               />
@@ -2160,7 +2164,8 @@ function handleIndicatorsChange(selectedIds) {
 </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
@@ -2317,9 +2322,11 @@ function handleIndicatorsChange(selectedIds) {
 
 
 
-  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
+  <el-dialog
+v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
     draggable>
-    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+    <el-upload
+class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="5" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>
@@ -2367,14 +2374,18 @@ function handleIndicatorsChange(selectedIds) {
 
   <el-tour v-model="openHelp" z-index="100000">
     <el-tour-step target="#btn1" title="Project" description="Select the project you want to set up" />
-    <el-tour-step target="#btn2" title="Location"
+    <el-tour-step
+target="#btn2" title="Location"
       description="Select the location where this project is implemented. Repeat this for every settlement the project is being implemented" />
-    <el-tour-step target="#btn3" title="Activity"
+    <el-tour-step
+target="#btn3" title="Activity"
       description="Select the  specific activity you wish to configure monitoring for" />
-    <el-tour-step target="#btn4" title="Indicator"
+    <el-tour-step
+target="#btn4" title="Indicator"
       description="Select the  indicator associated with that activity. If not configured, use the + button to create a new indicator" />
 
-    <el-tour-step target="#btn5" title="Quantity"
+    <el-tour-step
+target="#btn5" title="Quantity"
       description="Specify the amount/value/quantity for this reporting period.  " />
 
     <el-tour-step target="#btn6" title="Cumulative" description=" Shows the cumulative achievements todate" />
@@ -2389,14 +2400,17 @@ function handleIndicatorsChange(selectedIds) {
 
     <el-tour-step target="#btn10" title="Date" description="Specify reporting date." />
 
-    <el-tour-step target="#btn11" title="Progress"
+    <el-tour-step
+target="#btn11" title="Progress"
       description="Progress of achievements. How much of the quantity has been achieved todate?" />
 
 
-    <el-tour-step target="#btn12" title="Comments"
+    <el-tour-step
+target="#btn12" title="Comments"
       description="Provide any commentary or additional information related to this submission" />
 
-    <el-tour-step target="#btn13" title="Documentation"
+    <el-tour-step
+target="#btn13" title="Documentation"
       description="Upload any documentation that is required. It includes photos, reports of data" />
 
 

@@ -1562,7 +1562,8 @@ const downloadFile = async (data) => {
       </div>
 
       <!-- Title Search -->
-      <el-select v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
+      <el-select
+v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear" multiple clearable
         filterable collapse-tags placeholder="Filter by Project/Indicator" style="width: 450px; margin-right: 10px;">
         <el-option v-for="item in indicatorsOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -1588,14 +1589,16 @@ const downloadFile = async (data) => {
 
 
 
-    <el-table :data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
+    <el-table
+:data="tableDataList" style="width: 100%; margin-top: 10px;" border :row-class-name="tableRowClassName"
       @expand-change="handleExpand" v-loading="loading">
       <el-table-column type="expand">
         <template #default="props">
 
           <div>
-            <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
-              @openDialog="toggleComponent(props.row)" />
+            <list-documents
+:is="dynamicDocumentComponent" v-bind="DocumentComponentProps"
+              @open-dialog="toggleComponent(props.row)" />
           </div>
 
         </template>
@@ -1676,7 +1679,7 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
 
       <el-table-column label="Actions" width="250">
         <template #default="{ row }">
-           <TableActions :item="row" :buttons="action_buttons" @viewOnMap="showMap"   @review="editIndicator" @delete="DeleteReport"   />
+           <TableActions :item="row" :buttons="action_buttons" @view-on-map="showMap"   @review="editIndicator" @delete="DeleteReport"   />
 
 
         </template>
@@ -1686,7 +1689,8 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
     </el-table>
 
 
-    <ElPagination layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
+    <ElPagination
+layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true"
       @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
   </el-card>
@@ -1699,25 +1703,30 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
         <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-position="left">
 
           <el-form-item label="Project">
-            <el-select filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width: 100%"
+            <el-select
+filterable v-model="ruleForm.project_id" :onChange="changeProject" style="width: 100%"
               placeholder="Select Project">
               <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
 
           <el-form-item label="Activity">
-            <el-select filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
+            <el-select
+filterable v-model="ruleForm.activity_id" :onChange="changeActivity" style="width: 100%"
               placeholder="Select Activity">
-              <el-option v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
+              <el-option
+v-for="item in activityOptionsFiltered" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>
 
 
           <el-form-item label="Indicator">
-            <el-select filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
+            <el-select
+filterable v-model="ruleForm.indicator_category_id" :onChange="changeIndicator"
               style="width: 100%" placeholder="Select Indicator">
-              <el-option v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
+              <el-option
+v-for="item in indicatorsOptionsFiltered" :key="item.value" :label="item.label"
                 :value="item.value" />
             </el-select>
           </el-form-item>
@@ -1760,9 +1769,11 @@ confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color=
     </template>
   </el-dialog>
 
-  <el-dialog v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
+  <el-dialog
+v-model="ImportDialogVisible" @close="handleClose" title="Import multiple reports" :width="dialogWidth"
     draggable>
-    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+    <el-upload
+class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="5" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop .xlsx file here or <em>click to upload</em> </div>

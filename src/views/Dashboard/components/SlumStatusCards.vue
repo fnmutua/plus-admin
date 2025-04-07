@@ -84,7 +84,8 @@ getPopulationSummary()
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
                   t('Beneficiary Slums')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSettlements"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSettlements"
                   :duration="2600" />
               </div>
             </div>
@@ -107,7 +108,8 @@ getPopulationSummary()
                 <div :class="`${prefixCls}__item--text text-16px text-gray-500 text-right`">{{
                   t('Beneficiaries under Safety Nets')
                 }}</div>
-                <CountTo class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSlumResidents"
+                <CountTo
+class="text-20px font-700 text-right" :start-val="0" :end-val="totalState.NoSlumResidents"
                   :duration="2600" />
               </div>
             </div>

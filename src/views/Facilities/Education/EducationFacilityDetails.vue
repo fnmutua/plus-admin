@@ -232,12 +232,14 @@ onMounted(() => {
   <Descriptions :title="t('Profile')" :message="t('Facility Profile')" :data="profile" :schema="schemaProfile" />
 
   <Form is-custom :model="form" @register="register">
-    <Descriptions :title="t('Enrollment/Staffing')" :message="t('Facility Enrollment/Staffing Levels')"
+    <Descriptions
+:title="t('Enrollment/Staffing')" :message="t('Facility Enrollment/Staffing Levels')"
       :data="enrollment_staffing" :schema="schemaStaffing" />
   </Form>
 
   <Form is-custom :model="form" @register="register">
-    <Descriptions :title="t('Infrastructure')" :message="t('Infrastructure')" :data="Infrastructure"
+    <Descriptions
+:title="t('Infrastructure')" :message="t('Infrastructure')" :data="Infrastructure"
       :schema="schemaInfrastructure" />
   </Form>
 </template>

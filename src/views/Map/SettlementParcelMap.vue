@@ -1175,7 +1175,8 @@ const showEditButtons = ref(appStore.getEditButtons)
         </el-collapse-item>
 
         <el-collapse-item title="Base" name="baseLayers">
-          <el-checkbox-group v-model="filteredBaselayers" @change="handleChangeVisibility"
+          <el-checkbox-group
+v-model="filteredBaselayers" @change="handleChangeVisibility"
             class="checkbox-group-vertical">
             <el-checkbox v-for="item in baselayers" :label="item" :key="item">{{ item }}</el-checkbox>
           </el-checkbox-group>

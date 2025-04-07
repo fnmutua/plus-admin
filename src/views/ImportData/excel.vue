@@ -841,7 +841,8 @@ const handleSelectParentModel = async (parent: any) => {
         </el-option-group>
       </el-select>
 
-      <el-select v-model="parent" :onChange="handleSelectParentModel" :onClear="handleClear"
+      <el-select
+v-model="parent" :onChange="handleSelectParentModel" :onClear="handleClear"
         placeholder="Select Parent Model">
         <el-option v-for="item in parentOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -849,14 +850,16 @@ const handleSelectParentModel = async (parent: any) => {
 
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-switch v-model="value_switch" v-if="showSwitch" size="large" @click="handleMutlipleSettlements"
+      <el-switch
+v-model="value_switch" v-if="showSwitch" size="large" @click="handleMutlipleSettlements"
         active-text="Multiple Settlements" />
 
     </div>
 
 
     <div style="display: inline-block; margin-left: 20px">
-      <el-select v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
+      <el-select
+v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
         :onClear="handleClear" clearable filterable collapse-tags placeholder="Filter by Settlement">
         <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
@@ -865,7 +868,8 @@ const handleSelectParentModel = async (parent: any) => {
 
 
     <el-divider border-style="dashed" content-position="left">Upload</el-divider>
-    <el-upload class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
+    <el-upload
+class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple
       v-model:file-list="fileList" :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove"
       :limit="1" :on-exceed="handleExceed" :auto-upload="false">
       <div class="el-upload__text"> Drop file here or <em>click to upload</em> </div>
