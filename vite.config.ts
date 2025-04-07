@@ -1,4 +1,5 @@
- import { loadEnv } from 'vite'
+import { resolve } from 'path'
+import { loadEnv } from 'vite'
 import type { UserConfig, ConfigEnv } from 'vite'
 import Vue from '@vitejs/plugin-vue'
 import WindiCSS from 'vite-plugin-windicss'
@@ -12,11 +13,6 @@ import { viteMockServe } from 'vite-plugin-mock'
 import { createHtmlPlugin } from 'vite-plugin-html'
 import VueMarcos from 'unplugin-vue-macros/vite'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
-
-
-import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'url'
 
 // https://vitejs.dev/config/
 const root = process.cwd()
@@ -57,21 +53,12 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
         cache: false,
         include: ['src/**/*.vue', 'src/**/*.ts', 'src/**/*.tsx'] // 检查的文件
       }),
-      // VueI18n({
-      //   runtimeOnly: true,
-      //   compositionOnly: true,
-      //   include: [resolve(__dirname, 'src/locales/**')]
-      // //  include: [pathResolve('src/locales/**')]
-      // }),
-
-
-      VueI18nPlugin({
-        /* options */
-        // locale messages resource pre-compile option
-        include: resolve(dirname(fileURLToPath(import.meta.url)), './path/to/src/locales/**'),
+      VueI18n({
+        runtimeOnly: true,
+        compositionOnly: true,
+         include: [resolve(__dirname, 'src/locales/**')]
+        // include: [pathResolve('src/locales/**') ]
       }),
- 
-
       createSvgIconsPlugin({
         iconDirs: [pathResolve('src/assets/svgs')],
         symbolId: 'icon-[dir]-[name]',
