@@ -51,6 +51,7 @@
     "chroma-js": "^2.4.2",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
+    "dayjs": "^1.11.13",
     "dotenv": "^16.4.5",
     "downloadjs": "^1.4.7",
     "echarts": "^5.3.3",
