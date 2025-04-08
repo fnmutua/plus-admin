@@ -84,6 +84,9 @@ var _settlement_history= require('./settlement_history')
 var _grievance_history= require('./grievance_history')
  
 
+var _disbursement= require('./disbursements')
+var _project_contractor= require('./project_contractor')
+var _project_team= require('./project_team')
 
 
 function initModels(sequelize) {
@@ -170,6 +173,9 @@ function initModels(sequelize) {
   var article = _article(sequelize, DataTypes)
   var settlement_history = _settlement_history(sequelize, DataTypes)
   var grievance_history = _grievance_history(sequelize, DataTypes)
+  var disbursement = _disbursement(sequelize, DataTypes)
+  var project_contractor = _project_contractor(sequelize, DataTypes)
+  var project_team = _project_team(sequelize, DataTypes)
 
   
   
@@ -243,7 +249,7 @@ function initModels(sequelize) {
     project_location,
     project_beneficiary,grievance_resolution_level,
     grievance,
-    grievance_log,
+    grievance_log,disbursement,project_contractor,project_team,
      grievance_resolution,grievance_escalation,grievance_document, grievance_notification,article,settlement_history,grievance_history,
 
   }

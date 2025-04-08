@@ -2487,6 +2487,8 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
   }
 
   // Count records without nested models and includes
+
+  console.log('reg_model',reg_model)
   let count = await db.models[reg_model].count(baseCountQuery);
   console.log('Base count:', count);
 

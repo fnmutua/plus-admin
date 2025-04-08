@@ -1689,5 +1689,16 @@ db.models.users.hasMany(db.models.grievance_history, {
 })
 
 
+
+db.models.disbursement.belongsTo(db.models.project, {
+  foreignKey: 'project_id',
+})
+
+db.models.project.hasMany(db.models.disbursement, {
+  foreignKey: 'project_id'
+})
+
+
+
 //db.ROLES = ["user", "admin", "editor",  "moderator"];
 module.exports = db

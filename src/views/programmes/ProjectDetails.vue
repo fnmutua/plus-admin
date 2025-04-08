@@ -15,7 +15,7 @@ import { getOneGeo } from '@/api/settlements'
 
 import { Icon } from '@iconify/vue';
 import {
-  Download, UploadFilled, Edit, Back
+  Download, UploadFilled, Edit, Back,CircleCloseFilled,Position,Delete
 } from '@element-plus/icons-vue'
 
 import { getCountyListApi, } from '@/api/counties'
@@ -65,6 +65,8 @@ import Papa from 'papaparse';
 import TaskNode from './TaskNode.vue';
 
 import TaskNodeNested from './TaskNodeNested.vue'
+import { Certificate } from 'crypto'
+import { now } from 'moment'
 
 
 
@@ -112,7 +114,7 @@ const projectLogs = ref([])
 //const associated_Model = ''
 
 
-const associated_multiple_models = ['county', 'subcounty', 'ward', 'component', 'programme', "document", "project_team", "project_contractor","project_location"]
+const associated_multiple_models = ['county', 'subcounty', 'ward', 'component', 'programme', "document", "project_team", "project_contractor","project_location",'document']
 const nested_models = ['document', 'document_category'] // The mother, then followed by the child
 
 function formatSentence(text) {
@@ -240,32 +242,32 @@ const getActivities = async (keyword) => {
 
 
 const contractorOptions = ref([])
-const getContractors = async (keyword) => {
-
-  const formData = {}
-  formData.model = 'contractor'
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = keyword
-  formData.excludeGeom = false
-  formData.associated_multiple_models = []
-
-  //--Single Filter -----------------------------------------
+ 
 
 
-  // - multiple filters -------------------------------------
-  formData.filters = []
-  formData.filterValues = []
+const getContractors = async (project_id) => {
 
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+const formData = {}
+formData.model = 'contractor'
+//-Search field--------------------------------------------
+ 
+//formData.searchKeyword = project_id
+formData.excludeGeom = false
+formData.associated_multiple_models = [ ]
 
-  //-------------------------
-  console.log("formData", formData)
-  const res = await searchByKeyWord(formData)
+ 
 
-  console.log("res.data", res.data)
+// - multiple filters -------------------------------------
+formData.filters = [ ]
+formData.filterValues = [ ]
 
-  if (res.data && res.data.length > 0) {
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+const res = await getSettlementListByCounty(formData)
+ 
+
+ 
+if (res.data && res.data.length > 0) {
     contractorOptions.value = res.data.map(item => ({
       value: item.id,
       id: item.id,
@@ -277,8 +279,97 @@ const getContractors = async (keyword) => {
 
   }
 
+}
+
+
+const getProjecteam = async (project_id) => {
+
+const formData = {}
+formData.model = 'project_team'
+//-Search field--------------------------------------------
+ 
+//formData.searchKeyword = project_id
+formData.excludeGeom = false
+formData.associated_multiple_models = [ ]
+
+ 
+
+// - multiple filters -------------------------------------
+formData.filters = ['project_id']
+formData.filterValues = [[project_id]]
+
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+const res = await getSettlementListByCounty(formData)
+ 
+projectTeamData.value= res.data
+ 
+ 
 
 }
+
+ 
+const getProjecContractors = async (project_id) => {
+
+const formData = {}
+formData.model = 'project_contractor'
+//-Search field--------------------------------------------
+ 
+//formData.searchKeyword = project_id
+formData.excludeGeom = false
+formData.associated_multiple_models = [ ]
+
+ 
+
+// - multiple filters -------------------------------------
+formData.filters = ['project_id']
+formData.filterValues = [[project_id]]
+
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+const res = await getSettlementListByCounty(formData)
+ 
+projectContractors.value= res.data
+ 
+ 
+
+}
+
+
+ 
+const getprojectDisbursements = async (project_id) => {
+
+const formData = {}
+formData.model = 'disbursement'
+//-Search field--------------------------------------------
+ 
+//formData.searchKeyword = project_id
+formData.excludeGeom = false
+formData.associated_multiple_models = [ ]
+
+ 
+
+// - multiple filters -------------------------------------
+formData.filters = ['project_id']
+formData.filterValues = [[project_id]]
+
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+const res = await getSettlementListByCounty(formData)
+ 
+projectDisbursements.value= res.data
+ 
+ 
+
+}
+
+
+
+
+
+
+
+
 
 
  const getLocations = async (project_id) => {
@@ -309,13 +400,38 @@ console.log('Locations:',project_id,res)
 }
 
 
+const getprojectDocuments = async (project_id) => {
+
+const formData = {}
+formData.model = 'document'
+//-Search field--------------------------------------------
+ 
+//formData.searchKeyword = project_id
+formData.excludeGeom = false
+formData.associated_multiple_models = [  ]
+
+ 
+// - multiple filters -------------------------------------
+formData.filters = ['project_id']
+formData.filterValues = [[project_id]]
+
+//formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+const res = await getSettlementListByCounty(formData)
+
+projectDocuments.value=res.data
+
+ 
+console.log('projectDocuments:',res)
+
+}
 
 
 const indicatorReports = ref([])
 const getIndicatorCategoryReports = async (projectId) => {
 
   const model = 'indicator_category_report'
-  const associated_multiple_models = ['document', 'project', 'county', 'subcounty', 'ward', 'users', 'indicator_category', 'document']
+  const associated_multiple_models = ['document', 'project', 'county', 'subcounty', 'ward', 'users', 'indicator_category' ]
   //const nested_models = ['indicator_category', 'indicator'] // The mother, then followed by the child
   const nested_models = ['activity', 'project']  // The mother, then followed by the child
 
@@ -595,6 +711,7 @@ const projectFullData = ref()
 const projectTeamData = ref()
 const projectContractors = ref()
 const projectLocations = ref()
+const projectDisbursements = ref()
 
 const project_title = ref()
 const project_id = ref(route.params.id)
@@ -625,8 +742,15 @@ onMounted(async () => {
   implementation_scope.value=res.data.implementation_scope
   getDocumentTypes()
   getActivities()
-  getContractors()
+  getContractors(route.params.id)
   getLocations(route.params.id)
+  getProjecteam(route.params.id)
+  getProjecContractors(route.params.id)
+  getprojectDocuments(route.params.id)
+
+  getprojectDisbursements(route.params.id)
+
+  
   // fetchNestedParentTasks(route.params.id)
   getIndicatorCategoryReports(route.params.id)
   changeProject(route.params.id)
@@ -846,7 +970,7 @@ const icon = ref(`<button>  <svg viewBox="0 0 24 24" fill="none" xmlns="http://w
 
 const showSatellite = ref(false)
 
-const toggleFloatingDiv = async () => {
+const toggleFloatingDiv = async (nmap) => {
   showSatellite.value = !showSatellite.value;
   console.log('Show Satellite', showSatellite.value);
 
@@ -862,10 +986,7 @@ const toggleFloatingDiv = async () => {
 
 
   if (!showSatellite.value) {
-    console.log('Remove Satellte');
-
-
-
+    console.log('Remove Satellte'); 
 
 
     if (nmap.getLayer('Satellite')) {
@@ -878,9 +999,7 @@ const toggleFloatingDiv = async () => {
   } else {
 
     console.log('Add Satellte');
-
-
-
+ 
     if (nmap.getLayer('Satellite')) {
       nmap.removeLayer('Satellite');
       nmap.removeSource('Satellite');
@@ -914,19 +1033,35 @@ const toggleFloatingDiv = async () => {
 
 }
 
+function toFeatureCollection(array) {
+  return {
+    type: "FeatureCollection",
+    features: array.map(item => ({
+      type: "Feature",
+      geometry: JSON.parse(JSON.stringify(item.geom)), // remove Proxy/reactivity
+      properties: Object.fromEntries(
+        Object.entries(item).filter(([key]) => key !== "geom")
+      )
+    }))
+  };
+}
+
 
 
  
- 
+ const locationsGeometry=ref()
 
 const handleTabClick = (tab) => {
   console.log('Tab clicked:', tab.props);
   localStorage.setItem('activeTab', tab.props.name);
 
+  console.log(toFeatureCollection(projectLocations.value))
+
   if (tab.props.name === 'map') {
     // Delay the loadMap function
+    locationsGeometry.value=toFeatureCollection(projectLocations.value)
     setTimeout(() => {
-      loadMap(); // Load map after a brief delay
+      loadAllLocationsMap(locationsGeometry.value); // Load map after a brief delay
     }, 500); // Delay in milliseconds (500 ms = 0.5 seconds)
   }
 
@@ -1009,8 +1144,8 @@ const submitMoreDocuments = async () => {
     // addMoreDocuments.value = false
 
     const res = await uploadFilesBatch(formData)
-
-
+    getprojectDocuments(route.params.id)
+   
 
 
     if (res.code === "0000") {
@@ -1194,6 +1329,8 @@ const AddContractorTeam = async () => {
   AddContractorTeamDialog.value = true
 }
 
+ 
+
 // do not use same name with ref
 const contractorForm = ref({
   project_id: route.params.id,
@@ -1220,6 +1357,91 @@ const contractorRules = ({
     { required: true, message: 'Scope is required', trigger: 'blur' },
   ],
 })
+
+
+
+
+
+
+
+
+
+const AddDisbursementTeamDialog = ref(false)
+const DisbursementFormRef = ref()
+
+const AddDisbursement= async () => {
+  AddDisbursementTeamDialog.value = true
+}
+
+
+
+
+// do not use same name with ref
+const DisbursementForm = ref({
+  project_id: route.params.id,
+  amount : null,
+  disbursement_date : new Date(),
+  certificate :  null ,
+  description: null , 
+    code: shortid.generate()
+})
+
+
+ 
+
+
+const DisbursementRules = ({
+ 
+  amount: [
+    { required: true, message: 'Amount is required', trigger: 'blur' },
+  ],
+
+  description: [
+    { required: true, message: 'Description is required', trigger: 'blur' },
+  ],
+
+  certificate: [
+    { required: true, message: 'IPC certificate is required', trigger: 'blur' },
+  ],
+})
+
+
+
+
+const updateDisbursement = async () => {
+
+  DisbursementFormRef.value.validate(async (valid: boolean) => {
+
+  if (valid) {
+    console.log('submit!')
+
+    DisbursementForm.value.model = 'disbursement'
+
+    const res = await CreateRecord(DisbursementForm.value)
+
+
+    projectTeamData.value.push(res.data)
+    getprojectDisbursements(route.params.id)
+
+
+
+
+
+  } else {
+    console.log('error submit!')
+  }
+
+
+})
+
+
+}
+
+
+
+
+
+
 
 
 const contract_roles = ['Main Contractor', 'Subcontractor', 'Consultant', 'Other'];
@@ -1266,6 +1488,49 @@ const RemoveContractor = async (row) => {
   }
 
 }
+
+
+
+
+const RemoveDocument = async (row) => {
+
+let formData = {}
+formData.id = row.id
+formData.model = 'document'
+
+await DeleteRecord(formData);
+
+
+
+// remove the deleted object from array list 
+let index = projectDocuments.value.indexOf(row);
+if (index !== -1) {
+  projectDocuments.value.splice(index, 1);
+}
+
+}
+
+
+const RemoveDisbursement= async (row) => {
+
+let formData = {}
+formData.id = row.id
+formData.model = 'disbursement'
+
+await DeleteRecord(formData);
+
+
+
+// remove the deleted object from array list 
+let index = projectDisbursements.value.indexOf(row);
+if (index !== -1) {
+  projectDisbursements.value.splice(index, 1);
+}
+
+}
+
+
+
 const handleSelectContractor = async (selected) => {
   const selectedContractor = contractorOptions.value.filter(item => item.id == selected);
 
@@ -2056,10 +2321,7 @@ const prevStep = () => {
 }
 
 
-function disabledFutureDates(date) {
-  const today = new Date();
-  return date.getTime() > today.getTime(); // Disable dates after today
-}
+ 
 
 
 const firstReport = ref(true)
@@ -2209,6 +2471,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
 
       console.log('after submit', docs.data)
 
+      projectDocuments.value.push(docs.data)
 
       AddDialogVisible.value = false
 
@@ -2290,8 +2553,8 @@ const _remoteMethod = async (keyword) => {
 
 }
 
-const remoteMethod = async ( ) => {
- // console.log(keyword);
+const remoteMethod = async ( keyword) => {
+ // console.log(implementation_scope.value);
   loading.value = true;
  let   model = implementation_scope.value
 
@@ -2308,7 +2571,7 @@ const remoteMethod = async ( ) => {
   const formData = {
     model: model,  // Dynamic model based on the passed argument
     searchField: 'name',
-    searchKeyword: '',
+    searchKeyword: keyword,
     excludeGeom: false,
     excludeGeomAssoc: true,
     associated_multiple_models: associatedModels,  // You can adjust this based on the selected model
@@ -2358,13 +2621,14 @@ const remoteMethod = async ( ) => {
              geom: item.geom
           };
         } else if (model === 'ward') {
+          console.log(item)
           return {
             value: item.id,
             label: item.name,
             name: item.name,
             subcounty: item.subcounty.name,
-            county: item.county.name,
-            county_id: item.county.id,
+           // county: item.county.name,
+           // county_id: item.county.id,
             subcounty_id: item.subcounty.id,
 
             geom: item.geom
@@ -2381,47 +2645,7 @@ const remoteMethod = async ( ) => {
 
 
 const extra_locations =ref([])
-const _SaveLocation = async () => {
-
-//console.log('deleted_locations',deleted_locations)
-var form = {}
-form.model = 'project_location'
-
-console.log('project_id', project_id.value)
-console.log('locations', extra_locations.value)
-
-// fist check if theres any proehct with this id exists then delete all
-
-const location_objects = [];
-
-for (let i = 0; i < extra_locations.value.length; i++) {
-  console.log(extra_locations.value[i])
-  let obj = {}
-  obj.project_id = project_id.value
-  obj.settlement_id = extra_locations.value[i].settlement_id
-  obj.ward_id = extra_locations.value[i].ward_id
-  obj.subcounty_id = extra_locations.value[i].subcounty_id
-  obj.county_id = extra_locations.value[i].county_id
-  obj.location_type = 'settlement'
-  obj.location_name = extra_locations.value[i].name
-  obj.geom = extra_locations.value[i].geom
  
-  location_objects.push(obj)
-  console.log('obj', obj)
-}
-
-form.data = location_objects
-console.log('formData', form)
-
-const loc_res = await BatchImportUpsert(form)
-console.log('loc_res', loc_res)
-
-// 
-getLocations(project_id.value)
-// Empty the locations and 
-extra_locations.value = []
-locationOptions.value = []
-}
 
 const SaveLocation = async () => {
   var form = {};
@@ -2466,6 +2690,7 @@ const SaveLocation = async () => {
       obj.ward_id = extra_locations.value[i].value;
       obj.subcounty_id = extra_locations.value[i].subcounty_id; // Ensure subcounty_id is linked
       obj.county_id = extra_locations.value[i].county_id; // Ensure county_id is linked
+
       obj.location_type = 'ward';
       obj.location_name = extra_locations.value[i].name;
       obj.geom = extra_locations.value[i].geom;
@@ -2669,6 +2894,193 @@ const closeMap = () => {
   dialogMap.value = false
 }
 
+const loadAllLocationsMap = (featureCollection) => {
+  const centroid = turf.centroid(featureCollection);
+  const mapCenter = centroid.geometry.coordinates;
+
+  const nmap = new mapboxgl.Map({
+    container: "mapContainerAll",
+    style: "mapbox://styles/mapbox/streets-v12",
+    center: mapCenter,
+    zoom: 5,
+  });
+
+  nmap.on("load", () => {
+    // Add base layers
+    nmap.addLayer({
+      id: "Satellite",
+      source: { type: "raster", url: "mapbox://mapbox.satellite", tileSize: 256 },
+      type: "raster",
+    });
+
+    nmap.addLayer({
+      id: "Streets",
+      source: { type: "raster", url: "mapbox://mapbox.streets", tileSize: 256 },
+      type: "raster",
+    });
+
+    nmap.setLayoutProperty("Satellite", "visibility", "none");
+
+    // Add FeatureCollection as a source
+    nmap.addSource("project-data", {
+      type: "geojson",
+      data: featureCollection,
+    });
+
+    // Add layers for each feature type
+
+    // Points layer
+    nmap.addLayer({
+      id: 'points',
+      type: 'circle',
+      source: 'project-data',
+      paint: {
+        'circle-color': 'red',
+        'circle-radius': 6,
+      },
+      filter: ['==', '$type', 'Point'],
+    });
+
+    // Polygons layer (fill and outline)
+    nmap.addLayer({
+      id: 'polygons-fill',
+      type: 'fill',
+      source: 'project-data',
+      paint: {
+        'fill-color': 'rgba(0, 0, 255, 0.01)', // More transparent fill
+        'fill-outline-color': 'red', // Outline color
+      },
+      filter: ['==', '$type', 'Polygon'],
+    });
+
+    nmap.addLayer({
+      id: 'polygons-outline',
+      type: 'line',
+      source: 'project-data',
+      paint: {
+        'line-color': 'red',
+        'line-width': 2,
+      },
+      filter: ['==', '$type', 'Polygon'],
+    });
+
+    // Fit map to bounds of the FeatureCollection
+    const bounds = turf.bbox(featureCollection); // [minX, minY, maxX, maxY]
+    nmap.fitBounds(bounds, {
+      padding: 40,
+      animate: true,
+    });
+
+    // Add controls
+    nmap.addControl(new mapboxgl.NavigationControl(), "top-left");
+    nmap.resize();
+  });
+
+  // Handle click events for different layers
+  nmap.on('click', 'points', (e) => {
+    const feature = e.features[0];
+    //const coordinates = feature.geometry.coordinates.slice();
+
+    const centroid = turf.centroid(feature);
+    const coordinates = centroid.geometry.coordinates;
+    console.log('coordinates',coordinates)
+
+    const properties = feature.properties;
+
+    let popupContent = `<h4>Location Details</h4>`;
+       popupContent += `<strong>Location:</strong> ${properties['location_name']}, ${properties['location_type']} `;
+
+    
+
+    new mapboxgl.Popup({ offset: 25 })
+      .setLngLat(coordinates)
+      .setHTML(popupContent)
+      .addTo(nmap);
+  });
+
+  nmap.on('click', 'polygons-fill', (e) => {
+    const feature = e.features[0];
+   // const coordinates = feature.geometry.coordinates[0]; // Polygons have an array of coordinates
+    const properties = feature.properties;
+
+
+    const centroid = turf.centroid(feature);
+    const coordinates = centroid.geometry.coordinates;
+    console.log('coordinates',coordinates)
+
+
+    let popupContent = `<strong><h4>Location Details</h4></strong>`;
+    popupContent += `<li><strong>Location:</strong> ${properties['location_name']}, ${properties['location_type']} </li>`;
+
+     
+    new mapboxgl.Popup({ offset: 25 })
+      .setLngLat(coordinates) // Set popup at the first coordinate of the polygon
+      .setHTML(popupContent)
+      .addTo(nmap);
+  });
+
+
+   // Remove the popup when mouse leaves the feature
+      nmap.on('mouseleave', 'points', (e) => {
+        if (e.target.popup) e.target.popup.remove();
+      });
+
+      nmap.on('mouseleave', 'polygons-fill', (e) => {
+        if (e.target.popup) e.target.popup.remove();
+      });
+
+  
+      
+  function addInfo(map) {
+    class LayerButton {
+      onAdd(map) {
+        const div = document.createElement("div");
+        div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+        div.innerHTML = icon.value;
+        div.addEventListener("contextmenu", (e) => e.preventDefault());
+        div.addEventListener("click", () => toggleFloatingDiv(nmap));
+
+        return div;
+      }
+    }
+    const lryButton = new LayerButton();
+    nmap.addControl(lryButton, "top-right");
+  }
+  addInfo(nmap)
+   
+};
+ 
+
+function disabledFutureDates(date) {
+  const today = new Date();
+  return date.getTime() > today.getTime(); // Disable dates after today
+}
+
+
+const getSummaries = (param) => {
+  const { columns, data } = param;
+  const sums = [];
+
+  columns.forEach((column, index) => {
+    if (index === 0) {
+      sums[index] = 'Total';
+      return;
+    }
+
+    if (column.property === 'amount') {
+      const total = data.reduce((sum, row) => {
+        const value = Number(row[column.property]);
+        return isNaN(value) ? sum : sum + value;
+      }, 0);
+      sums[index] = total.toLocaleString(); // Or format however you like
+    } else {
+      sums[index] = '';
+    }
+  });
+
+  return sums;
+};
+
 
 
 </script>
@@ -2717,8 +3129,8 @@ const closeMap = () => {
 
       </el-tab-pane>
 
-      <el-tab-pane label="Locations" name="Locations">
-        <el-button :onClick="AddLocation" style="margin-left :5px;margin-bottom :5px; " plain>
+      <el-tab-pane v-if="implementation_scope!='national'" label="Locations" name="Locations">
+        <el-button  :onClick="AddLocation" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Location
           </el-button>
 
@@ -2735,7 +3147,7 @@ const closeMap = () => {
                 <template #default="scope">
                   <el-button 
                     size="small" 
-                    icon="location" 
+                    :icon="Position" 
                     @click="openMapDialog(scope)"
                     type="primary"
                     plain
@@ -2746,7 +3158,7 @@ const closeMap = () => {
                   <el-button 
                     size="small" 
                     type="danger" 
-                    icon="el-icon-delete"
+                    :icon="Delete"
                     @click="DeleteProjectLocation(scope)"
                     plain
                   >
@@ -2756,36 +3168,32 @@ const closeMap = () => {
               </el-table-column>
             </el-table>
 
-            
-    <el-dialog v-model="ShowLocationAddDialog" title="Add Project Location" width="500" :before-close="handleCloseAdd">
-      <el-select
-            id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
-        :loading="loading" :placeholder="implementation_scope" :remote-method="remoteMethod" style="width: 85%">
-        <el-option v-for="item in locationOptions" :key="item.id" :label="item.label" :value="item">
-          <div style="display: flex; align-items: center;">
-            <span style="flex: 1; text-align: left;">{{ item.label }}</span>
-            <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
-              {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
-            </span>
-          </div>
-        </el-option>
-      </el-select>
-      <el-tooltip content="Save" placement="top">
-        <el-button :onClick="SaveLocation" style="margin-left :10px;" type="primary">
-          <Icon icon="ic:round-save" style=" color: white" size="48" />
-        </el-button>
+            <el-dialog v-model="ShowLocationAddDialog" title="Add Project Location" width="500" :before-close="handleCloseAdd">
+            <el-select id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
+              :loading="loading" :placeholder="implementation_scope" :remote-method="remoteMethod" style="width: 85%">
+              <el-option v-for="item in locationOptions" :key="item.id" :label="item.label" :value="item">
+                <div style="display: flex; align-items: center;">
+                  <span style="flex: 1; text-align: left;">{{ item.label }}</span>
+                  <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 13px; text-align: right;">
+                    {{ item.ward ? item.ward + ', ' : '' }}{{ item.subcounty ? item.subcounty + ', ' : '' }}{{ item.county }}
+                  </span>
+                </div>
+              </el-option>
+            </el-select>
+            <el-tooltip content="Save" placement="top">
+              <el-button :onClick="SaveLocation" style="margin-left :10px;" type="primary">
+                <Icon icon="ic:round-save" style=" color: white" size="48" />
+              </el-button>
+            </el-tooltip>
+          </el-dialog>
 
-
-      </el-tooltip>
-
-    </el-dialog>
 
 
     <el-dialog v-model="dialogMap" width="50%" draggable :before-close="closeMap" :show-close="false">
       <template #header="{ titleId, titleClass }">
         <div class="my-header">
           <h4 :id="titleId" :class="titleClass">Project Location</h4>
-          <h2 :style="`color: ${projectLocationColor}; font-style: italic;`">{{ locationStatus }}</h2>
+          <h2 :style="`color: green; font-style: italic;`">{{ locationStatus }}</h2>
           <!-- Use the 'italicizedColor' variable -->
           <el-button type="danger" :icon="CircleCloseFilled" @click="closeMap">Close Map</el-button>
         </div>
@@ -2799,16 +3207,9 @@ const closeMap = () => {
 
 
 
-
-
-
-
-
-
-
-
-      <el-tab-pane label="Map" name="map">
-        <div id="mapContainer" class="basemap"></div>
+ 
+      <el-tab-pane v-if="implementation_scope!='national'" label="Map" name="map">
+        <div id="mapContainerAll" class="basemap"></div>
       </el-tab-pane>
 
 
@@ -2909,7 +3310,7 @@ const closeMap = () => {
 
             <el-table-column fixed="right" label="">
               <template #default="scope">
-                <el-button type="primary" @click="downloadFile(scope.row)">
+                <el-button plain @click="downloadFile(scope.row)">
                   <Icon icon="fa-solid:download" style="  margin-right: 5px;" />
                   Download
                 </el-button>
@@ -2917,9 +3318,25 @@ const closeMap = () => {
 
               </template>
             </el-table-column>
+
+            <el-table-column fixed="right" label="">
+              <template #default="scope">
+                <el-button plain @click="RemoveDocument(scope.row)">
+                  <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
+                  Remove
+                </el-button>
+              </template>
+            </el-table-column>
+
+
           </el-table>
 
-          <el-button @click="toggleComponent(Project)" style="margin-top:10px">Upload</el-button>
+ 
+          <el-button plain @click="toggleComponent(Project)"  style=" margin-top:10px">
+                  <Icon icon="fa-solid:upload" />
+                  Upload
+                </el-button>
+
 
         </el-card>
 
@@ -2984,6 +3401,31 @@ const closeMap = () => {
 
       </el-tab-pane>
 
+
+      <el-tab-pane label="Disbursements" name="disbursement">
+        <el-card>
+
+          <el-button :onClick="AddDisbursement" style="margin-left :5px;margin-bottom :5px; " plain>
+            <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Disbursement(s)
+          </el-button>
+          <el-table :data="projectDisbursements" style="width: 100%" show-summary   :summary-method="getSummaries"
+          >
+            <el-table-column type="index" width="100" />
+            <el-table-column prop="disbursement_date" label="Date" />
+            <el-table-column prop="amount" label="Amount" />
+            <el-table-column prop="certificate" label="IPC" />
+            <el-table-column fixed="right" label="">
+              <template #default="scope">
+                <el-button plain @click="RemoveDisbursement(scope.row)">
+                  <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
+                  Remove
+                </el-button>
+              </template>
+            </el-table-column>
+            </el-table>
+        </el-card>
+
+      </el-tab-pane>
 
 
 
@@ -3053,7 +3495,7 @@ const closeMap = () => {
   </el-card>
 
 
-
+<!-- 
   <el-dialog v-model="ShowActivityAddDialog" title="Add Project Activity" width="500">
     <el-select id="location-select" v-model="projectScope" multiple filterable remote reserve-keyword
       placeholder=" Search Activities" :remote-method="getActivities" style="width: 85%">
@@ -3074,7 +3516,7 @@ const closeMap = () => {
 
     </el-tooltip>
 
-  </el-dialog>
+  </el-dialog> -->
 
 
 
@@ -3303,7 +3745,7 @@ const closeMap = () => {
             </el-input-number>
           </el-form-item>
           <el-form-item id="btn10" label="Date" prop="date">
-            <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" style="width: 100%;"
+            <el-date-picker v-model="ruleForm.date" type="date"  placeholder="Pick a day" style="width: 100%;"
               :disabled-date="disabledFutureDates" />
           </el-form-item>
         </el-col>
@@ -3368,6 +3810,51 @@ const closeMap = () => {
 
 
   </el-dialog>
+
+
+
+  <el-dialog v-model="AddDisbursementTeamDialog" title="Add Disbursement/Payemnt" width="500">
+    <el-form :model="DisbursementForm" label-width="auto" style="max-width: 600px" label-position="top"
+      ref="DisbursementFormRef" :rules="DisbursementRules">
+      
+      <el-form-item label="IPC " prop='certificate'>
+        <el-input v-model="DisbursementForm.certificate"  style="max-width: 100%"/>
+      </el-form-item>
+
+           
+      <el-form-item label="Description " prop='description'>
+        <el-input v-model="DisbursementForm.description"  style="max-width: 100%"/>
+      </el-form-item>
+
+
+      <el-form-item label="Amount" prop='amount'>
+        <el-input-number  min="0"  v-model="DisbursementForm.amount" style="max-width: 100%" />
+      </el-form-item>
+
+
+      <el-form-item label="Date" prop='disbursement_date' >
+        <el-date-picker v-model="DisbursementForm.disbursement_date" :disabled-date="disabledFutureDates" style="max-width: 100%" />
+      </el-form-item>
+
+      <el-tooltip content="Save" placement="top">
+        <el-button :onClick="updateDisbursement" style="margin-left :10px;" type="primary">
+          <Icon icon="ic:round-save" style=" color: white" size="48" /> Save
+        </el-button>
+
+      </el-tooltip>
+
+    </el-form>
+
+
+  </el-dialog>
+
+
+
+
+
+
+
+
 
 </template>
 <style scoped>
