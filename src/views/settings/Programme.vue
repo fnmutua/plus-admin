@@ -20,8 +20,8 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 
-import { ref, reactive,onMounted } from 'vue'
-import { ElPagination, ElTooltip, ElOption, ElCard, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDatePicker, ElPopconfirm } from 'element-plus'
+import { ref, reactive,onMounted,computed } from 'vue'
+import { ElPagination, ElTooltip, ElOption, ElCard, ElDialog, ElForm, ElFormItem, ElInput, FormRules, ElDatePicker, ElPopconfirm ,ElTable,ElTableColumn} from 'element-plus'
 import { useRouter } from 'vue-router'
 import exportFromJSON from 'export-from-json'
 import { useAppStoreWithOut } from '@/store/modules/app'
@@ -30,6 +30,7 @@ import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
 import type { FormInstance } from 'element-plus'
 import DownloadAll from '@/views/Components/DownloadAll.vue';
+const isMobile = computed(() => appStore.getMobile)
 
 
 const { wsCache } = useCache()
@@ -112,7 +113,7 @@ var filters = []
 var filterValues = []
 var tblData = []
 const associated_Model = ''
-const associated_multiple_models = []
+const associated_multiple_models = [ ]
 const model = 'programme'
 //// ------------------parameters -----------------------////
 
@@ -242,7 +243,7 @@ const flattenJSON = (obj = {}, res = {}, extraKey = '') => {
   return res;
 };
 
-
+const parentOptions =ref([])
 const getFilteredData = async (selFilters, selfilterValues) => {
   const formData = {}
   formData.limit = pageSize.value
@@ -271,19 +272,20 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
   tblData = [] // reset the table data
   console.log('TBL-b4', tblData)
-  res.data.forEach(function (arrayItem) {
-    //  console.log(countyOpt)
-    // delete arrayItem[associated_Model]['geom'] //  remove the geometry column
+  
 
-    var dd = flattenJSON(arrayItem)
 
-    tblData.push(dd)
-  })
+  parentOptions.value = res.data.map(item => ({
+  label: item.title,
+  value: item.id
+}));
+
+
 
   console.log('TBL-4f', tblData)
 }
 
-
+ 
 
 const getIndicatorOptions = async () => {
   const res = await getCountyListApi({
@@ -344,7 +346,8 @@ const editIndicator = (data: TableSlotDefault) => {
   ruleForm.title = data.row.title
   ruleForm.description = data.row.description
     ruleForm.icon = data.row.icon
-  ruleForm.acronym = data.row.acronym
+    ruleForm.acronym = data.row.acronym
+    ruleForm.parentId = data.row.parentId
 
 
   formHeader.value = 'Edit Category'
@@ -400,7 +403,8 @@ const ruleForm = reactive({
   title: '',
   description: '',
    icon: null,
-  acronym: null
+   acronym: null,
+   parentId: null
 
 })
 
@@ -477,6 +481,62 @@ const goBack = () => {
 
 
 
+const programmeRules = reactive<FormRules>({
+  title: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+
+  acronym: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+
+
+  description: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+
+  icon: [
+    { required: true, message: 'Required', trigger: 'blur' },
+  ],
+
+ 
+
+
+})
+
+
+const removeDuplicateChildren = (data) => {
+  // Track all paths that appear as children
+  const childPaths = new Set();
+
+  // First pass: collect all child paths
+  const collectChildPaths = (items) => {
+    items.forEach(item => {
+      if (item.children) {
+        item.children.forEach(child => {
+          childPaths.add(child.path); // Mark this path as a child
+          if (child.children) collectChildPaths([child]); // Recurse
+        });
+      }
+    });
+  };
+  collectChildPaths(data);
+
+  // Second pass: remove parent rows that are also children
+  const filteredData = data.filter(item => !childPaths.has(item.path));
+
+  // Clean up empty parents
+  return filteredData.map(item => ({
+    ...item,
+    children: item.children ? removeDuplicateChildren(item.children) : []
+  }));
+};
+
+// Usage:
+const uniqueData = ref(removeDuplicateChildren(tableDataList.value));
+
+
+
 
 </script>
 
@@ -498,9 +558,6 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
         collapse-tags placeholder="Search Programme">
         <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
-
-
-
  
 
   <!-- Action Buttons -->
@@ -522,58 +579,111 @@ v-model="value3" :onChange="handleSelectIndicator" :onClear="handleClear" multip
  
   
     
+<el-table  ref="tableRef"  :tree-props="{children: 'children'}" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
+       flexible >
+
+ 
+      <el-table-column label="Title" prop="title"  resizable sortable />
+      <el-table-column label="Acronym" prop="acronym" sortable />
+      <el-table-column label="Parent" prop="parent.acronym" sortable />
+  
+      <el-table-column fixed="right" label="Actions"  >
+            <template #default="scope">
+              <el-dropdown v-if="isMobile">
+                <span class="el-dropdown-link">
+                  <Icon icon="ic:sharp-keyboard-arrow-down" width="24" />
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+@click="editIndicator(scope as TableSlotDefault)"
+                      :icon="Position">View</el-dropdown-item>
+
+
+                    <el-dropdown-item
+v-if="showAdminButtons" @click="DeleteIndicator(scope as TableSlotDefault)"
+                      :icon="Delete" color="red">Delete</el-dropdown-item>
+
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+
+
+              <div v-else>
+
+                <el-tooltip v-if="showAdminButtons" content="Edit" placement="top">
+                  <el-button
+type="success" size="small" :icon="Edit" @click="editIndicator(scope as TableSlotDefault)"
+                    circle />
+                </el-tooltip>
+ 
+ 
+
+
+                <el-tooltip v-if="showAdminButtons" content="Delete" placement="top" >
+                  <el-popconfirm
+confirm-button-text="Yes" cancel-button-text="No"  :icon="InfoFilled" icon-color="#626AEF"
+                    title="Are you sure to delete this record?" width="350"
+                    @confirm="DeleteIndicator(scope as TableSlotDefault)">
+                    <template #reference>
+                      <el-button type="danger" size="small" :icon=Delete circle />
+                    </template>
+                  </el-popconfirm>
+                </el-tooltip>
+
+              </div>
+            </template>
+
+          </el-table-column>
+
+
+    </el-table>
 
  
 
 
 
-
-
-    <Table
-:columns="columns" :data="tableDataList" :loading="loading" style="margin-top:30px" :selection="true" :pageSize="pageSize"
-      :currentPage="currentPage">
-      <template #action="data">
-        <el-tooltip content="Edit" placement="top">
-          <el-button type="success" :icon="Edit" @click="editIndicator(data as TableSlotDefault)" circle />
-        </el-tooltip>
-
-        <el-tooltip content="Delete" placement="top">
-          <el-popconfirm
-confirm-button-text="Yes" cancel-button-text="No" :icon="InfoFilled" icon-color="#626AEF"
-            title="Are you sure to delete this record?" @confirm="DeleteIndicator(data as TableSlotDefault)">
-            <template #reference>
-              <el-button v-if="showAdminButtons" type="danger" :icon="Delete" circle />
-            </template>
-          </el-popconfirm>
-        </el-tooltip>
-
-      </template>
-    </Table>
+ 
     <ElPagination
 layout="sizes,prev,pager,next, total" v-model:currentPage="currentPage" v-model:page-size="pageSize"
       :page-sizes="[5, 10, 20, 50, 200, 10000]" :total="total" :background="true" @size-change="onPageSizeChange"
       @current-change="onPageChange" class="mt-4" />
   </el-card>
 
+
   <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" width="30%" draggable>
-    <el-form ref="ruleFormRef" :model="ruleForm" :rules="rules" label-width="120px">
-      <el-form-item label="Acronym">
+    <el-form ref="ruleFormRef"  :model="ruleForm" :rules="programmeRules" label-width="120px">
+      <el-form-item label="Title" prop="title">
         <el-input v-model="ruleForm.title" />
       </el-form-item>
-      <el-form-item label="Title">
+
+      <el-form-item label="Parent" prop="parentId">
+ 
+        <el-select
+            v-model="ruleForm.parentId"
+            placeholder="Select Parent Programme"
+            filterable
+            clearable
+          >
+            <el-option
+              v-for="option in parentOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+      </el-form-item>
+      <el-form-item label="Acronym" prop="acronym">
         <el-input v-model="ruleForm.acronym" />
       </el-form-item>
 
-      <el-form-item label="Description">
+      <el-form-item label="Description"  prop="description">
         <el-input v-model="ruleForm.description" />
       </el-form-item>
     
- 
-
-      <el-form-item label="Icon">
+      <el-form-item label="Icon" prop="icon">
         <el-input v-model="ruleForm.icon" />
       </el-form-item>
-
 
     </el-form>
     <template #footer>

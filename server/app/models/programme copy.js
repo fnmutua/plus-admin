@@ -29,11 +29,6 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
  
-    parentId: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      
-    },
 
     code: {
       type: DataTypes.STRING,
@@ -42,12 +37,12 @@ module.exports = function(sequelize, DataTypes) {
  
   }, {
     sequelize,
-    tableName: 'programmex',
+    tableName: 'programme',
     schema: 'public',
     timestamps: true,
     indexes: [
       {
-        name: "programme_pkxey",
+        name: "programme_pkey",
         unique: true,
         fields: [
           { name: "id" },

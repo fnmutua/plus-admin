@@ -14,7 +14,7 @@ const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
   define: {
     timestamps: false
   },
-  logging: false, // Felix - Disable logging
+  logging: true, // Felix - Disable logging
 
 })
 const db = {}
@@ -823,6 +823,22 @@ db.models.contractor.hasMany(db.models.document, {
   foreignKey: 'contractor_id'
 })
 
+
+
+  // programme - self reference (parent-child relationship)
+db.models.programme.belongsTo(db.models.programme, {
+  as: 'parent',
+  foreignKey: 'parentId',
+  onUpdate: 'CASCADE',
+  onDelete: 'SET NULL',
+});
+
+db.models.programme.hasMany(db.models.programme, {
+  as: 'children',
+  foreignKey: 'parentId',
+  onUpdate: 'CASCADE',
+  onDelete: 'SET NULL',
+});
 
 
 

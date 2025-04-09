@@ -779,7 +779,7 @@ const getBeneficiaries = async (selfilters, selfilterValues) => {
   // - multiple filters -------------------------------------
   formData.filters = selfilters.value
   formData.filterValues = selfilterValues.value
-  formData.associated_multiple_models = ['households', 'component']
+  formData.associated_multiple_models = [ ]
 
   //------------------------- 
   //console.log(formData)
@@ -827,7 +827,7 @@ const getInterventionComponents = async () => {
 
 getAllProjects()
 getInterventionComponents()
-getBeneficiaries(filtersBen, filterValuesBen)  // First time
+//getBeneficiaries(filtersBen, filterValuesBen)  // First time
 
 
 

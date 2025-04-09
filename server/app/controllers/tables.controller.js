@@ -72,7 +72,7 @@ exports.allAccess = (req, res) => {
 }
 
 
-exports.GetRoutes = (req, res) => {
+exports.xGetRoutes = (req, res) => {
   console.log('Req-body 001', req.body)
    // console.log('nested filters....>', req.body.nested_filter[0])
  
@@ -224,6 +224,176 @@ exports.GetRoutes = (req, res) => {
      })
    })
  }
+
+ 
+ 
+ exports.GetRoutes = async (req, res) => {
+  try {
+    const {
+      model: reg_model,
+      filters = [],
+      filterValues = [],
+      associated_multiple_models = [],
+      limit,
+      page,
+      cache_key
+    } = req.body;
+
+    console.log('Req-body', req.body);
+
+    // Validate model exists
+    const modelDefinition = db.models[reg_model];
+    if (!modelDefinition) {
+      return res.status(400).send({
+        error: `Model ${reg_model} not found`,
+        code: 'MODEL_NOT_FOUND'
+      });
+    }
+
+    // Base query construction
+    const baseQuery = { where: {} };
+
+    // Filter handling
+    if (filters.length > 0 && filterValues.length === filters.length) {
+      baseQuery.where = {
+        [Op.and]: filters.map((filter, i) => ({ [filter]: filterValues[i] }))
+      };
+    }
+
+    // Count query (separate for better performance)
+    const count = await modelDefinition.count(baseQuery);
+    console.log('Total records:', count);
+
+    // Build include models
+    const includeModels = [];
+
+    // Handle associated models
+    associated_multiple_models.forEach(modelName => {
+      if (db.models[modelName]) {
+        includeModels.push({
+          model: db.models[modelName],
+          required: false
+        });
+      }
+    });
+
+    // Handle self-referential relationships automatically
+    Object.values(modelDefinition.associations).forEach(assoc => {
+      console.log('Handle self-referential relationships automatically.................',reg_model,assoc.target.name )
+
+      if (assoc.target.name == reg_model) {
+
+        console.log('assoc.target.name1..............',assoc.target.name)
+
+        includeModels.push({
+          model: modelDefinition,
+          as: assoc.as,
+          required: false,
+        });
+      }
+    });
+
+    // Main query construction
+    const qry = {
+      include: includeModels.length ? includeModels : undefined,
+      where: baseQuery.where,
+      order: [['createdAt', 'DESC']],
+      distinct: true  // Important for correct counting with includes
+    };
+
+    // Pagination
+    if (limit) {
+      qry.limit = parseInt(limit);
+      if (page) {
+        qry.offset = (parseInt(page) - 1) * qry.limit;
+      }
+    }
+
+    console.log('Final Query:', qry);
+
+    // Cache handling
+    if (cache_key) {
+      const cacheDuration = 3600;
+      const lastModified = await getLastModified(modelDefinition);
+      const cachedData = await getCachedData(cache_key);
+
+      if (cachedData && lastModified <= cachedData.lastModified) {
+        return sendCachedResponse(res, cache_key, cachedData, count);
+      }
+
+      const response = await fetchAndCacheData(
+        modelDefinition,
+        qry,
+        cache_key,
+        cacheDuration,
+        count
+      );
+      return res.status(200).send(response);
+    }
+
+    // Non-cached response
+    const response = await modelDefinition.findAndCountAll(qry);
+    return res.status(200).send({
+      fromCache: false,
+      data: response.rows,
+      total: count,
+      code: '0000'
+    });
+
+  } catch (error) {
+    console.error('Error in GetRoutes:', error);
+    return res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
+      error: error.message
+    });
+  }
+};
+
+// Helper functions
+async function getLastModified(model) {
+  const lastRow = await model.findOne({
+    attributes: ['updatedAt'],
+    order: [['updatedAt', 'DESC']]
+  });
+  return lastRow?.updatedAt ?? Date.now();
+}
+
+async function getCachedData(cache_key) {
+  const cacheResults = await redisClient.get(cache_key);
+  return cacheResults ? JSON.parse(cacheResults) : null;
+}
+
+function sendCachedResponse(res, cache_key, cachedData, count) {
+  return res.status(200).send({
+    fromCache: true,
+    cache_key,
+    data: cachedData.data,
+    total: count,
+    code: '0000'
+  });
+}
+
+async function fetchAndCacheData(model, query, cache_key, cacheDuration, count) {
+  const response = await model.findAndCountAll(query);
+  await redisClient.set(
+    cache_key,
+    JSON.stringify({
+      data: response.rows,
+      total: count,
+      lastModified: Date.now()
+    }),
+    { EX: cacheDuration, NX: true }
+  );
+  return {
+    fromCache: false,
+    cache_key,
+    data: response.rows,
+    total: count,
+    code: '0000'
+  };
+}
+
 
 
 exports.modelBoard = (req, res) => {
@@ -2467,7 +2637,7 @@ exports.modelPaginatedData = (req, res) => {
     })
   })
 }
-exports.modelPaginatedDatafilterByColumn = async (req, res) => {
+exports._modelPaginatedDatafilterByColumn = async (req, res) => {
   console.log('Req-body 002', req.body);
 
   var reg_model = req.body.model;
@@ -2659,6 +2829,153 @@ exports.modelPaginatedDatafilterByColumn = async (req, res) => {
   }
 };
 
+exports.modelPaginatedDatafilterByColumn = async (req, res) => {
+  const { model: reg_model, filters, filterValues, associated_multiple_models = [], nested_models, nested_filter, limit, page, cache_key } = req.body;
+
+  console.log('Req-body 002', req.body);
+
+  const baseCountQuery = { where: {} };
+
+  // Filtering logic
+  if (filters?.length > 0 && filterValues?.length === filters.length) {
+    const lstQuerries = filters.map((filter, i) => ({ [filter]: filterValues[i] }));
+    baseCountQuery.where = { [Op.and]: lstQuerries };
+  }
+
+  // Count query
+  const count = await db.models[reg_model].count(baseCountQuery);
+  console.log('Base count:', count);
+
+  const includeModels = [];
+
+  // Include associated models
+  for (let i = 0; i < associated_multiple_models.length; i++) {
+    const assocModel = associated_multiple_models[i];
+    const modelIncl = { model: db.models[assocModel] };
+
+    if (assocModel === 'users') {
+      modelIncl.raw = true;
+      modelIncl.nested = true;
+      modelIncl.attributes = ['name', 'email', 'phone'];
+    }
+
+    includeModels.push(modelIncl);
+  }
+
+  // Include nested models if applicable
+  if (nested_models?.length) {
+    const child_model = db.models[nested_models[0]];
+    const grand_child_model = db.models[nested_models[1]];
+    const nestedQuery = nested_filter ? { [nested_filter[0]]: nested_filter[1] } : null;
+
+    const nestedModels = {
+      model: child_model,
+      include: [{
+        model: grand_child_model,
+        ...(nestedQuery && { where: nestedQuery })
+      }],
+      raw: true,
+      nested: true
+    };
+
+    includeModels.push(nestedModels);
+  }
+
+  // 👇 Handle self-recursive relationship (e.g., Programme -> Programme)
+  const modelDefinition = db.models[reg_model];
+  if (
+    modelDefinition?.associations?.children &&
+    modelDefinition?.associations?.parent
+  ) {
+    includeModels.push(
+      { model: modelDefinition, as: 'children' },
+      { model: modelDefinition, as: 'parent' }
+    );
+  }
+
+  // Final query
+  const qry = {
+    include: includeModels,
+    order: [['createdAt', 'DESC']],
+    ...(limit && { limit }),
+    ...(page && { offset: (page - 1) * limit }),
+    ...(baseCountQuery.where && { where: baseCountQuery.where })
+  };
+
+  console.log('Final Query:', qry);
+
+  try {
+    if (cache_key) {
+      const cacheDuration = 3600;
+
+      const lastRow = await modelDefinition.findOne({
+        attributes: ['updatedAt'],
+        order: [['updatedAt', 'DESC']]
+      });
+
+      const lastModified = lastRow?.updatedAt ?? Date.now();
+      const cacheResults = await redisClient.get(cache_key);
+
+      if (cacheResults) {
+        const result = JSON.parse(cacheResults);
+        if (lastModified > result.lastModified) {
+          const response = await modelDefinition.findAndCountAll(qry);
+          await redisClient.set(cache_key, JSON.stringify({
+            data: response.rows,
+            total: count,
+            lastModified: Date.now()
+          }), { EX: cacheDuration, NX: true });
+
+          return res.status(200).send({
+            fromCache: false,
+            cache_key,
+            data: response.rows,
+            total: count,
+            code: '0000'
+          });
+        } else {
+          return res.status(200).send({
+            fromCache: true,
+            cache_key,
+            data: result.data,
+            total: count,
+            code: '0000'
+          });
+        }
+      } else {
+        const response = await modelDefinition.findAndCountAll(qry);
+        await redisClient.set(cache_key, JSON.stringify({
+          data: response.rows,
+          total: count,
+          lastModified: Date.now()
+        }), { EX: cacheDuration, NX: true });
+
+        return res.status(200).send({
+          fromCache: false,
+          cache_key,
+          data: response.rows,
+          total: count,
+          code: '0000'
+        });
+      }
+    } else {
+      // No cache
+      const response = await modelDefinition.findAndCountAll(qry);
+      return res.status(200).send({
+        fromCache: false,
+        data: response.rows,
+        total: count,
+        code: '0000'
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR'
+    });
+  }
+};
 
 
 

@@ -183,6 +183,7 @@ function initModels(sequelize) {
   
   return {
     beneficiary,otp,
+    
     beneficiary_parcel,
     county,
     facility_type,
@@ -220,7 +221,7 @@ function initModels(sequelize) {
      indicator_category,
      indicator_category_report,
      project,
-     programme,
+    
      document,
     component,
     domain,
@@ -250,7 +251,7 @@ function initModels(sequelize) {
     project_beneficiary,grievance_resolution_level,
     grievance,
     grievance_log,disbursement,project_contractor,project_team,
-     grievance_resolution,grievance_escalation,grievance_document, grievance_notification,article,settlement_history,grievance_history,
+     grievance_resolution,grievance_escalation,grievance_document, grievance_notification,article,settlement_history,grievance_history, programme,
 
   }
 }
