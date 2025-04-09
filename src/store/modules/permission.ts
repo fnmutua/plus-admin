@@ -282,7 +282,7 @@ const getStarted = async () => {
 
 }
 
-getStarted()
+
  // Wrap your code in an async function
  
   const getDynamicDashboards = async () => {
@@ -442,7 +442,7 @@ getStarted()
     getDynamicDashboards();
     getPublicDynamicDashboards();
 
- 
+    getStarted()
  
 
 const subprograms = [
