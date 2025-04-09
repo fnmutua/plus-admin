@@ -2037,7 +2037,7 @@ size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear
 
 
     <el-table  ref="tableRef" row-key="id" :data="tableDataList" style="width: 100%; margin-top: 10px;" border
-      :row-class-name="tableRowClassName" flexible @expand-change="handleExpand" @row-click="handleRowDblClick" >
+      :row-class-name="tableRowClassName" flexible  @row-click="handleRowDblClick" >
 
 
       <el-table-column label="ID" width="80" prop="id" sortable>
@@ -2049,7 +2049,7 @@ size="default" v-model="value40" @change="filterByProgramme" @clear="handleClear
         </template>
       </el-table-column>
 
-
+<!-- 
       <el-table-column type="expand">
         <template #default="props">
           <div m="4">
@@ -2159,7 +2159,9 @@ confirm-button-text="Yes" width="340" cancel-button-text="No" :icon="InfoFilled"
 
           </div>
         </template>
-      </el-table-column>
+      </el-table-column> -->
+
+
       <el-table-column label="Project Title" prop="title"  resizable sortable />
 
       <el-table-column label="Programme" prop="programme.acronym" sortable />

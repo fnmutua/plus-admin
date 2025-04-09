@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, computed, watch, reactive } from 'vue'
 import {
-  ElButton, ElCascader, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
+  ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElDescriptions,
   ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber
 } from 'element-plus'
@@ -635,6 +635,8 @@ const getProjectActivities = async (project_id) => {
   return activityIds;
 };
 
+
+ 
 const changeProject = async (project: any) => {
 
 
@@ -652,6 +654,7 @@ const changeProject = async (project: any) => {
 
 
   project_activities = await getProjectActivities(project)
+  projectScopeChecked.value =project_activities
   sel_indicators = await getProjectActivityIndicators(project_activities)
 
   console.log('project_activities', project_activities)
@@ -710,7 +713,7 @@ const projectScope = ref()
 const projectFullData = ref()
 const projectTeamData = ref()
 const projectContractors = ref()
-const projectLocations = ref()
+const projectLocations = ref([])
 const projectDisbursements = ref()
 
 const project_title = ref()
@@ -747,13 +750,13 @@ onMounted(async () => {
   getProjecteam(route.params.id)
   getProjecContractors(route.params.id)
   getprojectDocuments(route.params.id)
-
+ 
   getprojectDisbursements(route.params.id)
 
   
   // fetchNestedParentTasks(route.params.id)
   getIndicatorCategoryReports(route.params.id)
-  changeProject(route.params.id)
+
 
 
   ruleForm.subcounty_id = projectFullData.value.subcounty_id,
@@ -793,7 +796,7 @@ onMounted(async () => {
   projectDescription.value = objectToArray(Project.value);
   console.log(projectDescription);
 
-
+  changeProject(route.params.id)
   // get current Tab 
   const savedTab = localStorage.getItem('activeTab');
   if (savedTab) {
@@ -1164,7 +1167,7 @@ const deleteRow = (index: number) => {
   projectScope.value.splice(index, 1)
 }
 
-
+const projectScopeChecked = ref([])
 
 const updateChanges = async () => {
   // Assuming projectScope.value is an array of objects with an 'id' property
@@ -1174,7 +1177,7 @@ const updateChanges = async () => {
 
   projectFullData.value.model = 'project'
   const res = await updateOneRecord(projectFullData.value)
-  console.log(res)
+  console.log('updated project Activties',res)
 }
 
 
@@ -1194,7 +1197,7 @@ const AddActivity = async () => {
 
 
 
-const projectScopeChecked = ref([])
+
 
 const toggleActivity = () => {
   console.log(projectScopeChecked.value)
@@ -3102,18 +3105,35 @@ const getSummaries = (param) => {
       <el-tab-pane label="Project Details" name="details">
 
         <el-card>
-
           <el-descriptions title="Project Information" border>
             <template #extra>
-              <el-button size="mini" type="primary" :icon="Edit" @click="editProject">
-                Edit Project
-                <el-icon>
-                  <Edit />
-                </el-icon>
-              </el-button>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                  <el-button
+                     type="primary"
+                    :icon="Edit"
+                    plain
+                    @click="editProject"
+                  >
+                    Edit Project
+                  </el-button>
 
-
-            </template>
+                  <el-popconfirm
+                    width="300"
+                    title="Are you sure to delete this project?"
+                    @confirm="DeleteProject(projectFullData.id)"
+                  >
+                    <template #reference>
+                      <el-button
+                         type="danger"
+                        plain
+                      >
+                        <Icon icon="material-symbols:delete" style="margin-right: 5px;" />
+                        Delete Project
+                      </el-button>
+                    </template>
+                  </el-popconfirm>
+                </div>
+              </template>
 
             <el-descriptions-item v-for="item in projectDescription" :key="item.property"
               :label="formatSentence(item.property)">
@@ -3121,11 +3141,7 @@ const getSummaries = (param) => {
             </el-descriptions-item>
           </el-descriptions>
 
-
-
         </el-card>
-
-
 
       </el-tab-pane>
 
@@ -3208,38 +3224,59 @@ const getSummaries = (param) => {
 
 
  
-      <el-tab-pane v-if="implementation_scope!='national'" label="Map" name="map">
+      <el-tab-pane v-if="implementation_scope!='national' && projectLocations.length>0" label="Map" name="map">
         <div id="mapContainerAll" class="basemap"></div>
       </el-tab-pane>
 
-
-
+ 
 
       <el-tab-pane label="Scope" name="Scope">
-        <el-card>
-          <div>
-            <el-button :onClick="updateChanges" style="margin-left :5px;margin-bottom :5px; " plain>
-              <Icon icon="ic:round-save" style=" color: green" size="52" /> Save Changes
-            </el-button>
+  <el-card>
+    <div style="display: flex; align-items: center; gap: 16px; margin-left: 5px; margin-bottom: 10px;">
+      <el-button
+        :onClick="updateChanges"
+        type="success"
+        plain
+      >
+        <Icon icon="ic:round-save" style="color: green; margin-right: 5px;" size="24" />
+        Save Changes
+      </el-button>
+
+      <p style="margin: 0;">Select project components and associated physical and social amenities</p>
+    </div>
+
+    <el-divider />
+
+    <el-row :gutter="10">
+      <el-col
+        v-for="(activity) in activityOptions"
+        :key="activity.id"
+        :sm="24"
+        :md="12"
+        :lg="12"
+        :xl="8"
+      >
+        <el-checkbox
+          v-model="projectScopeChecked"
+          :label="activity.id"
+          @change="toggleActivity()"
+          style="max-width: 100%;"
+        >
+          <span
+            style="display: inline-block; max-width: 95%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"
+            :title="activity.title"
+          >
+            {{ activity.title }}
+          </span>
+        </el-checkbox>
+      </el-col>
+    </el-row>
+  </el-card>
+</el-tab-pane>
 
 
-          </div>
-          <div style="margin-left :5px;">
-            <p> Select project components and associated physical and social amenities</p>
-          </div>
-          <el-row>
-            <el-col :sm="24" :md="24" :lg="24" :xl="24" v-for="(activity) in activityOptions" :key="activity.id">
-              <el-checkbox v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()">
-                {{ activity.title }}
-              </el-checkbox>
-            </el-col>
-          </el-row>
-        </el-card>
 
-      </el-tab-pane>
-
-
-      <el-tab-pane label="Achievements" name="Indicator">
+      <el-tab-pane label="Monitoring" name="Indicator">
         <el-card>
 
           <el-button :onClick="AddReport" style="margin-left :5px;margin-bottom :5px; " plain>
@@ -3247,8 +3284,6 @@ const getSummaries = (param) => {
           </el-button>
 
           <el-table :data="indicatorReports" border :row-class-name="tableRowClassName" ref="tableRef">
-
-
             <el-table-column label="#" width="80" prop="id" sortable>
               <template #default="scope">
                 <div v-if="scope.row.documents.length > 0" style="display: inline-flex; align-items: center;">
@@ -3257,13 +3292,10 @@ const getSummaries = (param) => {
                 </div>
               </template>
             </el-table-column>
-
-
             <el-table-column label="Indicator  " width="400" sortable>
               <template #default="{ row }">
                 <div>
                   <span> {{ row.indicator_category.indicator_name }} {{ row.indicator_category.category_title }} </span>
-
                 </div>
               </template>
             </el-table-column>
@@ -3272,7 +3304,6 @@ const getSummaries = (param) => {
                 {{ formatDate(scope.row.date) }}
               </template>
             </el-table-column>
-
             <el-table-column label="Amount" prop="amount" sortable />
             <el-table-column label="Amount (cumulutaive)" prop="cumAmount" sortable />
             <el-table-column label="Status" prop="status" sortable>
@@ -3287,19 +3318,9 @@ const getSummaries = (param) => {
                 </div>
               </template>
             </el-table-column>
-
-
-
-
-
           </el-table>
         </el-card>
-
       </el-tab-pane>
-
-
-
-
 
       <el-tab-pane label="Documentation" name="documents">
         <el-card>
@@ -3307,37 +3328,27 @@ const getSummaries = (param) => {
             <el-table-column type="index" width="50" />
             <el-table-column prop="name" label="Name" />
             <el-table-column prop="createdAt" label="Uploaded" />
-
             <el-table-column fixed="right" label="">
               <template #default="scope">
                 <el-button plain @click="downloadFile(scope.row)">
                   <Icon icon="fa-solid:download" style="  margin-right: 5px;" />
                   Download
                 </el-button>
-
-
               </template>
             </el-table-column>
-
             <el-table-column fixed="right" label="">
               <template #default="scope">
-                <el-button plain @click="RemoveDocument(scope.row)">
+                <el-button plain  type="danger"  @click="RemoveDocument(scope.row)">
                   <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
                   Remove
                 </el-button>
               </template>
             </el-table-column>
-
-
           </el-table>
-
- 
           <el-button plain @click="toggleComponent(Project)"  style=" margin-top:10px">
-                  <Icon icon="fa-solid:upload" />
+                  <Icon icon="fa-solid:upload"   style=" margin-right:10px"/>
                   Upload
                 </el-button>
-
-
         </el-card>
 
       </el-tab-pane>
@@ -3345,7 +3356,6 @@ const getSummaries = (param) => {
 
       <el-tab-pane label="Team" name="team">
         <el-card>
-
           <el-button :onClick="AddTeam" style="margin-left :5px;margin-bottom :5px; " plain>
             <Icon icon="material-symbols:add" style=" color: green" size="52" /> Add Team
           </el-button>
@@ -3355,18 +3365,14 @@ const getSummaries = (param) => {
             <el-table-column prop="phone" label="Phone" />
             <el-table-column prop="email" label="Email" />
             <el-table-column prop="role" label="Role" />
-
             <el-table-column fixed="right" label="">
               <template #default="scope">
-                <el-button plain @click="RemoveTeamMember(scope.row)">
+                <el-button plain  type="danger"  @click="RemoveTeamMember(scope.row)">
                   <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
                   Remove
                 </el-button>
-
-
               </template>
             </el-table-column>
-
           </el-table>
         </el-card>
 
@@ -3387,7 +3393,7 @@ const getSummaries = (param) => {
 
             <el-table-column fixed="right" label="">
               <template #default="scope">
-                <el-button plain @click="RemoveContractor(scope.row)">
+                <el-button plain  type="danger"  @click="RemoveContractor(scope.row)">
                   <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
                   Remove
                 </el-button>
@@ -3416,7 +3422,7 @@ const getSummaries = (param) => {
             <el-table-column prop="certificate" label="IPC" />
             <el-table-column fixed="right" label="">
               <template #default="scope">
-                <el-button plain @click="RemoveDisbursement(scope.row)">
+                <el-button plain  type="danger"   @click="RemoveDisbursement(scope.row)">
                   <Icon icon="material-symbols-light:delete-outline" style="  margin-right: 5px;" />
                   Remove
                 </el-button>
@@ -3479,7 +3485,7 @@ const getSummaries = (param) => {
 
 
 
-      <el-tab-pane label="Settings" name="Settings">
+      <!-- <el-tab-pane label="Settings" name="Settings">
         <el-popconfirm width="300" title="Are you sure to delete this project?"
           @confirm="DeleteProject(projectFullData.id)">
           <template #reference>
@@ -3489,7 +3495,7 @@ const getSummaries = (param) => {
             </el-button> </template>
         </el-popconfirm>
 
-      </el-tab-pane>
+      </el-tab-pane> -->
 
     </el-tabs>
   </el-card>
