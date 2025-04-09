@@ -4,7 +4,7 @@ import { flatMultiLevelRoutes } from '@/utils/routerHelper'
 import { store } from '../index'
 import { cloneDeep } from 'lodash-es'
 import { Layout } from '@/utils/routerHelper'
-import { ref } from 'vue'
+import { ref ,watch} from 'vue'
 import { getRoutesList } from '@/api/settlements'
 import { useAppStore} from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -45,6 +45,7 @@ const dynamicDashbaordOptions = ref([])
  
 
 
+ // 1. First, properly handle the async function
 const getProgrameComponents = async () => {
   const formData = {
     limit: 100,
@@ -58,78 +59,88 @@ const getProgrameComponents = async () => {
 
   try {
     const res = await getRoutesList(formData);
+    
+    if (!res?.data || !Array.isArray(res.data)) {
+      console.error('Invalid data structure received:', res?.data);
+      return [];
+    }
+
     console.log('programme routes ', res.data);
 
-    if (res.data && Array.isArray(res.data)) {
-      // Track all paths and their nesting levels
-      const pathRegistry = new Map();
+    // Track all paths and their nesting levels
+    const pathRegistry = new Map();
 
-      // First pass: collect all paths and their hierarchy (synchronous)
-      const collectPaths = (items, parentPath = '') => {
-        items.forEach(item => {
-          const fullPath = parentPath ? `${parentPath}/${item.acronym.toLowerCase()}` : item.acronym.toLowerCase();
-          pathRegistry.set(fullPath, { item, parentPath });
+    // Synchronous path collection
+    const collectPaths = (items, parentPath = '') => {
+      items.forEach(item => {
+        const fullPath = parentPath 
+          ? `${parentPath}/${item.acronym.toLowerCase()}` 
+          : item.acronym.toLowerCase();
+        pathRegistry.set(fullPath, { item, parentPath });
+        
+        if (Array.isArray(item.children)) {
+          collectPaths(item.children, fullPath);
+        }
+      });
+    };
+
+    collectPaths(res.data);
+
+    // Synchronous hierarchy building
+    const buildHierarchy = (items, parentPath = '') => {
+      return items
+        .filter(item => {
+          const fullPath = parentPath 
+            ? `${parentPath}/${item.acronym.toLowerCase()}` 
+            : item.acronym.toLowerCase();
+          return !Array.from(pathRegistry.keys()).some(
+            p => p !== fullPath && p.endsWith(`/${fullPath.split('/').pop()}`)
+          );
+        })
+        .map(item => {
+          const fullPath = parentPath 
+            ? `${parentPath}/${item.acronym.toLowerCase()}` 
+            : item.acronym.toLowerCase();
           
-          if (Array.isArray(item.children)) {
-            collectPaths(item.children, fullPath);
-          }
+          return {
+            path: fullPath.split('/').pop(),
+            name: toTitleCase(item.title),
+            meta: {
+              title: item.title,
+              hidden: false,
+              icon: item.icon,
+              programme_id: item.id,
+              role: ['admin', 'super_admin']
+            },
+            children: Array.isArray(item.children) 
+              ? buildHierarchy(item.children, fullPath)
+              : []
+          };
         });
-      };
-      collectPaths(res.data);
+    };
 
-      // Second pass: build the hierarchy (synchronous)
-      const buildHierarchy = (items, parentPath = '') => {
-        return items
-          .filter(item => {
-            const fullPath = parentPath ? `${parentPath}/${item.acronym.toLowerCase()}` : item.acronym.toLowerCase();
-            // Only include if this is the most nested version of the path
-            return !Array.from(pathRegistry.keys()).some(
-              p => p !== fullPath && p.endsWith(`/${fullPath.split('/').pop()}`)
-            );
-          })
-          .map(item => {
-            const fullPath = parentPath ? `${parentPath}/${item.acronym.toLowerCase()}` : item.acronym.toLowerCase();
-            
-            const processedItem = {
-              path: fullPath.split('/').pop(), // Only keep the last segment
-              name: toTitleCase(item.title),
-              meta: {
-                title: item.title,
-                hidden: false,
-                icon: item.icon,
-                programme_id: item.id,
-                role: ['admin', 'super_admin']
-              },
-              children: []
-            };
-
-            if (Array.isArray(item.children)) {
-              processedItem.children = buildHierarchy(item.children, fullPath);
-            }
-
-            return processedItem;
-          });
-      };
-
-      // This operation is synchronous, no need for await
-      const hierarchy = buildHierarchy(res.data);
-    //  programmeComponentOptions.value = hierarchy;
-      
-      console.log("Final programmeComponentOptions", programmeComponentOptions.value);
-      return  hierarchy; // Return the built hierarchy
-    } else {
-      console.error('Invalid data structure received:', res.data);
-      return []; // Return empty array if invalid data
-    }
+    return buildHierarchy(res.data);
   } catch (error) {
     console.error('Error fetching program components:', error);
-    throw error; // Re-throw or return empty array
+    throw error;
   }
-}; 
+};
 
+// 2. Proper usage with async/await
+const loadProgrammeComponents = async () => {
+  try {
+    const result = await getProgrameComponents();
+    programmeComponentOptions.value = result;
+    console.log("Final programmeComponentOptions", programmeComponentOptions.value);
+  } catch (error) {
+    console.error("Failed to load components:", error);
+    programmeComponentOptions.value = [];
+  }
+};
 
+// 3. Call the loader function
+loadProgrammeComponents();
 
- 
 
 
 const components = ref([])
@@ -148,6 +159,9 @@ const getComponents = async () => {
   try {
     const res = await getRoutesList(formData);
     console.log('Components routes ', res.data);
+
+
+
 
     if (res.data && Array.isArray(res.data)) {
      
@@ -269,6 +283,9 @@ const getComponents = async () => {
       console.error('Invalid data structure received:', res.data);
       return []; // Return empty array if invalid data
     }
+
+
+
   } catch (error) {
     console.error('Error fetching components:', error);
     throw error; // Re-throw or return empty array
@@ -276,12 +293,7 @@ const getComponents = async () => {
 };
 
 
-const getStarted = async () => { 
-  await getComponents()
-  programmeComponentOptions.value = await  getProgrameComponents()
-
-}
-
+ 
 
  // Wrap your code in an async function
  
@@ -442,35 +454,61 @@ const getStarted = async () => {
     getDynamicDashboards();
     getPublicDynamicDashboards();
 
-    getStarted()
  
-
-const subprograms = [
+ 
+ // 1. Define subprograms as a reactive reference
+const subprograms = ref([
   {
     path: '/subprogrammes',
     component: Layout,
-    //redirect: '/settings',
     name: 'Slum_Programmes',
     meta: {
       title: 'Projects',
       icon: 'icon-park-solid:love-and-help',
       alwaysShow: true,
-      role: ['admin', 'super_admin'] 
-
+      role: ['admin', 'super_admin']
     },
-    children:programmeComponentOptions.value
+    children: [] // Initialize empty
+  }
+]);
 
+// 2. Create a watcher to update when programmeComponentOptions changes
+watch(programmeComponentOptions, (newVal) => {
+  if (newVal.length > 0) {
+    // Update the children array
+    subprograms.value[0].children = [...newVal];
+    
+    // Find index if it already exists
+    const existingIndex = adminRoutes.findIndex(
+      route => route.path === '/subprogrammes'
+    );
+    
+    // Update or add the route
+    if (existingIndex >= 0) {
+      adminRoutes[existingIndex] = subprograms.value[0];
+    } else {
+      adminRoutes.splice(2, 0, ...subprograms.value);
     }
-  ]
- 
-  //push the subprograms to 3rd in row 
-    adminRoutes.splice(2, 0, ...subprograms);
- 
- 
- 
+  }
+}, { immediate: true, deep: true });
+
+// 3. Load data function
+const loadProgrammeData = async () => {
+  try {
+    const data = await getProgrameComponents();
+    programmeComponentOptions.value = data;
+  } catch (error) {
+    console.error("Error loading programme data:", error);
+    programmeComponentOptions.value = [];
+  }
+};
+
+// 4. Call the loader
+loadProgrammeData();
  
 console.log('routesX', adminRoutes)
 
+getComponents()
 
 export interface PermissionState {
   routers: AppRouteRecordRaw[]
