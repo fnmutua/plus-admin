@@ -127,7 +127,6 @@ const getProgrameComponents = async () => {
   }
 }; 
 
-programmeComponentOptions.value =    getProgrameComponents()
 
 
  
@@ -277,9 +276,13 @@ const getComponents = async () => {
 };
 
 
+const getStarted = async () => { 
+  await getComponents()
+  programmeComponentOptions.value = await  getProgrameComponents()
 
-  getComponents()
+}
 
+getStarted()
  // Wrap your code in an async function
  
   const getDynamicDashboards = async () => {
