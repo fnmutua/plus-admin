@@ -127,7 +127,7 @@ const getProgrameComponents = async () => {
   }
 }; 
 
-programmeComponentOptions.value = await  getProgrameComponents()
+programmeComponentOptions.value =    getProgrameComponents()
 
 
  
