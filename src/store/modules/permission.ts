@@ -278,7 +278,7 @@ const getComponents = async () => {
 
 
 
-await getComponents()
+  getComponents()
 
  // Wrap your code in an async function
  
