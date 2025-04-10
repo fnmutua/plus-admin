@@ -47,9 +47,11 @@ v-for="option in field.options" :key="option.value" :label="option.label"
                   v-else-if="field.type === 'tree' && field.multiselect === 'false' "
                   v-model="formData[field.name]"
                   :data="field.options"
-                  :render-after-expand="false"
+                  :render-after-expand="true"
                   node-key="value"
-          
+                  value-key="value"
+                  :disabled="newRecord"
+                  :props="{ label: 'label', children: 'children', value: 'value' }"
                   placeholder="Select"
                   @change="getFieldChangeHandler(field.name)"
                 />
@@ -206,9 +208,12 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { ElCard, ElTooltip, ElTour, ElTourStep, ElDialog, ElMessage, ElUpload,ElTreeSelect } from 'element-plus'
 import { useRouter } from 'vue-router'
 
-import { steps, formFields, formData, formRules,regionOptions } from './common/fields.ts'
-import { subcountyOptions, wardOptions,   } from './common/index.ts'
+import { steps, formFields, formData, formRules,regionOptions ,} from './common/fields.ts'
+import { subcountyOptions, wardOptions,prog_components   } from './common/index.ts'
 import shortid from 'shortid';
+
+import {   nextTick } from 'vue'
+
 import { useRoute } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
@@ -414,11 +419,19 @@ onMounted(async () => {
   //formData.value = JSON.parse(route.query.formData);
   // console.log('data>>',data)
   console.log('passed data', route.query.id)
+  console.log('formData', formData)
 
-  console.log('Loaded.......')
-  component_id.value = route.params.domain
+  let params = route.params
+  console.log('Loaded.......',params.domain)
+  component_id.value = params.domain
+ 
+
+ 
+    console.log('new formData ------------,', formData )
+
+
+
   console.log('component_id', component_id)
-  console.log('route.params.', route.query)
 
   const comp_form = {}
   comp_form.model = 'component'
@@ -494,14 +507,33 @@ onMounted(async () => {
 
   } else {
 
-    console.log('new record ------------,',newRecord.value )
-
+   
     Object.keys(formData).forEach((key) => {
       formData[key] = undefined;
     });
 
+    formData.component_id =params.domain
+
+
+    console.log('new record ------------,',formData )
+
+
   }
 })
+
+
+
+// Watch for when prog_components get populated
+watch(prog_components, (newVal) => {
+  if (newVal && newVal.length && formData.component_id) {
+    // Force update of v-model binding by resetting it
+    const temp = formData.component_id
+    formData.component_id = null
+    nextTick(() => {
+      formData.component_id = temp
+    })
+  }
+}, { immediate: true })
 
 
 

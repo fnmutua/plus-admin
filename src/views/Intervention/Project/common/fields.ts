@@ -88,9 +88,10 @@ const statusOptions = [
 console.log('prog_components.value',prog_components.value)
 console.log('implementationOptions.value',implementationOptions.value)
     
-const formFields: Field[][] = [
+ const formFields =reactive( [
+ 
   [
-    { name: "component_id", label: "Category", id:"btn11",   type: "tree", multiselect: 'false', adminUnit: false, options:prog_components.value },
+    { name: "component_id", label: "Category", id:"btn1x1",   type: "tree", multiselect: 'false', adminUnit: false, options:prog_components.value },
 
      { name: "title", label: "Title", id:"btn1",  type: "textarea", multiselect: 'false', adminUnit: false,     options: [] },
      { name: "project_code", label: "Project Code", id:"btn2",  type: "text", multiselect: 'false', adminUnit: false,      options: [] },
@@ -105,7 +106,9 @@ const formFields: Field[][] = [
     },
   ],
 
-  [
+  [    
+
+
     { name: "cost", label: "Total Project Cost", id:"btn7",   min: "0", type: "money", multiselect: 'false',adminUnit: false,  options: [] },
     { name: "start_date", label: "Commencement Date",  id:"btn5",  type: "date", multiselect: 'false', adminUnit: false,      options: [] },
     { name: "end_date", label: "Completion Date", id:"btn6",  type: "date", multiselect: 'false',adminUnit: false,     options: [] },
@@ -125,7 +128,7 @@ const formFields: Field[][] = [
 
  
    
-];
+]);
 
 const formData: FormData = reactive({});
 const formRules: FormRules = reactive({
@@ -213,4 +216,4 @@ const formRules: FormRules = reactive({
    
 });
 
-export { formFields, countyOptions, formData, steps, formRules };
+export { formFields, countyOptions, formData, steps, formRules,  };
