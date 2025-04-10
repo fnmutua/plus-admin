@@ -1701,7 +1701,7 @@ export const adminRoutes: AppRouteRecordRaw[] = [
         component: () => import('@/views/settings/Programme.vue'),
           name: 'ProjectsProgrammes',
           meta: {
-            title: 'Projects',
+            title: 'Programmes',
             hidden: false,
             icon:'material-symbols:settings',
             role: ['root_admin','admin', 'super_admin' ,'staff'  ] ,
