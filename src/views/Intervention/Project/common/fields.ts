@@ -90,13 +90,13 @@ console.log('implementationOptions.value',implementationOptions.value)
     
 const formFields: Field[][] = [
   [
+    { name: "component_id", label: "Category", id:"btn11",   type: "tree", multiselect: 'false', adminUnit: false, options:prog_components.value },
 
      { name: "title", label: "Title", id:"btn1",  type: "textarea", multiselect: 'false', adminUnit: false,     options: [] },
      { name: "project_code", label: "Project Code", id:"btn2",  type: "text", multiselect: 'false', adminUnit: false,      options: [] },
     {
       name: "status", label: "Status",  id:"btn3",  type: "select", multiselect: 'false', adminUnit: false, options: statusOptions
     },
-    { name: "component_id", label: "Category", id:"btn11",   type: "tree", multiselect: 'false', adminUnit: false, options:prog_components.value },
 
     {name: "implementation_id", label: "Delivery Unit", id:"btn4",  type: "select", multiselect: 'false', adminUnit: false,options: implementationOptions.value },
     {name: "implementation_scope", label: "Scope", id:"btn41",  type: "select", multiselect: 'false', adminUnit: false,options: scope },

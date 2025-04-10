@@ -47,9 +47,9 @@ v-for="option in field.options" :key="option.value" :label="option.label"
                   v-else-if="field.type === 'tree' && field.multiselect === 'false' "
                   v-model="formData[field.name]"
                   :data="field.options"
-                
+                  :render-after-expand="false"
                   node-key="value"
-                  check-strictly
+          
                   placeholder="Select"
                   @change="getFieldChangeHandler(field.name)"
                 />
@@ -494,9 +494,12 @@ onMounted(async () => {
 
   } else {
 
+    console.log('new record ------------,',newRecord.value )
+
     Object.keys(formData).forEach((key) => {
       formData[key] = undefined;
     });
+
   }
 })
 
@@ -1234,7 +1237,7 @@ const submitForm = async () => {
 
       formData.model = model
       formData.createdBy = userInfo.id
-      formData.component_id = component_id.value
+      //formData.component_id = component_id.value
       formData.component_title = component_title.value
 
 
