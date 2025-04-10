@@ -71,160 +71,7 @@ exports.allAccess = (req, res) => {
   res.status(200).send('Public Content.')
 }
 
-
-exports.xGetRoutes = (req, res) => {
-  console.log('Req-body 001', req.body)
-   // console.log('nested filters....>', req.body.nested_filter[0])
  
-   var reg_model = req.body.model
- 
-   // Associated Models
-   var associated_multiple_models = req.body.associated_multiple_models
-   console.log('associated_multiple_models', associated_multiple_models.length)
- 
-   // nested Models
-   // here me limit to two nesting levels only
-   var nested_models = req.body.nested_models
-   if (req.body.nested_models) {
-     var child_model = db.models[req.body.nested_models[0]]
-     var grand_child_model = db.models[req.body.nested_models[1]]
-     var nestedQuery = {}
- 
-     // create the criterial for the grandchild 
-     if (req.body.nested_filter) {
-       nestedQuery[req.body.nested_filter[0]] = req.body.nested_filter[1]
-     }
- 
-   }
- 
-   var qry = {}
-   var includeModels = []
- 
-   // loop through the include models
-   for (let i = 0; i < req.body.associated_multiple_models.length; i++) {
-     var modelIncl = {}
-     modelIncl.model = db.models[req.body.associated_multiple_models[i]]
-     modelIncl.raw = true
-     modelIncl.nested = true
-     includeModels.push(modelIncl)
- 
- 
-   }
- 
-   //console.log(includeModels)
-   if (associated_multiple_models) {
-     if (nested_models) {
-       if (req.body.nested_filter) {
-         var nestedModels = { model: child_model, include: [{ model: grand_child_model, where: nestedQuery }], raw: true, nested: true }
-       } else {
-         var nestedModels = { model: child_model, include: grand_child_model, raw: true, nested: true }
-       }
- 
-       includeModels.push(nestedModels)
-       var qry = {
-         include: includeModels
-       }
-     } else {
-       console.log('---no---')
-       var qry = {
-         include: includeModels
-       }
-     }
-   } else {
-     var qry = {}
-   }
- 
-   console.log('The Querry----->', qry)
-   if (req.body.limit ) {
-     qry.limit = req.body.limit 
-   }
-   if (req.body.page ) {
-     qry.offset = (req.body.page - 1) * req.body.limit
-   }
- 
- 
-   var lstQuerries = []
- 
- 
-   if (req.body.filters) {
-     if (req.body.filters.length > 0 && req.body.filterValues.length > 0) {
- 
-       for (let i = 0; i < req.body.filters.length; i++) {
-         var queryFields = {}
-         //queryFields[req.body.filters[i]] = req.body.filterValues[i][j]
-         lstQuerries.push(queryFields)
-         var lstValues  = []
-         for (let j = 0; j < req.body.filterValues[i].length; j++) {
-           lstValues.push(req.body.filterValues[i][j])
-         }
-         queryFields[req.body.filters[i]] = lstValues
-         lstQuerries.push(queryFields)
- 
-       }
-     }
-     console.log('Final-1-object------------>', lstQuerries)
-  
-     qry.where = lstQuerries
-   }
-   console.log('Final-2-object------------>', qry)
- 
- 
- 
- 
-   // if involving households decryot the HH name
- 
- 
- 
-   const searchString = 'households';
-   if (associated_multiple_models) {
-      console.log(associated_multiple_models)
-     if (associated_multiple_models.includes(searchString) ) {
-       console.log(`${searchString} is in the array`);
-       console.log(qry)
-     
-               console.log('getting households--1-->')
-               var attributes = []
-          
-               for( let key in   db.models[reg_model].rawAttributes ){
-                 attributes.push(key)
-             }
-             
-       
-             //   console.log('attributes',attributes)
-               var index = attributes.indexOf('name');
-               if (index !== -1) {
-                   attributes.splice(index, 1);
-               }
-     
-               let encrytpedField = [sequelize.fn('PGP_SYM_DECRYPT', sequelize.cast(sequelize.col('household.name'), 'bytea'),'***REDACTED***'),'name']
-                 attributes.push(encrytpedField)
-       
-               
-       qry.attributes = attributes
-       qry.attributes.exclude = ['password', 'resetPasswordExpires', 'resetPasswordToken'] 
-      }
-  }
-   else {
-     
-     qry.attributes = { exclude: ['password', 'resetPasswordExpires', 'resetPasswordToken'] } // will be applciable to users only
- 
- }
-      
- 
- 
- 
- 
- 
- 
-   db.models[reg_model].findAndCountAll(qry).then((list) => {
-     res.status(200).send({
-       data: list.rows,
-       total: list.count,
-       code: '0000'
-     })
-   })
- }
-
  
  
  exports.GetRoutes = async (req, res) => {
@@ -349,6 +196,146 @@ exports.xGetRoutes = (req, res) => {
     });
   }
 };
+
+
+
+exports.xGetRoutes = async (req, res) => {
+  try {
+    const {
+      model: reg_model,
+      filters = [],
+      filterValues = [],
+      associated_multiple_models = [],
+      limit,
+      page,
+      cache_key
+    } = req.body;
+
+    console.log('Req-body', req.body);
+
+    // Validate model exists
+    const modelDefinition = db.models[reg_model];
+    if (!modelDefinition) {
+      return res.status(400).send({
+        error: `Model ${reg_model} not found`,
+        code: 'MODEL_NOT_FOUND'
+      });
+    }
+
+    // Base query construction
+    const baseQuery = { where: {} };
+
+    // Filter handling
+    if (filters.length > 0 && filterValues.length === filters.length) {
+      baseQuery.where = {
+        [Op.and]: filters.map((filter, i) => ({ [filter]: filterValues[i] }))
+      };
+    }
+
+    // Count query (separate for better performance)
+    const count = await modelDefinition.count(baseQuery);
+    console.log('Total records:', count);
+
+    // Build include models
+    const includeModels = [];
+
+    // Handle associated models
+    associated_multiple_models.forEach(modelName => {
+      if (db.models[modelName]) {
+        includeModels.push({
+          model: db.models[modelName],
+          required: false
+        });
+      }
+    });
+
+    // Helper: recursive include builder for self-referencing associations
+    const buildRecursiveInclude = (model, alias, depth = 3) => {
+      if (depth <= 0) return [];
+      return [{
+        model,
+        as: alias,
+        required: false,
+        include: buildRecursiveInclude(model, alias, depth - 1)
+      }];
+    };
+
+    // Handle self-referential relationships automatically
+    Object.values(modelDefinition.associations).forEach(assoc => {
+      if (assoc.target.name === reg_model) {
+        console.log(`Adding recursive include for ${reg_model} -> ${assoc.as}`);
+        includeModels.push(...buildRecursiveInclude(modelDefinition, assoc.as, 3)); // depth = 3
+      }
+    });
+
+    // Main query construction
+    const qry = {
+      include: includeModels.length ? includeModels : undefined,
+      where: baseQuery.where,
+      order: [['createdAt', 'DESC']],
+      distinct: true
+    };
+
+    // Pagination
+    if (limit) {
+      qry.limit = parseInt(limit);
+      if (page) {
+        qry.offset = (parseInt(page) - 1) * qry.limit;
+      }
+    }
+
+    console.log('Final Query:', JSON.stringify(qry, null, 2));
+
+    // Cache handling
+    if (cache_key) {
+      const cacheDuration = 3600;
+      const lastModified = await getLastModified(modelDefinition);
+      const cachedData = await getCachedData(cache_key);
+
+      if (cachedData && lastModified <= cachedData.lastModified) {
+        return sendCachedResponse(res, cache_key, cachedData, count);
+      }
+
+      const response = await fetchAndCacheData(
+        modelDefinition,
+        qry,
+        cache_key,
+        cacheDuration,
+        count
+      );
+      return res.status(200).send(response);
+    }
+
+    // Non-cached response
+    const response = await modelDefinition.findAndCountAll(qry);
+    return res.status(200).send({
+      fromCache: false,
+      data: response.rows,
+      total: count,
+      code: '0000'
+    });
+
+  } catch (error) {
+    console.error('Error in GetRoutes:', error);
+    return res.status(500).send({
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
+      error: error.message
+    });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Helper functions
 async function getLastModified(model) {

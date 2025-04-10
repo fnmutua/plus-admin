@@ -45,7 +45,6 @@ const dynamicDashbaordOptions = ref([])
  
 
 
- // 1. First, properly handle the async function
 const getProgrameComponents = async () => {
   const formData = {
     limit: 100,
@@ -59,7 +58,7 @@ const getProgrameComponents = async () => {
 
   try {
     const res = await getRoutesList(formData);
-    
+
     if (!res?.data || !Array.isArray(res.data)) {
       console.error('Invalid data structure received:', res?.data);
       return [];
@@ -67,66 +66,53 @@ const getProgrameComponents = async () => {
 
     console.log('programme routes ', res.data);
 
-    // Track all paths and their nesting levels
-    const pathRegistry = new Map();
+    // Step 1: Create a map of items by id
+    const itemMap = new Map();
+    res.data.forEach(item => {
+      item.children = []; // initialize children array
+      itemMap.set(item.id, item);
+    });
 
-    // Synchronous path collection
-    const collectPaths = (items, parentPath = '') => {
-      items.forEach(item => {
-        const fullPath = parentPath 
-          ? `${parentPath}/${item.acronym.toLowerCase()}` 
+    // Step 2: Nest items by parentId
+    const rootItems = [];
+    res.data.forEach(item => {
+      if (item.parentId && itemMap.has(Number(item.parentId))) {
+        const parent = itemMap.get(Number(item.parentId));
+        parent.children.push(item);
+      } else {
+        rootItems.push(item);
+      }
+    });
+
+    // Step 3: Recursively transform into route format
+    const buildHierarchy = (items, parentPath = '') => {
+      return items.map(item => {
+        const fullPath = parentPath
+          ? `${parentPath}/${item.acronym.toLowerCase()}`
           : item.acronym.toLowerCase();
-        pathRegistry.set(fullPath, { item, parentPath });
-        
-        if (Array.isArray(item.children)) {
-          collectPaths(item.children, fullPath);
-        }
+
+        return {
+          path: fullPath.split('/').pop(),
+          name: toTitleCase(item.title),
+          meta: {
+            title: item.title,
+            hidden: false,
+            icon: item.icon,
+            programme_id: item.id,
+            role: ['admin', 'super_admin']
+          },
+          children: buildHierarchy(item.children, fullPath)
+        };
       });
     };
 
-    collectPaths(res.data);
-
-    // Synchronous hierarchy building
-    const buildHierarchy = (items, parentPath = '') => {
-      return items
-        .filter(item => {
-          const fullPath = parentPath 
-            ? `${parentPath}/${item.acronym.toLowerCase()}` 
-            : item.acronym.toLowerCase();
-          return !Array.from(pathRegistry.keys()).some(
-            p => p !== fullPath && p.endsWith(`/${fullPath.split('/').pop()}`)
-          );
-        })
-        .map(item => {
-          const fullPath = parentPath 
-            ? `${parentPath}/${item.acronym.toLowerCase()}` 
-            : item.acronym.toLowerCase();
-          
-          return {
-            path: fullPath.split('/').pop(),
-            name: toTitleCase(item.title),
-            meta: {
-              title: item.title,
-              hidden: false,
-              icon: item.icon,
-              programme_id: item.id,
-              role: ['admin', 'super_admin']
-            },
-            children: Array.isArray(item.children) 
-              ? buildHierarchy(item.children, fullPath)
-              : []
-          };
-        });
-    };
-
-    return buildHierarchy(res.data);
+    return buildHierarchy(rootItems);
   } catch (error) {
     console.error('Error fetching program components:', error);
     throw error;
   }
 };
 
-// 2. Proper usage with async/await
 const loadProgrammeComponents = async () => {
   try {
     const result = await getProgrameComponents();
@@ -138,9 +124,7 @@ const loadProgrammeComponents = async () => {
   }
 };
 
-// 3. Call the loader function
 loadProgrammeComponents();
-
 
 
 const components = ref([])
