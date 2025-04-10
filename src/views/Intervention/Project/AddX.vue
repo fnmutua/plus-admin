@@ -43,6 +43,18 @@ v-for="option in field.options" :key="option.value" :label="option.label"
                   :value="option.value" />
               </el-select>
 
+              <el-tree-select
+                  v-else-if="field.type === 'tree' && field.multiselect === 'false' "
+                  v-model="formData[field.name]"
+                  :data="field.options"
+                
+                  node-key="value"
+                  check-strictly
+                  placeholder="Select"
+                  @change="getFieldChangeHandler(field.name)"
+                />
+
+
               <el-select
                   v-else-if="field.type === 'select' && field.multiselect === 'true'"
                                   v-model="formData[field.name]" :filterable="true" multiple collapse-tags placeholder="Select"
@@ -191,11 +203,11 @@ v-for="(step, index) in filteredTourSteps" :key="index" :target="step.target" :t
 
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch } from 'vue';
-import { ElCard, ElTooltip, ElTour, ElTourStep, ElDialog, ElMessage, ElUpload } from 'element-plus'
+import { ElCard, ElTooltip, ElTour, ElTourStep, ElDialog, ElMessage, ElUpload,ElTreeSelect } from 'element-plus'
 import { useRouter } from 'vue-router'
 
-import { steps, formFields, formData, formRules, regionOptions } from './common/fields.ts'
-import { subcountyOptions, wardOptions, } from './common/index.ts'
+import { steps, formFields, formData, formRules,regionOptions } from './common/fields.ts'
+import { subcountyOptions, wardOptions,   } from './common/index.ts'
 import shortid from 'shortid';
 import { useRoute } from 'vue-router'
 import { useAppStoreWithOut } from '@/store/modules/app'

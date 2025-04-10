@@ -1,4 +1,4 @@
-import { reactive, unref, ref } from "vue";
+import { reactive, unref, ref,onMounted } from "vue";
  
 import {
   countyOptions,
@@ -6,9 +6,21 @@ import {
    activityOptions,
   cascadedAdminOptions,
   implementationOptions,
-  contractorOptions,
+  contractorOptions,prog_components  
 } from "./index.ts";
  
+
+ 
+
+
+
+
+
+
+
+
+
+
 const steps = [
   { title: "Identification" },
   { title: "Details" },
@@ -73,15 +85,19 @@ const statusOptions = [
 ]  
 
  
+console.log('prog_components.value',prog_components.value)
+console.log('implementationOptions.value',implementationOptions.value)
     
 const formFields: Field[][] = [
   [
+
      { name: "title", label: "Title", id:"btn1",  type: "textarea", multiselect: 'false', adminUnit: false,     options: [] },
      { name: "project_code", label: "Project Code", id:"btn2",  type: "text", multiselect: 'false', adminUnit: false,      options: [] },
     {
-      name: "status", label: "Status",  id:"btn3",  type: "select", multiselect: 'false', adminUnit: false,       options: statusOptions
+      name: "status", label: "Status",  id:"btn3",  type: "select", multiselect: 'false', adminUnit: false, options: statusOptions
     },
-    
+    { name: "component_id", label: "Category", id:"btn11",   type: "tree", multiselect: 'false', adminUnit: false, options:prog_components.value },
+
     {name: "implementation_id", label: "Delivery Unit", id:"btn4",  type: "select", multiselect: 'false', adminUnit: false,options: implementationOptions.value },
     {name: "implementation_scope", label: "Scope", id:"btn41",  type: "select", multiselect: 'false', adminUnit: false,options: scope },
     {

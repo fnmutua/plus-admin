@@ -1,6 +1,7 @@
 
 import { getListWithoutGeo } from '@/api/counties'
 import { ref } from 'vue'
+import { getRoutesList } from '@/api/settlements'
 
 const settlementOptionsV2 = ref([])
 
@@ -268,7 +269,7 @@ const getCountySubcountySep = async () => {
   });
 };
 
-getCountySubcountySep()
+//getCountySubcountySep()
 getImplementationSponsors()
 
  
@@ -304,13 +305,177 @@ const getActivities = async () => {
 }
 
 
+const prog_components =ref([])
+const getProgrameComponents = async () => {
+  const formData = {
+    limit: 100,
+    page: 1,
+    curUser: 1,
+    model: 'programme',
+    searchField: 'title',
+    searchKeyword: '',
+    associated_multiple_models: ['component']
+  };
+
+  try {
+    const res = await getRoutesList(formData);
+    
+    if (!res?.data || !Array.isArray(res.data)) {
+      console.error('Invalid data structure received:', res?.data);
+      return [];
+    }
+
+    // Filter items where parentId is null
+     const filteredData = res.data
+          .filter(item => item.parentId === null)
+          .map(item => ({
+            ...item,
+            label: item.title,
+            value: item.id
+          }));
+     console.log('Filtered programme routes:', filteredData);
+    
+    filteredData.forEach(item => {
+      prog_components.value.push(item)
+    });
+    
+    
+  } catch (error) {
+    console.error('Error fetching program components:', error);
+    throw error;
+  }
+};
+
+
+
+
+ 
+
+const getComponents = async () => {
+  const formData = {
+    limit: 100,
+    page: 1,
+    curUser: 1,
+    model: 'component',
+    searchField: 'title',
+    searchKeyword: '',
+    associated_multiple_models: []
+  };
+
+  try {
+    const res = await getRoutesList(formData);
+    console.log('Components routes ', res.data);
+    //components.value=res.data
+
+
+
+    if (res.data && Array.isArray(res.data)) {
+      
+ 
+      console.log("programme opions", prog_components.value );
+
+      
+      const findProgramById = (programs, programmeId) => {
+
+        for (const program of programs) {
+         
+          if (program.id == programmeId) {
+            console.log('program......',program)
+            return program;
+          }
+          if (Array.isArray(program.children) && program.children.length > 0) {
+            
+            const found = findProgramById(program.children, programmeId);
+    
+            if (found) {
+              return found;
+            }
+          }
+        }
+        return null; // Return null if no program is found
+      };
+      
+
+
+              // Function to add components to their respective programs
+        const addComponentsToPrograms = () => {
+          // Ensure both arrays are defined
+          if (!Array.isArray(prog_components.value) || !Array.isArray(res.data)) {
+            console.error('Invalid data structures: prog_components and components must be arrays.');
+            return;
+          }
+
+          // Iterate through each component
+          res.data.forEach(component => {
+            
+              
+            const program = findProgramById(prog_components.value, component.programme_id);
+            console.log('Getting program', program)
+
+            if (program) {
+
+              program.value=program.id
+              program.label=program.title
+         
+              const newComponent = {
+
+                value: component.id,
+                label:  component.title,
+               }
+
+               console.log('newComponent',newComponent, 'program', program)
+
+                    // Add the new component to the program's children array
+                  // Ensure program.children exists
+                    if (!program.children) {
+                      program.children = [];
+                    }
+
+                    // Add the new component to the children array
+                    program.children.push({ ...newComponent });
+
+ 
+            }
+             else {
+              console.warn(`Program with programme_id ${component.programme_id} not found.`);
+            }
+          });
+
+          console.log('Updated ---- prog_components:', prog_components.value);
+        };
+
+        // Call the function to update the prog_components
+        addComponentsToPrograms();
+
+
+
+
+
+     } else {
+      console.error('Invalid data structure received:', res.data);
+      return []; // Return empty array if invalid data
+    }
+
+
+
+  } catch (error) {
+    console.error('Error fetching components:', error);
+    throw error; // Re-throw or return empty array
+  }
+};
+
+
+
+
+
 getActivities()
  
   
- 
+getProgrameComponents()
+getComponents()
   
 
-getSettlements()
+//getSettlements()
 getCounties()
 getSubCounties()
  
@@ -320,6 +485,6 @@ getContractors()
 
 
 export {
-  countyOptions, settlementOptionsV2,contractorOptions,
-  activityOptions, subcountyOptions, implementationOptions,  wardOptions, cascadedAdminOptions
+  countyOptions, settlementOptionsV2,contractorOptions,getProgrameComponents,
+  activityOptions, subcountyOptions, implementationOptions,  wardOptions, cascadedAdminOptions,prog_components
 };
