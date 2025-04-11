@@ -3437,7 +3437,7 @@ AddDialogVisible.value = false
 
 
 
-      <el-tab-pane label="Monitoring" name="Indicator">
+      <el-tab-pane v-if="projectLocations.length > 0" label="Monitoring" name="Indicator">
         <el-card>
 
           <el-button :onClick="AddReport" style="margin-left :5px;margin-bottom :5px; " plain>
@@ -3467,11 +3467,17 @@ AddDialogVisible.value = false
             </el-table-column>
             <!-- <el-table-column label="Amount" prop="amount" sortable /> -->
 
-            <el-table-column label="Qty/Status" sortable>
-                  <template #default="{ row }">
-                    {{ row.qualitative !== null ? (row.qualitative ? 'Yes' : 'No') : row.amount }}
-                  </template>
-                </el-table-column>
+         
+        <el-table-column label="Qty/Status" sortable>
+            <template #default="{ row }">
+              <span v-if="row.qualitative !== null">
+                {{ row.qualitative === 'Yes' ? 'Yes' : 'No' }}
+              </span>
+              <span v-else>
+                {{ row.amount }}
+              </span>
+            </template>
+          </el-table-column>
 
 
 
