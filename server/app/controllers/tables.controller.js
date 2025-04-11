@@ -1224,7 +1224,9 @@ exports.modelCreateOneRecord = (req, res) => {
 
   console.log('One record... Edited---s-', obj)
 
-
+  if (!obj.id) {
+    delete obj.id;
+  }
  
   
   db.models[reg_model]

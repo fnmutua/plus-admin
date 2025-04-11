@@ -64,7 +64,12 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.DECIMAL,
         allowNull: false
       },  
+      qualitative: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },  
       
+
       target: {
         type: DataTypes.DECIMAL,
         allowNull: true

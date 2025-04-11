@@ -3,7 +3,7 @@
 import { useI18n } from '@/hooks/web/useI18n'
 import { getSettlementListByCounty, uploadFilesBatch } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
-import { ElButton, ElMessageBox, ElSelect, ElSelectV2, ElStep, ElSteps, FormInstance, ElCard, ElTour, ElTourStep, ElText } from 'element-plus'
+import { ElButton, ElMessageBox, ElSelect, ElSelectV2, ElStep, ElSteps, FormInstance, ElCard, ElTour, ElTourStep, ElText,ElSwitch } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -166,6 +166,7 @@ const ruleForm = reactive({
   cumAmount: 0,
   comments: '',
   units: 'Quantity',
+  qualitative:'',
   cumUnits: 'Cumulative(qty)'
 })
 
@@ -488,8 +489,9 @@ const editReport = async (data: TableSlotDefault) => {
   ruleForm.disbursement = data.disbursement;
   ruleForm.comments = data.comments;
   ruleForm.project_id = data.project_id;
+  ruleForm.qualitative= data.qualitative;
 
-
+ // handleIndicatorsChange([data.indicator_category_id])
 
 
    // Get the project object from projectOptions that matches the project_id
@@ -518,6 +520,7 @@ const editReport = async (data: TableSlotDefault) => {
         date: ruleForm.date || new Date(),
         target: ruleForm.target || 0,
         baseline: ruleForm.baseline || 0,
+       qualitative: ruleForm.qualitative || 'No',
         activity_id: ruleForm.activity_id || ruleForm.activity_id, // If needed
       }));
 
@@ -942,8 +945,10 @@ const submitForm = async (formEl: FormInstance | undefined) => {
         subcounty_id: ruleForm.subcounty_id,
         ward_id: ruleForm.ward_id,
         activity_id: indicator.activity_id,
+        qualitative: indicator.qualitative,
+
         geom: ruleForm.geom,
-  
+
  
       };
 
@@ -998,6 +1003,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
 
     const updatedReportIds = [];
 
+    console.log('ruleForm.indicators',ruleForm.indicators)
+
     for (const indicator of ruleForm.indicators) {
       // Calculate new cumulative amount
       const updatedCumAmount = (indicator.cumAmount || 0) + (indicator.amount || 0);
@@ -1007,6 +1014,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
         ? ((updatedCumAmount / indicator.target) * 100).toFixed(2)
         : '0.00';
 
+      console.log(ruleForm.qualitative,ruleForm.qualitative,)
       const reportPayload = {
         model: 'indicator_category_report',
         id: ruleForm.id, // Use existing report ID to update
@@ -1030,6 +1038,8 @@ const editForm = async (formEl: FormInstance | undefined) => {
         subcounty_id: ruleForm.subcounty_id,
         ward_id: ruleForm.ward_id,
         activity_id: ruleForm.activity_id,
+        qualitative: indicator.qualitative,
+
       };
 
       // Update individual indicator report
@@ -2136,7 +2146,21 @@ v-if="showEditButtons" :data="tableDataList" :model="model"
             </template>
           </el-table-column>
         
-        <el-table-column label="Qty" prop="amount" sortable />
+        <!-- <el-table-column label="Qty" prop="amount" sortable /> -->
+
+        
+        <el-table-column label="Qty/Status" sortable>
+            <template #default="{ row }">
+              <span v-if="row.qualitative !== null">
+                {{ row.qualitative === 'Yes' ? 'Yes' : 'No' }}
+              </span>
+              <span v-else>
+                {{ row.amount }}
+              </span>
+            </template>
+          </el-table-column>
+
+
 
           <el-table-column label="Status" prop="status" sortable>
             <template #default="scope">
@@ -2190,8 +2214,6 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       <el-col :span="24">
         <el-form-item label="Project" prop="project_id">
         
-
-
           <el-select
               id="location-select"
               v-model="prj_obj"
@@ -2260,12 +2282,36 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       <el-col :span="24">
         <el-table :data="ruleForm.indicators" style="width: 100%;" border>
           <el-table-column label="Indicator" prop="label" />
-          <el-table-column label="Amount">
+          <!-- <el-table-column label="Amount">
             <template #default="{ row }">
               <el-input-number min="0"  v-model="row.amount" style="width: 100%;" />
             </template>
-          </el-table-column>
+          </el-table-column> -->
          
+          <el-table-column>
+            <template #header>
+              <span v-if="ruleForm.indicators.some(i => i.unit === 'Yes/No')">Status</span>
+              <span v-else>Amount</span>
+            </template>
+            <template #default="{ row }">
+              <template v-if="row.unit === 'Yes/No'">
+                <el-switch
+                  v-model="row.qualitative"
+                  active-value="Yes"
+                  inactive-value="No"
+                />
+              </template>
+              <template v-else>
+                <el-input-number
+                  min="0"
+                  v-model="row.amount"
+                  style="width: 100%;"
+                />
+              </template>
+            </template>
+          </el-table-column>
+
+
           <el-table-column label="Date">
             <template #default="{ row }">
               <el-date-picker  v-model="row.date" type="date" placeholder="Pick a day" style="width: 100%;" :disabled-date="disabledFutureDates" />

@@ -214,3 +214,9 @@ USING array_to_string(development, ', ');
 
 ALTER TABLE settlement 
 RENAME COLUMN comments TO description;
+
+
+ALTER TABLE public.indicator_category_report
+ADD COLUMN qualitative VARCHAR;
+
+***REDACTED***

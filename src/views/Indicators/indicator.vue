@@ -749,12 +749,14 @@ filterable v-model="ruleForm.activity_id" placeholder="Select Activity"
         <el-select v-model="ruleForm.format" placeholder="Format">
           <el-option label="Number" value="number" />
           <el-option label="Percent" value="percent" />
+          <el-option label="Yes/No (true/false)" value="boolean" />
         </el-select>
       </el-form-item>
       <el-form-item id="btn5" label="Unit" prop="format">
         <el-select clearable filterable v-model="ruleForm.unit" allow-create placeholder="Unit">
           <el-option label="Kilometre" value="Km" />
           <el-option label="Number" value="No." />
+          <el-option label="Yes/No" value="Yes/No" />
           <el-option label="Household" value="HH" />
 
         </el-select>

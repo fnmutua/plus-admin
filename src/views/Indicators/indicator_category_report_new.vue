@@ -1627,7 +1627,17 @@ v-model="value2" :onChange="handleSelectIndicatorCategory" :onClear="handleClear
       <!-- <el-table-column label="County" prop="county.name" sortable /> -->
       <!-- <el-table-column label="Unit" prop="indicator_category.indicator.unit" sortable /> -->
       <el-table-column label="Category" prop="indicator_category.category_title" sortable />
-      <el-table-column label="Amount" prop="amount" sortable />
+      <!-- <el-table-column label="Amount" prop="amount" sortable /> -->
+
+      <el-table-column label="Qty/Status" sortable>
+                  <template #default="{ row }">
+                    {{ row.qualitative !== null ? (row.qualitative ? 'Yes' : 'No') : row.amount }}
+                  </template>
+                </el-table-column>
+
+
+
+
       <el-table-column label="Status" prop="status" sortable />
       <!-- <el-table-column fixed="right" label="Actions" :width="actionColumnWidth">
         <template #default="scope">

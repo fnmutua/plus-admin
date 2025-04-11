@@ -3,7 +3,7 @@ import { onMounted, computed, watch, reactive } from 'vue'
 import {
   ElButton, ElDivider, ElTimeline, ElTimelineItem, ElCol, ElRow, ElCheckbox, ElInput, ElOptionGroup, ElForm, ElFormItem, ElUpload, ElMessage,
   ElCard, ElTabs, ElTabPane, ElTable, ElTableColumn, ElTooltip, ElDialog, ElSelect, ElOption, ElDescriptions,
-  ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber
+  ElDescriptionsItem, ElText, ElDatePicker, ElPopconfirm, ElStep, ElSteps, FormRules, ElSelectV2, ElInputNumber,ElSwitch,
 } from 'element-plus'
 // Locally
 import { logGrievanceAction, updateGrievanceStatus } from '@/api/grievance'
@@ -460,7 +460,8 @@ const getIndicatorCategoryReports = async (projectId) => {
   const res = await getSettlementListByCounty(formData)
 
   console.log('Reports collected........', projectId)
-  indicatorReports.value = res.data
+  //indicatorReports.value = res.data
+  res.data.forEach(item => indicatorReports.value.push(item));
 
 
 
@@ -688,8 +689,8 @@ const changeProject = async (project: any) => {
       value: item.id,
       project_id: item.project_id,
       unit: item.indicator.unit,
-      activity_id: item.activity_id
-    };
+      activity_id: item.activity_id,
+     };
   });
 
   indicatorsOptionsFiltered.value = transformedArray
@@ -722,6 +723,7 @@ const project_id = ref(route.params.id)
 
 const implementation_scope = ref('settlement')
 const isNationalProject = ref(false)
+const programme_implementation_id = ref()
 
 
 onMounted(async () => {
@@ -746,6 +748,12 @@ onMounted(async () => {
 
   projectContractors.value = res.data.project_contractors
   implementation_scope.value = res.data.implementation_scope
+
+
+  programme_implementation_id.value = res.data.implementation_id
+
+
+
   getDocumentTypes()
   getActivities()
   getContractors(route.params.id)
@@ -2223,7 +2231,9 @@ function getQuarter(date = new Date()) {
 
 const ReportRuleFormRef = ref<FormInstance>()
 const ruleForm = reactive({
-  indicator_category_id: null,
+  //indicator_category_id: null,
+  indicator_category_id: [],
+  indicators: [],
   baseline: 0,
   target: 0,
   project_id: route.params.id,
@@ -2250,6 +2260,7 @@ const ruleForm = reactive({
   cumAmount: 0,
   comments: '',
   units: 'Quantity',
+  qualitative: '',
   cumUnits: 'Cumulative(qty)'
 })
 
@@ -2434,7 +2445,7 @@ function emptyRuleForm() {
   }
 }
 
-const submitForm = async (formEl: FormInstance | undefined) => {
+const _submitForm = async (formEl: FormInstance | undefined) => {
   if (!formEl) return
   await formEl.validate(async (valid, fields) => {
     if (valid) {
@@ -2500,6 +2511,109 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     }
   })
 }
+
+
+const disableIndicator = ref(false)
+
+const submitForm = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return;
+
+  await formEl.validate(async (valid, fields) => {
+    if (!valid) {
+      console.log('Form validation failed:', fields);
+      return;
+    }
+
+    const submittedReportIds = [];
+
+    for (const indicator of ruleForm.indicators) {
+      // Calculate new cumulative amount
+     
+      const updatedCumAmount = (indicator.cumAmount || 0) + (indicator.amount || 0);
+
+      // Calculate progress = 100 * (cumAmount / target)
+      const progress = isFinite(updatedCumAmount / (indicator.target || 1))
+        ? ((updatedCumAmount / indicator.target) * 100).toFixed(2)
+        : '0.00';
+
+      const reportPayload = {
+        model: 'indicator_category_report',
+        period: getQuarter(),
+        code: uuid.v4(),
+        userId: userInfo.id,
+        project_id: project_id.value,
+        project_location_id: ruleForm.project_location_id,
+        indicator_category_id: indicator.value,
+        amount: indicator.amount || 0,
+        baseline: indicator.baseline || 0,
+        target: indicator.target || 0,
+        date: indicator.date || new Date(),
+        cumAmount: updatedCumAmount,
+        cumProgress: progress,
+        progress:progress,
+        comments: ruleForm.comments,
+        programme_implementation_id: programme_implementation_id.value,
+        settlement_id: ruleForm.settlement_id,
+        county_id: ruleForm.county_id,
+        subcounty_id: ruleForm.subcounty_id,
+        ward_id: ruleForm.ward_id,
+        activity_id: indicator.activity_id,
+        qualitative: indicator.qualitative,
+        geom: ruleForm.geom,
+  
+ 
+      };
+
+      console.log('reportPayload>>',reportPayload)
+
+      // Submit individual indicator report
+      const report = await CreateRecord(reportPayload);
+      //console.log(`Report created for indicator ${indicator.label}: ID ${report.data.id} :${report.data}`);
+
+ 
+      submittedReportIds.push(report.data.id);
+       console.log('After push:', indicatorReports.value);
+ 
+       
+    }
+
+    // Upload files for each created report
+    if (submittedReportIds.length && fileUploadList.value.length) {
+      for (const reportId of submittedReportIds) {
+        const formData = new FormData();
+
+        fileUploadList.value.forEach((file) => {
+          formData.append('files', file.raw);
+          formData.append('format', file.name.split('.').pop());
+          formData.append('field_id', 'report_id');
+          formData.append('category', 2);
+          formData.append('report_id', parseInt(reportId));
+          formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2));
+          formData.append('createdBy', userInfo.id);
+          formData.append('protected', false);
+        });
+
+        formData.append('code', uuid.v4());
+
+        const uploaded = await uploadFilesBatch(formData);
+        console.log(`Files uploaded for report ID ${reportId}:`, uploaded.data);
+      }
+    }
+
+
+    AddDialogVisible.value = false;
+    handleClose();
+
+
+  //  emptyRuleForm();
+ 
+
+  });
+
+
+ 
+};
+
 
 
 const DeleteProjectLocation = (data) => {
@@ -3123,6 +3237,53 @@ const changeLocation = async (location: any) => {
 }
 
 
+
+function handleIndicatorsChange(selectedIds) {
+  const selectedIndicators = indicatorsOptionsFiltered.value.filter(opt =>
+    selectedIds.includes(opt.value)
+  ); 
+
+ console.log('selectedIds',selectedIds)
+
+  ruleForm.indicators = selectedIndicators.map(ind => ({
+    ...ind,
+    amount: null,
+    baseline: null,
+    target: null,
+    date: new Date(),
+    cumProgress: null
+  }));
+
+
+  console.log('ruleForm.indicators',ruleForm.indicators)
+}
+
+
+const handleCancel = () => {
+  disableIndicator.value = false
+  AddDialogVisible.value = false
+}
+
+
+
+const handleClose = () => {
+
+console.log("Closing the dialoig")
+// showSubmitBtn.value = true
+// //showEditSaveButton.value = false
+// ruleForm.indicator_category_id = []
+// ruleForm.date = null
+// ruleForm.amount = null
+// ruleForm.ward_id = null
+// ruleForm.location = []
+// ruleForm.indicators = []
+
+// // /formHeader.value = 'Add M&E Report'
+AddDialogVisible.value = false
+
+}
+
+
 </script>
 
 <template>
@@ -3304,7 +3465,16 @@ const changeLocation = async (location: any) => {
                 {{ formatDate(scope.row.date) }}
               </template>
             </el-table-column>
-            <el-table-column label="Amount" prop="amount" sortable />
+            <!-- <el-table-column label="Amount" prop="amount" sortable /> -->
+
+            <el-table-column label="Qty/Status" sortable>
+                  <template #default="{ row }">
+                    {{ row.qualitative !== null ? (row.qualitative ? 'Yes' : 'No') : row.amount }}
+                  </template>
+                </el-table-column>
+
+
+
             <el-table-column label="Amount (cumulutaive)" prop="cumAmount" sortable />
             <el-table-column label="Status" prop="status" sortable>
               <template #default="scope">
@@ -3718,106 +3888,8 @@ const changeLocation = async (location: any) => {
 
 
 
-  <el-dialog v-model="cAddDialogVisible" title="File a Report" width="50%">
 
-    <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
-      <el-step title="Activity Details" />
-      <el-step title="Output" />
-      <el-step title="Submit" />
-    </el-steps>
-
-    <el-form ref="ReportRuleFormRef" :model="ruleForm" :rules="ReportRules" label-width="100px" label-position="top">
-
-      <el-row v-if="activeStep == 0" :gutter="20">
-        <el-col :span="24">
-
-
-          <el-form-item id="btn4" label="Indicator" prop="indicator_category_id">
-            <el-select-v2 filterable v-model="ruleForm.indicator_category_id" @change="changeIndicator"
-              :options="indicatorsOptionsFiltered" style="width: 100%" placeholder="Select Indicator" />
-          </el-form-item>
-        </el-col>
-      </el-row>
-
-      <el-row v-if="activeStep === 1" :gutter="20">
-        <el-col :span="12">
-          <el-form-item id="btn5" :label="ruleForm.units" prop="amount">
-            <el-input-number v-model="ruleForm.amount" style="width: 100%;" />
-          </el-form-item>
-          <el-form-item id="btn8" label="Baseline">
-            <el-input-number v-model="ruleForm.baseline" type="number" disabled style="width: 100%;">
-              <template #prepend>Baseline(Amount)</template>
-            </el-input-number>
-          </el-form-item>
-          <el-form-item id="btn10" label="Date" prop="date">
-            <el-date-picker v-model="ruleForm.date" type="date" placeholder="Pick a day" style="width: 100%;"
-              :disabled-date="disabledFutureDates" />
-          </el-form-item>
-        </el-col>
-
-        <el-col :span="12">
-          <el-form-item id="btn6" :label="ruleForm.cumUnits">
-            <el-input-number v-model="ruleForm.cumAmount" type="number" disabled style="width: 100%;">
-              <template #prepend>Cumulative(Amount)</template>
-            </el-input-number>
-          </el-form-item>
-          <el-form-item id="btn9" label="Target">
-            <el-input-number v-model="ruleForm.target" type="number" :disabled="!firstReport" style="width: 100%;">
-              <template #prepend>Target(Amount)</template>
-            </el-input-number>
-          </el-form-item>
-          <el-form-item id="btn11" label="Progress(%)">
-            <el-input-number v-model="ruleForm.cumProgress" type="number" disabled style="width: 100%;">
-              <template #prepend>Cumulative(Amount)</template>
-            </el-input-number>
-          </el-form-item>
-        </el-col>
-      </el-row>
-
-      <el-row v-if="activeStep === 2" :gutter="20">
-        <el-col :span="24">
-          <el-form-item id="btn12" label="Please describe any challenges experienced" prop="comments">
-            <el-input v-model="ruleForm.comments" type="textarea"
-              placeholder="Please describe any challenges experienced" />
-          </el-form-item>
-
-          <el-upload id="btn13" v-model:file-list="fileUploadList" class="upload-demo"
-            action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" multiple :on-preview="handlePreview"
-            :on-remove="handleRemove" :before-remove="beforeRemove" :limit="3" :auto-upload="false"
-            :on-exceed="handleExceed">
-            <el-button type="primary" :icon="UploadFilled"> Documentation</el-button>
-          </el-upload>
-        </el-col>
-
-
-      </el-row>
-
-    </el-form>
-
-
-
-    <template #footer>
-      <span class="dialog-footer">
-        <el-row :gutter="5">
-          <el-col :span="24">
-            <!-- <el-button type="primary" plain @click="openHelp = true">Help</el-button> -->
-            <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
-
-            <el-button :disabled="disableIndicator" @click="nextStep" v-if="activeStep < 2">Next</el-button>
-            <el-button @click="handleCancel">Cancel</el-button>
-            <el-button v-if="showSubmitBtn && activeStep === 2" type="primary"
-              @click="submitForm(ReportRuleFormRef)">Submit</el-button>
-
-          </el-col>
-        </el-row>
-      </span>
-    </template>
-
-
-  </el-dialog>
-
-
-  <el-dialog v-model="AddDialogVisible" @close="handleClose" :title="formHeader" :width="dialogWidth">
+  <el-dialog v-model="AddDialogVisible"  title="File a Report" width="50%"  @close="AddDialogVisible = false"  >
   <el-steps :active="activeStep" align-center finish-status="success" style="margin-bottom: 20px;">
     <el-step title="Project Details" />
     <el-step title="Indicator Selection" />
@@ -3868,17 +3940,44 @@ const changeLocation = async (location: any) => {
       <el-col :span="24">
         <el-table :data="ruleForm.indicators" style="width: 100%;" border>
           <el-table-column label="Indicator" prop="label" />
-          <el-table-column label="Amount">
+          <!-- <el-table-column label="Amount">
             <template #default="{ row }">
               <el-input-number min="0"  v-model="row.amount" style="width: 100%;" />
             </template>
+          </el-table-column> -->
+
+          <el-table-column>
+            <template #header>
+              <span v-if="ruleForm.indicators.some(i => i.unit === 'Yes/No')">Status</span>
+              <span v-else>Amount</span>
+            </template>
+            <template #default="{ row }">
+              <template v-if="row.unit === 'Yes/No'">
+                <el-switch
+                  v-model="row.qualitative"
+                  active-value="Yes"
+                  inactive-value="No"
+                />
+              </template>
+              <template v-else>
+                <el-input-number
+                  min="0"
+                  v-model="row.amount"
+                  style="width: 100%;"
+                />
+              </template>
+            </template>
           </el-table-column>
+
+
+
          
           <el-table-column label="Date">
             <template #default="{ row }">
               <el-date-picker  v-model="row.date" type="date" placeholder="Pick a day" style="width: 100%;" :disabled-date="disabledFutureDates" />
             </template>
           </el-table-column>
+
        
         </el-table>
       </el-col>
@@ -3917,7 +4016,7 @@ const changeLocation = async (location: any) => {
           <el-button @click="prevStep" :disabled="activeStep === 0">Previous</el-button>
           <el-button :disabled="disableIndicator" @click="nextStep" v-if="activeStep < 3">Next</el-button>
           <el-button @click="handleCancel">Cancel</el-button>
-          <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ruleFormRef)">Submit</el-button>
+          <el-button v-if="showSubmitBtn && activeStep === 3" type="primary" @click="submitForm(ReportRuleFormRef)">Submit</el-button>
           <el-button v-if="showEditSaveButton && activeStep === 3" type="primary" @click="editForm(ruleFormRef)">Save</el-button>
         </el-col>
       </el-row>

@@ -1,9 +1,13 @@
-const Sequelize = require('sequelize')
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
     'indicator',
     {
-       
+      id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+        allowNull: false
+      },
       name: {
         type: DataTypes.STRING,
         allowNull: true
@@ -12,7 +16,6 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.STRING,
         allowNull: false
       },
-
       format: {
         type: DataTypes.STRING,
         allowNull: false
@@ -29,12 +32,11 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true
       },
-   
       activity_id: {
         type: DataTypes.INTEGER,
         allowNull: true
-      }, 
-       code: {
+      },
+      code: {
         type: DataTypes.STRING,
         allowNull: true
       }
@@ -52,8 +54,8 @@ module.exports = function (sequelize, DataTypes) {
         },
         {
           unique: true,
-          fields: ['name','createdBy',   'type','format', 'level','unit' ]
-        },
+          fields: ['name', 'createdBy', 'type', 'format', 'level', 'unit']
+        }
       ]
     }
   )
