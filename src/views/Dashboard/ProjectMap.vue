@@ -1,15 +1,15 @@
 
 <template>
   <div class="floating-collapse">
-    <el-select v-model="county" class="m-2" placeholder="Filter by County"   @change="handleChangeCounty" filterable clearable>
+    <el-select v-model="county"   placeholder="Filter by County"   @change="handleChangeCounty" filterable clearable>
         <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     <el-select
-clearable filterable v-model="subcounty" class="m-2" placeholder="Filter by Subcounty"  
-      @change="handleChangeSubcounty" :onClear="clearSubCounty">
+clearable filterable v-model="subcounty"  placeholder="Filter by Subcounty"  
+      @change="handleChangeSubcounty" :onClear="ResetFilters">
       <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>
-    <el-button  class="m-2"   @click="clearSubCounty"> Reset Filters</el-button>
+    <el-button    @click="ResetFilters"> Reset Filters</el-button>
   </div>
 
   
@@ -402,7 +402,7 @@ onMounted(async () => {
             `<button>
             <svg fill="#3ba239" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 68.675 68.675" xml:space="preserve" stroke="#3ba239"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <g> <path d="M67.683,30.151L53.394,19.149V7.684c0-1.404-1.139-2.544-2.543-2.544s-2.543,1.14-2.543,2.544v7.547l-12.42-9.562 c-0.914-0.704-2.188-0.704-3.104,0L0.992,30.151c-1.113,0.856-1.32,2.453-0.464,3.565c0.856,1.113,2.454,1.32,3.567,0.464 l2.793-2.15v28.961c0,1.402,1.139,2.543,2.543,2.543h44.37L43.646,53.381c-2.662,1.782-5.863,2.823-9.309,2.823 c-9.248,0-16.745-7.498-16.745-16.743c0-9.248,7.497-16.745,16.745-16.745c9.247,0,16.743,7.497,16.743,16.745 c0,3.35-0.984,6.466-2.68,9.082l13.004,13.004c0.039-0.181,0.062-0.365,0.062-0.558V31.783l3.11,2.396 c0.463,0.355,1.009,0.527,1.552,0.527c0.762,0,1.516-0.34,2.016-0.991C69.004,32.604,68.797,31.007,67.683,30.151z"></path> <path d="M34.338,25.17c-7.791,0-14.105,6.316-14.105,14.104c0,7.791,6.314,14.104,14.105,14.104 c7.788,0,14.104-6.312,14.104-14.104C48.441,31.486,42.126,25.17,34.338,25.17z M43.56,41.178c-1.17,0-2.119-0.949-2.119-2.119 c0-4.038-3.285-7.322-7.322-7.322c-1.171,0-2.119-0.949-2.119-2.12c0-1.17,0.948-2.12,2.119-2.12 c6.375,0,11.562,5.188,11.562,11.562C45.679,40.229,44.731,41.178,43.56,41.178z"></path> </g> </g> </g></svg>         </button>`;
           div.addEventListener("contextmenu", (e) => e.preventDefault());
-          div.addEventListener("click", () => clearSubCounty());
+          div.addEventListener("click", () => ResetFilters());
 
           return div;
         }
@@ -577,7 +577,7 @@ const addSettlementLayers = async () => {
 
 
 
-bounds.value = turf.bbox((polyFarms.value))
+bounds.value = turf.bbox((geojson.value))
     console.log("From geo", bounds.value)
     map.value.fitBounds(bounds.value, { padding: 20 })
 
@@ -679,8 +679,8 @@ const getFarmGeo = async () => {
     console.log(response.data.data)
    
   geojson.value = await computeCentroids(response.data.data);
-  
-    
+  allProjectsGeo.value = JSON.parse(JSON.stringify(geojson.value)); // Deep copy of the GeoJSON data
+
     
 
   } catch (error) {
@@ -788,32 +788,52 @@ const getClickedFarm = async (id) => {
 
 
 const getSubsetGeo = async (model, filterFields, filterValues) => {
-  console.log('Get all settlements  for this subcounty ')
-
-  const formData = {}
-  formData.model = model
-  formData.columnFilterField = filterFields
-  formData.selectedParents = filterValues
-  formData.id = filterValues
-
-  console.log(formData)
-  const res = await getfilteredGeo(formData)
-
-  console.log('filtered Geo:', res.data[0].json_build_object.features)
-
-  if (res.data[0].json_build_object.features) {
-    let featureCollection = res.data[0].json_build_object
+  console.log('Get all settlements  for this subcounty ', geojson.value)
 
 
-    geojson.value = await computeCentroids(featureCollection);
 
-    console.log('featureCollection filtreed', featureCollection.features)
-    // Check if the 'farms' layer already exists, and remove it if it does
+ // Assuming allProjectsGeo is already defined
+const filteredGeoJson = {
+  type: "FeatureCollection",  // Wrapping the result in a FeatureCollection format
+  features: allProjectsGeo.value.features
+    .filter((feature) => {
+      // Loop over the filterFields and filterValues to apply all filters
+      return filterFields.every((field, index) => {
+        const value = filterValues[index];
+        return feature.properties[field] == value; // Check if feature's property matches the filter value
+      });
+    })
+    .map((feature) => {
+      // Return a plain object without the geojson structure
+      return {
+        type: feature.type,
+        geometry: feature.geometry, // Keep geometry
+        properties: { ...feature.properties } // Return properties as a plain object
+      };
+    })
+};
+
+console.log(filteredGeoJson);
+
+
+
+
+  // const res = await getfilteredGeo(formData)
+
+   console.log('filtered Geo:', filteredGeoJson)
+
+   if (Array.isArray(filteredGeoJson.features) && filteredGeoJson.features.length > 0) {
+ 
+
+    geojson.value = await computeCentroids(filteredGeoJson);
+
+     // Check if the 'farms' layer already exists, and remove it if it does
     await removeSettlementLayers()
     await addSettlementLayers()
   }
   else {
     ElMessage.warning('No data')
+    geojson.value =  allProjectsGeo.value
   }
 
 }
@@ -865,9 +885,10 @@ const getCounty = async () => {
 
  
 
- const subcounty = ref()
+const subcounty = ref()
+const allProjectsGeo = ref([])
 
-const clearSubCounty = async () => {
+const ResetFilters = async () => {
   console.log('clear filters')
 //  handleChangeCounty(1)
 
@@ -876,7 +897,8 @@ subcounty.value=null
 subCountyOptions.value=[]
     mapLoading.value=true
     mapLoadingText.value = 'Refreshing Projects...'
-    await getFarmGeo()
+    //await getFarmGeo()
+    geojson.value = allProjectsGeo.value 
     // await getCountyGeo()
 
  
