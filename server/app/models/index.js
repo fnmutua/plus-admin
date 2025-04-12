@@ -115,6 +115,23 @@ db.models.ward.belongsTo(db.models.subcounty, {
 })
 
 
+
+
+db.models.county.hasMany(db.models.ward, {
+  foreignKey: 'county_id'
+})
+
+db.models.ward.belongsTo(db.models.county, {
+  foreignKey: 'county_id'
+})
+
+
+
+
+
+
+
+
 // Ward  and settlemnt associations
 db.models.ward.hasMany(db.models.settlement, {
   foreignKey: 'ward_id'

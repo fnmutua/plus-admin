@@ -472,6 +472,7 @@ const showSubmitBtn = ref(false)
 
 const AddReport = () => {
   AddDialogVisible.value = true
+  console.log('addign report')
   showSubmitBtn.value = true
 }
 
@@ -790,7 +791,7 @@ onMounted(async () => {
 
 
     getIndicatorNames()
-  projectGeom.value = res.data.geom
+  projectGeom.value = res.data
   for (const key of propertiesToMap) {
     // Split the key on '.' to handle nested properties
     const keys = key.split('.');
@@ -980,16 +981,7 @@ const downloadFile = async (data) => {
 
 let nmap; // Declare the map variable outside the function for scope
 
-const draw = new MapboxDraw({
-  displayControlsDefault: false,
-  controls: {
-    point: true,
-    line_string: false,
-    polygon: true,
-    trash: true
-  },
-
-})
+ 
 
 
 
@@ -2633,8 +2625,8 @@ const DeleteProjectLocation = (data) => {
 
 }
 
-const locationOptions = ref([])
-const loading = ref(false)
+// const locationOptions = ref([])
+// const loading = ref(false)
 
 
 
@@ -2686,95 +2678,87 @@ const _remoteMethod = async (keyword) => {
 
 }
 
+const loading = ref(false)
+const locationOptions = ref([])
+const firstLoad = ref(true)
+
 const remoteMethod = async (keyword) => {
-  // console.log(implementation_scope.value);
-  loading.value = true;
+  loading.value = true
   let model = implementation_scope.value
 
-  // Dynamically assign associated models based on the selected model
+  // Dynamically assign associated models
   const associatedModels = model === 'settlement'
-    ? ['county', 'subcounty', 'ward']   // Settlement is related to all
+    ? ['county', 'subcounty', 'ward']
     : model === 'subcounty'
-      ? ['county']                       // Subcounty is related to County
+      ? ['county']
       : model === 'ward'
-        ? ['subcounty']                    // Ward is related to Subcounty
-        : [];                              // County is not related to anything
-
+        ? ['subcounty', 'county']
+        : []
 
   const formData = {
-    model: model,  // Dynamic model based on the passed argument
+    model: model,
     searchField: 'name',
-    searchKeyword: keyword,
+    searchKeyword: firstLoad.value ? '' : keyword, // only empty search on first load
     excludeGeom: false,
     excludeGeomAssoc: true,
-    associated_multiple_models: associatedModels,  // You can adjust this based on the selected model
+    associated_multiple_models: associatedModels,
     filters: [],
-    filterValues: []
-  };
-
-  console.log("formData", formData);
-
-  try {
-    const res = await searchByKeyWord(formData);
-
-    console.log("res.data", res.data);
-
-    if (res.data && res.data.length > 0) {
-      // Dynamically generate location options based on the selected model
-      locationOptions.value = res.data.map(item => {
-        if (model === 'settlement') {
-          return {
-            value: item.id,
-            settlement_id: item.id,
-            label: item.name,
-            name: item.name,
-            county: item.county.name,
-            subcounty: item.subcounty.name,
-            ward: item.ward.name,
-            ward_id: item.ward.id,
-            subcounty_id: item.subcounty.id,
-            county_id: item.county.id,
-            geom: item.geom
-          };
-        } else if (model === 'county') {
-          return {
-            value: item.id,
-            label: item.name,
-            name: item.name,
-
-            geom: item.geom
-          };
-        } else if (model === 'subcounty') {
-          return {
-            value: item.id,
-            label: item.name,
-            name: item.name,
-            county: item.county.name,
-            county_id: item.county.id,
-            geom: item.geom
-          };
-        } else if (model === 'ward') {
-          console.log(item)
-          return {
-            value: item.id,
-            label: item.name,
-            name: item.name,
-            subcounty: item.subcounty.name,
-            // county: item.county.name,
-            // county_id: item.county.id,
-            subcounty_id: item.subcounty.id,
-
-            geom: item.geom
-          };
-        }
-      });
-    }
-  } catch (error) {
-    console.error("Search error:", error);
+    filterValues: [],
+    limit: 50, // Limit to first 10 records
+    offset: 0
   }
 
-  loading.value = false;
-};
+  try {
+    const res = await searchByKeyWord(formData)
+
+    if (res.data && res.data.length > 0) {
+      locationOptions.value = res.data.map(item => {
+        const base = {
+          value: item.id,
+          label: item.name,
+          name: item.name,
+          geom: item.geom
+        }
+
+        if (model === 'settlement') {
+          return {
+            ...base,
+            settlement_id: item.id,
+            county: item.county?.name,
+            subcounty: item.subcounty?.name,
+            ward: item.ward?.name,
+            county_id: item.county?.id,
+            subcounty_id: item.subcounty?.id,
+            ward_id: item.ward?.id
+          }
+        } else if (model === 'subcounty') {
+          return {
+            ...base,
+            county: item.county?.name,
+            county_id: item.county?.id
+          }
+        } else if (model === 'ward') {
+          return {
+            ...base,
+            subcounty: item.subcounty?.name,
+            county: item.county?.name,
+            subcounty_id: item.subcounty?.id,
+            county_id: item.county?.id
+          }
+        } else {
+          return base
+        }
+      })
+    }
+
+    firstLoad.value = false // Disable first load flag after first run
+
+  } catch (error) {
+    console.error("Search error:", error)
+  }
+
+  loading.value = false
+}
 
 
 const extra_locations = ref([])
@@ -2805,6 +2789,8 @@ const SaveLocation = async () => {
       obj.location_type = 'settlement';
       obj.location_name = extra_locations.value[i].name;
       obj.geom = extra_locations.value[i].geom;
+
+      
     } else if (implementation_scope.value == 'county') {
       // If it's a county, only include county_id
       obj.county_id = extra_locations.value[i].value;
@@ -2862,15 +2848,23 @@ const openMapDialog = async (data) => {
   const projLocFormData = {}
   projLocFormData.model = 'project_location'
   projLocFormData.id = data.row.id
+  projLocFormData.assocModel='ward'
+ 
+  const res = await getOneSettlement(projLocFormData)
 
-  const prj_res = await getOneGeo(projLocFormData)
-  const proj_geom = prj_res.data[0].json_build_object
-  var proj_centroid = turf.centroid(proj_geom);
-  console.log('centroid', proj_centroid)
-  projectGeom.value = proj_centroid
+     console.log(res.data)
 
+ // const proj_geom = prj_res.data[0].json_build_object
+  //var proj_centroid = turf.centroid(res.data.geom);
+ // console.log('centroid', proj_centroid)
+  projectGeom.value = res.data
 
   console.log('  projectGeom.value', projectGeom.value)
+
+  // Check if res.data.geom is null, and if so, fall back to res.data.ward.geom
+if (!res.data.geom) {
+  projectGeom.value.geom = res.data.ward.geom;
+}
 
 
   dialogMap.value = true
@@ -2882,14 +2876,79 @@ const openMapDialog = async (data) => {
   //loadMap()
 }
 
+
+
+const draw = new MapboxDraw({
+  displayControlsDefault: false,
+  controls: {
+    point: true,
+    line_string: true,
+    polygon: true,
+    trash: true
+  },
+
+})
+
+ 
+const handleSaveClick = async () => { 
+
+ 
+  projectGeom.value.model = 'project_location'
+  console.log(projectGeom.value)
+
+ updateOneRecord(projectGeom.value)
+}
+ 
+
+
+function addHomeButton(map) {
+  class HomeButton {
+    onAdd(map) {
+      const div = document.createElement("div");
+      div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+      div.id = "save-button";
+
+      // Use a nice outlined save icon (Heroicons style)
+      div.innerHTML = `
+        <button style="background: none; border: none; padding: 6px; cursor: pointer;" title="Save Location">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12-3-3m0 0-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+          </svg>
+        </button>
+      `;
+
+
+    
+
+
+      div.addEventListener("contextmenu", (e) => e.preventDefault());
+      div.addEventListener("click", () => {
+        handleSaveClick(); // Call your function
+      });
+
+      return div;
+    }
+  }
+
+  const homeButton = new HomeButton();
+  map.addControl(homeButton, "bottom-left");
+}
+
+
+
+
 const loadMap = () => {
-  var mapCenter = projectGeom.value.geometry.coordinates;
+
+  let centroid = turf.centroid(projectGeom.value.geom)
+  console.log(centroid.geometry.coordinates)
+  
+  var mapCenter = centroid.geometry.coordinates;
 
   var nmap = new mapboxgl.Map({
     container: "mapContainer",
     style: "mapbox://styles/mapbox/streets-v12",
     center: mapCenter, // starting position
-    zoom: 18,
+    zoom: 12,
   });
 
 
@@ -2927,7 +2986,8 @@ const loadMap = () => {
     // Function to determine the geometry type and add corresponding layers
     const addLayerBasedOnGeometry = (nmap, projectGeom) => {
       // Check the geometry type
-      const geometryType = projectGeom.value.geometry?.type;
+      console.log('projectGeom.value.geom',projectGeom.value.geom)
+      const geometryType = projectGeom.value.geom?.type;
       console.log('geometryType', geometryType)
 
       if (geometryType) {
@@ -2938,7 +2998,7 @@ const loadMap = () => {
             type: 'circle',
             source: {
               type: 'geojson',
-              data: projectGeom.value,
+              data: projectGeom.value.geom,
             },
             paint: {
               'circle-color': 'red',
@@ -2946,6 +3006,29 @@ const loadMap = () => {
             },
             filter: ['==', '$type', 'Point'],
           });
+
+
+            // Create a new popup
+            const coords = projectGeom.value.geom.coordinates;
+                const lat = coords[1].toFixed(5);
+                const lng = coords[0].toFixed(5);
+
+                const project_popup = new mapboxgl.Popup({ offset: 25 })
+                  .setHTML(`<h3>Project Location</h3><p> (${lat}, ${lng})</p>`);
+
+
+
+            // Add marker to the map
+            // Create a new marker and set its position
+            const proj_marker = new mapboxgl.Marker()
+              .setLngLat(projectGeom.value.geom.coordinates) // Set the marker position using the GeoJSON coordinates
+              .addTo(nmap); // Add the marker to the map
+
+        // Attach the popup to the marker
+        proj_marker.setPopup(project_popup).togglePopup(); // Automatically open the popup when the marker is added to the map
+
+
+
         }
 
         // Add polygon layer as outline if geometry is a polygon or multipolygon
@@ -2955,15 +3038,51 @@ const loadMap = () => {
             type: 'line', // Display as line for the polygon outline
             source: {
               type: 'geojson',
-              data: projectGeom.value,
+              data: projectGeom.value.geom,
             },
             paint: {
               'line-color': 'red', // Outline color
               'line-width': 2, // Outline width
             },
-            filter: ['in', '$type', 'Polygon', 'MultiPolygon'], // Include Polygon and MultiPolygon
+            filter: ['in', '$type', 'Polygon' ], // Include Polygon and MultiPolygon
+          });
+
+
+           // Fit map to bounds of the FeatureCollection
+              const bounds = turf.bbox(projectGeom.value.geom); // [minX, minY, maxX, maxY]
+              nmap.fitBounds(bounds, {
+                padding: 40,
+                animate: true,
+              });
+
+
+        }
+
+        // Add line layer if geometry is a LineString or MultiLineString
+        if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
+          nmap.addLayer({
+            id: 'line-layer',
+            type: 'line',
+            source: {
+              type: 'geojson',
+              data: projectGeom.value.geom,
+            },
+            paint: {
+              'line-color': 'red', // Line color
+              'line-width': 3, // Line width
+            },
+            filter: ['in', '$type', 'LineString'], // Include LineString (you can omit this if you're using a pure LineString GeoJSON)
+          });
+
+          // Fit map to bounds of the line
+          const bounds = turf.bbox(projectGeom.value.geom); // [minX, minY, maxX, maxY]
+          nmap.fitBounds(bounds, {
+            padding: 40,
+            animate: true,
           });
         }
+
+
 
         // Add project location layer (also point layer as in your initial code)
         if (geometryType === 'Point') {
@@ -2972,7 +3091,7 @@ const loadMap = () => {
             type: 'circle',
             source: {
               type: 'geojson',
-              data: projectGeom.value,
+              data: projectGeom.value.geom,
             },
             paint: {
               'circle-color': 'blue', // Change the color for project layer
@@ -2988,20 +3107,9 @@ const loadMap = () => {
     addLayerBasedOnGeometry(nmap, projectGeom);
 
 
-    // Add marker to the map
-    // Create a new marker and set its position
-    const proj_marker = new mapboxgl.Marker()
-      .setLngLat(projectGeom.value.geometry.coordinates) // Set the marker position using the GeoJSON coordinates
-      .addTo(nmap); // Add the marker to the map
-
-    // Create a new popup
-    const project_popup = new mapboxgl.Popup({ offset: 25 }) // Optionally add an offset
-      .setHTML('<h3>Project Location</h3><p>Coordinates: ' + projectGeom.value.geometry.coordinates[1] + ', ' + projectGeom.value.geometry.coordinates[0] + '</p>'); // Set the HTML content of the popup
-
-    // Attach the popup to the marker
-    proj_marker.setPopup(project_popup).togglePopup(); // Automatically open the popup when the marker is added to the map
-
-
+  
+  
+   
 
 
 
@@ -3011,13 +3119,94 @@ const loadMap = () => {
 
     const nav = new mapboxgl.NavigationControl();
     nmap.addControl(nav, "top-left");
+    nmap.addControl(draw, 'top-left');
 
 
 
 
     nmap.resize();
+
+
+
+
+
+
+
   });
+
+
+
+
+  
+  function updateRuleform(feature) {
+    // do something with the new marker feature
+    var crs = { type: 'name', properties: { name: 'EPSG:4326' } }
+    feature.geometry.crs = crs
+    console.log('----feature', feature);
+
+
+
+    projectGeom.value.geom = feature.geometry
+    console.log(projectGeom.value)
+ 
+  
+
+  }
+
+  // listen for the draw.create event
+  nmap.on('draw.create', function (e) {
+    // check if the new feature is a marker
+    // if (e.features[0].geometry.type === 'Polygon') {
+    // trigger your function here
+    updateRuleform(e.features[0]);
+
+    //  }
+  });
+
+
+  // listen for the draw.se event
+  nmap.on('draw.update', function (e) {
+    // check if the new feature is a marker
+    //if (e.features[0].geometry.type === 'Polygon') {
+    // trigger your function here
+    updateRuleform(e.features[0]);
+
+    // }
+  });
+
+  // Listen for the draw.delete event
+  nmap.on('draw.delete', function (event) {
+    // Get the IDs of the deleted features
+    var deletedFeatureIds = event.features.map(function (feature) {
+      return feature.id;
+    });
+
+    // Remove the corresponding layers from the map
+    deletedFeatureIds.forEach(function (id) {
+      nmap.removeLayer(id);
+    });
+
+
+     
+
+
+
+
+  });
+
+ 
+
+
+
+  
+
+  addHomeButton(nmap)
+
+
+
 };
+
+
 
 
 
@@ -3284,6 +3473,26 @@ AddDialogVisible.value = false
 }
 
 
+function formatLocation(item) {
+  if (item.settlement) {
+    return [
+      item.ward?.name,
+      item.subcounty?.name,
+      item.county?.name
+    ].filter(Boolean).join(', ')
+  } 
+  else if (item.ward) {
+    return [
+      item.subcounty?.name,
+      item.county?.name
+    ].filter(Boolean).join(', ')
+  } else if (item.subcounty) {
+    return item.county?.name || ''
+  } else {
+    return '' // For county or if everything's missing
+  }
+}
+
 </script>
 
 <template>
@@ -3346,10 +3555,10 @@ AddDialogVisible.value = false
           <el-table-column label="Ward" prop="ward.name" />
           <el-table-column label="Settlement" prop="settlement.name" />
 
-          <el-table-column label="Actions" width="180">
+          <el-table-column label="Actions" width="280">
             <template #default="scope">
               <el-button size="small" :icon="Position" @click="openMapDialog(scope)" type="primary" plain>
-                Map
+                Edit Location 
               </el-button>
 
               <el-button size="small" type="danger" :icon="Delete" @click="DeleteProjectLocation(scope)" plain>
@@ -3362,7 +3571,7 @@ AddDialogVisible.value = false
         <el-dialog v-model="ShowLocationAddDialog" title="Add Project Location" width="500"
           :before-close="handleCloseAdd">
           <el-select id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
-            :loading="loading" :placeholder="implementation_scope" :remote-method="remoteMethod" style="width: 85%">
+            :loading="loading" :placeholder="'Search '+ implementation_scope" :remote-method="remoteMethod" style="width: 85%">
             <el-option v-for="item in locationOptions" :key="item.id" :label="item.label" :value="item">
               <div style="display: flex; align-items: center;">
                 <span style="flex: 1; text-align: left;">{{ item.label }}</span>
@@ -3421,11 +3630,11 @@ AddDialogVisible.value = false
           <el-divider />
 
           <el-row :gutter="10">
-            <el-col v-for="(activity) in activityOptions" :key="activity.id" :sm="24" :md="12" :lg="12" :xl="8">
+            <el-col v-for="(activity) in activityOptions" :key="activity.id" :sm="24" :md="24" :lg="24" :xl="12">
               <el-checkbox v-model="projectScopeChecked" :label="activity.id" @change="toggleActivity()"
                 style="max-width: 100%;">
                 <span
-                  style="display: inline-block; max-width: 95%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"
+                  style="display: inline-block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"
                   :title="activity.title">
                   {{ activity.title }}
                 </span>
@@ -3658,46 +3867,12 @@ AddDialogVisible.value = false
 
       </el-tab-pane>
 
-
-
-      <!-- <el-tab-pane label="Settings" name="Settings">
-        <el-popconfirm width="300" title="Are you sure to delete this project?"
-          @confirm="DeleteProject(projectFullData.id)">
-          <template #reference>
-            <el-button style="color: red; border-color: red; margin-left: 5px; margin-bottom: 5px;" plain>
-              <Icon icon="material-symbols:delete" style="color: red;" size="52" />
-              Delete Project
-            </el-button> </template>
-        </el-popconfirm>
-
-      </el-tab-pane> -->
+ 
 
     </el-tabs>
   </el-card>
 
-
-  <!-- 
-  <el-dialog v-model="ShowActivityAddDialog" title="Add Project Activity" width="500">
-    <el-select id="location-select" v-model="projectScope" multiple filterable remote reserve-keyword
-      placeholder=" Search Activities" :remote-method="getActivities" style="width: 85%">
-      <el-option v-for="item in activityOptions" :key="item.id" :label="item.label" :value="item">
-        <div style="display: flex; align-items: center;">
-          <span style="flex: 1; text-align: left;">{{ item.label }}</span>
-          <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
-            {{ item.code }}
-          </span>
-        </div>
-      </el-option>
-    </el-select>
-    <el-tooltip content="Save" placement="top">
-      <el-button :onClick="AddActivity" style="margin-left :10px;" type="primary">
-        <Icon icon="ic:round-save" style=" color: white" size="48" />
-      </el-button>
-
-
-    </el-tooltip>
-
-  </el-dialog> -->
+ 
 
 
 
@@ -3914,9 +4089,15 @@ AddDialogVisible.value = false
             <el-option v-for="item in projectLocations" :key="item.id" :label="item.location_name" :value="item.id">
               <div style="display: flex; align-items: center;">
                 <span style="flex: 1; text-align: left;">{{ item.location_name }}</span>
-                <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
+                <!-- <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
                   {{ item.ward.name }}, {{ item.subcounty.name }}, {{ item.county.name }}
-                </span>
+                </span> -->
+                <span style="flex: 2; color: var(--el-text-color-secondary); font-size: 12px; text-align: right;">
+                      {{ formatLocation(item) }}
+                    </span>
+
+
+
               </div>
             </el-option>
           </el-select>

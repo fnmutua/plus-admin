@@ -3431,7 +3431,7 @@ exports.modelPaginatedDatafilterByColumnM2M = (req, res) => {
 
  
  
-exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
+exports._modelPaginatedDatafilterBykeyWord = async (req, res) => {
   try {
     console.log('/api/v1/data/paginated/filter --- Keyword', req.body);
 
@@ -3532,6 +3532,124 @@ exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
     });
   }
 };
+
+
+
+exports.modelPaginatedDatafilterBykeyWord = async (req, res) => {
+  try {
+    console.log('/api/v1/data/paginated/filter --- Keyword', req.body);
+
+    // Extract request body properties
+    const {
+      model: reg_model,
+      searchField: field,
+      excludeGeom,
+      excludeGeomAssoc,
+      searchKeyword,
+      associated_multiple_models: associatedModels = [],
+      nested_models: nestedModels = [],
+      filters = [],
+      filterValues = [],
+      limit = 20,
+      page = 1,
+    } = req.body;
+
+    // Initialize variables
+    const includeModels = [];
+    const queryCondition = {};
+
+    // Set nested models if available
+    const [childModel, grandChildModel] = nestedModels.map(nested => db.models[nested]);
+
+    // Prepare associated models for inclusion
+    if (associatedModels.length > 0) {
+      associatedModels.forEach(modelName => {
+        const model = db.models[modelName];
+        includeModels.push({
+          model: model,
+          raw: true,
+          nested: true,
+          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined,
+        });
+      });
+
+      // Add nested models to the include list if they are present
+      if (childModel && grandChildModel) {
+        includeModels.push({
+          model: childModel,
+          include: [{
+            model: grandChildModel,
+            raw: true,
+            nested: true,
+            attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined,
+          }],
+          raw: true,
+          nested: true,
+          attributes: excludeGeomAssoc ? { exclude: ['geom'] } : undefined,
+        });
+      }
+    }
+
+    // Build query
+    const qry = {
+      include: includeModels,
+      attributes: excludeGeom ? { exclude: ['geom'] } : undefined,
+    };
+
+    // Add multiple filters if provided
+    if (filters.length > 0 && filterValues.length > 0) {
+      filters.forEach((filter, index) => {
+        queryCondition[filter] = filterValues[index];
+      });
+    }
+
+    // Add search condition if searchField and searchKeyword are provided
+    if (field && searchKeyword) {
+      queryCondition[field] = {
+        [Op.iLike]: `%${searchKeyword.toLowerCase()}%`,
+      };
+    }
+
+    // Apply pagination
+    qry.limit = parseInt(limit);
+    qry.offset = (parseInt(page) - 1) * parseInt(limit);
+
+    qry.where = queryCondition;
+
+    console.log('The xQuery----->', qry);
+
+    // Execute the query
+    const list = await db.models[reg_model].findAndCountAll(qry);
+
+    res.status(200).send({
+      data: list.rows,
+      total: list.count,
+      code: '0000',
+    });
+  } catch (error) {
+    console.error('Error in modelPaginatedDatafilterBykeyWord:', error);
+    res.status(500).send({
+      error: 'Internal Server Error',
+      code: '9999',
+    });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 exports.modelLookup = async (req, res) => {
   try {
