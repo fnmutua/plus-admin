@@ -1454,7 +1454,7 @@ exports.modelAllGeo = async (req, res) => {
 const { Readable } = require('stream');
 
  
-exports.streamAllGeo = async (req, res) => {
+exports.xstreamAllGeo = async (req, res) => {
   const reg_model = req.query.model;
 
   const qry2 =
@@ -1610,6 +1610,181 @@ exports.streamAllGeo = async (req, res) => {
     readableStream.pipe(res);
   }
 };
+ 
+
+
+function toGeoJSONFeatureCollection(rows, geomField = 'geom') {
+  const features = rows.map(row => {
+    const geom = row[geomField];
+    const { [geomField]: _, ...properties } = row.toJSON();
+
+    return {
+      type: "Feature",
+      geometry: geom,
+      properties,
+    };
+  });
+
+  return {
+    type: "FeatureCollection",
+    features,
+  };
+}
+
+
+
+
+exports.streamAllGeo = async (req, res) => {
+  const reg_model = req.query.model;
+
+  // Check if geometry should be excluded from associated models
+  const excludeGeoFromAssociations = req.query.excludeGeoFromAssociations === 'true';
+
+  // Get the array of models to associate, passed in the request (optional)
+  const associatedModels = req.query.associatedModels ? req.query.associatedModels.split(',') : [];
+
+  // Define the base query to retrieve geometries (already adapted from previous example)
+  let qry2 =
+    "SELECT row_to_json(fc) AS json_build_object FROM (SELECT 'FeatureCollection' AS type, array_to_json(array_agg(f)) AS features FROM (SELECT 'Feature' AS type, ST_AsGeoJSON(ST_ConvexHull(geom))::json AS geometry, (SELECT json_strip_nulls(row_to_json(" +
+    reg_model +
+    ")) FROM (SELECT id) t) AS properties FROM " +
+    reg_model +
+    " WHERE ST_IsEmpty(geom) = false AND geom IS NOT NULL) AS f) AS fc";
+
+  // Set up the Sequelize model and options
+  let modelOptions = {
+    include: [], // Here we will include associated models dynamically if present
+    // attributes: {
+    //   exclude: ['geom'], // Exclude the `geom` field from the main model if necessary
+    // },
+  };
+
+  // Dynamically include models based on the array of associated models passed in the request (if provided)
+  if (associatedModels.length > 0) {
+    associatedModels.forEach(modelName => {
+      // Check if the model exists in the db models and then include it
+      const model = db.models[modelName];
+      if (model) {
+        modelOptions.include.push({
+          model: model,
+        attributes: excludeGeoFromAssociations ? { exclude: ['geom'] } : ['id', 'name', 'geom'], // Include or exclude the `geom` field
+        });
+      }
+    });
+  }
+
+  // Cache logic
+
+  console.log('modelOptions',modelOptions)
+
+
+  if (req.query.cache_key && req.query.cache_key !== '') {
+    const cache_key = req.query.cache_key;
+    const cacheDuration = 3600; // Cache duration in seconds
+
+    const lastRow = await db.models[reg_model].findOne({
+      attributes: ['updatedAt'],
+      order: [['updatedAt', 'DESC']],
+    });
+
+    const lastModified = lastRow ? lastRow.updatedAt : Date.now();
+
+    try {
+      const cacheResults = await redisClient.get(cache_key);
+
+      if (cacheResults) {
+        const result = JSON.parse(cacheResults);
+
+        if (lastModified && lastModified > result.lastModified) {
+          const response = await db.models[reg_model].findAll(modelOptions);
+
+          await redisClient.set(cache_key, JSON.stringify({
+            data: response,
+            lastModified: Date.now(),
+          }), {
+            EX: cacheDuration,
+            NX: true,
+          });
+
+          res.status(200);
+          const readableStream = new Readable();
+          readableStream.push(JSON.stringify({
+            fromCache: false,
+            cache_key: cache_key,
+            data: response,
+            code: '0000',
+          }));
+          readableStream.push(null);
+          readableStream.pipe(res);
+        } else {
+          res.status(200);
+          const readableStream = new Readable();
+          readableStream.push(JSON.stringify({
+            fromCache: true,
+            cache_key: cache_key,
+            data: result.data,
+            code: '0000',
+          }));
+          readableStream.push(null);
+          readableStream.pipe(res);
+        }
+      } else {
+        const response = await db.models[reg_model].findAll(modelOptions);
+
+
+        const geojson = toGeoJSONFeatureCollection(response);
+
+
+
+        await redisClient.set(cache_key, JSON.stringify({
+          data: response,
+          lastModified: Date.now(),
+        }), {
+          EX: cacheDuration,
+          NX: true,
+        });
+
+        res.status(200);
+        const readableStream = new Readable();
+        readableStream.push(JSON.stringify({
+          fromCache: false,
+          cache_key: cache_key,
+          data: geojson,
+          code: '0000',
+        }));
+        readableStream.push(null);
+        readableStream.pipe(res);
+      }
+    } catch (error) {
+      res.status(500);
+      const readableStream = new Readable();
+      readableStream.push(JSON.stringify({
+        message: 'Internal server error',
+        code: 'SERVER_ERROR',
+      }));
+      readableStream.push(null);
+      readableStream.pipe(res);
+    }
+  } else {
+    const result_geo = await db.models[reg_model].findAll(modelOptions);
+
+
+    const geojson = toGeoJSONFeatureCollection(result_geo);
+
+
+    res.status(200);
+    const readableStream = new Readable();
+    readableStream.push(JSON.stringify({
+      data: geojson,
+      code: '0000',
+    }));
+    readableStream.push(null);
+    readableStream.pipe(res);
+  }
+};
+
+
+
 
 
  

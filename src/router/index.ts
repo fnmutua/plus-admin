@@ -231,6 +231,21 @@ export const adminRoutes: AppRouteRecordRaw[] = [
 
         }
       }, 
+
+      {
+        path: 'prjmap',
+        component: () => import('@/views/Dashboard/ProjectMap.vue'),
+        name: 'ProjectMap',
+        meta: {
+          title: t('Projects'),
+          noCache: true,
+          icon:'ep:map-location',
+          affix: true,
+          hidden: false,
+
+        }
+      }, 
+
     
     ]
   },

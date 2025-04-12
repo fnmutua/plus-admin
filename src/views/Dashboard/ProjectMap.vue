@@ -22,7 +22,7 @@ clearable filterable v-model="subcounty" class="m-2" placeholder="Filter by Subc
 
 <script setup lang="ts" >
 import { useRouter } from 'vue-router'
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive,watch, onMounted } from 'vue'
 import {
   ElButton, ElMenu, ElMenuItem, ElDialog, ElSelect, ElOption, ElDivider, ElRow, ElCol, ElText, ElCard, ElTable, ElTableColumn,
   ElForm, ElFormItem, ElInput, ElCarousel, ElCarouselItem, ElCollapse, ElCollapseItem, ElRate, ElMessage
@@ -218,7 +218,6 @@ console.log('cards', cards)
 
 
  
-const dialogVisible = ref(false)
 const MapBoxToken =
   'pk.eyJ1IjoiYWdzcGF0aWFsIiwiYSI6ImNsdm92dGhzNDBpYjIydmsxYXA1NXQxbWcifQ.dwBpfBMPaN_5gFkbyoerrg'
 mapboxgl.accessToken = MapBoxToken;
@@ -247,6 +246,9 @@ const subcountyGeo = ref([])
 
 const map = ref()
 var isDarkMode  = appStore.getIsDark 
+
+
+
 onMounted(async () => {
 
   if (isMobile.value) {
@@ -261,7 +263,10 @@ onMounted(async () => {
   var mapStyle = appStore.getIsDark ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7' : 'mapbox://styles/mapbox/light-v11';
 
 
-  
+
+ 
+
+
 
   map.value = new mapboxgl.Map({
     container: 'map',
@@ -291,12 +296,12 @@ onMounted(async () => {
    
    map.value.on('load', async () => {
     mapLoading.value=true
-    mapLoadingText.value = 'Getting Settlements...'
+    mapLoadingText.value = 'Getting projects...'
     await getFarmGeo()
     mapLoadingText.value = 'Getting counties...'
 
     console.log('get cunty shp')
-    await getCountyGeo()
+   // await getCountyGeo()
 
     console.log('get cunty list')
 
@@ -305,35 +310,33 @@ onMounted(async () => {
 
     mapLoading.value=false
 
-    map.value.addSource('County', {
-      type: 'geojson',
-      // Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
-      // from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
-      data: countyGeo.value,
+    // map.value.addSource('County', {
+    //   type: 'geojson',
+    //   // Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
+    //   // from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
+    //   data: countyGeo.value,
 
-    });
+    // });
 
 
 
-    map.value.addLayer({
-      id: 'county',
-      type: 'line',
-      source: 'County',
-      paint: {
-        'line-color': 'red',
-        'line-opacity': 0.4, // Adjust the opacity if needed
-        'line-width': 1, // Adjust the width of the line if needed
-        'line-dasharray': [2, 2], // Adjust the dash pattern [dash, gap]
-      },
-    });
+    // map.value.addLayer({
+    //   id: 'county',
+    //   type: 'line',
+    //   source: 'County',
+    //   paint: {
+    //     'line-color': 'red',
+    //     'line-opacity': 0.4, // Adjust the opacity if needed
+    //     'line-width': 1, // Adjust the width of the line if needed
+    //     'line-dasharray': [2, 2], // Adjust the dash pattern [dash, gap]
+    //   },
+    // });
 
     addSettlementLayers()
 
 
 
-    bounds.value = turf.bbox((countyGeo.value))
-    console.log("From geo", bounds.value)
-    map.value.fitBounds(bounds.value, { padding: 20 })
+  
 
 
 
@@ -550,6 +553,12 @@ const addSettlementLayers = async () => {
 
 
 
+
+bounds.value = turf.bbox((polyFarms.value))
+    console.log("From geo", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
+
+
 }
 
 
@@ -589,34 +598,32 @@ async function computeCentroids(featureCollection) {
   const polyFeatures = [];
 
   featureCollection.features.forEach((feature) => {
-    // Check if the feature is a Point
+    // Skip features with null or missing geometry
+    if (!feature.geometry || !feature.geometry.type) {
+      return;
+    }
+
+    // If it's a Point, preserve as is
     if (feature.geometry.type === 'Point') {
-      // Preserve the original point
       resultFeatures.push(feature);
     } else {
-      // Compute centroid for polygons, lines, etc.
-        // Compute centroid for polygons, lines, etc.
-        try {
+      try {
+        // Compute centroid
         const centroid = turf.centroid(feature);
         centroid.properties = feature.properties;
 
         resultFeatures.push(centroid);
-
-    
+        polyFeatures.push(feature); // Preserve the original polygon/line
       } catch (error) {
-        // Handle the error, if any, during centroid computation
         console.error('Error computing centroid:', error);
       }
-
-      // Preserve the original polygon
-      polyFeatures.push(feature);
     }
   });
 
   polyFarms.value = {
     type: 'FeatureCollection',
     features: polyFeatures,
-  }
+  };
 
   return {
     type: 'FeatureCollection',
@@ -628,47 +635,27 @@ async function computeCentroids(featureCollection) {
 
 
 
+
  
-
-
-const _getFarmGeo = async () => {
-  const formData = {}
-  formData.model = 'settlement'
-  formData.cache_key = 'settlement_geo'
-  //const res = await streamAllGeo(formData)
-  
-  const res = await getAllGeo(formData)
-
-  console.log('stream',res)
-
-  console.log('Settlements >>', res)
-
-
-  console.log('Settlements GEO geo >>', res.data[0].json_build_object)
-  let featureCollection = res.data[0].json_build_object
-  geojson.value = await computeCentroids(featureCollection);
-
-}
  
 
 const getFarmGeo = async () => {
   const params = {
     // Your request parameters here
     // For example, if you have query parameters, you can add them here
-    model: 'settlement',
-   cache_key: 'settlement_geo',
+    model: 'project_location',
+  //  cache_key: 'project_location_geo',
+   associatedModels :'project',
+   excludeGeoFromAssociations :'true'
   };
 
   try {
     // Call the streamGeo function
     console.log('-------x-------------')
     const response = await streamGeo({ params });
-    console.log(response)
-    // Handle the response or stream as needed
-    const res = response.data.data;
-
-    let featureCollection = res[0].json_build_object
-  geojson.value = await computeCentroids(featureCollection);
+    console.log(response.data.data)
+   
+  geojson.value = await computeCentroids(response.data.data);
   
     
     
@@ -685,84 +672,99 @@ const getFarmGeo = async () => {
 const getClickedFarm = async (id) => { 
 
   const form = {}
-  form.model = 'settlement'
+  form.model = 'project_location'
   form.id = id
-  form.assocModel='county'
+  form.assocModel='project'
 
   await getOneSettlement(form)
       .then((res) => {
- 
-        
+  
 
-          const settlement = res.data 
+          const project_location = res.data 
           // Extract properties
-          console.log('settlement',settlement)
+          console.log('project_location',project_location)
           //const name = farm.name || 'Unknown';
-          const area = settlement.area || 'N/A';
+          const location = project_location.location_name + ' ' + project_location.location_type  || 'N/A';
+          const project_code = project_location.project.project_code   || 'N/A';
 
         // If the area is not 'N/A', round it to two decimals
-        const roundedArea = area !== 'N/A' ? parseFloat(area).toFixed(2)+'m²' : 'N/A';
-
+ 
         // Now, `roundedArea` contains the rounded value to two decimals
     
          // const type_farming = convertArrayToStrings((farm.type_farming))
-         const name =settlement.name
-         const sett_id =settlement.id
+         const name =project_location.project.title
+         const sett_id =project_location.id
           // Handle cases where the properties may be null or undefined
 
           // Correct for multiple copies of the feature
           
-          const geom  = turf.centroid(settlement.geom);
+          const geom  = turf.centroid(project_location.geom);
            const popup = new mapboxgl.Popup({
             closeButton: false,  // Optionally, you can include or exclude the close button
           });
  
 
           const popupContent = `
-            <div style="margin-top: 13px; font: 400 15px/22px 'Source Sans Pro', 'Helvetica Neue', sans-serif; padding: 0; width: 180px;">
-                <h3 style="background: ${isDarkMode ? '#333' : '#91c949'}; color: ${isDarkMode ? '#fff' : '#000'}; margin: 0; padding: 10px; border-radius: 3px 3px 0 0; font-weight: 700; margin-top: -15px; text-align: center;"><u>SETTLEMENT DETAILS (${sett_id} )</u></h3>
-                <div style="font-style: italic; font-size: 12px; color: ${isDarkMode ? 'black' : '#000'};"> <b>Name:</b> ${name} </div>  
-                <div style="font-style: italic; font-size: 12px; color: ${isDarkMode ? 'black' : '#000'};"> <b>Area:</b> ${roundedArea} </div>  
-                <button   style="font-style: italic; font-size: 12px;"> More details...</button>
-     
-            </div> `;
+                      <div style="
+                        font-family: 'Source Sans Pro', 'Helvetica Neue', sans-serif;
+                        font-size: 14px;
+                        color: ${isDarkMode ? '#f0f0f0' : '#333'};
+                        background: ${isDarkMode ? '#2c2c2c' : '#fff'};
+                        border-radius: 8px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                        overflow: hidden;
+                        width: 250px;
+                      ">
+                        <div style="
+                          background: ${isDarkMode ? '#444' : '#91c949'};
+                          color: ${isDarkMode ? '#fff' : '#000'};
+                          padding: 10px 12px;
+                          font-weight: 700;
+                          text-align: center;
+                          font-size: 15px;
+                        ">
+                          <u>Project Details</u>
+                        </div>
+                        <div style="padding: 10px 12px;">
+                          <div style="margin-bottom: 6px;">
+                            <span style="font-weight: bold;">Title:</span>
+                            <span>${name}</span>
+                          </div>
+                          <div style="margin-bottom: 6px;">
+                            <span style="font-weight: bold;">Contract:</span>
+                            <span> ${project_code}</span>
+                          </div>
+
+                          <div>
+                            <span style="font-weight: bold;">Location:</span>
+                            <span>${location}</span>
+                          </div>
+                        </div>
+                      </div>
+                    `;
+
 
           popup.setLngLat(geom.geometry.coordinates)
           .setHTML(popupContent)
           .addTo(map.value);
 
         // Click event on popupElement
-        popup.getElement().addEventListener('click', () => {
-              // your logic here
-              console.log('clicked popup',sett_id)
+        // popup.getElement().addEventListener('click', () => {
+        //       // your logic here
+        //       console.log('clicked popup',sett_id)
+        //       push({
+        //           path: '/settlement/map/:id',
+        //           name: 'SettlementMap',
+        //           params: { id: sett_id}
+        //         })
 
-
-              push({
-                  path: '/settlement/map/:id',
-                  name: 'SettlementMap',
-                  params: { id: sett_id}
-                })
-
-              
-            });
+        //     });
        })
 
       
 
 }
 
-const getCountyGeo = async () => {
-  const formData = {}
-  formData.model = 'county'
-  formData.cache_key = 'county_geo'
-  const res = await getAllGeo(formData)
-
-  console.log("County returns >>", res)
-  console.log('county geo', res.data[0].json_build_object)
-  countyGeo.value = res.data[0].json_build_object
-
-
-}
 
 
 
@@ -800,7 +802,7 @@ const getSubsetGeo = async (model, filterFields, filterValues) => {
 }
 
 
-const adminOptions = ref([])
+ 
 const countyOptions = ref([])
 
  
@@ -858,7 +860,7 @@ subCountyOptions.value=[]
     mapLoading.value=true
     mapLoadingText.value = 'Refreshing Settlements...'
     await getFarmGeo()
-     await getCountyGeo()
+    // await getCountyGeo()
 
  
     mapLoading.value=false
@@ -915,7 +917,9 @@ if (county) {
   console.log(geoForm)
  
 
-  await getSubsetGeo('settlement', ['county_id'], [[county]])
+  //await getSubsetGeo('settlement', ['county_id'], [[county]])
+  await getSubsetGeo('project_location', ['county_id'], [[county]])
+
 
   // get subcounty shape
   const res = await getOneGeo(geoForm)
@@ -1010,7 +1014,7 @@ const handleChangeSubcounty = async (subcounty) => {
    // await getFilteredSubcountyCounts(subcounty)
 
 
-     await getSubsetGeo('settlement', ['subcounty_id'], [[subcounty]])
+     await getSubsetGeo('project_location', ['subcounty_id'], [[subcounty]])
 
     // get subcounty shape
     const res = await getOneGeo(geoForm)
@@ -1062,16 +1066,7 @@ const handleChangeSubcounty = async (subcounty) => {
 };
 
 
-
-
-
-
-  
-//getCountySubcounty()
-//getCounty()
-//getSubCounty()
  
-
  
 
 
