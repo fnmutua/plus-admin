@@ -875,7 +875,7 @@ county.value=null
 subcounty.value=null
 subCountyOptions.value=[]
     mapLoading.value=true
-    mapLoadingText.value = 'Refreshing Settlements...'
+    mapLoadingText.value = 'Refreshing Projects...'
     await getFarmGeo()
     // await getCountyGeo()
 
