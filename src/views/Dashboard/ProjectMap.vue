@@ -263,6 +263,29 @@ onMounted(async () => {
   var mapStyle = appStore.getIsDark ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7' : 'mapbox://styles/mapbox/light-v11';
 
 
+  watch(
+  () => appStore.getIsDark,
+  async (newVal) => {
+    const isDarkMode = newVal;
+
+    const mapStyle = isDarkMode
+      ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7'
+      : 'mapbox://styles/mapbox/light-v11';
+
+    if (map.value) {
+      map.value.setStyle(mapStyle);
+
+      // Wait until the style has finished loading before adding layers
+      map.value.once('styledata', async () => {
+       // await removeSettlementLayers();
+        await addSettlementLayers();
+      });
+    }
+  },
+  { immediate: true }
+);
+
+
 
  
 
@@ -296,7 +319,7 @@ onMounted(async () => {
    
    map.value.on('load', async () => {
     mapLoading.value=true
-    mapLoadingText.value = 'Getting projects...'
+    mapLoadingText.value = 'Getting Projects...'
     await getFarmGeo()
     mapLoadingText.value = 'Getting counties...'
 
@@ -342,10 +365,10 @@ onMounted(async () => {
 
 
     // inspect a cluster on click
-    map.value.on('click', 'clusters', (e) => {
+    map.value.on('click', 'clustersx', (e) => {
       
       const features = map.value.queryRenderedFeatures(e.point, {
-        layers: ['clusters']
+        layers: ['clustersx']
       });
       console.log('cluster>>,',features)
 
@@ -410,7 +433,7 @@ onMounted(async () => {
 
   })
   
-  map.value.on('click', 'unclustered-point', (e) => {
+  map.value.on('click', 'unclustered-pointx', (e) => {
       const feature = e.features[0];
       const coordinates = feature.geometry.coordinates.slice();
       console.log('Clicked Feature', feature);
@@ -468,7 +491,7 @@ const addSettlementLayers = async () => {
   );
 
   map.value.addLayer({
-    id: 'clusters',
+    id: 'clustersx',
     type: 'circle',
     source: 'farmers',
     filter: ['has', 'point_count'],
@@ -517,7 +540,7 @@ const addSettlementLayers = async () => {
 
 
   map.value.addLayer({
-    id: 'unclustered-point',
+    id: 'unclustered-pointx',
     type: 'circle',
     source: 'farmers',
     filter: ['!', ['has', 'point_count']],
@@ -567,13 +590,13 @@ const removeSettlementLayers = async () => {
  
   //
   console.log(' removing clusters.......')
-  map.value.removeLayer('clusters');
+  map.value.removeLayer('clustersx');
  //
  console.log('removing...cluster-count....')
   map.value.removeLayer('cluster-count');
 
   console.log('removing...unclustered-count....')
-  map.value.removeLayer('unclustered-point');
+  map.value.removeLayer('unclustered-pointx');
 
   console.log('removing...polyFarms....')
   map.value.removeLayer('polyFarms');
@@ -703,47 +726,42 @@ const getClickedFarm = async (id) => {
             closeButton: false,  // Optionally, you can include or exclude the close button
           });
  
-
           const popupContent = `
-                      <div style="
-                        font-family: 'Source Sans Pro', 'Helvetica Neue', sans-serif;
-                        font-size: 14px;
-                        color: ${isDarkMode ? '#f0f0f0' : '#333'};
-                        background: ${isDarkMode ? '#2c2c2c' : '#fff'};
-                        border-radius: 8px;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                        overflow: hidden;
-                        width: 250px;
-                      ">
-                        <div style="
-                          background: ${isDarkMode ? '#444' : '#91c949'};
-                          color: ${isDarkMode ? '#fff' : '#000'};
-                          padding: 10px 12px;
-                          font-weight: 700;
-                          text-align: center;
-                          font-size: 15px;
-                        ">
-                          <u>Project Details</u>
-                        </div>
-                        <div style="padding: 10px 12px;">
-                          <div style="margin-bottom: 6px;">
-                            <span style="font-weight: bold;">Title:</span>
-                            <span>${name}</span>
-                          </div>
-                          <div style="margin-bottom: 6px;">
-                            <span style="font-weight: bold;">Contract:</span>
-                            <span> ${project_code}</span>
-                          </div>
+  <div style="
+    background: ${isDarkMode ? '#444' : '#91c949'};
+    color: ${isDarkMode ? '#fff' : '#000'};
+    padding: 10px 12px;
+    font-weight: 700;
+    text-align: center;
+    font-size: 15px;
+    border-radius: 8px 8px 0 0;
+  ">
+    <u>Project Details</u>
+  </div>
+  <div style="
+    padding: 10px 12px;
+    font-family: 'Source Sans Pro', 'Helvetica Neue', sans-serif;
+    font-size: 14px;
+    color: ${isDarkMode ? '#f0f0f0' : '#333'};
+    background: ${isDarkMode ? '#2c2c2c' : '#fff'};
+    border-radius: 0 0 8px 8px;
+  ">
+    <div style="margin-bottom: 6px;">
+      <span style="font-weight: bold;">Title:</span>
+      <span>${name}</span>
+    </div>
+    <div style="margin-bottom: 6px;">
+      <span style="font-weight: bold;">Contract:</span>
+      <span>${project_code}</span>
+    </div>
+    <div>
+      <span style="font-weight: bold;">Location:</span>
+      <span>${location}</span>
+    </div>
+  </div>
+`;
 
-                          <div>
-                            <span style="font-weight: bold;">Location:</span>
-                            <span>${location}</span>
-                          </div>
-                        </div>
-                      </div>
-                    `;
-
-
+                    console.log(geom.geometry.coordinates)
           popup.setLngLat(geom.geometry.coordinates)
           .setHTML(popupContent)
           .addTo(map.value);
@@ -1269,30 +1287,41 @@ h1 {
 }
 
 /* Styles for the floating div on the left */
-.floating-div {
-  position: fixed;
-  left: 0;
-  top: 60px;
-  /* Height of the menu */
-  width: 30%;
-  /* 1/3 of the page */
-  height: 95%;
-  background-color: rgba(146, 143, 143, 0.7);
-  /* Semi-transparent white background */
-  z-index: 1000;
-  /* Adjust as needed to be above other elements */
-}
-
-
+ 
 .floating-collapse {
   position: fixed;
-  left: 10;
   top: 110px;
-  /* Height of the menu */
-  /* 1/3 of the page */
-  /* Semi-transparent white background */
+  left: 255px;
   z-index: 1000;
-  /* Adjust as needed to be above other elements */
+  background-color: rgba(255, 255, 255, 0.95);
+  color: #333;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Dark mode styles */
+.dark .floating-collapse {
+  background-color: rgba(30, 30, 30, 0.95);
+  color: #f0f0f0;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
+}
+
+/* Ensure el-select and el-button fill the container */
+.floating-collapse .el-select,
+.floating-collapse .el-button {
+  width: 100%;
+}
+
+/* Optional: Hide on small screens */
+@media (max-width: 600px) {
+  .floating-collapse {
+    display: none;
+  }
 }
 
 

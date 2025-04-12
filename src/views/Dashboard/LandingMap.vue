@@ -1,7 +1,7 @@
 
 <template>
   <div class="floating-collapse">
-    <el-select v-model="county" class="m-2" placeholder="Filter by County" size="large" @change="handleChangeCounty" filterable clearable>
+    <el-select v-model="county" class="m-2" placeholder="Filter by County"  @change="handleChangeCounty" filterable clearable>
         <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     <el-select
@@ -22,7 +22,7 @@ clearable filterable v-model="subcounty" class="m-2" placeholder="Filter by Subc
 
 <script setup lang="ts" >
 import { useRouter } from 'vue-router'
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive,watch, onMounted } from 'vue'
 import {
   ElButton, ElMenu, ElMenuItem, ElDialog, ElSelect, ElOption, ElDivider, ElRow, ElCol, ElText, ElCard, ElTable, ElTableColumn,
   ElForm, ElFormItem, ElInput, ElCarousel, ElCarouselItem, ElCollapse, ElCollapseItem, ElRate, ElMessage
@@ -64,6 +64,7 @@ import { uuid } from 'vue-uuid'
 import { getfilteredGeo } from '@/api/settlements'
 
 import {   getOneSettlement  } from '@/api/settlements'
+import XlsxSheet from 'vue3-xlsx';
 
  
 const activeNames = ref(['01'])
@@ -261,6 +262,31 @@ onMounted(async () => {
   var mapStyle = appStore.getIsDark ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7' : 'mapbox://styles/mapbox/light-v11';
 
 
+
+  
+  watch(
+  () => appStore.getIsDark,
+  async (newVal) => {
+    const isDarkMode = newVal;
+
+    const mapStyle = isDarkMode
+      ? 'mapbox://styles/agspatial/clqcfzcoa00bt01nwhmf465f7'
+      : 'mapbox://styles/mapbox/light-v11';
+
+    if (map.value) {
+      map.value.setStyle(mapStyle);
+
+      // Wait until the style has finished loading before adding layers
+      map.value.once('styledata', async () => {
+       // await removeSettlementLayers();
+        await addSettlementLayers();
+      });
+    }
+  },
+  { immediate: true }
+);
+
+
   
 
   map.value = new mapboxgl.Map({
@@ -296,7 +322,7 @@ onMounted(async () => {
     mapLoadingText.value = 'Getting counties...'
 
     console.log('get cunty shp')
-    await getCountyGeo()
+   // await getCountyGeo()
 
     console.log('get cunty list')
 
@@ -305,35 +331,35 @@ onMounted(async () => {
 
     mapLoading.value=false
 
-    map.value.addSource('County', {
-      type: 'geojson',
-      // Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
-      // from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
-      data: countyGeo.value,
+    // map.value.addSource('County', {
+    //   type: 'geojson',
+    //   // Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
+    //   // from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
+    //   data: countyGeo.value,
 
-    });
+    // });
 
 
 
-    map.value.addLayer({
-      id: 'county',
-      type: 'line',
-      source: 'County',
-      paint: {
-        'line-color': 'red',
-        'line-opacity': 0.4, // Adjust the opacity if needed
-        'line-width': 1, // Adjust the width of the line if needed
-        'line-dasharray': [2, 2], // Adjust the dash pattern [dash, gap]
-      },
-    });
+    // map.value.addLayer({
+    //   id: 'county',
+    //   type: 'line',
+    //   source: 'County',
+    //   paint: {
+    //     'line-color': 'red',
+    //     'line-opacity': 0.4, // Adjust the opacity if needed
+    //     'line-width': 1, // Adjust the width of the line if needed
+    //     'line-dasharray': [2, 2], // Adjust the dash pattern [dash, gap]
+    //   },
+    // });
 
     addSettlementLayers()
 
 
 
-    bounds.value = turf.bbox((countyGeo.value))
-    console.log("From geo", bounds.value)
-    map.value.fitBounds(bounds.value, { padding: 20 })
+    // bounds.value = turf.bbox((countyGeo.value))
+    // console.log("From geo", bounds.value)
+    // map.value.fitBounds(bounds.value, { padding: 20 })
 
 
 
@@ -410,7 +436,7 @@ onMounted(async () => {
   map.value.on('click', 'unclustered-point', (e) => {
       const feature = e.features[0];
       const coordinates = feature.geometry.coordinates.slice();
-      console.log('Clicked Feature', feature);
+      console.log('Clicked  unclustered Feature', feature);
 
       const farm =   getClickedFarm(feature.properties.id)
      
@@ -549,6 +575,9 @@ const addSettlementLayers = async () => {
 });
 
 
+bounds.value = turf.bbox((polyFarms.value))
+    console.log("From geo", bounds.value)
+    map.value.fitBounds(bounds.value, { padding: 20 })
 
 }
 
@@ -580,43 +609,39 @@ const removeSettlementLayers = async () => {
 
 }
 
-
-
-// Function to compute centroids for non-point features
  
+
 async function computeCentroids(featureCollection) {
   const resultFeatures = [];
   const polyFeatures = [];
 
   featureCollection.features.forEach((feature) => {
-    // Check if the feature is a Point
+    // Skip features with null or missing geometry
+    if (!feature.geometry || !feature.geometry.type) {
+      return;
+    }
+
+    // If it's a Point, preserve as is
     if (feature.geometry.type === 'Point') {
-      // Preserve the original point
       resultFeatures.push(feature);
     } else {
-      // Compute centroid for polygons, lines, etc.
-        // Compute centroid for polygons, lines, etc.
-        try {
+      try {
+        // Compute centroid
         const centroid = turf.centroid(feature);
         centroid.properties = feature.properties;
 
         resultFeatures.push(centroid);
-
-    
+        polyFeatures.push(feature); // Preserve the original polygon/line
       } catch (error) {
-        // Handle the error, if any, during centroid computation
         console.error('Error computing centroid:', error);
       }
-
-      // Preserve the original polygon
-      polyFeatures.push(feature);
     }
   });
 
   polyFarms.value = {
     type: 'FeatureCollection',
     features: polyFeatures,
-  }
+  };
 
   return {
     type: 'FeatureCollection',
@@ -625,30 +650,10 @@ async function computeCentroids(featureCollection) {
 }
 
 
-
-
-
  
 
 
-const _getFarmGeo = async () => {
-  const formData = {}
-  formData.model = 'settlement'
-  formData.cache_key = 'settlement_geo'
-  //const res = await streamAllGeo(formData)
-  
-  const res = await getAllGeo(formData)
-
-  console.log('stream',res)
-
-  console.log('Settlements >>', res)
-
-
-  console.log('Settlements GEO geo >>', res.data[0].json_build_object)
-  let featureCollection = res.data[0].json_build_object
-  geojson.value = await computeCentroids(featureCollection);
-
-}
+ 
  
 
 const getFarmGeo = async () => {
@@ -656,19 +661,18 @@ const getFarmGeo = async () => {
     // Your request parameters here
     // For example, if you have query parameters, you can add them here
     model: 'settlement',
-   cache_key: 'settlement_geo',
+  //  cache_key: 'project_location_geo',
+   associatedModels :'county',
+   excludeGeoFromAssociations :'true'
   };
 
   try {
     // Call the streamGeo function
     console.log('-------x-------------')
     const response = await streamGeo({ params });
-    console.log(response)
-    // Handle the response or stream as needed
-    const res = response.data.data;
-
-    let featureCollection = res[0].json_build_object
-  geojson.value = await computeCentroids(featureCollection);
+    console.log(response.data.data)
+   
+  geojson.value = await computeCentroids(response.data.data);
   
     
     
@@ -678,7 +682,6 @@ const getFarmGeo = async () => {
     console.error('Error fetching data:', error.message);
   }
 };
-
  
 
 
@@ -699,6 +702,7 @@ const getClickedFarm = async (id) => {
           console.log('settlement',settlement)
           //const name = farm.name || 'Unknown';
           const area = settlement.area || 'N/A';
+          const county = settlement.county.name || 'N/A';
 
         // If the area is not 'N/A', round it to two decimals
         const roundedArea = area !== 'N/A' ? parseFloat(area).toFixed(2)+'m²' : 'N/A';
@@ -717,15 +721,44 @@ const getClickedFarm = async (id) => {
             closeButton: false,  // Optionally, you can include or exclude the close button
           });
  
-
           const popupContent = `
-            <div style="margin-top: 13px; font: 400 15px/22px 'Source Sans Pro', 'Helvetica Neue', sans-serif; padding: 0; width: 180px;">
-                <h3 style="background: ${isDarkMode ? '#333' : '#91c949'}; color: ${isDarkMode ? '#fff' : '#000'}; margin: 0; padding: 10px; border-radius: 3px 3px 0 0; font-weight: 700; margin-top: -15px; text-align: center;"><u>SETTLEMENT DETAILS (${sett_id} )</u></h3>
-                <div style="font-style: italic; font-size: 12px; color: ${isDarkMode ? 'black' : '#000'};"> <b>Name:</b> ${name} </div>  
-                <div style="font-style: italic; font-size: 12px; color: ${isDarkMode ? 'black' : '#000'};"> <b>Area:</b> ${roundedArea} </div>  
-                <button   style="font-style: italic; font-size: 12px;"> More details...</button>
-     
-            </div> `;
+                    <div style="
+                      background: ${isDarkMode ? '#444' : '#91c949'};
+                      color: ${isDarkMode ? '#fff' : '#000'};
+                      padding: 10px 12px;
+                      font-weight: 700;
+                      text-align: center;
+                      font-size: 15px;
+                    ">
+                      <u>Settlement Details</u>
+                    </div>
+                    <div style="
+                      padding: 10px 12px;
+                      font-family: 'Source Sans Pro', 'Helvetica Neue', sans-serif;
+                      font-size: 14px;
+                      color: ${isDarkMode ? '#f0f0f0' : '#333'};
+                      background: ${isDarkMode ? '#2c2c2c' : '#fff'};
+                    ">
+                      <div style="margin-bottom: 6px;">
+                        <span style="font-weight: bold;">Name:</span>
+                        <span>${name}</span>
+                      </div>
+                      <div style="margin-bottom: 6px;">
+                        <span style="font-weight: bold;">Area:</span>
+                        <span> ${roundedArea}</span>
+                      </div>
+                      <div>
+                        <span style="font-weight: bold;">County:</span>
+                        <span>${county}</span>
+                      </div>
+                    </div>
+                  `;
+
+
+
+
+
+            console.log(geom.geometry.coordinates)
 
           popup.setLngLat(geom.geometry.coordinates)
           .setHTML(popupContent)
@@ -850,15 +883,14 @@ const getCounty = async () => {
 
 const clearSubCounty = async () => {
   console.log('clear filters')
-//  handleChangeCounty(1)
-
+ 
 county.value=null
 subcounty.value=null
 subCountyOptions.value=[]
     mapLoading.value=true
     mapLoadingText.value = 'Refreshing Settlements...'
     await getFarmGeo()
-     await getCountyGeo()
+   //  await getCountyGeo()
 
  
     mapLoading.value=false
@@ -870,26 +902,26 @@ subCountyOptions.value=[]
     map.value.removeSource('County');
   }
 
-  map.value.addSource('County', {
-    type: 'geojson',
-    data: countyGeo.value,
-  });
+  // map.value.addSource('County', {
+  //   type: 'geojson',
+  //   data: countyGeo.value,
+  // });
 
-  map.value.addLayer({
-    id: 'county',
-    type: 'line',
-    source: 'County',
-    paint: {
-      'line-color': 'red',
-      'line-opacity': 1,
-      'line-width': 1,
-      'line-dasharray': [2, 2],
-    },
+  // map.value.addLayer({
+  //   id: 'county',
+  //   type: 'line',
+  //   source: 'County',
+  //   paint: {
+  //     'line-color': 'red',
+  //     'line-opacity': 1,
+  //     'line-width': 1,
+  //     'line-dasharray': [2, 2],
+  //   },
 
-  });
+  // });
 
-  var bounds = turf.bbox(countyGeo.value);
-  map.value.fitBounds(bounds, { padding: 20 });
+  // var bounds = turf.bbox(countyGeo.value);
+  // map.value.fitBounds(bounds, { padding: 20 });
 
 
   removeSettlementLayers()
@@ -992,8 +1024,10 @@ if (county) {
 
 
 }
-
+  
 };
+
+
 
 const handleChangeSubcounty = async (subcounty) => {
 
@@ -1291,18 +1325,40 @@ h1 {
 
 .floating-collapse {
   position: fixed;
-  left: 10;
   top: 110px;
-  /* Height of the menu */
-  /* 1/3 of the page */
-  /* Semi-transparent white background */
+  left: 255px;
   z-index: 1000;
-  /* Adjust as needed to be above other elements */
+  background-color: rgba(255, 255, 255, 0.95);
+  color: #333;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
+/* Dark mode styles */
+.dark .floating-collapse {
+  background-color: rgba(30, 30, 30, 0.95);
+  color: #f0f0f0;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
+}
 
+/* Ensure el-select and el-button fill the container */
+.floating-collapse .el-select,
+.floating-collapse .el-button {
+  width: 100%;
+}
 
-/* Media query to hide the floating div on small screens */
+/* Optional: Hide on small screens */
+@media (max-width: 600px) {
+  .floating-collapse {
+    display: none;
+  }
+}
+
 
 
 /* Adjust for smaller screens (e.g., screens with a width of 600px or less) */
