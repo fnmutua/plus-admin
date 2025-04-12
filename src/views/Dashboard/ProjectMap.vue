@@ -1,15 +1,15 @@
 
 <template>
   <div class="floating-collapse">
-    <el-select v-model="county" class="m-2" placeholder="Filter by County" size="large" @change="handleChangeCounty" filterable clearable>
+    <el-select v-model="county" class="m-2" placeholder="Filter by County"   @change="handleChangeCounty" filterable clearable>
         <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     <el-select
-clearable filterable v-model="subcounty" class="m-2" placeholder="Filter by Subcounty" size="large"
+clearable filterable v-model="subcounty" class="m-2" placeholder="Filter by Subcounty"  
       @change="handleChangeSubcounty" :onClear="clearSubCounty">
       <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>
-    <el-button @click="clearSubCounty"> Reset Filters</el-button>
+    <el-button  class="m-2"   @click="clearSubCounty"> Reset Filters</el-button>
   </div>
 
   
@@ -716,8 +716,7 @@ const getClickedFarm = async (id) => {
     
          // const type_farming = convertArrayToStrings((farm.type_farming))
          const name =project_location.project.title
-         const sett_id =project_location.id
-          // Handle cases where the properties may be null or undefined
+           // Handle cases where the properties may be null or undefined
 
           // Correct for multiple copies of the feature
           
@@ -727,39 +726,39 @@ const getClickedFarm = async (id) => {
           });
  
           const popupContent = `
-  <div style="
-    background: ${isDarkMode ? '#444' : '#91c949'};
-    color: ${isDarkMode ? '#fff' : '#000'};
-    padding: 10px 12px;
-    font-weight: 700;
-    text-align: center;
-    font-size: 15px;
-    border-radius: 8px 8px 0 0;
-  ">
-    <u>Project Details</u>
-  </div>
-  <div style="
-    padding: 10px 12px;
-    font-family: 'Source Sans Pro', 'Helvetica Neue', sans-serif;
-    font-size: 14px;
-    color: ${isDarkMode ? '#f0f0f0' : '#333'};
-    background: ${isDarkMode ? '#2c2c2c' : '#fff'};
-    border-radius: 0 0 8px 8px;
-  ">
-    <div style="margin-bottom: 6px;">
-      <span style="font-weight: bold;">Title:</span>
-      <span>${name}</span>
-    </div>
-    <div style="margin-bottom: 6px;">
-      <span style="font-weight: bold;">Contract:</span>
-      <span>${project_code}</span>
-    </div>
-    <div>
-      <span style="font-weight: bold;">Location:</span>
-      <span>${location}</span>
-    </div>
-  </div>
-`;
+              <div style="
+                background: ${isDarkMode ? '#444' : '#91c949'};
+                color: ${isDarkMode ? '#fff' : '#000'};
+                padding: 10px 12px;
+                font-weight: 700;
+                text-align: center;
+                font-size: 15px;
+                border-radius: 8px 8px 0 0;
+              ">
+                <u>Project Details</u>
+              </div>
+              <div style="
+                padding: 10px 12px;
+                font-family: 'Source Sans Pro', 'Helvetica Neue', sans-serif;
+                font-size: 14px;
+                color: ${isDarkMode ? '#f0f0f0' : '#333'};
+                background: ${isDarkMode ? '#2c2c2c' : '#fff'};
+                border-radius: 0 0 8px 8px;
+              ">
+                <div style="margin-bottom: 6px;">
+                  <span style="font-weight: bold;">Title:</span>
+                  <span>${name}</span>
+                </div>
+                <div style="margin-bottom: 6px;">
+                  <span style="font-weight: bold;">Contract:</span>
+                  <span>${project_code}</span>
+                </div>
+                <div>
+                  <span style="font-weight: bold;">Location:</span>
+                  <span>${location}</span>
+                </div>
+              </div>
+            `;
 
                     console.log(geom.geometry.coordinates)
           popup.setLngLat(geom.geometry.coordinates)
@@ -1314,7 +1313,7 @@ h1 {
 /* Ensure el-select and el-button fill the container */
 .floating-collapse .el-select,
 .floating-collapse .el-button {
-  width: 100%;
+  width: 95%;
 }
 
 /* Optional: Hide on small screens */

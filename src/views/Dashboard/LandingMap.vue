@@ -5,11 +5,11 @@
         <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     <el-select
-clearable filterable v-model="subcounty" class="m-2" placeholder="Filter by Subcounty" size="large"
+clearable filterable v-model="subcounty" class="m-2" placeholder="Filter by Subcounty"  
       @change="handleChangeSubcounty" :onClear="clearSubCounty">
       <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>
-    <el-button @click="clearSubCounty"> Reset Filters</el-button>
+    <el-button   class="m-2"  @click="clearSubCounty"> Reset Filters</el-button>
   </div>
 
   
@@ -1349,7 +1349,7 @@ h1 {
 /* Ensure el-select and el-button fill the container */
 .floating-collapse .el-select,
 .floating-collapse .el-button {
-  width: 100%;
+  width: 95%;
 }
 
 /* Optional: Hide on small screens */
