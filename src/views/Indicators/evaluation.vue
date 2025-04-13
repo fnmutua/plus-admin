@@ -292,7 +292,7 @@ const getprojectList = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
       opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      opt.label = arrayItem.title  
       //  console.log(countyOpt)
       projectOptions.value.push(opt)
     })
@@ -359,7 +359,7 @@ const getEvaluationTypes = async () => {
       //console.log(arrayItem)
       var opt = {}
       opt.value = arrayItem.id
-      opt.label = arrayItem.type + '(' + arrayItem.id + ')'
+      opt.label = arrayItem.type  
 
       //  console.log(countyOpt)
       evaluationOptions.value.push(opt)

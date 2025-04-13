@@ -395,7 +395,7 @@ const makeOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.title  
     //  console.log(countyOpt)
     componentOptions.value.push(countyOpt)
   })
@@ -431,7 +431,7 @@ const getDashboardOptions = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
       opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      opt.label = arrayItem.title  
       opt.type = arrayItem.type
       //  console.log(countyOpt)
       DashboardOptions.value.push(opt)
@@ -462,7 +462,7 @@ const getStrategicFocusAreas = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      countyOpt.label = arrayItem.title  
       //  console.log(countyOpt)
       strategicFocusOptions.value.push(countyOpt)
     })

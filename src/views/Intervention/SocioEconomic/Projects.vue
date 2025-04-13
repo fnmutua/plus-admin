@@ -483,7 +483,7 @@ const getInterventionTypes = async () => {
         ret.forEach(function (arrayItem: { id: string; type: string }) {
             var countyOpt = {}
             countyOpt.value = arrayItem.id
-            countyOpt.label = arrayItem.type + '(' + arrayItem.id + ')'
+            countyOpt.label = arrayItem.type  
             //  console.log(countyOpt)
             interVentionTypeOptions.value.push(countyOpt)
         })
@@ -511,7 +511,7 @@ const getBeneficiaryType = async () => {
         ret.forEach(function (arrayItem: { id: string; type: string }) {
             var opt = {}
             opt.value = arrayItem.id
-            opt.label = arrayItem.type + '(' + arrayItem.id + ')'
+            opt.label = arrayItem.type  
             //  console.log(countyOpt)
             benefitTypeOptions.value.push(opt)
         })
@@ -609,7 +609,7 @@ const getSettlementsOptions = async () => {
         ret.forEach(function (arrayItem: { id: string; type: string }) {
             var countyOpt = {}
             countyOpt.value = arrayItem.id
-            countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+            countyOpt.label = arrayItem.name  
             //  console.log(countyOpt)
             settlementOptions.value.push(countyOpt)
         })
@@ -969,7 +969,7 @@ const getProgrammeOptions = async () => {
         ret.forEach(function (arrayItem: { id: string; type: string }) {
             var countyOpt = {}
             countyOpt.value = arrayItem.id
-            countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+            countyOpt.label = arrayItem.title  
             //  console.log(countyOpt)
             programmeOptions.value.push(countyOpt)
         })
@@ -1134,7 +1134,7 @@ const getCounties = async () => {
         ret.forEach(function (arrayItem: { id: string; type: string }) {
             var county = {}
             county.value = arrayItem.id
-            county.label = arrayItem.name + '(' + arrayItem.id + ')'
+            county.label = arrayItem.name  
             //  console.log(countyOpt)
             countyOptions.value.push(county)
         })

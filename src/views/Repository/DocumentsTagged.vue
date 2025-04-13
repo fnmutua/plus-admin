@@ -973,11 +973,11 @@ const getparentOptions = async () => {
         countyOpt.label = arrayItem.contract_number
       }
       else if (arrayItem.name) {
-        countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+        countyOpt.label = arrayItem.name  
       }
 
       else {
-        countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+        countyOpt.label = arrayItem.title  
 
       }
       console.log(countyOpt)

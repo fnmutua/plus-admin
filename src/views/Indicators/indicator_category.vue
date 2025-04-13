@@ -336,7 +336,7 @@ const getIndicatorNames = async () => {
       var opt = {}
       opt.value = arrayItem.id
       opt.activity_id = arrayItem.activity_id
-      opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      opt.label = arrayItem.name  
       //  console.log(countyOpt)
       indicatorsOptions.value.push(opt)
       indicatorsOptionsFiltered.value.push(opt)
@@ -409,7 +409,7 @@ const makeSettlementOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.category   //+ '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.category   // 
 
     //  console.log(countyOpt)
     categoryOptions.value.push(countyOpt)
@@ -498,7 +498,7 @@ const getProjectActivities = async () => {
     //console.log(arrayItem)
     var opt = {}
     opt.value = arrayItem.id
-    opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+    opt.label = arrayItem.title  
     opt.activities = arrayItem.activities
     opt.programme_implementation = arrayItem.programme_implementation
 

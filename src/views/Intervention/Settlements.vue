@@ -298,7 +298,7 @@ const getInterventionTypes = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.type + '(' + arrayItem.id + ')'
+      countyOpt.label = arrayItem.type  
       //  console.log(countyOpt)
       interVentionTypeOtions.value.push(countyOpt)
     })
@@ -326,7 +326,7 @@ const getInterventionClusters = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.contract + '(' + arrayItem.id + ')'
+      countyOpt.label = arrayItem.contract  
       //  console.log(countyOpt)
       interVentionClusterOtions.value.push(countyOpt)
     })
@@ -353,7 +353,7 @@ const getSettlementsOptions = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      countyOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       settlementOptions.value.push(countyOpt)
     })

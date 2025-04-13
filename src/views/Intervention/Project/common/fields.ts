@@ -88,47 +88,28 @@ const statusOptions = [
 console.log('prog_components.value',prog_components.value)
 console.log('implementationOptions.value',implementationOptions.value)
     
- const formFields =reactive( [
- 
+const formFields = reactive([
   [
-    { name: "component_id", label: "Category", id:"btn1x1",   type: "tree", multiselect: 'false', adminUnit: false, options:prog_components.value },
-
-     { name: "title", label: "Title", id:"btn1",  type: "textarea", multiselect: 'false', adminUnit: false,     options: [] },
-     { name: "project_code", label: "Project Code", id:"btn2",  type: "text", multiselect: 'false', adminUnit: false,      options: [] },
-    {
-      name: "status", label: "Status",  id:"btn3",  type: "select", multiselect: 'false', adminUnit: false, options: statusOptions
-    },
-
-    {name: "implementation_id", label: "Delivery Unit", id:"btn4",  type: "select", multiselect: 'false', adminUnit: false,options: implementationOptions.value },
-    {name: "implementation_scope", label: "Scope", id:"btn41",  type: "select", multiselect: 'false', adminUnit: false,options: scope },
-    {
-      name: "multiple_location", label: "Is this project implemented in multiple locations?",  id:"btn31",  type: "select", multiselect: 'false', adminUnit: false, options: YesNo
-    },
+    { name: "component_id", label: "Category", id: "btn1x1", type: "tree", multiselect: 'false', adminUnit: false, options: prog_components.value, tooltip: "Select the project category or component." },
+    { name: "title", label: "Title", id: "btn1", type: "textarea", multiselect: 'false', adminUnit: false, options: [], tooltip: "Enter the project title or name." },
+    { name: "project_code", label: "Contract No.", id: "btn2", type: "text", multiselect: 'false', adminUnit: false, options: [], tooltip: "Enter the unique contract number for this project." },
+    { name: "status", label: "Status", id: "btn3", type: "select", multiselect: 'false', adminUnit: false, options: statusOptions, tooltip: "Select the current status of the project." },
+    { name: "implementation_id", label: "Delivery Unit", id: "btn4", type: "select", multiselect: 'false', adminUnit: false, options: implementationOptions.value, tooltip: "Select the unit responsible for project delivery." },
+    { name: "implementation_scope", label: "Scope", id: "btn41", type: "select", multiselect: 'false', adminUnit: false, options: scope, tooltip: "Select the scope of the project implementation." }
   ],
-
-  [    
-
-
-    { name: "cost", label: "Total Project Cost", id:"btn7",   min: "0", type: "money", multiselect: 'false',adminUnit: false,  options: [] },
-    { name: "start_date", label: "Commencement Date",  id:"btn5",  type: "date", multiselect: 'false', adminUnit: false,      options: [] },
-    { name: "end_date", label: "Completion Date", id:"btn6",  type: "date", multiselect: 'false',adminUnit: false,     options: [] },
-    {name: "sourceFunding", label: "Source of Funding", id:"btn8",  type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions },
-   
+  
+  [
+    { name: "cost", label: "Total Project Cost", id: "btn7", min: "0", type: "money", multiselect: 'false', adminUnit: false, options: [], tooltip: "Enter the total cost for the project." },
+    { name: "start_date", label: "Commencement Date", id: "btn5", type: "date", multiselect: 'false', adminUnit: false, options: [], tooltip: "Select the date when the project will commence." },
+    { name: "end_date", label: "Completion Date", id: "btn6", type: "date", multiselect: 'false', adminUnit: false, options: [], tooltip: "Select the date when the project is expected to complete." },
+    { name: "sourceFunding", label: "Source of Funding", id: "btn8", type: "select", multiselect: 'true', adminUnit: false, options: sourceFundingOptions, tooltip: "Select the funding sources for the project." }
   ],
-
- [
-  // {name: "county_id", label: "County", id:"btn8",  type: "select", multiselect: 'false', adminUnit: true, options: sourceFundingOptions },
-  // {name: "subcounty_id", label: "Subcounty", id:"btn8",  type: "select", multiselect: 'false', adminUnit: true, options: sourceFundingOptions },
-  // {name: "ward_id", label: "Ward", id:"btn8",  type: "select", multiselect: 'false', adminUnit: true, options: sourceFundingOptions },
-
-  //  { name: "Location", label: "Location", id:"btn11",   type: "select_remote", multiselect: 'false', adminUnit: false, options:cascadedAdminOptions.value },
-
- ],
-
-
- 
-   
+  
+  [
+    { name: "Location", label: "Location", id: "btn11", type: "select_remote", multiselect: 'false', adminUnit: false, options: cascadedAdminOptions.value, tooltip: "Select the specific location for the project." }
+  ]
 ]);
+
 
 const formData: FormData = reactive({});
 const formRules: FormRules = reactive({

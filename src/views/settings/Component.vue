@@ -317,7 +317,7 @@ const makeOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.title  
     //  console.log(countyOpt)
     componentOptions.value.push(countyOpt)
   })
@@ -353,7 +353,7 @@ const getProgrammeOptions = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      countyOpt.label = arrayItem.title  
       //  console.log(countyOpt)
       programmeOptions.value.push(countyOpt)
     })
@@ -383,7 +383,7 @@ const getStrategicFocusAreas = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      countyOpt.label = arrayItem.title  
       //  console.log(countyOpt)
       strategicFocusOptions.value.push(countyOpt)
     })

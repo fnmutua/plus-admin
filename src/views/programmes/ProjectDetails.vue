@@ -400,32 +400,35 @@ const getLocations = async (project_id) => {
 
 }
 
+ 
 
-const getprojectDocuments = async (project_id) => {
-
-  const formData = {}
-  formData.model = 'document'
-  //-Search field--------------------------------------------
-
-  //formData.searchKeyword = project_id
-  formData.excludeGeom = false
-  formData.associated_multiple_models = []
-
+const getProjectDocuments = async (field, fieldValue) => {
+  const formData = {};
+  formData.model = 'document';
+  // -Search field--------------------------------------------
+  // formData.searchKeyword = project_id; // Uncomment and define if necessary
+  formData.excludeGeom = false;
+  formData.associated_multiple_models = [];
 
   // - multiple filters -------------------------------------
-  formData.filters = ['project_id']
-  formData.filterValues = [[project_id]]
+  formData.filters = [field];
+  formData.filterValues = [fieldValue];
 
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+  // formData.cache_key = 'SeacrchByKey_' + search_string.value; // Uncomment and define if necessary
 
-  const res = await getSettlementListByCounty(formData)
+  try {
+    const res = await getSettlementListByCounty(formData);
 
-  projectDocuments.value = res.data
+    // Assign the result data to projectDocuments
+   // projectDocuments.value = res.data;
 
-
-  console.log('projectDocuments:', res)
-
-}
+    console.log('projectDocuments:', projectDocuments.value); // Log the projectDocuments value for debugging
+    return res.data || []; // Return the result data or an empty array if no data
+  } catch (error) {
+    console.error('Error fetching project documents:', error);
+    return []; // Return an empty array if there is an error
+  }
+};
 
 
 const indicatorReports = ref([])
@@ -464,7 +467,27 @@ const getIndicatorCategoryReports = async (projectId) => {
   //indicatorReports.value = res.data
   res.data.forEach(item => indicatorReports.value.push(item));
 
+  const indicatorReportIds = res.data.map(item => item.id);
+  console.log('indicatorReportIds',indicatorReportIds)
 
+ const reportDocs = await getProjectDocuments('report_id', indicatorReportIds)
+
+      
+      // Check if the documents from reportDocs already exist in projectDocuments.value
+      const uniqueReportDocs = reportDocs.filter(doc => {
+        // Check if the document's ID already exists in projectDocuments.value
+        return !projectDocuments.value.some(existingDoc => existingDoc.id === doc.id);
+      });
+
+      // Push only the unique documents that don't exist yet
+      if (uniqueReportDocs.length > 0) {
+        projectDocuments.value.push(...uniqueReportDocs);
+        console.log('Updated projectDocuments:', projectDocuments.value);
+      } else {
+        console.log('No new documents to add.');
+      }
+
+ 
 
 }
 
@@ -762,7 +785,7 @@ onMounted(async () => {
   getLocations(route.params.id)
   getProjecteam(route.params.id)
   getProjecContractors(route.params.id)
-  getprojectDocuments(route.params.id)
+  projectDocuments.value = await getProjectDocuments('project_id', [route.params.id])
 
   getprojectDisbursements(route.params.id)
 
@@ -1164,8 +1187,21 @@ const submitMoreDocuments = async () => {
     // addMoreDocuments.value = false
 
     const res = await uploadFilesBatch(formData)
-    getprojectDocuments(route.params.id)
+       const updatedDocs = await getProjectDocuments('project_id', [route.params.id])
 
+        // Check if the documents from updatedDocs already exist in projectDocuments.value
+        const uniqueUpdatedDocs = updatedDocs.filter(doc => {
+          // Check if the document's ID already exists in projectDocuments.value
+          return !projectDocuments.value.some(existingDoc => existingDoc.id === doc.id);
+        });
+
+        // Push only the unique documents that don't exist yet
+        if (uniqueUpdatedDocs.length > 0) {
+          projectDocuments.value.push(...uniqueUpdatedDocs);
+          console.log('Updated projectDocuments:', projectDocuments.value);
+        } else {
+          console.log('No new documents to add.');
+        }
 
 
     if (res.code === "0000") {

@@ -265,7 +265,7 @@ const getCountyNames = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      countyOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       countiesOptions.value.push(countyOpt)
     })
@@ -338,7 +338,7 @@ const makeSettlementOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.name  
     //  console.log(countyOpt)
     settlementOptions.value.push(countyOpt)
   })
@@ -436,7 +436,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
 
     var opt = {}
     opt.value = arrayItem.id
-    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    opt.label = arrayItem.name  
     //  console.log(countyOpt)
     userOptions.value.push(opt)
   })
@@ -675,7 +675,7 @@ const getCountySettlements = async (county_id) => {
   res.data.forEach(function (arrayItem) {
     var opt = {}
     opt.value = arrayItem.id
-    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    opt.label = arrayItem.name  
     settlementOptions.value.push(opt)
   })
 

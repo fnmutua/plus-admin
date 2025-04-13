@@ -397,7 +397,7 @@ const getSettlementsOptions = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      countyOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       settlementOptions.value.push(countyOpt)
     })
@@ -426,7 +426,7 @@ const getProjectsOptions = async () => {
       countyOpt.value = arrayItem.id
       countyOpt.settlement_id = arrayItem.settlement_id
       countyOpt.component_id = arrayItem.component_id
-      countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      countyOpt.label = arrayItem.title  
       //  console.log(countyOpt)
       projectOptions.value.push(countyOpt)
     })
@@ -465,7 +465,7 @@ const getHouseholdOptions = async () => {
         var opt = {}
         opt.value = arrayItem.id
         opt.settlement_id = arrayItem.settlement_id
-        opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+        opt.label = arrayItem.name  
         //  console.log(countyOpt)
         householdOptions.value.push(opt)
       })

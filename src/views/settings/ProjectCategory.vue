@@ -258,7 +258,7 @@ const makeOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var opt = {}
     opt.value = arrayItem.id
-    opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+    opt.label = arrayItem.title  
     //  console.log(countyOpt)
     categoryOptions.value.push(opt)
   })

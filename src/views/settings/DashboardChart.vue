@@ -388,7 +388,7 @@ const makeOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.title  
     //  console.log(countyOpt)
     componentOptions.value.push(countyOpt)
   })
@@ -426,7 +426,7 @@ const getdashboardOptions = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
       opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      opt.label = arrayItem.title 
       //  console.log(countyOpt)
       opt.type = arrayItem.type
 
@@ -459,7 +459,7 @@ const getDashSectionOptions = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var opt = {}
       opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      opt.label = arrayItem.title  
       opt.dashboard_id = arrayItem.dashboard_id
 
       //  console.log(countyOpt)
@@ -1006,8 +1006,7 @@ const getIndicatorCategories = async () => {
 
     var opt = {}
     opt.value = arrayItem.id
-    // opt.label = arrayItem.indicator_name + '(' + arrayItem.id + ')' + '|' + arrayItem.project.title 
-    opt.label = arrayItem.name + '(' + arrayItem.id + ')' + '|' + arrayItem.activity.title
+     opt.label = arrayItem.name  + '|' + arrayItem.activity.title
     IndicatorCategoryOptions.value.push(opt)
 
   })

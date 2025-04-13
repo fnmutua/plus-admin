@@ -275,7 +275,7 @@ const makeSettlementOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.name  
     //  console.log(countyOpt)
     settlementOptions.value.push(countyOpt)
   })
@@ -304,7 +304,7 @@ const getActivityOptions = async () => {
       //console.log(arrayItem)
       var opt = {}
       opt.value = arrayItem.id
-      opt.label = arrayItem.title + '(' + arrayItem.id + ')'
+      opt.label = arrayItem.title  
 
       //  console.log(countyOpt)
       activityOptions.value.push(opt)

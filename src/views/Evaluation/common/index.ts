@@ -35,7 +35,7 @@ const getSettlements = async () => {
       const parentOpt = {}
       parentOpt.value = arrayItem.id
       parentOpt.county_id = arrayItem.county_id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      parentOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       settlementOptionsV2.value.push(parentOpt)
     })
@@ -63,7 +63,7 @@ const getCounties = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       const county = {}
       county.value = arrayItem.id
-      county.label = arrayItem.name + '(' + arrayItem.id + ')'
+      county.label = arrayItem.name  
       //  console.log(countyOpt)
       countyOptions.value.push(county)
     })
@@ -90,7 +90,7 @@ const getRoads = async () => {
      ret.forEach(function (arrayItem: { id: string; type: string }) {
       const opt = {}
       opt.value = arrayItem.id
-      opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      opt.label = arrayItem.name  
       //  console.log(countyOpt)
       roadOptions.value.push(opt)
     })
@@ -120,7 +120,7 @@ const getSubCounties = async () => {
       const parentOpt = {}
       parentOpt.value = arrayItem.id
       parentOpt.county_id = arrayItem.county_id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      parentOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       subcountyOptions.value.push(parentOpt)
     })
@@ -149,7 +149,7 @@ const wardOptions = ref([])
       parentOpt.value = arrayItem.id
       parentOpt.county_id = arrayItem.county_id
       parentOpt.subcounty_id = arrayItem.subcounty_id
-       parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+       parentOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       wardOptions.value.push(parentOpt)
     })
@@ -176,7 +176,7 @@ const projectOptions = ref([])
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       const parentOpt = {}
       parentOpt.value = arrayItem.id
-         parentOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+         parentOpt.label = arrayItem.title  
       //  console.log(countyOpt)
       projectOptions.value.push(parentOpt)
     })
@@ -204,7 +204,7 @@ const EvaluationTypeOptions = ref([])
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       const parentOpt = {}
       parentOpt.value = arrayItem.id
-         parentOpt.label = arrayItem.type + '(' + arrayItem.id + ')'
+         parentOpt.label = arrayItem.type  
       //  console.log(countyOpt)
       EvaluationTypeOptions.value.push(parentOpt)
     })

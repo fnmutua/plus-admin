@@ -97,7 +97,7 @@ const getParentNames = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var parentOpt = {}
       parentOpt.value = arrayItem.id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      parentOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       parentOptions.value.push(parentOpt)
     })

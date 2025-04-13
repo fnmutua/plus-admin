@@ -31,7 +31,7 @@ const getSettlements = async () => {
       parentOpt.county_id = arrayItem.county_id
       parentOpt.subcounty_id = arrayItem.subcounty_id
       parentOpt.ward_id = arrayItem.ward_id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      parentOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       settlementOptionsV2.value.push(parentOpt)
     })
@@ -59,7 +59,7 @@ const getCounties = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       const county = {}
       county.value = arrayItem.id
-      county.label = arrayItem.name + '(' + arrayItem.id + ')'
+      county.label = arrayItem.name  
       //  console.log(countyOpt)
       countyOptions.value.push(county)
     })
@@ -92,7 +92,7 @@ const getSubCounties = async () => {
       const parentOpt = {}
       parentOpt.value = arrayItem.id
       parentOpt.county_id = arrayItem.county_id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      parentOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       subcountyOptions.value.push(parentOpt)
     })
@@ -123,7 +123,7 @@ const getWards = async () => {
       const parentOpt = {}
       parentOpt.value = arrayItem.id
       parentOpt.subcounty_id = arrayItem.subcounty_id
-      parentOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      parentOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       wardOptions.value.push(parentOpt)
     })

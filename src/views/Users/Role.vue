@@ -199,7 +199,7 @@ const getFilteredData = async (selFilters, selfilterValues) => {
     //  generate the filter options
     var opt = {}
     opt.value = arrayItem.id
-    opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+    opt.label = arrayItem.name  
     //  console.log(countyOpt)
     if (arrayItem.name !='super_admin') {
       roleOptions.value.push(opt) 

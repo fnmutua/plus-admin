@@ -172,11 +172,11 @@ const getparentOptions = async () => {
                 countyOpt.label = arrayItem.contract_number
             }
             else if (arrayItem.name) {
-                countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+                countyOpt.label = arrayItem.name  
             }
 
             else {
-                countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+                countyOpt.label = arrayItem.title  
 
             }
             console.log(countyOpt)
@@ -216,7 +216,7 @@ const getparentHouseholdOptions = async () => {
                 //  generate the filter options
                 var opt = {}
                 opt.value = arrayItem.id
-                opt.label = arrayItem.name + '(' + arrayItem.id + ')'
+                opt.label = arrayItem.name  
                 //  console.log(countyOpt)
                 parentOptions.value.push(opt)
             });

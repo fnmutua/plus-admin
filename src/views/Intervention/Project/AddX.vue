@@ -10,104 +10,187 @@ v-for="(step, index) in steps" :key="index" :title="isMobile ? '' : step.title"
           @click="handleStepClick(index)" />
       </el-steps>
       <el-divider />
-
       <el-form
-:model="formData" :rules="currentStepRules" label-width="200px" ref="dynamicFormRef"
-        label-position="top">
-        <el-row :gutter="16">
-          <el-col
-v-for="(field, index) in currentStepFields" :key="index" :span="24" :xs="24" :sm="24" :md="24"
-            :lg="24" :xl="24">
-            <el-form-item :id="field.id" :label="field.label" :prop="field.name">
-              <el-input v-if="field.type === 'text'" v-model="formData[field.name]" />
-              <el-input v-else-if="field.type === 'textarea'" type="textarea" v-model="formData[field.name]" />
-              <el-input-number
-:controls="false" :min="field.min" v-else-if="field.type === 'number'"
-                v-model="formData[field.name]" :formatter="formatMoney"  @change="getFieldChangeHandler(field.name)" />
+          :model="formData"
+          :rules="currentStepRules"
+          label-width="200px"
+          ref="dynamicFormRef"
+          label-position="top"
+        >
+          <el-row :gutter="16">
+            <el-col
+              v-for="(field, index) in currentStepFields"
+              :key="index"
+              :span="24"
+              :xs="24"
+              :sm="24"
+              :md="24"
+              :lg="24"
+              :xl="24"
+            >
+      <el-form-item :id="field.id" :prop="field.name">
+        <template #label>
+          <el-tooltip
+            v-if="field.tooltip"
+            class="item"
+          
+            :content="field.tooltip"
+             placement="right"
+            effect="dark"
+          >
+            <span>{{ field.label }}</span>
+          </el-tooltip>
+          <span v-else>{{ field.label }}</span>
+        </template>
 
+        <el-input
+          v-if="field.type === 'text'"
+          v-model="formData[field.name]"
+        />
+        <el-input
+          v-else-if="field.type === 'textarea'"
+          type="textarea"
+          v-model="formData[field.name]"
+        />
+        <el-input-number
+          :controls="false"
+          :min="field.min"
+          v-else-if="field.type === 'number'"
+          v-model="formData[field.name]"
+          :formatter="formatMoney"
+          @change="getFieldChangeHandler(field.name)"
+        />
+        <el-input
+          :min="field.min"
+          v-else-if="field.type === 'money'"
+          v-model="formData[field.name]"
+          @change="getFieldChangeHandler(field.name)"
+          :formatter="formatMoney"
+          :parser="parseMoney"
+        >
+          <template #prepend>KSh.</template>
+        </el-input>
 
-              <el-input
-:min="field.min" v-else-if="field.type === 'money'" v-model="formData[field.name]"
-                @change="getFieldChangeHandler(field.name)" :formatter="formatMoney" :parser="parseMoney">
-                <template #prepend>KSh.</template>
-              </el-input>
+        <el-date-picker
+          v-else-if="field.type === 'date'"
+          type="date"
+          v-model="formData[field.name]"
+        />
 
-              <el-date-picker v-else-if="field.type === 'date'" type="date" v-model="formData[field.name]" />
-              <!-- Add more conditions for other field types as needed -->
-              <el-select
-v-else-if="field.type === 'select' && field.multiselect === 'false' && !field.adminUnit"
-                v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Select"
-                @change="getFieldChangeHandler(field.name)">
-                <el-option
-v-for="option in field.options" :key="option.value" :label="option.label"
-                  :value="option.value" />
-              </el-select>
+        <el-select
+          v-else-if="field.type === 'select' && field.multiselect === 'false' && !field.adminUnit"
+          v-model="formData[field.name]"
+          :filterable="true"
+          collapse-tags
+          placeholder="Select"
+          @change="getFieldChangeHandler(field.name)"
+        >
+          <el-option
+            v-for="option in field.options"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
 
-              <el-tree-select
-                  v-else-if="field.type === 'tree' && field.multiselect === 'false' "
-                  v-model="formData[field.name]"
-                  :data="field.options"
-                  :render-after-expand="true"
-                  node-key="value"
-                  value-key="value"
-                  :disabled="newRecord"
-                  :props="{ label: 'label', children: 'children', value: 'value' }"
-                  placeholder="Select"
-                  @change="getFieldChangeHandler(field.name)"
-                />
+        <el-tree-select
+          v-else-if="field.type === 'tree' && field.multiselect === 'false'"
+          v-model="formData[field.name]"
+          :data="field.options"
+          :render-after-expand="true"
+          node-key="value"
+          value-key="value"
+          :disabled="newRecord"
+          :props="{ label: 'label', children: 'children', value: 'value' }"
+          placeholder="Select"
+          @change="getFieldChangeHandler(field.name)"
+        />
 
+        <el-select
+          v-else-if="field.type === 'select' && field.multiselect === 'true'"
+          v-model="formData[field.name]"
+          :filterable="true"
+          multiple
+          collapse-tags
+          placeholder="Select"
+          @change="getFieldChangeHandler(field.name)"
+        >
+          <el-option
+            v-for="option in field.options"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
 
-              <el-select
-                  v-else-if="field.type === 'select' && field.multiselect === 'true'"
-                                  v-model="formData[field.name]" :filterable="true" multiple collapse-tags placeholder="Select"
-                                  @change="getFieldChangeHandler(field.name)">
-                                  <el-option
-                  v-for="option in field.options" :key="option.value" :label="option.label"
-                                    :value="option.value" />
-                                </el-select> 
-                                <el-select
-                  v-else-if="field.type === 'select' && field.adminUnit && field.name === 'county_id'"
-                                  v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="County"
-                                  @change="getFieldChangeHandler(field.name)">
-                                  <el-option
-                  v-for="option in countyOptions" :key="option.value" :label="option.label"
-                                    :value="option.value" />
-                                </el-select>
+        <el-select
+          v-else-if="field.type === 'select' && field.adminUnit && field.name === 'county_id'"
+          v-model="formData[field.name]"
+          :filterable="true"
+          collapse-tags
+          placeholder="County"
+          @change="getFieldChangeHandler(field.name)"
+        >
+          <el-option
+            v-for="option in countyOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
 
-                                <el-select
-                  v-else-if="field.type === 'select' && field.adminUnit && field.name === 'subcounty_id'"
-                                  v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Subcounty"
-                                  @change="getFieldChangeHandler(field.name)">
-                                  <el-option
-                  v-for="option in subcountyOptionsFiltered" :key="option.value" :label="option.label"
-                                    :value="option.value" />
-                                </el-select>
+        <el-select
+          v-else-if="field.type === 'select' && field.adminUnit && field.name === 'subcounty_id'"
+          v-model="formData[field.name]"
+          :filterable="true"
+          collapse-tags
+          placeholder="Subcounty"
+          @change="getFieldChangeHandler(field.name)"
+        >
+          <el-option
+            v-for="option in subcountyOptionsFiltered"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
 
+        <el-select
+          v-else-if="field.type === 'select' && field.adminUnit && field.name === 'ward_id'"
+          v-model="formData[field.name]"
+          :filterable="true"
+          collapse-tags
+          placeholder="Ward"
+          @change="getFieldChangeHandler(field.name)"
+        >
+          <el-option
+            v-for="option in wardOptionsFiltered"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
 
-                                <el-select
-                  v-else-if="field.type === 'select' && field.adminUnit && field.name === 'ward_id'"
-                                  v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Ward"
-                                  @change="getFieldChangeHandler(field.name)">
-                                  <el-option
-                  v-for="option in wardOptionsFiltered" :key="option.value" :label="option.label"
-                                    :value="option.value" />
-                                </el-select>
+        <el-select
+          v-else-if="field.type === 'select' && field.adminUnit && field.name === 'settlement_id'"
+          v-model="formData[field.name]"
+          :filterable="true"
+          collapse-tags
+          placeholder="Settlement"
+          @change="getFieldChangeHandler(field.name)"
+        >
+          <el-option
+            v-for="option in settOptionsFiltered"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
+    </el-col>
+  </el-row>
+        </el-form>
 
-                                <el-select
-                  v-else-if="field.type === 'select' && field.adminUnit && field.name === 'settlement_id'"
-                                  v-model="formData[field.name]" :filterable="true" collapse-tags placeholder="Settlement"
-                                  @change="getFieldChangeHandler(field.name)">
-                                  <el-option
-                  v-for="option in settOptionsFiltered" :key="option.value" :label="option.label"
-                                    :value="option.value" />
-                                </el-select>
-
- 
-
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
 
       <div
 class="button-container"
@@ -1775,5 +1858,18 @@ watch(
 
 .my-image-button {
   background: url("data:image/png;base64 etc...");
+}
+
+
+
+.el-popper.is-customized {
+  /* Set padding to ensure the height is 32px */
+  padding: 6px 12px;
+  background: linear-gradient(90deg, rgb(159, 229, 151), rgb(204, 229, 129));
+}
+
+.el-popper.is-customized .el-popper__arrow::before {
+  background: linear-gradient(45deg, #b2e68d, #bce689);
+  right: 0;
 }
 </style>

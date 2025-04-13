@@ -32,6 +32,8 @@ import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import { CreateRecord, DeleteRecord, updateOneRecord } from '@/api/settlements'
 import { uuid } from 'vue-uuid'
+import shortid from 'shortid';
+
 import type { FormInstance } from 'element-plus'
 import xlsx from "json-as-xlsx"
 import TableActions from '@/views/Components/TableActions.vue';
@@ -301,7 +303,7 @@ const makeOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.title + '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.title  
     //  console.log(countyOpt)
     ActivityOptions.value.push(countyOpt)
   })
@@ -397,7 +399,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
   await formEl.validate(async (valid, fields) => {
     if (valid) {
       ruleForm.model = model
-      ruleForm.code = uuid.v4()
+      ruleForm.code =  shortid.generate()
       const res = await CreateRecord(ruleForm)
       console.log('inserted object', res.data)
       tableDataList.value.push(res.data)  // Add the added object on the list 

@@ -237,7 +237,7 @@ const getParents = async (params?: Params) => {
     cnty.forEach(function (arrayItem) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      countyOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       parentOptions.push(countyOpt)
     })

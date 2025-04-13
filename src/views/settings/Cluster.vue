@@ -259,7 +259,7 @@ const makeOptions = (list) => {
   list.value.forEach(function (arrayItem: { id: string; type: string }) {
     var countyOpt = {}
     countyOpt.value = arrayItem.id
-    countyOpt.label = arrayItem.contract + '(' + arrayItem.id + ')'
+    countyOpt.label = arrayItem.contract  
     //  console.log(countyOpt)
     clusterOptions.value.push(countyOpt)
   })

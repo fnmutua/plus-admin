@@ -465,7 +465,7 @@ const getSettlementsOptions = async () => {
     ret.forEach(function (arrayItem: { id: string; type: string }) {
       var countyOpt = {}
       countyOpt.value = arrayItem.id
-      countyOpt.label = arrayItem.name + '(' + arrayItem.id + ')'
+      countyOpt.label = arrayItem.name  
       //  console.log(countyOpt)
       settlementOptions.value.push(countyOpt)
     })
