@@ -3,13 +3,10 @@
 <script setup lang="ts">
 import { ContentWrap } from '@/components/ContentWrap'
 import { useI18n } from '@/hooks/web/useI18n'
-import { BatchImportUpsert } from '@/api/settlements'
+import { getParentIds, BatchImportUpsert } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { getModelSpecs } from '@/api/fields'
 import { toRaw } from 'vue';
-import {
-  searchByKeyWord
-} from '@/api/settlements'
 
 import {
   ElButton,
@@ -18,23 +15,35 @@ import {
   ElIcon,
   ElTableColumn,
   ElInput,
-  ElSkeleton, ElCol, ElRow, ElButtonGroup,
+  ElSkeleton,ElCol, ElRow,ElButtonGroup,
   ElUpload,
   ElOption,
-  ElMessage, ElMessageBox, UploadProps, UploadUserFile, ElOptionGroup, ElNotification,
+  ElMessage, ElDivider, ElMessageBox, UploadProps, UploadUserFile, ElOptionGroup, ElNotification,
 } from 'element-plus'
 import {
-
+  Upload,
+  ArrowDown,
+  Edit,
+  Share,
+  Delete,
+  RefreshLeft,
   UploadFilled,
+  ArrowRightBold,
   Close,
   Promotion,
+  Tools
 } from '@element-plus/icons-vue'
 
-import { ref } from 'vue'
+import { ref, reactive, watch } from 'vue'
 
+import readXlsxFile from 'read-excel-file'
+import { uuid } from 'vue-uuid'
 import readShapefileAndConvertToGeoJSON from '@/utils/readShapefile'
+import JSZip from 'jszip';
+import * as shapefile from 'shapefile';
 
- 
+
+
 import { useAppStoreWithOut } from '@/store/modules/app'
 import { useCache } from '@/hooks/web/useCache'
 import * as turf from '@turf/turf'
@@ -64,10 +73,10 @@ const parent_key = ref()       // the parent foregin key in the model
 const parentModel = ref()      // the parent model
 const loadingPosting = ref(false)
 const showUploadinput = ref(false)
-const loadingText = ref()
+ const loadingText = ref()
 
 ///---------------------xlsx-
-
+ 
 
 //// ------------------parameters -----------------------////
 const matchOptions = ref([])
@@ -104,7 +113,7 @@ const showUploadMessage = (message) => {
   })
 }
 
-
+ 
 
 
 const uploadOptions = [
@@ -119,23 +128,18 @@ const uploadOptions = [
         value: 'parcel',
         label: 'Parcels'
       },
-
       {
-        value: 'structure',
-        label: 'Structures'
+        value: 'county',
+        label: 'Counties'
       },
-      // {
-      //   value: 'county',
-      //   label: 'Counties'
-      // },
-      // {
-      //   value: 'subcounty',
-      //   label: 'Constituencies'
-      // },
-      // {
-      //   value: 'ward',
-      //   label: 'Wards'
-      // }
+      {
+        value: 'subcounty',
+        label: 'Constituencies'
+      },
+      {
+        value: 'ward',
+        label: 'Wards'
+      }
     ]
   },
   {
@@ -182,7 +186,7 @@ const uploadOptions = [
         value: 'sewer',
         label: 'Sewer'
       },
-
+ 
     ]
   },
   {
@@ -192,8 +196,8 @@ const uploadOptions = [
         value: 'project',
         label: 'projects'
       },
-
-
+     
+ 
     ]
   }
 ]
@@ -206,7 +210,7 @@ const getModeldefinition = async (selModel) => {
   console.log(selModel)
   var formData = {}
   formData.model = selModel
-  console.log("gettign fields", selModel)
+  console.log("gettign fields",selModel )
 
 
   await getModelSpecs(formData).then((response) => {
@@ -224,9 +228,9 @@ const getModeldefinition = async (selModel) => {
     //health_facility_fields.value = response.data
     fieldSet.value = fields2
 
-    if (selModel == 'project') {
+    if (selModel=='project') {
 
-
+       
       var activities = { field: 'activities', type: 'ARRAY', match: '' }
       fieldSet.value.push(activities)
 
@@ -407,16 +411,6 @@ const handleSelectType = async (type: any) => {
   }
 
 
-  else if (type === 'structure') {
-    // fieldSet.value = beneficiary_parcels
-    model.value = 'structure'
-    parentModel.value = 'settlement'
-    parent_key.value = 'settlement_id'
-    code.value = 'pcode'
-     getParentOptions()
-  }
-
-
   else if (type === 'households') {
     // fieldSet.value = beneficiary_parcels
     model.value = 'households'
@@ -529,9 +523,9 @@ const handleRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
   console.log(file, uploadFiles)
   show.value = false
   //uploadObj.value = []
-  // matchedObj.value = []
-  fieldSet.value = []
-  // reset()
+ // matchedObj.value = []
+   fieldSet.value = []
+ // reset()
 
 }
 
@@ -543,12 +537,12 @@ const handlePreview: UploadProps['onPreview'] = (uploadFile) => {
   console.log(uploadFile)
 }
 
-
+ 
 
 const handleFileChange = () => {
-  console.log('uploaded...')
-
-  disableProcess.value = false
+    console.log('uploaded...')
+  
+  disableProcess.value=false
 
 }
 
@@ -563,8 +557,8 @@ const beforeRemove: UploadProps['beforeRemove'] = (uploadFile) => {
   )
 }
 
-
-
+ 
+ 
 
 const disableUploadSubmit = ref(false)
 const disableProcess = ref(true)
@@ -575,7 +569,7 @@ const submitFiles = async () => {
 
 
   disableUploadSubmit.value = true
-  disableProcess.value = true
+  disableProcess.value=true
   console.log('on Submit....', fileList.value)
   loadingPosting.value = true
   loadingText.value = 'Matching fields.. Please wait.......'
@@ -636,23 +630,23 @@ const submitFiles = async () => {
 
 }
 
-const reset = async () => {
+const reset = async () => { 
 
   console.log('reseting')
   disableUploadSubmit.value = false
-
-  matchOptions.value = []
-  reserveOptions.value = []
+  
+  matchOptions.value =[]
+   reserveOptions.value = []
   uploadObj.value = []
   matchedObj.value = []
   matchedObjwithparent.value = []
   fieldSet.value = []
   show.value = false
-  showSwitch.value = false
+  showSwitch.value =false
   showSettleementSelect.value = false
-  fileList.value = []
+  fileList.value=[]
 
-
+  
 }
 
 const readShp = async (file) => {
@@ -698,83 +692,6 @@ const readJson = (event) => {
 }
 
 
-
-
-
-
-
-// Helper function to project coordinates
-function projectCoordinates(coordinates, sourceCRS, targetCRS) {
-  return coordinates.map(coord => proj4(sourceCRS, targetCRS, coord));
-}
-
-// Helper function to project a ring of coordinates (for Polygons and MultiPolygons)
-function projectRing(ring, sourceCRS, targetCRS) {
-  return ring.map(coordinate => projectCoordinates(coordinate, sourceCRS, targetCRS));
-}
-
-// Helper function to project a polygon
-function projectPolygon(polygon, sourceCRS, targetCRS) {
-  return polygon.map(ring => projectRing(ring, sourceCRS, targetCRS));
-}
-
-// Main function to process GeoJSON features
-function projectGeoJSONFeatures(json, userInfo) {
-  const sourceCRS = "SOURCE_CRS";
-  const targetCRS = "WGS84";
-
-  for (let i = 0; i < json.features.length; i++) {
-    const feature = json.features[i];
-
-    // Ensure properties field exists
-    if (!feature.hasOwnProperty('properties')) {
-      feature.properties = {};
-    }
-    console.log('feature before projection:', feature);
-
-    const geometry = feature.geometry;
-
-    // Check and project geometry based on its type
-    if (geometry) {
-      switch (geometry.type) {
-        case "Polygon":
-          geometry.coordinates = projectPolygon(geometry.coordinates, sourceCRS, targetCRS);
-          break;
-
-        case "MultiPolygon":
-          geometry.coordinates = geometry.coordinates.map(polygon => projectPolygon(polygon, sourceCRS, targetCRS));
-          break;
-
-        case "LineString":
-          geometry.coordinates = projectCoordinates(geometry.coordinates, sourceCRS, targetCRS);
-          break;
-
-        case "MultiLineString":
-          geometry.coordinates = geometry.coordinates.map(lineString => projectCoordinates(lineString, sourceCRS, targetCRS));
-          break;
-
-        case "Point":
-          geometry.coordinates = proj4(sourceCRS, targetCRS, geometry.coordinates);
-          break;
-
-        case "MultiPoint":
-          geometry.coordinates = geometry.coordinates.map(coordinate => proj4(sourceCRS, targetCRS, coordinate));
-          break;
-
-        default:
-          continue; // Skip unrecognized geometry types
-      }
-
-      console.log('geometry after projection:', geometry);
-      feature.geometry.crs = { type: 'name', properties: { name: 'EPSG:4326' } };
-      feature.properties['createdBy'] = userInfo.id;
-      uploadObj.value.push(feature); // Push to the temporary holder
-    }
-    console.log(feature);
-  }
-}
-
-
 const loadOptions = (json) => {
 
   var featureType = json.type
@@ -797,7 +714,7 @@ const loadOptions = (json) => {
   let epsgCode
   let crsProp = json.crs ? json.crs.properties.name : null;
 
-
+  
 
   if (crsProp && crsProp.includes('EPSG')) {
     console.log('The string contains the character "EPSG"');
@@ -859,53 +776,53 @@ const loadOptions = (json) => {
 
     const geometry = json.features[i].geometry;
 
-    // Check if the geometry type is "Polygon" or "MultiPolygon"
-    if (geometry && geometry.type === "Polygon") {
-      // If it's a single polygon, project its coordinates
-      geometry.coordinates = geometry.coordinates.map(ring => {
-        return ring.map(coordinate => {
-          return proj4("SOURCE_CRS", "WGS84", coordinate);
-        });
-      });
-
-    } else if (geometry && geometry.type === "MultiPolygon") {
-      // If it's a MultiPolygon, loop through all polygons and project their coordinates
-      geometry.coordinates = geometry.coordinates.map(polygon => {
-        return polygon.map(ring => {
+      // Check if the geometry type is "Polygon" or "MultiPolygon"
+      if (geometry && geometry.type === "Polygon") {
+        // If it's a single polygon, project its coordinates
+        geometry.coordinates = geometry.coordinates.map(ring => {
           return ring.map(coordinate => {
             return proj4("SOURCE_CRS", "WGS84", coordinate);
           });
         });
-      });
 
-    } else if (geometry && geometry.type === "LineString") {
-      // If it's a single LineString, project its coordinates
-      geometry.coordinates = geometry.coordinates.map(coordinate => {
-        return proj4("SOURCE_CRS", "WGS84", coordinate);
-      });
+      } else if (geometry && geometry.type === "MultiPolygon") {
+        // If it's a MultiPolygon, loop through all polygons and project their coordinates
+        geometry.coordinates = geometry.coordinates.map(polygon => {
+          return polygon.map(ring => {
+            return ring.map(coordinate => {
+              return proj4("SOURCE_CRS", "WGS84", coordinate);
+            });
+          });
+        });
 
-    } else if (geometry && geometry.type === "MultiLineString") {
-      // If it's a MultiLineString, project the coordinates of each LineString
-      geometry.coordinates = geometry.coordinates.map(lineString => {
-        return lineString.map(coordinate => {
+      } else if (geometry && geometry.type === "LineString") {
+        // If it's a single LineString, project its coordinates
+        geometry.coordinates = geometry.coordinates.map(coordinate => {
           return proj4("SOURCE_CRS", "WGS84", coordinate);
         });
-      });
 
-    } else if (geometry && geometry.type === "Point") {
-      // If it's a single point, project its coordinates
-      geometry.coordinates = proj4("SOURCE_CRS", "WGS84", geometry.coordinates);
+      } else if (geometry && geometry.type === "MultiLineString") {
+        // If it's a MultiLineString, project the coordinates of each LineString
+        geometry.coordinates = geometry.coordinates.map(lineString => {
+          return lineString.map(coordinate => {
+            return proj4("SOURCE_CRS", "WGS84", coordinate);
+          });
+        });
 
-    } else if (geometry && geometry.type === "MultiPoint") {
-      // If it's a MultiPoint, project the coordinates of each point
-      geometry.coordinates = geometry.coordinates.map(coordinate => {
-        return proj4("SOURCE_CRS", "WGS84", coordinate);
-      });
+      } else if (geometry && geometry.type === "Point") {
+        // If it's a single point, project its coordinates
+        geometry.coordinates = proj4("SOURCE_CRS", "WGS84", geometry.coordinates);
 
-    } else {
-      // If geometry type is not recognized, continue to the next feature
-      continue;
-    }
+      } else if (geometry && geometry.type === "MultiPoint") {
+        // If it's a MultiPoint, project the coordinates of each point
+        geometry.coordinates = geometry.coordinates.map(coordinate => {
+          return proj4("SOURCE_CRS", "WGS84", coordinate);
+        });
+
+      } else {
+        // If geometry type is not recognized, continue to the next feature
+        continue;
+      }
 
 
     console.log('geometry', geometry)
@@ -1009,19 +926,43 @@ const loadOptions = (json) => {
   //   }
   // });
 
+ 
+uploadObj.value.map((upload, i) => {
+  console.log('------------>', i, upload);
 
-  uploadObj.value.map((upload, i) => {
-    console.log('------------>', i, upload);
+  // Convert the geometry to a raw, non-reactive object
+  var thisFeature = upload.properties;
+  thisFeature.geom = toRaw(upload.geometry); // Get the raw geometry
 
-    // Convert the geometry to a raw, non-reactive object
-    var thisFeature = upload.properties;
-    thisFeature.geom = toRaw(upload.geometry); // Get the raw geometry
+  console.log('------matchedObj------>', i, thisFeature);
 
-    console.log('------matchedObj------>', i, thisFeature);
+  if (settlement.value) {
+    var filterParent = parentObj.value.filter(function (el) {
+      return el['id'] === settlement.value;
+    });
 
-    if (settlement.value) {
+    console.log('------filterParent------>', filterParent);
+
+    if (filterParent.length > 0) {
+      let pre = parentModel.value + '_';
+      let pfeature = Object.keys(filterParent[0]).reduce(
+        (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
+        {}
+      );
+
+      const mergedFeature = { ...thisFeature, ...pfeature };
+      matchedObjwithparent.value.push(mergedFeature);
+    } else {
+      console.log('No match......');
+      showErrorMessage('The selected settlement did not match any records in the database!');
+      loadingPosting.value = false;
+      failedCount += 1;
+      return;
+    }
+  } else {
+    if (upload.properties[code.value]) {
       var filterParent = parentObj.value.filter(function (el) {
-        return el['id'] === settlement.value;
+        return el['code'] === upload.properties[code.value];
       });
 
       console.log('------filterParent------>', filterParent);
@@ -1037,44 +978,20 @@ const loadOptions = (json) => {
         matchedObjwithparent.value.push(mergedFeature);
       } else {
         console.log('No match......');
-        showErrorMessage('The selected settlement did not match any records in the database!');
+        push({ name: 'Importgeo' });
+        showErrorMessage(`The parent Code ${thisFeature.pcode} (pcode) did not match any records in the database!`);
         loadingPosting.value = false;
         failedCount += 1;
         return;
       }
     } else {
-      if (upload.properties[code.value]) {
-        var filterParent = parentObj.value.filter(function (el) {
-          return el['code'] === upload.properties[code.value];
-        });
-
-        console.log('------filterParent------>', filterParent);
-
-        if (filterParent.length > 0) {
-          let pre = parentModel.value + '_';
-          let pfeature = Object.keys(filterParent[0]).reduce(
-            (a, c) => ((a[`${pre}${c}`] = filterParent[0][c]), a),
-            {}
-          );
-
-          const mergedFeature = { ...thisFeature, ...pfeature };
-          matchedObjwithparent.value.push(mergedFeature);
-        } else {
-          console.log('No match......');
-          push({ name: 'Importgeo' });
-          showErrorMessage(`The parent Code ${thisFeature.pcode} (pcode) did not match any records in the database!`);
-          loadingPosting.value = false;
-          failedCount += 1;
-          return;
-        }
-      } else {
-        console.log('The parent Code is required');
-        showErrorMessage('The parent Code (pcode) is required in the uploaded File!');
-        loadingPosting.value = false;
-        return;
-      }
+      console.log('The parent Code is required');
+      showErrorMessage('The parent Code (pcode) is required in the uploaded File!');
+      loadingPosting.value = false;
+      return;
     }
-  });
+  }
+});
 
 
   console.log('Finished Matching -->', matchedObjwithparent.value)
@@ -1128,9 +1045,9 @@ const selectedValues = ref()
 
 const prevValue = ref()
 
-const disableSubmitMatched = ref(true)
+const disableSubmitMatched =ref(true)
 const updateSelect = async (row, index) => {
-  disableSubmitMatched.value = false
+  disableSubmitMatched.value=false
   // Remove the previously selected value for this row from the selectedValues array
   prevValue.value = selectedValues.value[index];
 
@@ -1155,61 +1072,6 @@ const updateSelect = async (row, index) => {
 }
 
 
-const parentOptions = ref([])
-const associated_multiple_models = ref(['county', 'subcounty', 'ward'])
-const search_field = ref('name')
-const loading = ref(false)
-
-const remoteMethod = async (keyword) => {
-  console.log(keyword)
-  loading.value = true
-  const formData = {}
-  formData.model = 'settlement', //model 
-    //-Search field--------------------------------------------
-    formData.searchField = search_field.value
-  formData.searchKeyword = keyword
-  formData.excludeGeom = false
-  formData.excludeGeomAssoc = true
-  formData.associated_multiple_models = associated_multiple_models.value
-
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = []
-  formData.filterValues = []
-
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
-
-  //-------------------------
-  console.log("formData", formData)
-  const res = await searchByKeyWord(formData)
-
-  console.log("res.data", res.data)
-
-  if (res.data && res.data.length > 0) {
-    parentOptions.value = res.data.map(item => ({
-      value: item.id,
-      settlement_id: item.id,
-      label: item.name || item.title || null,
-      name: item.name || item.title || null,
-      county: item.county?.name || null,
-      subcounty: item.subcounty?.name || null,
-      ward: item.ward?.name || null,
-      ward_id: item.ward?.id || null,
-      subcounty_id: item.subcounty?.id || null,
-      county_id: item.county?.id || null,
-      geom: item.geom || null
-    }));
-  }
-
-  loading.value = false
-
-}
-
-
-
 </script>
 
 <template>
@@ -1217,138 +1079,118 @@ const remoteMethod = async (keyword) => {
 
 
     <el-row :gutter="20">
-      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12"> 
+        <div  > 
 
-        <el-select
-v-model="type" :onChange="handleSelectType" :onClear="handleClear"
-          placeholder="Select data to import">
+          <div style="display: inline-block; margin-left: 20px">
+        <el-select v-model="type" :onChange="handleSelectType" :onClear="handleClear" placeholder="Select data to import">
           <el-option-group v-for=" group in uploadOptions" :key="group.label" :label="group.label">
             <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value" />
           </el-option-group>
         </el-select>
+      </div>
 
-        <!-- <el-select v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
-          style="margin-top:10px" :onClear="handleClear" clearable filterable collapse-tags
-          placeholder="Select Settlement">
-          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select> -->
 
+
+      <div style="display: inline-block; margin-left: 20px">
         <el-select
-v-if="showSettleementSelect" id="location-select" v-model="settlement" filterable remote
-          reserve-keyword :loading="loading" placeholder=" Search the settlement for this data"
-          :remote-method="remoteMethod" style="margin-top:10px">
-          <el-option v-for="item in parentOptions" :key="item.id" :label="item.label" :value="item.value">
-            <div style="display: flex; align-items: center;">
-              <span style="flex: 1; text-align: left;">{{ item.label }}</span>
-              <span style=" flex: 2; color: var(--el-text-color-secondary);  font-size: 13px;  text-align: right; ">
-                {{ item.ward }}, {{ item.subcounty }}, {{ item.county }}
-              </span>
-            </div>
-          </el-option>
+v-if="showSettleementSelect" v-model="settlement" :onChange="handleSelectSettlement"
+          :onClear="handleClear" clearable filterable collapse-tags placeholder="Select Settlement">
+          <el-option v-for="item in settlementOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
+      </div>
 
 
+      <div style="margin-top: 20px">
 
+      <el-upload
+    class="upload-demo"
+    drag
+    action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
+    v-if="showUploadinput" ref="upload" v-model:file-list="fileList"
+    :on-preview="handlePreview" :on-remove="handleRemove" :before-remove="beforeRemove" :on-change="handleFileChange"
+        :auto-upload="false"
+        :accept="'application/zip,.geojson,.json'" 
 
-        <div style="margin-top: 20px">
+  >
+    <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+    <div class="el-upload__text">
+      Drop file here or <em>click to upload</em>
+    </div>
+    <template #tip>
+      <div class="el-upload__tip">
+        Only zipped shapefile (.zip), json and geojson formats are support
+      </div>
+    </template>
+       </el-upload>
+       </div>
+  <div class="button-group-container" v-if="showUploadinput">
+    <el-button-group  class="mt-1" style="width: 100%">
 
-          <el-upload
-class="upload-demo" drag action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-            v-if="showUploadinput" ref="upload" v-model:file-list="fileList" :on-preview="handlePreview"
-            :on-remove="handleRemove" :before-remove="beforeRemove" :on-change="handleFileChange" :auto-upload="false"
-            :accept="'application/zip,.geojson,.json'">
-            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-            <div class="el-upload__text">
-              Drop file here or <em>click to upload</em>
-            </div>
-            <template #tip>
-              <div class="el-upload__tip">
-                Only zipped shapefile (.zip), json and geojson formats are support
-              </div>
-            </template>
-          </el-upload>
+      
+    <el-button :disabled="disableProcess" @click="submitFiles" type="primary"   style="display: inline-block; margin-left: 5px" class="mt-1" >
+      Process
+      <el-icon class="el-icon--right"> <Promotion/> </el-icon>
+    </el-button>
+    <el-button @click="reset" type="warning"   class="mt-1"  style="display: inline-block; margin-left: 5px"  >
+      Reset
+      <el-icon class="el-icon--right"> <Close/> </el-icon>
+    </el-button>
+
+    <el-button v-if="showUploadinput &&!disableSubmitMatched" class="mt-1"   @click="handleProcess" type="primary"  style="display: inline-block; margin-left: 5px" >
+          Submit Data<el-icon class="el-icon--right">
+            <UploadFilled />
+          </el-icon>
+        </el-button>
+  </el-button-group>
+</div>
+
+ 
+  
+
         </div>
-        <div class="button-group-container" v-if="showUploadinput">
-          <el-button-group class="mt-1" style="width: 100%">
+      </el-col>
+  
+      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12"> 
+   
+        <div class="grid-content ep-bg-purple-light" > 
+
+          <el-table size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 400px; overflow-y: scroll;" border >
+        <el-table-column prop="column" label="Field">
+          <template #default="scope">
+            <el-input v-model="scope.row.field" controls-position="left" disabled />
+          </template>
+        </el-table-column>
+        <el-table-column prop="match" label="Match">
+          <template #default="scope">
 
 
-            <el-button
-:disabled="disableProcess" @click="submitFiles" type="primary"
-              style="display: inline-block; margin-left: 5px" class="mt-1">
-              Process
-              <el-icon class="el-icon--right">
-                <Promotion />
-              </el-icon>
-            </el-button>
-            <el-button @click="reset" type="warning" class="mt-1" style="display: inline-block; margin-left: 5px">
-              Reset
-              <el-icon class="el-icon--right">
-                <Close />
-              </el-icon>
-            </el-button>
+            <el-select v-model="scope.row.match" @change="updateSelect(scope.row, scope.$index)" filterable clearable>
+              <el-option
+v-for="(option, index) in matchOptions" :key="index" :label="option.label" :value="option.value"
+                :disabled="option.disabled" />
+            </el-select>
 
-            <el-button
-v-if="showUploadinput && !disableSubmitMatched" class="mt-1" @click="handleProcess"
-              type="primary" style="display: inline-block; margin-left: 5px">
-              Submit Data<el-icon class="el-icon--right">
-                <UploadFilled />
-              </el-icon>
-            </el-button>
-          </el-button-group>
+          </template>
+        </el-table-column>
+      </el-table>
+    
+
+
+
         </div>
-
-
-
-
       </el-col>
+  </el-row>
 
-      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-
-        <el-skeleton v-if="!show" :rows="10" animated />
-
-
-        <!-- Table Content (only shown when loading is false) -->
-        <el-table
-size="small" v-if="show" :data="fieldSet" stripe="stripe" style="height: 400px; overflow-y: scroll;"
-          border>
-          <el-table-column prop="column" label="Field">
-            <template #default="scope">
-              <el-input v-model="scope.row.field" controls-position="left" disabled />
-            </template>
-          </el-table-column>
-          <el-table-column prop="match" label="Match">
-            <template #default="scope">
-
-
-              <el-select v-model="scope.row.match" @change="updateSelect(scope.row, scope.$index)" filterable clearable>
-                <el-option
-v-for="(option, index) in matchOptions" :key="index" :label="option.label"
-                  :value="option.value" :disabled="option.disabled" />
-              </el-select>
-
-            </template>
-          </el-table-column>
-        </el-table>
+  
+    
+ 
+     
 
 
 
-
-
-
-
-
-      </el-col>
-    </el-row>
-
-
-
-
-
-
-
-
-
-
+ 
+ 
 
 
 
@@ -1403,4 +1245,7 @@ v-for="(option, index) in matchOptions" :key="index" :label="option.label"
   display: flex;
   justify-content: space-between;
 }
+
+
+
 </style>
