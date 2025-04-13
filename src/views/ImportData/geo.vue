@@ -21,7 +21,8 @@ const usedDbFields = ref<Set<string>>(new Set())
 const tableOptions = [
   { label: 'Projects', value: 'project' },
   { label: 'Settlements', value: 'settlement' },
-  { label: 'Facilities', value: 'facilities' }
+  { label: 'Facilities', value: 'facilities' },
+  { label: 'Structures', value: 'structure' }
 ]
 
 
@@ -51,7 +52,7 @@ const appendParentEntityPropertiesBatch = async () => {
     const formData = {}
  
   formData.curUser = 1 // Id for logged in user
-  formData.model = 'ward'
+  formData.model = targetTable.value === 'settlement' ? 'ward' : 'settlement';
   //-Search field--------------------------------------------
   formData.searchField = 'name'
   formData.searchKeyword = ''
@@ -91,8 +92,10 @@ const appendParentEntityPropertiesBatch = async () => {
               ...feature.properties,
               county_id: parent.county_id,
               subcounty_id: parent.subcounty_id,
-              ward_id: parent.id,
-              settlement_id: parent.settlement_id,
+              ward_id: targetTable.value === 'settlement' ? parent.id : null,
+              settlement_id: targetTable.value != 'settlement' ? parent.id : null,
+
+              
             }
           };
         }
@@ -233,13 +236,7 @@ const isFieldTaken = (field: string, currentGeoField: string) => {
   )
 }
 
-const xhandleNextStep = async () => {
-  if (step.value === 3) {
-    await importGeoJson()
-  } else {
-    step.value++
-  }
-}
+ 
 
 
 const handleNextStep = async () => {
