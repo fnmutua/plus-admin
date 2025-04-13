@@ -753,6 +753,10 @@ const getFarmGeo = async () => {
 };
 
  
+const getImplementerLabel = (id) => {
+  const found = implementerOptions.value.find(item => item.value === id);
+  return found ? found.title : 'Unknown';
+};
 
 
 const getClickedFarm = async (id) => { 
@@ -772,7 +776,7 @@ const getClickedFarm = async (id) => {
           //const name = farm.name || 'Unknown';
           const location = project_location.location_name + ' ' + project_location.location_type  || 'N/A';
           const project_code = project_location.project.project_code   || 'N/A';
-
+          const implementer =  getImplementerLabel ( project_location.implementer )
         // If the area is not 'N/A', round it to two decimals
  
         // Now, `roundedArea` contains the rounded value to two decimals
@@ -816,14 +820,19 @@ const getClickedFarm = async (id) => {
                   <span style="font-weight: bold;">Contract:</span>
                   <span>${project_code}</span>
                 </div>
-                <div>
+                <div style="margin-bottom: 6px;">
                   <span style="font-weight: bold;">Location:</span>
                   <span>${location}</span>
+                </div>
+
+                <div>
+                  <span style="font-weight: bold;">Implementer:</span>
+                  <span>${implementer}</span>
                 </div>
               </div>
             `;
 
-                    console.log(geom.geometry.coordinates)
+           console.log(geom.geometry.coordinates)
           popup.setLngLat(geom.geometry.coordinates)
           .setHTML(popupContent)
           .addTo(map.value);

@@ -503,7 +503,6 @@ const remoteMethod = async (keyword) => {
   formData.excludeGeom = false
   formData.excludeGeomAssoc = true
   formData.associated_multiple_models = []
-
   //--Single Filter -----------------------------------------
 
   //formData.assocModel = associated_Model

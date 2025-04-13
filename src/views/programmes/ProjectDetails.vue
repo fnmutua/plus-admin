@@ -200,13 +200,14 @@ const getDocumentTypes = async () => {
 }
 
 
-const getActivities = async (keyword) => {
+const getActivities = async () => {
 
   const formData = {}
   formData.model = 'activity'
   //-Search field--------------------------------------------
   formData.searchField = 'title'
-  formData.searchKeyword = keyword
+  formData.searchKeyword = '' 
+  formData.returnAll = true
   formData.excludeGeom = false
   formData.associated_multiple_models = []
 
@@ -3581,8 +3582,7 @@ function formatLocation(item) {
               Save Changes
             </el-button>
 
-            <p style="margin: 0;">Select project components and associated physical and social amenities</p>
-          </div>
+           </div>
 
           <el-divider />
 

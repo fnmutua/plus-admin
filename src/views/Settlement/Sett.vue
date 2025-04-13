@@ -1253,6 +1253,7 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   formData.searchField = 'name'
   formData.searchKeyword = searchKey
   //--Single Filter -----------------------------------------
+  formData.returnAll = true
 
   //formData.assocModel = associated_Model
 

@@ -895,7 +895,7 @@ const getFilteredBySearchData = async (tab, searchKey) => {
   formData.associated_multiple_models = associated_multiple_models
   formData.nested_models = nested_models
   formData.cache_key = 'SeacrchByKey_' + search_string.value
-
+  formData.returnAll = true
   //-------------------------
   console.log(formData)
   console.log('activeTab', tab)
