@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { ElMessage, ElUpload, ElOption, ElSelect, ElTable, ElTableColumn, ElButton, ElCard, ElSteps, ElStep, ElAlert } from 'element-plus'
 import { getModelSpecs } from '@/api/fields'
 import Fuse from 'fuse.js'
+import { getSettlementListByCounty  } from '@/api/settlements'
+import { BatchImportUpsert } from '@/api/settlements'
 
 // State
 const step = ref(0)
@@ -22,11 +24,102 @@ const tableOptions = [
   { label: 'Facilities', value: 'facilities' }
 ]
 
-// Handle GeoJSON Upload
-const handleGeoJsonUpload = (uploadFile: any) => {
+
+// Append parent entity details based on pcode property
+ // Batch process GeoJSON features to append parent entity properties based on unique pcodes
+const appendParentEntityPropertiesBatch = async () => {
+  if (!geoJson.value) {
+    ElMessage.error('GeoJSON is not loaded yet.');
+    return;
+  }
+
+  // Extract unique pcodes from all features
+  const pcodesSet = new Set<string>();
+  geoJson.value.features.forEach((feature: any) => {
+    if (feature.properties && feature.properties.pcode) {
+      pcodesSet.add(feature.properties.pcode);
+    }
+  });
+
+  const pcodesArray = Array.from(pcodesSet);
+  if (!pcodesArray.length) {
+    ElMessage.warning('No pcode found in any features.');
+    return;
+  }
+
+  try {
+    const formData = {}
+ 
+  formData.curUser = 1 // Id for logged in user
+  formData.model = 'ward'
+  //-Search field--------------------------------------------
+  formData.searchField = 'name'
+  formData.searchKeyword = ''
+  //--Single Filter -----------------------------------------
+
+  formData.assocModel = ''
+
+  // - multiple filters -------------------------------------
+  formData.filters = ['code']
+  formData.filterValues = [pcodesArray]
+  formData.associated_multiple_models = []
+  
+
+    const response = await getSettlementListByCounty(formData)
+
+    console.log('----', response)
+     
+
+    // Assume the response is a mapping of pcode to parent details
+    // e.g., { "pcode1": { countyid: 1, subcountyid: 2, wardid: 3, settlementid: 4 }, ... }
+    const parentData: Record<string, { county_id: any; subcounty_id: any; ward_id: any; settlement_id: any }> = await response.data;
+
+    console.log('parentData',parentData)
+
+    // Map over geoJson features and append the parent details where possible
+    const updatedFeatures = geoJson.value.features.map((feature: any) => {
+        const pcode = feature.properties?.pcode;
+
+        if (!pcode) return feature;
+
+        const parent = parentData.find((item: any) => item.code == pcode);
+
+        if (parent) {
+          return {
+            ...feature,
+            properties: {
+              ...feature.properties,
+              county_id: parent.county_id,
+              subcounty_id: parent.subcounty_id,
+              ward_id: parent.id,
+              settlement_id: parent.settlement_id,
+            }
+          };
+        }
+
+        return feature;
+      });
+
+
+    // Update the geoJson value with the enriched features
+    geoJson.value = { ...geoJson.value, features: updatedFeatures };
+
+    console.log(geoJson.value )
+    ElMessage.success('Parent entity details appended successfully!');
+  } catch (err) {
+    console.error('Error appending parent entity details:', err);
+    ElMessage.error('Error fetching parent entity details.');
+  }
+};
+
+
+
+
+const handleGeoJsonUpload = async (uploadFile: any) => {
   const file = uploadFile.raw || uploadFile.file
   if (!file) return ElMessage.error('Invalid file')
 
+  // Reset state
   geoJson.value = null
   geoJsonProperties.value = []
   targetTable.value = ''
@@ -38,12 +131,31 @@ const handleGeoJsonUpload = (uploadFile: any) => {
   step.value = 0
 
   const reader = new FileReader()
-  reader.onload = (e: any) => {
+  reader.onload = async (e: any) => {
     try {
-      const content = JSON.parse(e.target.result)
-      geoJson.value = content
-      const sampleProps = content.features?.[0]?.properties || {}
+      // Step 1: Parse and hold in a local variable
+      const parsedGeoJson = JSON.parse(e.target.result)
+
+      // Step 2: Prepare properties list
+
+      // Step 3: Assign to reactive `geoJson` first so the parent app can access it
+      geoJson.value = parsedGeoJson
+
+      // Step 4: Append parent data using parsedGeoJson
+       await appendParentEntityPropertiesBatch(parsedGeoJson)
+      console.log('updatedFeatures',geoJson.value)
+
+      const sampleProps = geoJson.value.features?.[0]?.properties || {}
+
       geoJsonProperties.value = Object.keys(sampleProps)
+
+      console.log('geoJsonProperties.value ',geoJsonProperties.value )
+
+
+
+      // Step 5: Update geoJson again with updated features
+     // geoJson.value = updatedFeatures
+
       ElMessage.success('GeoJSON loaded successfully!')
       step.value = 1
     } catch (err) {
@@ -53,6 +165,7 @@ const handleGeoJsonUpload = (uploadFile: any) => {
   }
   reader.readAsText(file)
 }
+
 
 // Get model fields
 const getModeldefinition = async (selModel: string) => {
@@ -188,11 +301,53 @@ const importGeoJson = async () => {
   remappedGeoJson.value = newGeoJson
 
   try {
-    const res = await fetch('/api/import-geojson', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ table: targetTable.value, data: newGeoJson })
-    })
+    // const res = await fetch('/api/import-geojson', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ table: targetTable.value, data: newGeoJson })
+    // })
+
+
+    function stripZ(geometry: any) {
+          if (geometry?.coordinates) {
+            const cleanCoords = (coords: any): any => {
+              if (Array.isArray(coords[0])) {
+                return coords.map(cleanCoords);
+              }
+              // Remove Z if it exists
+              return coords.length === 3 ? coords.slice(0, 2) : coords;
+            };
+
+            return {
+              ...geometry,
+              coordinates: cleanCoords(geometry.coordinates)
+            };
+          }
+          return geometry;
+        }
+
+       
+
+
+
+    console.log('remappedGeoJson.value' ,remappedGeoJson.value.features )
+
+    const features_import = remappedGeoJson.value.features.map(f => ({
+          ...f.properties,
+          geom: JSON.stringify(stripZ(f.geometry))
+        }));
+
+
+        console.log('features_import' ,features_import )
+
+
+    var formData = {}
+    formData.model = targetTable.value
+    formData.data = features_import
+
+    const res = await BatchImportUpsert(formData)
+
+
 
     if (!res.ok) throw new Error('Failed to import')
     ElMessage.success('GeoJSON imported successfully!')
