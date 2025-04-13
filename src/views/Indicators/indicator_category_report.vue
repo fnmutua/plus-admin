@@ -970,7 +970,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
           formData.append('files', file.raw);
           formData.append('format', file.name.split('.').pop());
           formData.append('field_id', 'report_id');
-          formData.append('category', 2);
+          formData.append('category', 56);
           formData.append('report_id', parseInt(reportId));
           formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2));
           formData.append('createdBy', userInfo.id);
@@ -1058,7 +1058,7 @@ const editForm = async (formEl: FormInstance | undefined) => {
           formData.append('files', file.raw);
           formData.append('format', file.name.split('.').pop());
           formData.append('field_id', 'report_id');
-          formData.append('category', 2);
+          formData.append('category', 56);
           formData.append('report_id', parseInt(reportId));
           formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2));
           formData.append('createdBy', userInfo.id);

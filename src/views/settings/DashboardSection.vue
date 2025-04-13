@@ -47,7 +47,7 @@ console.log("userInfo--->", userInfo)
 const { push } = useRouter()
 const value1 = ref([])
 const value2 = ref([])
-var value3 = ref([])
+const value3 = ref([])
  
 const componentOptions = ref([])
 const categories = ref([])
@@ -132,9 +132,9 @@ const handleClear = async () => {
   // clear all the fileters -------
   filterValues = []
   filters = []
-  value1.value = ''
-  value2.value = ''
-  value3.value = ''
+  value1.value = []
+  value2.value = []
+  value3.value = []
   pSize.value = 5
   currentPage.value = 1
   tblData = []
@@ -528,7 +528,7 @@ const goBack = () => {
 <template>
   <el-card >
  
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap;  align-items: center;">
 
             <div class="max-w-200px">
               <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
@@ -537,19 +537,12 @@ const goBack = () => {
             </div>
 
             <!-- Title Search -->
-            <el-select
-            v-model="value3" :onChange="handleSeleectDashboard" :onClear="handleClear" multiple clearable filterable
-                    collapse-tags placeholder="Search Dashboard">
+            <el-select     v-model="value3" :onChange="handleSeleectDashboard" :onClear="handleClear" multiple clearable filterable
+                    collapse-tags placeholder="Search Dashboard" style="margin-right: 10px;">
                     <el-option v-for="item in DashBoardOptions" :key="item.value" :label="item.label" :value="item.value" />
                   </el-select>
 
-            <el-select
-            v-model="value3" :onChange="handleSelectDashboardSection" :onClear="handleClear" multiple clearable
-              filterable collapse-tags placeholder="Search Dashboard Section" style="width: 35%; margin-right: 10px;">
-              <el-option
-            v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.label"
-                :value="item.value" />
-            </el-select>
+             
 
             <!-- Action Buttons -->
             <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
@@ -557,10 +550,7 @@ const goBack = () => {
               <el-tooltip content="Add Tab" placement="top">
                 <el-button :onClick="AddCard" type="primary" :icon="Plus" />
               </el-tooltip>
-
-              <el-tooltip content="Download" placement="top">
-                <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-              </el-tooltip>
+ 
 
               <el-tooltip content="Clear" placement="top">
                 <el-button :onClick="handleClear" type="primary" :icon="Filter" />
@@ -568,8 +558,7 @@ const goBack = () => {
 
 
             </div>
-              <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-
+ 
 <!-- Download All Component -->
 </el-row>
 

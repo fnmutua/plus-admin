@@ -1879,6 +1879,8 @@ v-for="item in DashBoardSectionFilterdOptions" :key="item.value" :label="item.la
     </el-row>
 
 
+    
+
     <el-table :loading="loading" :data="charts_filtered" stripe="stripe">
       <el-table-column label="Type">
         <template #default="scope">

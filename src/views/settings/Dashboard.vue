@@ -533,7 +533,7 @@ const openHelp = ref(false)
 <template>
   <el-card>
 
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+    <el-row type="flex" justify="space-between" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
       <div class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
@@ -544,24 +544,17 @@ const openHelp = ref(false)
 
 
       <!-- Action Buttons -->
-      <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+      <div style="display: flex; align-items: right  ; gap: 10px; margin-right: 10px;">
 
         <el-tooltip content="Add Dashboard" placement="top">
           <el-button :onClick="AddIndicator" type="primary" :icon="Plus" />
         </el-tooltip>
 
-        <el-tooltip content="Download" placement="top">
-          <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-        </el-tooltip>
-
-        <el-tooltip content="Clear" placement="top">
-          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-        </el-tooltip>
+        
 
 
       </div>
-      <DownloadAll v-if="showEditButtons" :model="model" :associated_models="associated_multiple_models" />
-
+ 
       <!-- Download All Component -->
     </el-row>
 
@@ -573,7 +566,7 @@ const openHelp = ref(false)
       <el-table-column align="right">
         <template #header>
           <el-input
-v-model="searchKeyword" :onChange="remoteMethod" :onBlur="remoteMethod" :onClear="handleClear"
+v-model="searchKeyword" size="small" :onChange="remoteMethod" :onBlur="remoteMethod" :onClear="handleClear"
             placeholder="Type to search" />
         </template>
         <template #default="scope">

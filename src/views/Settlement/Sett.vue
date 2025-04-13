@@ -386,9 +386,7 @@ onMounted(async () => {
 
 
 const { push } = useRouter()
-const value1 = ref([])
-const value2 = ref([])
-const value3 = ref()
+ 
 var value4 = ref([])
 var value5 = ref([])
 var value6 = ref([])
@@ -464,9 +462,9 @@ const handleClear = async () => {
   filterValues.value = []
   filters.value = []
   
-  value4.value =null
-  value5.value =null
-  value6.value =null
+  value4.value =[]
+  value5.value =[]
+  value6.value =[]
 
   currentPage.value = 1
   
@@ -1443,8 +1441,8 @@ const filterByCounty = async (county_id: any) => {
     getSubCountyNames()
   }
 
-  value5.value = null // clear the subcounty 
-  value6.value = null   // clear the ward sr
+  value5.value = [] // clear the subcounty 
+  value6.value = []   // clear the ward sr
 
 
 
@@ -1462,7 +1460,7 @@ const filterByCounty = async (county_id: any) => {
 
 const filterBySubCounty = async (subcounty_id: any) => {
 
-  value6.value = null   // clear the ward sr
+  value6.value = []   // clear the ward sr
 
 
   if (subcounty_id) {
@@ -1693,8 +1691,7 @@ const handleEdit = (data) => {
   selectedSubCounty.value = data.row.subcounty_id
   selectedWard.value = data.row.ward_id
   getSubCountyNames()
-  //filterByCounty(selectedCounty.value)
-  getWardNames()
+   getWardNames()
 
 
 

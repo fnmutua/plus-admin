@@ -2,7 +2,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/hooks/web/useI18n'
 import { Table } from '@/components/Table'
-import { getSettlementListByCounty } from '@/api/settlements'
+import { getSettlementListByCounty,searchByKeyWord } from '@/api/settlements'
 import { getCountyListApi } from '@/api/counties'
 import { ElButton, ElSelect, ElColorPicker, ElCard, ElPopconfirm, ElTour, ElTourStep } from 'element-plus'
 import {
@@ -1137,11 +1137,44 @@ const endTour = () => {
 }
 
 
+const remoteMethod = async (keyword) => {
+  console.log(keyword)
+  loading.value = true
+  const formData = {}
+  formData.model = model
+  //-Search field--------------------------------------------
+  formData.searchField = 'title'
+  formData.searchKeyword =searchKey.value
+  formData.excludeGeom = false
+  formData.excludeGeomAssoc = true
+  formData.associated_multiple_models = []
+  //--Single Filter -----------------------------------------
+
+  //formData.assocModel = associated_Model
+
+  // - multiple filters -------------------------------------
+  formData.filters = []
+  formData.filterValues = []
+
+  //formData.cache_key = 'SeacrchByKey_' + search_string.value
+
+  //-------------------------
+  console.log("formData", formData)
+  const res = await searchByKeyWord(formData)
+
+  console.log("res.data", res.data)
+
+  tableDataList.value = res.data
+  total.value = res.total
+  loading.value = false
+
+}
+
 </script>
 
 <template>
   <el-card>
-    <el-row type="flex" justify="start" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
+    <el-row type="flex" justify="space-between" gutter="10" style="display: flex; flex-wrap: nowrap; align-items: center;">
 
       <div class="max-w-200px">
         <el-button type="primary" plain :icon="Back" @click="goBack" style="margin-right: 10px;">
@@ -1150,31 +1183,43 @@ const endTour = () => {
       </div>
 
       <!-- Title Search -->
-      <el-select
-v-model="value3" :onChange="handleSelectDashboard" :onClear="handleClear" multiple clearable filterable
-        collapse-tags placeholder="Filter by Dashboard" style="width: 45%; margin-right: 10px;">
-        <el-option v-for="item in DashboardOptions" :key="item.value" :label="item.label" :value="item.value" />
-      </el-select>
+ 
 
 
 
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 10px; margin-right: 10px;">
+  <el-select
+    v-model="value3"
+    :onChange="handleSelectDashboard"
+    :onClear="handleClear"
+    multiple
+    clearable
+    filterable
+    collapse-tags
+    placeholder="Filter by Dashboard"
+    style="flex: 1; min-width: 200px;"
+  >
+    <el-option
+      v-for="item in DashboardOptions"
+      :key="item.value"
+      :label="item.label"
+      :value="item.value"
+    />
+  </el-select>
 
-        <el-tooltip content="Add Card" placement="top">
-          <el-button :onClick="AddCard" type="primary" :icon="Plus" />
-        </el-tooltip>
+  <el-tooltip content="Add Card" placement="top">
+    <el-button :onClick="AddCard" type="primary" :icon="Plus" />
+  </el-tooltip>
 
-        <el-tooltip content="Download" placement="top">
-          <el-button :onClick="handleDownload" type="primary" :icon="Download" />
-        </el-tooltip>
+  <el-tooltip content="Download" placement="top">
+    <el-button :onClick="handleDownload" type="primary" :icon="Download" />
+  </el-tooltip>
 
-        <el-tooltip content="Clear" placement="top">
-          <el-button :onClick="handleClear" type="primary" :icon="Filter" />
-        </el-tooltip>
-
-
-      </div>
+  <el-tooltip content="Clear" placement="top">
+    <el-button :onClick="handleClear" type="primary" :icon="Filter" />
+  </el-tooltip>
+</div>
 
       <!-- Download All Component -->
     </el-row>
@@ -1187,7 +1232,12 @@ v-model="value3" :onChange="handleSelectDashboard" :onClear="handleClear" multip
       <el-table-column prop="icon" label="Icon" />
       <el-table-column label="Operations">
         <template #header>
-          <el-input v-model="searchKey" size="small" placeholder="Filter By Title" />
+          <!-- <el-input v-model="searchKey" size="small" placeholder="Filter By Title" /> -->
+
+          <el-input
+v-model="searchKey" size="small" :onChange="remoteMethod" :onBlur="remoteMethod" :onClear="handleClear"
+            placeholder="Type to search" />
+
         </template>
         <template #default="scope">
           <el-tooltip content="Edit" placement="top">

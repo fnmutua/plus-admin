@@ -142,6 +142,7 @@ const activityOptions = ref([])
 const DocTypes = ref([])
 const DocTypesFiltered = ref([])
 const DocTypesAll = ref([])
+const DocCategories= ref([])
 const getDocumentTypes = async () => {
   const res = await getCountyListApi({
     params: {
@@ -157,7 +158,7 @@ const getDocumentTypes = async () => {
     //tableDataList.value = response.data
     var ret = response.data
     console.log('filterOptions---Docypes-x', response.data)
-
+    DocCategories.value=response.data
 
     const nestedData = ret.reduce((acc, cur) => {
       const group = cur.group;
@@ -190,12 +191,14 @@ const getDocumentTypes = async () => {
 
 
     }
-    console.log(DocTypes)
 
   })
 
 
-  DocTypes.value = DocTypesFiltered.value
+  //DocTypes.value = DocTypesFiltered.value
+
+
+console.log(  'DocCategories.value',  DocCategories.value)
 
 }
 
@@ -281,6 +284,7 @@ const getContractors = async (project_id) => {
   }
 
 }
+
 
 
 const getProjecteam = async (project_id) => {
@@ -419,11 +423,28 @@ const getProjectDocuments = async (field, fieldValue) => {
   try {
     const res = await getSettlementListByCounty(formData);
 
-    // Assign the result data to projectDocuments
-   // projectDocuments.value = res.data;
+   
 
-    console.log('projectDocuments:', projectDocuments.value); // Log the projectDocuments value for debugging
-    return res.data || []; // Return the result data or an empty array if no data
+    console.log('DocCategories.value------------', DocCategories.value)
+    const enrichedDocs = res.data.map(doc => {
+    const match = DocCategories.value.find(item => item.id == doc.category);
+
+    console.log('match------------',doc, match)
+
+    if (match) {
+      doc.type = match.type;
+    }
+    return doc;
+  });
+
+
+
+
+console.log('enrichedDocs',enrichedDocs)
+
+
+
+    return enrichedDocs || []; // Return the result data or an empty array if no data
   } catch (error) {
     console.error('Error fetching project documents:', error);
     return []; // Return an empty array if there is an error
@@ -777,9 +798,9 @@ onMounted(async () => {
 
   programme_implementation_id.value = res.data.implementation_id
 
+  await getDocumentTypes()
 
 
-  getDocumentTypes()
   getActivities()
   getContractors(route.params.id)
   getLocations(route.params.id)
@@ -2474,73 +2495,7 @@ function emptyRuleForm() {
   }
 }
 
-const _submitForm = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  await formEl.validate(async (valid, fields) => {
-    if (valid) {
-      ruleForm.model = 'indicator_category_report'
-      ruleForm.period = getQuarter()
-      ruleForm.code = uuid.v4()
-      ruleForm.userId = userInfo.id
-
-      console.log('cumProgress', ruleForm.value)
-
-      ruleForm.cumAmount = ruleForm.cumAmount + ruleForm.amount
-
-      let calculatedProgress = (100 * (ruleForm.cumAmount / ruleForm.target));
-
-      if (isFinite(calculatedProgress)) {
-        ruleForm.cumProgress = calculatedProgress.toFixed(2);
-      } else {
-        ruleForm.cumProgress = '0.00';
-      }
-
-
-      //Progress towards target (%realized) [(B-A)/(C- A)]
-
-      const report = await CreateRecord(ruleForm)   // first save the form on DB
-      console.log("Report", report.data.id)
-
-      emptyRuleForm()
-
-      // uploading the documents 
-
-      const formData = new FormData()
-      for (var i = 0; i < fileUploadList.value.length; i++) {
-        console.log('------>file', fileList.value[i])
-        var column = 'report_id'
-        formData.append('files', fileUploadList.value[i].raw)
-        formData.append('format', fileUploadList.value[i].name.split('.').pop())
-        formData.append('field_id', 'report_id')
-        formData.append('category', 2)
-        formData.append(column, parseInt(report.data.id))
-        formData.append('size', (fileUploadList.value[i].raw.size / 1024 / 1024).toFixed(2))
-        formData.append('createdBy', userInfo.id)
-        formData.append('protected', false)
-
-        //   {"message":"Upload failed. The field report_id is required errors","code":"0000"}
-      }
-
-      formData.append('code', uuid.v4())
-
-
-
-      console.log('files uploadFilesBatch submit', formData)
-      const docs = await uploadFilesBatch(formData)
-
-      console.log('after submit', docs.data)
-
-      projectDocuments.value.push(docs.data)
-
-      AddDialogVisible.value = false
-
-
-    } else {
-      console.log('error submit!', fields)
-    }
-  })
-}
-
+ 
 
 const disableIndicator = ref(false)
 
@@ -2615,7 +2570,7 @@ const submitForm = async (formEl: FormInstance | undefined) => {
           formData.append('files', file.raw);
           formData.append('format', file.name.split('.').pop());
           formData.append('field_id', 'report_id');
-          formData.append('category', 2);
+          formData.append('category', 56);   // 56 is montiroing reports
           formData.append('report_id', parseInt(reportId));
           formData.append('size', (file.raw.size / 1024 / 1024).toFixed(2));
           formData.append('createdBy', userInfo.id);
@@ -3705,6 +3660,7 @@ function formatLocation(item) {
           <el-table :data="projectDocuments" style="width: 100%">
             <el-table-column type="index" width="50" />
             <el-table-column prop="name" label="Name" />
+            <el-table-column prop="type" label="Type" />
             <el-table-column prop="createdAt" label="Uploaded" />
             <el-table-column fixed="right" label="">
               <template #default="scope">
