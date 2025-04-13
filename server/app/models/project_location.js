@@ -52,6 +52,13 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true,
        
     },
+
+    implementer: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+       
+    },
+
     location_type: {
       type: DataTypes.STRING,
       allowNull: true,

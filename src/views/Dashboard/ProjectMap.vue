@@ -1,7 +1,7 @@
 
 <template>
   <div class="floating-collapse">
-    <el-select v-model="county"   placeholder="Filter by County"   @change="handleChangeCounty" filterable clearable>
+    <el-select v-model="county"   placeholder="Filter by County"   @change="handleChangeCounty" filterable clearable :onClear="ResetFilters">
         <el-option v-for="item in countyOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     <el-select
@@ -9,6 +9,13 @@ clearable filterable v-model="subcounty"  placeholder="Filter by Subcounty"
       @change="handleChangeSubcounty" :onClear="ResetFilters">
       <el-option v-for="item in subCountyOptions" :key="item.value" :label="item.label" :value="item.value" />
     </el-select>
+
+    <el-select
+clearable filterable v-model="implementer"  placeholder="Filter by Implementer"  
+      @change="handleChangeImplementer" :onClear="ResetFilters">
+      <el-option v-for="item in implementerOptions" :key="item.value" :label="item.label" :value="item.value" />
+    </el-select>
+
     <el-button    @click="ResetFilters"> Reset Filters</el-button>
   </div>
 
@@ -91,7 +98,8 @@ const mapLoadingText =ref('Loading map....')
 
 
 
-
+const filterFields =ref([])
+const filterValues =ref([])
 
 
 type EChartsOption = echarts.EChartsOption;
@@ -257,6 +265,17 @@ onMounted(async () => {
     dialogWidth.value = "20%"
   }
 
+
+
+
+
+
+
+
+
+
+
+  
  
   console.log("isDark",appStore.getIsDark)
 
@@ -452,6 +471,41 @@ onMounted(async () => {
  
 
 
+const implementerOptions = ref([])
+const implementer =ref()
+
+
+const getImplementers = async () => {
+  const res = await getListWithoutGeo({
+    params: {
+      //   pageIndex: 1,
+      //  limit: 100,
+      curUser: 1, // Id for logged in user
+      model: 'programme_implementation',
+      searchField: 'title',
+      searchKeyword: '',
+      sort: 'ASC', 
+    }
+  }).then((response: { data: any }) => {
+    console.log('Received programme_implementation response:', response)
+    const ret = response.data
+
+    ret.forEach((data) => {
+      const option = {
+        value: data.id,
+        title: data.title,
+        label: data.acronym,
+      };
+      implementerOptions.value.push(option);
+    });
+
+
+
+
+  })
+}
+
+
 
 const addSettlementLayers = async () => {
   map.value.addSource('farmers', {
@@ -575,11 +629,20 @@ const addSettlementLayers = async () => {
 });
 
 
+  bounds.value = turf.bbox(geojson.value);
+  console.log("From geo", bounds.value);
 
+  // Get the optimal zoom for the bounds
+  const cameraOptions = map.value.cameraForBounds(bounds.value, { padding: 5 });
 
-bounds.value = turf.bbox((geojson.value))
-    console.log("From geo", bounds.value)
-    map.value.fitBounds(bounds.value, { padding: 20 })
+  if (cameraOptions) {
+    // Decrease zoom level by 1 before setting the camera
+    cameraOptions.zoom = cameraOptions.zoom - 1;
+
+    // Set camera with the adjusted zoom
+    map.value.easeTo(cameraOptions);
+  }
+
 
 
 }
@@ -787,56 +850,44 @@ const getClickedFarm = async (id) => {
 
 
 
-const getSubsetGeo = async (model, filterFields, filterValues) => {
-  console.log('Get all settlements  for this subcounty ', geojson.value)
+const getSubsetGeo = async (filterFields, filterValues) => {
+  console.log('Filtering settlements for this subcounty:', geojson.value);
 
+  console.log('filterFields',filterFields)
+  console.log('filterValues',filterValues)
 
-
- // Assuming allProjectsGeo is already defined
-const filteredGeoJson = {
-  type: "FeatureCollection",  // Wrapping the result in a FeatureCollection format
-  features: allProjectsGeo.value.features
-    .filter((feature) => {
-      // Loop over the filterFields and filterValues to apply all filters
-      return filterFields.every((field, index) => {
-        const value = filterValues[index];
-        return feature.properties[field] == value; // Check if feature's property matches the filter value
-      });
+  const filteredFeatures = allProjectsGeo.value.features.filter(feature =>
+    filterFields.every((field, index) => {
+      const expectedValue = filterValues[index];
+      return feature.properties[field] == expectedValue;
     })
-    .map((feature) => {
-      // Return a plain object without the geojson structure
-      return {
-        type: feature.type,
-        geometry: feature.geometry, // Keep geometry
-        properties: { ...feature.properties } // Return properties as a plain object
-      };
-    })
-};
+  );
 
-console.log(filteredGeoJson);
+  
 
+  const filteredGeoJson = {
+    type: "FeatureCollection",
+    features: filteredFeatures.map(feature => ({
+      type: feature.type,
+      geometry: feature.geometry,
+      properties: { ...feature.properties }
+    }))
+  };
 
+  console.log('Filtered GeoJSON:', filteredGeoJson);
 
-
-  // const res = await getfilteredGeo(formData)
-
-   console.log('filtered Geo:', filteredGeoJson)
-
-   if (Array.isArray(filteredGeoJson.features) && filteredGeoJson.features.length > 0) {
- 
-
+  if (filteredGeoJson.features.length > 0) {
     geojson.value = await computeCentroids(filteredGeoJson);
 
-     // Check if the 'farms' layer already exists, and remove it if it does
-    await removeSettlementLayers()
-    await addSettlementLayers()
+    await removeSettlementLayers();
+    await addSettlementLayers();
+  } else {
+    ElMessage.warning('No data for the selected filters. Resetting...');
+    geojson.value = allProjectsGeo.value; // fallback to full dataset
   }
-  else {
-    ElMessage.warning('No data')
-    geojson.value =  allProjectsGeo.value
-  }
+};
 
-}
+
 
 
  
@@ -880,7 +931,7 @@ const getCounty = async () => {
 
  
  
-
+getImplementers()
  
 
  
@@ -895,6 +946,16 @@ const ResetFilters = async () => {
 county.value=null
 subcounty.value=null
 subCountyOptions.value=[]
+implementer.value=null
+filterFields.value =  [];
+ filterValues.value =[];
+
+
+
+
+
+
+
     mapLoading.value=true
     mapLoadingText.value = 'Refreshing Projects...'
     //await getFarmGeo()
@@ -946,7 +1007,28 @@ subCountyOptions.value=[]
 
 const handleChangeCounty = async (county) => {
 
-// get farms for this subcounty 
+
+  const field = 'county_id';
+  const value = [county]; // assuming your logic expects array format
+
+  const index = filterFields.value.indexOf(field);
+
+  if (index !== -1) {
+    // Only update the value if it's different
+    const existingValue = filterValues.value[index];
+    const isSame = JSON.stringify(existingValue) === JSON.stringify(value);
+
+    if (!isSame) {
+      filterValues.value.splice(index, 1, value); // replace the value
+    }
+    // If it's the same, do nothing
+  } else {
+    // Add the new filter
+    filterFields.value.push(field);
+    filterValues.value.push(value);
+  }
+
+// get farms for this county 
 if (county) {
 
   const geoForm = {}
@@ -955,9 +1037,8 @@ if (county) {
 
   console.log(geoForm)
  
-
-  //await getSubsetGeo('settlement', ['county_id'], [[county]])
-  await getSubsetGeo('project_location', ['county_id'], [[county]])
+ 
+  await getSubsetGeo( filterFields.value, filterValues.value)
 
 
   // get subcounty shape
@@ -1043,6 +1124,27 @@ const handleChangeSubcounty = async (subcounty) => {
   // get farms for this subcounty 
   if (subcounty) {
 
+    const field = 'subcounty_id';
+  const value = [subcounty]; // assuming your logic expects array format
+
+  const index = filterFields.value.indexOf(field);
+
+  if (index !== -1) {
+    // Only update the value if it's different
+    const existingValue = filterValues.value[index];
+    const isSame = JSON.stringify(existingValue) === JSON.stringify(value);
+
+    if (!isSame) {
+      filterValues.value.splice(index, 1, value); // replace the value
+    }
+    // If it's the same, do nothing
+  } else {
+    // Add the new filter
+    filterFields.value.push(field);
+    filterValues.value.push(value);
+  }
+
+
     const geoForm = {}
     geoForm.model = 'subcounty'
     geoForm.id = subcounty
@@ -1053,7 +1155,7 @@ const handleChangeSubcounty = async (subcounty) => {
    // await getFilteredSubcountyCounts(subcounty)
 
 
-     await getSubsetGeo('project_location', ['subcounty_id'], [[subcounty]])
+     await getSubsetGeo(filterFields.value, filterValues.value)
 
     // get subcounty shape
     const res = await getOneGeo(geoForm)
@@ -1105,9 +1207,35 @@ const handleChangeSubcounty = async (subcounty) => {
 };
 
 
- 
- 
 
+const handleChangeImplementer = async (implementer) => {
+  const field = 'implementer';
+  const value = [implementer]; // wrap in array if required by your logic
+
+  if (!implementer) return;
+
+  const index = filterFields.value.indexOf(field);
+
+  if (index !== -1) {
+    const existingValue = filterValues.value[index];
+    const isSame = JSON.stringify(existingValue) === JSON.stringify(value);
+
+    if (!isSame) {
+      filterValues.value.splice(index, 1, value); // update value if changed
+    }
+    // else do nothing (already filtered)
+  } else {
+    filterFields.value.push(field);
+    filterValues.value.push(value);
+  }
+
+  await getSubsetGeo(filterFields.value, filterValues.value);
+
+  await removeSettlementLayers();
+  await addSettlementLayers();
+};
+
+ 
 
 </script>
 
@@ -1323,6 +1451,9 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex-wrap: wrap; /* allows wrapping on smaller screens */
+  justify-content: center; /* center horizontally */
+  align-items: center;     /* center vertically */
 }
 
 /* Dark mode styles */

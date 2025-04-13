@@ -220,3 +220,18 @@ ALTER TABLE public.indicator_category_report
 ADD COLUMN qualitative VARCHAR;
 
 ***REDACTED***
+
+
+
+
+ALTER TABLE public.project_location
+ADD COLUMN implementer INTEGER;
+
+ 
+
+
+
+ UPDATE project_location AS t
+SET implementer = s.implementation_id 
+FROM project AS s
+WHERE t.project_id = s.id;

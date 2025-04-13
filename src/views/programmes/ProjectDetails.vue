@@ -2630,54 +2630,7 @@ const DeleteProjectLocation = (data) => {
 
 
 
-const _remoteMethod = async (keyword) => {
-  console.log(keyword)
-  loading.value = true
-  const formData = {}
-  formData.model = 'settlement'
-  //-Search field--------------------------------------------
-  formData.searchField = 'name'
-  formData.searchKeyword = keyword
-  formData.excludeGeom = false
-  formData.excludeGeomAssoc = true
-  formData.associated_multiple_models = ['county', 'subcounty', 'ward']
-
-  //--Single Filter -----------------------------------------
-
-  //formData.assocModel = associated_Model
-
-  // - multiple filters -------------------------------------
-  formData.filters = []
-  formData.filterValues = []
-
-  //formData.cache_key = 'SeacrchByKey_' + search_string.value
-
-  //-------------------------
-  console.log("formData", formData)
-  const res = await searchByKeyWord(formData)
-
-  console.log("res.data", res.data)
-
-  if (res.data && res.data.length > 0) {
-    locationOptions.value = res.data.map(item => ({
-      value: item.id,
-      settlement_id: item.id,
-      label: item.name,
-      name: item.name,
-      county: item.county.name,
-      subcounty: item.subcounty.name,
-      ward: item.ward.name,
-      ward_id: item.ward.id,
-      subcounty_id: item.subcounty.id,
-      county_id: item.county.id,
-      geom: item.geom
-    }));
-
-  }
-  loading.value = false
-
-}
-
+ 
 const loading = ref(false)
 const locationOptions = ref([])
 const firstLoad = ref(true)
@@ -2717,7 +2670,8 @@ const remoteMethod = async (keyword) => {
           value: item.id,
           label: item.name,
           name: item.name,
-          geom: item.geom
+          geom: item.geom,
+          implementer:programme_implementation_id.value
         }
 
         if (model === 'settlement') {
@@ -2752,7 +2706,7 @@ const remoteMethod = async (keyword) => {
     }
 
     firstLoad.value = false // Disable first load flag after first run
-
+    
   } catch (error) {
     console.error("Search error:", error)
   }
@@ -2779,7 +2733,8 @@ const SaveLocation = async () => {
 
     let obj = {};
     obj.project_id = project_id.value;
-
+    obj.implementer = extra_locations.value[i].implementer;
+    
     // Check if the location is for settlement, county, subcounty, or ward and assign accordingly
     if (implementation_scope.value == 'settlement') {
       obj.settlement_id = extra_locations.value[i].value;
@@ -2789,6 +2744,7 @@ const SaveLocation = async () => {
       obj.location_type = 'settlement';
       obj.location_name = extra_locations.value[i].name;
       obj.geom = extra_locations.value[i].geom;
+   
 
       
     } else if (implementation_scope.value == 'county') {
@@ -3568,6 +3524,7 @@ function formatLocation(item) {
           </el-table-column>
         </el-table>
 
+   
         <el-dialog v-model="ShowLocationAddDialog" title="Add Project Location" width="500"
           :before-close="handleCloseAdd">
           <el-select id="location-select" v-model="extra_locations" multiple filterable remote reserve-keyword
