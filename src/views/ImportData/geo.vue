@@ -106,6 +106,12 @@ const appendParentEntityPropertiesBatch = async () => {
 
     // Update the geoJson value with the enriched features
     geoJson.value = { ...geoJson.value, features: updatedFeatures };
+       console.log('updatedFeatures',geoJson.value)
+      const sampleProps = geoJson.value.features?.[0]?.properties || {}
+      geoJsonProperties.value = Object.keys(sampleProps)
+
+      console.log('geoJsonProperties.value ',geoJsonProperties.value )
+
 
     console.log(geoJson.value )
     ElMessage.success('Parent entity details appended successfully!');
@@ -145,14 +151,8 @@ const handleGeoJsonUpload = async (uploadFile: any) => {
       geoJson.value = parsedGeoJson
 
       // Step 4: Append parent data using parsedGeoJson
-       await appendParentEntityPropertiesBatch(parsedGeoJson)
-      console.log('updatedFeatures',geoJson.value)
-
-      const sampleProps = geoJson.value.features?.[0]?.properties || {}
-
-      geoJsonProperties.value = Object.keys(sampleProps)
-
-      console.log('geoJsonProperties.value ',geoJsonProperties.value )
+      // await appendParentEntityPropertiesBatch(parsedGeoJson)
+   
 
 
 
@@ -186,6 +186,7 @@ const getModeldefinition = async (selModel: string) => {
     }
 
     dbFields.value = fields
+    await appendParentEntityPropertiesBatch()
     generateFuzzyMappings()
     step.value++
   } catch (err) {
@@ -387,12 +388,12 @@ const importGeoJson = async () => {
     </div>
 
     <!-- Step 2 -->
-    <div v-if="step === 2" class="mt-4">
+    <div v-if="step === 2" class="mt-4 max-h-[60vh]  overflow-auto border rounded bg-gray-50 p-2 " >
       <el-table :data="geoJsonFieldMappings" style="width: 100%">
         <el-table-column prop="geoField" label="GeoJSON Field" />
         <el-table-column label="Matched DB Field">
           <template #default="{ row }">
-            <el-select v-model="row.dbField" clearable placeholder="Select DB Field">
+            <el-select v-model="row.dbField" clearable  filterable placeholder="Select DB Field">
               <el-option
                 v-for="field in dbFields"
                 :key="field"
@@ -407,16 +408,19 @@ const importGeoJson = async () => {
     </div>
 
     <!-- Step 3 -->
-    <div v-if="step === 3" class="mt-4">
+   <div v-if="step === 3" class="mt-4">
       <el-alert title="Ready to import. Below is the remapped sample data. (first 1 record)" type="success" />
- 
-      <div v-if="remappedGeoJson && remappedGeoJson.features?.length">
-             <pre class="mt-2">
-        {{ JSON.stringify(remappedGeoJson.features.slice(0, 1).map(f => f.properties), null, 2) }}
-            </pre>
-          </div>
- 
+
+      <div
+        v-if="remappedGeoJson && remappedGeoJson.features?.length"
+        class="mt-2 max-h-60 overflow-auto border rounded bg-gray-50 p-2"
+      >
+        <pre class="text-sm whitespace-pre-wrap">
+          {{ JSON.stringify(remappedGeoJson.features.slice(0, 1).map(f => f.properties), null, 2) }}
+        </pre>
+      </div>
     </div>
+
 
     <!-- Navigation -->
     <div class="mt-4 flex justify-between">
