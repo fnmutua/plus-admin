@@ -1229,7 +1229,7 @@ exports.new_modelImportDataUpsert = async (req, res) => {
 };
 
 
-exports.modelImportDataUpsert = async (req, res) => {
+exports.modelImportDataUpsert_first = async (req, res) => {
   try {
     const { model: reg_model, data: rawData } = req.body;
     if (!reg_model || !rawData) {
@@ -1348,6 +1348,88 @@ exports.modelImportDataUpsert = async (req, res) => {
   }
 };
 
+exports.modelImportDataUpsert = async (req, res) => {
+  try {
+    const { model: reg_model, data: rawData } = req.body;
+    if (!reg_model || !rawData) {
+      return res.status(400).json({ message: 'Model and data are required' });
+    }
+
+    const Model = db.models[reg_model];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${reg_model}" not found` });
+    }
+
+    let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ message: 'Data must be an array' });
+    }
+
+    const currentUser = req.thisUser?.id;
+    const timestamp = new Date();
+
+    const validData = data
+      .filter(item => typeof item === 'object' && item.code)
+      .map(item => ({
+        ...item,
+        createdBy: currentUser,
+        updatedAt: timestamp,
+      }));
+
+    if (validData.length === 0) {
+      return res.status(400).json({ message: 'No valid records to process' });
+    }
+
+    const inserted = [];
+    const updated = [];
+    const errors = [];
+
+    for (const item of validData) {
+      const code = item.code;
+
+      try {
+        const existing = await Model.findOne({ where: { code } });
+
+        if (existing) {
+          // Don't update 'code'
+          const updateData = { ...item };
+          delete updateData.code;
+
+          await existing.update(updateData);
+          updated.push(code);
+        } else {
+          await Model.create(item);
+          inserted.push(code);
+        }
+
+      } catch (err) {
+        errors.push({
+          item,
+          error: err.message,
+          detail: err?.original?.detail,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      message: 'Import process completed',
+      insertedCount: inserted.length,
+      updatedCount: updated.length,
+      failedCount: errors.length,
+      inserted,
+      updated,
+      errors,
+      code: '0000',
+    });
+
+  } catch (err) {
+    console.error('Fatal upsert error:', err);
+    return res.status(500).json({
+      message: 'Internal Server Error',
+      error: err.message,
+    });
+  }
+};
 
 
 

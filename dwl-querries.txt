@@ -215,6 +215,8 @@ USING array_to_string(development, ', ');
 
 
 
+
+
 ALTER TABLE settlement 
 RENAME COLUMN comments TO description;
 
