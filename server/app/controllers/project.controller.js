@@ -721,7 +721,7 @@ exports._modelImportDataUpsert = async (req, res) => {
 };
 
 
-exports.modelImportDataUpsert = async (req, res) => {
+exports.odl_modelImportDataUpsert = async (req, res) => {
   const reg_model = req.body.model;
   const data = req.body.data;
   const insertedDocuments = [];
@@ -851,5 +851,117 @@ exports.modelImportDataUpsert = async (req, res) => {
   } catch (err) {
     console.error('Unexpected error:', err);
     res.status(500).send({ message: 'Internal Server Error', error: err.message });
+  }
+};
+
+
+
+exports.modelImportDataUpsert = async (req, res) => {
+  const reg_model = req.body.model;
+  const data = req.body.data;
+  const insertedDocuments = [];
+  const errors = [];
+
+  try {
+    const currentUserId = req.thisUser.id;
+
+    if (reg_model === 'project_task') {
+      const taskMapByCode = {};
+      const parentCodes = new Set();
+
+      // Build a quick lookup map and collect parent codes
+      data.forEach((item) => {
+        if (item.code) taskMapByCode[item.code] = item;
+        if (item.parent_task_code) parentCodes.add(item.parent_task_code);
+      });
+
+      // Preload existing parent tasks in a single query
+      const existingParentTasks = await db.models.project_task.findAll({
+        where: { code: Array.from(parentCodes) },
+      });
+
+      const parentTasks = {};
+      existingParentTasks.forEach((task) => {
+        parentTasks[task.code] = task;
+      });
+
+      // Create missing parent tasks that are in the data
+      for (const code of parentCodes) {
+        if (!parentTasks[code] && taskMapByCode[code]) {
+          try {
+            const parentData = { ...taskMapByCode[code], createdBy: currentUserId };
+            const newParent = await db.models.project_task.create(parentData);
+            parentTasks[code] = newParent;
+          } catch (err) {
+            console.error(`Error creating parent task for code: ${code}`, err);
+            errors.push(err.original || err.message);
+          }
+        }
+      }
+
+      // Handle insert/update for all tasks (parent + child)
+      for (const item of data) {
+        try {
+          item.createdBy = currentUserId;
+
+          if (!item.parentTaskId && item.parent_task_code && parentTasks[item.parent_task_code]) {
+            item.parentTaskId = parentTasks[item.parent_task_code].id;
+          }
+
+          const [inserted, created] = await db.models.project_task.upsert(item, {
+            returning: true,
+            conflictFields: ['code'], // Ensures upsert behavior
+          });
+
+          insertedDocuments.push(inserted);
+        } catch (err) {
+          console.error('Task upsert error:', err);
+          errors.push(err.original || err.message);
+        }
+      }
+
+    } else {
+      // Generic model handling
+      for (const item of data) {
+        try {
+          item.createdBy = currentUserId;
+
+          const [inserted, created] = await db.models[reg_model].upsert(item, {
+            returning: true,
+          });
+
+          insertedDocuments.push(inserted);
+        } catch (err) {
+          console.error(`Error in ${reg_model} upsert:`, err);
+          errors.push(err.original || err.message);
+        }
+      }
+    }
+
+    // Response handling
+    if (errors.length > 0) {
+      const errorCodes = [...new Set(errors.map(e => e?.code || 'UNKNOWN'))];
+      const message = errorCodes.includes('42P10')
+        ? 'There are one or more duplicate records'
+        : `Import/Update failed for ${errors.length} records.`;
+
+      return res.status(500).send({ message, errors });
+    }
+
+    // Optional post-processing function
+    if (typeof updateStatus === 'function') updateStatus();
+
+    return res.status(200).send({
+      message: 'Import/Update Successful',
+      code: '0000',
+      insertedDocuments,
+    });
+
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    return res.status(500).send({
+      message: 'Internal Server Error',
+      error: err.message,
+    });
   }
 };

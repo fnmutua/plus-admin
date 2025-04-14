@@ -1050,7 +1050,7 @@ exports.old_modelImportDataUpsert = async (req, res) => {
 };
 
 
-exports.modelImportDataUpsert = async (req, res) => {
+exports.oxld_modelImportDataUpsert = async (req, res) => {
   try {
     console.log('req.body', req.body);
     
@@ -1160,6 +1160,198 @@ exports.modelImportDataUpsert = async (req, res) => {
 };
 
 
+exports.new_modelImportDataUpsert = async (req, res) => {
+  try {
+    const { model: reg_model, data: rawData } = req.body;
+    if (!reg_model || !rawData) {
+      return res.status(400).json({ message: 'Model and data are required' });
+    }
+
+    const Model = db.models[reg_model];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${reg_model}" not found` });
+    }
+
+    let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ message: 'Data must be an array' });
+    }
+
+    const currentUser = req.thisUser?.id;
+    const timestamp = new Date();
+
+    // Filter out invalid entries
+    const validData = data
+      .filter(item => item?.code)
+      .map(item => ({
+        ...item,
+        createdBy: currentUser,
+        updatedAt: timestamp,
+      }));
+
+    if (validData.length === 0) {
+      return res.status(400).json({ message: 'No valid records to process' });
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+    let errorDetails = [];
+
+    for (const item of validData) {
+      try {
+        await Model.upsert(item); // upsert handles insert or update based on primary/unique keys
+        successCount++;
+      } catch (err) {
+        errorCount++;
+        console.error(`Failed to upsert item with code ${item.code}:`, err.message);
+        errorDetails.push({
+          code: item.code,
+          error: err.message,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      message: 'Import/Upsert completed',
+      processed: successCount,
+      failed: errorCount,
+      errors: errorDetails.length > 0 ? errorDetails : undefined,
+      code: '0000',
+    });
+
+  } catch (err) {
+    console.error('Upsert error:', err);
+    return res.status(500).json({
+      message: 'Internal Server Error',
+      error: err.message,
+    });
+  }
+};
+
+
+exports.modelImportDataUpsert = async (req, res) => {
+  try {
+    const { model: reg_model, data: rawData } = req.body;
+    if (!reg_model || !rawData) {
+      return res.status(400).json({ message: 'Model and data are required' });
+    }
+
+    const Model = db.models[reg_model];
+    if (!Model) {
+      return res.status(400).json({ message: `Model "${reg_model}" not found` });
+    }
+
+    let data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ message: 'Data must be an array' });
+    }
+
+    const currentUser = req.thisUser?.id;
+    const timestamp = new Date();
+
+    const validData = data
+      .filter(item => typeof item === 'object' && item.code)
+      .map(item => ({
+        ...item,
+        createdBy: currentUser,
+        updatedAt: timestamp,
+      }));
+
+    if (validData.length === 0) {
+      return res.status(400).json({ message: 'No valid records to process' });
+    }
+
+    // Get unique indexes
+    const uniqueIndexes = (Model.options.indexes || [])
+      .filter(index => index.unique)
+      .map(index => index.fields.map(f => typeof f === 'string' ? f : f.name));
+
+    if (!uniqueIndexes.some(idx => idx.includes('code'))) {
+      uniqueIndexes.push(['code']);
+    }
+
+    const inserted = [];
+    const updated = [];
+    const errors = [];
+
+    for (const item of validData) {
+      let matched = false;
+
+      for (const uniqueFields of uniqueIndexes) {
+        const where = {};
+        let allPresent = true;
+
+        for (const field of uniqueFields) {
+          if (item[field] === undefined || item[field] === null) {
+            allPresent = false;
+            break;
+          }
+          where[field] = item[field];
+        }
+
+        if (!allPresent) continue;
+
+        try {
+          const existing = await Model.findOne({ where });
+
+          if (existing) {
+            const updateData = { ...item };
+            // Always remove unique keys and `code` from being updated
+            uniqueFields.forEach(field => delete updateData[field]);
+            delete updateData.code;
+
+ 
+            await existing.update(updateData);
+            updated.push(item.code);
+            matched = true;
+            break;
+          }
+        } catch (err) {
+          errors.push({ item, error: err.message });
+          matched = true;
+          break;
+        }
+      }
+
+      if (!matched) {
+        try {
+          await Model.create(item);
+          inserted.push(item.code);
+        } catch (err) {
+          errors.push({
+            item,
+            error: err.message,
+            detail: err?.original?.detail,
+          });
+        }
+      }
+    }
+
+    return res.status(200).json({
+      message: 'Import process completed',
+      insertedCount: inserted.length,
+      updatedCount: updated.length,
+      failedCount: errors.length,
+      inserted,
+      updated,
+      errors,
+      code: '0000',
+
+    });
+
+  } catch (err) {
+    console.error('Fatal upsert error:', err);
+    return res.status(500).json({
+      message: 'Internal Server Error',
+      error: err.message,
+    });
+  }
+};
+
+
+
+
+ 
 
 async function logEvents(log_object) {
   console.log(log_object)

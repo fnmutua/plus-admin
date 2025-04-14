@@ -29,7 +29,7 @@ module.exports = function (sequelize, DataTypes) {
       },
 
       settlement_type: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING,
         allowNull: false
       },
       geom: {
@@ -143,6 +143,58 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.STRING,
         defaultValue: 'Pending'
       },
+
+
+
+      // Additional Fields - 2025 
+      num_households: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+      },
+      avg_household_size: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+      },
+      land_status: {
+        type: DataTypes.STRING,
+       },
+      parcel_owner_type: {
+        type: DataTypes.STRING,
+       },
+      electricity_availability: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+      },
+      piped_water_availability: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+      },
+      median_household_income: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+      },
+      plot_ownership_ratio: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+      },
+      plot_tenant_ratio: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+      },
+      avg_rent: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+      },
+      main_env_hazards: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      general_location: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+       
+
 
       isActive: {
         type: DataTypes.STRING,

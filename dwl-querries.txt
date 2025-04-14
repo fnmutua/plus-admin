@@ -212,6 +212,9 @@ USING array_to_string(development, ', ');
 
 
 
+
+
+
 ALTER TABLE settlement 
 RENAME COLUMN comments TO description;
 
@@ -235,3 +238,34 @@ ADD COLUMN implementer INTEGER;
 SET implementer = s.implementation_id 
 FROM project AS s
 WHERE t.project_id = s.id;
+
+
+
+
+ALTER TABLE settlement
+ADD COLUMN num_households FLOAT,
+ADD COLUMN avg_household_size FLOAT,
+ADD COLUMN land_status VARCHAR,
+ADD COLUMN parcel_owner_type VARCHAR,
+ADD COLUMN electricity_availability BOOLEAN DEFAULT FALSE,
+ADD COLUMN piped_water_availability BOOLEAN DEFAULT FALSE,
+ADD COLUMN median_household_income FLOAT,
+ADD COLUMN plot_ownership_ratio FLOAT,
+ADD COLUMN plot_tenant_ratio FLOAT,
+ADD COLUMN avg_rent FLOAT,
+ADD COLUMN main_env_hazards TEXT,
+ADD COLUMN general_location VARCHAR;
+
+
+
+
+ALTER TABLE settlement 
+ALTER COLUMN settlement_type TYPE VARCHAR ;
+
+-- Then, update the values accordingly
+UPDATE settlement
+SET settlement_type = CASE 
+  WHEN settlement_type = '1' THEN 'Slum'
+  WHEN settlement_type = '2' THEN 'Informal Settlement'
+  ELSE settlement_type
+END;
