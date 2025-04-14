@@ -126,11 +126,11 @@ module.exports = function (sequelize, DataTypes) {
 
 
        dist_town: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.DOUBLE,
         allowNull: true
        },
        dist_trunk: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.DOUBLE,
         allowNull: true
        },
 

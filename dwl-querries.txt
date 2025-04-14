@@ -212,6 +212,11 @@ USING array_to_string(development, ', ');
 
 
 
+ALTER TABLE settlement 
+ALTER COLUMN dist_trunk TYPE FLOAT 
+ALTER COLUMN dist_town TYPE FLOAT ;
+
+ 
 
 
 
@@ -255,6 +260,11 @@ ADD COLUMN median_household_income FLOAT,
 ADD COLUMN plot_ownership_ratio FLOAT,
 ADD COLUMN plot_tenant_ratio FLOAT,
 ADD COLUMN avg_rent FLOAT,
+ADD COLUMN avg_rent FLOAT,
+
+
+
+
 ADD COLUMN main_env_hazards TEXT,
 ADD COLUMN general_location VARCHAR;
 

@@ -17,6 +17,7 @@ clearable filterable v-model="implementer"  placeholder="Filter by Implementer"
     </el-select>
 
     <el-button    @click="ResetFilters"> Reset Filters</el-button>
+ 
   </div>
 
   
@@ -54,6 +55,9 @@ import {
 import { getSettlementListByCounty, getHHsByCounty, uploadFilesBatch } from '@/api/settlements'
 
 import * as echarts from 'echarts';
+
+import writeXlsxFile from 'write-excel-file';
+
 import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -127,8 +131,6 @@ const showSatellite = ref(false);
 const icon = ref(`<button>  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M4.97883 9.68508C2.99294 8.89073 2 8.49355 2 8C2 7.50645 2.99294 7.10927 4.97883 6.31492L7.7873 5.19153C9.77318 4.39718 10.7661 4 12 4C13.2339 4 14.2268 4.39718 16.2127 5.19153L19.0212 6.31492C21.0071 7.10927 22 7.50645 22 8C22 8.49355 21.0071 8.89073 19.0212 9.68508L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L4.97883 9.68508Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M2 8C2 8.49355 2.99294 8.89073 4.97883 9.68508L7.7873 10.8085C9.77318 11.6028 10.7661 12 12 12C13.2339 12 14.2268 11.6028 16.2127 10.8085L19.0212 9.68508C21.0071 8.89073 22 8.49355 22 8C22 7.50645 21.0071 7.10927 19.0212 6.31492L16.2127 5.19153C14.2268 4.39718 13.2339 4 12 4C10.7661 4 9.77318 4.39718 7.7873 5.19153L4.97883 6.31492C2.99294 7.10927 2 7.50645 2 8Z" fill="#1C274C"></path> <path opacity="0.7" d="M5.76613 10L4.97883 10.3149C2.99294 11.1093 2 11.5065 2 12C2 12.4935 2.99294 12.8907 4.97883 13.6851L7.7873 14.8085C9.77318 15.6028 10.7661 16 12 16C13.2339 16 14.2268 15.6028 16.2127 14.8085L19.0212 13.6851C21.0071 12.8907 22 12.4935 22 12C22 11.5065 21.0071 11.1093 19.0212 10.3149L18.2339 10L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L5.76613 10Z" fill="#1C274C"></path> <path opacity="0.4" d="M5.76613 14L4.97883 14.3149C2.99294 15.1093 2 15.5065 2 16C2 16.4935 2.99294 16.8907 4.97883 17.6851L7.7873 18.8085C9.77318 19.6028 10.7661 20 12 20C13.2339 20 14.2268 19.6028 16.2127 18.8085L19.0212 17.6851C21.0071 16.8907 22 16.4935 22 16C22 15.5065 21.0071 15.1093 19.0212 14.3149L18.2339 14L16.2127 14.8085C14.2268 15.6028 13.2339 16 12 16C10.7661 16 9.77318 15.6028 7.7873 14.8085L5.76613 14Z" fill="#1C274C"></path> </g></svg></button>`)
 
 const toggleFloatingDiv = async () => {
-
-
 
   showSatellite.value = !showSatellite.value;
   console.log('Show Satellite', showSatellite.value);
@@ -407,7 +409,22 @@ onMounted(async () => {
     });
 
 
+    function addInfo(map) {
+      class InfoButton {
+        onAdd(map) {
+          const div = document.createElement("div");
+          div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+          div.innerHTML = icon.value;
+          div.addEventListener("contextmenu", (e) => e.preventDefault());
+          div.addEventListener("click", () => toggleFloatingDiv());
 
+          return div;
+        }
+      }
+      const infoBttn = new InfoButton();
+      map.value.addControl(infoBttn, "top-right");
+    }
+    addInfo(map)
     
 
 
@@ -433,22 +450,32 @@ onMounted(async () => {
 
    
 
-    function addInfo(map) {
-      class InfoButton {
+ 
+
+
+
+
+ 
+    function addDownload(map) {
+      class HomeButton {
         onAdd(map) {
           const div = document.createElement("div");
           div.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
-          div.innerHTML = icon.value;
+          div.innerHTML =
+            `<button>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M12.5535 16.5061C12.4114 16.6615 12.2106 16.75 12 16.75C11.7894 16.75 11.5886 16.6615 11.4465 16.5061L7.44648 12.1311C7.16698 11.8254 7.18822 11.351 7.49392 11.0715C7.79963 10.792 8.27402 10.8132 8.55352 11.1189L11.25 14.0682V3C11.25 2.58579 11.5858 2.25 12 2.25C12.4142 2.25 12.75 2.58579 12.75 3V14.0682L15.4465 11.1189C15.726 10.8132 16.2004 10.792 16.5061 11.0715C16.8118 11.351 16.833 11.8254 16.5535 12.1311L12.5535 16.5061Z" fill="#07ed2a"></path> <path d="M3.75 15C3.75 14.5858 3.41422 14.25 3 14.25C2.58579 14.25 2.25 14.5858 2.25 15V15.0549C2.24998 16.4225 2.24996 17.5248 2.36652 18.3918C2.48754 19.2919 2.74643 20.0497 3.34835 20.6516C3.95027 21.2536 4.70814 21.5125 5.60825 21.6335C6.47522 21.75 7.57754 21.75 8.94513 21.75H15.0549C16.4225 21.75 17.5248 21.75 18.3918 21.6335C19.2919 21.5125 20.0497 21.2536 20.6517 20.6516C21.2536 20.0497 21.5125 19.2919 21.6335 18.3918C21.75 17.5248 21.75 16.4225 21.75 15.0549V15C21.75 14.5858 21.4142 14.25 21 14.25C20.5858 14.25 20.25 14.5858 20.25 15C20.25 16.4354 20.2484 17.4365 20.1469 18.1919C20.0482 18.9257 19.8678 19.3142 19.591 19.591C19.3142 19.8678 18.9257 20.0482 18.1919 20.1469C17.4365 20.2484 16.4354 20.25 15 20.25H9C7.56459 20.25 6.56347 20.2484 5.80812 20.1469C5.07435 20.0482 4.68577 19.8678 4.40901 19.591C4.13225 19.3142 3.9518 18.9257 3.85315 18.1919C3.75159 17.4365 3.75 16.4354 3.75 15Z" fill="#07ed2a"></path> </g></svg>   </button>`;
           div.addEventListener("contextmenu", (e) => e.preventDefault());
-          div.addEventListener("click", () => toggleFloatingDiv());
+          div.addEventListener("click", () => downloadGeoJSON());
 
           return div;
         }
       }
-      const infoBttn = new InfoButton();
-      map.value.addControl(infoBttn, "top-right");
+      const homeButton = new HomeButton();
+      map.value.addControl(homeButton, "top-right");
     }
-    addInfo(map)
+    addDownload(map)
+
+
 
   })
   
@@ -949,70 +976,120 @@ const subcounty = ref()
 const allProjectsGeo = ref([])
 
 const ResetFilters = async () => {
-  console.log('clear filters')
-//  handleChangeCounty(1)
+    console.log('clear filters')
+  //  handleChangeCounty(1)
 
-county.value=null
-subcounty.value=null
-subCountyOptions.value=[]
-implementer.value=null
-filterFields.value =  [];
- filterValues.value =[];
-
-
+  county.value=null
+  subcounty.value=null
+  subCountyOptions.value=[]
+  implementer.value=null
+  filterFields.value =  [];
+  filterValues.value =[];
 
 
 
 
 
-    mapLoading.value=true
-    mapLoadingText.value = 'Refreshing Projects...'
-    //await getFarmGeo()
-    geojson.value = allProjectsGeo.value 
-    // await getCountyGeo()
-
- 
-    mapLoading.value=false
 
 
-  // Check if the 'County' layer already exists, and remove it if it does
-  if (map.value.getLayer('county')) {
-    map.value.removeLayer('county');
-    map.value.removeSource('County');
-  }
+      mapLoading.value=true
+      mapLoadingText.value = 'Refreshing Projects...'
+      //await getFarmGeo()
+      geojson.value = allProjectsGeo.value 
+      // await getCountyGeo()
 
-  map.value.addSource('County', {
-    type: 'geojson',
-    data: countyGeo.value,
-  });
-
-  map.value.addLayer({
-    id: 'county',
-    type: 'line',
-    source: 'County',
-    paint: {
-      'line-color': 'red',
-      'line-opacity': 1,
-      'line-width': 1,
-      'line-dasharray': [2, 2],
-    },
-
-  });
-
-  var bounds = turf.bbox(countyGeo.value);
-  map.value.fitBounds(bounds, { padding: 20 });
-
-
-  removeSettlementLayers()
-  addSettlementLayers()
   
+      mapLoading.value=false
+
+
+    // Check if the 'County' layer already exists, and remove it if it does
+    if (map.value.getLayer('county')) {
+      map.value.removeLayer('county');
+      map.value.removeSource('County');
+    }
+
+    map.value.addSource('County', {
+      type: 'geojson',
+      data: countyGeo.value,
+    });
+
+    map.value.addLayer({
+      id: 'county',
+      type: 'line',
+      source: 'County',
+      paint: {
+        'line-color': 'red',
+        'line-opacity': 1,
+        'line-width': 1,
+        'line-dasharray': [2, 2],
+      },
+
+    });
+
+    var bounds = turf.bbox(countyGeo.value);
+    map.value.fitBounds(bounds, { padding: 20 });
+
+
+    removeSettlementLayers()
+    addSettlementLayers()
+    
 
 
 }
 
  
+const downloadGeoJSON = () => {
+  if (!geojson.value) {
+    console.warn('No GeoJSON data to download');
+    return;
+  }
 
+  const dataStr = JSON.stringify(geojson.value, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/geo+json' });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'projects.geojson';
+  document.body.appendChild(link);
+  link.click();
+
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
  
+
+
+
+
+const downloadExcel = async () => {
+  if (!geojson.value || !geojson.value.features) {
+    console.warn('No GeoJSON data to download');
+    return;
+  }
+
+  const features = geojson.value.features;
+
+  // Extract all property keys (assuming all features share the same schema)
+  const keys = Object.keys(features[0]?.properties || {});
+  
+  // Define Excel header schema
+  const schema = keys.map(key => ({
+    column: key,
+    type: String,
+    value: row => row[key] ?? ''
+  }));
+
+  // Prepare data rows
+  const rows = features.map(f => f.properties);
+
+  // Download Excel file
+  await writeXlsxFile(rows, {
+    schema,
+    fileName: 'projects.xlsx'
+  });
+};
+
 
 const handleChangeCounty = async (county) => {
 
