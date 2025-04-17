@@ -700,7 +700,7 @@ const loadMap = (roadDetails) => {
           ['==', ['get', 'surfaceType'], 'cabro'],
           '#fb9a99',
           ['==', ['get', 'surfaceType'], 'track'],
-          '#ff7f00', 'gray'],
+          '#ff7f00', 'red'],
         'line-width': 3 // Adjust the thickness as desired
 
       }
@@ -904,13 +904,15 @@ const viewProfile = (data: TableSlotDefault) => {
 const activeTab = ref('list')
 
 const flyTo = (data: TableSlotDefault) => {
-  if (!data.geom || !data.geom.coordinates || data.geom.coordinates.length < 2) {
+
+  console.log(data.geom)
+  if (!data.geom  ) {
     console.error('Error: Geometry is missing or incomplete.');
     ElMessage.error('Error: Geometry is missing or incomplete.')
     return;
   }
 
-  console.log('On Click.....', data.geom.coordinates);
+  console.log('On Click.....', data.geom);
   activeTab.value = 'map';
   activeSegment.value = 'Map';
 
@@ -1775,16 +1777,10 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
-        <el-table-column label="Surface" prop="surfaceType" sortable />
-        <el-table-column label="Road Class" prop="rdClass" sortable />
-        <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
-        <el-table-column label="Location" sortable>
-          <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
-              }} County</span>
-          </template>
-        </el-table-column>
+        <el-table-column label="Name" prop="name" sortable :formatter="row => row.name || 'Unknown'" />
+          <el-table-column label="Surface" prop="surfaceType" sortable />
+         <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+       
 
 
         <el-table-column label="Actions" width="250">
@@ -1822,16 +1818,10 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
-        <el-table-column label="Surface" prop="surfaceType" sortable />
-        <el-table-column label="Road Class" prop="rdClass" sortable />
-        <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
-        <el-table-column label="Location" sortable>
-          <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
-              }} County</span>
-          </template>
-        </el-table-column>
+        <el-table-column label="Name" prop="name" sortable :formatter="row => row.name || 'Unknown'" />
+          <el-table-column label="Surface" prop="surfaceType" sortable />
+         <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+       
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">
@@ -1869,16 +1859,10 @@ style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" ty
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
-        <el-table-column label="Surface" prop="surfaceType" sortable />
-        <el-table-column label="Road Class" prop="rdClass" sortable />
-        <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
-        <el-table-column label="Location" sortable>
-          <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
-              }} County</span>
-          </template>
-        </el-table-column>
+        <el-table-column label="Name" prop="name" sortable :formatter="row => row.name || 'Unknown'" />
+          <el-table-column label="Surface" prop="surfaceType" sortable />
+         <el-table-column label="Drainage Condition" prop="drainageCondition" sortable />
+       
 
         <el-table-column label="Actions" width="250">
           <template #default="{ row }">

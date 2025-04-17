@@ -22,7 +22,8 @@ const tableOptions = [
   { label: 'Projects', value: 'project' },
   { label: 'Settlements', value: 'settlement' },
   { label: 'Facilities', value: 'facilities' },
-  { label: 'Structures', value: 'structure' }
+  { label: 'Structures', value: 'structure' },
+  { label: 'Roads', value: 'road' }
 ]
 
 
