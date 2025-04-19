@@ -3,7 +3,7 @@
 
 import { getSettlementListByCounty } from '@/api/settlements'
 import { DeleteRecord, updateOneRecord, deleteDocument } from '@/api/settlements'
-
+ 
 import { getCountyListApi } from '@/api/counties'
 import {
   ElButton, ElSelect, MessageParamsWithType, UploadProps, ElDescriptions, ElDescriptionsItem, ElCol, ElRow, ElCard,
@@ -20,6 +20,7 @@ import { getListWithoutGeo } from '@/api/counties'
 
 import { getSummarybyFieldFromMultipleIncludes } from '@/api/summary'
 
+import bbox from '@turf/bbox';
 
 import {
   Position,
@@ -612,9 +613,12 @@ const loadMap = (mapCenter) => {
     nmap.addSource('hcf', {
       type: 'geojson',
       // Use a URL for the value for the `data` property.
-      data: facilityGeo.value,
-      // data: 'https://data.humdata.org/dataset/e66dbc70-17fe-4230-b9d6-855d192fc05c/resource/51939d78-35aa-4591-9831-11e61e555130/download/kenya.geojson'
-    });
+     // data: facilityGeo.value, 
+      data: selectedRows.value.length > 0 ? filteredGeo.value : facilityGeo.value,
+     
+     });
+
+     console.log('facilityGeo.value',facilityGeo.value)
 
     nmap.addLayer({
       'id': 'pontLayer',
@@ -686,31 +690,23 @@ const loadMap = (mapCenter) => {
 
 
     // Zoom to layers if not by clik on a list
-    if (mapCenter.length === 0) {
-      console.log(markerLatlon.value)
-      const bounds = new mapboxgl.LngLatBounds(
-        markerLatlon.value[0],
-        markerLatlon.value[0]
-      );
-      for (const coord of markerLatlon.value) {
-        bounds.extend(coord);
-      }
+   // Assume this is your current GeoJSON source (either bulk or full)
+        const geojsonToFit = selectedRows.value.length > 0 ? filteredGeo.value : facilityGeo.value;
 
-      nmap.fitBounds(bounds, {
-        padding: 20
-      });
-    }
+        if (mapCenter.length === 0 && geojsonToFit && geojsonToFit.features.length > 0) {
+          const bounds = bbox(geojsonToFit); // [minX, minY, maxX, maxY]
 
-
-    else {
-
-      const description = mapCenter[2]
-      const coordinates = [mapCenter[0], mapCenter[1]]
-      new mapboxgl.Popup({ offset: [0, -15] })
-        .setLngLat(coordinates)
-        .setHTML('<h3>' + description + '</h3>') // CHANGE THIS TO REFLECT THE PROPERTIES YOU WANT TO SHOW
-        .addTo(nmap);
-    }
+          nmap.fitBounds(
+            [
+              [bounds[0], bounds[1]], // Southwest coordinates
+              [bounds[2], bounds[3]], // Northeast coordinates
+            ],
+            {
+              padding: 50,
+              duration: 1000
+            }
+          );
+        }
 
 
 
@@ -773,6 +769,8 @@ const loadMap = (mapCenter) => {
 
 const onSegmentClick = async () => {
   console.log(activeSegment.value);
+
+  
   if (activeSegment.value === "Map") {
     // Wait for the DOM to update
     await nextTick();
@@ -1031,34 +1029,38 @@ const legendItems = [
 ]
 
 
-const DeleteFacility = (data: TableSlotDefault) => {
-  console.log('----->', data)
-  let index = tableDataList.value.indexOf(data);
+const DeleteFacility = async (data: TableSlotDefault) => {
+  console.log('-----> Deleting Facility:', data);
 
-  console.log('index', index)
-  // remove the deleted object from array list 
+  // Remove from local list
+  const index = tableDataList.value.findIndex(item => item.id === data.id);
   if (index !== -1) {
     tableDataList.value.splice(index, 1);
   }
 
+  const formData: Record<string, any> = {
+    id: data.id,
+    model: model,
+  };
 
-  let formData = {}
-  formData.id = data.id
-  formData.model = model
-
-  DeleteRecord(formData)
-
-
-
-  // Delete docuemnts only if there's any docuemnt to delete 
-  if (data.documents.length > 0) {
-    formData.filesToDelete = data.documents
-    deleteDocument(formData)
-
+  try {
+    await DeleteRecord(formData); // Ensure delete is complete
+  } catch (err) {
+    console.error('Failed to delete record:', err);
   }
 
+  // Delete documents if any
+  if (Array.isArray(data.documents) && data.documents.length > 0) {
+    formData.filesToDelete = data.documents;
 
-}
+    try {
+      await deleteDocument(formData);
+    } catch (err) {
+      console.error('Failed to delete documents:', err);
+    }
+  }
+};
+
 
 
 
@@ -1650,8 +1652,67 @@ const filteredSegments = computed(() => {
 });
 
 
+const selectedRows = ref([]);
+
+// Triggered when selection changes
+const handleSelectionChange = (rows: any[]) => {
+  selectedRows.value = rows;
+};
 
 
+ 
+
+const bulkDelete = async () => {
+  console.log('Deleting:', selectedRows.value);
+
+  await Promise.all(selectedRows.value.map(row => DeleteFacility(row)));
+
+  // Remove deleted items from tableDataListNew
+  const deletedIds = selectedRows.value.map(row => row.id);
+  tableDataListNew.value = tableDataListNew.value.filter(item => !deletedIds.includes(item.id));
+
+  selectedRows.value = [];
+};
+
+
+ 
+const filteredGeo=ref()
+ 
+const bulkMap = () => {
+  console.log('Mapping:', selectedRows.value);
+
+ 
+  const features = selectedRows.value.map(row => {
+    return {
+      type: 'Feature',
+      geometry: row.geom, // assumes `row.geometry` is already in GeoJSON format
+      properties: {
+        ...row,
+        geometry: undefined, // avoid duplicating geometry in properties
+      },
+    };
+  });
+
+  const featureCollection = {
+    type: 'FeatureCollection',
+    features,
+  };
+
+  console.log('FeatureCollection:', featureCollection);
+  filteredGeo.value=featureCollection
+
+  activeSegment.value='Map'
+
+  onSegmentClick()
+  // Optional: emit, store or pass to map
+  // emit('show-on-map', featureCollection)
+};
+
+
+const bulkReview = () => {
+  console.log('Mapping:', selectedRows.value);
+  // Add your logic here
+};
 </script>
 
 <template>
@@ -1799,47 +1860,117 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
 
     </div>
 
+ 
 
     <div v-if="activeSegment === 'New'">
-      <el-table :data="tableDataListNew" style="width: 100%; margin-top: 10px;" border @expand-change="handleExpand">
-        <el-table-column type="expand">
-          <template #default="props">
-            <div m="4">
-              <h3>Documents</h3>
-              <div>
-                <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
-              </div>
-              <el-button
-style="margin-left: 10px;margin-top: 5px" size="small" v-if="showEditButtons" type="success"
-                :icon="Plus" circle @click="toggleComponent(props.row)" />
+    <!-- Bulk action buttons shown only if something is selected -->
+  
+
+    <el-table
+      :data="tableDataListNew"
+      style="width: 100%; margin-top: 10px;"
+      border
+      @expand-change="handleExpand"
+      @selection-change="handleSelectionChange"
+    >
+      <el-table-column type="selection" width="50" />
+
+      <el-table-column type="expand">
+        <template #default="props">
+          <div m="4">
+            <h3>Documents</h3>
+            <div>
+              <list-documents :is="dynamicDocumentComponent" v-bind="DocumentComponentProps" />
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="Name" prop="name" sortable />
-        <el-table-column label="Location" sortable>
-          <template #default="scope">
-            <span>{{ scope.row.ward.name }} ward, {{ scope.row.subcounty.name }} subcounty, {{ scope.row.county.name
-              }} County</span>
-          </template>
-        </el-table-column>
+            <el-button
+              style="margin-left: 10px;margin-top: 5px"
+              size="small"
+              v-if="showEditButtons"
+              type="success"
+              :icon="Plus"
+              circle
+              @click="toggleComponent(props.row)"
+            />
+          </div>
+        </template>
+      </el-table-column>
 
-        <el-table-column label="Actions" width="250">
-          <template #default="{ row }">
-            <!-- Example 1: Only Edit and Delete buttons -->
+      <el-table-column label="Name" prop="name" sortable />
+      <el-table-column label="Location" sortable>
+        <template #default="scope">
+          <span>
+            {{ scope.row.ward.name }} ward,
+            {{ scope.row.subcounty.name }} subcounty,
+            {{ scope.row.county.name }} County
+          </span>
+        </template>
+      </el-table-column>
+
+      <el-table-column :label="selectedRows.length > 0 ? '' : 'Actions'" width="350">
+        <template #header>
+          <div v-if="selectedRows.length > 0" class="flex gap-2">
+            <el-tooltip content="View on Map" placement="top">
+              <el-button type="warning" size="small" :icon="Position" plain @click="bulkMap" />
+            </el-tooltip>
+
+            <el-tooltip content="Review Selected" placement="top">
+              <el-button type="primary" size="small" :icon="View" plain @click="bulkReview" />
+            </el-tooltip>
+ 
+            <el-tooltip content="Bulk Delete Selected" placement="top">
+              <el-popconfirm
+                title="Are you sure you want to delete the selected records?"
+                confirm-button-text="Yes"
+                cancel-button-text="No"
+                width="289"
+                @confirm="bulkDelete"
+              >
+                <template #reference>
+                  <el-button
+                    type="danger"
+                    size="small"
+                    :icon="Delete"
+                    plain
+                  >
+                    Delete
+                  </el-button>
+                </template>
+              </el-popconfirm>
+            </el-tooltip>
+ 
+          </div>
+          <span v-else>Actions</span>
+        </template>
+
+        <template #default="{ row }">
+          <div v-if="selectedRows.length === 0">
             <TableActions
-:item="row" :buttons="action_buttons" @view-on-map="flyTo" @edit="editFacility" @review="Review"
-              @delete="DeleteFacility" />
+              :item="row"
+              :buttons="action_buttons"
+              @view-on-map="flyTo"
+              @edit="editFacility"
+              @review="Review"
+              @delete="DeleteFacility"
+            />
+          </div>
+        </template>
+      </el-table-column>
 
-          </template>
-        </el-table-column>
+    </el-table>
 
-      </el-table>
+    <ElPagination
+      layout="sizes, prev, pager, next, total"
+      v-model:currentPage="currentPage"
+      v-model:page-size="pageSize"
+      :page-sizes="[5, 10, 20, 50, 100]"
+      :total="totalNew"
+      :background="true"
+      @size-change="onPageSizeChange"
+      @current-change="onPageChange"
+      class="mt-4"
+    />
+  </div>
 
-      <ElPagination
-layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
-        v-model:page-size="pageSize" :page-sizes="[5, 10, 20, 50, 100]" :total="totalNew" :background="true"
-        @size-change="onPageSizeChange" @current-change="onPageChange" class="mt-4" />
-    </div>
 
     <div v-if="activeSegment === 'Rejected'">
 
@@ -1907,6 +2038,27 @@ layout="sizes, prev, pager, next, total" v-model:currentPage="currentPage"
       </div>
 
     </div>
+
+    
+    <div v-if="activeSegment === 'FilteredMap'">
+      <div id="mapContainer" class="basemap" style="width: 100%; margin-top: 10px;"></div>
+      <div id="floating-div">
+        <el-card>
+          <el-collapse>
+            <el-collapse-item title="LEGEND">
+              <div class="legend">
+                <div v-for="item in legendItems" :key="item.label" class="legend-item">
+                  <div class="circle-color" :style="{ backgroundColor: item.color }"></div>
+                  <div class="legend-label">{{ item.label }}</div>
+                </div>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
+        </el-card>
+      </div>
+
+    </div>
+
 
   </el-card>
 
