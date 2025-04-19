@@ -318,7 +318,7 @@ const appendParentEntityPropertiesBatch = async () => {
           ...feature.properties,
           county_id: parent.county_id,
           subcounty_id: parent.subcounty_id,
-          ward_id: targetTable.value === 'settlement' ? parent.id : null,
+          ward_id: targetTable.value === 'settlement' ? parent.id : parent.ward_id,
           settlement_id: targetTable.value !== 'settlement' ? parent.id : null,
         },
       };
@@ -347,6 +347,8 @@ const remapGeoJson = () => {
     geoJsonFieldMappings.value.map(({ geoField, dbField }) => [geoField, dbField])
   );
 
+  console.log('geoJson.value',geoJson.value)
+
   const newGeoJson = {
     ...geoJson.value,
     features: geoJson.value.features.map((feat: GeoJsonFeature) => {
@@ -361,6 +363,7 @@ const remapGeoJson = () => {
     }),
   };
 
+  console.log('newGeoJson',newGeoJson)
   remappedGeoJson.value = newGeoJson;
 };
 
